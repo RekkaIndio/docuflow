@@ -1,0 +1,22 @@
+/* Docuflow DocumentConnectionsShowcase animation */
+.animate-dash {
+  stroke-dasharray: 8 8;
+  animation: dashmove 2s linear infinite;
+}
+@keyframes dashmove {
+  to {
+    stroke-dashoffset: 16;
+  }
+}
+
+/* Animated dot for connection path */
+.animated-dot {
+  fill: url(#docuflow-conn);
+  filter: drop-shadow(0 0 6px #a78bfa);
+  animation: dotmove 2s linear infinite;
+}
+
+@keyframes dotmove {
+  0% { offset-distance: 0%; }
+  100% { offset-distance: 100%; }
+}

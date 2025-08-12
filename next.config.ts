@@ -29,12 +29,6 @@ const nextConfig: NextConfig = {
     config.resolve.alias.canvas = false;
     return config;
   },
-  // Add this section for Turbopack
-  turbo: {
-    resolveAlias: {
-      canvas: false,
-    },
-  },
 };
 
 export default nextConfig;

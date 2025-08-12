@@ -1,9 +1,8 @@
 
-
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
-  // output: 'export',
+  /* config options here */
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -29,12 +28,6 @@ const nextConfig: NextConfig = {
   webpack: (config) => {
     config.resolve.alias.canvas = false;
     return config;
-  },
-  // Add this section for Turbopack
-  turbo: {
-    resolveAlias: {
-      canvas: false,
-    },
   },
 };
 
