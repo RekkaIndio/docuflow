@@ -33,7 +33,7 @@ export function LandingPage() {
             Features
           </Link>
           <Link href="#" className="text-sm font-medium hover:underline underline-offset-4 text-foreground/80">
-            Use Cases
+            For Care Homes
           </Link>
           <Link href="#" className="text-sm font-medium hover:underline underline-offset-4 text-foreground/80">
             Pricing
@@ -45,7 +45,7 @@ export function LandingPage() {
             Sign In
           </Link>
           <Button asChild className="bg-primary hover:bg-primary/90 animate-pulse focus:animate-none shadow-lg shadow-primary/20">
-            <Link href="/signup">Start Free Trial</Link>
+            <Link href="/signup">Try Your Policies</Link>
           </Button>
         </nav>
       </header>
@@ -67,28 +67,28 @@ export function LandingPage() {
                   />
                 </div>
                 <h1 className="text-5xl font-extrabold font-headline tracking-tighter sm:text-6xl xl:text-7xl/none drop-shadow-lg">
-                  Transform Your <br/>
+                  AI-Powered <br/>
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600 animate-gradient-text">
-                    Document Workflow
+                    Care Policies Hub
                   </span>
                 </h1>
                 <p className="max-w-[600px] text-muted-foreground md:text-2xl font-medium">
-                  Automate document processing with AI that understands context, extracts data with precision, and organizes everything intelligently.
+                  Instantly search, understand, and interact with your care policies and procedures using intelligent AI that knows your documentation inside out.
                 </p>
                 <div className="flex flex-col gap-4 min-[400px]:flex-row">
                   <Button size="lg" asChild className="bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20 animate-glow">
                     <Link href="/signup">
-                      Start Free Trial
+                      Try Your Policies
                       <ArrowRight className="ml-2 h-5 w-5 animate-bounce-x" />
                     </Link>
                   </Button>
                   <Button size="lg" variant="outline" asChild>
                     <Link href="#">
-                      Request a Demo
+                      See How It Works
                     </Link>
                   </Button>
                 </div>
-                <span className="text-xs text-muted-foreground mt-1">No credit card required</span>
+                <span className="text-xs text-muted-foreground mt-1">No setup required • Upload and search instantly</span>
                 <div className="flex items-center gap-4 pt-6">
                   <div className="flex -space-x-2">
                     <Image src="https://i.pravatar.cc/150?u=a" width={40} height={40} alt="User" className="rounded-full border-2 border-background" />
@@ -97,8 +97,8 @@ export function LandingPage() {
                     <Image src="https://i.pravatar.cc/150?u=d" width={40} height={40} alt="User" className="rounded-full border-2 border-background" />
                   </div>
                   <div>
-                    <p className="font-semibold">10,000+ businesses trust us</p>
-                    <p className="text-sm text-muted-foreground">Process 1M+ documents monthly</p>
+                    <p className="font-semibold">500+ care organizations trust us</p>
+                    <p className="text-sm text-muted-foreground">Search millions of policy documents daily</p>
                   </div>
                 </div>
               </div>

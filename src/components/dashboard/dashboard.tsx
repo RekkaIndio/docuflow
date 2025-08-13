@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Skeleton } from "../ui/skeleton";
 import { useAuth } from "@/hooks/use-auth";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { TeamsView } from "./teams-view";
 import { DashboardHome } from "./dashboard-home";
 import { SettingsView } from "./settings-view";
@@ -32,6 +33,7 @@ import { AllDocumentsView } from "./all-documents-view";
 import { RenewalsView } from "./renewals-view";
 import { TagsView } from "./tags-view";
 import { TopNav } from "./top-nav";
+import { AccessibilityView } from "./accessibility-view";
 
 
 function findAndAddDocument(folders: (Folder | Document)[], targetFolderId: string, document: Document): (Folder | Document)[] {
@@ -140,12 +142,13 @@ const LoadingDashboard = () => (
 
 export function Dashboard() {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [activeWorkspace, setActiveWorkspace] = useState<Workspace | null>(null);
   const [selected, setSelected] = useState<Folder | Document | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals'>('home');
+  const [view, setView] = useState<'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility'>('home');
   const [breadcrumb, setBreadcrumb] = useState<(Folder | { id: 'root', name: string, type: 'folder' })[]>([]);
 
 
@@ -168,6 +171,50 @@ export function Dashboard() {
     }
     fetchData();
   }, [user])
+
+  // Add event listener for document navigation from chat
+  useEffect(() => {
+    const handleDocumentNavigation = (event: CustomEvent) => {
+      const { documentId, documentName } = event.detail;
+      
+      if (!activeWorkspace) return;
+      
+      // Find the document in the workspace
+      const findDocument = (items: (Folder | Document)[]): Document | null => {
+        for (const item of items) {
+          if (item.type === 'document' && item.id === documentId) {
+            return item;
+          }
+          if (item.type === 'folder') {
+            const found = findDocument(item.items);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+      
+      const document = findDocument(activeWorkspace.folders);
+      if (document) {
+        handleSelect(document);
+      } else {
+        // Document not found, show a toast or fallback behavior
+        console.warn(`Document ${documentId} (${documentName}) not found in workspace`);
+        
+        // For demo purposes, show a helpful message
+        if (typeof window !== 'undefined') {
+          window.alert(`Document "${documentName || documentId}" not found in the current workspace.\n\nThis might be because:\n- The document hasn't been uploaded yet\n- You don't have access to this document\n- The document was moved or deleted\n\nIn a real application, this would show proper error handling or redirect to an upload page.`);
+        }
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('navigate-to-document', handleDocumentNavigation as EventListener);
+      
+      return () => {
+        window.removeEventListener('navigate-to-document', handleDocumentNavigation as EventListener);
+      };
+    }
+  }, [activeWorkspace]);
 
   const handleCreateWorkspace = async (name: string): Promise<Workspace> => {
     if (!user) throw new Error("User not authenticated");
@@ -456,6 +503,8 @@ export function Dashboard() {
             return <TeamsView workspace={activeWorkspace} />;
         case 'settings':
             return <SettingsView workspace={activeWorkspace} />;
+        case 'accessibility':
+            return <AccessibilityView workspace={activeWorkspace} />;
     case 'documents':
       return <AllDocumentsView 
         key={activeWorkspace.folders.map(f=>f.id).join('-') + '-' + activeWorkspace.folders.length}
@@ -495,7 +544,7 @@ export function Dashboard() {
 
 
   return (
-    <SidebarProvider defaultOpen>
+    <SidebarProvider defaultOpen={!isMobile}>
       <TooltipProvider>
         <Sidebar>
           <AppSidebar 
@@ -508,31 +557,45 @@ export function Dashboard() {
            />
         </Sidebar>
 
-        <SidebarInset className="flex flex-col">
+        <SidebarInset className="flex flex-col min-h-screen w-full overflow-hidden">
             <TopNav onSettingsClick={() => setView('settings')} />
-            <div className="flex-1 overflow-y-auto">
+            <div className={cn(
+              "flex-1 overflow-y-auto overflow-x-hidden w-full",
+              // Add bottom padding on mobile when chat is closed to ensure content isn't hidden behind chat button
+              isMobile && !isChatOpen && "pb-20"
+            )}>
                 {renderContent()}
             </div>
         </SidebarInset>
 
         <div
           className={cn(
-            "fixed bottom-4 right-4 z-50 transition-all",
-            isChatOpen && selected
-              ? "w-[400px] h-[500px]"
-              : "w-auto h-auto"
+            "fixed z-50 transition-all duration-300 ease-in-out",
+            // Mobile positioning - always visible, safer positioning
+            isMobile
+              ? isChatOpen && selected
+                ? "bottom-0 right-0 left-0 h-[70vh] max-h-[600px]"
+                : "bottom-4 right-4 w-auto h-auto"
+              : // Desktop positioning 
+                isChatOpen && selected
+                ? "bottom-4 right-4 w-[500px] h-[650px]"
+                : "bottom-4 right-4 w-auto h-auto"
           )}
         >
           {isChatOpen && selected ? (
-            <Card className="h-full flex flex-col shadow-2xl">
+            <Card className={cn(
+              "h-full flex flex-col shadow-2xl",
+              isMobile && "rounded-t-lg rounded-b-none border-b-0"
+            )}>
               <div className="flex items-center justify-between p-2 border-b">
                 <h3 className="font-semibold px-2 truncate">Chat with {selected.name}</h3>
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => setIsChatOpen(false)}
+                  className={cn(isMobile && "h-8 w-8")}
                 >
-                  <X className="w-5 h-5" />
+                  <X className={cn("w-5 h-5", isMobile && "w-4 h-4")} />
                 </Button>
               </div>
               <ChatPanel 
@@ -568,18 +631,25 @@ export function Dashboard() {
                   className={cn({ "cursor-not-allowed": !selected })}
                 >
                   <Button
-                    size="lg"
-                    className="rounded-full w-16 h-16 shadow-lg"
+                    size={isMobile ? "default" : "lg"}
+                    className={cn(
+                      "rounded-full shadow-lg transition-all duration-200",
+                      isMobile
+                        ? "w-14 h-14" // Smaller on mobile but still easily tappable
+                        : "w-16 h-16"
+                    )}
                     onClick={handleChatButtonClick}
                     disabled={!selected || view !== 'files'}
                     aria-label="Open chat"
                   >
-                    <MessageSquare className="w-6 h-6" />
+                    <MessageSquare className={cn(
+                      isMobile ? "w-5 h-5" : "w-6 h-6"
+                    )} />
                   </Button>
                 </div>
               </TooltipTrigger>
               {(!selected || view !== 'files') && (
-                <TooltipContent>
+                <TooltipContent side={isMobile ? "top" : "left"}>
                     {view !== 'files' 
                         ? <p>Chat is only available in the Folders or Documents view.</p> 
                         : <p>Please select a document or folder to start chatting.</p>

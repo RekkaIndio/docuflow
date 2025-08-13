@@ -30,6 +30,7 @@ interface UploadButtonProps {
     onDocumentAdd: (document: Document) => void;
     workspaceId?: string;
     folderId?: string;
+    size?: "sm" | "default" | "lg";
 }
 
 type UploadStatus = "pending" | "uploading" | "processing" | "completed" | "error";
@@ -65,7 +66,7 @@ const formatFileSize = (bytes: number) => {
 }
 
 
-export function UploadButton({ onDocumentAdd, workspaceId, folderId }: UploadButtonProps) {
+export function UploadButton({ onDocumentAdd, workspaceId, folderId, size = "default" }: UploadButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploads, setUploads] = useState<FileUpload[]>([]);
@@ -204,9 +205,9 @@ export function UploadButton({ onDocumentAdd, workspaceId, folderId }: UploadBut
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if(!isUploading) setIsOpen(open); }}>
       <DialogTrigger asChild>
-        <Button onClick={() => { setUploads([]); setIsUploading(false); }}>
+        <Button size={size} onClick={() => { setUploads([]); setIsUploading(false); }}>
           <Upload className="mr-2 h-4 w-4" />
-          Upload Document
+          {size === "sm" ? "Upload" : "Upload Document"}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
