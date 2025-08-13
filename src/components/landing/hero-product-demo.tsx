@@ -16,14 +16,14 @@ export function HeroProductDemo() {
             className="w-5 h-5 object-contain"
             priority
           />
-          <span className="font-semibold text-primary text-sm">Docuflow AI</span>
+          <span className="font-semibold text-primary text-sm">CareBot AI - Policy Assistant</span>
         </div>
         {/* Chat body */}
         <div className="p-4 space-y-4">
           {/* User message */}
           <div className="flex justify-end items-end">
             <div className="bg-primary text-primary-foreground px-4 py-2 rounded-lg max-w-[80%] text-sm shadow-md animate-fade-in-up">
-              Which of our client contracts mention a renewal date in the next 6 months?
+              When is our Medicine Policy due for renewal?
             </div>
             <Image
               src="https://i.pravatar.cc/100?u=hero-human"
@@ -33,7 +33,7 @@ export function HeroProductDemo() {
               className="rounded-full border-2 border-primary ml-2"
             />
           </div>
-          {/* Doc's response */}
+          {/* CareBot's response */}
           <div className="flex justify-start">
             <Image
               src="/Neurodiversity_Symbol.svg"
@@ -44,27 +44,22 @@ export function HeroProductDemo() {
               priority
             />
             <div className="bg-muted px-4 py-2 rounded-lg max-w-[80%] text-sm shadow animate-fade-in-up">
-              <div className="mb-2">I've scanned all documents and found 2 contracts with renewal dates in the next 6 months:</div>
+              <div className="mb-2">The Medicine Policy is due for renewal on <span className="font-semibold text-primary">March 15, 2025</span> (in 2 months).</div>
               <div className="space-y-2">
                 <div className="flex items-center gap-2 bg-background/60 rounded p-2">
-                  <FileText className="w-4 h-4 text-blue-400" />
-                  <span className="font-semibold">Enterprise-ABC-Corp.pdf</span>
-                  <span className="ml-auto text-xs text-muted-foreground">Due: March 15, 2025</span>
-                </div>
-                <div className="flex items-center gap-2 bg-background/60 rounded p-2">
-                  <FileText className="w-4 h-4 text-blue-400" />
-                  <span className="font-semibold">Startup-XYZ-Inc.pdf</span>
-                  <span className="ml-auto text-xs text-muted-foreground">Due: May 22, 2025</span>
+                  <FileText className="w-4 h-4 text-orange-400" />
+                  <span className="font-semibold">Medicine-Policy-v3.2.pdf</span>
+                  <span className="ml-auto text-xs text-orange-600">⚠️ Due Soon</span>
                 </div>
               </div>
-              <div className="mt-2 text-xs text-muted-foreground">Source: <span className="font-medium">/Contracts/Active/</span> folder.</div>
+              <div className="mt-2 text-xs text-muted-foreground">Last reviewed: March 2024 • Next review required by CQC standards</div>
             </div>
           </div>
 
-          {/* Agentic action: Grant access */}
+          {/* Search for policy */}
           <div className="flex justify-end items-end">
             <div className="bg-primary/90 text-primary-foreground px-4 py-2 rounded-lg max-w-[80%] text-sm border border-primary/40">
-              Grant access to the Finance team for Q2 reports.
+              Search for the Safeguarding Policy
             </div>
             <Image
               src="https://i.pravatar.cc/100?u=hero-human"
@@ -84,14 +79,26 @@ export function HeroProductDemo() {
               priority
             />
             <div className="bg-muted px-4 py-2 rounded-lg max-w-[80%] text-sm border border-primary/20">
-              ✅ Access granted to <span className="font-semibold text-primary">Finance team</span> for <span className="font-semibold text-primary">Q2 reports</span>.
+              <div className="mb-2">Found 3 Safeguarding documents:</div>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 bg-background/60 rounded p-2">
+                  <FileText className="w-4 h-4 text-green-400" />
+                  <span className="font-semibold">Safeguarding-Adults-Policy.pdf</span>
+                  <span className="ml-auto text-xs text-green-600">✅ Current</span>
+                </div>
+                <div className="flex items-center gap-2 bg-background/60 rounded p-2">
+                  <FileText className="w-4 h-4 text-blue-400" />
+                  <span className="font-semibold">Safeguarding-Procedures.pdf</span>
+                  <span className="ml-auto text-xs text-muted-foreground">Updated Dec 2024</span>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Agentic action: Send document */}
+          {/* Care plan question */}
           <div className="flex justify-end items-end">
             <div className="bg-primary/90 text-primary-foreground px-4 py-2 rounded-lg max-w-[80%] text-sm border border-primary/40">
-              Send the latest contract to Priya.
+              What are the visiting hours according to our policies?
             </div>
             <Image
               src="https://i.pravatar.cc/100?u=hero-human"
@@ -104,7 +111,10 @@ export function HeroProductDemo() {
           <div className="flex justify-start">
             <Bot className="w-5 h-5 text-primary mr-2 mt-1" />
             <div className="bg-muted px-4 py-2 rounded-lg max-w-[80%] text-sm border border-primary/20">
-              📄 <span className="font-semibold text-primary">Latest contract</span> sent to <span className="font-semibold text-primary">Priya</span>.
+              <div className="font-semibold text-primary mb-1">Visiting Hours Policy:</div>
+              <div>• General visits: <span className="font-medium">9:00 AM - 7:00 PM daily</span></div>
+              <div>• Family members: <span className="font-medium">24/7 access with prior arrangement</span></div>
+              <div className="mt-1 text-xs text-muted-foreground">Source: Visitor-Policy-2024.pdf, Section 3.2</div>
             </div>
           </div>
         </div>
@@ -113,7 +123,7 @@ export function HeroProductDemo() {
           <input
             type="text"
             disabled
-            value="e.g., show me all invoices over $5000 from Q2"
+            value="e.g., show me all care plans due for review this month"
             className="flex-1 bg-transparent text-sm text-muted-foreground outline-none cursor-not-allowed"
             readOnly
           />

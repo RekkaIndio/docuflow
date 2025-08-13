@@ -13,6 +13,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { SidebarTrigger } from "../ui/sidebar";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -24,6 +25,7 @@ import { getDocumentAsBase64, getDownloadUrl } from "@/actions/documents";
 import * as XLSX from 'xlsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "../ui/scroll-area";
+import { cn } from "@/lib/utils";
 
 // Set worker source for pdfjs. This is critical for it to work in Next.js
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -208,7 +210,9 @@ const PdfPreview = ({ document: doc }: { document: DocumentType }) => {
     const [fileData, setFileData] = useState<string | null>(null);
     const [numPages, setNumPages] = useState<number | null>(null);
     const [pageNumber, setPageNumber] = useState(1);
-    const [scale, setScale] = useState(1.5);
+    const isMobile = useIsMobile();
+    // Adjust default scale based on mobile
+    const [scale, setScale] = useState(isMobile ? 1.0 : 1.5);
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
 
@@ -241,6 +245,10 @@ const PdfPreview = ({ document: doc }: { document: DocumentType }) => {
 
     }, [doc.id, doc.storagePath, toast]);
 
+    // Update scale when mobile state changes
+    useEffect(() => {
+        setScale(isMobile ? 1.0 : 1.5);
+    }, [isMobile]);
 
     function onDocumentLoadSuccess({ numPages }: { numPages: number }) {
         setNumPages(numPages);
@@ -265,17 +273,47 @@ const PdfPreview = ({ document: doc }: { document: DocumentType }) => {
     }
 
     return (
-        <div className="flex flex-col h-full items-center gap-4 py-4">
-             <div className="z-10 sticky top-2 flex items-center justify-center gap-2 p-2 bg-background/80 backdrop-blur-sm rounded-md border shadow-md">
-                <Button variant="outline" size="icon" onClick={() => setScale(s => s - 0.1)} disabled={scale <= 0.5}><ZoomOut/></Button>
-                <span className="text-sm font-medium w-16 text-center">{(scale * 100).toFixed(0)}%</span>
-                <Button variant="outline" size="icon" onClick={() => setScale(s => s + 0.1)} disabled={scale >= 3}><ZoomIn/></Button>
-                <div className="w-px h-6 bg-border mx-2" />
-                <Button variant="outline" size="icon" onClick={goToPrevPage} disabled={pageNumber <= 1}><ChevronLeft /></Button>
-                <span className="text-sm font-medium w-24 text-center">Page {pageNumber} of {numPages}</span>
-                <Button variant="outline" size="icon" onClick={goToNextPage} disabled={pageNumber >= (numPages ?? 0)}><ChevronRight /></Button>
+        <div className="flex flex-col h-full items-center gap-2 sm:gap-4 py-2 sm:py-4">
+             <div className="z-10 sticky top-2 flex items-center justify-center gap-1 sm:gap-2 p-2 bg-background/80 backdrop-blur-sm rounded-md border shadow-md">
+                <Button 
+                    variant="outline" 
+                    size={isMobile ? "sm" : "icon"} 
+                    onClick={() => setScale(s => s - 0.1)} 
+                    disabled={scale <= 0.5}
+                >
+                    <ZoomOut className={isMobile ? "w-3 h-3" : "w-4 h-4"} />
+                </Button>
+                <span className="text-xs sm:text-sm font-medium w-12 sm:w-16 text-center">{(scale * 100).toFixed(0)}%</span>
+                <Button 
+                    variant="outline" 
+                    size={isMobile ? "sm" : "icon"} 
+                    onClick={() => setScale(s => s + 0.1)} 
+                    disabled={scale >= 3}
+                >
+                    <ZoomIn className={isMobile ? "w-3 h-3" : "w-4 h-4"} />
+                </Button>
+                <div className="w-px h-4 sm:h-6 bg-border mx-1 sm:mx-2" />
+                <Button 
+                    variant="outline" 
+                    size={isMobile ? "sm" : "icon"} 
+                    onClick={goToPrevPage} 
+                    disabled={pageNumber <= 1}
+                >
+                    <ChevronLeft className={isMobile ? "w-3 h-3" : "w-4 h-4"} />
+                </Button>
+                <span className="text-xs sm:text-sm font-medium w-16 sm:w-24 text-center">
+                    {isMobile ? `${pageNumber}/${numPages}` : `Page ${pageNumber} of ${numPages}`}
+                </span>
+                <Button 
+                    variant="outline" 
+                    size={isMobile ? "sm" : "icon"} 
+                    onClick={goToNextPage} 
+                    disabled={pageNumber >= (numPages ?? 0)}
+                >
+                    <ChevronRight className={isMobile ? "w-3 h-3" : "w-4 h-4"} />
+                </Button>
             </div>
-            <div className="flex-1 overflow-y-auto w-full">
+            <div className="flex-1 overflow-y-auto w-full px-2 sm:px-4">
                 <div className="flex justify-center">
                     <PdfDocument
                         file={fileData}
@@ -284,7 +322,12 @@ const PdfPreview = ({ document: doc }: { document: DocumentType }) => {
                         loading={<div className="flex justify-center items-center h-full"><Skeleton className="h-[80vh] w-[80%]" /></div>}
                         error={<p>Failed to load PDF.</p>}
                     >
-                        <Page pageNumber={pageNumber} scale={scale} renderTextLayer={true} />
+                        <Page 
+                            pageNumber={pageNumber} 
+                            scale={scale} 
+                            renderTextLayer={true}
+                            width={isMobile ? Math.min(window.innerWidth - 32, 600) : undefined}
+                        />
                     </PdfDocument>
                 </div>
             </div>
@@ -305,91 +348,36 @@ const DocumentPreview = ({ document }: { document: DocumentType }) => {
 
 
 export function DocumentView({ document, onBack }: DocumentViewProps) {
+  const isMobile = useIsMobile();
+  
   return (
     <div className="flex flex-col h-full bg-background">
-      <header className="flex items-center justify-between p-4 border-b shrink-0">
-        <div className="flex items-center gap-2">
-            <SidebarTrigger />
-          <Button variant="ghost" size="icon" onClick={onBack}>
+      <header className="flex items-center justify-between p-3 sm:p-4 border-b shrink-0">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+            {/* Hide SidebarTrigger on mobile since we have it in TopNav */}
+            {!isMobile && <SidebarTrigger />}
+          <Button variant="ghost" size="icon" onClick={onBack} className="flex-shrink-0">
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div className="flex flex-col">
-            <h1 className="text-xl font-headline font-semibold">{document.name}</h1>
-            <p className="text-sm text-muted-foreground">Opened by {document.owner.name}</p>
+          <div className="flex flex-col min-w-0 flex-1">
+            <h1 className="text-lg sm:text-xl font-headline font-semibold truncate">{document.name}</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground truncate">Opened by {document.owner.name}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
             <ShareDialog>
-                <Button>
-                    <Share2 className="mr-2 h-4 w-4" />
-                    Share
+                <Button size={isMobile ? "sm" : "default"} className="text-xs sm:text-sm">
+                    <Share2 className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                    {isMobile ? "Share" : "Share"}
                 </Button>
             </ShareDialog>
         </div>
       </header>
       <main className="flex-1 overflow-hidden">
-        <div className="max-w-3xl mx-auto w-full px-4 pt-6">
-          {document.summary && (
-            <div className="mb-6 p-4 bg-muted/60 border rounded-lg shadow-sm">
-              <h2 className="font-semibold text-lg mb-2">Summary</h2>
-              <pre className="whitespace-pre-line text-sm text-muted-foreground leading-snug">{document.summary}</pre>
-            </div>
-          )}
+        {/* Document preview - summary, extracted and structured data are hidden but still available for chatbot */}
+        <div className="flex-1 overflow-hidden">
+          <DocumentPreview document={document} />
         </div>
-        <Tabs defaultValue="preview" className="h-full flex flex-col">
-          <TabsList className="mx-auto mt-4">
-            <TabsTrigger value="preview">Document</TabsTrigger>
-            <TabsTrigger value="data">Extracted Data</TabsTrigger>
-            <TabsTrigger value="structured">Structured Data</TabsTrigger>
-          </TabsList>
-          <TabsContent value="preview" className="flex-1 mt-0 overflow-hidden">
-            <DocumentPreview document={document} />
-          </TabsContent>
-          <TabsContent value="data" className="overflow-y-auto">
-            <div className="max-w-4xl mx-auto py-4 space-y-6">
-              {document.extractedJson ? (
-                <div className="mb-4 p-4 bg-muted/60 border rounded-lg shadow-sm">
-                  <h2 className="font-semibold text-lg mb-2">Extracted Data (Raw JSON)</h2>
-                  <pre className="whitespace-pre-line text-xs text-muted-foreground leading-snug max-h-96 overflow-y-auto">
-                    {JSON.stringify(document.extractedJson, null, 2)}
-                  </pre>
-                </div>
-              ) : (
-                <div className="mb-4 p-4 bg-muted/60 border rounded-lg shadow-sm text-center text-muted-foreground">
-                  No extracted data available for this document.
-                </div>
-              )}
-            </div>
-          </TabsContent>
-          <TabsContent value="structured" className="overflow-y-auto">
-            <div className="max-w-4xl mx-auto py-4 space-y-6">
-              {document.extractedJson && Array.isArray(document.extractedJson._openaiStructured) ? (
-                <Accordion type="multiple" className="w-full">
-                  {document.extractedJson._openaiStructured.map((page, idx) => (
-                    <AccordionItem value={`page-${idx+1}`} key={`page-${idx+1}`}>
-                      <AccordionTrigger className="font-mono text-sm">Page {idx+1}</AccordionTrigger>
-                      <AccordionContent>
-                        {typeof page === 'object' && page !== null ? (
-                          <pre className="bg-muted p-4 rounded-md overflow-x-auto text-xs">
-                            {JSON.stringify(page, null, 2)}
-                          </pre>
-                        ) : (
-                          <pre className="bg-muted p-4 rounded-md overflow-x-auto text-xs">
-                            {String(page)}
-                          </pre>
-                        )}
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
-              ) : (
-                <div className="mb-4 p-4 bg-muted/60 border rounded-lg shadow-sm text-center text-muted-foreground">
-                  No structured data available for this document.
-                </div>
-              )}
-            </div>
-          </TabsContent>
-        </Tabs>
       </main>
     </div>
   );

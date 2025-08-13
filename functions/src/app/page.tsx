@@ -23,10 +23,10 @@ export default function Page() {
                 {/* ...existing code... */}
                 <nav className="ml-auto hidden lg:flex gap-4 sm:gap-6 items-center">
                     <a href="#features" className="text-sm font-medium hover:underline underline-offset-4 text-foreground/80">Features</a>
-                    <a href="#pricing" className="text-sm font-medium hover:underline underline-offset-4 text-foreground/80">Pricing</a>
+                    <a href="#pricing" className="text-sm font-medium hover:underline underline-offset-4 text-foreground/80">For Care Homes</a>
                     <a href="/login" className="text-sm font-medium hover:underline underline-offset-4 text-foreground/80">Sign In</a>
                     <button className="bg-primary hover:bg-primary/90 animate-pulse focus:animate-none shadow-lg shadow-primary/20 rounded px-4 py-2 text-sm font-semibold text-primary-foreground ml-2">
-                        <a href="/signup">Start Free Trial</a>
+                        <a href="/signup">Try Your Policies</a>
                     </button>
                 </nav>
             </header>
@@ -48,30 +48,30 @@ export default function Page() {
                                                                     />
                                                                 </div>
                                 <h1 className="text-5xl font-extrabold font-headline tracking-tighter sm:text-6xl xl:text-7xl/none drop-shadow-lg">
-                                    Transform Your <br/>
+                                    AI-Powered <br/>
                                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600 animate-gradient-text">
-                                        Document Workflow
+                                        Care Policies Hub
                                     </span>
                                 </h1>
                                 <p className="max-w-[600px] text-muted-foreground md:text-2xl font-medium">
-                                    Automate document processing with AI that understands context, extracts data with precision, and organizes everything intelligently.
+                                    Instantly search, understand, and interact with your care policies and procedures using intelligent AI that knows your documentation inside out.
                                 </p>
                                 <div className="flex flex-col gap-4 min-[400px]:flex-row">
                                     <button className="bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20 animate-glow rounded px-6 py-3 text-lg font-semibold text-primary-foreground flex items-center">
-                                        <a href="/signup">Start Free Trial <span className="ml-2">→</span></a>
+                                        <a href="/signup">Try Your Policies <span className="ml-2">→</span></a>
                                     </button>
                                     <button className="border border-primary rounded px-6 py-3 text-lg font-semibold text-primary">
-                                        <a href="#">Request a Demo</a>
+                                        <a href="#">See How It Works</a>
                                     </button>
                                 </div>
-                                <span className="text-xs text-muted-foreground mt-1">No credit card required</span>
+                                <span className="text-xs text-muted-foreground mt-1">No setup required • Upload and search instantly</span>
                                 <div className="flex items-center gap-4 pt-6">
                                     <div className="flex -space-x-2">
                                         {/* ...avatars... */}
                                     </div>
                                     <div>
-                                        <p className="font-semibold">10,000+ businesses trust us</p>
-                                        <p className="text-sm text-muted-foreground">Process 1M+ documents monthly</p>
+                                        <p className="font-semibold">500+ care organizations trust us</p>
+                                        <p className="text-sm text-muted-foreground">Search millions of policy documents daily</p>
                                     </div>
                                 </div>
                             </div>
@@ -92,11 +92,11 @@ export default function Page() {
                     <div className="container px-4 md:px-6">
                         <div className="flex flex-col items-center justify-center space-y-4 text-center">
                             <div className="inline-block rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
-                                AI Document Assistant
+                                AI Policy Assistant
                             </div>
-                            <h2 className="text-3xl font-bold font-headline tracking-tighter sm:text-5xl">Meet Doc - Your Conversational AI Assistant</h2>
+                            <h2 className="text-3xl font-bold font-headline tracking-tighter sm:text-5xl">Meet CareBot - Your Policy & Procedure Assistant</h2>
                             <p className="max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
-                                Engage with your documents as if you're having a conversation. Ask questions, get instant summaries, and discover insights—all through a natural, chat-based interface.
+                                Ask questions about your care policies, get instant guidance on procedures, and find the exact information you need—all through a natural, chat-based interface designed for care professionals.
                             </p>
                         </div>
                         <div className="mx-auto grid max-w-5xl items-start gap-12 lg:max-w-none lg:grid-cols-2 lg:gap-16 mt-12">

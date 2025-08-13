@@ -1,8 +1,11 @@
 
-import { Bot, Send } from 'lucide-react';
+"use client";
+
+import { Bot, Send, FileText, CalendarClock } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { DocumentCard } from '@/components/ui/document-card';
 import Image from 'next/image';
 
 export function Hero() {
@@ -20,95 +23,114 @@ export function Hero() {
                     priority
                 />
             </div>
-            <CardContent className="p-4 md:p-6 relative z-10">
-                <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-full bg-primary/10 text-primary">
-                            <Image
-                                src="/Neurodiversity_Symbol.svg"
-                                alt="Neurodiversity Symbol"
-                                width={28}
-                                height={28}
-                                className="w-7 h-7 object-contain"
-                                priority
-                            />
-                        </div>
-                        <div>
-                            <h3 className="font-bold font-headline">Doc - Your AI Assistant</h3>
-                            <p className="text-sm text-muted-foreground">Ask me anything about your documents</p>
-                        </div>
+            
+            {/* Header matching the CareBot design */}
+            <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-4 text-white rounded-t-lg">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-full bg-white/20">
+                        <Image
+                            src="/Neurodiversity_Symbol.svg"
+                            alt="Neurodiversity Symbol"
+                            width={20}
+                            height={20}
+                            className="w-5 h-5 object-contain"
+                            priority
+                        />
+                    </div>
+                    <div>
+                        <h3 className="font-semibold text-lg">CareBot AI - Policy Assistant</h3>
                     </div>
                 </div>
+            </div>
 
+            <CardContent className="p-4 md:p-6 relative z-10 bg-gray-50/30">
                 <div className="space-y-4">
                     {/* User message */}
                     <div className="flex justify-end">
-                        <div className="bg-primary text-primary-foreground p-3 rounded-lg max-w-sm">
-                            <p>"Hey Doc, can you tell me about any contracts that need renewal this year?"</p>
+                        <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-4 rounded-2xl rounded-br-md max-w-sm shadow-sm">
+                            <p>When is our Medicine Policy due for renewal?</p>
                         </div>
                     </div>
 
-                    {/* Doc's response */}
+                    {/* AI response */}
                     <div className="flex justify-start">
-                        <div className="bg-muted p-3 rounded-lg max-w-sm">
-                            <p className="font-bold text-sm mb-2">Doc is typing...</p>
-                            <p className="mb-4">"I found 3 contracts requiring renewal in 2025. Let me break this down for you:"</p>
-                            <div className="space-y-2 text-sm">
-                                <div className="p-3 bg-background/50 rounded-md flex justify-between items-center">
-                                    <div>
-                                        <p className="font-semibold">Microsoft Office 365</p>
-                                        <p className="text-muted-foreground">Annual subscription - £15,000</p>
-                                    </div>
-                                    <Badge variant="outline" className="text-amber-400 border-amber-400/50">Due March 2025</Badge>
-                                </div>
-                                <div className="p-3 bg-background/50 rounded-md flex justify-between items-center">
-                                    <div>
-                                        <p className="font-semibold">AWS Cloud Services</p>
-                                        <p className="text-muted-foreground">3-year contract - £45,000</p>
-                                    </div>
-                                    <Badge variant="outline" className="text-amber-400 border-amber-400/50">Due June 2025</Badge>
+                        <div className="bg-white border border-gray-200 p-4 rounded-2xl max-w-sm shadow-sm">
+                            <p className="mb-3">The Medicine Policy is due for renewal on <span className="text-blue-600 font-semibold">March 15, 2025</span> (in 2 months).</p>
+                            
+                            <DocumentCard 
+                                id="medicine-policy-v3-2"
+                                name="Medicine-Policy-v3.2.pdf"
+                                status="due-soon"
+                                lastReviewed="March 2024"
+                                nextReviewRequired="by CQC standards"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Second user message */}
+                    <div className="flex justify-end">
+                        <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-4 rounded-2xl rounded-br-md max-w-sm shadow-sm">
+                            <p>Search for the Safeguarding Policy</p>
+                        </div>
+                    </div>
+
+                    {/* AI response with document results */}
+                    <div className="flex justify-start">
+                        <div className="bg-white border border-gray-200 p-4 rounded-2xl max-w-sm shadow-sm">
+                            <p className="mb-3 font-medium">Found 3 Safeguarding documents:</p>
+                            
+                            <div className="space-y-2">
+                                <DocumentCard 
+                                    id="safeguarding-adults-policy"
+                                    name="Safeguarding-Adults-Policy.pdf"
+                                    status="current"
+                                />
+                                
+                                <DocumentCard 
+                                    id="safeguarding-procedures"
+                                    name="Safeguarding-Procedures.pdf"
+                                    status="updated"
+                                    statusText="Updated Dec 2024"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Third user message */}
+                    <div className="flex justify-end">
+                        <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-4 rounded-2xl rounded-br-md max-w-sm shadow-sm">
+                            <p>What are the visiting hours according to our policies?</p>
+                        </div>
+                    </div>
+
+                    {/* AI response with visiting hours */}
+                    <div className="flex justify-start">
+                        <div className="bg-white border border-gray-200 p-4 rounded-2xl max-w-sm shadow-sm">
+                            <div className="flex items-start gap-2 mb-3">
+                                <CalendarClock className="w-5 h-5 text-blue-600 mt-0.5" />
+                                <div>
+                                    <p className="font-semibold text-blue-600 mb-2">Visiting Hours Policy:</p>
+                                    <ul className="space-y-1 text-sm">
+                                        <li>• General visits: 9:00 AM - 7:00 PM daily</li>
+                                        <li>• Family members: 24/7 access with prior arrangement</li>
+                                    </ul>
                                 </div>
                             </div>
-                            <p className="mt-4 text-muted-foreground text-sm">Would you like me to set reminders for these renewals?</p>
-                        </div>
-                    </div>
-
-                    {/* Agentic action: Grant access */}
-                    <div className="flex justify-end">
-                        <div className="bg-primary/90 text-primary-foreground p-3 rounded-lg max-w-sm border border-primary/40">
-                            <p>"Grant access to the Finance team for Q2 reports."</p>
-                        </div>
-                    </div>
-                    <div className="flex justify-start">
-                        <div className="bg-muted p-3 rounded-lg max-w-sm border border-primary/20">
-                            <p className="text-sm">✅ Access granted to <span className="font-semibold text-primary">Finance team</span> for <span className="font-semibold text-primary">Q2 reports</span>.</p>
-                        </div>
-                    </div>
-
-                    {/* Agentic action: Send document */}
-                    <div className="flex justify-end">
-                        <div className="bg-primary/90 text-primary-foreground p-3 rounded-lg max-w-sm border border-primary/40">
-                            <p>"Send the latest contract to Priya."</p>
-                        </div>
-                    </div>
-                    <div className="flex justify-start">
-                        <div className="bg-muted p-3 rounded-lg max-w-sm border border-primary/20">
-                            <p className="text-sm">📄 <span className="font-semibold text-primary">Latest contract</span> sent to <span className="font-semibold text-primary">Priya</span>.</p>
+                            <p className="text-xs text-gray-500">Source: Visitor-Policy-2024.pdf, Section 3.2</p>
                         </div>
                     </div>
                 </div>
 
-                <div className="mt-6 flex items-center gap-4 p-2 bg-muted rounded-lg">
+                <div className="mt-6 flex items-center gap-4 p-3 bg-white border border-gray-200 rounded-xl">
                     <input
                         type="text"
-                        placeholder="Type your message to Doc..."
-                        className="flex-1 bg-transparent focus:outline-none text-sm placeholder:text-muted-foreground"
+                        placeholder="e.g., show me all care plans due for review this month"
+                        className="flex-1 bg-transparent focus:outline-none text-sm placeholder:text-gray-400"
                     />
-                     <Button size="icon">
-                        <Send className="w-5 h-5"/>
+                     <Button size="icon" className="bg-blue-500 hover:bg-blue-600">
+                        <Send className="w-4 h-4 text-white"/>
                     </Button>
                 </div>
-                 <p className="text-xs text-center text-muted-foreground mt-2">Send a message to start the conversation</p>
 
             </CardContent>
         </Card>

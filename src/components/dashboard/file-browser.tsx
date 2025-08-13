@@ -39,6 +39,7 @@ import { ShareDialog } from "./share-dialog";
 import { SidebarTrigger } from "../ui/sidebar";
 import { UploadButton } from "./upload-button";
 import { NewFolderDialog } from "./new-folder-dialog";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface FileBrowserProps {
   folder: Folder;
@@ -76,6 +77,7 @@ export function FileBrowser({
   breadcrumb,
   onBreadcrumbClick,
 }: FileBrowserProps) {
+  const isMobile = useIsMobile();
 
 
   // Highlighted document state
@@ -99,7 +101,8 @@ export function FileBrowser({
     <div className="flex flex-col h-full bg-background">
       <header className="p-4 border-b flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2 text-lg font-semibold">
-          <SidebarTrigger />
+          {/* Hide SidebarTrigger on mobile since we have it in TopNav */}
+          {!isMobile && <SidebarTrigger />}
           <div className="flex items-center gap-1.5 text-sm sm:text-lg">
             {breadcrumb.map((b, index) => (
 
