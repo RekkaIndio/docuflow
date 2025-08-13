@@ -29,11 +29,12 @@ export default function Page() {
                 <nav className="ml-auto hidden lg:flex gap-4 sm:gap-6 items-center">
                     <a href="#features" className="text-sm font-medium hover:underline underline-offset-4 text-foreground/80">Features</a>
                     <a href="#pricing" className="text-sm font-medium hover:underline underline-offset-4 text-foreground/80">For Care Homes</a>
-                    <a href="/login" className="text-sm font-medium hover:underline underline-offset-4 text-foreground/80">Sign In</a>
-                    <button className="bg-primary hover:bg-primary/90 animate-pulse focus:animate-none shadow-lg shadow-primary/20 rounded px-4 py-2 text-sm font-semibold text-primary-foreground ml-2">
-                        <a href="/signup">Try Your Policies</a>
-                    </button>
-                </nav>
+                    <a
+                        href="/login"
+                        className="ml-2 px-4 py-2 rounded bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors text-sm shadow"
+                    >
+                        Sign In
+                    </a> </nav>
             </header>
 
             <main className="flex-1">
@@ -59,7 +60,7 @@ export default function Page() {
                                     </span>
                                 </h1>
                                 <p className="max-w-[600px] text-muted-foreground md:text-2xl font-medium">
-                                    Interact with your homes compliance
+                                    Interact with your homes compliance documents
                                 </p>
                                 <div className="flex flex-wrap gap-2 mt-4">
                                     <span className="px-3 py-1 rounded-full text-sm font-medium text-white" style={{backgroundColor: '#ea68a2'}}>Simple</span>
