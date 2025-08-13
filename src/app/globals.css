@@ -81,4 +81,108 @@
   p, span, div, li, td, th, button, input, textarea, label {
     font-size: calc(1em * var(--font-scale));
   }
+
+  /* Accessibility color theme overrides */
+  body[data-accessibility-theme] {
+    background-color: var(--accessibility-background) !important;
+    color: var(--accessibility-foreground) !important;
+  }
+
+  /* Override Tailwind background classes when accessibility theme is active */
+  body[data-accessibility-theme] *:not(.accessibility-preserve),
+  body[data-accessibility-theme] .bg-background,
+  body[data-accessibility-theme] .bg-card,
+  body[data-accessibility-theme] .bg-white,
+  body[data-accessibility-theme] [data-sidebar="sidebar"],
+  body[data-accessibility-theme] .sidebar,
+  body[data-accessibility-theme] main,
+  body[data-accessibility-theme] header,
+  body[data-accessibility-theme] nav,
+  body[data-accessibility-theme] section,
+  body[data-accessibility-theme] article,
+  body[data-accessibility-theme] aside {
+    background-color: var(--accessibility-background) !important;
+  }
+
+  /* Override Tailwind text color classes */
+  body[data-accessibility-theme] *:not(.accessibility-preserve),
+  body[data-accessibility-theme] h1,
+  body[data-accessibility-theme] h2,
+  body[data-accessibility-theme] h3,
+  body[data-accessibility-theme] h4,
+  body[data-accessibility-theme] h5,
+  body[data-accessibility-theme] h6,
+  body[data-accessibility-theme] p,
+  body[data-accessibility-theme] span,
+  body[data-accessibility-theme] div,
+  body[data-accessibility-theme] li,
+  body[data-accessibility-theme] td,
+  body[data-accessibility-theme] th,
+  body[data-accessibility-theme] label,
+  body[data-accessibility-theme] .text-foreground,
+  body[data-accessibility-theme] .text-card-foreground,
+  body[data-accessibility-theme] .text-black,
+  body[data-accessibility-theme] .text-gray-900,
+  body[data-accessibility-theme] .text-slate-900 {
+    color: var(--accessibility-foreground) !important;
+  }
+
+  /* Handle muted backgrounds and secondary colors */
+  body[data-accessibility-theme] .bg-muted,
+  body[data-accessibility-theme] .bg-secondary,
+  body[data-accessibility-theme] .bg-accent,
+  body[data-accessibility-theme] .bg-gray-50,
+  body[data-accessibility-theme] .bg-gray-100,
+  body[data-accessibility-theme] .bg-slate-50,
+  body[data-accessibility-theme] .bg-slate-100 {
+    background-color: var(--accessibility-background) !important;
+    filter: brightness(0.95);
+  }
+
+  /* Buttons and interactive elements - preserve accessibility but adjust */
+  body[data-accessibility-theme] .btn-primary,
+  body[data-accessibility-theme] button[data-variant="default"] {
+    background-color: var(--accessibility-foreground) !important;
+    color: var(--accessibility-background) !important;
+    border-color: var(--accessibility-foreground) !important;
+  }
+
+  body[data-accessibility-theme] .btn-secondary,
+  body[data-accessibility-theme] button[data-variant="outline"] {
+    background-color: var(--accessibility-background) !important;
+    color: var(--accessibility-foreground) !important;
+    border-color: var(--accessibility-foreground) !important;
+  }
+
+  body[data-accessibility-theme] button:hover {
+    opacity: 0.9;
+  }
+
+  /* Input fields */
+  body[data-accessibility-theme] input,
+  body[data-accessibility-theme] textarea,
+  body[data-accessibility-theme] select {
+    background-color: var(--accessibility-background) !important;
+    color: var(--accessibility-foreground) !important;
+    border-color: var(--accessibility-foreground) !important;
+  }
+
+  /* Cards and containers */
+  body[data-accessibility-theme] .card,
+  body[data-accessibility-theme] [data-radix-popper-content-wrapper],
+  body[data-accessibility-theme] .popover,
+  body[data-accessibility-theme] .dropdown-menu,
+  body[data-accessibility-theme] .border,
+  body[data-accessibility-theme] .rounded {
+    background-color: var(--accessibility-background) !important;
+    color: var(--accessibility-foreground) !important;
+    border-color: var(--accessibility-foreground) !important;
+  }
+
+  /* Preserve some elements that should not change (like color previews) */
+  body[data-accessibility-theme] .accessibility-preserve,
+  body[data-accessibility-theme] .color-preview {
+    background-color: revert !important;
+    color: revert !important;
+  }
 }

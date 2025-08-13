@@ -54,7 +54,7 @@ export default function Page() {
                                     </span>
                                 </h1>
                                 <p className="max-w-[600px] text-muted-foreground md:text-2xl font-medium">
-                                    Instantly search, understand, and interact with your care policies and procedures using intelligent AI that knows your documentation inside out.
+                                    Interact with your homes compliance
                                 </p>
                                 <div className="flex flex-col gap-4 min-[400px]:flex-row">
                                     <button className="bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20 animate-glow rounded px-6 py-3 text-lg font-semibold text-primary-foreground flex items-center">
@@ -94,7 +94,7 @@ export default function Page() {
                             <div className="inline-block rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
                                 AI Policy Assistant
                             </div>
-                            <h2 className="text-3xl font-bold font-headline tracking-tighter sm:text-5xl">Meet CareBot - Your Policy & Procedure Assistant</h2>
+                            <h2 className="text-3xl font-bold font-headline tracking-tighter sm:text-5xl">Meet Doc - Your Policy & Procedure Assistant</h2>
                             <p className="max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
                                 Ask questions about your care policies, get instant guidance on procedures, and find the exact information you need—all through a natural, chat-based interface designed for care professionals.
                             </p>
