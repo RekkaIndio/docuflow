@@ -23,12 +23,15 @@ export default function Page() {
                 {/* ...existing code... */}
                 <nav className="ml-auto hidden lg:flex gap-4 sm:gap-6 items-center">
                     <a href="#features" className="text-sm font-medium hover:underline underline-offset-4 text-foreground/80">Features</a>
-                    <a href="#pricing" className="text-sm font-medium hover:underline underline-offset-4 text-foreground/80">For Care Homes</a>
-                    <a href="/login" className="text-sm font-medium hover:underline underline-offset-4 text-foreground/80">Sign In</a>
-                    <button className="bg-primary hover:bg-primary/90 animate-pulse focus:animate-none shadow-lg shadow-primary/20 rounded px-4 py-2 text-sm font-semibold text-primary-foreground ml-2">
-                        <a href="/signup">Try Your Policies</a>
-                    </button>
-                </nav>
+                    <a
+                        href="#pricing"
+                        className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded px-4 py-2 transition-colors"
+                    >
+                        For Care Homes
+                    </a>
+                    <a href="/login" className="text-sm font-medium hover:underline underline-offset-4 text-foreground/80">
+                        Sign In
+                    </a> </nav>
             </header>
 
             <main className="flex-1">
@@ -54,7 +57,7 @@ export default function Page() {
                                     </span>
                                 </h1>
                                 <p className="max-w-[600px] text-muted-foreground md:text-2xl font-medium">
-                                    Interact with your homes compliance
+                                    Interact with your homes compliance documents
                                 </p>
                                 <div className="flex flex-col gap-4 min-[400px]:flex-row">
                                     <button className="bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20 animate-glow rounded px-6 py-3 text-lg font-semibold text-primary-foreground flex items-center">

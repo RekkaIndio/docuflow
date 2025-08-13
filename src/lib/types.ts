@@ -10,6 +10,7 @@ export type Workspace = {
   id: string;
   name: string;
   folders: (Folder | Document)[];
+  evidenceFolders?: (Folder | Document)[]; // Separate folder structure for evidence
   ownerId?: string;
   members?: string[];
 };

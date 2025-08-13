@@ -39,7 +39,7 @@ const getFileIcon = (fileType: Document["fileType"]) => {
 
 
 const RecentFilesTable = ({ documents, onSelect }: { documents: Document[], onSelect: (doc: Document) => void }) => (
-    <Card>
+    <Card className="border border-blue-500">
         <CardHeader>
             <CardTitle>Recent Files</CardTitle>
             <CardDescription>The last 5 documents that were uploaded or modified.</CardDescription>
@@ -48,7 +48,7 @@ const RecentFilesTable = ({ documents, onSelect }: { documents: Document[], onSe
             {/* Mobile-friendly card layout */}
             <div className="block sm:hidden space-y-3">
                 {documents.length > 0 ? documents.map(doc => (
-                    <Card key={doc.id} className="p-3 hover:shadow-md transition-shadow cursor-pointer" onClick={() => onSelect(doc)}>
+                    <Card key={doc.id} className="p-3 hover:shadow-md transition-shadow cursor-pointer border border-blue-500" onClick={() => onSelect(doc)}>
                         <div className="flex flex-col space-y-2">
                             <div className="flex items-center gap-3 min-w-0">
                                 {getFileIcon(doc.fileType)}
@@ -139,7 +139,7 @@ const QuickActions = ({ documents, onSelect }: { documents: Document[], onSelect
             <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Overdue Renewals */}
-                <Card className="hover:shadow-md transition-shadow">
+                <Card className="hover:shadow-md transition-shadow border border-blue-500">
                     <CardHeader className="pb-3">
                         <CardTitle className="text-sm font-medium flex items-center gap-2">
                             <Clock className="h-4 w-4 text-red-500" />
@@ -162,34 +162,34 @@ const QuickActions = ({ documents, onSelect }: { documents: Document[], onSelect
                         )}
                     </CardContent>
                 </Card>
-
-                {/* Untagged Documents */}
-                <Card className="hover:shadow-md transition-shadow">
+                
+                {/* Oustanding evidence */}
+                <Card className="hover:shadow-md transition-shadow border border-blue-500">
                     <CardHeader className="pb-3">
                         <CardTitle className="text-sm font-medium flex items-center gap-2">
-                            <BarChart3 className="h-4 w-4 text-orange-500" />
-                            Needs Tagging
+                            <Clock className="h-4 w-4 text-red-500" />
+                            Outstanding Evidence
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2">
-                        {actionableItems.untaggedDocs.length > 0 ? (
-                            actionableItems.untaggedDocs.map(doc => (
+                        {actionableItems.overdueRenewals.length > 0 ? (
+                            actionableItems.overdueRenewals.map(doc => (
                                 <div key={doc.id} className="flex items-center justify-between p-2 hover:bg-muted rounded cursor-pointer" onClick={() => onSelect(doc)}>
                                     <div className="flex items-center gap-2 min-w-0">
                                         {getFileIcon(doc.fileType)}
                                         <span className="text-sm truncate">{doc.name}</span>
                                     </div>
-                                    <Badge variant="secondary" className="text-xs">Tag</Badge>
+                                    <Badge variant="destructive" className="text-xs">Overdue</Badge>
                                 </div>
                             ))
                         ) : (
-                            <p className="text-sm text-muted-foreground text-center py-2">All documents tagged</p>
+                            <p className="text-sm text-muted-foreground text-center py-2">No overdue renewals</p>
                         )}
                     </CardContent>
                 </Card>
-
+            
                 {/* Recent Activity */}
-                <Card className="hover:shadow-md transition-shadow">
+                <Card className="hover:shadow-md transition-shadow border border-blue-500">
                     <CardHeader className="pb-3">
                         <CardTitle className="text-sm font-medium flex items-center gap-2">
                             <TrendingUp className="h-4 w-4 text-green-500" />
@@ -222,7 +222,7 @@ const QuickAccess = ({ folders, onSelect }: { folders: FolderType[], onSelect: (
         <h2 className="text-lg font-semibold mb-4">Quick Access</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
             {folders.length > 0 ? folders.map(folder => (
-                <Card key={folder.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => onSelect(folder)}>
+                <Card key={folder.id} className="hover:shadow-md transition-shadow cursor-pointer border border-blue-500" onClick={() => onSelect(folder)}>
                     <CardHeader className="flex flex-row items-center justify-between pb-2 px-3 sm:px-6">
                          <Folder className="w-6 h-6 sm:w-8 sm:h-8 text-yellow-500 flex-shrink-0" />
                          <span className="text-xs text-muted-foreground">{folder.items.length} items</span>
@@ -274,7 +274,7 @@ const OverviewCards = ({ documents, folders }: { documents: Document[], folders:
         <div className="w-full">
             <h2 className="text-lg font-semibold mb-4">Workspace Overview</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                <Card className="hover:shadow-md transition-shadow">
+                <Card className="hover:shadow-md transition-shadow border border-blue-500">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Total Documents</CardTitle>
                         <FileText className="h-4 w-4 text-muted-foreground" />
@@ -287,7 +287,7 @@ const OverviewCards = ({ documents, folders }: { documents: Document[], folders:
                     </CardContent>
                 </Card>
 
-                <Card className="hover:shadow-md transition-shadow">
+                <Card className="hover:shadow-md transition-shadow border border-blue-500">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Folders</CardTitle>
                         <Folder className="h-4 w-4 text-muted-foreground" />
@@ -300,7 +300,7 @@ const OverviewCards = ({ documents, folders }: { documents: Document[], folders:
                     </CardContent>
                 </Card>
 
-                <Card className="hover:shadow-md transition-shadow">
+                <Card className="hover:shadow-md transition-shadow border border-blue-500">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Upcoming Renewals</CardTitle>
                         <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -313,7 +313,7 @@ const OverviewCards = ({ documents, folders }: { documents: Document[], folders:
                     </CardContent>
                 </Card>
 
-                <Card className="hover:shadow-md transition-shadow">
+                <Card className="hover:shadow-md transition-shadow border border-blue-500">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Tagged Documents</CardTitle>
                         <BarChart3 className="h-4 w-4 text-muted-foreground" />

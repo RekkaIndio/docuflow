@@ -56,7 +56,7 @@ interface AppSidebarProps {
   workspaces: Workspace[];
   activeWorkspace: Workspace;
   onWorkspaceChange: (workspaceId: string) => void;
-  setView: (view: 'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility') => void;
+  setView: (view: 'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'outstanding-evidence') => void;
   onGoToFiles: () => void;
   onCreateWorkspace: (name: string) => void;
 }
@@ -193,6 +193,12 @@ export function AppSidebar({
          <SidebarMenuButton onClick={() => handleNavigation(() => setView('documents'))} className="text-lg h-14">
           <FileText className="w-7 h-7 mr-2" />
           <span className="text-lg">Documents</span>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+      <SidebarMenuItem>
+        <SidebarMenuButton onClick={() => handleNavigation(() => setView('outstanding-evidence'))} className="text-lg h-14">
+          <Tag className="w-7 h-7 mr-2" />
+          <span className="text-lg">Outstanding Evidence</span>
         </SidebarMenuButton>
       </SidebarMenuItem>
              <SidebarMenuItem>
