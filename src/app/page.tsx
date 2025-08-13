@@ -1,7 +1,5 @@
 
 import { AnimatedHeroBg } from '@/components/landing/animated-hero-bg';
-import { TrustedByBar } from '@/components/landing/trusted-by-bar';
-import { TestimonialCarousel } from '@/components/landing/testimonial-carousel';
 import { NewsletterSignup } from '@/components/landing/newsletter-signup';
 import { HeroProductDemo } from '@/components/landing/hero-product-demo';
 import { Hero } from "@/components/landing/hero";
@@ -61,11 +59,17 @@ export default function Page() {
                                     </span>
                                 </h1>
                                 <p className="max-w-[600px] text-muted-foreground md:text-2xl font-medium">
-                                    Instantly search, understand, and interact with your care policies and procedures using intelligent AI that knows your documentation inside out.
+                                    Interact with your homes compliance
                                 </p>
+                                <div className="flex flex-wrap gap-2 mt-4">
+                                    <span className="px-3 py-1 rounded-full text-sm font-medium text-white" style={{backgroundColor: '#ea68a2'}}>Simple</span>
+                                    <span className="px-3 py-1 rounded-full text-sm font-medium text-white" style={{backgroundColor: '#f7a43f'}}>Effective</span>
+                                    <span className="px-3 py-1 rounded-full text-sm font-medium text-white" style={{backgroundColor: '#339cdc'}}>Inclusive</span>
+                                    <span className="px-3 py-1 rounded-full text-sm font-medium text-white" style={{backgroundColor: '#3abb99'}}>celebrating diversity</span>
+                                </div>
                                 <div className="flex flex-col gap-4 min-[400px]:flex-row">
                                     <button className="bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20 animate-glow rounded px-6 py-3 text-lg font-semibold text-primary-foreground flex items-center">
-                                        <a href="/signup">Try Your Policies <span className="ml-2">→</span></a>
+                                        <a href="/signup">Try it out <span className="ml-2">→</span></a>
                                     </button>
                                     <button className="border border-primary rounded px-6 py-3 text-lg font-semibold text-primary">
                                         <a href="#">See How It Works</a>
@@ -90,8 +94,92 @@ export default function Page() {
                     </div>
                 </section>
 
-                <TrustedByBar />
-                <TestimonialCarousel />
+                {/* Why Use Docuflow Section */}
+                <section className="w-full py-20 md:py-32 bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-blue-900">
+                    <div className="container px-4 md:px-6">
+                        <div className="flex flex-col items-center justify-center space-y-4 text-center mb-16">
+                            <div className="inline-block rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
+                                Why Docuflow?
+                            </div>
+                            <h2 className="text-3xl font-bold font-headline tracking-tighter sm:text-5xl">Transform How You Handle Documents</h2>
+                            <p className="max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
+                                Stop wrestling with scattered files and endless searches. Docuflow brings intelligence to your document workflow.
+                            </p>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                            <div className="bg-white dark:bg-slate-800 rounded-xl p-8 shadow-lg border border-slate-200 dark:border-slate-700">
+                                <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center mb-6">
+                                    <span className="text-2xl">⏰</span>
+                                </div>
+                                <h3 className="text-xl font-bold mb-4 font-headline">Stop Wasting Time</h3>
+                                <p className="text-muted-foreground">
+                                    No more digging through folders or scanning documents manually. Find any information in seconds with intelligent AI search.
+                                </p>
+                            </div>
+                            
+                            <div className="bg-white dark:bg-slate-800 rounded-xl p-8 shadow-lg border border-slate-200 dark:border-slate-700">
+                                <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg flex items-center justify-center mb-6">
+                                    <span className="text-2xl">🎯</span>
+                                </div>
+                                <h3 className="text-xl font-bold mb-4 font-headline">Stay Compliant</h3>
+                                <p className="text-muted-foreground">
+                                    Never miss critical deadlines or compliance requirements. Our AI automatically tracks important dates and obligations.
+                                </p>
+                            </div>
+                            
+                            <div className="bg-white dark:bg-slate-800 rounded-xl p-8 shadow-lg border border-slate-200 dark:border-slate-700">
+                                <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center mb-6">
+                                    <span className="text-2xl">🚀</span>
+                                </div>
+                                <h3 className="text-xl font-bold mb-4 font-headline">Work Smarter</h3>
+                                <p className="text-muted-foreground">
+                                    Chat with your documents like talking to a colleague. Get summaries, extract data, and generate reports instantly.
+                                </p>
+                            </div>
+                            
+                            <div className="bg-white dark:bg-slate-800 rounded-xl p-8 shadow-lg border border-slate-200 dark:border-slate-700">
+                                <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center mb-6">
+                                    <span className="text-2xl">🔒</span>
+                                </div>
+                                <h3 className="text-xl font-bold mb-4 font-headline">Keep Data Secure</h3>
+                                <p className="text-muted-foreground">
+                                    Enterprise-grade security ensures your sensitive documents stay protected while remaining easily accessible to your team.
+                                </p>
+                            </div>
+                            
+                            <div className="bg-white dark:bg-slate-800 rounded-xl p-8 shadow-lg border border-slate-200 dark:border-slate-700">
+                                <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center mb-6">
+                                    <span className="text-2xl">📊</span>
+                                </div>
+                                <h3 className="text-xl font-bold mb-4 font-headline">Gain Insights</h3>
+                                <p className="text-muted-foreground">
+                                    Turn your document library into actionable intelligence. Spot trends, identify risks, and make data-driven decisions.
+                                </p>
+                            </div>
+                            
+                            <div className="bg-white dark:bg-slate-800 rounded-xl p-8 shadow-lg border border-slate-200 dark:border-slate-700">
+                                <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg flex items-center justify-center mb-6">
+                                    <span className="text-2xl">⚡</span>
+                                </div>
+                                <h3 className="text-xl font-bold mb-4 font-headline">Start Immediately</h3>
+                                <p className="text-muted-foreground">
+                                    No complex setup or training required. Upload your documents and start chatting with them in minutes, not months.
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div className="text-center mt-16">
+                            <div className="inline-flex items-center gap-2 bg-primary/10 rounded-full px-6 py-3">
+                                <span className="text-primary font-semibold">Ready to transform your workflow?</span>
+                                <button className="bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-lg font-semibold text-sm">
+                                    <a href="/signup">Try Docuflow Free</a>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
                 <div className="py-12" />
 
                 {/* Original Features Section */}
@@ -101,7 +189,7 @@ export default function Page() {
                             <div className="inline-block rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
                                 AI Policy Assistant
                             </div>
-                            <h2 className="text-3xl font-bold font-headline tracking-tighter sm:text-5xl">Meet CareBot - Your Policy & Procedure Assistant</h2>
+                            <h2 className="text-3xl font-bold font-headline tracking-tighter sm:text-5xl">Meet Doc - Your Policy & Procedure Assistant</h2>
                             <p className="max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
                                 Ask questions about your care policies, get instant guidance on procedures, and find the exact information you need—all through a natural, chat-based interface designed for care professionals.
                             </p>

@@ -73,7 +73,7 @@ export function LandingPage() {
                   </span>
                 </h1>
                 <p className="max-w-[600px] text-muted-foreground md:text-2xl font-medium">
-                  Instantly search, understand, and interact with your care policies and procedures using intelligent AI that knows your documentation inside out.
+                  Interact with your homes compliance
                 </p>
                 <div className="flex flex-col gap-4 min-[400px]:flex-row">
                   <Button size="lg" asChild className="bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20 animate-glow">
