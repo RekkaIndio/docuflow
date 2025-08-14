@@ -163,7 +163,7 @@ const QuickActions = ({ documents, onSelect }: { documents: Document[], onSelect
                     </CardContent>
                 </Card>
                 
-                {/* Oustanding evidence */}
+                {/* Outstanding evidence (empty for now) */}
                 <Card className="hover:shadow-md transition-shadow border border-blue-500">
                     <CardHeader className="pb-3">
                         <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -172,19 +172,7 @@ const QuickActions = ({ documents, onSelect }: { documents: Document[], onSelect
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2">
-                        {actionableItems.overdueRenewals.length > 0 ? (
-                            actionableItems.overdueRenewals.map(doc => (
-                                <div key={doc.id} className="flex items-center justify-between p-2 hover:bg-muted rounded cursor-pointer" onClick={() => onSelect(doc)}>
-                                    <div className="flex items-center gap-2 min-w-0">
-                                        {getFileIcon(doc.fileType)}
-                                        <span className="text-sm truncate">{doc.name}</span>
-                                    </div>
-                                    <Badge variant="destructive" className="text-xs">Overdue</Badge>
-                                </div>
-                            ))
-                        ) : (
-                            <p className="text-sm text-muted-foreground text-center py-2">No overdue renewals</p>
-                        )}
+                        {/* No data rendered for now */}
                     </CardContent>
                 </Card>
             
