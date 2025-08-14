@@ -283,7 +283,7 @@ const ItemMenu = ({ item, onFolderDelete, onDocumentDelete, updateItem }: { item
           </DropdownMenuItem>
           {/* Add Set Renewal Date for documents only */}
           {item.type === 'document' && (
-            <DropdownMenuItem onSelect={e => { e.domEvent?.stopPropagation(); setRenewalOpen(true); }} className="no-nav">
+            <DropdownMenuItem onSelect={e => { e.preventDefault(); e.stopPropagation(); setRenewalOpen(true); }} className="no-nav">
               <FileText className="mr-2 h-4 w-4 text-blue-700" />
               Set Renewal Date
             </DropdownMenuItem>

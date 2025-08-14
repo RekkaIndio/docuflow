@@ -72,10 +72,6 @@ export default function Page() {
                                     <div className="flex -space-x-2">
                                         {/* ...avatars... */}
                                     </div>
-                                    <div>
-                                        <p className="font-semibold">500+ care organizations trust us</p>
-                                        <p className="text-sm text-muted-foreground">Search millions of policy documents daily</p>
-                                    </div>
                                 </div>
                             </div>
                                             {/* Animated product demo visual */}
