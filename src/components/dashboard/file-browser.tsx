@@ -144,7 +144,7 @@ export function FileBrowser({
 
       <main className="flex-1 p-4 overflow-y-auto">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {folder?.items?.map((item) => (
+          {folder?.items?.map((item, idx) => (
             <Card
               key={item.id}
               id={item.type === 'document' ? `doc-card-${item.id}` : undefined}
@@ -152,7 +152,11 @@ export function FileBrowser({
                 `hover:shadow-md transition-shadow cursor-pointer` +
                 (item.type === 'document' && highlightedDocId === item.id ? ' ring-2 ring-primary ring-offset-2' : '')
               }
-              onClick={() => onSelect(item)}
+              onClick={e => {
+                // Prevent navigation if click originated from menu/dialog/calendar
+                if ((e.target as HTMLElement).closest('.no-nav')) return;
+                onSelect(item);
+              }}
             >
               <CardHeader>
                 <div className="flex justify-between items-start">
@@ -161,7 +165,17 @@ export function FileBrowser({
                   ) : (
                     getFileIcon(item.fileType)
                   )}
-                  <ItemMenu item={item} onFolderDelete={onFolderDelete} onDocumentDelete={onDocumentDelete} />
+                  <ItemMenu 
+                    item={item} 
+                    onFolderDelete={onFolderDelete} 
+                    onDocumentDelete={onDocumentDelete}
+                    updateItem={(updatedDoc) => {
+                      // Update the renewalDate in the UI after save
+                      if (item.type === 'document' && updatedDoc && updatedDoc.renewalDate) {
+                        folder.items[idx] = { ...item, renewalDate: updatedDoc.renewalDate };
+                      }
+                    }}
+                  />
                 </div>
               </CardHeader>
               <CardContent>
@@ -190,11 +204,17 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { handleRename } from "@/lib/handleRename";
+import { setDocumentRenewalDate } from "@/lib/setDocumentRenewalDate";
+import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 
-const ItemMenu = ({ item, onFolderDelete, onDocumentDelete }: { item: Document | Folder, onFolderDelete: (folder: Folder) => void, onDocumentDelete: (document: Document) => void }) => {
+const ItemMenu = ({ item, onFolderDelete, onDocumentDelete, updateItem }: { item: Document | Folder, onFolderDelete: (folder: Folder) => void, onDocumentDelete: (document: Document) => void, updateItem?: (updatedDoc: Document) => void }) => {
   const [renameOpen, setRenameOpen] = useState(false);
+  const [renewalOpen, setRenewalOpen] = useState(false);
   const [newName, setNewName] = useState(item.name);
+  // Only for documents
+  // Only for documents. No preselected date unless one exists.
+  const [renewalDate, setRenewalDate] = useState<string>(item.type === 'document' && item.renewalDate ? new Date(item.renewalDate).toISOString().substring(0, 10) : "");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -223,6 +243,25 @@ const ItemMenu = ({ item, onFolderDelete, onDocumentDelete }: { item: Document |
     }
   };
 
+  // Handler for setting renewal date (documents only)
+  const handleRenewalSubmit = async () => {
+    if (!renewalDate || item.type !== 'document') {
+      setRenewalOpen(false);
+      return;
+    }
+    setLoading(true);
+    try {
+      await setDocumentRenewalDate((item as any).workspaceId, item.id, renewalDate);
+      toast({ title: "Renewal Date Set!", description: `Renewal date set to ${renewalDate}` });
+      setRenewalOpen(false);
+      if (updateItem) updateItem({ ...(item as Document), renewalDate });
+    } catch (e) {
+      toast({ title: "Failed to set renewal date", description: "Could not set renewal date. Please try again.", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <>
       <DropdownMenu>
@@ -242,6 +281,13 @@ const ItemMenu = ({ item, onFolderDelete, onDocumentDelete }: { item: Document |
             <Edit className="mr-2 h-4 w-4" />
             Rename
           </DropdownMenuItem>
+          {/* Add Set Renewal Date for documents only */}
+          {item.type === 'document' && (
+            <DropdownMenuItem onSelect={e => { e.domEvent?.stopPropagation(); setRenewalOpen(true); }} className="no-nav">
+              <FileText className="mr-2 h-4 w-4 text-blue-700" />
+              Set Renewal Date
+            </DropdownMenuItem>
+          )}
           <DeleteDialog onConfirm={handleDelete}>
             <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive">
               <Trash2 className="mr-2 h-4 w-4" />
@@ -250,6 +296,7 @@ const ItemMenu = ({ item, onFolderDelete, onDocumentDelete }: { item: Document |
           </DeleteDialog>
         </DropdownMenuContent>
       </DropdownMenu>
+      {/* Rename Dialog */}
       <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
         <DialogContent>
           <DialogHeader>
@@ -272,6 +319,53 @@ const ItemMenu = ({ item, onFolderDelete, onDocumentDelete }: { item: Document |
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Set Renewal Date Dialog (documents only) */}
+      {item.type === 'document' && (
+        <Dialog open={renewalOpen} onOpenChange={setRenewalOpen}>
+          <DialogContent className="no-nav">
+            <DialogHeader>
+              <DialogTitle>Set Renewal Date</DialogTitle>
+            </DialogHeader>
+            <div className="flex flex-col items-center gap-4 w-full">
+              {/* Manual input for date */}
+              <Input
+                type="date"
+                value={renewalDate}
+                onChange={e => setRenewalDate(e.target.value)}
+                disabled={loading}
+                className="no-nav w-full"
+                style={{ maxWidth: 220 }}
+              />
+              {/* Calendar picker for date */}
+              <Calendar
+                mode="single"
+                selected={renewalDate ? new Date(renewalDate + 'T00:00:00') : undefined}
+                onSelect={date => {
+                  if (!date) return setRenewalDate("");
+                  // Fix timezone offset by using local date
+                  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+                  setRenewalDate(local.toISOString().substring(0, 10));
+                }}
+                disabled={loading}
+                className="no-nav"
+                fromYear={new Date().getFullYear() - 2}
+                toYear={new Date().getFullYear() + 2}
+                captionLayout="dropdown"
+                showOutsideDays={true}
+              />
+              <p className="text-sm text-muted-foreground">Selected: {renewalDate || 'None'}</p>
+            </div>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button variant="outline" disabled={loading}>Cancel</Button>
+              </DialogClose>
+              <Button onClick={handleRenewalSubmit} disabled={loading || !renewalDate}>
+                {loading ? 'Saving...' : 'Save'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 };
