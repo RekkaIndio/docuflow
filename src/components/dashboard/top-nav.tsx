@@ -13,7 +13,6 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { LifeBuoy, LogOut, Settings, User as UserIcon } from 'lucide-react';
-import { ThemeToggle } from '../theme-toggle';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -36,7 +35,6 @@ export function TopNav({ onSettingsClick }: TopNavProps) {
       
       {/* Right side items */}
       <div className="flex items-center gap-4 ml-auto">
-        <ThemeToggle />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="relative h-10 w-10 rounded-full">

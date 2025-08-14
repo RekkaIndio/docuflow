@@ -81,10 +81,6 @@ export default function Page() {
                                     <div className="flex -space-x-2">
                                         {/* ...avatars... */}
                                     </div>
-                                    <div>
-                                        <p className="font-semibold">500+ care organizations trust us</p>
-                                        <p className="text-sm text-muted-foreground">Search millions of policy documents daily</p>
-                                    </div>
                                 </div>
                             </div>
                                             {/* Animated product demo visual */}
@@ -135,7 +131,7 @@ export default function Page() {
                                 </div>
                                 <h3 className="text-xl font-bold mb-4 font-headline">Work Smarter</h3>
                                 <p className="text-muted-foreground">
-                                    Chat with your documents like talking to a colleague. Get summaries, extract data, and generate reports instantly.
+                                    Chat with your documents like talking to a colleague. Get summaries, extract data, and
                                 </p>
                             </div>
                             

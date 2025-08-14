@@ -39,12 +39,12 @@ const getFileIcon = (fileType: Document["fileType"]) => {
 
 
 const RecentFilesTable = ({ documents, onSelect }: { documents: Document[], onSelect: (doc: Document) => void }) => (
-    <Card className="border border-blue-500">
-        <CardHeader>
-            <CardTitle>Recent Files</CardTitle>
-            <CardDescription>The last 5 documents that were uploaded or modified.</CardDescription>
+    <Card className="border border-blue-200 shadow-sm bg-white/80 backdrop-blur-md rounded-xl">
+        <CardHeader className="pb-2 border-b border-blue-100 bg-gradient-to-r from-blue-50/60 to-transparent rounded-t-xl">
+            <CardTitle className="text-base font-semibold text-blue-900 tracking-tight">Recent Files</CardTitle>
+            <CardDescription className="text-xs text-blue-700/70">The last 5 documents that were uploaded or modified.</CardDescription>
         </CardHeader>
-        <CardContent>
+    <CardContent className="pt-4">
             {/* Mobile-friendly card layout */}
             <div className="block sm:hidden space-y-3">
                 {documents.length > 0 ? documents.map(doc => (
@@ -136,17 +136,17 @@ const QuickActions = ({ documents, onSelect }: { documents: Document[], onSelect
 
     return (
         <div className="w-full">
-            <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <h2 className="text-lg font-semibold mb-4 text-blue-900 tracking-tight">Quick Actions</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Overdue Renewals */}
-                <Card className="hover:shadow-md transition-shadow border border-blue-500">
-                    <CardHeader className="pb-3">
+                <Card className="hover:shadow-lg transition-shadow border border-blue-200 bg-white/80 backdrop-blur-md rounded-xl">
+                    <CardHeader className="pb-2 border-b border-blue-100 bg-gradient-to-r from-blue-50/60 to-transparent rounded-t-xl">
                         <CardTitle className="text-sm font-medium flex items-center gap-2">
                             <Clock className="h-4 w-4 text-red-500" />
                             Overdue Renewals
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-2">
+                    <CardContent className="space-y-2 pt-3">
                         {actionableItems.overdueRenewals.length > 0 ? (
                             actionableItems.overdueRenewals.map(doc => (
                                 <div key={doc.id} className="flex items-center justify-between p-2 hover:bg-muted rounded cursor-pointer" onClick={() => onSelect(doc)}>
@@ -164,27 +164,27 @@ const QuickActions = ({ documents, onSelect }: { documents: Document[], onSelect
                 </Card>
                 
                 {/* Outstanding evidence (empty for now) */}
-                <Card className="hover:shadow-md transition-shadow border border-blue-500">
-                    <CardHeader className="pb-3">
+                <Card className="hover:shadow-lg transition-shadow border border-blue-200 bg-white/80 backdrop-blur-md rounded-xl">
+                    <CardHeader className="pb-2 border-b border-blue-100 bg-gradient-to-r from-blue-50/60 to-transparent rounded-t-xl">
                         <CardTitle className="text-sm font-medium flex items-center gap-2">
                             <Clock className="h-4 w-4 text-red-500" />
                             Outstanding Evidence
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-2">
+                    <CardContent className="space-y-2 pt-3">
                         {/* No data rendered for now */}
                     </CardContent>
                 </Card>
             
                 {/* Recent Activity */}
-                <Card className="hover:shadow-md transition-shadow border border-blue-500">
-                    <CardHeader className="pb-3">
+                <Card className="hover:shadow-lg transition-shadow border border-blue-200 bg-white/80 backdrop-blur-md rounded-xl">
+                    <CardHeader className="pb-2 border-b border-blue-100 bg-gradient-to-r from-blue-50/60 to-transparent rounded-t-xl">
                         <CardTitle className="text-sm font-medium flex items-center gap-2">
                             <TrendingUp className="h-4 w-4 text-green-500" />
                             Recent Activity
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-2">
+                    <CardContent className="space-y-2 pt-3">
                         {actionableItems.recentDocs.length > 0 ? (
                             actionableItems.recentDocs.map(doc => (
                                 <div key={doc.id} className="flex items-center justify-between p-2 hover:bg-muted rounded cursor-pointer" onClick={() => onSelect(doc)}>
@@ -207,16 +207,16 @@ const QuickActions = ({ documents, onSelect }: { documents: Document[], onSelect
 
 const QuickAccess = ({ folders, onSelect }: { folders: FolderType[], onSelect: (item: FolderType) => void }) => (
     <div className="w-full">
-        <h2 className="text-lg font-semibold mb-4">Quick Access</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+        <h2 className="text-lg font-semibold mb-4 text-blue-900 tracking-tight">Quick Access</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {folders.length > 0 ? folders.map(folder => (
-                <Card key={folder.id} className="hover:shadow-md transition-shadow cursor-pointer border border-blue-500" onClick={() => onSelect(folder)}>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2 px-3 sm:px-6">
-                         <Folder className="w-6 h-6 sm:w-8 sm:h-8 text-yellow-500 flex-shrink-0" />
-                         <span className="text-xs text-muted-foreground">{folder.items.length} items</span>
-                    </CardHeader>
-                    <CardContent className="px-3 sm:px-6">
-                        <p className="font-semibold text-sm sm:text-base break-words leading-tight">{folder.name}</p>
+             <Card key={folder.id} className="hover:shadow-lg transition-shadow cursor-pointer border border-blue-200 bg-white/80 backdrop-blur-md rounded-xl" onClick={() => onSelect(folder)}>
+                <CardHeader className="flex flex-row items-center justify-between pb-2 px-4 sm:px-6 border-b border-blue-100 bg-gradient-to-r from-yellow-50/60 to-transparent rounded-t-xl">
+                    <Folder className="w-6 h-6 sm:w-8 sm:h-8 text-yellow-500 flex-shrink-0" />
+                    <span className="text-xs text-muted-foreground">{folder.items.length} items</span>
+                </CardHeader>
+                    <CardContent className="px-4 sm:px-6 pt-3">
+                        <p className="font-semibold text-sm sm:text-base break-words leading-tight text-blue-900">{folder.name}</p>
                     </CardContent>
                 </Card>
             )) : (
@@ -226,97 +226,6 @@ const QuickAccess = ({ folders, onSelect }: { folders: FolderType[], onSelect: (
     </div>
 );
 
-const OverviewCards = ({ documents, folders }: { documents: Document[], folders: FolderType[] }) => {
-    const stats = useMemo(() => {
-        const today = new Date();
-        const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-        const lastMonth = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-
-        const recentDocs = documents.filter(doc => new Date(doc.createdAt) >= lastWeek);
-        const upcomingRenewals = documents.filter(doc => {
-            if (!doc.renewalDate) return false;
-            const renewalDate = new Date(doc.renewalDate);
-            const thirtyDaysFromNow = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
-            return renewalDate >= today && renewalDate <= thirtyDaysFromNow;
-        });
-
-        const fileTypeBreakdown = documents.reduce((acc, doc) => {
-            acc[doc.fileType] = (acc[doc.fileType] || 0) + 1;
-            return acc;
-        }, {} as Record<string, number>);
-
-        const totalItems = documents.length + folders.length;
-
-        return {
-            totalDocuments: documents.length,
-            totalFolders: folders.length,
-            totalItems,
-            recentDocuments: recentDocs.length,
-            upcomingRenewals: upcomingRenewals.length,
-            mostCommonFileType: Object.entries(fileTypeBreakdown).sort(([,a], [,b]) => b - a)[0]?.[0] || 'N/A',
-            documentsWithTags: documents.filter(doc => doc.tags && doc.tags.length > 0).length
-        };
-    }, [documents, folders]);
-
-    return (
-        <div className="w-full">
-            <h2 className="text-lg font-semibold mb-4">Workspace Overview</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                <Card className="hover:shadow-md transition-shadow border border-blue-500">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Documents</CardTitle>
-                        <FileText className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{stats.totalDocuments}</div>
-                        <p className="text-xs text-muted-foreground">
-                            {stats.recentDocuments} added this week
-                        </p>
-                    </CardContent>
-                </Card>
-
-                <Card className="hover:shadow-md transition-shadow border border-blue-500">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Folders</CardTitle>
-                        <Folder className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{stats.totalFolders}</div>
-                        <p className="text-xs text-muted-foreground">
-                            Organizing {stats.totalItems} total items
-                        </p>
-                    </CardContent>
-                </Card>
-
-                <Card className="hover:shadow-md transition-shadow border border-blue-500">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Upcoming Renewals</CardTitle>
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{stats.upcomingRenewals}</div>
-                        <p className="text-xs text-muted-foreground">
-                            Due in next 30 days
-                        </p>
-                    </CardContent>
-                </Card>
-
-                <Card className="hover:shadow-md transition-shadow border border-blue-500">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Tagged Documents</CardTitle>
-                        <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{stats.documentsWithTags}</div>
-                        <p className="text-xs text-muted-foreground">
-                            Most common: {stats.mostCommonFileType.toUpperCase()}
-                        </p>
-                    </CardContent>
-                </Card>
-            </div>
-        </div>
-    );
-}
 
 
 function getAllItems(items: (Document | FolderType)[]): { documents: Document[], folders: FolderType[] } {
@@ -360,15 +269,15 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
     }, [workspace.folders])
 
     return (
-        <div className="flex flex-col h-full bg-muted/20">
-            <header className="bg-background p-4 border-b shrink-0">
+    <div className="flex flex-col h-full bg-white min-h-screen">
+            <header className="bg-white/80 backdrop-blur-md p-4 border-b border-blue-100 shadow-sm shrink-0 rounded-b-xl">
                 <div className="flex items-center justify-between gap-2 mb-3 sm:mb-0">
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                         {/* Hide SidebarTrigger on mobile since we have it in TopNav */}
                         {!isMobile && <SidebarTrigger />}
                         <div className="min-w-0 flex-1">
-                            <h1 className="text-lg sm:text-xl font-headline font-semibold truncate">{workspace.name}</h1>
-                            <p className="text-sm text-muted-foreground hidden sm:block">Welcome back! Here's a summary of your workspace.</p>
+                            <h1 className="text-xl sm:text-2xl font-headline font-bold tracking-tight text-blue-900 truncate">{workspace.name}</h1>
+                            <p className="text-sm text-blue-700/70 hidden sm:block">Welcome back! Here's a summary of your workspace.</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
@@ -377,7 +286,7 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
                             parentId={'root'}
                             onFolderCreated={onFolderAdd}
                         >
-                            <Button variant="outline" size={isMobile ? "sm" : "default"} className="text-xs sm:text-sm">
+                            <Button variant="outline" size={isMobile ? "sm" : "default"} className="text-xs sm:text-sm border-blue-300 text-blue-900 hover:bg-blue-50">
                                 {isMobile ? "Folder" : "New Folder"}
                             </Button>
                         </NewFolderDialog>
@@ -390,8 +299,7 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
                     </div>
                 </div>
             </header>
-            <main className="flex-1 p-3 sm:p-4 md:p-6 overflow-y-auto space-y-4 sm:space-y-6 md:space-y-8">
-               <OverviewCards documents={documents} folders={folders} />
+            <main className="flex-1 p-3 sm:p-4 md:p-8 overflow-y-auto space-y-6 sm:space-y-8 md:space-y-12">
                <QuickActions documents={documents} onSelect={onSelect} />
                <QuickAccess folders={quickAccessFolders} onSelect={onSelect} />
                <RecentFilesTable documents={recentDocuments} onSelect={onSelect} />

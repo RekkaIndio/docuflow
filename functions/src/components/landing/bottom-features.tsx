@@ -29,7 +29,7 @@ export function BottomFeatures() {
     return (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
             {features.map((feature, i) => (
-                <Card key={i} className="bg-background/50 border-border/50">
+                <Card key={i} className="bg-white border-border/50">
                     <CardHeader>
                         {feature.icon}
                         <CardTitle className="mt-4 font-headline">{feature.title}</CardTitle>

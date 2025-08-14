@@ -28,7 +28,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Logo } from "@/components/icons/logo";
 import type { Workspace } from "@/lib/types";
 import { useAuth } from "@/hooks/use-auth";
-import { ThemeToggle } from "../theme-toggle";
 import {
   DropdownMenu,
   DropdownMenuContent,

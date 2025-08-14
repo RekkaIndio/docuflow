@@ -96,10 +96,6 @@ export function LandingPage() {
                     <Image src="https://i.pravatar.cc/150?u=c" width={40} height={40} alt="User" className="rounded-full border-2 border-background" />
                     <Image src="https://i.pravatar.cc/150?u=d" width={40} height={40} alt="User" className="rounded-full border-2 border-background" />
                   </div>
-                  <div>
-                    <p className="font-semibold">500+ care organizations trust us</p>
-                    <p className="text-sm text-muted-foreground">Search millions of policy documents daily</p>
-                  </div>
                 </div>
               </div>
               {/* Replace with interactive demo or video preview in future */}
