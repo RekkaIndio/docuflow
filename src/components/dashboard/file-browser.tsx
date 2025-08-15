@@ -180,6 +180,11 @@ export function FileBrowser({
               </CardHeader>
               <CardContent>
                 <p className="font-medium truncate">{item.name}</p>
+                {item.type === "folder" && (
+                  <p className="text-sm text-muted-foreground">
+                    {item.items?.filter(child => child.type === 'document').length} document{item.items?.filter(child => child.type === 'document').length === 1 ? '' : 's'}
+                  </p>
+                )}
                 {item.type === "document" && (
                   <>
                     <p className="text-sm text-muted-foreground">
