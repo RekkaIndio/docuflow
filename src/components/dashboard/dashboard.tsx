@@ -219,6 +219,76 @@ export function Dashboard() {
         return { ...ws, evidenceFolders: ws.evidenceFolders || [] };
       });
 
+      // Initialize protected (immutable) folders in the main folders list if not present
+      const protectedFoldersTemplate = (workspaceId: string): any[] => [
+        {
+          id: 'audits',
+          name: 'Audits',
+          type: 'folder',
+          items: [
+            { id: 'audits-managers-monthly-audit', name: "Managers' Monthly Audit", type: 'folder', items: [], workspaceId, parentId: 'audits' },
+            { id: 'audits-audits', name: 'Audits', type: 'folder', items: [], workspaceId, parentId: 'audits' },
+          ],
+          workspaceId,
+          parentId: null,
+        },
+        {
+          id: 'complaints-and-compliments',
+          name: 'Complaints and Compliments',
+          type: 'folder',
+          items: [
+            { id: 'complaints', name: 'Complaints', type: 'folder', items: [], workspaceId, parentId: 'complaints-and-compliments' },
+            { id: 'compliments', name: 'Compliments', type: 'folder', items: [], workspaceId, parentId: 'complaints-and-compliments' },
+          ],
+          workspaceId,
+          parentId: null,
+        },
+        {
+          id: 'surveys',
+          name: 'Surveys',
+          type: 'folder',
+          items: [
+            { id: 'surveys-staff', name: 'Staff', type: 'folder', items: [], workspaceId, parentId: 'surveys' },
+            { id: 'surveys-residents', name: 'Residents', type: 'folder', items: [], workspaceId, parentId: 'surveys' },
+            { id: 'surveys-professional', name: 'Professional', type: 'folder', items: [], workspaceId, parentId: 'surveys' },
+            { id: 'surveys-relatives', name: 'Relatives', type: 'folder', items: [], workspaceId, parentId: 'surveys' },
+          ],
+          workspaceId,
+          parentId: null,
+        },
+        { id: 'rd-compliance-report', name: 'Rd compliance report', type: 'folder', items: [], workspaceId, parentId: null },
+        {
+          id: 'action-plans',
+          name: 'Action plans',
+          type: 'folder',
+          items: [
+            { id: 'action-plans-external', name: 'External', type: 'folder', items: [], workspaceId, parentId: 'action-plans' },
+            { id: 'action-plans-internal', name: 'Internal', type: 'folder', items: [], workspaceId, parentId: 'action-plans' },
+          ],
+          workspaceId,
+          parentId: null,
+        },
+        { id: 'cqc-notifications', name: 'Cqc notifications', type: 'folder', items: [], workspaceId, parentId: null },
+        { id: 'safeguards', name: 'Safeguards', type: 'folder', items: [], workspaceId, parentId: null },
+        { id: 'riddor', name: 'RIDDOR', type: 'folder', items: [], workspaceId, parentId: null },
+        { id: 'hdp', name: 'HDP', type: 'folder', items: [], workspaceId, parentId: null },
+        { id: 'sip', name: 'SIP', type: 'folder', items: [], workspaceId, parentId: null },
+        { id: 'pr-submissions', name: 'PR submissions', type: 'folder', items: [], workspaceId, parentId: null },
+        { id: 'business-continuity-plan', name: 'Business continuity plan', type: 'folder', items: [], workspaceId, parentId: null },
+        { id: 'service-user-guide', name: 'Service user guide', type: 'folder', items: [], workspaceId, parentId: null },
+        { id: 'statement-of-purpose', name: 'Statement of purpose', type: 'folder', items: [], workspaceId, parentId: null },
+        { id: 'lessons-learnt', name: 'Lessons learnt', type: 'folder', items: [], workspaceId, parentId: null },
+        { id: 'rcas', name: 'RCAs', type: 'folder', items: [], workspaceId, parentId: null },
+      ];
+
+      userWorkspaces = userWorkspaces.map(ws => {
+        // Ensure protectedFolders only added once
+        const existingProtectedIds = new Set(ws.folders.map(f => f.id));
+        const toAdd = protectedFoldersTemplate(ws.id).filter((pf: any) => !existingProtectedIds.has(pf.id));
+        // Prepend the protected folders so they appear first
+        return { ...ws, folders: [...toAdd, ...(ws.folders || [])] };
+      });
+
       setWorkspaces(userWorkspaces);
       setActiveWorkspace(userWorkspaces[0]);
       setLoading(false);
@@ -532,6 +602,21 @@ export function Dashboard() {
 
   const handleFolderDelete = async (folder: Folder) => {
     if (!activeWorkspace) return;
+    // Prevent deletion of protected/immutable folders
+    const protectedIds = [
+      'audits', 'audits-managers-monthly-audit', 'audits-audits',
+      'complaints-and-compliments', 'complaints', 'compliments',
+      'surveys', 'surveys-staff', 'surveys-residents', 'surveys-professional', 'surveys-relatives',
+      'rd-compliance-report', 'action-plans', 'action-plans-external', 'action-plans-internal',
+      'cqc-notifications', 'safeguards', 'riddor', 'hdp', 'sip', 'pr-submissions', 'business-continuity-plan',
+      'service-user-guide', 'statement-of-purpose', 'lessons-learnt', 'rcas'
+    ];
+
+    if (protectedIds.includes(folder.id)) {
+      console.warn("Attempted to delete protected folder:", folder.id);
+      return;
+    }
+
     try {
         await deleteFolder(activeWorkspace.id, folder.id);
         

@@ -117,6 +117,64 @@ async function fetchAndStructureData(workspaceId: string): Promise<{ folders: (F
     return { folders: [...rootFolders, ...rootDocuments], documents: Object.values(allDocuments) };
 }
 
+// Ensure protected/immutable folders exist in Firestore for a workspace
+export async function ensureProtectedFolders(workspaceId: string): Promise<void> {
+    try {
+        const protectedFolders: { id: string; name: string; parentId?: string | null }[] = [
+            { id: 'audits', name: 'Audits', parentId: null },
+            { id: 'audits-managers-monthly-audit', name: "Managers' Monthly Audit", parentId: 'audits' },
+            { id: 'audits-audits', name: 'Audits', parentId: 'audits' },
+
+            { id: 'complaints-and-compliments', name: 'Complaints and Compliments', parentId: null },
+            { id: 'complaints', name: 'Complaints', parentId: 'complaints-and-compliments' },
+            { id: 'compliments', name: 'Compliments', parentId: 'complaints-and-compliments' },
+
+            { id: 'surveys', name: 'Surveys', parentId: null },
+            { id: 'surveys-staff', name: 'Staff', parentId: 'surveys' },
+            { id: 'surveys-residents', name: 'Residents', parentId: 'surveys' },
+            { id: 'surveys-professional', name: 'Professional', parentId: 'surveys' },
+            { id: 'surveys-relatives', name: 'Relatives', parentId: 'surveys' },
+
+            { id: 'rd-compliance-report', name: 'Rd compliance report', parentId: null },
+
+            { id: 'action-plans', name: 'Action plans', parentId: null },
+            { id: 'action-plans-external', name: 'External', parentId: 'action-plans' },
+            { id: 'action-plans-internal', name: 'Internal', parentId: 'action-plans' },
+
+            { id: 'cqc-notifications', name: 'Cqc notifications', parentId: null },
+            { id: 'safeguards', name: 'Safeguards', parentId: null },
+            { id: 'riddor', name: 'RIDDOR', parentId: null },
+            { id: 'hdp', name: 'HDP', parentId: null },
+            { id: 'sip', name: 'SIP', parentId: null },
+            { id: 'pr-submissions', name: 'PR submissions', parentId: null },
+            { id: 'business-continuity-plan', name: 'Business continuity plan', parentId: null },
+            { id: 'service-user-guide', name: 'Service user guide', parentId: null },
+            { id: 'statement-of-purpose', name: 'Statement of purpose', parentId: null },
+            { id: 'lessons-learnt', name: 'Lessons learnt', parentId: null },
+            { id: 'rcas', name: 'RCAs', parentId: null },
+        ];
+
+        // Create missing protected folders (use setDoc with fixed ids)
+        for (const f of protectedFolders) {
+            const folderRef = doc(db, `workspaces/${workspaceId}/folders`, f.id);
+            const folderSnap = await getDoc(folderRef);
+            if (!folderSnap.exists()) {
+                await setDoc(folderRef, {
+                    name: f.name,
+                    type: 'folder',
+                    parentId: f.parentId ?? null,
+                    createdAt: Timestamp.now(),
+                    protected: true,
+                });
+                console.log(`Created protected folder ${f.id} in workspace ${workspaceId}`);
+            }
+        }
+    } catch (error) {
+        console.error('Failed to ensure protected folders for workspace', workspaceId, error);
+        // don't throw - we don't want workspace creation/fetch to completely fail if this step has issues
+    }
+}
+
 
 export async function getWorkspacesForUser(userId: string): Promise<Workspace[]> {
     try {
@@ -129,6 +187,8 @@ export async function getWorkspacesForUser(userId: string): Promise<Workspace[]>
 
         const workspaces = await Promise.all(querySnapshot.docs.map(async (docSnap) => {
             const workspaceData = docSnap.data() as Omit<Workspace, 'id' | 'folders'>;
+            // Ensure protected folders exist for this workspace
+            await ensureProtectedFolders(docSnap.id);
             const { folders } = await fetchAndStructureData(docSnap.id);
             return {
                 id: docSnap.id,
@@ -149,10 +209,14 @@ export async function getWorkspacesForUser(userId: string): Promise<Workspace[]>
 export async function createWorkspace(workspace: Omit<Workspace, 'id' | 'folders'>): Promise<Workspace> {
     try {
         const docRef = await addDoc(collection(db, "workspaces"), workspace);
+        // Ensure protected folders are created for the new workspace
+        await ensureProtectedFolders(docRef.id);
+        // Return the workspace including current folders
+        const { folders } = await fetchAndStructureData(docRef.id);
         return {
             ...workspace,
             id: docRef.id,
-            folders: [],
+            folders,
         };
     } catch (error) {
         console.error("Error creating workspace:", error);
