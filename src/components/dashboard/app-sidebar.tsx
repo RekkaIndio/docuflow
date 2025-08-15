@@ -55,7 +55,7 @@ interface AppSidebarProps {
   workspaces: Workspace[];
   activeWorkspace: Workspace;
   onWorkspaceChange: (workspaceId: string) => void;
-  setView: (view: 'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'outstanding-evidence') => void;
+  setView: (view: 'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'outstanding-evidence' | 'dependency-calculator') => void;
   onGoToFiles: () => void;
   onCreateWorkspace: (name: string) => void;
 }
@@ -216,6 +216,12 @@ export function AppSidebar({
         <SidebarMenuButton onClick={() => handleNavigation(() => setView('accessibility'))} className="text-lg h-14">
           <Accessibility className="w-7 h-7 mr-2" />
           <span className="text-lg">Accessibility</span>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+      <SidebarMenuItem>
+        <SidebarMenuButton onClick={() => handleNavigation(() => setView('dependency-calculator'))} className="text-lg h-14">
+          <UsersRound className="w-7 h-7 mr-2" />
+          <span className="text-lg">Dependency Calculator</span>
         </SidebarMenuButton>
       </SidebarMenuItem>
         </SidebarMenu>
