@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   SidebarProvider,
   Sidebar,
@@ -150,7 +150,7 @@ export function Dashboard() {
   const [evidenceSelected, setEvidenceSelected] = useState<Folder | Document | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'outstanding-evidence'>('home');
+  const [view, setView] = useState<'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'outstanding-evidence' | 'dependency-calculator'>('home');
   const [breadcrumb, setBreadcrumb] = useState<(Folder | { id: 'root', name: string, type: 'folder' })[]>([]);
   const [evidenceBreadcrumb, setEvidenceBreadcrumb] = useState<(Folder | { id: 'evidence-root', name: string, type: 'folder' })[]>([]);
 
@@ -829,6 +829,15 @@ export function Dashboard() {
           onBreadcrumbClick={handleBreadcrumbClick}
         />
       );
+        case 'dependency-calculator':
+            return (
+                <React.Suspense fallback={<div>Loading...</div>}>
+                  {(() => {
+                    const DependencyCalculatorPage = require("@/app/(protected)/dashboard/dependency-calculator/page").default;
+                    return <DependencyCalculatorPage />;
+                  })()}
+                </React.Suspense>
+            );
         default:
              return <DashboardHome 
                         workspace={activeWorkspace} 
