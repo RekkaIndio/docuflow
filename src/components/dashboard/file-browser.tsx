@@ -223,6 +223,16 @@ const ItemMenu = ({ item, onFolderDelete, onDocumentDelete, updateItem }: { item
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
+  // Protected folder ids for the main folders view (immutable)
+  const protectedFolderIds = item.type === 'folder' && [
+    'audits', 'audits-managers-monthly-audit', 'audits-audits',
+    'complaints-and-compliments', 'complaints', 'compliments',
+    'surveys', 'surveys-staff', 'surveys-residents', 'surveys-professional', 'surveys-relatives',
+    'rd-compliance-report', 'action-plans', 'action-plans-external', 'action-plans-internal',
+    'cqc-notifications', 'safeguards', 'riddor', 'hdp', 'sip', 'pr-submissions', 'business-continuity-plan',
+    'service-user-guide', 'statement-of-purpose', 'lessons-learnt', 'rcas'
+  ].includes(item.id);
+
   const handleDelete = () => {
     if (item.type === 'folder') {
       onFolderDelete(item);
@@ -282,10 +292,12 @@ const ItemMenu = ({ item, onFolderDelete, onDocumentDelete, updateItem }: { item
               Share
             </DropdownMenuItem>
           </ShareDialog>
-          <DropdownMenuItem onSelect={() => setRenameOpen(true)}>
-            <Edit className="mr-2 h-4 w-4" />
-            Rename
-          </DropdownMenuItem>
+          { !protectedFolderIds && (
+            <DropdownMenuItem onSelect={() => setRenameOpen(true)}>
+              <Edit className="mr-2 h-4 w-4" />
+              Rename
+            </DropdownMenuItem>
+          )}
           {/* Add Set Renewal Date for documents only */}
           {item.type === 'document' && (
             <DropdownMenuItem onSelect={e => { e.preventDefault(); e.stopPropagation(); setRenewalOpen(true); }} className="no-nav">
@@ -293,16 +305,19 @@ const ItemMenu = ({ item, onFolderDelete, onDocumentDelete, updateItem }: { item
               Set Renewal Date
             </DropdownMenuItem>
           )}
-          <DeleteDialog onConfirm={handleDelete}>
-            <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive">
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
-            </DropdownMenuItem>
-          </DeleteDialog>
+          { !protectedFolderIds && (
+            <DeleteDialog onConfirm={handleDelete}>
+              <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive">
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            </DeleteDialog>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
       {/* Rename Dialog */}
-      <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
+      {!protectedFolderIds && (
+        <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Rename {item.type === 'folder' ? 'Folder' : 'Document'}</DialogTitle>
@@ -323,7 +338,8 @@ const ItemMenu = ({ item, onFolderDelete, onDocumentDelete, updateItem }: { item
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
+        </Dialog>
+      )}
       {/* Set Renewal Date Dialog (documents only) */}
       {item.type === 'document' && (
         <Dialog open={renewalOpen} onOpenChange={setRenewalOpen}>
