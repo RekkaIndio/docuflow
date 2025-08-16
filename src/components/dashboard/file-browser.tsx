@@ -48,6 +48,7 @@ interface FileBrowserProps {
   onFolderAdd: (folder: Folder) => void;
   onFolderDelete: (folder: Folder) => void;
   onDocumentDelete: (document: Document) => void;
+  onDocumentUpdate?: (document: Document) => void;
   breadcrumb: (Folder | { id: 'root', name: string, type: 'folder' })[];
   onBreadcrumbClick: (folderId: string) => void;
 }
@@ -74,6 +75,7 @@ export function FileBrowser({
   onFolderAdd,
   onFolderDelete,
   onDocumentDelete,
+  onDocumentUpdate,
   breadcrumb,
   onBreadcrumbClick,
 }: FileBrowserProps) {
@@ -170,9 +172,9 @@ export function FileBrowser({
                     onFolderDelete={onFolderDelete} 
                     onDocumentDelete={onDocumentDelete}
                     updateItem={(updatedDoc) => {
-                      // Update the renewalDate in the UI after save
+                      // Update the renewalDate in the UI after save via immutable update
                       if (item.type === 'document' && updatedDoc && updatedDoc.renewalDate) {
-                        folder.items[idx] = { ...item, renewalDate: updatedDoc.renewalDate };
+                        if (onDocumentUpdate) onDocumentUpdate({ ...item, renewalDate: updatedDoc.renewalDate });
                       }
                     }}
                   />
