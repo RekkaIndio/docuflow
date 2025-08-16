@@ -55,7 +55,7 @@ interface AppSidebarProps {
   workspaces: Workspace[];
   activeWorkspace: Workspace;
   onWorkspaceChange: (workspaceId: string) => void;
-  setView: (view: 'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'outstanding-evidence' | 'dependency-calculator') => void;
+  setView: (view: 'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'dependency-calculator') => void;
   onGoToFiles: () => void;
   onCreateWorkspace: (name: string) => void;
 }
@@ -194,12 +194,7 @@ export function AppSidebar({
           <span className="text-lg">Documents</span>
         </SidebarMenuButton>
       </SidebarMenuItem>
-      <SidebarMenuItem>
-        <SidebarMenuButton onClick={() => handleNavigation(() => setView('outstanding-evidence'))} className="text-lg h-14">
-          <Tag className="w-7 h-7 mr-2" />
-          <span className="text-lg">Outstanding Evidence</span>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
+  {/* Outstanding Evidence removed - folders moved into main folders list */}
              <SidebarMenuItem>
         <SidebarMenuButton onClick={() => handleNavigation(() => setView('teams'))} className="text-lg h-14">
           <UsersRound className="w-7 h-7 mr-2" />
