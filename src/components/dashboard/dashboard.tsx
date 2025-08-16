@@ -399,8 +399,13 @@ export function Dashboard() {
     let newSelected = selected;
     // If we are in the folder the doc was added to, refresh the selection
     if (selected?.id === document.folderId && document.folderId) {
-      const parentFolder = findItemById(newFolders, document.folderId!);
-      if (parentFolder) newSelected = parentFolder;
+      if (document.folderId === 'root') {
+        // Create a fresh root wrapper that contains the updated folders so FileBrowser sees the new list
+        newSelected = { id: 'root', name: prev.name, type: 'folder', items: newFolders, workspaceId: prev.id } as Folder;
+      } else {
+        const parentFolder = findItemById(newFolders, document.folderId!);
+        if (parentFolder) newSelected = parentFolder;
+      }
     }
 
     setSelected(newSelected)
@@ -413,58 +418,97 @@ export function Dashboard() {
         console.error("Cannot add folder without a parentId");
         return;
     }
+    // Update workspace and selection together so the UI shows the new folder immediately.
+  setActiveWorkspace(prev => {
+    if (!prev) return null;
 
-    setActiveWorkspace(prev => {
-        if (!prev) return null;
+    const newFolders = findAndAddFolder(prev.folders, folder.parentId || 'root', folder) as Folder[];
+    const newWorkspace = { ...prev, folders: newFolders };
 
-        const newFolders = findAndAddFolder(prev.folders, folder.parentId || 'root', folder) as Folder[];
-        const newWorkspace = { ...prev, folders: newFolders };
-
-        // After updating the main workspace, check if we need to update the selected item.
-        if (selected?.id === (folder.parentId || 'root')) {
-            const updatedParentFolder = findItemById(newFolders, selected.id);
-            if (updatedParentFolder) {
-                 // Call setSelected in a separate state update to ensure it reflects the new workspace state
-                queueMicrotask(() => setSelected(updatedParentFolder));
-            }
+    // If the current selection is the parent folder (or root), update selection to the
+    // new parent reference from the updated workspace so children render immediately.
+    let newSelected = selected;
+    const parentIdKey = folder.parentId || 'root';
+    if (selected?.id === parentIdKey) {
+      if (parentIdKey === 'root') {
+        // Create a fresh root wrapper that contains the updated folders
+        newSelected = { id: 'root', name: newWorkspace.name, type: 'folder', items: newWorkspace.folders, workspaceId: newWorkspace.id } as Folder;
+      } else {
+        const updatedParentFolder = findItemById(newFolders, selected.id);
+        if (updatedParentFolder) {
+          newSelected = updatedParentFolder;
         }
-        
-        return newWorkspace;
-    });
+      }
+    }
+
+    // Apply selection update synchronously alongside workspace update.
+    setSelected(newSelected);
+
+    return newWorkspace;
+  });
 };
   const handleDocumentDelete = async (document: Document) => {
     if (!activeWorkspace) return;
     try {
       await deleteDocument(activeWorkspace.id, document.id);
-      let newWorkspace: Workspace | null = null;
+      // Update workspace and selection together so the UI updates immediately.
       setActiveWorkspace(prev => {
         if (!prev) return null;
-        // Ensure a new folders array reference
-        const newFolders = [...findAndRemoveItem(prev.folders, document.id)] as Folder[];
-        newWorkspace = { ...prev, folders: newFolders };
-        return { ...newWorkspace }; // force new object reference
-      });
-      // After workspace update, update selection if needed
-      setTimeout(() => {
-        if (!newWorkspace) return;
+        const newFolders = findAndRemoveItem(prev.folders, document.id) as Folder[];
+        const newWorkspace = { ...prev, folders: newFolders };
+
+        // Update selection: build a fresh root wrapper from the updated workspace so selection
+        // changes reference the new folders (avoid reading stale activeWorkspace)
+        const newRoot: Folder = { id: 'root', name: newWorkspace.name, type: 'folder', items: newWorkspace.folders, workspaceId: newWorkspace.id } as Folder;
         if (selected?.id === document.id) {
-          handleBackToFileBrowser();
+          setSelected(newRoot);
+          setView('files');
         } else if (selected) {
-          const updatedSelectedItem = findItemById(newWorkspace.folders, selected.id);
+          const updatedSelectedItem = findItemById(newFolders, selected.id);
           if (updatedSelectedItem) {
-            if (updatedSelectedItem.type === 'folder') {
-              setSelected({ ...updatedSelectedItem, items: updatedSelectedItem.items });
-            } else {
-              setSelected(updatedSelectedItem);
-            }
+            setSelected(updatedSelectedItem.type === 'folder' ? { ...updatedSelectedItem, items: updatedSelectedItem.items } : updatedSelectedItem);
           } else {
-            handleBackToFileBrowser();
+            setSelected(newRoot);
+            setView('files');
           }
         }
-      }, 0);
+
+        return newWorkspace;
+      });
     } catch (error) {
       console.error("Failed to delete document:", error);
     }
+  };
+
+  // Immutable update for a single document (e.g., renewalDate changed)
+  const handleDocumentUpdate = (document: Document) => {
+    if (!activeWorkspace) return;
+    setActiveWorkspace(prev => {
+      if (!prev) return null;
+      // Replace the document in the folders tree immutably
+      const replaceDoc = (items: (Folder | Document)[]): (Folder | Document)[] => {
+        return items.map(item => {
+          if (item.type === 'document' && item.id === document.id) {
+            return { ...item, ...document };
+          }
+          if (item.type === 'folder') {
+            const updatedItems = replaceDoc(item.items);
+            if (updatedItems !== item.items) return { ...item, items: updatedItems };
+          }
+          return item;
+        });
+      };
+
+      const newFolders = replaceDoc(prev.folders) as Folder[];
+      const newWorkspace = { ...prev, folders: newFolders };
+
+      // If the selected item is the updated document, update selection to the new object
+      if (selected?.id === document.id) {
+        setSelected(document);
+      }
+
+      return newWorkspace;
+    });
   };
 
   const handleFolderDelete = async (folder: Folder) => {
@@ -488,32 +532,29 @@ export function Dashboard() {
 
     try {
         await deleteFolder(activeWorkspace.id, folder.id);
-        
-    let newWorkspace: Workspace | null = null;
+    // Update workspace and selection together so UI removes the folder immediately.
     setActiveWorkspace(prev => {
       if (!prev) return null;
       const newFolders = findAndRemoveItem(prev.folders, folder.id) as Folder[];
-      newWorkspace = { ...prev, folders: newFolders };
-      return newWorkspace;
-    });
-    // After workspace update, update selection
-    setTimeout(() => {
-      if (!newWorkspace) return;
+      const newWorkspace = { ...prev, folders: newFolders };
+
+      const newRoot: Folder = { id: 'root', name: newWorkspace.name, type: 'folder', items: newWorkspace.folders, workspaceId: newWorkspace.id } as Folder;
       if (selected?.id === folder.id) {
-        handleBackToFileBrowser();
+        // If the deleted folder was selected, go back to root file browser
+        setSelected(newRoot);
+        setView('files');
       } else if (selected) {
-        const updatedSelectedItem = findItemById(newWorkspace.folders, selected.id);
+        const updatedSelectedItem = findItemById(newFolders, selected.id);
         if (updatedSelectedItem) {
-          if (updatedSelectedItem.type === 'folder') {
-            setSelected({ ...updatedSelectedItem, items: updatedSelectedItem.items });
-          } else {
-            setSelected(updatedSelectedItem);
-          }
+          setSelected(updatedSelectedItem.type === 'folder' ? { ...updatedSelectedItem, items: updatedSelectedItem.items } : updatedSelectedItem);
         } else {
-          handleBackToFileBrowser();
+          setSelected(newRoot);
+          setView('files');
         }
       }
-    }, 0);
+
+      return newWorkspace;
+    });
 
     } catch (error) {
         console.error("Failed to delete folder:", error);
@@ -638,6 +679,7 @@ export function Dashboard() {
           onFolderAdd={handleFolderAdd}
           onFolderDelete={handleFolderDelete}
           onDocumentDelete={handleDocumentDelete}
+          onDocumentUpdate={handleDocumentUpdate}
           breadcrumb={breadcrumb}
           onBreadcrumbClick={handleBreadcrumbClick}
         />
