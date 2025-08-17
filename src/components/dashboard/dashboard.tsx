@@ -304,7 +304,30 @@ export function Dashboard() {
       
       const document = findDocument(activeWorkspace.folders);
       if (document) {
-        handleSelect(document);
+        // Instead of selecting the document (which would render DocumentView), select its parent folder
+        const findParentFolder = (items: (Folder | Document)[], childId: string): Folder | null => {
+          for (const item of items) {
+            if (item.type === 'folder') {
+              if (item.items.some(child => child.id === childId)) return item;
+              const found = findParentFolder(item.items, childId);
+              if (found) return found;
+            }
+          }
+          return null;
+        };
+
+        const parent = findParentFolder(activeWorkspace!.folders, document.id);
+        if (parent) {
+          setSelected(parent);
+          setView('files');
+        } else {
+          setSelected({ id: 'root', name: activeWorkspace!.name, type: 'folder', items: activeWorkspace!.folders, workspaceId: activeWorkspace!.id } as Folder);
+          setView('files');
+        }
+
+        if (typeof window !== 'undefined' && window.dispatchEvent) {
+          try { window.dispatchEvent(new CustomEvent('highlight-document', { detail: { documentId } })); } catch (e) {}
+        }
       } else {
         // Document not found, show a toast or fallback behavior
         console.warn(`Document ${documentId} (${documentName}) not found in workspace`);
@@ -525,6 +548,22 @@ export function Dashboard() {
       // If the selected item is the updated document, update selection to the new object
       if (selected?.id === document.id) {
         setSelected(document);
+      } else if (selected && selected.type === 'folder') {
+        // If the selected folder contains this document, replace the selected folder reference
+        const findParent = (items: (Folder | Document)[]): Folder | null => {
+          for (const item of items) {
+            if (item.type === 'folder') {
+              if (item.items.some(child => child.id === document.id)) return item;
+              const found = findParent(item.items);
+              if (found) return found;
+            }
+          }
+          return null;
+        };
+        const updatedParent = findParent(newFolders);
+        if (updatedParent && selected.id === updatedParent.id) {
+          setSelected({ ...updatedParent, items: updatedParent.items });
+        }
       }
 
       return newWorkspace;

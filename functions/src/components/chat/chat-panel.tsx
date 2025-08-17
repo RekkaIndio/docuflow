@@ -163,7 +163,11 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
                 documentJson: JSON.stringify(bestDoc.extractedJson || {}),
               });
               if (typeof window !== 'undefined' && window.dispatchEvent) {
-                window.dispatchEvent(new CustomEvent('highlight-document', { detail: { documentId: bestDoc.id } }));
+                try { window.dispatchEvent(new CustomEvent('navigate-to-document', { detail: { documentId: bestDoc.id, documentName: bestDoc.name } })); } catch (e) {}
+                try { (window as any).__lastHighlightedDocumentId = bestDoc.id; (window as any).__lastHighlightedDocumentName = bestDoc.name; } catch (e) {}
+                setTimeout(() => {
+                  try { window.dispatchEvent(new CustomEvent('highlight-document', { detail: { documentId: bestDoc.id } })); } catch (e) {}
+                }, 150);
               }
               setMessages([
                 ...newMessages,
@@ -197,7 +201,11 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
               });
               // Highlight the document (emit an event or set state, see below)
               if (typeof window !== 'undefined' && window.dispatchEvent) {
-                window.dispatchEvent(new CustomEvent('highlight-document', { detail: { documentId: bestMatch.documentId } }));
+                try { window.dispatchEvent(new CustomEvent('navigate-to-document', { detail: { documentId: bestMatch.documentId, documentName: bestMatch.name } })); } catch (e) {}
+                try { (window as any).__lastHighlightedDocumentId = bestMatch.documentId; (window as any).__lastHighlightedDocumentName = bestMatch.name; } catch (e) {}
+                setTimeout(() => {
+                  try { window.dispatchEvent(new CustomEvent('highlight-document', { detail: { documentId: bestMatch.documentId } })); } catch (e) {}
+                }, 150);
               }
               // Link to the folder (assuming route: /folders/[id])
               let folderLink = '';
