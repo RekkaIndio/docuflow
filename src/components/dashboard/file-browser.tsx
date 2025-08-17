@@ -84,6 +84,20 @@ export function FileBrowser({
 
   // Highlighted document state
   const [highlightedDocId, setHighlightedDocId] = React.useState<string | null>(null);
+  // Helper: find a card element by a fuzzy document name match (case-insensitive).
+  const findCardElementByDocumentName = (name?: string): HTMLElement | null => {
+    if (!name) return null;
+    try {
+      const matches = Array.from(
+        document.querySelectorAll('.card-content p, .card-content .font-medium, .font-medium')
+      ).filter(el => el.textContent && el.textContent.trim().toLowerCase().includes(name.toLowerCase()));
+      if (matches.length > 0) {
+        const el2 = (matches[0] as HTMLElement).closest('.card') as HTMLElement | null;
+        return el2;
+      }
+    } catch (e) {}
+    return null;
+  };
   React.useEffect(() => {
     const handler = (e: Event) => {
       const custom = e as CustomEvent;
@@ -91,13 +105,64 @@ export function FileBrowser({
         setHighlightedDocId(custom.detail.documentId);
         setTimeout(() => {
           const el = document.getElementById(`doc-card-${custom.detail.documentId}`);
-          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+          }
+          // Fallback: try to find by name if name persisted
+          try {
+            const name = typeof window !== 'undefined' ? localStorage.getItem('lastHighlightedDocumentName') || undefined : undefined;
+            const el2 = findCardElementByDocumentName(name as string | undefined);
+            if (el2) el2.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          } catch (e) {}
         }, 100);
       }
     };
     window.addEventListener('highlight-document', handler);
+    // If a highlight was dispatched shortly before this component mounted, pick it up
+    try {
+      const last = typeof window !== 'undefined' ? localStorage.getItem('lastHighlightedDocumentId') : null;
+      if (last) {
+        setHighlightedDocId(last);
+        setTimeout(() => {
+          const el = document.getElementById(`doc-card-${last}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+          }
+          try {
+            const name = typeof window !== 'undefined' ? localStorage.getItem('lastHighlightedDocumentName') || undefined : undefined;
+            const el2 = findCardElementByDocumentName(name as string | undefined);
+            if (el2) el2.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          } catch (e) {}
+        }, 100);
+      }
+    } catch (e) {}
     return () => window.removeEventListener('highlight-document', handler);
   }, []);
+
+  // If a highlight id exists but the element wasn't present yet (e.g., highlight fired before folder re-render),
+  // try again when folder items change or when highlightedDocId changes.
+  React.useEffect(() => {
+    if (!highlightedDocId) return;
+    const tryScroll = () => {
+      const el = document.getElementById(`doc-card-${highlightedDocId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return true;
+      }
+      return false;
+    };
+
+    // Try now, then again shortly after to handle late DOM updates
+    if (tryScroll()) return;
+    const t1 = setTimeout(() => tryScroll(), 150);
+    const t2 = setTimeout(() => tryScroll(), 400);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [highlightedDocId, folder?.items?.length]);
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -167,14 +232,14 @@ export function FileBrowser({
                   ) : (
                     getFileIcon(item.fileType)
                   )}
-                  <ItemMenu 
-                    item={item} 
-                    onFolderDelete={onFolderDelete} 
+                  <ItemMenu
+                    item={item}
+                    onFolderDelete={onFolderDelete}
                     onDocumentDelete={onDocumentDelete}
                     updateItem={(updatedDoc) => {
-                      // Update the renewalDate in the UI after save via immutable update
-                      if (item.type === 'document' && updatedDoc && updatedDoc.renewalDate) {
-                        if (onDocumentUpdate) onDocumentUpdate({ ...item, renewalDate: updatedDoc.renewalDate });
+                      // Merge any returned fields (name, renewalDate, etc.) into the item
+                      if (item.type === 'document' && updatedDoc && onDocumentUpdate) {
+                        onDocumentUpdate({ ...(item as Document), ...updatedDoc });
                       }
                     }}
                   />
@@ -215,7 +280,7 @@ import { setDocumentRenewalDate } from "@/lib/setDocumentRenewalDate";
 import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 
-const ItemMenu = ({ item, onFolderDelete, onDocumentDelete, updateItem }: { item: Document | Folder, onFolderDelete: (folder: Folder) => void, onDocumentDelete: (document: Document) => void, updateItem?: (updatedDoc: Document) => void }) => {
+const ItemMenu = ({ item, onFolderDelete, onDocumentDelete, updateItem }: { item: Document | Folder, onFolderDelete: (folder: Folder) => void, onDocumentDelete: (document: Document) => void, updateItem?: (updatedDoc: Partial<Document> & { id: string, type: 'document' | 'folder' }) => void }) => {
   const [renameOpen, setRenameOpen] = useState(false);
   const [renewalOpen, setRenewalOpen] = useState(false);
   const [newName, setNewName] = useState(item.name);
@@ -252,6 +317,11 @@ const ItemMenu = ({ item, onFolderDelete, onDocumentDelete, updateItem }: { item
     try {
       await handleRename({ id: item.id, type: item.type, workspaceId: (item as any).workspaceId }, newName.trim());
       toast({ title: "Renamed!", description: `Renamed to '${newName.trim()}'` });
+      // Update parent state for documents so the new name appears immediately
+      if (item.type === 'document' && updateItem) {
+        // Only send the changed fields so parent merges correctly
+        updateItem({ id: item.id, name: newName.trim(), type: 'document' });
+      }
       setRenameOpen(false);
     } catch (e) {
       toast({ title: "Rename failed", description: "Could not rename. Please try again.", variant: "destructive" });
@@ -271,7 +341,7 @@ const ItemMenu = ({ item, onFolderDelete, onDocumentDelete, updateItem }: { item
       await setDocumentRenewalDate((item as any).workspaceId, item.id, renewalDate);
       toast({ title: "Renewal Date Set!", description: `Renewal date set to ${renewalDate}` });
       setRenewalOpen(false);
-      if (updateItem) updateItem({ ...(item as Document), renewalDate });
+  if (updateItem) updateItem({ id: item.id, type: 'document', renewalDate });
     } catch (e) {
       toast({ title: "Failed to set renewal date", description: "Could not set renewal date. Please try again.", variant: "destructive" });
     } finally {
@@ -320,13 +390,14 @@ const ItemMenu = ({ item, onFolderDelete, onDocumentDelete, updateItem }: { item
       {/* Rename Dialog */}
       {!protectedFolderIds && (
         <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
-        <DialogContent>
+    <DialogContent className="no-nav">
           <DialogHeader>
             <DialogTitle>Rename {item.type === 'folder' ? 'Folder' : 'Document'}</DialogTitle>
           </DialogHeader>
           <Input
             value={newName}
-            onChange={e => setNewName(e.target.value)}
+      onChange={e => setNewName(e.target.value)}
+      className="no-nav"
             onKeyDown={e => { if (e.key === 'Enter') handleRenameSubmit(); }}
             autoFocus
             disabled={loading}

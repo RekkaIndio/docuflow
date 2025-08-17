@@ -412,7 +412,6 @@ How can I assist you today?`
           }
         }
       } catch (err) {
-        console.warn('[chat-panel] client-side search error', err);
         clientResults = [];
       }
 
@@ -427,6 +426,16 @@ How can I assist you today?`
           url: `/documents/${bestDoc.id}`,
           subtitle: bestDoc.folderId ? `Folder: ${bestDoc.folderId}` : undefined
         };
+
+        // Navigate to the document so the folder/file browser shows it, then highlight
+        if (typeof window !== 'undefined' && window.dispatchEvent) {
+          try { window.dispatchEvent(new CustomEvent('navigate-to-document', { detail: { documentId: bestDoc.id, documentName: bestDoc.name } })); } catch (e) {}
+          try { localStorage.setItem('lastHighlightedDocumentId', bestDoc.id); localStorage.setItem('lastHighlightedDocumentName', bestDoc.name); } catch (e) {}
+          setTimeout(() => {
+            try { window.dispatchEvent(new CustomEvent('highlight-document', { detail: { documentId: bestDoc.id } })); } catch (e) {}
+          }, 150);
+        }
+
         setMessages([
           ...newMessages,
           {
@@ -440,7 +449,7 @@ How can I assist you today?`
       }
 
       // Fall back to server search
-      console.log('[chat-panel] search call workspaceId=', workspaceId, 'searchQuery=', searchQuery);
+      
       const searchRes = await fetch('/api/search-documents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -472,7 +481,11 @@ How can I assist you today?`
       result = await chatWithDocuments({ query: userInput, documentJson: JSON.stringify(bestDoc.extractedJson || {}) });
 
       if (typeof window !== 'undefined' && window.dispatchEvent) {
-        window.dispatchEvent(new CustomEvent('highlight-document', { detail: { documentId: bestMatch.documentId } }));
+        try { window.dispatchEvent(new CustomEvent('navigate-to-document', { detail: { documentId: bestMatch.documentId, documentName: bestMatch.name } })); } catch (e) {}
+        try { localStorage.setItem('lastHighlightedDocumentId', bestMatch.documentId); localStorage.setItem('lastHighlightedDocumentName', bestMatch.name); } catch (e) {}
+        setTimeout(() => {
+          try { window.dispatchEvent(new CustomEvent('highlight-document', { detail: { documentId: bestMatch.documentId } })); } catch (e) {}
+        }, 150);
       }
 
       const documentCards = results.slice(0, 3).map((doc: any) => ({
