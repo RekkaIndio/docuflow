@@ -45,10 +45,10 @@ export function ShareDialog({ children }: ShareDialogProps) {
             <h3 className="text-sm font-medium">People with access</h3>
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <Avatar>
-                        <AvatarImage src={mockUser.avatarUrl} />
-                        <AvatarFallback>{mockUser.name.charAt(0)}</AvatarFallback>
-                    </Avatar>
+          <Avatar>
+            <AvatarImage src={mockUser.avatarUrl ?? undefined} />
+            <AvatarFallback>{(mockUser.name ?? '').charAt(0)}</AvatarFallback>
+          </Avatar>
                     <div>
                         <p className="font-medium">{mockUser.name} (You)</p>
                         <p className="text-sm text-muted-foreground">{mockUser.email}</p>

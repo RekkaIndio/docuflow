@@ -33,6 +33,9 @@ import { AllDocumentsView } from "./all-documents-view";
 import { RenewalsView } from "./renewals-view";
 import { TagsView } from "./tags-view";
 import { TopNav } from "./top-nav";
+import { NotificationsView } from "./notifications-view";
+import { db } from '@/lib/firebase';
+import { collection, query as fsQuery, where, onSnapshot } from 'firebase/firestore';
 import { AccessibilityView } from "./accessibility-view";
 // Outstanding Evidence view removed; evidence folders are now regular protected folders
 
@@ -150,9 +153,26 @@ export function Dashboard() {
   // evidenceSelected removed; evidence folders are part of the main folders tree
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'dependency-calculator'>('home');
+  const [view, setView] = useState<'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'dependency-calculator' | 'notifications'>('home');
+  const [unreadNotifications, setUnreadNotifications] = useState<number>(0);
   const [breadcrumb, setBreadcrumb] = useState<(Folder | { id: 'root', name: string, type: 'folder' })[]>([]);
 
+
+  useEffect(() => {
+    // Listen for unread notifications count for the active workspace
+    let unsub: (() => void) | undefined;
+    if (activeWorkspace) {
+      const q = fsQuery(collection(db, `workspaces/${activeWorkspace.id}/notifications`), where('read', '==', false));
+      unsub = onSnapshot(q, (snap: any) => {
+        setUnreadNotifications(snap.size);
+      }, (err: any) => {
+        console.error('Failed to listen for unread notifications', err);
+      });
+    } else {
+      setUnreadNotifications(0);
+    }
+    return () => { if (unsub) unsub(); };
+  }, [activeWorkspace]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -259,7 +279,7 @@ export function Dashboard() {
       setLoading(false);
     }
     fetchData();
-  }, [user])
+  }, [user]);
 
   // Add event listener for document navigation from chat
   useEffect(() => {
@@ -655,6 +675,8 @@ export function Dashboard() {
             return <SettingsView workspace={activeWorkspace} />;
         case 'accessibility':
             return <AccessibilityView workspace={activeWorkspace} />;
+    case 'notifications':
+      return activeWorkspace ? <NotificationsView workspaceId={activeWorkspace.id} onBack={() => setView('home')} /> : <div className="p-6">No workspace</div>;
     case 'documents':
       return <AllDocumentsView 
         key={activeWorkspace.folders.map(f=>f.id).join('-') + '-' + activeWorkspace.folders.length}
@@ -719,7 +741,7 @@ export function Dashboard() {
         </Sidebar>
 
         <SidebarInset className="flex flex-col min-h-screen w-full overflow-hidden">
-            <TopNav onSettingsClick={() => setView('settings')} />
+                <TopNav onSettingsClick={() => setView('settings')} onNotificationsClick={() => setView('notifications')} unreadCount={unreadNotifications} workspaceId={activeWorkspace?.id} />
             <div className={cn(
               "flex-1 overflow-y-auto overflow-x-hidden w-full",
               // Add bottom padding on mobile when chat is closed to ensure content isn't hidden behind chat button
