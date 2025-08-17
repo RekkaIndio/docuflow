@@ -5,8 +5,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
-type DependencyLevel = "Low" | "Medium" | "High" | "";
-type Shift = "AM" | "PM" | "Night";
+type DependencyLevel = "None" | "Low" | "Medium" | "High" | "";
+type Shift = "Day" | "Night";
 
 interface Resident {
   name: string;
@@ -37,8 +37,8 @@ interface Community {
   residentIds: string[];
 }
 
-const DEPENDENCY_WEIGHTS: Record<Exclude<DependencyLevel, "">, number> = { Low: 1, Medium: 2, High: 3 };
-const SHIFTS: Shift[] = ["AM", "PM", "Night"];
+// We include an explicit 'None' level to represent "No Needs" with weight 0
+const DEPENDENCY_WEIGHTS: Record<Exclude<DependencyLevel, "">, number> = { None: 0, Low: 1, Medium: 2, High: 3 };
 
 const FIELDS = [
   { key: "personalCare", label: "Personal Care" },
@@ -75,29 +75,56 @@ function getDefaultAssessment(): Omit<Resident, "name" | "room"> {
   };
 }
 
-// Default care minutes per field per shift by dependency level
-const CARE_MINUTES: Record<DependencyLevel, number> = {
+// Care minutes per dependency level for Day (former AM) and Night (former PM)
+const DAY_MINUTES: Record<DependencyLevel, number> = {
   "": 0,
+  None: 0,
   Low: 15,
   Medium: 30,
-  High: 60,
+  High: 45,
 };
 
-// For now, use same minutes for all shifts; can be customized per shift if needed
-const SHIFTS_LIST: Shift[] = ["AM", "PM", "Night"];
+const NIGHT_MINUTES: Record<DependencyLevel, number> = {
+  "": 0,
+  None: 0,
+  Low: 10,
+  Medium: 15,
+  High: 20,
+};
 
-function calculateResidentCareHours(resident: Resident): Record<Shift, number> {
-  // For each shift, sum the minutes for all fields
-  const result: Record<Shift, number> = { AM: 0, PM: 0, Night: 0 };
-  for (const shift of SHIFTS_LIST) {
-    let totalMinutes = 0;
-    for (const field of FIELDS) {
-  const level = (resident[field.key as keyof Resident] as DependencyLevel) || "";
-  totalMinutes += CARE_MINUTES[level as DependencyLevel];
-    }
-    result[shift] = Math.round((totalMinutes / 60) * 100) / 100; // hours, rounded to 2 decimals
+// Helper to ceil to nearest 0.25
+function ceilToQuarter(x: number) {
+  return Math.ceil(x * 4) / 4;
+}
+
+// Ceil to nearest half (0.5)
+function ceilToHalf(x: number) {
+  return Math.ceil(x * 2) / 2;
+}
+
+function calculateResidentCareHours(resident: Resident): { Day: number; Night: number } {
+  // Sum minutes for Day and Night sessions separately using different scales
+  let dayMinutes = 0;
+  let nightMinutes = 0;
+  for (const field of FIELDS) {
+    const level = (resident[field.key as keyof Resident] as DependencyLevel) || "";
+    dayMinutes += DAY_MINUTES[level as DependencyLevel] ?? 0;
+    nightMinutes += NIGHT_MINUTES[level as DependencyLevel] ?? 0;
   }
-  return result;
+  const dayHours = Math.round((dayMinutes / 60) * 100) / 100;
+  const nightHours = Math.round((nightMinutes / 60) * 100) / 100;
+  return { Day: dayHours, Night: nightHours };
+}
+
+// Compare rooms numerically when possible, otherwise fallback to string compare
+function compareRooms(a?: string, b?: string) {
+  if (!a && !b) return 0;
+  if (!a) return 1;
+  if (!b) return -1;
+  const an = parseFloat(a.replace(/[^0-9.]/g, ''));
+  const bn = parseFloat(b.replace(/[^0-9.]/g, ''));
+  if (!isNaN(an) && !isNaN(bn)) return an - bn;
+  return a.localeCompare(b);
 }
 
 // Merge two resident arrays preferring newer per-resident updatedAt timestamps
@@ -155,13 +182,14 @@ export default function DependencyCalculatorPage() {
     const [modalOpen, setModalOpen] = useState(false);
     const [editingIndex, setEditingIndex] = useState<number | null>(null);
     const [step, setStep] = useState(0);
+  const [communityOpen, setCommunityOpen] = useState<Record<string, boolean>>({});
     const [form, setForm] = useState<Resident>({
       name: "",
       room: "",
       ...getDefaultAssessment(),
       communityId: null,
     });
-    const [staff, setStaff] = useState<Record<Shift, number>>({ AM: 0, PM: 0, Night: 0 });
+  const [staff, setStaff] = useState<Record<Shift, number>>({ Day: 0, Night: 0 });
 
     function openAddModal() {
   setForm({ name: "", room: "", ...getDefaultAssessment(), communityId: selectedCommunity ?? null });
@@ -177,6 +205,21 @@ export default function DependencyCalculatorPage() {
       setStep(0);
       setModalOpen(true);
     }
+
+      function deleteResidentById(id?: string | null) {
+        if (!id) return;
+        if (!confirm('Delete resident? This action cannot be undone.')) return;
+        // remove resident from residents list
+        setResidents(prev => prev.filter(r => r.id !== id));
+        // remove references from communities residentIds and clear communityId from residents
+        setCommunities(prev => prev.map(c => ({ ...c, residentIds: (c.residentIds || []).filter(rid => rid !== id) })));
+        setResidents(prev => prev.map(r => r.communityId === id ? { ...r, communityId: null } : r));
+        // close modal if the deleted resident was being edited
+        if (editingIndex !== null && residents[editingIndex]?.id === id) {
+          setModalOpen(false);
+          setEditingIndex(null);
+        }
+      }
 
   function handleNext() {
     // add an extra step for community selection after the FIELDS
@@ -220,7 +263,7 @@ export default function DependencyCalculatorPage() {
       if (s > 0 && s <= FIELDS.length) {
         const key = FIELDS[s - 1].key as keyof Resident;
         const val = form[key] as DependencyLevel | undefined;
-        return val === "Low" || val === "Medium" || val === "High";
+      return val === "None" || val === "Low" || val === "Medium" || val === "High";
       }
       if (s === FIELDS.length + 1) return true; // community selection optional
       return true;
@@ -230,7 +273,7 @@ export default function DependencyCalculatorPage() {
       if (form.name.trim() === "" || form.room.trim() === "") return false;
       for (const f of FIELDS) {
         const val = form[f.key as keyof Resident] as DependencyLevel | undefined;
-        if (!(val === "Low" || val === "Medium" || val === "High")) return false;
+        if (!(val === "None" || val === "Low" || val === "Medium" || val === "High")) return false;
       }
       return true;
     }
@@ -260,9 +303,10 @@ export default function DependencyCalculatorPage() {
       let found = false;
       for (const f of FIELDS) {
         const val = r[f.key as keyof Resident] as DependencyLevel | undefined;
-        if (val === "High") acc.High++;
-        else if (val === "Medium") acc.Medium++;
-        else if (val === "Low") acc.Low++;
+  if (val === "High") acc.High++;
+  else if (val === "Medium") acc.Medium++;
+  else if (val === "Low") acc.Low++;
+  // 'None' (No Needs) is intentionally not counted in Low/Medium/High
         if (val === "Low" || val === "Medium" || val === "High") found = true;
       }
       if (found) acc.Total++;
@@ -403,7 +447,12 @@ export default function DependencyCalculatorPage() {
   // Expandable resident table component. Accepts optional residentsProp to render a filtered set.
   function ResidentTable({ residentsProp }: { residentsProp?: Resident[] }) {
     const [expandedId, setExpandedId] = React.useState<string | null>(null);
-    const list = residentsProp ?? residents;
+  const list = (residentsProp ?? residents).slice().sort((a, b) => compareRooms(a.room, b.room));
+    // Pooled totals: sum hours first, then convert to 12h shifts (ceil to nearest 0.25)
+    const totalDayHours = Math.round(list.reduce((s, r) => s + calculateResidentCareHours(r).Day, 0) * 100) / 100;
+    const totalNightHours = Math.round(list.reduce((s, r) => s + calculateResidentCareHours(r).Night, 0) * 100) / 100;
+    const totalDayShifts = Math.ceil((totalDayHours / 12) * 4) / 4;
+    const totalNightShifts = Math.ceil((totalNightHours / 12) * 4) / 4;
     return (
       <div className="overflow-x-auto rounded-xl shadow bg-white mb-8">
         <div className="flex items-center justify-between p-4 border-b">
@@ -418,12 +467,13 @@ export default function DependencyCalculatorPage() {
         <table className="min-w-full text-sm">
           <thead>
             <tr>
-              <th className="px-4 py-2 text-left"></th>
-              <th className="px-4 py-2 text-left">Name</th>
-              <th className="px-4 py-2 text-left">Room</th>
-              <th className="px-4 py-2 text-left">AM (h)</th>
-              <th className="px-4 py-2 text-left">PM (h)</th>
-              <th className="px-4 py-2 text-left">Night (h)</th>
+              <th className="px-3 py-2 text-left"></th>
+              <th className="px-3 py-2 text-left">Name</th>
+              <th className="px-3 py-2 text-left">Room</th>
+              <th className="px-3 py-2 text-left">Day (h)</th>
+              <th className="px-3 py-2 text-left">Night (h)</th>
+              <th className="px-3 py-2 text-left">12h Day</th>
+              <th className="px-3 py-2 text-left">12h Night</th>
             </tr>
           </thead>
           <tbody>
@@ -433,7 +483,7 @@ export default function DependencyCalculatorPage() {
               return (
                 <React.Fragment key={r.id || `${r.name}-${r.room}`}>
                   <tr className="border-t">
-                    <td className="px-4 py-2 text-center">
+                    <td className="px-3 py-2 text-center">
                       <button
                         className="text-blue-600 hover:text-blue-900 focus:outline-none"
                         aria-label={isOpen ? "Collapse details" : "Expand details"}
@@ -442,11 +492,12 @@ export default function DependencyCalculatorPage() {
                         {isOpen ? "−" : "+"}
                       </button>
                     </td>
-                    <td className="px-4 py-2">{r.name}</td>
-                    <td className="px-4 py-2 font-mono">{r.room}</td>
-                    <td className="px-4 py-2 font-mono">{careHours.AM}</td>
-                    <td className="px-4 py-2 font-mono">{careHours.PM}</td>
-                    <td className="px-4 py-2 font-mono">{careHours.Night}</td>
+                    <td className="px-3 py-2">{r.name}</td>
+                    <td className="px-3 py-2 font-mono">{r.room}</td>
+                    <td className="px-3 py-2 font-mono">{careHours.Day}</td>
+                    <td className="px-3 py-2 font-mono">{careHours.Night}</td>
+                    <td className="px-3 py-2 font-mono">{Math.round(ceilToQuarter((careHours.Day / 12)) * 100) / 100}</td>
+                    <td className="px-3 py-2 font-mono">{Math.round(ceilToQuarter((careHours.Night / 12)) * 100) / 100}</td>
                   </tr>
                   {isOpen && (
                     <tr className="bg-blue-50/30">
@@ -465,6 +516,7 @@ export default function DependencyCalculatorPage() {
                                 }}
                               >
                                 <option value="">Select...</option>
+                                <option value="None">No Needs</option>
                                 <option value="Low">Low</option>
                                 <option value="Medium">Medium</option>
                                 <option value="High">High</option>
@@ -479,19 +531,39 @@ export default function DependencyCalculatorPage() {
               );
             })}
           </tbody>
+          <tfoot>
+            <tr className="border-t font-semibold">
+              <td className="px-4 py-2"></td>
+              <td className="px-3 py-2 text-left">Totals</td>
+              <td className="px-3 py-2 font-mono"></td>
+              <td className="px-3 py-2 font-mono">
+                {Math.round(list.reduce((s, r) => s + calculateResidentCareHours(r).Day, 0) * 100) / 100}
+              </td>
+              <td className="px-3 py-2 font-mono">
+                {Math.round(list.reduce((s, r) => s + calculateResidentCareHours(r).Night, 0) * 100) / 100}
+              </td>
+              <td className="px-3 py-2 font-mono">
+                {totalDayShifts}
+              </td>
+              <td className="px-3 py-2 font-mono">
+                {totalNightShifts}
+              </td>
+            </tr>
+          </tfoot>
         </table>
       </div>
     );
   }
 
   return (
-    <div className="p-8 min-h-screen bg-gray-50">
-      <h1 className="text-3xl font-bold mb-4">Dependency Calculator</h1>
-      <p className="text-lg text-muted-foreground mb-8 max-w-2xl">
+    <div className="p-6 min-h-screen bg-gray-50">
+      <h1 className="text-2xl font-semibold mb-2">Dependency Calculator</h1>
+      <p className="text-sm text-muted-foreground mb-6 max-w-3xl">
         Assess each resident step-by-step. Each card below shows a summary. Click to edit or add a new resident.
       </p>
 
-      <div className="flex flex-wrap gap-6 mb-8">
+      <div className="flex gap-4 mb-6 items-start">
+        <div className="flex-1">
         {/* Communities area: create and panels */}
         <div className="w-full mb-6">
           <div className="flex items-center gap-3 mb-3">
@@ -507,7 +579,7 @@ export default function DependencyCalculatorPage() {
               }}
             >Create community</button>
           </div>
-          <div className="flex gap-3 overflow-auto mb-4">
+          <div className="flex gap-2 overflow-auto mb-3">
             {communities.map(c => (
               <div
                 key={c.id}
@@ -515,15 +587,14 @@ export default function DependencyCalculatorPage() {
                 onDrop={e => {
                   const id = e.dataTransfer.getData('text/residentId');
                   if (!id) return;
-                  // make resident's communityId canonical
                   setResidents(prev => prev.map(r => r.id === id ? { ...r, communityId: c.id, updatedAt: Date.now(), updatedBy: user?.id ?? null } : r));
                 }}
                 onClick={() => setSelectedCommunity(c.id)}
-                className={`min-w-[220px] p-3 rounded border bg-white cursor-pointer ${selectedCommunity === c.id ? 'ring-2 ring-blue-300' : ''}`}
+                className={`min-w-[200px] p-2 rounded border bg-white cursor-pointer text-sm ${selectedCommunity === c.id ? 'ring-2 ring-blue-300' : ''}`}
               >
-                <div className="font-semibold mb-2 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div>{c.name}</div>
+                  <div className="font-semibold mb-1 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                    <div className="text-sm font-medium">{c.name}</div>
                     <button
                       className="text-xs text-gray-500"
                       onClick={e => { e.stopPropagation(); const newName = prompt('Rename community', c.name); if (newName && newName.trim()) setCommunities(prev => prev.map(pc => pc.id === c.id ? { ...pc, name: newName.trim() } : pc)); }}
@@ -531,6 +602,10 @@ export default function DependencyCalculatorPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="text-xs text-gray-400">{residents.filter(r => r.communityId === c.id).length} residents</div>
+                    <button
+                      className="text-xs text-gray-500"
+                      onClick={e => { e.stopPropagation(); setCommunityOpen(prev => ({ ...prev, [c.id]: !prev[c.id] })); }}
+                    >{communityOpen[c.id] ? 'Hide' : 'Show'}</button>
                     <button
                       className="text-xs text-red-500"
                       onClick={e => {
@@ -544,73 +619,133 @@ export default function DependencyCalculatorPage() {
                     >Delete</button>
                   </div>
                 </div>
-                <div className="mt-2">
-                  {residents.filter(r => r.communityId === c.id).length === 0 ? (
-                    <div className="text-sm text-gray-500">No members</div>
-                  ) : (
-                    <div className="flex flex-col gap-2">
-                      {residents.filter(r => r.communityId === c.id).map(r => (
-                        <div key={r.id} className="flex items-center justify-between bg-gray-50 p-2 rounded">
-                          <div className="text-sm truncate" title={`${r.name} — ${r.room}`}>{r.name || 'Unnamed'} <span className="text-xs text-gray-400">({r.room || '-'})</span></div>
-                          <div className="flex items-center gap-2">
-                            <button className="text-xs text-blue-600" onClick={e => { e.stopPropagation(); const idx = residents.findIndex(rr => rr.id === r.id); if (idx >= 0) openEditModal(idx); }}>Edit</button>
-                            <button className="text-xs text-red-500" onClick={e => { e.stopPropagation(); setResidents(prev => prev.map(rr => rr.id === r.id ? { ...rr, communityId: null } : rr)); }} aria-label={`Remove ${r.name} from ${c.name}`}>✕</button>
+                {communityOpen[c.id] ? (
+                  <div className="mt-1">
+                    {residents.filter(r => r.communityId === c.id).length === 0 ? (
+                      <div className="text-sm text-gray-500">No members</div>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        {residents.filter(r => r.communityId === c.id).map(r => (
+                          <div key={r.id} className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                            <div className="text-sm truncate" title={`${r.name} — ${r.room}`}>{r.name || 'Unnamed'} <span className="text-xs text-gray-400">({r.room || '-'})</span></div>
+                            <div className="flex items-center gap-2">
+                              <button className="text-xs text-blue-600" onClick={e => { e.stopPropagation(); const idx = residents.findIndex(rr => rr.id === r.id); if (idx >= 0) openEditModal(idx); }}>Edit</button>
+                              <button className="text-xs text-red-500" onClick={e => { e.stopPropagation(); setResidents(prev => prev.map(rr => rr.id === r.id ? { ...rr, communityId: null } : rr)); }} aria-label={`Remove ${r.name} from ${c.name}`}>✕</button>
+                              <button className="text-xs text-red-600" onClick={e => { e.stopPropagation(); deleteResidentById(r.id); }}>Delete</button>
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
               </div>
             ))}
           </div>
         </div>
-        {residents.map((r, i) => {
+        {
+          // First, render any open community member groups in the main area
+          communities.filter(c => communityOpen[c.id]).map(c => {
+              const members = residents.filter(r => r.communityId === c.id).slice().sort((x, y) => compareRooms(x.room, y.room));
+            if (members.length === 0) return null;
+            return (
+              <div key={`group-${c.id}`} className="mb-4">
+                <div className="text-sm font-semibold mb-2">{c.name}</div>
+                <div className="flex flex-wrap gap-6 mb-6">
+                      {members.map(r => {
+                    const idx = residents.findIndex(rr => rr.id === r.id);
+                    const careHours = calculateResidentCareHours(r);
+                    const inCommunity = true;
+                    return (
+                      <div
+                        key={r.id}
+                        draggable
+                        onDragStart={e => {
+                          if (!r.id) return;
+                          e.dataTransfer.setData('text/residentId', r.id);
+                        }}
+                        className={`relative bg-white rounded-lg shadow-sm p-4 w-64 cursor-pointer hover:ring-2 ring-blue-400 transition ${inCommunity ? 'ring-2 ring-green-300' : ''}`}
+                        onClick={() => { if (idx >= 0) openEditModal(idx); }}
+                      >
+                        <div className="mb-2">
+                          <div>
+                            <div className="font-semibold text-base">{r.name || "Unnamed"}</div>
+                            <div className="text-xs text-gray-500">Room: {r.room || "-"}</div>
+                            {r.updatedAt && (
+                              <div className="text-xs text-gray-400">Last edited {timeAgo(r.updatedAt)}{r.updatedBy ? ` by ${r.updatedBy}` : ''}</div>
+                            )}
+                          </div>
+                          <div className="absolute top-3 right-3 flex items-center gap-2">
+                            <button className="text-xs text-blue-600 underline" onClick={e => { e.stopPropagation(); if (idx >= 0) openEditModal(idx); }}>Edit</button>
+                            <button className="text-xs text-red-600 ml-2" onClick={e => { e.stopPropagation(); deleteResidentById(r.id); }}>Delete</button>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs mt-2">
+                          {FIELDS.slice(0, 4).map(f => (
+                            <div key={f.key} className="truncate">
+                              <span className="font-medium">{f.label}:</span> {r[f.key as keyof Resident] || "-"}
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="mt-3 text-xs text-gray-700">
+                          <div className="font-semibold mb-1">Estimated Care:</div>
+                          <div>Day: <span className="font-mono">{careHours.Day}</span>h • Night: <span className="font-mono">{careHours.Night}</span>h</div>
+                          <div className="text-xs mt-1">12h Day: <span className="font-mono">{Math.round(ceilToQuarter((careHours.Day / 12)) * 100) / 100}</span> • 12h Night: <span className="font-mono">{Math.round(ceilToQuarter((careHours.Night / 12)) * 100) / 100}</span></div>
+                        </div>
+                        <div className="mt-2 text-xs text-gray-400">Click for full details</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })
+        }
+
+  {residents.filter(r => !r.communityId).slice().sort((x, y) => compareRooms(x.room, y.room)).map((r) => {
+          const idx = residents.findIndex(rr => rr.id === r.id);
           const careHours = calculateResidentCareHours(r);
-          const inCommunity = communities.find(c => c.residentIds.includes(r.id || ''));
+          const inCommunity = false;
           return (
             <div
-              key={i}
+              key={r.id}
               draggable
               onDragStart={e => {
-                // ensure resident has an id before dragging
-                if (!r.id) {
-                  const newId = genId();
-                  const updated = [...residents];
-                  updated[i] = { ...r, id: newId, updatedAt: Date.now(), updatedBy: user?.id ?? null } as Resident;
-                  setResidents(updated);
-                  e.dataTransfer.setData('text/residentId', newId);
-                  return;
-                }
+                if (!r.id) return;
                 e.dataTransfer.setData('text/residentId', r.id);
               }}
-              className={`bg-white rounded-xl shadow p-6 w-80 cursor-pointer hover:ring-2 ring-blue-400 transition ${inCommunity ? 'ring-2 ring-green-300' : ''}`}
-              onClick={() => openEditModal(i)}
+              className={`relative bg-white rounded-lg shadow-sm p-4 w-64 cursor-pointer hover:ring-2 ring-blue-400 transition ${inCommunity ? 'ring-2 ring-green-300' : ''}`}
+              onClick={() => { if (idx >= 0) openEditModal(idx); }}
             >
-              <div className="flex items-center justify-between mb-2">
+              <div className="mb-2">
                 <div>
                   <div className="font-semibold text-lg">{r.name || "Unnamed"}</div>
-                    <div className="text-sm text-gray-500">Room: {r.room || "-"}</div>
-                    {r.updatedAt && (
-                      <div className="text-xs text-gray-400">Last edited {timeAgo(r.updatedAt)}{r.updatedBy ? ` by ${r.updatedBy}` : ''}</div>
-                    )}
+                  <div className="text-sm text-gray-500">Room: {r.room || "-"}</div>
+                  {r.updatedAt && (
+                    <div className="text-xs text-gray-400">Last edited {timeAgo(r.updatedAt)}{r.updatedBy ? ` by ${r.updatedBy}` : ''}</div>
+                  )}
                 </div>
-                <button
-                  className="text-xs text-blue-600 underline"
-                  onClick={e => { e.stopPropagation(); openEditModal(i); }}
-                >Edit</button>
+                <div className="absolute top-3 right-3 flex items-center gap-2">
+                  <button className="text-xs text-blue-600 underline" onClick={e => { e.stopPropagation(); if (idx >= 0) openEditModal(idx); }}>Edit</button>
+                  <button className="text-xs text-red-600 ml-2" onClick={e => { e.stopPropagation(); deleteResidentById(r.id); }}>Delete</button>
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-sm mt-2">
+
+              <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs mt-2">
                 {FIELDS.slice(0, 4).map(f => (
                   <div key={f.key} className="truncate">
                     <span className="font-medium">{f.label}:</span> {r[f.key as keyof Resident] || "-"}
                   </div>
                 ))}
               </div>
-              <div className="mt-4 text-xs text-gray-700">
-                <div className="font-semibold mb-1">Estimated Care Hours:</div>
-                <div>AM: <span className="font-mono">{careHours.AM}</span>h &nbsp; PM: <span className="font-mono">{careHours.PM}</span>h &nbsp; Night: <span className="font-mono">{careHours.Night}</span>h</div>
-              </div>
+
+                <div className="mt-3 text-xs text-gray-700">
+                  <div className="font-semibold mb-1">Estimated Care:</div>
+                  <div>Day: <span className="font-mono">{careHours.Day}</span>h • Night: <span className="font-mono">{careHours.Night}</span>h</div>
+                          <div className="text-xs mt-1">12h Day: <span className="font-mono">{Math.round(ceilToQuarter((careHours.Day / 12)) * 100) / 100}</span> • 12h Night: <span className="font-mono">{Math.round(ceilToQuarter((careHours.Night / 12)) * 100) / 100}</span></div>
+                </div>
               <div className="mt-2 text-xs text-gray-400">Click for full details</div>
             </div>
           );
@@ -622,6 +757,19 @@ export default function DependencyCalculatorPage() {
           <span className="text-4xl mb-2">+</span>
           <span className="font-semibold">Add Resident</span>
         </button>
+        </div>
+
+        <aside className="w-64">
+          <div className="mb-4 p-3 bg-white rounded shadow-sm border sticky top-24 text-sm">
+            <div className="text-sm font-semibold mb-2">Key</div>
+            <div className="grid gap-1 text-xs">
+              <div><span className="font-medium">No Needs</span> - No care input required</div>
+              <div><span className="font-medium">Low needs</span> - Assistance required, but can complete most of the task with prompt/support</div>
+              <div><span className="font-medium">Medium Needs</span> - Assistance required, can complete part of the task with prompt/support</div>
+              <div><span className="font-medium">High Needs</span> - Fully dependant on assistance and cannot complete the task without full input.</div>
+            </div>
+          </div>
+        </aside>
       </div>
 
   {/* Residents Table (Expandable Rows) */}
@@ -629,7 +777,7 @@ export default function DependencyCalculatorPage() {
     selectedCommunity ? (
       <ResidentTable residentsProp={residents.filter(r => r.communityId === selectedCommunity || communities.find(c => c.id === selectedCommunity)?.residentIds.includes(r.id || ''))} />
     ) : (
-      <ResidentTable />
+  <ResidentTable />
     )
   )}
       {modalOpen && (
@@ -684,6 +832,7 @@ export default function DependencyCalculatorPage() {
                   autoFocus
                 >
                   <option value="">Select...</option>
+                  <option value="None">No Needs</option>
                   <option value="Low">Low</option>
                   <option value="Medium">Medium</option>
                   <option value="High">High</option>
@@ -713,19 +862,27 @@ export default function DependencyCalculatorPage() {
                 onClick={handleBack}
                 disabled={step === 0}
               >Back</button>
-              {step < FIELDS.length + 1 ? (
-                <button
-                  className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white"
-                  onClick={attemptNext}
-                  disabled={false}
-                >Next</button>
-              ) : (
-                <button
-                  className="px-4 py-2 rounded bg-green-600 hover:bg-green-700 text-white"
-                  onClick={attemptSave}
-                  disabled={false}
-                >Save</button>
-              )}
+              <div className="flex items-center gap-3">
+                {editingIndex !== null && (
+                  <button
+                    className="px-3 py-2 rounded bg-red-600 hover:bg-red-700 text-white text-sm"
+                    onClick={() => { deleteResidentById(residents[editingIndex!]?.id); }}
+                  >Delete</button>
+                )}
+                {step < FIELDS.length + 1 ? (
+                  <button
+                    className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white"
+                    onClick={attemptNext}
+                    disabled={false}
+                  >Next</button>
+                ) : (
+                  <button
+                    className="px-4 py-2 rounded bg-green-600 hover:bg-green-700 text-white"
+                    onClick={attemptSave}
+                    disabled={false}
+                  >Save</button>
+                )}
+              </div>
             </div>
           </div>
         </div>
