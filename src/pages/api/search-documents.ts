@@ -12,7 +12,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return;
   }
   try {
-    const results = await searchDocumentsInWorkspace(workspaceId, query);
+  console.log('[search-documents] workspaceId=', workspaceId, 'query=', query);
+  const results = await searchDocumentsInWorkspace(workspaceId, query);
+  console.log('[search-documents] results count=', results ? results.length : 0);
     // Also return the best match's documentId and folderId for UI highlighting
     let bestMatch = null;
     if (results && results.length > 0) {
