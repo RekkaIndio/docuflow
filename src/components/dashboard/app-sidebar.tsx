@@ -201,18 +201,7 @@ export function AppSidebar({
           <span className="text-lg">Teams</span>
         </SidebarMenuButton>
       </SidebarMenuItem>
-       <SidebarMenuItem>
-        <SidebarMenuButton onClick={() => handleNavigation(() => setView('settings'))} className="text-lg h-14">
-          <Settings className="w-7 h-7 mr-2" />
-          <span className="text-lg">Settings</span>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-       <SidebarMenuItem>
-        <SidebarMenuButton onClick={() => handleNavigation(() => setView('accessibility'))} className="text-lg h-14">
-          <Accessibility className="w-7 h-7 mr-2" />
-          <span className="text-lg">Accessibility</span>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
+      {/* Settings & Accessibility moved to footer */}
       <SidebarMenuItem>
         <SidebarMenuButton onClick={() => handleNavigation(() => setView('dependency-calculator'))} className="text-lg h-14">
           <UsersRound className="w-7 h-7 mr-2" />
@@ -222,6 +211,22 @@ export function AppSidebar({
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter>
+        <div className="w-full">
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={() => handleNavigation(() => setView('accessibility'))} className="text-lg h-12">
+                <Accessibility className="w-6 h-6 mr-2" />
+                <span className="text-sm">Accessibility</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={() => handleNavigation(() => setView('settings'))} className="text-lg h-12">
+                <Settings className="w-6 h-6 mr-2" />
+                <span className="text-sm">Settings</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </div>
       </SidebarFooter>
     </>
   );
