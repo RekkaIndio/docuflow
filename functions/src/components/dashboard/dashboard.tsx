@@ -502,7 +502,20 @@ export function Dashboard() {
             workspaces={workspaces}
             activeWorkspace={activeWorkspace}
             onWorkspaceChange={handleWorkspaceChange}
-            setView={setView} 
+            setView={(view) => {
+              // Only allow valid views
+              if (
+                view === "home" ||
+                view === "files" ||
+                view === "documents" ||
+                view === "tags" ||
+                view === "teams" ||
+                view === "settings" ||
+                view === "renewals"
+              ) {
+                setView(view);
+              }
+            }}
             onGoToFiles={handleGoToFiles} 
             onCreateWorkspace={handleCreateWorkspace}
            />

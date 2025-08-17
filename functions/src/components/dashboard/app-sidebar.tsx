@@ -9,6 +9,7 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import {
   Settings,
@@ -21,12 +22,12 @@ import {
   PlusCircle,
   Plus,
   Tag,
+  Accessibility,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Logo } from "@/components/icons/logo";
 import type { Workspace } from "@/lib/types";
 import { useAuth } from "@/hooks/use-auth";
-import { ThemeToggle } from "../theme-toggle";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -54,7 +55,7 @@ interface AppSidebarProps {
   workspaces: Workspace[];
   activeWorkspace: Workspace;
   onWorkspaceChange: (workspaceId: string) => void;
-  setView: (view: 'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals') => void;
+  setView: (view: 'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'dependency-calculator') => void;
   onGoToFiles: () => void;
   onCreateWorkspace: (name: string) => void;
 }
@@ -122,6 +123,15 @@ export function AppSidebar({
   onCreateWorkspace,
 }: AppSidebarProps) {
   const { user, signOut } = useAuth();
+  const { isMobile, setOpenMobile } = useSidebar();
+
+  const handleNavigation = (action: () => void) => {
+    action();
+    // Close sidebar on mobile after navigation
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
 
   return (
     <>
@@ -146,7 +156,7 @@ export function AppSidebar({
             {workspaces.map((ws) => (
               <DropdownMenuItem
                 key={ws.id}
-                onClick={() => onWorkspaceChange(ws.id)}
+                onClick={() => handleNavigation(() => onWorkspaceChange(ws.id))}
                 disabled={ws.id === activeWorkspace.id}
               >
                 {ws.name}
@@ -161,46 +171,64 @@ export function AppSidebar({
         <SidebarMenu>
       
       <SidebarMenuItem>
-         <SidebarMenuButton onClick={() => setView('home')} className="text-lg h-14">
+         <SidebarMenuButton onClick={() => handleNavigation(() => setView('home'))} className="text-lg h-14">
           <LayoutDashboard className="w-7 h-7 mr-2" />
           <span className="text-lg">Dashboard</span>
         </SidebarMenuButton>
       </SidebarMenuItem>
       <SidebarMenuItem>
-         <SidebarMenuButton onClick={onGoToFiles} className="text-lg h-14">
+         <SidebarMenuButton onClick={() => handleNavigation(onGoToFiles)} className="text-lg h-14">
           <FolderIcon className="w-7 h-7 mr-2" />
           <span className="text-lg">Folders</span>
         </SidebarMenuButton>
       </SidebarMenuItem>
       <SidebarMenuItem>
-        <SidebarMenuButton onClick={() => setView('renewals')} className="text-lg h-14">
+        <SidebarMenuButton onClick={() => handleNavigation(() => setView('renewals'))} className="text-lg h-14">
           <FileText className="w-7 h-7 mr-2" />
           <span className="text-lg">Renewals</span>
         </SidebarMenuButton>
       </SidebarMenuItem>
        <SidebarMenuItem>
-         <SidebarMenuButton onClick={() => setView('documents')} className="text-lg h-14">
+         <SidebarMenuButton onClick={() => handleNavigation(() => setView('documents'))} className="text-lg h-14">
           <FileText className="w-7 h-7 mr-2" />
           <span className="text-lg">Documents</span>
         </SidebarMenuButton>
       </SidebarMenuItem>
   {/* Outstanding Evidence removed - folders moved into main folders list */}
              <SidebarMenuItem>
-        <SidebarMenuButton onClick={() => setView('teams')} className="text-lg h-14">
+        <SidebarMenuButton onClick={() => handleNavigation(() => setView('teams'))} className="text-lg h-14">
           <UsersRound className="w-7 h-7 mr-2" />
           <span className="text-lg">Teams</span>
         </SidebarMenuButton>
       </SidebarMenuItem>
-       <SidebarMenuItem>
-        <SidebarMenuButton onClick={() => setView('settings')} className="text-lg h-14">
-          <Settings className="w-7 h-7 mr-2" />
-          <span className="text-lg">Settings</span>
+      {/* Settings & Accessibility moved to footer */}
+      <SidebarMenuItem>
+        <SidebarMenuButton onClick={() => handleNavigation(() => setView('dependency-calculator'))} className="text-lg h-14">
+          <UsersRound className="w-7 h-7 mr-2" />
+          <span className="text-lg">Dependency Calculator</span>
         </SidebarMenuButton>
       </SidebarMenuItem>
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter>
+        <div className="w-full">
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={() => handleNavigation(() => setView('accessibility'))} className="text-lg h-12">
+                <Accessibility className="w-6 h-6 mr-2" />
+                <span className="text-sm">Accessibility</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={() => handleNavigation(() => setView('settings'))} className="text-lg h-12">
+                <Settings className="w-6 h-6 mr-2" />
+                <span className="text-sm">Settings</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </div>
       </SidebarFooter>
     </>
   );
 }
+
