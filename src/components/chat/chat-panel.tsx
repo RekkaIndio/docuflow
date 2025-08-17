@@ -305,7 +305,7 @@ How can I assist you today?`
     if (input.trim() === '') return;
 
     const intent = detectIntent(input);
-    
+
     // Handle folder creation
     if (intent.type === 'folder_creation') {
       setMessages([...messages, { sender: 'user', text: input }]);
@@ -341,8 +341,7 @@ How can I assist you today?`
           query: userInput,
           documentJson: JSON.stringify(selectedItem.extractedJson || {}),
         });
-        
-        // Create document card for the current document
+
         const documentCard = {
           id: selectedItem.id,
           name: selectedItem.name,
@@ -350,145 +349,173 @@ How can I assist you today?`
           url: `/documents/${selectedItem.id}`,
           subtitle: selectedItem.createdAt ? `Created: ${new Date(selectedItem.createdAt).toLocaleDateString()}` : undefined
         };
-        
-        setMessages([...newMessages, { 
-          sender: 'ai', 
+
+        setMessages([...newMessages, {
+          sender: 'ai',
           text: result.answer,
           documents: [documentCard]
         }]);
-      } else {
-        // Enhanced intent-based document search
-        const shouldSearchNewDocument = intent.type === 'document_search' || 
-                                      intent.type === 'file_search' || 
-                                      !activeDoc;
-        
-        if (activeDoc && !shouldSearchNewDocument) {
-          // Continue conversation with the currently active document
-          result = await chatWithDocuments({
-            query: userInput,
-            documentJson: JSON.stringify(activeDoc.extractedJson || {}),
-          });
-          
-          const documentCard = {
-            id: activeDoc.id,
-            name: activeDoc.name,
-            status: 'current' as const,
-            url: `/documents/${activeDoc.id}`,
-            subtitle: activeDoc.folderId ? `Folder: ${activeDoc.folderId}` : undefined
-          };
-          
-          setMessages([
-            ...newMessages,
-            {
-              sender: 'ai',
-              text: result.answer,
-              documents: [documentCard]
-            },
-          ]);
-        } else {
-          // Search the workspace for relevant documents
-          const workspaceId = selectedItem.workspaceId;
-          if (!workspaceId) {
-            setMessages([...newMessages, { sender: 'ai', text: 'Workspace ID not found for this folder.' }]);
-            setIsTyping(false);
-            return;
-          }
-          
-          // Use the extracted search term or the full input
-          const searchQuery = intent.type === 'document_search' || intent.type === 'file_search' 
-            ? (intent.searchTerm || intent.fileName || userInput)
-            : userInput;
-          
-          // Call the search API endpoint
-          const searchRes = await fetch('/api/search-documents', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ workspaceId, query: searchQuery }),
-          });
-          
-          if (!searchRes.ok) {
-            setMessages([...newMessages, { sender: 'ai', text: 'Failed to search for relevant documents.' }]);
-            setIsTyping(false);
-            return;
-          }
-          
-          const { results, bestMatch } = await searchRes.json();
-          if (!results || results.length === 0 || !bestMatch) {
-            // Provide a more natural response based on the intent
-            let noResultsMessage = 'No relevant documents found in this workspace.';
-            if (intent.type === 'document_search') {
-              noResultsMessage = `I couldn't find any documents related to "${intent.searchTerm}". Please try a different search term or check if the document exists in this workspace.`;
-            } else if (intent.type === 'file_search') {
-              noResultsMessage = `I couldn't find the file "${intent.fileName}". Please check the filename and try again.`;
-            }
-            setMessages([...newMessages, { sender: 'ai', text: noResultsMessage }]);
-            setIsTyping(false);
-            return;
-          }
-          
-          // Use the best match for the conversation
-          const bestDoc = results[0];
-          setActiveDoc(bestDoc); // Persist for follow-up questions
-          
-          result = await chatWithDocuments({
-            query: userInput,
-            documentJson: JSON.stringify(bestDoc.extractedJson || {}),
-          });
-          
-          // Highlight the document in the UI
-          if (typeof window !== 'undefined' && window.dispatchEvent) {
-            window.dispatchEvent(new CustomEvent('highlight-document', { detail: { documentId: bestMatch.documentId } }));
-          }
-          
-          // Create enhanced response with document cards
-          const documentCards = results.slice(0, 3).map((doc: any) => ({
-            id: doc.id,
-            name: doc.name,
-            status: doc.status || (doc.renewalDate ? 
-              (new Date(doc.renewalDate) < new Date() ? 'overdue' : 
-               new Date(doc.renewalDate) < new Date(Date.now() + 60 * 24 * 60 * 60 * 1000) ? 'due-soon' : 'current') 
-              : 'current'),
-            statusText: doc.statusText,
-            subtitle: doc.subtitle || (doc.createdAt ? `Created: ${new Date(doc.createdAt).toLocaleDateString()}` : undefined),
-            url: doc.url || `/documents/${doc.id}`,
-            lastReviewed: doc.lastReviewed || (doc.createdAt ? new Date(doc.createdAt).toLocaleDateString() : undefined),
-            nextReviewRequired: doc.nextReviewRequired || (doc.renewalDate ? `by ${new Date(doc.renewalDate).toLocaleDateString()}` : undefined)
-          }));
-
-          // Provide a more natural response prefix based on intent
-          let responsePrefix = '';
-          if (intent.type === 'document_search') {
-            responsePrefix = `I found information about "${intent.searchTerm}". `;
-          } else if (intent.type === 'file_search') {
-            responsePrefix = `Here's the information from "${intent.fileName}". `;
-          }
-
-          setMessages([
-            ...newMessages,
-            {
-              sender: 'ai',
-              text: responsePrefix + result.answer,
-              documents: documentCards
-            },
-          ]);
-        }
+        setIsTyping(false);
+        return;
       }
-    } catch (error: any) {
-        console.error("Error chatting:", error);
-        
-        let errorMessage = "Failed to get an answer from the AI. Please try again.";
-        if (error.message && (error.message.includes('503') || error.message.includes('overloaded'))) {
-            errorMessage = "The AI is currently busy, please try again in a moment.";
-        }
 
-        toast({
-            variant: "destructive",
-            title: "Error",
-            description: errorMessage,
+      // At this point selectedItem is a folder/workspace
+      const shouldSearchNewDocument = intent.type === 'document_search' || intent.type === 'file_search' || !activeDoc;
+
+      if (activeDoc && !shouldSearchNewDocument) {
+        result = await chatWithDocuments({
+          query: userInput,
+          documentJson: JSON.stringify(activeDoc.extractedJson || {}),
         });
-        // Revert to messages before sending, and re-add the user's input to the text area
-        setMessages(newMessages.slice(0, -1));
-        setInput(userInput);
+
+        const documentCard = {
+          id: activeDoc.id,
+          name: activeDoc.name,
+          status: 'current' as const,
+          url: `/documents/${activeDoc.id}`,
+          subtitle: activeDoc.folderId ? `Folder: ${activeDoc.folderId}` : undefined
+        };
+
+        setMessages([
+          ...newMessages,
+          {
+            sender: 'ai',
+            text: result.answer,
+            documents: [documentCard]
+          },
+        ]);
+        setIsTyping(false);
+        return;
+      }
+
+      // Search the workspace for relevant documents
+      const workspaceId = selectedItem.workspaceId;
+      if (!workspaceId) {
+        setMessages([...newMessages, { sender: 'ai', text: 'Workspace ID not found for this folder.' }]);
+        setIsTyping(false);
+        return;
+      }
+
+      const searchQuery = intent.type === 'document_search' || intent.type === 'file_search'
+        ? (intent.searchTerm || intent.fileName || userInput)
+        : userInput;
+
+      // Fast client-side search in the selected folder's nested documents
+      let clientResults: Document[] = [];
+      try {
+        if (selectedItem && selectedItem.type === 'folder') {
+          const allDocs = getAllDocuments([selectedItem]);
+          const lowerQuery = (searchQuery || '').toLowerCase();
+          clientResults = allDocs.filter(d => d.name && d.name.toLowerCase().includes(lowerQuery));
+          if (clientResults.length === 0) {
+            clientResults = allDocs.filter(d => (d.summary && d.summary.toLowerCase().includes(lowerQuery)) || (Array.isArray(d.tags) && d.tags.some((t: string) => t.toLowerCase().includes(lowerQuery))));
+          }
+        }
+      } catch (err) {
+        console.warn('[chat-panel] client-side search error', err);
+        clientResults = [];
+      }
+
+      if (clientResults && clientResults.length > 0) {
+        const bestDoc = clientResults[0];
+        setActiveDoc(bestDoc);
+        result = await chatWithDocuments({ query: userInput, documentJson: JSON.stringify(bestDoc.extractedJson || {}) });
+        const documentCard = {
+          id: bestDoc.id,
+          name: bestDoc.name,
+          status: 'current' as const,
+          url: `/documents/${bestDoc.id}`,
+          subtitle: bestDoc.folderId ? `Folder: ${bestDoc.folderId}` : undefined
+        };
+        setMessages([
+          ...newMessages,
+          {
+            sender: 'ai',
+            text: result.answer,
+            documents: [documentCard]
+          },
+        ]);
+        setIsTyping(false);
+        return;
+      }
+
+      // Fall back to server search
+      console.log('[chat-panel] search call workspaceId=', workspaceId, 'searchQuery=', searchQuery);
+      const searchRes = await fetch('/api/search-documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workspaceId, query: searchQuery }),
+      });
+
+      if (!searchRes.ok) {
+        setMessages([...newMessages, { sender: 'ai', text: 'Failed to search for relevant documents.' }]);
+        setIsTyping(false);
+        return;
+      }
+
+      const { results, bestMatch } = await searchRes.json();
+      if (!results || results.length === 0 || !bestMatch) {
+        let noResultsMessage = 'No relevant documents found in this workspace.';
+        if (intent.type === 'document_search') {
+          noResultsMessage = `I couldn't find any documents related to "${intent.searchTerm}". Please try a different search term or check if the document exists in this workspace.`;
+        } else if (intent.type === 'file_search') {
+          noResultsMessage = `I couldn't find the file "${intent.fileName}". Please check the filename and try again.`;
+        }
+        setMessages([...newMessages, { sender: 'ai', text: noResultsMessage }]);
+        setIsTyping(false);
+        return;
+      }
+
+      const bestDoc = results[0];
+      setActiveDoc(bestDoc);
+
+      result = await chatWithDocuments({ query: userInput, documentJson: JSON.stringify(bestDoc.extractedJson || {}) });
+
+      if (typeof window !== 'undefined' && window.dispatchEvent) {
+        window.dispatchEvent(new CustomEvent('highlight-document', { detail: { documentId: bestMatch.documentId } }));
+      }
+
+      const documentCards = results.slice(0, 3).map((doc: any) => ({
+        id: doc.id,
+        name: doc.name,
+        status: doc.status || (doc.renewalDate ? (new Date(doc.renewalDate) < new Date() ? 'overdue' : new Date(doc.renewalDate) < new Date(Date.now() + 60 * 24 * 60 * 60 * 1000) ? 'due-soon' : 'current') : 'current'),
+        statusText: doc.statusText,
+        subtitle: doc.subtitle || (doc.createdAt ? `Created: ${new Date(doc.createdAt).toLocaleDateString()}` : undefined),
+        url: doc.url || `/documents/${doc.id}`,
+        lastReviewed: doc.lastReviewed || (doc.createdAt ? new Date(doc.createdAt).toLocaleDateString() : undefined),
+        nextReviewRequired: doc.nextReviewRequired || (doc.renewalDate ? `by ${new Date(doc.renewalDate).toLocaleDateString()}` : undefined)
+      }));
+
+      let responsePrefix = '';
+      if (intent.type === 'document_search') {
+        responsePrefix = `I found information about "${intent.searchTerm}". `;
+      } else if (intent.type === 'file_search') {
+        responsePrefix = `Here's the information from "${intent.fileName}". `;
+      }
+
+      setMessages([
+        ...newMessages,
+        {
+          sender: 'ai',
+          text: responsePrefix + result.answer,
+          documents: documentCards
+        },
+      ]);
+
+    } catch (error: any) {
+      console.error("Error chatting:", error);
+      let errorMessage = "Failed to get an answer from the AI. Please try again.";
+      if (error.message && (error.message.includes('503') || error.message.includes('overloaded'))) {
+        errorMessage = "The AI is currently busy, please try again in a moment.";
+      }
+
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: errorMessage,
+      });
+      setMessages(newMessages.slice(0, -1));
+      setInput(userInput);
     } finally {
       setIsTyping(false);
     }

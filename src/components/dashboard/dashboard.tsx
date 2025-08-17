@@ -612,8 +612,11 @@ export function Dashboard() {
   }
 
   const handleChatButtonClick = () => {
-    const currentSelected = selected;
+    // Allow opening chat at the workspace (root) level even when nothing is specifically selected.
+    // If there's an explicit selection, use it; otherwise fall back to the workspace root folder.
+    const currentSelected = selected || getRootFolder();
     if (currentSelected) {
+      setSelected(currentSelected);
       setIsChatOpen(true);
     }
   };
@@ -824,7 +827,9 @@ export function Dashboard() {
                         : "w-16 h-16"
                     )}
                     onClick={handleChatButtonClick}
-                    disabled={!selected || view !== 'files'}
+                    // Allow chat button across the dashboard (site-wide). Chat will open at the workspace root
+                    // when no specific folder/document is selected. Keep disabled only if there's no active workspace.
+                    disabled={!activeWorkspace}
                     aria-label="Open chat"
                   >
                     <MessageSquare className={cn(
@@ -833,12 +838,9 @@ export function Dashboard() {
                   </Button>
                 </div>
               </TooltipTrigger>
-              {(!selected || view !== 'files') && (
+              {!activeWorkspace && (
                 <TooltipContent side={isMobile ? "top" : "left"}>
-                    {(view !== 'files')
-                        ? <p>Chat is only available in the Folders view.</p> 
-                        : <p>Please select a document or folder to start chatting.</p>
-                    }
+                    <p>Please create or select a workspace to use chat.</p>
                 </TooltipContent>
               )}
             </Tooltip>

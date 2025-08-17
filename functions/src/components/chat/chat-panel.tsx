@@ -143,49 +143,84 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
             setIsTyping(false);
             return;
           }
-          // Call the new API endpoint
-          const searchRes = await fetch('/api/search-documents', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ workspaceId, query: userInput }),
-          });
-          if (!searchRes.ok) {
-            setMessages([...newMessages, { sender: 'ai', text: 'Failed to search for relevant documents.' }]);
+          // First, try a fast client-side search over any documents already present in the selected folder/tree.
+          try {
+            const lowerQuery = userInput.toLowerCase();
+            const allDocs = getAllDocuments([selectedItem]);
+            const clientResults = allDocs.filter((d) => {
+              const nameMatch = d.name && d.name.toLowerCase().includes(lowerQuery);
+              const summaryMatch = (d.summary && d.summary.toLowerCase().includes(lowerQuery));
+              const tagsMatch = (d.tags && Array.isArray(d.tags) && d.tags.join(' ').toLowerCase().includes(lowerQuery));
+              return Boolean(nameMatch || summaryMatch || tagsMatch);
+            });
+
+            if (clientResults && clientResults.length > 0) {
+              // Use the first client-side match as the best result (fast path)
+              const bestDoc = clientResults[0];
+              setActiveDoc(bestDoc);
+              result = await chatWithDocuments({
+                query: userInput,
+                documentJson: JSON.stringify(bestDoc.extractedJson || {}),
+              });
+              if (typeof window !== 'undefined' && window.dispatchEvent) {
+                window.dispatchEvent(new CustomEvent('highlight-document', { detail: { documentId: bestDoc.id } }));
+              }
+              setMessages([
+                ...newMessages,
+                { sender: 'ai', text: result.answer + `\n\n(Answered using document: "${bestDoc.name}")` },
+              ]);
+            } else {
+              // No local results — fall back to the server search endpoint
+              console.log('[chat-panel functions] search call workspaceId=', workspaceId, 'searchQuery=', userInput);
+              const searchRes = await fetch('/api/search-documents', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ workspaceId, query: userInput }),
+              });
+              if (!searchRes.ok) {
+                setMessages([...newMessages, { sender: 'ai', text: 'Failed to search for relevant documents.' }]);
+                setIsTyping(false);
+                return;
+              }
+              const { results, bestMatch } = await searchRes.json();
+              if (!results || results.length === 0 || !bestMatch) {
+                setMessages([...newMessages, { sender: 'ai', text: 'No relevant documents found in this workspace.' }]);
+                setIsTyping(false);
+                return;
+              }
+              // Use the best match (first result)
+              const bestDoc = results[0];
+              setActiveDoc(bestDoc); // Persist for follow-up questions
+              result = await chatWithDocuments({
+                query: userInput,
+                documentJson: JSON.stringify(bestDoc.extractedJson || {}),
+              });
+              // Highlight the document (emit an event or set state, see below)
+              if (typeof window !== 'undefined' && window.dispatchEvent) {
+                window.dispatchEvent(new CustomEvent('highlight-document', { detail: { documentId: bestMatch.documentId } }));
+              }
+              // Link to the folder (assuming route: /folders/[id])
+              let folderLink = '';
+              if (bestMatch.folderId) {
+                folderLink = `/folders/${bestMatch.folderId}`;
+              }
+              setMessages([
+                ...newMessages,
+                {
+                  sender: 'ai',
+                  text:
+                    result.answer +
+                    `\n\n(Answered using document: "${bestMatch.name}")` +
+                    (folderLink ? `\n[View folder](${folderLink})` : ''),
+                },
+              ]);
+            }
+          } catch (e) {
+            console.error('[chat-panel functions] local search error', e);
+            setMessages([...newMessages, { sender: 'ai', text: 'An error occurred while searching for documents.' }]);
             setIsTyping(false);
             return;
           }
-          const { results, bestMatch } = await searchRes.json();
-          if (!results || results.length === 0 || !bestMatch) {
-            setMessages([...newMessages, { sender: 'ai', text: 'No relevant documents found in this workspace.' }]);
-            setIsTyping(false);
-            return;
-          }
-          // Use the best match (first result)
-          const bestDoc = results[0];
-          setActiveDoc(bestDoc); // Persist for follow-up questions
-          result = await chatWithDocuments({
-            query: userInput,
-            documentJson: JSON.stringify(bestDoc.extractedJson || {}),
-          });
-          // Highlight the document (emit an event or set state, see below)
-          if (typeof window !== 'undefined' && window.dispatchEvent) {
-            window.dispatchEvent(new CustomEvent('highlight-document', { detail: { documentId: bestMatch.documentId } }));
-          }
-          // Link to the folder (assuming route: /folders/[id])
-          let folderLink = '';
-          if (bestMatch.folderId) {
-            folderLink = `/folders/${bestMatch.folderId}`;
-          }
-          setMessages([
-            ...newMessages,
-            {
-              sender: 'ai',
-              text:
-                result.answer +
-                `\n\n(Answered using document: "${bestMatch.name}")` +
-                (folderLink ? `\n[View folder](${folderLink})` : ''),
-            },
-          ]);
         }
       }
     } catch (error: any) {
