@@ -430,7 +430,7 @@ How can I assist you today?`
         // Navigate to the document so the folder/file browser shows it, then highlight
         if (typeof window !== 'undefined' && window.dispatchEvent) {
           try { window.dispatchEvent(new CustomEvent('navigate-to-document', { detail: { documentId: bestDoc.id, documentName: bestDoc.name } })); } catch (e) {}
-          try { (window as any).__lastHighlightedDocumentId = bestDoc.id; (window as any).__lastHighlightedDocumentName = bestDoc.name; } catch (e) {}
+          try { localStorage.setItem('lastHighlightedDocumentId', bestDoc.id); localStorage.setItem('lastHighlightedDocumentName', bestDoc.name); } catch (e) {}
           setTimeout(() => {
             try { window.dispatchEvent(new CustomEvent('highlight-document', { detail: { documentId: bestDoc.id } })); } catch (e) {}
           }, 150);
@@ -482,7 +482,7 @@ How can I assist you today?`
 
       if (typeof window !== 'undefined' && window.dispatchEvent) {
         try { window.dispatchEvent(new CustomEvent('navigate-to-document', { detail: { documentId: bestMatch.documentId, documentName: bestMatch.name } })); } catch (e) {}
-        try { (window as any).__lastHighlightedDocumentId = bestMatch.documentId; (window as any).__lastHighlightedDocumentName = bestMatch.name; } catch (e) {}
+        try { localStorage.setItem('lastHighlightedDocumentId', bestMatch.documentId); localStorage.setItem('lastHighlightedDocumentName', bestMatch.name); } catch (e) {}
         setTimeout(() => {
           try { window.dispatchEvent(new CustomEvent('highlight-document', { detail: { documentId: bestMatch.documentId } })); } catch (e) {}
         }, 150);

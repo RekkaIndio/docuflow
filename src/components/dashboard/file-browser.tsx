@@ -84,6 +84,20 @@ export function FileBrowser({
 
   // Highlighted document state
   const [highlightedDocId, setHighlightedDocId] = React.useState<string | null>(null);
+  // Helper: find a card element by a fuzzy document name match (case-insensitive).
+  const findCardElementByDocumentName = (name?: string): HTMLElement | null => {
+    if (!name) return null;
+    try {
+      const matches = Array.from(
+        document.querySelectorAll('.card-content p, .card-content .font-medium, .font-medium')
+      ).filter(el => el.textContent && el.textContent.trim().toLowerCase().includes(name.toLowerCase()));
+      if (matches.length > 0) {
+        const el2 = (matches[0] as HTMLElement).closest('.card') as HTMLElement | null;
+        return el2;
+      }
+    } catch (e) {}
+    return null;
+  };
   React.useEffect(() => {
     const handler = (e: Event) => {
       const custom = e as CustomEvent;
@@ -97,14 +111,9 @@ export function FileBrowser({
           }
           // Fallback: try to find by name if name persisted
           try {
-            const name = (window as any).__lastHighlightedDocumentName;
-            if (name) {
-              const matches = Array.from(document.querySelectorAll('.card-content p, .card-content .font-medium, .font-medium')).filter(el => el.textContent && el.textContent.trim().toLowerCase().includes((name as string).toLowerCase()));
-              if (matches.length > 0) {
-                const el2 = matches[0].closest('.card');
-                if (el2) el2.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }
-            }
+            const name = typeof window !== 'undefined' ? localStorage.getItem('lastHighlightedDocumentName') || undefined : undefined;
+            const el2 = findCardElementByDocumentName(name as string | undefined);
+            if (el2) el2.scrollIntoView({ behavior: 'smooth', block: 'center' });
           } catch (e) {}
         }, 100);
       }
@@ -112,7 +121,7 @@ export function FileBrowser({
     window.addEventListener('highlight-document', handler);
     // If a highlight was dispatched shortly before this component mounted, pick it up
     try {
-      const last = (window as any).__lastHighlightedDocumentId;
+      const last = typeof window !== 'undefined' ? localStorage.getItem('lastHighlightedDocumentId') : null;
       if (last) {
         setHighlightedDocId(last);
         setTimeout(() => {
@@ -122,14 +131,9 @@ export function FileBrowser({
             return;
           }
           try {
-            const name = (window as any).__lastHighlightedDocumentName;
-            if (name) {
-              const matches = Array.from(document.querySelectorAll('.card-content p, .card-content .font-medium, .font-medium')).filter(el => el.textContent && el.textContent.trim().toLowerCase().includes((name as string).toLowerCase()));
-              if (matches.length > 0) {
-                const el2 = matches[0].closest('.card');
-                if (el2) el2.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }
-            }
+            const name = typeof window !== 'undefined' ? localStorage.getItem('lastHighlightedDocumentName') || undefined : undefined;
+            const el2 = findCardElementByDocumentName(name as string | undefined);
+            if (el2) el2.scrollIntoView({ behavior: 'smooth', block: 'center' });
           } catch (e) {}
         }, 100);
       }
@@ -228,14 +232,14 @@ export function FileBrowser({
                   ) : (
                     getFileIcon(item.fileType)
                   )}
-                  <ItemMenu 
-                    item={item} 
-                    onFolderDelete={onFolderDelete} 
+                  <ItemMenu
+                    item={item}
+                    onFolderDelete={onFolderDelete}
                     onDocumentDelete={onDocumentDelete}
                     updateItem={(updatedDoc) => {
                       // Merge any returned fields (name, renewalDate, etc.) into the item
                       if (item.type === 'document' && updatedDoc && onDocumentUpdate) {
-                        onDocumentUpdate({ ...(item as Document), ...(updatedDoc as Partial<Document>) });
+                        onDocumentUpdate({ ...(item as Document), ...updatedDoc });
                       }
                     }}
                   />
@@ -276,7 +280,7 @@ import { setDocumentRenewalDate } from "@/lib/setDocumentRenewalDate";
 import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 
-const ItemMenu = ({ item, onFolderDelete, onDocumentDelete, updateItem }: { item: Document | Folder, onFolderDelete: (folder: Folder) => void, onDocumentDelete: (document: Document) => void, updateItem?: (updatedDoc: Document) => void }) => {
+const ItemMenu = ({ item, onFolderDelete, onDocumentDelete, updateItem }: { item: Document | Folder, onFolderDelete: (folder: Folder) => void, onDocumentDelete: (document: Document) => void, updateItem?: (updatedDoc: Partial<Document> & { id: string, type: 'document' | 'folder' }) => void }) => {
   const [renameOpen, setRenameOpen] = useState(false);
   const [renewalOpen, setRenewalOpen] = useState(false);
   const [newName, setNewName] = useState(item.name);
@@ -316,7 +320,7 @@ const ItemMenu = ({ item, onFolderDelete, onDocumentDelete, updateItem }: { item
       // Update parent state for documents so the new name appears immediately
       if (item.type === 'document' && updateItem) {
         // Only send the changed fields so parent merges correctly
-        updateItem({ id: item.id, name: newName.trim(), type: 'document' } as Document);
+        updateItem({ id: item.id, name: newName.trim(), type: 'document' });
       }
       setRenameOpen(false);
     } catch (e) {
@@ -337,7 +341,7 @@ const ItemMenu = ({ item, onFolderDelete, onDocumentDelete, updateItem }: { item
       await setDocumentRenewalDate((item as any).workspaceId, item.id, renewalDate);
       toast({ title: "Renewal Date Set!", description: `Renewal date set to ${renewalDate}` });
       setRenewalOpen(false);
-      if (updateItem) updateItem({ ...(item as Document), renewalDate });
+  if (updateItem) updateItem({ id: item.id, type: 'document', renewalDate });
     } catch (e) {
       toast({ title: "Failed to set renewal date", description: "Could not set renewal date. Please try again.", variant: "destructive" });
     } finally {

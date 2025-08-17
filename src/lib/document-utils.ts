@@ -1,3 +1,18 @@
+import type { Folder, Document } from './types';
+
+// Find the immediate parent folder that directly contains a document with the provided id.
+export function findParentFolderByDocumentId(items: (Folder | Document)[], childId: string): Folder | null {
+  for (const item of items) {
+    if (item.type === 'folder') {
+      if (item.items.some(child => child.id === childId)) return item;
+      const found = findParentFolderByDocumentId(item.items, childId);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+export default findParentFolderByDocumentId;
 // Utility functions for handling document navigation and actions
 
 export function openDocument(documentId: string, documentName?: string) {
