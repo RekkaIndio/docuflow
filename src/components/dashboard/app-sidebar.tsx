@@ -85,20 +85,20 @@ const NewWorkspaceDialog = ({ onCreate }: { onCreate: (name: string) => void }) 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
-                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                {/* <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                      <PlusCircle className="mr-2 h-4 w-4" />
                     <span>Create Workspace</span>
-                </DropdownMenuItem>
+                </DropdownMenuItem> */}
             </DialogTrigger>
             <DialogContent>
-                <DialogHeader>
+                {/* <DialogHeader>
                     <DialogTitle>Create New Workspace</DialogTitle>
                 </DialogHeader>
                 <Input 
                     placeholder="Workspace name..."
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                />
+                /> */}
                 <DialogFooter>
                     <DialogClose asChild>
                         <Button variant="outline">Cancel</Button>

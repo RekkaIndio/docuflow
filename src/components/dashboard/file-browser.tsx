@@ -1,4 +1,3 @@
-
 "use client";
 import React from "react";
 import type { Folder, Document } from "@/lib/types";
@@ -15,6 +14,7 @@ import {
   ChevronRight,
   Home,
   Plus,
+  ShieldCheck,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -289,6 +289,10 @@ const ItemMenu = ({ item, onFolderDelete, onDocumentDelete, updateItem }: { item
   const [renewalDate, setRenewalDate] = useState<string>(item.type === 'document' && item.renewalDate ? new Date(item.renewalDate).toISOString().substring(0, 10) : "");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  // Controlled state for delete confirmation dialog (required to type folder name)
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteInput, setDeleteInput] = useState("");
+  const isDeleteMatch = deleteInput === item.name;
 
   // Protected folder ids for the main folders view (immutable)
   const protectedFolderIds = item.type === 'folder' && [
@@ -378,15 +382,45 @@ const ItemMenu = ({ item, onFolderDelete, onDocumentDelete, updateItem }: { item
             </DropdownMenuItem>
           )}
           { !protectedFolderIds && (
-            <DeleteDialog onConfirm={handleDelete}>
-              <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive">
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </DropdownMenuItem>
-            </DeleteDialog>
-          )}
+            <DropdownMenuItem onSelect={(e: any) => { e?.preventDefault?.(); e?.stopPropagation?.(); setDeleteOpen(true); }} className="text-destructive focus:text-destructive">
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete
+            </DropdownMenuItem>
+           )}
         </DropdownMenuContent>
       </DropdownMenu>
+    {/* Controlled delete dialog placed outside the dropdown so it isn't unmounted when the menu closes */}
+    <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+      <DialogContent className="no-nav">
+        <DialogHeader>
+          <DialogTitle>Are you absolutely sure?</DialogTitle>
+          <p className="text-sm text-muted-foreground">To delete this {item.type}, type its name (<strong>{item.name}</strong>) below. This action cannot be undone.</p>
+        </DialogHeader>
+        <Input
+          placeholder="Type folder name"
+          value={deleteInput}
+          onChange={(e) => setDeleteInput(e.target.value)}
+          className="mt-4"
+        />
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="outline">Cancel</Button>
+          </DialogClose>
+          <Button
+            onClick={() => {
+              if (!isDeleteMatch) return;
+              handleDelete();
+              setDeleteOpen(false);
+              setDeleteInput("");
+            }}
+            disabled={!isDeleteMatch}
+            className={isDeleteMatch ? "bg-primary hover:bg-primary/90" : "bg-muted cursor-not-allowed"}
+          >
+            Delete
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
       {/* Rename Dialog */}
       {!protectedFolderIds && (
         <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
@@ -464,23 +498,18 @@ const ItemMenu = ({ item, onFolderDelete, onDocumentDelete, updateItem }: { item
   );
 };
 
-function DeleteDialog({ children, onConfirm }: { children: React.ReactNode, onConfirm: () => void }) {
+function LockFolderButton({ folderName, onLock }: { folderName: string, onLock: () => void }) {
   return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>{children}</AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-          <AlertDialogDescription>
-            This action cannot be undone. This will permanently delete the item
-            and all of its contents from our servers.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <DropdownMenuItem
+      onClick={() => {
+        onLock();
+        console.log(`Folder ${folderName} is now locked.`);
+      }}
+      className="text-muted focus:text-muted"
+    >
+      <ShieldCheck className="mr-2 h-4 w-4" />
+      Lock Folder
+    </DropdownMenuItem>
   );
 }
+

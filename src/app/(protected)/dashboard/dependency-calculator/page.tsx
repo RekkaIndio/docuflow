@@ -1,9 +1,9 @@
-
 "use client";
 import React, { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"; // Import Tooltip components
 
 type DependencyLevel = "None" | "Low" | "Medium" | "High" | "";
 type Shift = "Day" | "Night";
@@ -247,7 +247,7 @@ export default function DependencyCalculatorPage() {
       alert('No snapshot found for ' + month);
       return;
     }
-    if (!confirm(`Load snapshot for ${month}? This will replace the current residents, communities and actual staff.`)) return;
+    // Removed confirmation pop-up for loading snapshots
     setResidents(s.residents || []);
     setCommunities(s.communities || []);
     setStaffActual(s.staffActual || { Day: { nurse: 0, ctm: 0, senior: 0, carer: 0 }, Night: { nurse: 0, ctm: 0, senior: 0, carer: 0 } });
@@ -547,10 +547,42 @@ export default function DependencyCalculatorPage() {
               <th className="px-3 py-2 text-left"></th>
               <th className="px-3 py-2 text-left">Name</th>
               <th className="px-3 py-2 text-left">Room</th>
-              <th className="px-3 py-2 text-left">Day (h)</th>
-              <th className="px-3 py-2 text-left">Night (h)</th>
-              <th className="px-3 py-2 text-left">12h Day</th>
-              <th className="px-3 py-2 text-left">12h Night</th>
+              <th className="px-3 py-2 text-left">
+                Day (h)
+                <Tooltip>
+                  <TooltipTrigger>
+                    <span className="ml-1 text-gray-500 cursor-pointer">(i)</span>
+                  </TooltipTrigger>
+                  <TooltipContent>Total Care Hours</TooltipContent>
+                </Tooltip>
+              </th>
+              <th className="px-3 py-2 text-left">
+                Night (h)
+                <Tooltip>
+                  <TooltipTrigger>
+                    <span className="ml-1 text-gray-500 cursor-pointer">(i)</span>
+                  </TooltipTrigger>
+                  <TooltipContent>Total Care Hours</TooltipContent>
+                </Tooltip>
+              </th>
+              <th className="px-3 py-2 text-left">
+                12h Day
+                <Tooltip>
+                  <TooltipTrigger>
+                    <span className="ml-1 text-gray-500 cursor-pointer">(i)</span>
+                  </TooltipTrigger>
+                  <TooltipContent>Carers needed</TooltipContent>
+                </Tooltip>
+              </th>
+              <th className="px-3 py-2 text-left">
+                12h Night
+                <Tooltip>
+                  <TooltipTrigger>
+                    <span className="ml-1 text-gray-500 cursor-pointer">(i)</span>
+                  </TooltipTrigger>
+                  <TooltipContent>Carers needed</TooltipContent>
+                </Tooltip>
+              </th>
             </tr>
           </thead>
           <tbody>

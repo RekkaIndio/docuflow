@@ -205,6 +205,45 @@ export async function getWorkspacesForUser(userId: string): Promise<Workspace[]>
     }
 }
 
+export async function getUserById(userId: string): Promise<User | null> {
+    try {
+        const userRef = doc(db, `users`, userId);
+        const snap = await getDoc(userRef);
+        if (!snap.exists()) return null;
+    const data = snap.data() as User;
+    // Avoid duplicate `id` field if present in the stored doc
+    const { id: _maybeId, ...rest } = data as any;
+    return { id: snap.id, ...rest } as User;
+    } catch (error) {
+        console.error('Error fetching user by id', userId, error);
+        return null;
+    }
+}
+
+/**
+ * Admin helper: return all workspaces with their nested folder/document structure.
+ * Note: potentially expensive if you have many workspaces. Consider pagination if needed.
+ */
+export async function getAllWorkspaces(): Promise<Workspace[]> {
+    try {
+        const qAll = query(collection(db, "workspaces"));
+        const snaps = await getDocs(qAll);
+        const workspaces = await Promise.all(snaps.docs.map(async (docSnap) => {
+            const workspaceData = docSnap.data() as Omit<Workspace, 'id' | 'folders'>;
+            const { folders } = await fetchAndStructureData(docSnap.id);
+            return {
+                id: docSnap.id,
+                ...workspaceData,
+                folders,
+            } as Workspace;
+        }));
+        return workspaces;
+    } catch (error) {
+        console.error('Error fetching all workspaces', error);
+        return [];
+    }
+}
+
 
 export async function createWorkspace(workspace: Omit<Workspace, 'id' | 'folders'>): Promise<Workspace> {
     try {

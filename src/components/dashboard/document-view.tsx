@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -26,6 +25,7 @@ import * as XLSX from 'xlsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "../ui/scroll-area";
 import { cn } from "@/lib/utils";
+import * as mammoth from "mammoth";
 
 // Set worker source for pdfjs. This is critical for it to work in Next.js
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -336,12 +336,69 @@ const PdfPreview = ({ document: doc }: { document: DocumentType }) => {
 };
 
 
+const DocxPreview = ({ document: doc }: { document: DocumentType }) => {
+    const [content, setContent] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const { toast } = useToast();
+
+    useEffect(() => {
+        setIsLoading(true);
+        setContent(null);
+        if (!doc.storagePath) {
+            toast({ variant: 'destructive', title: 'Error', description: 'File path is missing.' });
+            setIsLoading(false);
+            return;
+        }
+
+        const fetchAndExtractText = async () => {
+            try {
+                const base64Data = await getDocumentAsBase64(doc.storagePath!);
+                if (base64Data) {
+                    const arrayBuffer = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0)).buffer;
+                    const result = await mammoth.extractRawText({ arrayBuffer });
+                    setContent(result.value);
+                } else {
+                    throw new Error("Received no data from server");
+                }
+            } catch (err: any) {
+                console.error("Error extracting text from DOCX file:", err);
+                toast({ variant: 'destructive', title: 'Error', description: 'Could not load file for preview.' });
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchAndExtractText();
+    }, [doc.id, doc.storagePath, toast]);
+
+    if (isLoading) {
+        return <div className="flex justify-center items-center h-full"><Skeleton className="h-[80vh] w-[80%]" /></div>;
+    }
+
+    if (!content) {
+        return <DownloadOnlyPreview document={doc} />;
+    }
+
+    return (
+        <div className="p-8 bg-white shadow-md rounded-md overflow-y-auto h-full">
+            <div className="prose max-w-none">
+                {content.split('\n').map((line, index) => (
+                    <p key={index} className="text-base leading-relaxed text-gray-800">{line}</p>
+                ))}
+            </div>
+        </div>
+    );
+};
+
 const DocumentPreview = ({ document }: { document: DocumentType }) => {
     if (document.fileType === 'pdf') {
         return <PdfPreview document={document} />;
     }
     if (document.fileType === 'xlsx') {
         return <XlsxPreview document={document} />;
+    }
+    if (document.fileType === 'docx') {
+        return <DocxPreview document={document} />;
     }
     return <DownloadOnlyPreview document={document} />;
 }
