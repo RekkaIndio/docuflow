@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowLeft, CreditCard, User, Users, Bell, Trash2, ShieldCheck, FileKey, LifeBuoy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -21,6 +21,12 @@ import {
 } from "@/components/ui/table";
 import { mockUser } from "@/lib/data";
 import { SidebarTrigger } from "../ui/sidebar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { FileInput } from "@/components/ui/file-input";
+import { uploadProfilePicture, saveProfilePictureUrl } from "@/lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase"; // Adjust the import based on your project structure
+import { useAuth } from '@/hooks/use-auth';
 
 
 interface SettingsViewProps {
@@ -41,7 +47,63 @@ const mockTeamMembers = [
 
 
 export function SettingsView({ workspace }: SettingsViewProps) {
-    const [workspaceName, setWorkspaceName] = useState(workspace.name);
+  const { user } = useAuth();
+  const [workspaceName, setWorkspaceName] = useState(workspace.name);
+  const [profilePicture, setProfilePicture] = useState<string>("");
+
+  useEffect(() => {
+    async function fetchProfilePicture() {
+      try {
+                // Prefer a workspace-saved image (workspace may have its own profilePicture),
+                // otherwise fall back to the authenticated user's saved profilePicture.
+                if (workspace?.id) {
+                    const wsDocRef = doc(db, 'users', workspace.id);
+                    const wsSnap = await getDoc(wsDocRef);
+                    if (wsSnap.exists()) {
+                        const data = wsSnap.data();
+                        if (data?.profilePicture) {
+                            setProfilePicture(data.profilePicture);
+                            return;
+                        }
+                    }
+                }
+
+                const userIdToUse = user?.id;
+                if (!userIdToUse) return;
+                const userDocRef = doc(db, "users", userIdToUse);
+                const userDoc = await getDoc(userDocRef);
+                if (userDoc.exists()) {
+                    const data = userDoc.data();
+                    if (data?.profilePicture) {
+                        setProfilePicture(data.profilePicture);
+                        return;
+                    }
+                }
+      } catch (error) {
+        console.error("Error fetching profile picture:", error);
+      }
+    }
+
+    fetchProfilePicture();
+  }, [workspace.id, user?.id]);
+
+  const handleProfilePictureChange = async (file: File | null) => {
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => setProfilePicture(reader.result as string);
+    reader.readAsDataURL(file);
+
+    try {
+      const userIdToUse = user?.id ?? workspace.id;
+      if (!userIdToUse) throw new Error('No user or workspace id available to save profile picture');
+      const downloadUrl = await uploadProfilePicture(file, userIdToUse);
+      await saveProfilePictureUrl(userIdToUse, downloadUrl);
+      setProfilePicture(downloadUrl);
+    } catch (error) {
+      console.error("Error uploading or saving profile picture:", error);
+    }
+  };
 
   return (
     <div className="flex flex-col h-full bg-muted/20">
@@ -68,6 +130,22 @@ export function SettingsView({ workspace }: SettingsViewProps) {
                                 <Label htmlFor="workspaceName">Workspace Name</Label>
                                 <Input id="workspaceName" value={workspaceName} onChange={(e) => setWorkspaceName(e.target.value)} />
                            </div>
+                           <div className="space-y-2 mt-4">
+                                <Label htmlFor="profilePicture">Profile Picture</Label>
+                                <div className="flex items-center gap-4">
+                                    <Avatar>
+                                      <AvatarImage src={profilePicture} alt="Profile Picture" />
+                                      <AvatarFallback>PP</AvatarFallback>
+                                    </Avatar>
+                                    <input
+                                      id="profilePicture"
+                                      type="file"
+                                      accept="image/*"
+                                      onChange={e => handleProfilePictureChange(e.target.files?.[0] || null)}
+                                      className="block"
+                                    />
+                                </div>
+                            </div>
                         </CardContent>
                     </Card>
                      <Card>
@@ -90,21 +168,6 @@ export function SettingsView({ workspace }: SettingsViewProps) {
                                 </div>
                                 <Switch id="smart-alerts" />
                            </div>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-destructive">Danger Zone</CardTitle>
-                            <CardDescription>These actions are permanent and cannot be undone.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="flex items-center justify-between p-4 border border-destructive/50 rounded-lg">
-                                <div>
-                                    <h3 className="font-semibold text-destructive">Delete Workspace</h3>
-                                    <p className="text-sm text-muted-foreground">This will permanently delete your workspace, including all documents and teams.</p>
-                                </div>
-                                <Button variant="destructive">Delete Workspace</Button>
-                            </div>
                         </CardContent>
                     </Card>
                 </div>

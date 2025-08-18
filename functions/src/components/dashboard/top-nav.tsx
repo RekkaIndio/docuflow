@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useAuth } from '@/hooks/use-auth';
@@ -14,6 +13,9 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { LifeBuoy, LogOut, Settings, User as UserIcon } from 'lucide-react';
 import { ThemeToggle } from '../theme-toggle';
+import { useEffect, useState } from 'react';
+import { db } from '@/lib/firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
 
 interface TopNavProps {
   onSettingsClick: () => void;
@@ -21,15 +23,31 @@ interface TopNavProps {
 
 export function TopNav({ onSettingsClick }: TopNavProps) {
   const { user, signOut } = useAuth();
+  const [profilePicture, setProfilePicture] = useState<string | undefined>(user?.avatarUrl ?? undefined);
+
+  useEffect(() => {
+    if (user?.id) {
+      const userDocRef = doc(db, 'users', user.id);
+      const unsubscribe = onSnapshot(userDocRef, (doc) => {
+        const data = doc.data();
+        if (data?.profilePicture) {
+          setProfilePicture(data.profilePicture);
+        } else if (data?.uploadedLogo) {
+          setProfilePicture(data.uploadedLogo); // Use uploaded logo if profile picture is not available
+        }
+      });
+      return () => unsubscribe();
+    }
+  }, [user?.id]);
 
   return (
     <header className="flex h-16 items-center justify-end gap-4 border-b bg-background px-4 md:px-6">
-       <ThemeToggle />
+      <ThemeToggle />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon" className="relative h-10 w-10 rounded-full">
             <Avatar className="h-10 w-10">
-              <AvatarImage src={user?.avatarUrl ?? undefined} alt={user?.name ?? undefined} />
+              <AvatarImage src={profilePicture} alt={user?.name ?? undefined} />
               <AvatarFallback>{user?.name?.charAt(0)}</AvatarFallback>
             </Avatar>
           </Button>
@@ -44,7 +62,7 @@ export function TopNav({ onSettingsClick }: TopNavProps) {
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-           <DropdownMenuItem onClick={onSettingsClick}>
+          <DropdownMenuItem onClick={onSettingsClick}>
             <Settings className="mr-2 h-4 w-4" />
             <span>Settings</span>
           </DropdownMenuItem>

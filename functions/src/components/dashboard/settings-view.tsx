@@ -92,21 +92,6 @@ export function SettingsView({ workspace }: SettingsViewProps) {
                            </div>
                         </CardContent>
                     </Card>
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-destructive">Danger Zone</CardTitle>
-                            <CardDescription>These actions are permanent and cannot be undone.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="flex items-center justify-between p-4 border border-destructive/50 rounded-lg">
-                                <div>
-                                    <h3 className="font-semibold text-destructive">Delete Workspace</h3>
-                                    <p className="text-sm text-muted-foreground">This will permanently delete your workspace, including all documents and teams.</p>
-                                </div>
-                                <Button variant="destructive">Delete Workspace</Button>
-                            </div>
-                        </CardContent>
-                    </Card>
                 </div>
             </TabsContent>
             <TabsContent value="billing">

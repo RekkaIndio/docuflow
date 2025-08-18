@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useAuth } from '@/hooks/use-auth';
@@ -16,6 +15,7 @@ import { LifeBuoy, LogOut, Settings, User as UserIcon, Bell } from 'lucide-react
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { useEffect, useState } from 'react';
 import { collection, query as fsQuery, orderBy, limit as fsLimit, onSnapshot, updateDoc, doc } from 'firebase/firestore';
+import { getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { formatDistanceToNow } from 'date-fns';
 import { SidebarTrigger } from '@/components/ui/sidebar';
@@ -32,6 +32,7 @@ export function TopNav({ onSettingsClick, onNotificationsClick, unreadCount = 0,
   const { user, signOut } = useAuth();
   const isMobile = useIsMobile();
   const [recent, setRecent] = useState<any[]>([]);
+  const [profilePicture, setProfilePicture] = useState<string | null>(null);
 
   useEffect(() => {
     if (!workspaceId) return;
@@ -43,6 +44,49 @@ export function TopNav({ onSettingsClick, onNotificationsClick, unreadCount = 0,
     });
     return () => unsub();
   }, [workspaceId]);
+
+  useEffect(() => {
+    let unsubscribeFromUser: (() => void) | undefined;
+
+    // One-off check: if workspaceId is present and different from user id, try to read any previously-saved profilePicture there
+    (async () => {
+      try {
+        if (workspaceId && workspaceId !== user?.id) {
+          const wsDocRef = doc(db, 'users', workspaceId);
+          const wsSnap = await getDoc(wsDocRef);
+          if (wsSnap.exists()) {
+            const data = wsSnap.data();
+            if (data?.profilePicture) {
+              setProfilePicture(data.profilePicture);
+              return; // prefer workspace-saved image until user doc subscription overrides it
+            } else if (data?.uploadedLogo) {
+              setProfilePicture(data.uploadedLogo);
+              return;
+            }
+          }
+        }
+      } catch (err) {
+        console.error('workspace fallback profile fetch failed', err);
+      }
+    })();
+
+    // Live subscribe to the authenticated user's doc (this should be the source of truth)
+    if (user?.id) {
+      const userDocRef = doc(db, 'users', user.id);
+      unsubscribeFromUser = onSnapshot(userDocRef, (d) => {
+        const data = d.data();
+        if (data?.profilePicture) {
+          setProfilePicture(data.profilePicture);
+        } else if (data?.uploadedLogo) {
+          setProfilePicture(data.uploadedLogo);
+        }
+      });
+    }
+
+    return () => {
+      if (unsubscribeFromUser) unsubscribeFromUser();
+    };
+  }, [user?.id, workspaceId]);
 
   return (
     <header className="flex h-16 items-center justify-between gap-4 border-b bg-background px-4 md:px-6">
@@ -124,7 +168,7 @@ export function TopNav({ onSettingsClick, onNotificationsClick, unreadCount = 0,
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="relative h-10 w-10 rounded-full">
               <Avatar className="h-10 w-10">
-                <AvatarImage src={user?.avatarUrl ?? undefined} alt={user?.name ?? undefined} />
+                <AvatarImage src={profilePicture ?? user?.avatarUrl ?? undefined} alt={user?.name ?? undefined} />
                 <AvatarFallback>{user?.name?.charAt(0)}</AvatarFallback>
               </Avatar>
             </Button>

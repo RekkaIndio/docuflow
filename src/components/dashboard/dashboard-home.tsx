@@ -280,7 +280,7 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
                             <p className="text-sm text-blue-700/70 hidden sm:block">Welcome back! Here's a summary of your workspace.</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+                    {/* <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                         <NewFolderDialog
                             workspaceId={workspace.id}
                             parentId={'root'}
@@ -296,7 +296,7 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
                             folderId={'root'}
                             size={isMobile ? "sm" : "default"}
                         />
-                    </div>
+                    </div> */}
                 </div>
             </header>
             <main className="flex-1 p-3 sm:p-4 md:p-8 overflow-y-auto space-y-6 sm:space-y-8 md:space-y-12">

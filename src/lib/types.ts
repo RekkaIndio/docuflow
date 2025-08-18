@@ -1,4 +1,3 @@
-
 export type User = {
   id: string;
   name: string | null;
@@ -13,6 +12,7 @@ export type Workspace = {
   evidenceFolders?: (Folder | Document)[]; // Separate folder structure for evidence
   ownerId?: string;
   members?: string[];
+  profilePicture?: string; // Added profilePicture property to the Workspace type
 };
 
 export type Folder = {
@@ -47,4 +47,5 @@ export type Team = {
   members: User[];
   folderCount: number;
   accessibleFolderIds: string[];
-}
+  emails: string[]; // Added 'emails' property
+};
