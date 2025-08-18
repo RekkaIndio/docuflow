@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { Document, Folder } from "@/lib/types";
@@ -7,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { CornerDownLeft, Search, FileText, CalendarClock } from "lucide-react";
 import React, { useState, useRef, useEffect } from "react";
+import { useAuth } from '@/hooks/use-auth';
 import { mockUser } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { chatWithDocuments } from "@/ai/flows/chat-with-documents";
@@ -26,6 +26,8 @@ import {
     CommandItem,
     CommandList,
   } from "@/components/ui/command";
+import { db } from "@/lib/firebase";
+import { doc, onSnapshot } from "firebase/firestore";
 
 
 interface ChatMessage {
@@ -138,8 +140,52 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [activeDoc, setActiveDoc] = useState<Document | null>(null); // Persist selected doc
+  const { user } = useAuth();
+  const [profilePicture, setProfilePicture] = useState<string | undefined>(user?.avatarUrl ?? mockUser.avatarUrl ?? undefined);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  const workspaceId = (selectedItem as any)?.workspaceId ?? null;
+
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+
+    (async () => {
+      try {
+        // Prefer workspace-saved image first (if selectedItem has a workspaceId)
+        const workspaceId = (selectedItem as any)?.workspaceId;
+        if (workspaceId) {
+          const wsDocRef = doc(db, 'users', workspaceId);
+          const wsSnap = await (await import('firebase/firestore')).getDoc(wsDocRef);
+          if (wsSnap.exists()) {
+            const data = wsSnap.data();
+            if (data?.profilePicture) {
+              setProfilePicture(data.profilePicture);
+            }
+          }
+        }
+      } catch (err) {
+        // ignore
+      }
+
+      // Then subscribe to the authenticated user's doc for live updates
+      const userIdToUse = user?.id ?? mockUser.id;
+      if (!userIdToUse) return;
+      const userDocRef = doc(db, 'users', userIdToUse);
+      unsubscribe = onSnapshot(userDocRef, (snap) => {
+        const data = snap.data();
+        if (data?.profilePicture) {
+          setProfilePicture(data.profilePicture);
+        } else if (user?.avatarUrl) {
+          setProfilePicture(user.avatarUrl);
+        }
+      });
+    })();
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [user?.id, workspaceId]);
 
   useEffect(() => {
     // Create sample initial conversation to showcase functionality
@@ -229,7 +275,7 @@ How can I assist you today?`
   // Enhanced natural language intent detection
   const detectIntent = (userInput: string): UserIntent => {
     const input = userInput.toLowerCase().trim();
-    
+
     // Document search patterns - much more flexible
     const searchPatterns = [
       // Direct requests
@@ -246,8 +292,12 @@ How can I assist you today?`
       /^(what|which)\s+(documents?|policies|files?|papers?)\s+(do\s+we\s+have\s+|are\s+there\s+|exist\s+)?(about|for|regarding|on|related\s+to)\s+(.+)/i,
       // Status/info requests
       /^(what\s+is\s+the\s+status\s+of|when\s+is|tell\s+me\s+about|information\s+about|details\s+about)\s+(the\s+)?(.+)/i,
+      // Folder-specific requests
+      /^(look\s+in\s+the\s+(.+?)\s+folder\s+and\s+find\s+me\s+the\s+(.+))$/i,
+      /^(in\s+the\s+(.+?)\s+folder\s+find\s+me\s+the\s+(.+))$/i,
+      /^(find\s+me\s+the\s+(.+?)\s+folder)$/i
     ];
-    
+
     // Check for document search intent
     for (const pattern of searchPatterns) {
       const match = input.match(pattern);
@@ -263,7 +313,7 @@ How can I assist you today?`
         }
       }
     }
-    
+
     // Folder creation patterns
     const folderPatterns = [
       /(create|add|make|new)\s+(a\s+|the\s+|another\s+)?folder(\s+called|\s+named|\s+titled|\s+with\s+name)?\s*(.+)?/i,
@@ -547,9 +597,10 @@ How can I assist you today?`
       {/* Header matching the CareBot design */}
       <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-4 text-white">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-full bg-white/20">
-            <FileText className="w-5 h-5" />
-          </div>
+          <Avatar className="w-10 h-10 border-2 border-blue-200">
+            <AvatarImage src={'/Neurodiversity_Symbol.svg'} alt="CareBot AI" />
+            <AvatarFallback className="bg-gray-500 text-white text-sm font-semibold">AI</AvatarFallback>
+          </Avatar>
           <div>
             <h3 className="font-semibold text-lg">CareBot AI - Policy Assistant</h3>
           </div>
@@ -561,8 +612,8 @@ How can I assist you today?`
           <div key={index} className={cn("flex items-start gap-3", message.sender === 'user' ? 'justify-end' : '')}>
             {message.sender === 'ai' && (
               <Avatar className="w-10 h-10 border-2 border-blue-200">
-                 <AvatarImage src="/ai-avatar.png" alt="AI" />
-                <AvatarFallback className="bg-blue-500 text-white text-sm font-semibold">AI</AvatarFallback>
+                 <AvatarImage src={'/Neurodiversity_Symbol.svg'} alt={mockUser.name || undefined} />
+                <AvatarFallback className="bg-gray-500 text-white text-sm font-semibold">AI</AvatarFallback>
               </Avatar>
             )}
             <div className={cn(
@@ -577,7 +628,7 @@ How can I assist you today?`
             </div>
              {message.sender === 'user' && (
               <Avatar className="w-10 h-10 border-2 border-blue-200">
-                <AvatarImage src={mockUser.avatarUrl || undefined} alt={mockUser.name || undefined} />
+                <AvatarImage src={profilePicture || mockUser.avatarUrl || undefined} alt={mockUser.name || undefined} />
                 <AvatarFallback className="bg-gray-500 text-white text-sm font-semibold">
                   {mockUser.name ? mockUser.name.charAt(0) : '?'}
                 </AvatarFallback>
@@ -588,7 +639,7 @@ How can I assist you today?`
          {isTyping && (
           <div className="flex items-start gap-3">
             <Avatar className="w-10 h-10 border-2 border-blue-200">
-              <AvatarImage src="/ai-avatar.png" alt="AI" />
+              <AvatarImage src={'/Neurodiversity_Symbol.svg'} alt="AI" />
               <AvatarFallback className="bg-blue-500 text-white text-sm font-semibold">AI</AvatarFallback>
             </Avatar>
             <div className="max-w-[75%] rounded-2xl p-4 text-sm bg-white border border-gray-200 shadow-sm">

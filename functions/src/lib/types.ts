@@ -1,4 +1,3 @@
-
 export type User = {
   id: string;
   name: string | null;
@@ -46,4 +45,5 @@ export type Team = {
   members: User[];
   folderCount: number;
   accessibleFolderIds: string[];
-}
+  emails: string[]; // Added 'emails' property
+};
