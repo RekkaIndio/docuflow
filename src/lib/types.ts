@@ -29,7 +29,7 @@ export type Document = {
   id:string;
   name: string;
   type: 'document';
-  fileType: 'pdf' | 'csv' | 'txt' | 'xlsx' | 'doc';
+  fileType: 'pdf' | 'csv' | 'txt' | 'xlsx' | 'doc' | 'docx';
   createdAt: string;
   owner: User;
   extractedJson?: Record<string, any>;

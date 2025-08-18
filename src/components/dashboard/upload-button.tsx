@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -52,6 +51,7 @@ const getFileType = (file: File): Document['fileType'] | null => {
   if (["txt"].includes(extension) && mimeType === 'text/plain') return 'txt';
   if (["xlsx"].includes(extension) && mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') return 'xlsx';
   if (["doc"].includes(extension) && (mimeType === 'application/msword' || mimeType === 'application/octet-stream')) return 'doc';
+  if (["docx"].includes(extension) && mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') return 'docx';
   // Some browsers may use application/octet-stream for .doc
   // Unsupported type
   return null;
@@ -167,7 +167,7 @@ export function UploadButton({ onDocumentAdd, workspaceId, folderId, size = "def
         storagePath: safeStoragePath,
         tags,
         summary,
-        renewalDate: upload.renewalDate,
+        renewalDate: upload.renewalDate ?? undefined, // Ensure undefined if not set
       }
 
       // 4. Save metadata to Firestore
@@ -223,9 +223,9 @@ export function UploadButton({ onDocumentAdd, workspaceId, folderId, size = "def
                     <div className="flex flex-col items-center justify-center pt-5 pb-6">
                         <Upload className="w-8 h-8 mb-3 text-gray-400" />
                         <p className="mb-2 text-sm text-gray-500 dark:text-gray-400"><span className="font-semibold">Click to upload</span> or drag and drop</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Supported: PDF, DOC, CSV, TXT, XLSX (Max {MAX_FILES} files)</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Supported: PDF, DOC, DOCX, CSV, TXT, XLSX (Max {MAX_FILES} files)</p>
                     </div>
-                    <Input id="dropzone-file" type="file" className="hidden" onChange={handleFileChange} multiple disabled={isUploading || uploads.length >= MAX_FILES} accept=".pdf,.doc,.csv,.txt,.xlsx" />
+                    <Input id="dropzone-file" type="file" className="hidden" onChange={handleFileChange} multiple disabled={isUploading || uploads.length >= MAX_FILES} accept=".pdf,.doc,.docx,.csv,.txt,.xlsx" />
                 </label>
             </div>
             {uploads.length > 0 && (
@@ -301,4 +301,4 @@ export function UploadButton({ onDocumentAdd, workspaceId, folderId, size = "def
   );
 }
 
-    
+
