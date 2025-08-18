@@ -53,7 +53,6 @@ export function SettingsView({ workspace }: SettingsViewProps) {
          <Tabs defaultValue="general" className="w-full">
             <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 mb-6">
                 <TabsTrigger value="general">General</TabsTrigger>
-                <TabsTrigger value="billing">Billing</TabsTrigger>
                 <TabsTrigger value="members">Members</TabsTrigger>
             </TabsList>
             <TabsContent value="general">
