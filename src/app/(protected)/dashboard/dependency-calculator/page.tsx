@@ -37,8 +37,6 @@ interface Community {
   residentIds: string[];
 }
 
-// We include an explicit 'None' level to represent "No Needs" with weight 0
-const DEPENDENCY_WEIGHTS: Record<Exclude<DependencyLevel, "">, number> = { None: 0, Low: 1, Medium: 2, High: 3 };
 
 const FIELDS = [
   { key: "personalCare", label: "Personal Care" },
@@ -190,6 +188,84 @@ export default function DependencyCalculatorPage() {
       communityId: null,
     });
   const [staff, setStaff] = useState<Record<Shift, number>>({ Day: 0, Night: 0 });
+  const [staffActual, setStaffActual] = useState<{
+    Day: { nurse: number; ctm: number; senior: number; carer: number };
+    Night: { nurse: number; ctm: number; senior: number; carer: number };
+  }>({
+    Day: { nurse: 0, ctm: 0, senior: 0, carer: 0 },
+    Night: { nurse: 0, ctm: 0, senior: 0, carer: 0 },
+  });
+
+  // Month-by-month snapshots
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
+  const [snapshots, setSnapshots] = useState<Record<string, { residents: Resident[]; communities: Community[]; staffActual: any; savedAt: number }>>({});
+
+  // Load snapshots from localStorage on mount
+  React.useEffect(() => {
+    try {
+      const raw = localStorage.getItem('dependency_snapshots_v1');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') setSnapshots(parsed);
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, []);
+
+  async function saveSnapshot(month: string) {
+    if (!month) return;
+    const exists = Boolean(snapshots[month]);
+    if (exists && !confirm(`A snapshot for ${month} already exists. Overwrite?`)) return;
+    const payload = { residents, communities, staffActual, savedAt: Date.now() };
+    const next = { ...snapshots, [month]: payload };
+    try {
+      localStorage.setItem('dependency_snapshots_v1', JSON.stringify(next));
+      setSnapshots(next);
+    } catch (e) {
+      console.warn('Failed to save snapshot locally', e);
+    }
+
+    // also persist to Firestore for authenticated users
+    if (user) {
+      try {
+        const ref = doc(db, 'users', user.id, 'dependency_calculator_snapshots', month);
+        await setDoc(ref, { ...payload, schemaVersion: 1, updatedAt: serverTimestamp() }, { merge: true });
+      } catch (err) {
+        console.warn('Failed to save snapshot to Firestore', err);
+      }
+    }
+  }
+
+  function loadSnapshot(month: string) {
+    if (!month) return;
+    const s = snapshots[month];
+    if (!s) {
+      alert('No snapshot found for ' + month);
+      return;
+    }
+    if (!confirm(`Load snapshot for ${month}? This will replace the current residents, communities and actual staff.`)) return;
+    setResidents(s.residents || []);
+    setCommunities(s.communities || []);
+    setStaffActual(s.staffActual || { Day: { nurse: 0, ctm: 0, senior: 0, carer: 0 }, Night: { nurse: 0, ctm: 0, senior: 0, carer: 0 } });
+  }
+
+  function deleteSnapshot(month: string) {
+    if (!month) return;
+    if (!confirm(`Delete snapshot for ${month}? This cannot be undone.`)) return;
+    const next = { ...snapshots };
+    delete next[month];
+    try {
+      localStorage.setItem('dependency_snapshots_v1', JSON.stringify(next));
+      setSnapshots(next);
+    } catch (e) {
+      console.warn('Failed to delete snapshot locally', e);
+    }
+    // Note: we don't delete from Firestore automatically to avoid accidental data loss.
+  }
 
     function openAddModal() {
   setForm({ name: "", room: "", ...getDefaultAssessment(), communityId: selectedCommunity ?? null });
@@ -427,6 +503,7 @@ export default function DependencyCalculatorPage() {
     try {
       localStorage.setItem("dependency_residents_v1", JSON.stringify(residents));
       localStorage.setItem("dependency_communities_v1", JSON.stringify(communities));
+  localStorage.setItem("dependency_staff_actual_v1", JSON.stringify(staffActual));
     } catch (e) {
       console.warn("Failed to save residents/communities to localStorage", e);
     }
@@ -436,18 +513,18 @@ export default function DependencyCalculatorPage() {
     const ref = doc(db, "users", user.id, "dependency_calculator", "default");
     const t = setTimeout(async () => {
       try {
-        await setDoc(ref, { residents, communities, schemaVersion: 1, updatedAt: serverTimestamp() }, { merge: true });
+        // include staffActual so the user's main dependency_calculator document stays in sync
+        await setDoc(ref, { residents, communities, staffActual, schemaVersion: 1, updatedAt: serverTimestamp() }, { merge: true });
       } catch (err) {
         console.warn("Failed to save residents to Firestore", err);
       }
     }, 600);
     return () => clearTimeout(t);
-  }, [residents, user?.id]);
-
+  }, [residents, communities, staffActual, user?.id]);
   // Expandable resident table component. Accepts optional residentsProp to render a filtered set.
   function ResidentTable({ residentsProp }: { residentsProp?: Resident[] }) {
     const [expandedId, setExpandedId] = React.useState<string | null>(null);
-  const list = (residentsProp ?? residents).slice().sort((a, b) => compareRooms(a.room, b.room));
+    const list = (residentsProp ?? residents).slice().sort((a, b) => compareRooms(a.room, b.room));
     // Pooled totals: sum hours first, then convert to 12h shifts (ceil to nearest 0.25)
     const totalDayHours = Math.round(list.reduce((s, r) => s + calculateResidentCareHours(r).Day, 0) * 100) / 100;
     const totalNightHours = Math.round(list.reduce((s, r) => s + calculateResidentCareHours(r).Night, 0) * 100) / 100;
@@ -562,10 +639,190 @@ export default function DependencyCalculatorPage() {
         Assess each resident step-by-step. Each card below shows a summary. Click to edit or add a new resident.
       </p>
 
-      <div className="flex gap-4 mb-6 items-start">
+        <div className="flex gap-4 mb-6 items-start">
         <div className="flex-1">
-        {/* Communities area: create and panels */}
+        {/* Top row: Add Resident + Right-side cards */}
         <div className="w-full mb-6">
+          <div className="flex items-start gap-6 mb-3 flex-col md:flex-row">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 w-full">
+              <div className="flex items-stretch">
+                <button
+                  className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-blue-300 rounded-xl bg-white text-blue-600 hover:bg-blue-50 transition"
+                  onClick={openAddModal}
+                >
+                  <span className="text-4xl mb-2">+</span>
+                  <span className="font-semibold">Add Resident</span>
+                </button>
+              </div>
+
+              <div className="flex items-stretch">
+                <div className="p-3 bg-white rounded shadow-sm border text-sm w-full">
+                  <div className="text-sm font-semibold mb-2">Key</div>
+                  <div className="grid gap-1 text-xs">
+                    <div><span className="font-medium">No Needs</span> - No care input required</div>
+                    <div><span className="font-medium">Low needs</span> - Assistance required, but can complete most of the task with prompt/support</div>
+                    <div><span className="font-medium">Medium Needs</span> - Assistance required, can complete part of the task with prompt/support</div>
+                    <div><span className="font-medium">High Needs</span> - Fully dependant on assistance and cannot complete the task without full input.</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-stretch">
+                <div className="p-3 bg-white rounded shadow-sm border text-sm w-full">
+                  <div className="text-sm font-semibold mb-2">Actual Staff Count</div>
+                  <div className="grid gap-3 text-xs">
+                    <div>
+                      <div className="text-xs font-medium mb-1">Day</div>
+                      <div className="grid grid-cols-4 gap-2">
+                        <div>
+                          <div className="text-[11px] font-medium mb-1">Nurse</div>
+                          <select
+                            className="w-full border rounded px-2 py-1 text-sm"
+                            value={staffActual.Day.nurse}
+                            onChange={e => setStaffActual(prev => ({ ...prev, Day: { ...prev.Day, nurse: parseInt(e.target.value || '0', 10) } }))}
+                          >
+                            {Array.from({ length: 11 }).map((_, i) => (
+                              <option key={i} value={i}>{i}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <div className="text-[11px] font-medium mb-1">CTM</div>
+                          <select
+                            className="w-full border rounded px-2 py-1 text-sm"
+                            value={staffActual.Day.ctm}
+                            onChange={e => setStaffActual(prev => ({ ...prev, Day: { ...prev.Day, ctm: parseInt(e.target.value || '0', 10) } }))}
+                          >
+                            {Array.from({ length: 11 }).map((_, i) => (
+                              <option key={i} value={i}>{i}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <div className="text-[11px] font-medium mb-1">Senior</div>
+                          <select
+                            className="w-full border rounded px-2 py-1 text-sm"
+                            value={staffActual.Day.senior}
+                            onChange={e => setStaffActual(prev => ({ ...prev, Day: { ...prev.Day, senior: parseInt(e.target.value || '0', 10) } }))}
+                          >
+                            {Array.from({ length: 11 }).map((_, i) => (
+                              <option key={i} value={i}>{i}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <div className="text-[11px] font-medium mb-1">Carer</div>
+                          <select
+                            className="w-full border rounded px-2 py-1 text-sm"
+                            value={staffActual.Day.carer}
+                            onChange={e => setStaffActual(prev => ({ ...prev, Day: { ...prev.Day, carer: parseInt(e.target.value || '0', 10) } }))}
+                          >
+                            {Array.from({ length: 21 }).map((_, i) => (
+                              <option key={i} value={i}>{i}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-xs font-medium mb-1">Night</div>
+                      <div className="grid grid-cols-4 gap-2">
+                        <div>
+                          <div className="text-[11px] font-medium mb-1">Nurse</div>
+                          <select
+                            className="w-full border rounded px-2 py-1 text-sm"
+                            value={staffActual.Night.nurse}
+                            onChange={e => setStaffActual(prev => ({ ...prev, Night: { ...prev.Night, nurse: parseInt(e.target.value || '0', 10) } }))}
+                          >
+                            {Array.from({ length: 11 }).map((_, i) => (
+                              <option key={i} value={i}>{i}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <div className="text-[11px] font-medium mb-1">CTM</div>
+                          <select
+                            className="w-full border rounded px-2 py-1 text-sm"
+                            value={staffActual.Night.ctm}
+                            onChange={e => setStaffActual(prev => ({ ...prev, Night: { ...prev.Night, ctm: parseInt(e.target.value || '0', 10) } }))}
+                          >
+                            {Array.from({ length: 11 }).map((_, i) => (
+                              <option key={i} value={i}>{i}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <div className="text-[11px] font-medium mb-1">Senior</div>
+                          <select
+                            className="w-full border rounded px-2 py-1 text-sm"
+                            value={staffActual.Night.senior}
+                            onChange={e => setStaffActual(prev => ({ ...prev, Night: { ...prev.Night, senior: parseInt(e.target.value || '0', 10) } }))}
+                          >
+                            {Array.from({ length: 11 }).map((_, i) => (
+                              <option key={i} value={i}>{i}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <div className="text-[11px] font-medium mb-1">Carer</div>
+                          <select
+                            className="w-full border rounded px-2 py-1 text-sm"
+                            value={staffActual.Night.carer}
+                            onChange={e => setStaffActual(prev => ({ ...prev, Night: { ...prev.Night, carer: parseInt(e.target.value || '0', 10) } }))}
+                          >
+                            {Array.from({ length: 21 }).map((_, i) => (
+                              <option key={i} value={i}>{i}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-stretch">
+                <div className="p-3 bg-white rounded shadow-sm border text-sm w-full">
+                  <div className="text-sm font-semibold mb-2">Monthly Snapshots</div>
+                  <div className="text-xs mb-2">Choose month to save or load resident data.</div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <input
+                      type="month"
+                      className="border rounded px-2 py-1 w-full"
+                      value={selectedMonth}
+                      onChange={e => setSelectedMonth(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex gap-2 mb-3">
+                    <button
+                      className="px-2 py-1 bg-blue-600 text-white rounded text-xs"
+                      onClick={() => saveSnapshot(selectedMonth)}
+                    >Save</button>
+                    <button
+                      className="px-2 py-1 bg-gray-200 rounded text-xs"
+                      onClick={() => loadSnapshot(selectedMonth)}
+                    >Load</button>
+                  </div>
+                  <div className="text-xs font-medium mt-2 mb-1">Saved Months</div>
+                  <div className="flex flex-col gap-2 max-h-40 overflow-auto">
+                    {Object.keys(snapshots).length === 0 && (
+                      <div className="text-xs text-gray-500">No snapshots saved</div>
+                    )}
+                    {Object.keys(snapshots).sort().reverse().map(m => (
+                      <div key={m} className="flex items-center justify-between gap-2">
+                        <div className="text-xs">{m} <span className="text-gray-400 text-[11px]">{snapshots[m].savedAt ? `(${timeAgo(snapshots[m].savedAt)})` : ''}</span></div>
+                        <div className="flex items-center gap-1">
+                          <button className="text-xs text-blue-600" onClick={() => { setSelectedMonth(m); loadSnapshot(m); }}>Load</button>
+                          <button className="text-xs text-red-600" onClick={() => deleteSnapshot(m)}>Delete</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
           <div className="flex items-center gap-3 mb-3">
             <input id="new-community" placeholder="New community name" className="border rounded px-3 py-2" />
             <button
@@ -750,27 +1007,9 @@ export default function DependencyCalculatorPage() {
             </div>
           );
         })}
-        <button
-          className="flex flex-col items-center justify-center w-80 h-40 border-2 border-dashed border-blue-300 rounded-xl bg-white text-blue-600 hover:bg-blue-50 transition"
-          onClick={openAddModal}
-        >
-          <span className="text-4xl mb-2">+</span>
-          <span className="font-semibold">Add Resident</span>
-        </button>
-        </div>
+        
 
-        <aside className="w-64">
-          <div className="mb-4 p-3 bg-white rounded shadow-sm border sticky top-24 text-sm">
-            <div className="text-sm font-semibold mb-2">Key</div>
-            <div className="grid gap-1 text-xs">
-              <div><span className="font-medium">No Needs</span> - No care input required</div>
-              <div><span className="font-medium">Low needs</span> - Assistance required, but can complete most of the task with prompt/support</div>
-              <div><span className="font-medium">Medium Needs</span> - Assistance required, can complete part of the task with prompt/support</div>
-              <div><span className="font-medium">High Needs</span> - Fully dependant on assistance and cannot complete the task without full input.</div>
-            </div>
-          </div>
-        </aside>
-      </div>
+        
 
   {/* Residents Table (Expandable Rows) */}
   {residents.length > 0 && (
@@ -887,6 +1126,9 @@ export default function DependencyCalculatorPage() {
           </div>
         </div>
       )}
+    </div>
+  
+      </div>
     </div>
   );
 }

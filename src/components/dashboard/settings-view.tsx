@@ -33,12 +33,6 @@ interface SettingsViewProps {
     workspace: Workspace;
 }
 
-const mockBillingHistory = [
-    { id: 'inv-1', date: 'June 1, 2024', amount: '$49.00', status: 'Paid', link: '#' },
-    { id: 'inv-2', date: 'May 1, 2024', amount: '$49.00', status: 'Paid', link: '#' },
-    { id: 'inv-3', date: 'April 1, 2024', amount: '$49.00', status: 'Paid', link: '#' },
-]
-
 const mockTeamMembers = [
     mockUser,
     { id: 'user-2', name: 'Jane Doe', email: 'jane.d@example.com', avatarUrl: 'https://i.pravatar.cc/150?u=jane', role: 'Admin' },
@@ -115,7 +109,6 @@ export function SettingsView({ workspace }: SettingsViewProps) {
          <Tabs defaultValue="general" className="w-full">
             <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 mb-6">
                 <TabsTrigger value="general">General</TabsTrigger>
-                <TabsTrigger value="billing">Billing</TabsTrigger>
                 <TabsTrigger value="members">Members</TabsTrigger>
             </TabsList>
             <TabsContent value="general">
@@ -204,18 +197,6 @@ export function SettingsView({ workspace }: SettingsViewProps) {
                                         <TableHead className="text-right">Invoice</TableHead>
                                     </TableRow>
                                 </TableHeader>
-                                <TableBody>
-                                    {mockBillingHistory.map(invoice => (
-                                        <TableRow key={invoice.id}>
-                                            <TableCell>{invoice.date}</TableCell>
-                                            <TableCell>{invoice.amount}</TableCell>
-                                            <TableCell>{invoice.status}</TableCell>
-                                            <TableCell className="text-right">
-                                                <Button variant="link" asChild><a href={invoice.link}>Download</a></Button>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
                             </Table>
                         </CardContent>
                     </Card>
