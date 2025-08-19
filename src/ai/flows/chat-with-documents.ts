@@ -72,7 +72,39 @@ const chatWithDocumentsFlow = ai.defineFlow(
     outputSchema: ChatWithDocumentsOutputSchema,
   },
   async input => {
-    const {output} = await prompt(input);
-    return output!;
+    // Retry logic for transient provider errors (e.g., model overloaded / 503)
+    const maxAttempts = 4;
+    const baseDelayMs = 500; // initial backoff
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const {output} = await prompt(input);
+        return output!;
+      } catch (err: any) {
+        const msg = (err && err.message) ? String(err.message) : String(err);
+        const isTransient = /overload|overloaded|503|503 Service Unavailable|temporar/i.test(msg);
+
+        // If not a transient error, or we've exhausted attempts, log and return a friendly answer
+        if (!isTransient || attempt === maxAttempts) {
+          console.error(`AI provider error (attempt ${attempt}): ${msg}`);
+          return {
+            answer: 'The AI model is temporarily unavailable. Please try again in a few moments.',
+          };
+        }
+
+        // Exponential backoff with jitter
+        const backoff = baseDelayMs * Math.pow(2, attempt - 1);
+        const jitter = Math.floor(Math.random() * 200);
+        const waitMs = backoff + jitter;
+        console.warn(`Prompt attempt ${attempt} failed with transient error: ${msg}. Retrying in ${waitMs}ms...`);
+        await new Promise(r => setTimeout(r, waitMs));
+      }
+    }
+
+    // Shouldn't reach here, but return a friendly message defensively
+    console.error('AI provider error: failed after retries');
+    return {
+      answer: 'The AI model is temporarily unavailable. Please try again in a few moments.',
+    };
   }
 );

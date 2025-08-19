@@ -79,7 +79,7 @@ export function TagsView({ workspace, onSelectDocument }: TagsViewProps) {
         <div className="flex flex-col h-full bg-muted/20">
              <header className="bg-background p-4 border-b shrink-0 flex items-center justify-between">
                  <div className="flex items-center gap-2">
-                    <SidebarTrigger />
+                    {/* Sidebar toggle is provided by the Sidebar rail between sidebar and content */}
                     <div>
                         <h1 className="text-xl font-headline font-semibold">Browse by Tag</h1>
                         <p className="text-sm text-muted-foreground">Select a tag to view associated documents.</p>

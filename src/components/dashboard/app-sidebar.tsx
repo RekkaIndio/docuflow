@@ -19,6 +19,7 @@ import {
   LayoutDashboard,
   FileText,
   ChevronsUpDown,
+  PanelLeft,
   PlusCircle,
   Plus,
   Tag,
@@ -123,7 +124,7 @@ export function AppSidebar({
   onCreateWorkspace,
 }: AppSidebarProps) {
   const { user, signOut } = useAuth();
-  const { isMobile, setOpenMobile } = useSidebar();
+  const { isMobile, setOpenMobile, toggleSidebar, state } = useSidebar();
 
   const handleNavigation = (action: () => void) => {
     action();
@@ -228,6 +229,16 @@ export function AppSidebar({
           </SidebarMenu>
         </div>
       </SidebarFooter>
+      {/* Visible rail toggle between sidebar and content on desktop */}
+      <button
+        aria-label="Toggle sidebar"
+        title="Toggle sidebar"
+        onClick={() => toggleSidebar?.()}
+        className={`absolute z-40 ${state === 'collapsed' ? '-right-6' : '-right-3'} top-4 hidden h-8 w-8 items-center justify-center rounded-r-md bg-white border shadow md:flex`}
+      >
+        <PanelLeft className="w-4 h-4 text-muted-foreground" />
+        <span className="sr-only">Toggle sidebar</span>
+      </button>
     </>
   );
 }

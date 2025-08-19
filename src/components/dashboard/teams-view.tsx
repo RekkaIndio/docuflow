@@ -28,7 +28,16 @@ import { ManageFolderAccessDialog } from "./manage-folder-access-dialog";
 import { NewTeamDialog } from "./new-team-dialog";
 import { SidebarTrigger } from "../ui/sidebar";
 import { Input } from "@/components/ui/input";
-import { collection, getDocs } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  doc,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  arrayUnion,
+  arrayRemove,
+} from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 
@@ -70,7 +79,22 @@ export function TeamsView({ workspace }: TeamsViewProps) {
       try {
         const teamsCollection = collection(db, "teams");
         const teamsSnapshot = await getDocs(teamsCollection);
-        const fetchedTeams = teamsSnapshot.docs.map((doc) => doc.data() as Team);
+        // map docs to include id from Firestore doc id
+        const fetchedTeams = teamsSnapshot.docs.map((d) => {
+          const data = d.data() as any;
+          const accessibleFolderIds = Array.isArray(data.accessibleFolderIds) ? data.accessibleFolderIds : [];
+          const emails = Array.isArray(data.emails) ? data.emails : [];
+          const members = Array.isArray(data.members) ? data.members : [];
+          const folderCount = typeof data.folderCount === "number" ? data.folderCount : accessibleFolderIds.length || 0;
+          return {
+            id: data.id ?? d.id,
+            name: data.name ?? "Untitled Team",
+            members,
+            folderCount,
+            accessibleFolderIds,
+            emails,
+          } as Team;
+        });
         console.log("Fetched teams from Firestore:", fetchedTeams);
         setTeams(fetchedTeams);
       } catch (error) {
@@ -82,10 +106,32 @@ export function TeamsView({ workspace }: TeamsViewProps) {
   }, []);
 
   const handleDeleteTeam = (teamId: string) => {
+    // optimistic UI
     setTeams((prevTeams) => prevTeams.filter((team) => team.id !== teamId));
+    (async () => {
+      try {
+        const teamRef = doc(db, "teams", teamId);
+        await deleteDoc(teamRef);
+      } catch (error) {
+        console.error("Error deleting team:", error);
+        // Could refetch or revert optimistic change; for now refetch all teams
+        try {
+          const teamsCollection = collection(db, "teams");
+          const teamsSnapshot = await getDocs(teamsCollection);
+          const fetchedTeams = teamsSnapshot.docs.map((d) => {
+            const data = d.data() as Team;
+            return { ...data, id: data.id ?? d.id } as Team;
+          });
+          setTeams(fetchedTeams);
+        } catch (e) {
+          console.error("Error refetching teams after delete failure:", e);
+        }
+      }
+    })();
   };
 
   const handleAccessUpdated = (teamId: string, accessibleFolderIds: string[]) => {
+    // optimistic UI update
     setTeams((prevTeams) =>
       prevTeams.map((team: Team) =>
         team.id === teamId
@@ -93,37 +139,78 @@ export function TeamsView({ workspace }: TeamsViewProps) {
           : team
       )
     );
+    // persist to Firestore
+    (async () => {
+      try {
+        const teamRef = doc(db, "teams", teamId);
+        await updateDoc(teamRef, {
+          accessibleFolderIds,
+          folderCount: accessibleFolderIds.length,
+        });
+      } catch (error) {
+        console.error("Error updating team access in Firestore:", error);
+      }
+    })();
   };
 
   const handleTeamCreated = (newTeam: Team) => {
-    setTeams((prevTeams) => [...prevTeams, newTeam]);
+    // create team in Firestore and add to UI optimistically
+    const tmpId = newTeam.id ?? `team-${Date.now()}`;
+    const teamToAdd = { ...newTeam, id: tmpId } as Team;
+    setTeams((prevTeams) => [...prevTeams, teamToAdd]);
+    (async () => {
+      try {
+        const teamRef = doc(db, "teams", teamToAdd.id);
+        await setDoc(teamRef, teamToAdd);
+      } catch (error) {
+        console.error("Error creating team in Firestore:", error);
+      }
+    })();
   };
 
   const handleAddEmail = (teamId: string, email: string) => {
+    // optimistic UI update
     setTeams((prevTeams) =>
       prevTeams.map((team: Team) =>
         team.id === teamId
-          ? { ...team, emails: [...team.emails, email] }
+          ? { ...team, emails: [...(team.emails || []), email] }
           : team
       )
     );
+    // use atomic arrayUnion to avoid race conditions
+    (async () => {
+      try {
+        const teamRef = doc(db, "teams", teamId);
+        await updateDoc(teamRef, { emails: arrayUnion(email) });
+      } catch (error) {
+        console.error("Error adding email to team in Firestore:", error);
+      }
+    })();
   };
 
   const handleRemoveEmail = (teamId: string, email: string) => {
     setTeams((prevTeams) =>
       prevTeams.map((team: Team) =>
         team.id === teamId
-          ? { ...team, emails: team.emails.filter((e: string) => e !== email) }
+          ? { ...team, emails: (team.emails || []).filter((e: string) => e !== email) }
           : team
       )
     );
+    (async () => {
+      try {
+        const teamRef = doc(db, "teams", teamId);
+        await updateDoc(teamRef, { emails: arrayRemove(email) });
+      } catch (error) {
+        console.error("Error removing email from team in Firestore:", error);
+      }
+    })();
   };
 
   return (
     <div className="flex flex-col h-full bg-muted/20">
       <header className="bg-background p-4 border-b flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
-          <SidebarTrigger />
+          {/* Sidebar toggle is provided by the Sidebar rail between sidebar and content */}
           <h1 className="text-xl font-headline font-semibold">Teams & Permissions</h1>
         </div>
         <div className="flex items-center gap-2">
@@ -157,18 +244,22 @@ export function TeamsView({ workspace }: TeamsViewProps) {
                 <div className="mb-4">
                   <h4 className="text-sm font-semibold">Emails</h4>
                   <ul className="list-disc pl-5">
-                    {team.emails.map((email: string) => (
-                      <li key={email} className="flex justify-between items-center">
-                        <span>{email}</span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleRemoveEmail(team.id, email)}
-                        >
-                          <Trash2 className="w-4 h-4 text-red-500" />
-                        </Button>
-                      </li>
-                    ))}
+                    {(team.emails || []).length === 0 ? (
+                      <li className="text-sm text-muted-foreground">No emails added</li>
+                    ) : (
+                      (team.emails || []).map((email: string) => (
+                        <li key={email} className="flex justify-between items-center">
+                          <span>{email}</span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveEmail(team.id, email)}
+                          >
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </Button>
+                        </li>
+                      ))
+                    )}
                   </ul>
                   <div className="mt-2 flex gap-2">
                     <Input

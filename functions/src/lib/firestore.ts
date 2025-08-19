@@ -235,6 +235,25 @@ export async function saveDocument(document: Omit<Document, 'id'>): Promise<stri
             createdAt: Timestamp.now(),
         };
         const docRef = await addDoc(collection(db, `workspaces/${document.workspaceId}/documents`), docWithTimestamp);
+        // Also create a workspace-level notification for consumers of the notifications feed
+        try {
+            const notifRef = await addDoc(collection(db, `workspaces/${document.workspaceId}/notifications`), {
+                title: `New document: ${document.name}`,
+                body: document.summary ?? '',
+                type: 'document',
+                createdAt: Timestamp.now(),
+                read: false,
+                meta: {
+                    documentId: docRef.id,
+                    folderId: document.folderId ?? null,
+                },
+            });
+            console.log(`Created notification ${notifRef.id} for document ${docRef.id} in workspace ${document.workspaceId}`);
+        } catch (notifErr) {
+            // Non-critical: fail gracefully if notification couldn't be created
+            console.error('Failed to create notification for new document', notifErr);
+        }
+
         return docRef.id;
     } catch (error) {
         console.error("Error saving document:", error);

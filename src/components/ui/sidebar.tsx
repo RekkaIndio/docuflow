@@ -216,7 +216,7 @@ const Sidebar = React.forwardRef<
     return (
       <div
         ref={ref}
-        className="group peer hidden md:block text-sidebar-foreground"
+        className="relative group peer hidden md:block text-sidebar-foreground"
         data-state={state}
         data-collapsible={state === "collapsed" ? collapsible : ""}
         data-variant={variant}
@@ -233,6 +233,8 @@ const Sidebar = React.forwardRef<
               : "group-data-[collapsible=icon]:w-[--sidebar-width-icon]"
           )}
         />
+  {/* rail toggle: small tab between sidebar gap and content */}
+  <SidebarRail />
         <div
           className={cn(
             "duration-200 fixed inset-y-0 z-10 hidden h-svh w-[--sidebar-width] transition-[left,right,width] ease-linear md:flex",
@@ -297,20 +299,22 @@ const SidebarRail = React.forwardRef<
       ref={ref}
       data-sidebar="rail"
       aria-label="Toggle Sidebar"
-      tabIndex={-1}
       onClick={toggleSidebar}
       title="Toggle Sidebar"
       className={cn(
-        "absolute inset-y-0 z-20 hidden w-4 -translate-x-1/2 transition-all ease-linear after:absolute after:inset-y-0 after:left-1/2 after:w-[2px] hover:after:bg-sidebar-border group-data-[side=left]:-right-4 group-data-[side=right]:left-0 sm:flex",
-        "[[data-side=left]_&]:cursor-w-resize [[data-side=right]_&]:cursor-e-resize",
-        "[[data-side=left][data-state=collapsed]_&]:cursor-e-resize [[data-side=right][data-state=collapsed]_&]:cursor-w-resize",
-        "group-data-[collapsible=offcanvas]:translate-x-0 group-data-[collapsible=offcanvas]:after:left-full group-data-[collapsible=offcanvas]:hover:bg-sidebar",
-        "[[data-side=left][data-collapsible=offcanvas]_&]:-right-2",
-        "[[data-side=right][data-collapsible=offcanvas]_&]:-left-2",
+        // Visible pill/tab used on desktop; positioned at the edge of the sidebar
+        "absolute z-30 hidden h-8 w-8 items-center justify-center rounded-r-md transition-colors ease-linear md:flex",
+        // position for left / right sidebar
+        "group-data-[side=left]:-right-3 group-data-[side=right]:-left-3",
+        // small background and hover styles so it's clearly visible
+        "bg-sidebar-accent/10 text-sidebar-foreground hover:bg-sidebar-accent/20",
         className
       )}
       {...props}
-    />
+    >
+      <PanelLeft className="w-4 h-4" />
+      <span className="sr-only">Toggle Sidebar</span>
+    </button>
   )
 })
 SidebarRail.displayName = "SidebarRail"

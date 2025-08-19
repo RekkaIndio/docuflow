@@ -273,8 +273,7 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
             <header className="bg-white/80 backdrop-blur-md p-4 border-b border-blue-100 shadow-sm shrink-0 rounded-b-xl">
                 <div className="flex items-center justify-between gap-2 mb-3 sm:mb-0">
                     <div className="flex items-center gap-2 min-w-0 flex-1">
-                        {/* Hide SidebarTrigger on mobile since we have it in TopNav */}
-                        {!isMobile && <SidebarTrigger />}
+                        {/* Sidebar toggle is provided by the Sidebar rail between sidebar and content */}
                         <div className="min-w-0 flex-1">
                             <h1 className="text-xl sm:text-2xl font-headline font-bold tracking-tight text-blue-900 truncate">{workspace.name}</h1>
                             <p className="text-sm text-blue-700/70 hidden sm:block">Welcome back! Here's a summary of your workspace.</p>

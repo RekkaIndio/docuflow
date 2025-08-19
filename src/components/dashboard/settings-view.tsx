@@ -103,7 +103,7 @@ export function SettingsView({ workspace }: SettingsViewProps) {
     <div className="flex flex-col h-full bg-muted/20">
        <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
          <div className="flex items-center gap-4 mb-6">
-            <SidebarTrigger />
+            {/* Sidebar toggle is provided by the Sidebar rail between sidebar and content */}
             <h1 className="text-2xl font-headline font-semibold">Settings</h1>
           </div>
          <Tabs defaultValue="general" className="w-full">

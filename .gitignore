@@ -45,7 +45,3 @@ next-env.d.ts
 firebase-debug.log
 firestore-debug.log
 .firebase/
-src/app/(protected)/admin/page.tsx
-src/pages/api/admin/workspaces.ts
-src/pages/api/users/\[id].ts
-src/lib/firestore.ts
