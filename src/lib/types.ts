@@ -34,6 +34,8 @@ export type Document = {
   owner: User;
   extractedJson?: Record<string, any>;
   summary?: string;
+  // Optional vector embedding for semantic search (stored as an array of numbers)
+  embedding?: number[];
   workspaceId?: string;
   folderId?: string | null;
   storagePath?: string;

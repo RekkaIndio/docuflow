@@ -1,20 +1,141 @@
 // Search documents in a workspace by name, tags, or summary (case-insensitive substring match)
 export async function searchDocumentsInWorkspace(workspaceId: string, queryStr: string): Promise<Document[]> {
+    // Load all documents in workspace (could be optimized with indexed search in future)
     const documentsQuery = query(collection(db, `workspaces/${workspaceId}/documents`));
     const documentsSnap = await getDocs(documentsQuery);
-    const lowerQuery = queryStr.toLowerCase();
-    const results: Document[] = [];
-    documentsSnap.forEach(docSnap => {
-        const data = docSnap.data() as Document;
-        const nameMatch = data.name?.toLowerCase().includes(lowerQuery);
-        const tagsMatch = Array.isArray(data.tags) && data.tags.some((tag: string) => tag.toLowerCase().includes(lowerQuery));
-        const summaryMatch = data.summary?.toLowerCase().includes(lowerQuery);
-        if (nameMatch || tagsMatch || summaryMatch) {
-            const { id: _id, ...rest } = data;
-            results.push({ ...rest, id: docSnap.id });
+
+    // Normalize and tokenize the query into words
+    const normalize = (s?: string) => (s || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+    const queryTokens = normalize(queryStr).split(' ').filter(Boolean);
+
+    // If no query provided, return all documents (useful for callers that expect a full listing)
+    if (queryTokens.length === 0) {
+        return documentsSnap.docs.map(docSnap => {
+            const data = docSnap.data() as Document;
+            return { ...data, id: docSnap.id } as Document;
+        });
+    }
+
+    // Simple fuzzy helper: checks if token is a substring or shares prefix with term
+    const tokenMatchesTerm = (token: string, term: string) => {
+        if (!token || !term) return false;
+        if (term.includes(token)) return true; // substring
+        if (term.startsWith(token) || token.startsWith(term)) return true; // prefix
+        // allow short fuzzy matches: small Levenshtein distance for short tokens
+        if (Math.abs(term.length - token.length) <= 2) {
+            // quick early-exit: require at least first char equality
+            if (term[0] !== token[0]) return false;
+            let d = 0;
+            const minLen = Math.min(term.length, token.length);
+            for (let i = 0; i < minLen; i++) {
+                if (term[i] !== token[i]) d++;
+                if (d > 2) return false;
+            }
+            return true;
         }
-    });
-    return results;
+        return false;
+    };
+
+    const results: { doc: Document; score: number }[] = [];
+    // Try semantic rerank if an OpenAI API key is available
+    const openApiKey = process.env.OPEN_API_KEY || process.env.OPENAI_API_KEY || process.env.OPEN_API_KEY;
+    let queryEmbedding: number[] | null = null;
+    let useEmbeddings = false;
+    let OpenAIClient: any = null;
+    if (openApiKey) {
+        try {
+            const { OpenAI } = await import('openai');
+            OpenAIClient = new OpenAI({ apiKey: openApiKey });
+            // Compute query embedding
+            const embedRes = await OpenAIClient.embeddings.create({ model: 'text-embedding-3-small', input: queryStr });
+            queryEmbedding = embedRes.data[0].embedding as number[];
+            useEmbeddings = !!queryEmbedding;
+        } catch (e) {
+            console.warn('Embeddings unavailable, falling back to token matching', e);
+            useEmbeddings = false;
+        }
+    }
+    for (const docSnap of documentsSnap.docs) {
+        const data = docSnap.data() as Document;
+
+        // Build a searchable blob from several fields
+        const name = normalize(data.name);
+        const summary = normalize(data.summary);
+        const tags = Array.isArray(data.tags) ? data.tags.map(t => normalize(t)).join(' ') : '';
+        // Include any extracted text if available
+    const extractedText = normalize((data.extractedJson ? JSON.stringify(data.extractedJson) : ''));
+        const blob = [name, summary, tags, extractedText].filter(Boolean).join(' ');
+
+        // If embeddings are enabled and document has an embedding, compute cosine similarity
+        let score = 0;
+        if (useEmbeddings && queryEmbedding) {
+            // Ensure the document has an embedding; if not, try to generate and persist one (best-effort)
+            let docEmbedding = (data as any).embedding as number[] | undefined;
+            if (!docEmbedding) {
+                try {
+                    if (OpenAIClient) {
+                        const textToEmbed = [name, summary, tags].filter(Boolean).join('\n');
+                        const res = await OpenAIClient.embeddings.create({ model: 'text-embedding-3-small', input: textToEmbed });
+                        docEmbedding = res.data[0].embedding as number[];
+                        // Persist the embedding back to Firestore (best-effort, no retry)
+                        try {
+                            const docRef = doc(db, `workspaces/${workspaceId}/documents`, docSnap.id);
+                            await setDoc(docRef, { embedding: docEmbedding }, { merge: true });
+                        } catch (persistErr) {
+                            console.warn('Failed to persist embedding for doc', docSnap.id, persistErr);
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Failed to generate embedding for document', docSnap.id, e);
+                    docEmbedding = undefined;
+                }
+            }
+
+            if (docEmbedding && queryEmbedding) {
+                // cosine similarity
+                const dot = docEmbedding.reduce((acc, v, i) => acc + v * (queryEmbedding ? queryEmbedding[i] ?? 0 : 0), 0);
+                const normA = Math.sqrt(docEmbedding.reduce((acc, v) => acc + v * v, 0));
+                const normB = Math.sqrt(queryEmbedding.reduce((acc, v) => acc + v * v, 0));
+                const cosine = normA && normB ? dot / (normA * normB) : 0;
+                // map cosine [-1,1] to a positive score, give stronger weight
+                score = Math.max(0, (cosine + 1) / 2) * 100;
+            }
+        }
+
+        // When embeddings aren't used or didn't produce a score, fall back to token scoring
+        if (!score) {
+            for (const token of queryTokens) {
+                if (!token) continue;
+                if (blob.includes(token)) {
+                    score += 2; // exact token present
+                    continue;
+                }
+                // check token against individual words in blob
+                const blobWords = blob.split(' ').filter(Boolean);
+                let matched = false;
+                for (const w of blobWords) {
+                    if (tokenMatchesTerm(token, w)) {
+                        score += 1;
+                        matched = true;
+                        break;
+                    }
+                }
+                if (!matched) {
+                    // small bonus if token is contained in document name specifically
+                    if (name.includes(token)) score += 1;
+                }
+            }
+        }
+
+        if (score > 0) {
+            results.push({ doc: { ...data, id: docSnap.id }, score });
+        }
+    }
+
+    // Sort by score desc, then by name
+    results.sort((a, b) => b.score - a.score || (a.doc.name || '').localeCompare(b.doc.name || ''));
+
+    return results.map(r => r.doc);
 }
 // Delete a document and its storage (if any)
 export async function deleteDocument(workspaceId: string, documentId: string): Promise<void> {
@@ -273,6 +394,27 @@ export async function saveDocument(document: Omit<Document, 'id'>): Promise<stri
             createdAt: Timestamp.now(),
         };
         const docRef = await addDoc(collection(db, `workspaces/${document.workspaceId}/documents`), docWithTimestamp);
+        // Also create a workspace-level notification for consumers of the notifications feed
+        try {
+            const notifRef = await addDoc(collection(db, `workspaces/${document.workspaceId}/notifications`), {
+                title: `New document: ${document.name}`,
+                body: document.summary ?? '',
+                type: 'document',
+                createdAt: Timestamp.now(),
+                read: false,
+                meta: {
+                    documentId: docRef.id,
+                    folderId: document.folderId ?? null,
+                },
+            });
+            // Helpful debug log for client/browser console
+            // eslint-disable-next-line no-console
+            console.log(`Created notification ${notifRef.id} for document ${docRef.id} in workspace ${document.workspaceId}`);
+        } catch (notifErr) {
+            // Non-critical: fail gracefully if notification couldn't be created
+            console.error('Failed to create notification for new document', notifErr);
+        }
+
         return docRef.id;
     } catch (error) {
         console.error("Error saving document:", error);

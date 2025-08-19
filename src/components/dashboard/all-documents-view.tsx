@@ -118,7 +118,7 @@ export function AllDocumentsView({ workspace, onSelect }: AllDocumentsViewProps)
         <div className="flex flex-col h-full bg-muted/20">
             <header className="p-4 border-b flex items-center justify-between shrink-0 bg-background">
                 <div className="flex items-center gap-2">
-                    <SidebarTrigger />
+                    {/* Sidebar toggle is provided by the Sidebar rail between sidebar and content */}
                     <h1 className="text-xl font-headline font-semibold">All Documents</h1>
                 </div>
                 <div className="relative w-full max-w-xs">

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { CornerDownLeft, Search, FileText, CalendarClock } from "lucide-react";
 import React, { useState, useRef, useEffect } from "react";
+import Fuse from 'fuse.js';
 import { useAuth } from '@/hooks/use-auth';
 import { mockUser } from "@/lib/data";
 import { cn } from "@/lib/utils";
@@ -52,6 +53,7 @@ interface ChatPanelProps {
 
 interface UserIntent {
   type: 'document_search' | 'file_search' | 'folder_creation' | 'general_query';
+  openDocument?: boolean; // indicates intent to open/view the document
   searchTerm?: string;
   fileName?: string;
   folderName?: string;
@@ -187,80 +189,32 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
     };
   }, [user?.id, workspaceId]);
 
+  // Keep chat conversation when navigating to a document. Only reset the chat
+  // when the selected folder/workspace changes. This prevents the chat from
+  // appearing to refresh (losing the user's input) when we navigate to a
+  // document (for example, when the user asks "Show me the IPC policy" and
+  // the dashboard sets the selected item to that document).
+  const prevSelectedRef = useRef<{ id?: string; type?: string } | null>(null);
   useEffect(() => {
-    // Create sample initial conversation to showcase functionality
-    const initialMessages: ChatMessage[] = [
-      { 
-        sender: 'ai', 
-        text: `Hello! I'm CareBot, your AI policy assistant. I can help you find information about "${selectedItem.name}" and answer questions about your care policies and procedures. 
+    const prev = prevSelectedRef.current;
 
-You can ask me in natural language, for example:
-• "Please find the medicine policy"
-• "Show me documents about safeguarding" 
-• "I need the health and safety procedures"
-• "Where is our incident reporting policy?"
-• "Can you help me locate the staff training manual?"
-
-How can I assist you today?`
-      }
-    ];
-    
-    // Add some sample interactions if it's a folder/workspace to showcase functionality
-    if (selectedItem.type === 'folder') {
-      // Try to find actual documents in the workspace to make the demo more realistic
-      const allDocs = getAllDocuments([selectedItem]);
-      const sampleDocs = allDocs.slice(0, 3); // Take up to 3 real documents
-      
-      if (sampleDocs.length > 0) {
-        // Use real documents for the demo
-        initialMessages.push(
-          {
-            sender: 'user',
-            text: 'Show me the most important policy documents'
-          },
-          {
-            sender: 'ai',
-            text: `I found ${sampleDocs.length} important policy document${sampleDocs.length > 1 ? 's' : ''}:`,
-            documents: sampleDocs.map(doc => ({
-              id: doc.id,
-              name: doc.name,
-              status: doc.renewalDate ? 
-                (new Date(doc.renewalDate) < new Date() ? 'overdue' : 
-                 new Date(doc.renewalDate) < new Date(Date.now() + 60 * 24 * 60 * 60 * 1000) ? 'due-soon' : 'current') 
-                : 'current',
-              url: `/documents/${doc.id}`,
-              subtitle: doc.createdAt ? `Created: ${new Date(doc.createdAt).toLocaleDateString()}` : undefined,
-              lastReviewed: doc.createdAt ? new Date(doc.createdAt).toLocaleDateString() : undefined,
-              nextReviewRequired: doc.renewalDate ? `by ${new Date(doc.renewalDate).toLocaleDateString()}` : undefined
-            }))
-          }
-        );
-      } else {
-        // Fallback to sample data if no real documents
-        initialMessages.push(
-          {
-            sender: 'user',
-            text: 'When is our Medicine Policy due for renewal?'
-          },
-          {
-            sender: 'ai',
-            text: 'The Medicine Policy is due for renewal on March 15, 2025 (in 2 months).',
-            documents: [{
-              id: 'medicine-policy-v3-2',
-              name: 'Medicine-Policy-v3.2.pdf',
-              status: 'due-soon',
-              url: '/documents/medicine-policy-v3-2',
-              lastReviewed: 'March 2024',
-              nextReviewRequired: 'by CQC standards'
-            }]
-          }
-        );
+    // First mount: start with an empty conversation and no active doc
+    if (!prev) {
+      setMessages([]);
+      setActiveDoc(null);
+    } else {
+      // If we've switched folders (i.e., selected a different folder), clear
+      // the chat so the conversation context matches the newly-selected folder.
+      // Do NOT clear when selection changes to a document so the chat stays
+      // intact when navigating to a document from the chat.
+      if (selectedItem.type === 'folder' && selectedItem.id !== prev.id) {
+        setMessages([]);
+        setActiveDoc(null);
       }
     }
-    
-    setMessages(initialMessages);
-    setActiveDoc(null); // Reset active doc when folder or doc changes
-  }, [selectedItem.id, selectedItem.name]);
+
+    prevSelectedRef.current = { id: selectedItem.id, type: selectedItem.type };
+  }, [selectedItem.id, selectedItem.type]);
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -279,19 +233,19 @@ How can I assist you today?`
     // Document search patterns - much more flexible
     const searchPatterns = [
       // Direct requests
-      /^(please\s+)?(find|show|get|give|display|locate|search|look\s+for|bring\s+up|pull\s+up)\s+(me\s+)?(the\s+)?(.+)/i,
+      /^(please\s+)?(find|show|get|give|display|locate|open|search|look\s+for|bring\s+up|pull\s+up|summarize|summarise|summarise\s+for\s+me|summarize\s+for\s+me)\s+(me\s+)?(the\s+)?(.+)/i,
       // Question formats
       /^(can\s+you\s+|could\s+you\s+|would\s+you\s+)?(please\s+)?(find|show|get|give|display|locate|search|look\s+for|bring\s+up|pull\s+up)\s+(me\s+)?(the\s+)?(.+)/i,
       // "I need" formats
       /^(i\s+need|i\s+want|i\s+require|i\s+am\s+looking\s+for|i\s+would\s+like)\s+(to\s+see\s+|to\s+find\s+|to\s+access\s+|the\s+)?(.+)/i,
       // "Where is" formats
       /^(where\s+is|where\s+can\s+i\s+find|where\s+are|do\s+you\s+have)\s+(the\s+)?(.+)/i,
-      // "Help me" formats
-      /^(help\s+me\s+|assist\s+me\s+with\s+|guide\s+me\s+to\s+)?(find|locate|access|get)\s+(the\s+)?(.+)/i,
+  // "Help me" formats
+  /^(help\s+me\s+|assist\s+me\s+with\s+|guide\s+me\s+to\s+)?(find|locate|access|get|summarize|summarise|summarize\s+the|summarise\s+the)\s+(the\s+)?(.+)/i,
       // Document type requests
       /^(what|which)\s+(documents?|policies|files?|papers?)\s+(do\s+we\s+have\s+|are\s+there\s+|exist\s+)?(about|for|regarding|on|related\s+to)\s+(.+)/i,
-      // Status/info requests
-      /^(what\s+is\s+the\s+status\s+of|when\s+is|tell\s+me\s+about|information\s+about|details\s+about)\s+(the\s+)?(.+)/i,
+  // Status/info requests
+  /^(what\s+is\s+the\s+status\s+of|when\s+is|tell\s+me\s+about|information\s+about|details\s+about|summarize|summarise)\s+(the\s+)?(.+)/i,
       // Folder-specific requests
       /^(look\s+in\s+the\s+(.+?)\s+folder\s+and\s+find\s+me\s+the\s+(.+))$/i,
       /^(in\s+the\s+(.+?)\s+folder\s+find\s+me\s+the\s+(.+))$/i,
@@ -305,8 +259,13 @@ How can I assist you today?`
         // Extract the search term from various capture groups
         const searchTerm = match[match.length - 1] || match[match.length - 2] || match[4] || match[5] || match[6];
         if (searchTerm && searchTerm.trim()) {
+          // Also detect verbs that imply the user wants to open/view the document rather than just get info
+          const openVerbs = /\b(open|view|expand|show\s+me\s+the)\b/i;
+          const wantsOpen = openVerbs.test(input);
+
           return {
             type: 'document_search',
+            openDocument: wantsOpen,
             searchTerm: searchTerm.trim(),
             originalInput: userInput
           };
@@ -386,7 +345,13 @@ How can I assist you today?`
 
     try {
       let result;
-      if (selectedItem.type === 'document') {
+      // If the chat was opened while viewing a specific document we previously
+      // always used that document as the context. However, when the user query
+      // is an explicit document/file search (e.g. "Show me the COSHH Policy" or
+      // a filename) we should perform a workspace search instead of assuming the
+      // current selected document is the intended target. Only use the
+      // selectedItem document when the intent is NOT a document/file search.
+      if (selectedItem.type === 'document' && intent.type !== 'document_search' && intent.type !== 'file_search') {
         result = await chatWithDocuments({
           query: userInput,
           documentJson: JSON.stringify(selectedItem.extractedJson || {}),
@@ -455,11 +420,20 @@ How can I assist you today?`
       try {
         if (selectedItem && selectedItem.type === 'folder') {
           const allDocs = getAllDocuments([selectedItem]);
-          const lowerQuery = (searchQuery || '').toLowerCase();
-          clientResults = allDocs.filter(d => d.name && d.name.toLowerCase().includes(lowerQuery));
-          if (clientResults.length === 0) {
-            clientResults = allDocs.filter(d => (d.summary && d.summary.toLowerCase().includes(lowerQuery)) || (Array.isArray(d.tags) && d.tags.some((t: string) => t.toLowerCase().includes(lowerQuery))));
-          }
+          // Use Fuse.js for flexible fuzzy matching. We weight name higher than tags and summary.
+          const fuse = new Fuse(allDocs, {
+            keys: [
+              { name: 'name', weight: 0.5 },
+              { name: 'tags', weight: 0.3 },
+              { name: 'summary', weight: 0.2 }
+            ],
+            threshold: 0.35,
+            ignoreLocation: true,
+            minMatchCharLength: 2,
+          });
+
+          const fuseRes = fuse.search(searchQuery || '');
+          clientResults = fuseRes.map(r => r.item as Document);
         }
       } catch (err) {
         clientResults = [];
@@ -468,6 +442,22 @@ How can I assist you today?`
       if (clientResults && clientResults.length > 0) {
         const bestDoc = clientResults[0];
         setActiveDoc(bestDoc);
+
+        // If the user explicitly asked to open/view the document, navigate/open it instead of running the chat
+        if (intent.openDocument) {
+          if (typeof window !== 'undefined' && window.dispatchEvent) {
+            try { window.dispatchEvent(new CustomEvent('navigate-to-document', { detail: { documentId: bestDoc.id, documentName: bestDoc.name } })); } catch (e) {}
+            try { localStorage.setItem('lastHighlightedDocumentId', bestDoc.id); localStorage.setItem('lastHighlightedDocumentName', bestDoc.name); } catch (e) {}
+            setTimeout(() => {
+              try { window.dispatchEvent(new CustomEvent('highlight-document', { detail: { documentId: bestDoc.id } })); } catch (e) {}
+            }, 150);
+          }
+
+          setMessages(prev => [...prev, { sender: 'ai', text: `Opening "${bestDoc.name}" for you.`, documents: [{ id: bestDoc.id, name: bestDoc.name, url: `/documents/${bestDoc.id}` }] }]);
+          setIsTyping(false);
+          return;
+        }
+
         result = await chatWithDocuments({ query: userInput, documentJson: JSON.stringify(bestDoc.extractedJson || {}) });
         const documentCard = {
           id: bestDoc.id,
@@ -477,10 +467,12 @@ How can I assist you today?`
           subtitle: bestDoc.folderId ? `Folder: ${bestDoc.folderId}` : undefined
         };
 
-        // Navigate to the document so the folder/file browser shows it, then highlight
+        // If the user explicitly asked to open the document we navigate; otherwise only highlight
         if (typeof window !== 'undefined' && window.dispatchEvent) {
-          try { window.dispatchEvent(new CustomEvent('navigate-to-document', { detail: { documentId: bestDoc.id, documentName: bestDoc.name } })); } catch (e) {}
           try { localStorage.setItem('lastHighlightedDocumentId', bestDoc.id); localStorage.setItem('lastHighlightedDocumentName', bestDoc.name); } catch (e) {}
+          if (intent.openDocument) {
+            try { window.dispatchEvent(new CustomEvent('navigate-to-document', { detail: { documentId: bestDoc.id, documentName: bestDoc.name } })); } catch (e) {}
+          }
           setTimeout(() => {
             try { window.dispatchEvent(new CustomEvent('highlight-document', { detail: { documentId: bestDoc.id } })); } catch (e) {}
           }, 150);
@@ -528,11 +520,29 @@ How can I assist you today?`
       const bestDoc = results[0];
       setActiveDoc(bestDoc);
 
+      // If the user asked to open/view the document, navigate/open the best match and return
+      if (intent.openDocument) {
+        if (typeof window !== 'undefined' && window.dispatchEvent) {
+          try { window.dispatchEvent(new CustomEvent('navigate-to-document', { detail: { documentId: bestMatch.documentId, documentName: bestMatch.name } })); } catch (e) {}
+          try { localStorage.setItem('lastHighlightedDocumentId', bestMatch.documentId); localStorage.setItem('lastHighlightedDocumentName', bestMatch.name); } catch (e) {}
+          setTimeout(() => {
+            try { window.dispatchEvent(new CustomEvent('highlight-document', { detail: { documentId: bestMatch.documentId } })); } catch (e) {}
+          }, 150);
+        }
+
+        setMessages(prev => [...prev, { sender: 'ai', text: `Opening "${bestMatch.name}" for you.`, documents: [{ id: bestMatch.documentId, name: bestMatch.name, url: `/documents/${bestMatch.documentId}` }] }]);
+        setIsTyping(false);
+        return;
+      }
+
       result = await chatWithDocuments({ query: userInput, documentJson: JSON.stringify(bestDoc.extractedJson || {}) });
 
+      // If the user explicitly asked to open the document we navigate; otherwise only highlight
       if (typeof window !== 'undefined' && window.dispatchEvent) {
-        try { window.dispatchEvent(new CustomEvent('navigate-to-document', { detail: { documentId: bestMatch.documentId, documentName: bestMatch.name } })); } catch (e) {}
         try { localStorage.setItem('lastHighlightedDocumentId', bestMatch.documentId); localStorage.setItem('lastHighlightedDocumentName', bestMatch.name); } catch (e) {}
+        if (intent.openDocument) {
+          try { window.dispatchEvent(new CustomEvent('navigate-to-document', { detail: { documentId: bestMatch.documentId, documentName: bestMatch.name } })); } catch (e) {}
+        }
         setTimeout(() => {
           try { window.dispatchEvent(new CustomEvent('highlight-document', { detail: { documentId: bestMatch.documentId } })); } catch (e) {}
         }, 150);
@@ -594,7 +604,7 @@ How can I assist you today?`
 
   return (
     <div className="flex flex-col h-full bg-background rounded-lg overflow-hidden border border-blue-200/50 shadow-lg">
-      {/* Header matching the CareBot design */}
+      {/* Header matching the Doc design */}
       <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-4 text-white">
         <div className="flex items-center gap-3">
           <Avatar className="w-10 h-10 border-2 border-blue-200">
@@ -602,40 +612,66 @@ How can I assist you today?`
             <AvatarFallback className="bg-gray-500 text-white text-sm font-semibold">AI</AvatarFallback>
           </Avatar>
           <div>
-            <h3 className="font-semibold text-lg">CareBot AI - Policy Assistant</h3>
+            <h3 className="font-semibold text-lg">Doc - Document Assistant</h3>
           </div>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-6 bg-gray-50/30" ref={scrollAreaRef}>
-        {messages.map((message, index) => (
-          <div key={index} className={cn("flex items-start gap-3", message.sender === 'user' ? 'justify-end' : '')}>
-            {message.sender === 'ai' && (
-              <Avatar className="w-10 h-10 border-2 border-blue-200">
-                 <AvatarImage src={'/Neurodiversity_Symbol.svg'} alt={mockUser.name || undefined} />
-                <AvatarFallback className="bg-gray-500 text-white text-sm font-semibold">AI</AvatarFallback>
-              </Avatar>
-            )}
-            <div className={cn(
-                "max-w-[75%] rounded-2xl p-4 text-sm shadow-sm",
-                message.sender === 'user' 
-                  ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-br-md' 
-                  : 'bg-white border border-gray-200'
-            )}>
-              {message.sender === 'ai' ? renderMessage(message) : (
-                <p className="whitespace-pre-wrap leading-relaxed">{message.text}</p>
+        {messages.length === 0 && !isTyping ? (
+          <div className="flex flex-col items-center justify-center min-h-[240px] text-center text-gray-600">
+            <Avatar className="w-16 h-16 border-2 border-blue-200 mb-4">
+              <AvatarImage src={'/Neurodiversity_Symbol.svg'} alt="CareBot AI" />
+              <AvatarFallback className="bg-gray-500 text-white text-sm font-semibold">AI</AvatarFallback>
+            </Avatar>
+            <h4 className="text-lg font-semibold text-gray-800">Doc - Document Assistant</h4>
+            <p className="mt-2 text-sm max-w-[60%]">Ask a question about your policies or documents. Try one of the suggested prompts below to get started.</p>
+
+            <div className="mt-4 flex flex-wrap gap-2 justify-center">
+              <Button size="sm" variant="ghost" onClick={() => { setInput('Show me the COSHH Policy'); setTimeout(() => handleSend(), 60); }}>
+                Show me the COSHH Policy
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => { setInput('Show me the IPC policy'); setTimeout(() => handleSend(), 60); }}>
+                Show me the IPC policy
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => { setInput('Find the medicine policy'); setTimeout(() => handleSend(), 60); }}>
+                Find the medicine policy
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => { setInput('What documents do we have about safeguarding?'); setTimeout(() => handleSend(), 60); }}>
+                Safeguarding documents
+              </Button>
+            </div>
+          </div>
+        ) : (
+          messages.map((message, index) => (
+            <div key={index} className={cn("flex items-start gap-3", message.sender === 'user' ? 'justify-end' : '')}>
+              {message.sender === 'ai' && (
+                <Avatar className="w-10 h-10 border-2 border-blue-200">
+                  <AvatarImage src={'/Neurodiversity_Symbol.svg'} alt={mockUser.name || undefined} />
+                  <AvatarFallback className="bg-gray-500 text-white text-sm font-semibold">AI</AvatarFallback>
+                </Avatar>
+              )}
+              <div className={cn(
+                  "max-w-[75%] rounded-2xl p-4 text-sm shadow-sm",
+                  message.sender === 'user' 
+                    ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-br-md' 
+                    : 'bg-white border border-gray-200'
+              )}>
+                {message.sender === 'ai' ? renderMessage(message) : (
+                  <p className="whitespace-pre-wrap leading-relaxed">{message.text}</p>
+                )}
+              </div>
+               {message.sender === 'user' && (
+                <Avatar className="w-10 h-10 border-2 border-blue-200">
+                  <AvatarImage src={profilePicture || mockUser.avatarUrl || undefined} alt={mockUser.name || undefined} />
+                  <AvatarFallback className="bg-gray-500 text-white text-sm font-semibold">
+                    {mockUser.name ? mockUser.name.charAt(0) : '?'}
+                  </AvatarFallback>
+                </Avatar>
               )}
             </div>
-             {message.sender === 'user' && (
-              <Avatar className="w-10 h-10 border-2 border-blue-200">
-                <AvatarImage src={profilePicture || mockUser.avatarUrl || undefined} alt={mockUser.name || undefined} />
-                <AvatarFallback className="bg-gray-500 text-white text-sm font-semibold">
-                  {mockUser.name ? mockUser.name.charAt(0) : '?'}
-                </AvatarFallback>
-              </Avatar>
-            )}
-          </div>
-        ))}
+          ))
+        )}
          {isTyping && (
           <div className="flex items-start gap-3">
             <Avatar className="w-10 h-10 border-2 border-blue-200">

@@ -305,16 +305,11 @@ export function Dashboard() {
       
       const document = findDocument(activeWorkspace.folders);
       if (document) {
-        // Instead of selecting the document (which would render DocumentView), select its parent folder
-  const parent = findParentFolderByDocumentId(activeWorkspace!.folders, document.id);
-        if (parent) {
-          setSelected(parent);
-          setView('files');
-        } else {
-          setSelected({ id: 'root', name: activeWorkspace!.name, type: 'folder', items: activeWorkspace!.folders, workspaceId: activeWorkspace!.id } as Folder);
-          setView('files');
-        }
+        // Select the document itself so the dashboard will render DocumentView for it
+        setSelected(document as Document);
+        setView('files');
 
+        // Still dispatch highlight so any file browser can scroll/highlight the item
         if (typeof window !== 'undefined' && window.dispatchEvent) {
           try { window.dispatchEvent(new CustomEvent('highlight-document', { detail: { documentId } })); } catch (e) {}
         }

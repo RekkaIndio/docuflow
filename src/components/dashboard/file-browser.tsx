@@ -168,8 +168,7 @@ export function FileBrowser({
     <div className="flex flex-col h-full bg-background">
       <header className="p-4 border-b flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2 text-lg font-semibold">
-          {/* Hide SidebarTrigger on mobile since we have it in TopNav */}
-          {!isMobile && <SidebarTrigger />}
+          {/* Sidebar toggle is provided by the Sidebar rail between sidebar and content */}
           <div className="flex items-center gap-1.5 text-sm sm:text-lg">
             {breadcrumb.map((b, index) => (
 

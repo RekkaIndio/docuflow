@@ -411,8 +411,7 @@ export function DocumentView({ document, onBack }: DocumentViewProps) {
     <div className="flex flex-col h-full bg-background">
       <header className="flex items-center justify-between p-3 sm:p-4 border-b shrink-0">
         <div className="flex items-center gap-2 min-w-0 flex-1">
-            {/* Hide SidebarTrigger on mobile since we have it in TopNav */}
-            {!isMobile && <SidebarTrigger />}
+            {/* Sidebar toggle is provided by the Sidebar rail between sidebar and content */}
           <Button variant="ghost" size="icon" onClick={onBack} className="flex-shrink-0">
             <ArrowLeft className="h-5 w-5" />
           </Button>

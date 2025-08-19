@@ -107,13 +107,20 @@ export function DocumentCard({
             )}
           </div>
         </div>
-        <div className="flex-shrink-0 ml-2">
+        <div className="flex-shrink-0 ml-2 flex items-center gap-2">
           {statusText ? (
             <span className="text-xs text-gray-500">{statusText}</span>
           ) : (
-            <Badge variant={config.badgeVariant} className={config.badgeClass}>
-              {config.defaultText}
-            </Badge>
+            // Make the badge clickable to open the document view
+            <button
+              onClick={(e) => { e.stopPropagation(); handleDocumentClick(id || name.replace(/\s+/g, '-').toLowerCase().replace(/[^a-z0-9-]/g, ''), name, url); }}
+              className="inline-flex items-center"
+              aria-label={`Open ${name}`}
+            >
+              <Badge variant={config.badgeVariant} className={config.badgeClass}>
+                {config.defaultText}
+              </Badge>
+            </button>
           )}
         </div>
       </div>
