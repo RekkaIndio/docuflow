@@ -76,6 +76,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = () => {
+    if (typeof document !== 'undefined') {
+      // clear cookie
+      document.cookie = 'isAdmin=; Path=/; Max-Age=0';
+    }
     return firebaseSignOut(auth);
   };
 

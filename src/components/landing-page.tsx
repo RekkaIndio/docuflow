@@ -16,7 +16,7 @@ import { AnimatedHeroBg } from './landing/animated-hero-bg';
 import { TrustedByBar } from './landing/trusted-by-bar';
 import { TestimonialCarousel } from './landing/testimonial-carousel';
 import { DetailedFeatures } from './landing/detailed-features';
-import { BottomFeatures } from './landing/bottom-features';
+// import { BottomFeatures } from './landing/bottom-features';
 import { DashboardPreview } from './landing/dashboard-preview';
 import { NewsletterSignup } from './landing/newsletter-signup';
 
@@ -118,7 +118,7 @@ export function LandingPage() {
         <div className="py-12" />
   <DetailedFeatures />
   <div className="py-8" />
-  <BottomFeatures />
+  {/* <BottomFeatures /> */}
   <div className="py-8" />
   <DashboardPreview />
   <div className="py-8" />

@@ -4,37 +4,37 @@ import { NewsletterSignup } from '@/components/landing/newsletter-signup';
 import { HeroProductDemo } from '@/components/landing/hero-product-demo';
 import { Hero } from "@/components/landing/hero";
 import { Features } from "@/components/landing/features";
-import { BottomFeatures } from "@/components/landing/bottom-features";
+// import { BottomFeatures } from "@/components/landing/bottom-features";
 import { Pricing } from '@/components/landing/pricing';
 import { DetailedFeatures } from '@/components/landing/detailed-features';
 import { Footer } from '@/components/landing/footer';
 import { PlatformShowcaseCarousel } from '@/components/landing/platform-showcase-carousel';
+import DashboardShowcase from '@/components/landing/dashboard-showcase';
 // import { WaitlistSignup } from '@/components/landing/waitlist-signup';
 import { ConversationalChat } from '@/components/landing/conversational-chat';
 
 export default function Page() {
     return (
         <div className="flex flex-col min-h-screen bg-background text-foreground">
-            <header className="px-4 lg:px-6 h-16 flex items-center sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur-sm">
-                <a href="#" className="flex items-center justify-center gap-2">
-                    <img
-                        src="/Neurodiversity_Symbol.svg"
-                        alt="DocuFlow Logo"
-                        width={24}
-                        height={24}
-                        className="w-6 h-6 object-contain"
-                    />
-                    <span className="text-xl font-semibold font-headline">DocuFlow AI</span>
-                </a>
-                <nav className="ml-auto hidden lg:flex gap-4 sm:gap-6 items-center">
-                    <a href="#features" className="text-sm font-medium hover:underline underline-offset-4 text-foreground/80">Features</a>
-                    <a href="#pricing" className="text-sm font-medium hover:underline underline-offset-4 text-foreground/80">For Care Homes</a>
-                    <a
-                        href="/login"
-                        className="ml-2 px-4 py-2 rounded bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors text-sm shadow"
-                    >
-                        Sign In
-                    </a> </nav>
+            <header className="w-full sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border/40">
+                <div className="container px-4 lg:px-6 h-16 flex items-center">
+                    <a href="#" className="flex items-center gap-3">
+                        <img
+                            src="/Neurodiversity_Symbol.svg"
+                            alt="DocuFlow Logo"
+                            width={32}
+                            height={32}
+                            className="w-8 h-8 object-contain"
+                        />
+                        <span className="text-lg sm:text-xl font-semibold font-headline">DocuFlow AI</span>
+                    </a>
+
+                    <nav className="ml-auto hidden lg:flex gap-6 items-center">
+                        <a href="#features" className="text-sm font-medium hover:underline underline-offset-4 text-foreground/85">Features</a>
+                        <a href="#pricing" className="text-sm font-medium hover:underline underline-offset-4 text-foreground/85">For Care Homes</a>
+                        <a href="/signup" className="ml-2 px-4 py-2 rounded bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors text-sm shadow">Get Started</a>
+                    </nav>
+                </div>
             </header>
 
             <main className="flex-1">
@@ -53,14 +53,12 @@ export default function Page() {
                                                                         style={{ opacity: 0.3, filter: 'blur(0.5px)', width: '44px', height: 'auto' }}
                                                                     />
                                                                 </div>
-                                <h1 className="text-5xl font-extrabold font-headline tracking-tighter sm:text-6xl xl:text-7xl/none drop-shadow-lg">
-                                    AI-Powered <br/>
-                                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600 animate-gradient-text">
-                                        Compliance Hub
-                                    </span>
+                                <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold font-headline tracking-tight drop-shadow-sm leading-tight">
+                                    AI-Powered
+                                    <span className="block text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600 animate-gradient-text">Compliance Hub</span>
                                 </h1>
-                                <p className="max-w-[600px] text-muted-foreground md:text-2xl font-medium">
-                                    Interact with your homes compliance documents
+                                <p className="max-w-[680px] text-muted-foreground md:text-xl font-medium mt-2">
+                                    Interact naturally with your care home's policies and procedures — find answers, extract data, and stay audit-ready.
                                 </p>
                                 <div className="flex flex-wrap gap-2 mt-4">
                                     <span className="px-3 py-1 rounded-full text-sm font-medium text-white" style={{backgroundColor: '#ea68a2'}}>Simple</span>
@@ -68,19 +66,16 @@ export default function Page() {
                                     <span className="px-3 py-1 rounded-full text-sm font-medium text-white" style={{backgroundColor: '#339cdc'}}>Inclusive</span>
                                     <span className="px-3 py-1 rounded-full text-sm font-medium text-white" style={{backgroundColor: '#3abb99'}}>celebrating diversity</span>
                                 </div>
-                                <div className="flex flex-col gap-4 min-[400px]:flex-row">
-                                    <button className="bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20 animate-glow rounded px-6 py-3 text-lg font-semibold text-primary-foreground flex items-center">
-                                        <a href="/signup">Try it out <span className="ml-2">→</span></a>
-                                    </button>
-                                    <button className="border border-primary rounded px-6 py-3 text-lg font-semibold text-primary">
-                                        <a href="#">See How It Works</a>
-                                    </button>
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center mt-4">
+                                    <a href="/signup" className="inline-flex items-center justify-center bg-primary hover:bg-primary/90 shadow-lg shadow-primary/15 rounded-lg px-6 py-3 text-lg font-semibold text-primary-foreground">Try Docuflow — Free</a>
+                                    <a href="#features" className="inline-flex items-center justify-center border border-border/60 rounded-lg px-5 py-3 text-lg font-semibold text-foreground/90 hover:bg-muted/10">See How It Works</a>
                                 </div>
                                 <span className="text-xs text-muted-foreground mt-1">No setup required • Upload and search instantly</span>
-                                <div className="flex items-center gap-4 pt-6">
+                                <div className="flex items-center gap-4 pt-6 text-sm text-muted-foreground">
                                     <div className="flex -space-x-2">
                                         {/* ...avatars... */}
                                     </div>
+                                    <span>No credit card • Quick onboarding • Secure by design</span>
                                 </div>
                             </div>
                                             {/* Animated product demo visual */}
@@ -90,6 +85,9 @@ export default function Page() {
                         </div>
                     </div>
                 </section>
+
+                {/* Dashboard showcase */}
+                <DashboardShowcase />
 
                 {/* Why Use Docuflow Section */}
                 <section className="w-full py-20 md:py-32 bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-blue-900">
@@ -129,10 +127,10 @@ export default function Page() {
                                 <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center mb-6">
                                     <span className="text-2xl">🚀</span>
                                 </div>
-                                <h3 className="text-xl font-bold mb-4 font-headline">Work Smarter</h3>
-                                <p className="text-muted-foreground">
-                                    Chat with your documents like talking to a colleague. Get summaries, extract data, and
-                                </p>
+                                    <h3 className="text-xl font-bold mb-4 font-headline">Work Smarter</h3>
+                                    <p className="text-muted-foreground">
+                                        Chat with your documents like talking to a colleague. Get summaries, extract key data points, and generate actionable checklists instantly.
+                                    </p>
                             </div>
                             
                             <div className="bg-white dark:bg-slate-800 rounded-xl p-8 shadow-lg border border-slate-200 dark:border-slate-700">
@@ -197,9 +195,9 @@ export default function Page() {
                                 <Features />
                             </div>
                         </div>
-                        <div className="mt-16">
+                        {/* <div className="mt-16">
                             <BottomFeatures />
-                        </div>
+                        </div> */}
                     </div>
                 </section>
 
