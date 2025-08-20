@@ -310,6 +310,18 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
     };
   };
 
+  // Safe date formatter: returns empty string for invalid/empty dates
+  const formatDateSafe = (dateLike?: string | number | Date | null | undefined) => {
+    if (!dateLike) return '';
+    const d = dateLike instanceof Date ? dateLike : new Date(dateLike as any);
+    if (Number.isNaN(d.getTime())) return '';
+    try {
+      return d.toLocaleDateString();
+    } catch (e) {
+      return '';
+    }
+  };
+
   const handleSend = async () => {
     if (input.trim() === '') return;
 
@@ -357,12 +369,13 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
           documentJson: JSON.stringify(selectedItem.extractedJson || {}),
         });
 
+        const createdDate = formatDateSafe(selectedItem.createdAt);
         const documentCard = {
           id: selectedItem.id,
           name: selectedItem.name,
           status: 'current' as const,
           url: `/documents/${selectedItem.id}`,
-          subtitle: selectedItem.createdAt ? `Created: ${new Date(selectedItem.createdAt).toLocaleDateString()}` : undefined
+          subtitle: createdDate ? `Created: ${createdDate}` : undefined
         };
 
         setMessages([...newMessages, {
@@ -383,12 +396,13 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
           documentJson: JSON.stringify(activeDoc.extractedJson || {}),
         });
 
+        const activeCreated = formatDateSafe(activeDoc.createdAt);
         const documentCard = {
           id: activeDoc.id,
           name: activeDoc.name,
           status: 'current' as const,
           url: `/documents/${activeDoc.id}`,
-          subtitle: activeDoc.folderId ? `Folder: ${activeDoc.folderId}` : undefined
+          subtitle: activeDoc.folderId ? `Folder: ${activeDoc.folderId}` : (activeCreated ? `Created: ${activeCreated}` : undefined)
         };
 
         setMessages([
@@ -548,16 +562,20 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         }, 150);
       }
 
-      const documentCards = results.slice(0, 3).map((doc: any) => ({
+        const documentCards = results.slice(0, 3).map((doc: any) => {
+        const created = formatDateSafe(doc.createdAt);
+        const lastReviewed = doc.lastReviewed || created || '';
+        const nextReview = doc.nextReviewRequired || (doc.renewalDate ? `by ${formatDateSafe(doc.renewalDate)}` : '');
+        return {
         id: doc.id,
         name: doc.name,
         status: doc.status || (doc.renewalDate ? (new Date(doc.renewalDate) < new Date() ? 'overdue' : new Date(doc.renewalDate) < new Date(Date.now() + 60 * 24 * 60 * 60 * 1000) ? 'due-soon' : 'current') : 'current'),
         statusText: doc.statusText,
-        subtitle: doc.subtitle || (doc.createdAt ? `Created: ${new Date(doc.createdAt).toLocaleDateString()}` : undefined),
+        subtitle: doc.subtitle || (created ? `Created: ${created}` : undefined),
         url: doc.url || `/documents/${doc.id}`,
-        lastReviewed: doc.lastReviewed || (doc.createdAt ? new Date(doc.createdAt).toLocaleDateString() : undefined),
-        nextReviewRequired: doc.nextReviewRequired || (doc.renewalDate ? `by ${new Date(doc.renewalDate).toLocaleDateString()}` : undefined)
-      }));
+        lastReviewed: lastReviewed || undefined,
+        nextReviewRequired: nextReview || undefined
+      }});
 
       let responsePrefix = '';
       if (intent.type === 'document_search') {

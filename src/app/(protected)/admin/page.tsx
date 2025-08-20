@@ -2,10 +2,10 @@
 import React from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
-import { AppSidebar } from '@/components/dashboard/app-sidebar';
+import { AdminSidebar } from '@/components/admin/admin-sidebar';
 import { TopNav } from '@/components/dashboard/top-nav';
 import { SidebarProvider, Sidebar, SidebarInset } from '@/components/ui/sidebar';
-import AdminWorkspaceView from '@/components/dashboard/admin-workspace-view';
+import AdminWorkspaceView from '@/components/admin/admin-workspace-view';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -75,13 +75,12 @@ export default function AdminPage() {
       <Sidebar>
         {/* Provide a safe default activeWorkspace to avoid runtime null dereference in the sidebar */}
         {/** If no workspaces are present yet, pass a lightweight placeholder workspace object */}
-        <AppSidebar
+  <AdminSidebar
           workspaces={workspaces}
           activeWorkspace={workspaces[0] ?? { id: 'admin-placeholder', name: 'Admin', folders: [] }}
           onWorkspaceChange={() => {}}
           setView={() => {}}
           onGoToFiles={() => {}}
-          onCreateWorkspace={() => {}}
         />
       </Sidebar>
       <SidebarInset className="flex flex-col min-h-screen w-full overflow-hidden">

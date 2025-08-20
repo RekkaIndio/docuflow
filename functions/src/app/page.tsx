@@ -6,7 +6,7 @@ import { NewsletterSignup } from '@/components/landing/newsletter-signup';
 import { HeroProductDemo } from '@/components/landing/hero-product-demo';
 import { Hero } from "@/components/landing/hero";
 import { Features } from "@/components/landing/features";
-import { BottomFeatures } from "@/components/landing/bottom-features";
+// import { BottomFeatures } from "@/components/landing/bottom-features";
 import { Pricing } from '@/components/landing/pricing';
 import { DetailedFeatures } from '@/components/landing/detailed-features';
 import { Footer } from '@/components/landing/footer';
@@ -104,9 +104,9 @@ export default function Page() {
                                 <Features />
                             </div>
                         </div>
-                        <div className="mt-16">
+                        {/* <div className="mt-16">
                             <BottomFeatures />
-                        </div>
+                        </div> */}
                     </div>
                 </section>
 

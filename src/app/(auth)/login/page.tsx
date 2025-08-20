@@ -17,6 +17,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [role, setRole] = useState<'user' | 'admin'>('user');
   const { signIn } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
@@ -26,7 +27,18 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await signIn(email, password);
-      router.push('/dashboard');
+      // Route based on selected role
+      if (role === 'admin') {
+        // set a dev cookie so middleware recognizes admin requests
+        if (typeof document !== 'undefined') {
+          // 1 day expiry
+          document.cookie = 'isAdmin=1; Path=/; Max-Age=86400';
+        }
+        // existing admin page is at src/app/(protected)/admin/page.tsx which maps to /admin
+        router.push('/admin');
+      } else {
+        router.push('/dashboard');
+      }
     } catch (error: any) {
       toast({
         variant: 'destructive',
@@ -68,6 +80,25 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               required
             />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="role">Sign in as</Label>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant={role === 'user' ? 'default' : 'ghost'}
+                onClick={() => setRole('user')}
+              >
+                User
+              </Button>
+              <Button
+                type="button"
+                variant={role === 'admin' ? 'default' : 'ghost'}
+                onClick={() => setRole('admin')}
+              >
+                Admin / Head Office
+              </Button>
+            </div>
           </div>
           <Button type="submit" className="w-full" disabled={loading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
