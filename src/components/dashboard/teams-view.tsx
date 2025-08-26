@@ -46,29 +46,31 @@ interface TeamsViewProps {
 }
 
 const initialMockTeams: Team[] = [
-    {
-        id: 'team-1',
-        name: 'Engineering',
-        members: [
-            mockUser,
-            { id: 'user-2', name: 'Jane Doe', email: 'jane.d@example.com', avatarUrl: 'https://i.pravatar.cc/150?u=jane' },
-            { id: 'user-3', name: 'Peter Jones', email: 'peter.j@example.com', avatarUrl: 'https://i.pravatar.cc/150?u=peter' },
-        ],
-        folderCount: 2,
-        accessibleFolderIds: ['folder-1', 'subfolder-1a'],
-        emails: ['engineering@example.com'],
-    },
-    {
-        id: 'team-2',
-        name: 'Product & Design',
-        members: [
-            { id: 'user-4', name: 'Emily White', email: 'emily.w@example.com', avatarUrl: 'https://i.pravatar.cc/150?u=emily' },
-            { id: 'user-5', name: 'Chris Green', email: 'chris.g@example.com', avatarUrl: 'https://i.pravatar.cc/150?u=chris' },
-        ],
-        folderCount: 1,
-        accessibleFolderIds: ['folder-2'],
-        emails: ['productdesign@example.com'],
-    }
+  {
+    id: 'team-1',
+    name: 'Engineering',
+    members: [
+      mockUser,
+      { id: 'user-2', name: 'Jane Doe', email: 'jane.d@example.com', avatarUrl: 'https://i.pravatar.cc/150?u=jane' },
+      { id: 'user-3', name: 'Peter Jones', email: 'peter.j@example.com', avatarUrl: 'https://i.pravatar.cc/150?u=peter' },
+    ],
+    folderCount: 2,
+    accessibleFolderIds: ['folder-1', 'subfolder-1a'],
+    emails: ['engineering@example.com'],
+    workspaceId: '', // Set as needed
+  },
+  {
+    id: 'team-2',
+    name: 'Product & Design',
+    members: [
+      { id: 'user-4', name: 'Emily White', email: 'emily.w@example.com', avatarUrl: 'https://i.pravatar.cc/150?u=emily' },
+      { id: 'user-5', name: 'Chris Green', email: 'chris.g@example.com', avatarUrl: 'https://i.pravatar.cc/150?u=chris' },
+    ],
+    folderCount: 1,
+    accessibleFolderIds: ['folder-2'],
+    emails: ['productdesign@example.com'],
+    workspaceId: '', // Set as needed
+  }
 ]
 
 export function TeamsView({ workspace }: TeamsViewProps) {
@@ -80,12 +82,18 @@ export function TeamsView({ workspace }: TeamsViewProps) {
         const teamsCollection = collection(db, "teams");
         const teamsSnapshot = await getDocs(teamsCollection);
         // map docs to include id from Firestore doc id
-        const fetchedTeams = teamsSnapshot.docs.map((d) => {
+        let fetchedTeams = teamsSnapshot.docs.map((d) => {
           const data = d.data() as any;
           const accessibleFolderIds = Array.isArray(data.accessibleFolderIds) ? data.accessibleFolderIds : [];
           const emails = Array.isArray(data.emails) ? data.emails : [];
           const members = Array.isArray(data.members) ? data.members : [];
           const folderCount = typeof data.folderCount === "number" ? data.folderCount : accessibleFolderIds.length || 0;
+          // Patch: always set workspaceId
+          if (!data.workspaceId || data.workspaceId !== workspace.id) {
+            // Patch Firestore to set workspaceId if missing or incorrect
+            const teamRef = doc(db, "teams", data.id ?? d.id);
+            setDoc(teamRef, { ...data, workspaceId: workspace.id }, { merge: true });
+          }
           return {
             id: data.id ?? d.id,
             name: data.name ?? "Untitled Team",
@@ -93,9 +101,32 @@ export function TeamsView({ workspace }: TeamsViewProps) {
             folderCount,
             accessibleFolderIds,
             emails,
+            workspaceId: workspace.id,
           } as Team;
         });
-        console.log("Fetched teams from Firestore:", fetchedTeams);
+
+        // Ensure Admin, Staff, and Inspection teams exist for this workspace
+        const requiredTeams = [
+          { name: "Admin", id: `admin-${workspace.id}` },
+          { name: "Staff", id: `staff-${workspace.id}` },
+          { name: "Inspection", id: `inspection-${workspace.id}` },
+        ];
+        const teamsToCreate = requiredTeams.filter(rt => !fetchedTeams.some(t => t.name === rt.name && t.workspaceId === workspace.id));
+        for (const team of teamsToCreate) {
+          const newTeam: Team = {
+            id: team.id,
+            name: team.name,
+            members: [],
+            folderCount: 0,
+            accessibleFolderIds: [],
+            emails: [],
+            workspaceId: workspace.id,
+          };
+          // Add to Firestore
+          const teamRef = doc(db, "teams", newTeam.id);
+          await setDoc(teamRef, newTeam);
+          fetchedTeams.push(newTeam);
+        }
         setTeams(fetchedTeams);
       } catch (error) {
         console.error("Error fetching teams from Firestore:", error);
@@ -103,7 +134,7 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     };
 
     fetchTeams();
-  }, []);
+  }, [workspace.id]);
 
   const handleDeleteTeam = (teamId: string) => {
     // optimistic UI

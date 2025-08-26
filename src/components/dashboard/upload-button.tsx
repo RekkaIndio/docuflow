@@ -18,6 +18,8 @@ import { useToast } from "@/hooks/use-toast";
 import type { Document } from "@/lib/types";
 import { mockUser } from "@/lib/data";
 import { saveDocument } from "@/lib/firestore";
+import { collection, getDocs, query, where, doc, getDoc, setDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import { getStorage, ref, uploadBytes } from "firebase/storage";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -172,10 +174,107 @@ export function UploadButton({ onDocumentAdd, workspaceId, folderId, size = "def
 
       // 4. Save metadata to Firestore
       const docId = await saveDocument(newDoc);
+
       onDocumentAdd({ ...newDoc, id: docId, folderId });
       setUploads(prev => prev.map((u, i) => i === index ? { ...u, status: "completed", progress: 100 } : u));
 
-    } catch (error: any) {
+      // --- ALERT LOGIC: If uploaded to 'audits' folder, send email to Admin team ---
+      try {
+        // Debug: log folderId and alert logic
+        console.log('[Audit Alert Debug] folderId:', folderId, 'workspaceId:', workspaceId);
+        if (folderId === 'audits') {
+          console.log('[Audit Alert Debug] Triggering alert email for Admin team.');
+          // Try multiple strategies to find Admin recipients
+          let emails: string[] = [];
+          let adminTeamName = 'Admin';
+
+          // 1) Workspace-scoped Admin team
+          try {
+            const teamsQuery = query(collection(db, "teams"), where("name", "==", "Admin"), where("workspaceId", "==", workspaceId));
+            const teamsSnap = await getDocs(teamsQuery);
+            if (!teamsSnap.empty) {
+              const adminTeam = teamsSnap.docs[0].data();
+              emails = Array.isArray(adminTeam.emails) ? adminTeam.emails : [];
+              adminTeamName = adminTeam.name || adminTeamName;
+              console.log('[Audit Alert Debug] Found workspace-scoped Admin team:', adminTeamName, emails);
+            }
+          } catch (e) {
+            console.error('[Audit Alert Debug] Error querying workspace-scoped Admin team', e);
+          }
+
+          // 2) Fallback: name-only Admin team anywhere
+          if (emails.length === 0) {
+            try {
+              const teamsQuery2 = query(collection(db, "teams"), where("name", "==", "Admin"));
+              const teamsSnap2 = await getDocs(teamsQuery2);
+              if (!teamsSnap2.empty) {
+                const adminTeam = teamsSnap2.docs[0].data();
+                emails = Array.isArray(adminTeam.emails) ? adminTeam.emails : [];
+                adminTeamName = adminTeam.name || adminTeamName;
+                console.log('[Audit Alert Debug] Found name-only Admin team fallback:', adminTeamName, emails);
+                // If team is missing workspaceId, patch it
+                if (!adminTeam.workspaceId) {
+                  const teamRef = doc(db, 'teams', teamsSnap2.docs[0].id);
+                  await setDoc(teamRef, { ...adminTeam, workspaceId }, { merge: true });
+                }
+              }
+            } catch (e) {
+              console.error('[Audit Alert Debug] Error querying name-only Admin team', e);
+            }
+          }
+
+          // 3) Final fallback: default hardcoded Admin id for protected folders
+          if (emails.length === 0) {
+            try {
+              const adminDocRef = doc(db, 'teams', `admin-${workspaceId}`);
+              const adminSnap = await getDoc(adminDocRef);
+              if (adminSnap.exists()) {
+                const adminTeam = adminSnap.data() as any;
+                emails = Array.isArray(adminTeam.emails) ? adminTeam.emails : [];
+                adminTeamName = adminTeam.name || adminTeamName;
+                console.log('[Audit Alert Debug] Found admin by fixed id:', adminTeamName, emails);
+              }
+            } catch (e) {
+              console.error('[Audit Alert Debug] Error fetching admin by fixed id', e);
+            }
+          }
+
+          if (emails.length > 0) {
+            try {
+              const resp = await fetch("/api/mailgun-test", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  to: emails.join(","),
+                  subject: `New Audit Document Uploaded: ${newDoc.name}`,
+                  template: "admin-upload",
+                  vars: {
+                    managerName: adminTeamName || "Admin",
+                    uploadedBy: newDoc.owner?.name || "Unknown",
+                    documentName: newDoc.name,
+                    uploadedAt: new Date().toLocaleString(),
+                  }
+                })
+              });
+              console.log('[Audit Alert Debug] Email send response:', resp);
+              toast({ title: 'Admin Alert Sent', description: `Sent to ${emails.length} recipient(s)`, });
+            } catch (e) {
+              console.error('[Audit Alert Debug] Failed to send email', e);
+              toast({ title: 'Failed to send Admin Alert', description: 'See console for details', variant: 'destructive' });
+            }
+          } else {
+            console.log('[Audit Alert Debug] No Admin emails found after fallbacks.');
+            toast({ title: 'No Admin recipients', description: 'No Admin emails configured for this workspace', variant: 'warning' });
+          }
+        } else {
+          console.log('[Audit Alert Debug] Not an audits folder upload, skipping alert.');
+        }
+      } catch (err) {
+        // Non-blocking: log error but don't interrupt upload
+        console.error("Failed to send Admin alert email:", err);
+      }
+
+  } catch (error: any) {
       console.error(`Failed to process ${upload.file.name}:`, error);
       setUploads(prev => prev.map((u, i) => i === index ? { ...u, status: "error", error: error.message } : u));
     }
