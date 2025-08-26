@@ -19,8 +19,10 @@ import {
   ChevronsUpDown,
   PanelLeft,
   Accessibility,
+  BarChart2,
 } from "lucide-react";
 import { Logo } from "@/components/icons/logo";
+import { useRouter, usePathname } from 'next/navigation';
 import type { Workspace } from "@/lib/types";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -29,7 +31,7 @@ interface AdminSidebarProps {
   workspaces: Workspace[];
   activeWorkspace: Workspace;
   onWorkspaceChange: (workspaceId: string) => void;
-  setView: (view: 'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility') => void;
+  setView: (view: 'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'stats') => void;
   onGoToFiles: () => void;
 }
 
@@ -42,6 +44,8 @@ export function AdminSidebar({
 }: AdminSidebarProps) {
   const { user, signOut } = useAuth();
   const { isMobile, setOpenMobile, toggleSidebar, state } = useSidebar();
+  const router = useRouter();
+  const pathname = usePathname();
 
   const handleNavigation = (action: () => void) => {
     action();
@@ -49,6 +53,11 @@ export function AdminSidebar({
       setOpenMobile(false);
     }
   };
+
+  const isActive = (path: string) => {
+    if (!pathname) return false;
+    return pathname === path || pathname.startsWith(path + '/');
+  }
 
   return (
     <>
@@ -69,19 +78,28 @@ export function AdminSidebar({
       <SidebarContent>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={() => handleNavigation(() => setView('home'))} className="text-lg h-14">
+            <SidebarMenuButton onClick={() => handleNavigation(() => setView('home'))} className={`text-lg h-14 ${isActive('/admin') ? 'bg-muted/50 rounded' : ''}`}>
               <LayoutDashboard className="w-7 h-7 mr-2" />
               <span className="text-lg">Dashboard</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={() => handleNavigation(onGoToFiles)} className="text-lg h-14">
+            <SidebarMenuButton onClick={() => handleNavigation(onGoToFiles)} className={`text-lg h-14 ${isActive('/files') ? 'bg-muted/50 rounded' : ''}`}>
               <FolderIcon className="w-7 h-7 mr-2" />
               <span className="text-lg">Folders</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={() => handleNavigation(() => setView('renewals'))} className="text-lg h-14">
+            <SidebarMenuButton onClick={() => handleNavigation(() => {
+              setView('home');
+              router.push('/admin/care-homes');
+            })} className={`text-lg h-14 ${isActive('/admin/care-homes') ? 'bg-muted/50 rounded' : ''}`}>
+              <UsersRound className="w-7 h-7 mr-2" />
+              <span className="text-lg">Care Homes</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton onClick={() => handleNavigation(() => setView('renewals'))} className={`text-lg h-14 ${isActive('/admin/renewals') ? 'bg-muted/50 rounded' : ''}`}>
               <FileText className="w-7 h-7 mr-2" />
               <span className="text-lg">Renewals</span>
             </SidebarMenuButton>
@@ -96,6 +114,15 @@ export function AdminSidebar({
             <SidebarMenuButton onClick={() => handleNavigation(() => setView('teams'))} className="text-lg h-14">
               <UsersRound className="w-7 h-7 mr-2" />
               <span className="text-lg">Teams</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton onClick={() => handleNavigation(() => {
+              setView('stats');
+              router.push('/admin/stats');
+            })} className="text-lg h-14">
+              <BarChart2 className="w-7 h-7 mr-2" />
+              <span className="text-lg">Stats</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

@@ -50,4 +50,5 @@ export type Team = {
   folderCount: number;
   accessibleFolderIds: string[];
   emails: string[]; // Added 'emails' property
+  workspaceId: string;
 };
