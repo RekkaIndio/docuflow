@@ -264,7 +264,7 @@ export function UploadButton({ onDocumentAdd, workspaceId, folderId, size = "def
             }
           } else {
             console.log('[Audit Alert Debug] No Admin emails found after fallbacks.');
-            toast({ title: 'No Admin recipients', description: 'No Admin emails configured for this workspace', variant: 'warning' });
+            toast({ title: 'No Admin recipients', description: 'No Admin emails configured for this workspace', variant: 'default' });
           }
         } else {
           console.log('[Audit Alert Debug] Not an audits folder upload, skipping alert.');

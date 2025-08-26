@@ -9,6 +9,7 @@ interface DocumentCardProps {
   status?: 'current' | 'due-soon' | 'overdue' | 'updated';
   statusText?: string;
   subtitle?: string;
+  summary?: string;
   className?: string;
   onClick?: () => void;
   url?: string;
@@ -16,12 +17,15 @@ interface DocumentCardProps {
   nextReviewRequired?: string;
 }
 
+
+
 export function DocumentCard({ 
   id,
   name, 
   status = 'current', 
   statusText, 
   subtitle,
+  summary,
   className,
   onClick,
   url,
@@ -90,6 +94,7 @@ export function DocumentCard({
     <div className="space-y-2">
       <div 
         className={cn(
+  summary,
           "p-3 rounded-lg flex items-center justify-between cursor-pointer hover:shadow-sm transition-shadow",
           config.bgColor,
           config.borderColor,

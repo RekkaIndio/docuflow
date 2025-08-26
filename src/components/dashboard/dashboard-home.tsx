@@ -276,7 +276,12 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
                         {/* Sidebar toggle is provided by the Sidebar rail between sidebar and content */}
                         <div className="min-w-0 flex-1">
                             <h1 className="text-xl sm:text-2xl font-headline font-bold tracking-tight text-blue-900 truncate">{workspace.name}</h1>
-                            <p className="text-sm text-blue-700/70 hidden sm:block">Welcome back! Here's a summary of your workspace.</p>
+                                                        <p className="text-sm text-blue-700/70 hidden sm:block">Welcome back! Here's a summary of your workspace.</p>
+                                                        <div className="flex gap-4 mt-2">
+                                                            <span className="text-xs text-blue-700/70">{documents.length} documents</span>
+                                                            <span className="text-xs text-blue-700/70">{folders.length} folders</span>
+                                                            {/* User count removed: workspace.users does not exist */}
+                                                        </div>
                         </div>
                     </div>
                     {/* <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
