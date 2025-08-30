@@ -13,6 +13,16 @@ export type Workspace = {
   ownerId?: string;
   members?: string[];
   profilePicture?: string; // Added profilePicture property to the Workspace type
+  // Optional occupancy data used by admin and dashboard views (0..1)
+  occupancy?: number;
+  // Optional explicit bed counts (used by dev-care-homes or admin overrides)
+  totalBeds?: number;
+  occupiedBeds?: number;
+  // Generic settings bag for workspace-level settings like occupancy
+  settings?: {
+    occupancy?: number;
+    [key: string]: any;
+  };
 };
 
 export type Folder = {

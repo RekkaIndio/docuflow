@@ -11,6 +11,16 @@ export type Workspace = {
   name: string;
   folders: (Folder | Document)[];
   ownerId?: string;
+  // Optional occupancy data used by admin and dashboard views (0..1)
+  occupancy?: number;
+  // Optional explicit bed counts
+  totalBeds?: number;
+  occupiedBeds?: number;
+  // Generic settings bag for workspace-level settings like occupancy
+  settings?: {
+    occupancy?: number;
+    [key: string]: any;
+  };
 };
 
 export type Folder = {

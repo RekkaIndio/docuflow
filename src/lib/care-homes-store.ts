@@ -8,11 +8,8 @@ type CareHome = {
 };
 
 // Simple in-memory store for dev. Persists for the lifetime of the node process.
-const homes: CareHome[] = [
-  { id: 'oakview', name: 'Oakview Care Home', region: 'North', occupancy: 0.85, renewalBacklog: 5, complianceScore: 92 },
-  { id: 'maplewood', name: 'Maplewood House', region: 'South', occupancy: 0.63, renewalBacklog: 12, complianceScore: 78 },
-  { id: 'willow', name: 'Willow Lodge', region: 'East', occupancy: 0.92, renewalBacklog: 2, complianceScore: 97 },
-];
+// NOTE: demo homes removed so the Care Homes /occupancy page doesn't show placeholder/demo cards.
+const homes: CareHome[] = [];
 
 export function getHomes() {
   return homes;

@@ -157,11 +157,22 @@ export function Dashboard() {
   const [view, setView] = useState<'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'dependency-calculator' | 'notifications'>('home');
   const [unreadNotifications, setUnreadNotifications] = useState<number>(0);
   const [breadcrumb, setBreadcrumb] = useState<(Folder | { id: 'root', name: string, type: 'folder' })[]>([]);
+  const [lastChatDetail, setLastChatDetail] = useState<{ text?: string; documents?: any[] } | undefined>(undefined);
 
 
   useEffect(() => {
+    const handleChatResponse = (event: any) => {
+      const detail = event?.detail;
+      if (detail && (typeof detail.text === 'string' || Array.isArray(detail.documents))) {
+        setLastChatDetail({ text: detail.text, documents: detail.documents || [] });
+      }
+    };
+
     // Listen for unread notifications count for the active workspace
     let unsub: (() => void) | undefined;
+      if (typeof window !== 'undefined') {
+        window.addEventListener('chat-response', handleChatResponse as EventListener);
+      }
     if (activeWorkspace) {
       const q = fsQuery(collection(db, `workspaces/${activeWorkspace.id}/notifications`), where('read', '==', false));
       unsub = onSnapshot(q, (snap: any) => {
@@ -172,8 +183,13 @@ export function Dashboard() {
     } else {
       setUnreadNotifications(0);
     }
-    return () => { if (unsub) unsub(); };
-  }, [activeWorkspace]);
+    return () => {
+      if (unsub) unsub();
+      if (typeof window !== 'undefined') {
+        try { window.removeEventListener('chat-response', handleChatResponse as EventListener); } catch (e) {}
+      }
+    };
+  }, [workspaces, activeWorkspace]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -306,6 +322,8 @@ export function Dashboard() {
       const document = findDocument(activeWorkspace.folders);
       if (document) {
         // Select the document itself so the dashboard will render DocumentView for it
+        // Clear any previous chat snippets so the newly-opened document starts with a fresh snippet state
+        setLastChatDetail(undefined);
         setSelected(document as Document);
         setView('files');
 
@@ -326,9 +344,25 @@ export function Dashboard() {
 
     if (typeof window !== 'undefined') {
       window.addEventListener('navigate-to-document', handleDocumentNavigation as EventListener);
-      
+      // Also listen for workspace navigation events (from admin chat)
+      const handleWorkspaceNavigation = (ev: CustomEvent) => {
+        const { workspaceId, workspaceName } = ev.detail || {};
+        if (!workspaceId) return;
+        const ws = workspaces.find(w => w.id === workspaceId) || null;
+        if (ws) {
+          setActiveWorkspace(ws);
+          setSelected(null);
+          setView('home');
+        } else {
+          console.warn('Workspace not found for navigate-to-workspace:', workspaceId, workspaceName);
+        }
+      };
+
+      window.addEventListener('navigate-to-workspace', handleWorkspaceNavigation as EventListener);
+
       return () => {
         window.removeEventListener('navigate-to-document', handleDocumentNavigation as EventListener);
+        window.removeEventListener('navigate-to-workspace', handleWorkspaceNavigation as EventListener);
       };
     }
   }, [activeWorkspace]);
@@ -707,7 +741,7 @@ export function Dashboard() {
   /* Outstanding Evidence removed; evidence folders are part of main folders */
     case 'files':
             if (selected?.type === "document") {
-                return <DocumentView document={selected} onBack={handleBackToFileBrowser} />;
+                return <DocumentView document={selected} onBack={handleBackToFileBrowser} responseDetail={lastChatDetail} isChatOpen={isChatOpen} />;
             }
       return (
         <FileBrowser

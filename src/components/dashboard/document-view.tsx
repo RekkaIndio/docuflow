@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { Document as DocumentType } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Share2, Download, FileText, FileSpreadsheet, FileX2, FileIcon, Loader2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight } from "lucide-react";
@@ -23,6 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 import { getDocumentAsBase64, getDownloadUrl } from "@/actions/documents";
 import * as XLSX from 'xlsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DocumentCard } from "@/components/ui/document-card";
 import { ScrollArea } from "../ui/scroll-area";
 import { cn } from "@/lib/utils";
 import * as mammoth from "mammoth";
@@ -33,7 +34,34 @@ pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/b
 interface DocumentViewProps {
   document: DocumentType;
   onBack: () => void;
+    responseContent?: string | undefined;
+    responseDetail?: { text?: string; documents?: any[] } | undefined;
+    isChatOpen?: boolean;
 }
+
+// Simple right-hand snippet box to show the output/result from chat/document processing.
+const ResponseSnippet = ({ title, content }: { title?: string; content?: string | undefined }) => {
+    return (
+        <Card className="w-full">
+            {/* Header styled to match the chat panel */}
+            <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-3 rounded-t-md">
+                <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-xs font-semibold">AI</div>
+                    <h3 className="text-sm font-semibold truncate">{title || 'Snippet Output'}</h3>
+                </div>
+            </div>
+            <CardContent className="p-3 bg-background">
+                <div className="p-2">
+                    {content ? (
+                        <pre className="whitespace-pre-wrap text-sm break-words">{content}</pre>
+                    ) : (
+                        <div className="text-muted-foreground text-sm">No output yet. Responses will appear here when available.</div>
+                    )}
+                </div>
+            </CardContent>
+        </Card>
+    );
+};
 
 const JsonViewer = ({ json }: { json: Record<string, any> | undefined }) => {
   if (!json || Object.keys(json).length === 0) {
@@ -209,50 +237,39 @@ const XlsxPreview = ({ document: doc }: { document: DocumentType }) => {
 const PdfPreview = ({ document: doc }: { document: DocumentType }) => {
     const [fileData, setFileData] = useState<string | null>(null);
     const [numPages, setNumPages] = useState<number | null>(null);
-    const [pageNumber, setPageNumber] = useState(1);
-    const isMobile = useIsMobile();
-    // Adjust default scale based on mobile
-    const [scale, setScale] = useState(isMobile ? 1.0 : 1.5);
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
 
     useEffect(() => {
         setIsLoading(true);
         setFileData(null);
-      if (!doc.storagePath) {
-          toast({ variant: 'destructive', title: 'Error', description: 'File path is missing.' });
-          setIsLoading(false);
-          return;
-      }
-  
-      const fetchFile = async () => {
-          try {
-              const base64Data = await getDocumentAsBase64(doc.storagePath!);
-              if(base64Data) {
-                setFileData(`data:application/pdf;base64,${base64Data}`);
-              } else {
-                throw new Error("Received no data from server");
-              }
-          } catch (err: any) {
-              console.error("Error fetching file for preview:", err);
-              toast({ variant: 'destructive', title: 'Error', description: 'Could not load file for preview.' });
-          } finally {
+        if (!doc.storagePath) {
+            toast({ variant: 'destructive', title: 'Error', description: 'File path is missing.' });
             setIsLoading(false);
-          }
-      };
+            return;
+        }
 
-      fetchFile();
+        const fetchFile = async () => {
+            try {
+                const base64Data = await getDocumentAsBase64(doc.storagePath!);
+                if (base64Data) {
+                    setFileData(`data:application/pdf;base64,${base64Data}`);
+                } else {
+                    throw new Error("Received no data from server");
+                }
+            } catch (err: any) {
+                console.error("Error fetching file for preview:", err);
+                toast({ variant: 'destructive', title: 'Error', description: 'Could not load file for preview.' });
+            } finally {
+                setIsLoading(false);
+            }
+        };
 
+        fetchFile();
     }, [doc.id, doc.storagePath, toast]);
-
-    // Update scale when mobile state changes
-    useEffect(() => {
-        setScale(isMobile ? 1.0 : 1.5);
-    }, [isMobile]);
 
     function onDocumentLoadSuccess({ numPages }: { numPages: number }) {
         setNumPages(numPages);
-        setPageNumber(1);
     }
 
     function onDocumentLoadError(error: Error) {
@@ -260,9 +277,6 @@ const PdfPreview = ({ document: doc }: { document: DocumentType }) => {
         toast({ variant: 'destructive', title: 'PDF Error', description: `Failed to load PDF: ${error.message}` });
         setFileData(null); // This will cause a fallback to the download view
     }
-
-    const goToPrevPage = () => setPageNumber(prev => Math.max(prev - 1, 1));
-    const goToNextPage = () => setPageNumber(prev => Math.min(prev + 1, numPages!));
 
     if (isLoading) {
         return <div className="flex justify-center items-center h-full"><Skeleton className="h-[80vh] w-[80%]" /></div>
@@ -274,45 +288,6 @@ const PdfPreview = ({ document: doc }: { document: DocumentType }) => {
 
     return (
         <div className="flex flex-col h-full items-center gap-2 sm:gap-4 py-2 sm:py-4">
-             <div className="z-10 sticky top-2 flex items-center justify-center gap-1 sm:gap-2 p-2 bg-background/80 backdrop-blur-sm rounded-md border shadow-md">
-                <Button 
-                    variant="outline" 
-                    size={isMobile ? "sm" : "icon"} 
-                    onClick={() => setScale(s => s - 0.1)} 
-                    disabled={scale <= 0.5}
-                >
-                    <ZoomOut className={isMobile ? "w-3 h-3" : "w-4 h-4"} />
-                </Button>
-                <span className="text-xs sm:text-sm font-medium w-12 sm:w-16 text-center">{(scale * 100).toFixed(0)}%</span>
-                <Button 
-                    variant="outline" 
-                    size={isMobile ? "sm" : "icon"} 
-                    onClick={() => setScale(s => s + 0.1)} 
-                    disabled={scale >= 3}
-                >
-                    <ZoomIn className={isMobile ? "w-3 h-3" : "w-4 h-4"} />
-                </Button>
-                <div className="w-px h-4 sm:h-6 bg-border mx-1 sm:mx-2" />
-                <Button 
-                    variant="outline" 
-                    size={isMobile ? "sm" : "icon"} 
-                    onClick={goToPrevPage} 
-                    disabled={pageNumber <= 1}
-                >
-                    <ChevronLeft className={isMobile ? "w-3 h-3" : "w-4 h-4"} />
-                </Button>
-                <span className="text-xs sm:text-sm font-medium w-16 sm:w-24 text-center">
-                    {isMobile ? `${pageNumber}/${numPages}` : `Page ${pageNumber} of ${numPages}`}
-                </span>
-                <Button 
-                    variant="outline" 
-                    size={isMobile ? "sm" : "icon"} 
-                    onClick={goToNextPage} 
-                    disabled={pageNumber >= (numPages ?? 0)}
-                >
-                    <ChevronRight className={isMobile ? "w-3 h-3" : "w-4 h-4"} />
-                </Button>
-            </div>
             <div className="flex-1 overflow-y-auto w-full px-2 sm:px-4">
                 <div className="flex justify-center">
                     <PdfDocument
@@ -322,12 +297,15 @@ const PdfPreview = ({ document: doc }: { document: DocumentType }) => {
                         loading={<div className="flex justify-center items-center h-full"><Skeleton className="h-[80vh] w-[80%]" /></div>}
                         error={<p>Failed to load PDF.</p>}
                     >
-                        <Page 
-                            pageNumber={pageNumber} 
-                            scale={scale} 
-                            renderTextLayer={true}
-                            width={isMobile ? Math.min(window.innerWidth - 32, 600) : undefined}
-                        />
+                        {Array.from(new Array(numPages), (el, index) => (
+                            <Page 
+                                key={`page_${index + 1}`}
+                                pageNumber={index + 1}
+                                scale={1.5} 
+                                renderTextLayer={true}
+                                className="mb-4"
+                            />
+                        ))}
                     </PdfDocument>
                 </div>
             </div>
@@ -404,8 +382,51 @@ const DocumentPreview = ({ document }: { document: DocumentType }) => {
 }
 
 
-export function DocumentView({ document, onBack }: DocumentViewProps) {
+export function DocumentView({ document, onBack, responseContent, responseDetail, isChatOpen }: DocumentViewProps) {
   const isMobile = useIsMobile();
+        const { toast } = useToast();
+    const [showTop, setShowTop] = useState(false);
+    const [showRelated, setShowRelated] = useState(false);
+    const [showMore, setShowMore] = useState(false);
+    const hasMountedRef = useRef(false);
+
+    useEffect(() => {
+        let t1: ReturnType<typeof setTimeout> | null = null;
+        let t2: ReturnType<typeof setTimeout> | null = null;
+        let t3: ReturnType<typeof setTimeout> | null = null;
+
+        const hasResponse = responseDetail && (responseDetail.text || (responseDetail.documents && responseDetail.documents.length > 0));
+
+        // Only run the reveal logic if component has mounted. This prevents
+        // pre-populating the snippets when the document is first opened and
+        // there is an existing responseDetail from prior chat state.
+        if (!hasMountedRef.current) {
+            hasMountedRef.current = true;
+            // If there's already a responseDetail on initial mount, keep snippets hidden
+            // until a new response arrives after mount.
+            return;
+        }
+
+        if (hasResponse) {
+            // staggered reveal
+            setShowTop(true);
+            t1 = setTimeout(() => setShowRelated(true), 120);
+            t2 = setTimeout(() => setShowMore(true), 240);
+        } else {
+            // hide all
+            setShowTop(false);
+            setShowRelated(false);
+            setShowMore(false);
+        }
+
+        return () => {
+            if (t1) clearTimeout(t1);
+            if (t2) clearTimeout(t2);
+            if (t3) clearTimeout(t3);
+        };
+    }, [responseDetail]);
+
+        const hasResponse = Boolean(responseDetail && (responseDetail.text || (responseDetail.documents && responseDetail.documents.length > 0)));
   
   return (
     <div className="flex flex-col h-full bg-background">
@@ -429,12 +450,126 @@ export function DocumentView({ document, onBack }: DocumentViewProps) {
             </ShareDialog>
         </div>
       </header>
-      <main className="flex-1 overflow-hidden">
-        {/* Document preview - summary, extracted and structured data are hidden but still available for chatbot */}
-        <div className="flex-1 overflow-hidden">
-          <DocumentPreview document={document} />
-        </div>
-      </main>
+            <main className="flex-1 overflow-hidden">
+                {/* Two-column layout: main document preview first, snippet/output box on the right. When there is no response, center the preview and collapse the snippet column so the document isn't squashed. */}
+                <div className={cn("flex h-full gap-6 p-4", !hasResponse ? 'justify-center' : 'justify-start')}>
+                    {/* Left: snippets column (accordion dropdowns) - hidden until responseDetail exists. */}
+                    <div className={cn(
+                        "hidden md:block transition-all duration-300 ease-out",
+                        hasResponse ? 'md:w-80 lg:w-96 opacity-100' : 'md:w-0 lg:w-0 opacity-0 pointer-events-none'
+                    )}>
+                        <div className={cn(
+                            hasResponse ? 'sticky top-20' : 'relative',
+                            'flex flex-col gap-3 max-h-[calc(100vh-6rem)] overflow-auto pr-2'
+                        )}>
+                            {responseDetail && (responseDetail.text || (responseDetail.documents && responseDetail.documents.length > 0)) ? (
+                                <Accordion type="single" collapsible defaultValue="top" className="w-full">
+                                    <AccordionItem value="top">
+                                        <AccordionTrigger className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-3 rounded-t-md">Top-level Response</AccordionTrigger>
+                                        <AccordionContent>
+                                            <div className="p-2">
+                                                <ResponseSnippet title="Top-level Response" content={responseDetail.text} />
+                                            </div>
+                                        </AccordionContent>
+                                    </AccordionItem>
+
+                                    <AccordionItem value="related">
+                                        <AccordionTrigger className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-3">Possibly Related</AccordionTrigger>
+                                        <AccordionContent>
+                                            <div className="p-2">
+                                                <Card className="w-full">
+                                                    <CardContent className="p-2 bg-background">
+                                                        <div className="space-y-2">
+                                                            {(() => {
+                                                                const rawDocs = (responseDetail?.documents || []).slice(0, 3);
+                                                                if (!rawDocs || rawDocs.length === 0) {
+                                                                    const placeholders = Array.from({ length: 3 }).map((_, i) => ({
+                                                                        id: `suggested-${i}`,
+                                                                        name: 'Suggested document',
+                                                                        subtitle: 'Try a different query to reveal documents',
+                                                                        summary: undefined,
+                                                                        url: undefined,
+                                                                        _placeholder: true,
+                                                                    }));
+                                                                    return placeholders.map((d: any) => (
+                                                                        <DocumentCard
+                                                                            key={d.id}
+                                                                            id={d.id}
+                                                                            name={d.name}
+                                                                            subtitle={d.subtitle}
+                                                                            summary={d.summary}
+                                                                            url={d.url}
+                                                                            onClick={() => { try { toast({ title: 'Suggestion', description: 'Try a different query or the workspace search to find related documents.' }); } catch (e) {} }}
+                                                                        />
+                                                                    ));
+                                                                }
+
+                                                                const docs = rawDocs.map((d: any) => {
+                                                                    const id = d.id || d.documentId || d.document_id || '';
+                                                                    const name = d.name || d.title || d.documentName || id || 'Untitled document';
+                                                                    const url = d.url || (id ? `/documents/${id}` : undefined) || d.link || d.href;
+                                                                    const subtitle = d.subtitle || d.folder || (d.folderId ? `Folder: ${d.folderId}` : undefined);
+                                                                    return { ...d, id, name, url, subtitle };
+                                                                });
+
+                                                                return docs.map((d: any) => (
+                                                                    <DocumentCard
+                                                                        key={d.id || d.name}
+                                                                        id={d.id || undefined}
+                                                                        name={d.name}
+                                                                        subtitle={d.subtitle}
+                                                                        summary={d.summary}
+                                                                        url={d.url}
+                                                                        onClick={() => {
+                                                                            if (!d.id && !d.url) { try { toast({ title: 'Suggestion', description: 'This suggestion cannot be opened. Try the workspace search to find the full document.' }); } catch (e) {} return; }
+                                                                            try {
+                                                                                if (typeof window !== 'undefined' && window.dispatchEvent) {
+                                                                                    const documentId = d.id || (d.url ? (new URL(d.url, window.location.origin).pathname.split('/').pop()) : undefined);
+                                                                                    window.dispatchEvent(new CustomEvent('navigate-to-document', { detail: { documentId, documentName: d.name } }));
+                                                                                }
+                                                                            } catch (e) {
+                                                                                if (d.url) { try { window.open(d.url, '_blank'); } catch (err) {} }
+                                                                            }
+                                                                        }}
+                                                                    />
+                                                                ));
+                                                            })()}
+                                                        </div>
+                                                    </CardContent>
+                                                </Card>
+                                            </div>
+                                        </AccordionContent>
+                                    </AccordionItem>
+
+                                    <AccordionItem value="more">
+                                        <AccordionTrigger className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-3 rounded-b-md">More Info</AccordionTrigger>
+                                        <AccordionContent>
+                                            <div className="p-2">
+                                                <ResponseSnippet title="More Info" content={responseDetail.text ? `${responseDetail.text}\n\n(You can expand or view related documents for more context.)` : undefined} />
+                                            </div>
+                                        </AccordionContent>
+                                    </AccordionItem>
+                                </Accordion>
+                            ) : null}
+                        </div>
+                    </div>
+
+                    {/* Main: document preview - centered when no snippets, otherwise takes remaining space. Add right padding to ensure chat overlay doesn't cover content */}
+                    <div className={cn(
+                        "min-w-0 flex-1 flex justify-center",
+                        // when chat is open on desktop, add extra right padding equal to chat width + gap
+                        isChatOpen ? 'md:pr-[540px] lg:pr-[560px]' : 'md:pr-6 lg:pr-10'
+                    )}>
+                        <div className={cn(
+                            // keep a sensible max width so the document preview doesn't stretch too wide
+                            "h-full overflow-hidden rounded-md shadow-sm w-full",
+                            !hasResponse ? 'max-w-[980px]' : 'max-w-[1200px]'
+                        )}>
+                            <DocumentPreview document={document} />
+                        </div>
+                    </div>
+                </div>
+            </main>
     </div>
   );
 }

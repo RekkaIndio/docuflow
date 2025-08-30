@@ -22,7 +22,7 @@ import {
   BarChart2,
 } from "lucide-react";
 import { Logo } from "@/components/icons/logo";
-import { useRouter, usePathname } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import type { Workspace } from "@/lib/types";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -31,7 +31,7 @@ interface AdminSidebarProps {
   workspaces: Workspace[];
   activeWorkspace: Workspace;
   onWorkspaceChange: (workspaceId: string) => void;
-  setView: (view: 'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'stats') => void;
+  setView: (view: 'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'stats' | 'care-homes') => void;
   onGoToFiles: () => void;
 }
 
@@ -44,7 +44,6 @@ export function AdminSidebar({
 }: AdminSidebarProps) {
   const { user, signOut } = useAuth();
   const { isMobile, setOpenMobile, toggleSidebar, state } = useSidebar();
-  const router = useRouter();
   const pathname = usePathname();
 
   const handleNavigation = (action: () => void) => {
@@ -90,12 +89,9 @@ export function AdminSidebar({
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={() => handleNavigation(() => {
-              setView('home');
-              router.push('/admin/care-homes');
-            })} className={`text-lg h-14 ${isActive('/admin/care-homes') ? 'bg-muted/50 rounded' : ''}`}>
+            <SidebarMenuButton onClick={() => handleNavigation(() => setView('care-homes'))} className={`text-lg h-14 ${isActive('/admin/care-homes') ? 'bg-muted/50 rounded' : ''}`}>
               <UsersRound className="w-7 h-7 mr-2" />
-              <span className="text-lg">Care Homes</span>
+              <span className="text-lg">Occupancy</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
@@ -117,10 +113,7 @@ export function AdminSidebar({
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={() => handleNavigation(() => {
-              setView('stats');
-              router.push('/admin/stats');
-            })} className="text-lg h-14">
+            <SidebarMenuButton onClick={() => handleNavigation(() => setView('stats'))} className="text-lg h-14">
               <BarChart2 className="w-7 h-7 mr-2" />
               <span className="text-lg">Stats</span>
             </SidebarMenuButton>

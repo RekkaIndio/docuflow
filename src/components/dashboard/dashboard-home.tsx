@@ -2,7 +2,7 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Folder, Users, FileText, FileSpreadsheet, FileIcon, FileX2, Briefcase, Clock, User, TrendingUp, Archive, Calendar, BarChart3 } from "lucide-react";
+import { Folder, Users, FileText, FileSpreadsheet, FileIcon, FileX2, Briefcase, Clock, User, TrendingUp, Archive, Calendar, BarChart3, Edit3 } from "lucide-react";
 import type { Workspace, Document, Folder as FolderType } from "@/lib/types";
 import { useMemo } from "react";
 import {
@@ -20,6 +20,11 @@ import { UploadButton } from "./upload-button";
 import { NewFolderDialog } from "./new-folder-dialog";
 import { SidebarTrigger } from "../ui/sidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useEffect, useState } from "react";
+import { doc, getDoc, setDoc, updateDoc, onSnapshot } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import OccupancyPie from '@/components/admin/occupancy-pie';
+import OverviewCards from './overview-cards';
 
 
 const getFileIcon = (fileType: Document["fileType"]) => {
@@ -114,7 +119,7 @@ const RecentFilesTable = ({ documents, onSelect }: { documents: Document[], onSe
     </Card>
 );
 
-const QuickActions = ({ documents, onSelect }: { documents: Document[], onSelect: (doc: Document) => void }) => {
+const QuickActions = ({ documents, onSelect, workspaceId }: { documents: Document[], onSelect: (doc: Document) => void, workspaceId?: string }) => {
     const actionableItems = useMemo(() => {
         const today = new Date();
         const overdueRenewals = documents.filter(doc => {
@@ -163,18 +168,8 @@ const QuickActions = ({ documents, onSelect }: { documents: Document[], onSelect
                     </CardContent>
                 </Card>
                 
-                {/* Outstanding evidence (empty for now) */}
-                <Card className="hover:shadow-lg transition-shadow border border-blue-200 bg-white/80 backdrop-blur-md rounded-xl">
-                    <CardHeader className="pb-2 border-b border-blue-100 bg-gradient-to-r from-blue-50/60 to-transparent rounded-t-xl">
-                        <CardTitle className="text-sm font-medium flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-red-500" />
-                            Outstanding Evidence
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2 pt-3">
-                        {/* No data rendered for now */}
-                    </CardContent>
-                </Card>
+                {/* Occupancy card: enter occupied beds, total beds shown in title */}
+                <OccupancyCard workspaceId={workspaceId} />
             
                 {/* Recent Activity */}
                 <Card className="hover:shadow-lg transition-shadow border border-blue-200 bg-white/80 backdrop-blur-md rounded-xl">
@@ -226,6 +221,210 @@ const QuickAccess = ({ folders, onSelect }: { folders: FolderType[], onSelect: (
     </div>
 );
 
+type OccupancyData = { totalBeds: number; occupiedBeds: number };
+
+function OccupancyCard({ workspaceId }: { workspaceId?: string }) {
+    const [totalBeds, setTotalBeds] = useState<number | ''>('');
+    const [occupiedBeds, setOccupiedBeds] = useState<number | ''>('');
+    const [loading, setLoading] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [editingTotal, setEditingTotal] = useState(false);
+    const [careHomePercent, setCareHomePercent] = useState<number | null>(null);
+
+    useEffect(() => {
+        if (!workspaceId) return;
+        setLoading(true);
+        let unsubCareHome: (() => void) | null = null;
+        let unsubSettings: (() => void) | null = null;
+
+        // Try dev HTTP API for care-homes first (in dev this is an in-memory store)
+        (async () => {
+            try {
+                const resp = await fetch(`/api/care-homes/${workspaceId}`);
+                if (resp.ok) {
+                    const json = await resp.json();
+                    // API returns an object with occupancy in 0..1
+                    if (json && typeof json.occupancy === 'number') {
+                        setCareHomePercent(json.occupancy);
+                    }
+                }
+            } catch (e) {
+                // ignore - fallback to Firestore listeners
+            }
+        })();
+
+        // Prefer live care-homes occupancy if available via Firestore (production)
+        try {
+            const chRef = doc(db, `care-homes`, workspaceId, 'occupancy', 'current');
+            unsubCareHome = onSnapshot(chRef, (snap) => {
+                if (snap.exists()) {
+                    const data = snap.data() as OccupancyData;
+                    setTotalBeds(typeof data.totalBeds === 'number' ? data.totalBeds : '');
+                    setOccupiedBeds(typeof data.occupiedBeds === 'number' ? data.occupiedBeds : '');
+                }
+                setLoading(false);
+            }, (err) => {
+                console.error('care-homes occupancy listener error', err);
+                setLoading(false);
+            });
+        } catch (e) {
+            console.warn('Failed to attach care-homes listener, falling back to workspace settings', e);
+        }
+
+        // Always listen to workspace settings occupancy as a fallback
+        try {
+            const ref = doc(db, `workspaces/${workspaceId}/settings`, 'occupancy');
+            unsubSettings = onSnapshot(ref, (snap) => {
+                if (snap.exists()) {
+                    const data = snap.data() as OccupancyData;
+                    setTotalBeds(typeof data.totalBeds === 'number' ? data.totalBeds : '');
+                    setOccupiedBeds(typeof data.occupiedBeds === 'number' ? data.occupiedBeds : '');
+                }
+                setLoading(false);
+            }, (err) => {
+                console.error('workspace settings occupancy listener error', err);
+                setLoading(false);
+            });
+        } catch (e) {
+            console.error('Failed to attach workspace settings listener', e);
+            setLoading(false);
+        }
+
+        return () => {
+            if (unsubCareHome) unsubCareHome();
+            if (unsubSettings) unsubSettings();
+        };
+    }, [workspaceId]);
+
+    const save = async () => {
+        setError(null);
+        // validation
+        const t = typeof totalBeds === 'number' ? totalBeds : parseInt(String(totalBeds || '0'), 10);
+        const o = typeof occupiedBeds === 'number' ? occupiedBeds : parseInt(String(occupiedBeds || '0'), 10);
+        if (isNaN(t) || isNaN(o) || t < 0 || o < 0) {
+            setError('Please enter valid non-negative numbers');
+            return;
+        }
+        if (o > t) {
+            setError('Occupied beds cannot exceed total beds');
+            return;
+        }
+        if (!workspaceId) {
+            setError('Workspace not available');
+            return;
+        }
+        setSaving(true);
+        try {
+            const ref = doc(db, `workspaces/${workspaceId}/settings`, 'occupancy');
+            await setDoc(ref, { totalBeds: t, occupiedBeds: o }, { merge: true });
+            // Also update top-level workspace occupancy (0..1) so admin views can read it directly
+            try {
+                const wsRef = doc(db, 'workspaces', workspaceId);
+                const occupancyValue = t > 0 ? (o / t) : 0;
+                await updateDoc(wsRef, { occupancy: occupancyValue });
+                // Also update dev in-memory care-homes store via API so /admin/care-homes shows updated values
+                try {
+                    await fetch(`/api/care-homes/${workspaceId}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ occupancy: occupancyValue })
+                    });
+                    // reflect immediately in local dev indicator
+                    setCareHomePercent(occupancyValue);
+                } catch (apiErr) {
+                    // not critical
+                    console.warn('Failed to PATCH dev care-homes API', apiErr);
+                }
+            } catch (we) {
+                // log but don't fail the whole save if workspace doc update fails
+                console.error('Failed to update workspace occupancy', we);
+            }
+        } catch (e) {
+            console.error('Failed to save occupancy', e);
+            setError('Failed to save occupancy');
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    const computedPercent = typeof totalBeds === 'number' && totalBeds > 0 && typeof occupiedBeds === 'number'
+        ? Math.round((occupiedBeds / totalBeds) * 100)
+        : 0;
+    const percent = typeof careHomePercent === 'number' ? Math.round(careHomePercent * 100) : computedPercent;
+
+    const radius = 48;
+    const stroke = 12;
+    const normalizedRadius = radius - stroke / 2;
+    const circumference = normalizedRadius * 2 * Math.PI;
+    const strokeDashoffset = circumference - (percent / 100) * circumference;
+
+    return (
+        <Card className="hover:shadow-lg transition-shadow border border-blue-200 bg-white/80 backdrop-blur-md rounded-xl">
+            <CardHeader className="pb-2 border-b border-blue-100 bg-gradient-to-r from-blue-50/60 to-transparent rounded-t-xl">
+                <div className="flex items-center justify-between w-full">
+                    <div className="flex items-center gap-2">
+                        <Briefcase className="h-4 w-4 text-indigo-500" />
+                        <div>
+                            <div className="flex items-baseline gap-2">
+                                <CardTitle className="text-sm font-medium text-blue-900">Occupancy</CardTitle>
+                                <span className="text-sm text-muted-foreground">{typeof totalBeds === 'number' && totalBeds >= 0 ? `${totalBeds} beds` : '— beds'}</span>
+                            </div>
+                            <CardDescription className="text-xs text-muted-foreground">Track current occupancy for this workspace.</CardDescription>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => setEditingTotal(!editingTotal)} className="text-xs">
+                            <Edit3 className="w-4 h-4 mr-1" /> {editingTotal ? 'Done' : 'Edit total'}
+                        </Button>
+                    </div>
+                </div>
+            </CardHeader>
+            <CardContent className="space-y-3 pt-3">
+                <div className="flex items-center gap-6">
+                    <div className="w-36 h-36 flex items-center justify-center relative">
+                        <OccupancyPie percent={percent} size={120} strokeWidth={16} />
+                    </div>
+
+                    <div className="flex-1">
+                        <div className="space-y-3">
+                            <div>
+                                <label className="text-xs text-muted-foreground">Occupied beds</label>
+                                <input
+                                    type="number"
+                                    className="w-full border rounded px-2 py-1"
+                                    value={occupiedBeds as any}
+                                    onChange={e => setOccupiedBeds(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value || '0', 10)))}
+                                    min={0}
+                                />
+                            </div>
+                            {editingTotal && (
+                                <div>
+                                    <label className="text-xs text-muted-foreground">Total beds</label>
+                                    <input
+                                        type="number"
+                                        className="w-full border rounded px-2 py-1"
+                                        value={totalBeds as any}
+                                        onChange={e => setTotalBeds(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value || '0', 10)))}
+                                        min={0}
+                                    />
+                                </div>
+                            )}
+                            {error && <p className="text-xs text-destructive">{error}</p>}
+                            <div className="flex items-center gap-2">
+                                <Button onClick={save} disabled={saving || loading}>
+                                    {saving ? 'Saving...' : 'Save'}
+                                </Button>
+                                <span className="text-xs text-muted-foreground">{loading ? 'Loading…' : ''}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
 
 
 function getAllItems(items: (Document | FolderType)[]): { documents: Document[], folders: FolderType[] } {
@@ -269,42 +468,57 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
     }, [workspace.folders])
 
     return (
-    <div className="flex flex-col h-full bg-white min-h-screen">
-            <header className="bg-white/80 backdrop-blur-md p-4 border-b border-blue-100 shadow-sm shrink-0 rounded-b-xl">
-                <div className="flex items-center justify-between gap-2 mb-3 sm:mb-0">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                        {/* Sidebar toggle is provided by the Sidebar rail between sidebar and content */}
-                        <div className="min-w-0 flex-1">
-                            <h1 className="text-xl sm:text-2xl font-headline font-bold tracking-tight text-blue-900 truncate">{workspace.name}</h1>
-                                                        <p className="text-sm text-blue-700/70 hidden sm:block">Welcome back! Here's a summary of your workspace.</p>
-                                                        <div className="flex gap-4 mt-2">
-                                                            <span className="text-xs text-blue-700/70">{documents.length} documents</span>
-                                                            <span className="text-xs text-blue-700/70">{folders.length} folders</span>
-                                                            {/* User count removed: workspace.users does not exist */}
-                                                        </div>
+    <div className="flex flex-col h-full min-h-screen bg-background">
+            {/* Dark hero header (workspace style) */}
+            <div className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white p-6 rounded-b-lg shadow-sm">
+                <div className="w-full mx-auto flex items-start justify-between gap-6">
+                    <div className="flex items-start gap-4">
+                        <div className="p-3 bg-white/5 rounded-md">
+                            <Folder className="w-10 h-10 text-white/90" />
+                        </div>
+                        <div>
+                            <h2 className="text-2xl font-bold leading-tight">{workspace.name}</h2>
+                            <div className="mt-1 text-sm text-slate-200">Welcome back! Here's a summary of your workspace.</div>
+                            <div className="mt-3 flex items-center gap-2">
+                                <Button size="sm" onClick={() => { /* noop for now */ }}>New folder</Button>
+                                <Button size="sm" variant="outline" onClick={() => { /* noop */ }}>Share</Button>
+                            </div>
                         </div>
                     </div>
-                    {/* <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-                        <NewFolderDialog
-                            workspaceId={workspace.id}
-                            parentId={'root'}
-                            onFolderCreated={onFolderAdd}
-                        >
-                            <Button variant="outline" size={isMobile ? "sm" : "default"} className="text-xs sm:text-sm border-blue-300 text-blue-900 hover:bg-blue-50">
-                                {isMobile ? "Folder" : "New Folder"}
-                            </Button>
-                        </NewFolderDialog>
-                        <UploadButton
-                            onDocumentAdd={onDocumentAdd}
-                            workspaceId={workspace.id}
-                            folderId={'root'}
-                            size={isMobile ? "sm" : "default"}
-                        />
-                    </div> */}
+
+                    <div className="hidden md:flex items-center gap-4">
+                        <div className="grid grid-cols-4 gap-3">
+                            <div className="p-3 bg-white/5 rounded flex items-center gap-3">
+                                <div>
+                                    <div className="text-xs text-slate-300">Documents</div>
+                                    <div className="text-lg font-semibold">{documents.length}</div>
+                                </div>
+                            </div>
+                            <div className="p-3 bg-white/5 rounded flex items-center gap-3">
+                                <div>
+                                    <div className="text-xs text-slate-300">Folders</div>
+                                    <div className="text-lg font-semibold">{folders.length}</div>
+                                </div>
+                            </div>
+                            <div className="p-3 bg-white/5 rounded flex items-center gap-3">
+                                <div className="text-xs text-slate-300">Recent</div>
+                                <div className="text-lg font-semibold">{recentDocuments.length}</div>
+                            </div>
+                            <div className="p-4 bg-white/6 rounded-lg flex items-center gap-4 shadow-md">
+                                <div className="flex items-center justify-center w-16 h-16 bg-white/5 rounded-full">
+                                    <OccupancyPie percent={Math.round(((workspace?.settings?.occupancy || 0) * 100) || 0)} size={64} strokeWidth={8} />
+                                </div>
+                                <div className="min-w-0">
+                                    <div className="text-xs text-slate-300">Occupancy</div>
+                                    <div className="text-2xl font-bold leading-tight text-white">{Math.round(((workspace?.settings?.occupancy || 0) * 100) || 0)}%</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </header>
+            </div>
             <main className="flex-1 p-3 sm:p-4 md:p-8 overflow-y-auto space-y-6 sm:space-y-8 md:space-y-12">
-               <QuickActions documents={documents} onSelect={onSelect} />
+               <QuickActions documents={documents} onSelect={onSelect} workspaceId={workspace.id} />
                <QuickAccess folders={quickAccessFolders} onSelect={onSelect} />
                <RecentFilesTable documents={recentDocuments} onSelect={onSelect} />
             </main>
