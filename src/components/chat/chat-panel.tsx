@@ -4,7 +4,7 @@ import type { Document, Folder } from "@/lib/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { CornerDownLeft, Search, FileText, CalendarClock, ExternalLink, Share2 } from "lucide-react";
+import { CornerDownLeft, Share2 } from "lucide-react";
 import React, { useState, useRef, useEffect } from "react";
 import Fuse from 'fuse.js';
 import { useAuth } from '@/hooks/use-auth';
@@ -81,6 +81,12 @@ function getAllDocuments(items: (Document | Folder)[]): Document[] {
 
 export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const messagesRef = React.useRef<ChatMessage[]>(messages);
+  const appendMessages = (newMsgs: ChatMessage[] | ChatMessage) => {
+    const toAppend = Array.isArray(newMsgs) ? newMsgs : [newMsgs];
+    messagesRef.current = [...messagesRef.current, ...toAppend];
+    setMessages(messagesRef.current);
+  };
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [activeDoc, setActiveDoc] = useState<Document | null>(null); // Persist selected doc
@@ -166,13 +172,35 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
     }
   }, [messages, isTyping]);
 
+  // keep a ref copy of messages to avoid stale closures when appending
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
+  // Emit a custom event when an AI response is appended so other UI (like DocumentView)
+  // can listen and show the response in a snippet panel.
+  useEffect(() => {
+    if (!messages || messages.length === 0) return;
+    const last = messages[messages.length - 1];
+    if (last && last.sender === 'ai') {
+      try {
+        if (typeof window !== 'undefined' && window.dispatchEvent) {
+          window.dispatchEvent(new CustomEvent('chat-response', { detail: { text: last.text, documents: last.documents || [] } }));
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+  }, [messages]);
+
 
 
 
 
   // Enhanced natural language intent detection
   const detectIntent = (userInput: string): UserIntent => {
-    const input = userInput.toLowerCase().trim();
+    const raw = userInput || '';
+    const input = raw.toLowerCase().trim();
     // Multi-document query patterns
     const multiDocPatterns = [
       /(compare|difference|differences|similarities|all|list|summarize all|summarise all|overview of|across|between|versus|vs\.?|compare .* and .*)/i
@@ -189,19 +217,19 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
     // Document search patterns - much more flexible
     const searchPatterns = [
       // Direct requests
-      /^(please\s+)?(find|show|get|give|display|locate|open|search|look\s+for|bring\s+up|pull\s+up|summarize|summarise|summarise\s+for\s+me|summarize\s+for\s+me)\s+(me\s+)?(the\s+)?(.+)/i,
+      /^(please\s+)?(find|show|get|give|display|locate|open|view|search|look\s+for|bring\s+up|pull\s+up|summarize|summarise|summarise\s+for\s+me|summarize\s+for\s+me)\s+(me\s+)?(the\s+)?(.+)/i,
       // Question formats
       /^(can\s+you\s+|could\s+you\s+|would\s+you\s+)?(please\s+)?(find|show|get|give|display|locate|search|look\s+for|bring\s+up|pull\s+up)\s+(me\s+)?(the\s+)?(.+)/i,
       // "I need" formats
       /^(i\s+need|i\s+want|i\s+require|i\s+am\s+looking\s+for|i\s+would\s+like)\s+(to\s+see\s+|to\s+find\s+|to\s+access\s+|the\s+)?(.+)/i,
       // "Where is" formats
       /^(where\s+is|where\s+can\s+i\s+find|where\s+are|do\s+you\s+have)\s+(the\s+)?(.+)/i,
-  // "Help me" formats
-  /^(help\s+me\s+|assist\s+me\s+with\s+|guide\s+me\s+to\s+)?(find|locate|access|get|summarize|summarise|summarize\s+the|summarise\s+the)\s+(the\s+)?(.+)/i,
+      // "Help me" formats
+      /^(help\s+me\s+|assist\s+me\s+with\s+|guide\s+me\s+to\s+)?(find|locate|access|get|summarize|summarise|summarize\s+the|summarise\s+the)\s+(the\s+)?(.+)/i,
       // Document type requests
       /^(what|which)\s+(documents?|policies|files?|papers?)\s+(do\s+we\s+have\s+|are\s+there\s+|exist\s+)?(about|for|regarding|on|related\s+to)\s+(.+)/i,
-  // Status/info requests
-  /^(what\s+is\s+the\s+status\s+of|when\s+is|tell\s+me\s+about|information\s+about|details\s+about|summarize|summarise)\s+(the\s+)?(.+)/i,
+      // Status/info requests
+      /^(what\s+is\s+the\s+status\s+of|when\s+is|tell\s+me\s+about|information\s+about|details\s+about|summarize|summarise)\s+(the\s+)?(.+)/i,
       // Folder-specific requests
       /^(look\s+in\s+the\s+(.+?)\s+folder\s+and\s+find\s+me\s+the\s+(.+))$/i,
       /^(in\s+the\s+(.+?)\s+folder\s+find\s+me\s+the\s+(.+))$/i,
@@ -212,17 +240,35 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
     for (const pattern of searchPatterns) {
       const match = input.match(pattern);
       if (match) {
-        // Extract the search term from various capture groups
-        const searchTerm = match[match.length - 1] || match[match.length - 2] || match[4] || match[5] || match[6];
-        if (searchTerm && searchTerm.trim()) {
+        // Extract the search term from various capture groups (use raw for preserving case in locations)
+        let searchTerm = (match[match.length - 1] || match[match.length - 2] || match[4] || match[5] || match[6] || '') as string;
+        searchTerm = searchTerm.trim();
+        if (searchTerm) {
           // Also detect verbs that imply the user wants to open/view the document rather than just get info
-          const openVerbs = /\b(open|view|expand|show\s+me\s+the)\b/i;
+          const openVerbs = /\b(open|view|expand|show\s+me\s+the|open\s+the)\b/i;
           const wantsOpen = openVerbs.test(input);
+
+          // try to extract a location/workspace phrase like 'in Wilton Manor' or 'for Wilton Manor'
+          // prefer matching at end but also support inline
+          const locationRegexEnd = /(?:in|at|for|from)\s+([A-Z0-9][\w\-\s&']{1,60})\.?$/i;
+          const locationRegex = /(?:in|at|for|from)\s+([A-Z0-9][\w\-\s&']{1,60})/i;
+          let folderName: string | undefined = undefined;
+          const rawMatchEnd = raw.match(locationRegexEnd);
+          const rawMatch = raw.match(locationRegex);
+          if (rawMatchEnd && rawMatchEnd[1]) folderName = rawMatchEnd[1].trim();
+          else if (rawMatch && rawMatch[1]) folderName = rawMatch[1].trim();
+
+          // Remove trailing 'in <place>' from the searchTerm if present
+          if (folderName) {
+            const trailingPattern = new RegExp("\\b(?:in|at|for|from)\\s+" + folderName.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&') + "\\b\\.?$", 'i');
+            searchTerm = searchTerm.replace(trailingPattern, '').trim();
+          }
 
           return {
             type: 'document_search',
             openDocument: wantsOpen,
-            searchTerm: searchTerm.trim(),
+            searchTerm: searchTerm || undefined,
+            folderName: folderName || undefined,
             originalInput: userInput
           };
         }
@@ -325,7 +371,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         }
       }
       if (multiResults.length < 2) {
-        setMessages([...messages, { sender: 'user', text: inputVal }, { sender: 'ai', text: 'I could not find enough relevant documents to compare or synthesize.' }]);
+    appendMessages([{ sender: 'user', text: inputVal }, { sender: 'ai', text: 'I could not find enough relevant documents to compare or synthesize.' }]);
         setInput('');
         setIsTyping(false);
         return;
@@ -345,15 +391,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         subtitle: doc.folderId ? `Folder: ${doc.folderId}` : undefined,
         summary: doc.summary
       }));
-      setMessages([
-        ...messages,
-        { sender: 'user', text: inputVal },
-        {
-          sender: 'ai',
-          text: synthResult.answer,
-          documents: documentCards
-        }
-      ]);
+      appendMessages([{ sender: 'user', text: inputVal }, { sender: 'ai', text: synthResult.answer, documents: documentCards }]);
       setInput('');
       setIsTyping(false);
       return;
@@ -363,7 +401,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
 
     // Handle folder creation
     if (intent.type === 'folder_creation') {
-      setMessages([...messages, { sender: 'user', text: input }]);
+  appendMessages({ sender: 'user', text: input });
       setInput('');
       setIsTyping(true);
       try {
@@ -425,11 +463,8 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
           subtitle: createdDate ? `Created: ${createdDate}` : undefined
         };
 
-        setMessages([...newMessages, {
-          sender: 'ai',
-          text: result.answer,
-          documents: [documentCard]
-        }]);
+        appendMessages({ sender: 'ai', text: result.answer, documents: [documentCard] });
+        
         setLastContext({ doc: selectedItem });
         setIsTyping(false);
         return;
@@ -454,20 +489,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
           subtitle: docToUse?.folderId ? `Folder: ${docToUse?.folderId}` : (activeCreated ? `Created: ${activeCreated}` : undefined)
         };
 
-        setMessages([
-          ...newMessages,
-          {
-            sender: 'ai',
-            text: result.answer,
-            documents: [
-              {
-                ...documentCard,
-                id: documentCard.id || '',
-                name: documentCard.name || 'Untitled',
-              }
-            ]
-          },
-        ]);
+        appendMessages({ sender: 'ai', text: result.answer, documents: [{ ...documentCard, id: documentCard.id || '', name: documentCard.name || 'Untitled' }] });
         setLastContext({ doc: docToUse! });
         setIsTyping(false);
         return;
@@ -524,7 +546,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
             }, 150);
           }
 
-          setMessages(prev => [...prev, { sender: 'ai', text: `Opening "${bestDoc.name}" for you.`, documents: [{ id: bestDoc.id, name: bestDoc.name, url: `/documents/${bestDoc.id}` }] }]);
+    appendMessages({ sender: 'ai', text: `Opening "${bestDoc.name}" for you.`, documents: [{ id: bestDoc.id, name: bestDoc.name, url: `/documents/${bestDoc.id}` }] });
           setIsTyping(false);
           return;
         }
@@ -666,18 +688,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
           nextReviewRequired?: string;
         }
 
-        setMessages([
-          ...newMessages,
-          {
-            sender: 'ai',
-            text: responsePrefix + (result.answer as string),
-            documents: (documentCards as DocumentCardData[]).map((doc: DocumentCardData) => ({
-              ...doc,
-              id: doc.id || '',
-              name: doc.name || 'Untitled',
-            })),
-          },
-        ]);
+        appendMessages({ sender: 'ai', text: responsePrefix + (result.answer as string), documents: (documentCards as DocumentCardData[]).map((doc: DocumentCardData) => ({ ...doc, id: doc.id || '', name: doc.name || 'Untitled' })) });
 
     } catch (error: any) {
       console.error("Error chatting:", error);
@@ -691,7 +702,9 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         title: "Error",
         description: errorMessage,
       });
-      setMessages(newMessages.slice(0, -1));
+  // remove last user message (failed to get AI response)
+  messagesRef.current = messagesRef.current.slice(0, -1);
+  setMessages(messagesRef.current);
       setInput(userInput);
     } finally {
       setIsTyping(false);
@@ -714,31 +727,48 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         {message.documents && message.documents.length > 0 && (
           <div className="mt-3 space-y-2">
             {message.documents.map((doc) => (
-              <div key={doc.id} className="flex items-start justify-between bg-gray-50 border border-gray-100 p-3 rounded-lg">
-                <div className="flex-1 min-w-0">
-                  <DocumentCard
-                    id={doc.id}
-                    name={doc.name}
-                    status={doc.status}
-                    statusText={doc.statusText}
-                    subtitle={doc.subtitle}
-                    summary={doc.summary}
-                    url={doc.url}
-                    onClick={() => onOpenDocument(doc)}
-                  />
-                  {doc.summary && <p className="text-xs text-gray-600 mt-2">{doc.summary}</p>}
-                </div>
+              <div key={doc.id} className="bg-gray-50 border border-gray-100 p-3 rounded-lg">
+                <div className="flex items-center gap-4">
+                  <div className="flex-1 min-w-0">
+                    <DocumentCard
+                      id={doc.id}
+                      name={doc.name}
+                      status={doc.status}
+                      statusText={doc.statusText}
+                      subtitle={doc.subtitle}
+                      summary={doc.summary}
+                      url={doc.url}
+                      onClick={() => onOpenDocument(doc)}
+                    />
+                    {doc.summary && <p className="text-xs text-gray-600 mt-2">{doc.summary}</p>}
+                  </div>
 
-                <div className="ml-3 flex-shrink-0 flex flex-col items-end gap-2">
-                  <Button size="sm" variant="ghost" onClick={() => onOpenDocument(doc)}>
-                    <ExternalLink className="w-4 h-4 mr-2" /> Open
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => onSetReminder(doc)}>
-                    <CalendarClock className="w-4 h-4 mr-2" /> Remind
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => onShareDocument(doc)}>
-                    <Share2 className="w-4 h-4 mr-2" /> Share
-                  </Button>
+                  <div className="flex-shrink-0 flex items-center">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button size="sm" variant="ghost" className="whitespace-nowrap">
+                          <Share2 className="w-4 h-4 mr-2" /> Share
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-64">
+                        <Command>
+                          <CommandInput placeholder="Search teams..." onValueChange={(v: any) => setTeamFilter(String(v || ''))} />
+                          <CommandList>
+                            {teams.filter(t => t.name.toLowerCase().includes(teamFilter.toLowerCase())).length === 0 && <CommandEmpty>No teams found</CommandEmpty>}
+                            <CommandGroup heading="Teams">
+                              {teams
+                                .filter(t => t.name.toLowerCase().includes(teamFilter.toLowerCase()))
+                                .map((team) => (
+                                  <CommandItem key={team.id} onSelect={() => handleShareToTeam(team.id, doc)}>
+                                    {team.name}
+                                  </CommandItem>
+                                ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 </div>
               </div>
             ))}
@@ -762,25 +792,73 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
     toast({ title: 'Opened document', description: doc.name || documentId });
   };
 
-  const onSetReminder = (doc: { id?: string; name?: string; url?: string }) => {
-    // For now emit a custom event; later this can call a reminder API
-    try {
-      const documentId = doc.id || (doc.name || '').replace(/\s+/g, '-').toLowerCase().replace(/[^a-z0-9-]/g, '');
-      if (typeof window !== 'undefined' && window.dispatchEvent) {
-        window.dispatchEvent(new CustomEvent('create-reminder', { detail: { documentId, documentName: doc.name } }));
+  // Reminder functionality removed from UI; keep placeholder if needed later
+  // Teams state for sharing
+  const [teams, setTeams] = useState<Array<{ id: string; name: string }>>([]);
+  const [teamFilter, setTeamFilter] = useState('');
+
+  useEffect(() => {
+    // Fetch teams from Firestore for the current workspace
+    let cancelled = false;
+    (async () => {
+      try {
+        if (!selectedItem || !selectedItem.workspaceId) {
+          setTeams([]);
+          return;
+        }
+  // Use a simple approach to fetch teams from Firestore (similar to TeamsView)
+  const { collection, getDocs, doc: docRef, setDoc } = await import('firebase/firestore');
+        const teamsCol = collection(db, 'teams');
+        const snapshot = await getDocs(teamsCol);
+        const wsId = selectedItem.workspaceId;
+        const fetched = snapshot.docs
+          .map(d => ({ ...(d.data() as any), id: d.id }))
+          .filter((t: any) => !t.workspaceId || t.workspaceId === wsId)
+          .map((t: any) => ({ id: t.id, name: t.name ?? 'Untitled Team' }));
+        if (!cancelled) setTeams(fetched);
+      } catch (e) {
+        console.error('Failed to fetch teams for share popover', e);
+        if (!cancelled) setTeams([]);
       }
-    } catch (e) {}
-    toast({ title: 'Reminder set', description: doc.name || 'Document' });
+    })();
+    return () => { cancelled = true; };
+  }, [selectedItem?.workspaceId]);
+
+  const handleShareToTeam = async (teamId: string, doc: { id?: string; name?: string; url?: string }) => {
+    const documentUrl = doc.url || (doc.id ? `${typeof window !== 'undefined' ? window.location.origin : ''}/documents/${doc.id}` : window.location.href);
+    try {
+      // Build a simple email body to send to the backend
+      const teamObj = teams.find(t => t.id === teamId);
+      const sharerName = (user && (user.name || user.email)) || 'A colleague';
+      const subject = `Document shared: ${doc.name || 'Untitled'}`;
+      const emailBody = `Hi ${teamObj?.name || 'team'},\n\n${sharerName} has shared a document with your team.\n\nDocument: ${doc.name || 'Untitled'}\nLink: ${documentUrl}\n\nRegards,\nYour Docs`;
+
+      const res = await fetch('/api/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId, url: documentUrl, name: doc.name, subject, emailBody }),
+      });
+      if (res.ok) {
+        toast({ title: 'Shared', description: `Document sent to team.` });
+        return;
+      }
+      // If server returned error, try clipboard fallback
+      throw new Error('Share failed');
+    } catch (e) {
+      try {
+        await navigator.clipboard.writeText(documentUrl);
+        toast({ title: 'Link copied', description: 'Document link copied to clipboard (share fallback)' });
+      } catch (err) {
+        toast({ title: 'Unable to share', description: 'Could not share or copy the document link.' });
+      }
+    }
   };
 
-  const onShareDocument = async (doc: { id?: string; name?: string; url?: string }) => {
-    try {
-      const url = doc.url || (doc.id ? `${window.location.origin}/documents/${doc.id}` : window.location.href);
-      await navigator.clipboard.writeText(url);
-      toast({ title: 'Copied link', description: 'Document link copied to clipboard' });
-    } catch (e) {
-      toast({ title: 'Unable to copy', description: 'Could not copy link' });
-    }
+  const onShareDocument = (doc: { id?: string; name?: string; url?: string }) => {
+    // This function is intentionally left to be used as a trigger that opens the Popover.
+    // Actual share occurs when selecting a team in the Popover.
+    // Keep for compatibility with existing callers.
+    toast({ title: 'Share', description: 'Choose a team to share with.' });
   };
 
 

@@ -52,16 +52,17 @@ interface ChatPanelProps {
 }
 
 interface UserIntent {
-  type: 'document_search' | 'file_search' | 'folder_creation' | 'general_query';
+  type: 'document_search' | 'file_search' | 'folder_creation' | 'general_query' | 'multi_document_query' | 'workspace_open';
   openDocument?: boolean; // indicates intent to open/view the document
   searchTerm?: string;
   fileName?: string;
+  workspaceName?: string;
   folderName?: string;
   originalInput: string;
 }
 
 // Enhanced message rendering function
-function renderMessage(message: ChatMessage) {
+function renderMessage(message: ChatMessage, onOpen?: (doc: { id?: string; name?: string; url?: string }) => void) {
   const parts = message.text.split(/(\[DOCUMENT:.*?\])/);
   
   return (
@@ -82,6 +83,7 @@ function renderMessage(message: ChatMessage) {
                 url={docData.url}
                 lastReviewed={docData.lastReviewed}
                 nextReviewRequired={docData.nextReviewRequired}
+                onClick={() => onOpen && onOpen({ id: docData.id, name: docData.name, url: docData.url })}
               />
             );
           } catch (e) {
@@ -115,6 +117,7 @@ function renderMessage(message: ChatMessage) {
               url={doc.url}
               lastReviewed={doc.lastReviewed}
               nextReviewRequired={doc.nextReviewRequired}
+              onClick={() => onOpen && onOpen({ id: doc.id, name: doc.name, url: doc.url })}
             />
           ))}
         </div>
@@ -139,10 +142,23 @@ function getAllDocuments(items: (Document | Folder)[]): Document[] {
 
 export function AdminChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const messagesRef = React.useRef<ChatMessage[]>(messages);
+  const appendMessages = (newMsgs: ChatMessage[] | ChatMessage) => {
+    const toAppend = Array.isArray(newMsgs) ? newMsgs : [newMsgs];
+    messagesRef.current = [...messagesRef.current, ...toAppend];
+    setMessages(messagesRef.current);
+  };
   const [searchAll, setSearchAll] = useState<boolean>(false);
+
+  // Keep ref in sync with state to avoid stale closures
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [activeDoc, setActiveDoc] = useState<Document | null>(null); // Persist selected doc
+  // Contextual memory: last discussed document or topic
+  const [lastContext, setLastContext] = useState<{ doc?: Document; topic?: string } | null>(null);
   const { user } = useAuth();
   const [profilePicture, setProfilePicture] = useState<string | undefined>(user?.avatarUrl ?? mockUser.avatarUrl ?? undefined);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -150,6 +166,22 @@ export function AdminChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
   const [adminWorkspaces, setAdminWorkspaces] = useState<Array<{ id: string; name: string }>>([]);
 
   const workspaceId = (selectedItem as any)?.workspaceId ?? null;
+
+  // Handler to open a document (navigate/highlight)
+  const onOpenDocument = (doc: { id?: string; name?: string; url?: string }) => {
+    const documentId = doc.id || (doc.name || '').replace(/\s+/g, '-').toLowerCase().replace(/[^a-z0-9-]/g, '');
+    try {
+      if (typeof window !== 'undefined' && window.dispatchEvent) {
+        window.dispatchEvent(new CustomEvent('navigate-to-document', { detail: { documentId, documentName: doc.name } }));
+        localStorage.setItem('lastHighlightedDocumentId', documentId);
+        if (doc.name) localStorage.setItem('lastHighlightedDocumentName', doc.name);
+        setTimeout(() => {
+          try { window.dispatchEvent(new CustomEvent('highlight-document', { detail: { documentId } })); } catch (e) {}
+        }, 150);
+      }
+    } catch (e) {}
+    toast({ title: 'Opened document', description: doc.name || documentId });
+  };
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
@@ -217,6 +249,7 @@ export function AdminChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
 
     // First mount: start with an empty conversation and no active doc
     if (!prev) {
+      messagesRef.current = [];
       setMessages([]);
       setActiveDoc(null);
     } else {
@@ -225,6 +258,7 @@ export function AdminChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
       // Do NOT clear when selection changes to a document so the chat stays
       // intact when navigating to a document from the chat.
       if (selectedItem.type === 'folder' && selectedItem.id !== prev.id) {
+        messagesRef.current = [];
         setMessages([]);
         setActiveDoc(null);
       }
@@ -242,6 +276,20 @@ export function AdminChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
   // Enhanced natural language intent detection
   const detectIntent = (userInput: string): UserIntent => {
     const input = userInput.toLowerCase().trim();
+    // Workspace open patterns (admin wants to open a workspace)
+    const workspacePatterns = [
+      /^(open|go to|switch to|show)\s+(the\s+)?(.+?)\s*(workspace|workspaces)?$/i,
+      /^(open|go to|switch to)\s+(.*?)(?:\s+workspace)?$/i
+    ];
+    for (const pattern of workspacePatterns) {
+      const m = userInput.match(pattern);
+      if (m) {
+        const name = (m[3] || m[2] || '').trim();
+        if (name) {
+          return { type: 'workspace_open', workspaceName: name, originalInput: userInput };
+        }
+      }
+    }
 
     // Document search patterns - much more flexible
     const searchPatterns = [
@@ -357,13 +405,85 @@ export function AdminChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
   };
 
   const handleSend = async () => {
-    if (input.trim() === '') return;
+    const inputVal = input;
+    const intent = detectIntent(inputVal);
 
-    const intent = detectIntent(input);
+    // Multi-document query support for admin panel
+    if (intent && intent.type === 'multi_document_query') {
+      // Search client-side first
+      let allDocs: Document[] = [];
+      if (selectedItem && selectedItem.type === 'folder') {
+        allDocs = getAllDocuments([selectedItem]);
+      }
+      let multiResults: Document[] = [];
+      try {
+        const fuse = new Fuse(allDocs, {
+          keys: [
+            { name: 'name', weight: 0.5 },
+            { name: 'tags', weight: 0.3 },
+            { name: 'summary', weight: 0.2 }
+          ],
+          threshold: 0.45,
+          ignoreLocation: true,
+          minMatchCharLength: 2,
+        });
+        const fuseRes = fuse.search(inputVal);
+        multiResults = fuseRes.map(r => r.item as Document);
+      } catch (e) {
+        multiResults = [];
+      }
 
+      // Server fallback if not enough client results
+      if (multiResults.length < 2) {
+        try {
+          const resolvedWorkspace = resolveWorkspaceFromInput(inputVal);
+          const workspaceIdCandidate = resolvedWorkspace?.id || (selectedItem as any)?.workspaceId;
+          const searchBody: any = { query: inputVal };
+          if (workspaceIdCandidate && !searchAll) searchBody.workspaceId = workspaceIdCandidate;
+          else if (searchAll) searchBody.searchAll = true;
+          else searchBody.searchAll = true;
+
+          const searchRes = await fetch('/api/search-documents', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(searchBody),
+          });
+          if (searchRes.ok) {
+            const data = await searchRes.json();
+            const results = data?.results || [];
+            multiResults = results.map((r: any) => r as Document);
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      if (multiResults.length < 2) {
+        appendMessages([{ sender: 'user', text: inputVal }, { sender: 'ai', text: 'I could not find enough relevant documents to compare or synthesize.' }]);
+        setInput('');
+        setIsTyping(false);
+        return;
+      }
+
+      // Synthesize using up to 3 documents
+      const docsJsonArr = multiResults.slice(0, 3).map(doc => doc.extractedJson || {});
+      const synthResult = await chatWithDocuments({ query: inputVal, documentJson: JSON.stringify(docsJsonArr) });
+      const documentCards = multiResults.slice(0, 3).map(doc => ({
+        id: doc.id,
+        name: doc.name,
+        status: 'current' as const,
+        url: `/documents/${doc.id}`,
+        subtitle: doc.folderId ? `Folder: ${doc.folderId}` : undefined,
+      }));
+
+      appendMessages([{ sender: 'user', text: inputVal }, { sender: 'ai', text: synthResult.answer, documents: documentCards }]);
+      setInput('');
+      setIsTyping(false);
+      return;
+    }
     // Handle folder creation
     if (intent.type === 'folder_creation') {
-      setMessages([...messages, { sender: 'user', text: input }]);
+      appendMessages({ sender: 'user', text: inputVal });
       setInput('');
       setIsTyping(true);
       try {
@@ -371,21 +491,47 @@ export function AdminChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
           const folderName = intent.folderName || 'Untitled Folder';
           console.log('onFolderAdd called with:', folderName);
           onFolderAdd(folderName);
-          setMessages(prev => [...prev, { sender: 'ai', text: `Creating a new folder named \"${folderName}\"...` }]);
+          appendMessages({ sender: 'ai', text: `Creating a new folder named \"${folderName}\"...` });
         } else {
-          setMessages(prev => [...prev, { sender: 'ai', text: `Sorry, I can't create folders in this context.` }]);
+          appendMessages({ sender: 'ai', text: `Sorry, I can't create folders in this context.` });
         }
       } catch (e) {
-        setMessages(prev => [...prev, { sender: 'ai', text: `Sorry, something went wrong while creating the folder.` }]);
+        appendMessages({ sender: 'ai', text: `Sorry, something went wrong while creating the folder.` });
       } finally {
         setIsTyping(false);
       }
       return;
     }
 
-    const newMessages: ChatMessage[] = [...messages, { sender: 'user', text: input }];
-    setMessages(newMessages);
-    const userInput = input;
+    // Handle workspace open intent (admin wants to open/switch to a workspace)
+    if (intent.type === 'workspace_open') {
+      appendMessages({ sender: 'user', text: inputVal });
+      setInput('');
+      setIsTyping(true);
+      try {
+        const resolved = resolveWorkspaceFromInput(inputVal) || (intent.workspaceName ? adminWorkspaces.find(ws => ws.name.toLowerCase() === intent.workspaceName?.toLowerCase()) : null);
+        if (resolved) {
+          // Dispatch custom event for dashboard to pick up
+          try {
+            if (typeof window !== 'undefined' && window.dispatchEvent) {
+              window.dispatchEvent(new CustomEvent('navigate-to-workspace', { detail: { workspaceId: resolved.id, workspaceName: resolved.name } }));
+            }
+          } catch (e) {}
+          appendMessages({ sender: 'ai', text: `Opening workspace "${resolved.name}"...` });
+        } else {
+          appendMessages({ sender: 'ai', text: `I couldn't find a workspace named "${intent.workspaceName || inputVal}". Try a different name or check the workspace list.` });
+        }
+      } catch (e) {
+        appendMessages({ sender: 'ai', text: `Failed to open workspace.` });
+      } finally {
+        setIsTyping(false);
+      }
+      return;
+    }
+
+    const newMessages: ChatMessage[] = [...messagesRef.current, { sender: 'user', text: inputVal }];
+    appendMessages({ sender: 'user', text: inputVal });
+    const userInput = inputVal;
     setInput('');
     setIsTyping(true);
 
@@ -412,11 +558,11 @@ export function AdminChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
           subtitle: createdDate ? `Created: ${createdDate}` : undefined
         };
 
-        setMessages([...newMessages, {
+        appendMessages({
           sender: 'ai',
           text: result.answer,
           documents: [documentCard]
-        }]);
+        });
         setIsTyping(false);
         return;
       }
@@ -439,14 +585,7 @@ export function AdminChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
           subtitle: activeDoc.folderId ? `Folder: ${activeDoc.folderId}` : (activeCreated ? `Created: ${activeCreated}` : undefined)
         };
 
-        setMessages([
-          ...newMessages,
-          {
-            sender: 'ai',
-            text: result.answer,
-            documents: [documentCard]
-          },
-        ]);
+        appendMessages({ sender: 'ai', text: result.answer, documents: [documentCard] });
         setIsTyping(false);
         return;
       }
@@ -488,6 +627,7 @@ export function AdminChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
       if (clientResults && clientResults.length > 0) {
         const bestDoc = clientResults[0];
         setActiveDoc(bestDoc);
+        setLastContext({ doc: bestDoc });
 
         // If the user explicitly asked to open/view the document, navigate/open it instead of running the chat
         if (intent.openDocument) {
@@ -499,7 +639,7 @@ export function AdminChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
             }, 150);
           }
 
-          setMessages(prev => [...prev, { sender: 'ai', text: `Opening \"${bestDoc.name}\" for you.`, documents: [{ id: bestDoc.id, name: bestDoc.name, url: `/documents/${bestDoc.id}` }] }]);
+          appendMessages({ sender: 'ai', text: `Opening \"${bestDoc.name}\" for you.`, documents: [{ id: bestDoc.id, name: bestDoc.name, url: `/documents/${bestDoc.id}` }] });
           setIsTyping(false);
           return;
         }
@@ -524,14 +664,7 @@ export function AdminChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
           }, 150);
         }
 
-        setMessages([
-          ...newMessages,
-          {
-            sender: 'ai',
-            text: result.answer,
-            documents: [documentCard]
-          },
-        ]);
+        appendMessages({ sender: 'ai', text: result.answer, documents: [documentCard] });
         setIsTyping(false);
         return;
       }
@@ -554,7 +687,7 @@ export function AdminChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
       // avoid firing a costly cross-workspace search which may fail due to server-side
       // configuration. Ask the admin to toggle 'All' or try again.
       if (!workspaceIdCandidate && !searchAll && (!adminWorkspaces || adminWorkspaces.length === 0)) {
-        setMessages(prev => [...prev, { sender: 'ai', text: `I couldn't load workspace names to resolve your query (e.g. "Wilton Manor"). Please try toggling the scope to "All" to search across workspaces, or try again later.` }]);
+        appendMessages({ sender: 'ai', text: `I couldn't load workspace names to resolve your query (e.g. "Wilton Manor"). Please try toggling the scope to "All" to search across workspaces, or try again later.` });
         setIsTyping(false);
         return;
       }
@@ -574,7 +707,7 @@ export function AdminChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         } catch (e) {
           // ignore parse errors
         }
-        setMessages([...newMessages, { sender: 'ai', text: msg }]);
+        appendMessages({ sender: 'ai', text: msg });
         setIsTyping(false);
         return;
       }
@@ -587,13 +720,14 @@ export function AdminChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         } else if (intent.type === 'file_search') {
           noResultsMessage = `I couldn't find the file \"${intent.fileName}\". Please check the filename and try again.`;
         }
-        setMessages([...newMessages, { sender: 'ai', text: noResultsMessage }]);
+        appendMessages({ sender: 'ai', text: noResultsMessage });
         setIsTyping(false);
         return;
       }
 
-      const bestDoc = results[0];
-      setActiveDoc(bestDoc);
+  const bestDoc = results[0];
+  setActiveDoc(bestDoc);
+  setLastContext({ doc: bestDoc });
 
       // If the user asked to open/view the document, navigate/open the best match and return
       if (intent.openDocument) {
@@ -605,7 +739,7 @@ export function AdminChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
           }, 150);
         }
 
-        setMessages(prev => [...prev, { sender: 'ai', text: `Opening \"${bestMatch.name}\" for you.`, documents: [{ id: bestMatch.documentId, name: bestMatch.name, url: `/documents/${bestMatch.documentId}` }] }]);
+        appendMessages({ sender: 'ai', text: `Opening \"${bestMatch.name}\" for you.`, documents: [{ id: bestMatch.documentId, name: bestMatch.name, url: `/documents/${bestMatch.documentId}` }] });
         setIsTyping(false);
         return;
       }
@@ -645,14 +779,7 @@ export function AdminChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         responsePrefix = `Here's the information from \"${intent.fileName}\". `;
       }
 
-      setMessages([
-        ...newMessages,
-        {
-          sender: 'ai',
-          text: responsePrefix + result.answer,
-          documents: documentCards
-        },
-      ]);
+      appendMessages({ sender: 'ai', text: responsePrefix + result.answer, documents: documentCards });
 
     } catch (error: any) {
       console.error("Error chatting:", error);
@@ -666,7 +793,9 @@ export function AdminChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         title: "Error",
         description: errorMessage,
       });
-      setMessages(newMessages.slice(0, -1));
+  // Rollback last user message on error
+  messagesRef.current = messagesRef.current.slice(0, -1);
+  setMessages(messagesRef.current);
       setInput(userInput);
     } finally {
       setIsTyping(false);
@@ -755,7 +884,7 @@ export function AdminChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
                     ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-br-md' 
                     : 'bg-white border border-gray-200'
               )}>
-                {message.sender === 'ai' ? renderMessage(message) : (
+                {message.sender === 'ai' ? renderMessage(message, onOpenDocument) : (
                   <p className="whitespace-pre-wrap leading-relaxed">{message.text}</p>
                 )}
               </div>

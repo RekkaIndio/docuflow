@@ -54,6 +54,7 @@ export function NewTeamDialog({ children, onTeamCreated }: NewTeamDialogProps) {
         folderCount: 0,
         accessibleFolderIds: [],
         emails: emails,
+        workspaceId: user.id ?? '',
       };
 
       // Save the team to Firestore

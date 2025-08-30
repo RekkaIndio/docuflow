@@ -119,25 +119,9 @@ export function FileBrowser({
       }
     };
     window.addEventListener('highlight-document', handler);
-    // If a highlight was dispatched shortly before this component mounted, pick it up
-    try {
-      const last = typeof window !== 'undefined' ? localStorage.getItem('lastHighlightedDocumentId') : null;
-      if (last) {
-        setHighlightedDocId(last);
-        setTimeout(() => {
-          const el = document.getElementById(`doc-card-${last}`);
-          if (el) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            return;
-          }
-          try {
-            const name = typeof window !== 'undefined' ? localStorage.getItem('lastHighlightedDocumentName') || undefined : undefined;
-            const el2 = findCardElementByDocumentName(name as string | undefined);
-            if (el2) el2.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          } catch (e) {}
-        }, 100);
-      }
-    } catch (e) {}
+    // Note: we intentionally do NOT auto-apply a previously stored highlight here.
+    // Highlights should only be applied in response to an explicit "highlight-document" event
+    // so opening a folder does not accidentally highlight a random document.
     return () => window.removeEventListener('highlight-document', handler);
   }, []);
 
@@ -163,6 +147,19 @@ export function FileBrowser({
       clearTimeout(t2);
     };
   }, [highlightedDocId, folder?.items?.length]);
+
+  // Clear any existing highlight when the folder changes so opening a folder
+  // starts with no highlighted document (we haven't asked anything yet).
+  React.useEffect(() => {
+    setHighlightedDocId(null);
+    try {
+      if (typeof window !== 'undefined') {
+        // Keep localStorage entry for historical reasons, but do not auto-apply it.
+        // Optionally remove it to avoid confusion in future mounts:
+        // localStorage.removeItem('lastHighlightedDocumentId');
+      }
+    } catch (e) {}
+  }, [folder?.id]);
 
   return (
     <div className="flex flex-col h-full bg-background">

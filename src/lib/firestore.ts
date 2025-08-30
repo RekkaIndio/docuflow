@@ -352,11 +352,29 @@ export async function getAllWorkspaces(): Promise<Workspace[]> {
         const workspaces = await Promise.all(snaps.docs.map(async (docSnap) => {
             const workspaceData = docSnap.data() as Omit<Workspace, 'id' | 'folders'>;
             const { folders } = await fetchAndStructureData(docSnap.id);
+            // attempt to read occupancy settings document (optional)
+            let totalBeds: number | undefined = undefined;
+            let occupiedBeds: number | undefined = undefined;
+            try {
+                const occRef = doc(db, `workspaces/${docSnap.id}/settings`, 'occupancy');
+                const occSnap = await getDoc(occRef);
+                if (occSnap.exists()) {
+                    const d = occSnap.data() as any;
+                    if (typeof d.totalBeds === 'number') totalBeds = d.totalBeds;
+                    if (typeof d.occupiedBeds === 'number') occupiedBeds = d.occupiedBeds;
+                }
+            } catch (e) {
+                console.warn('Failed to read occupancy settings for workspace', docSnap.id, e);
+            }
+
             return {
                 id: docSnap.id,
                 ...workspaceData,
                 folders,
-            } as Workspace;
+                // attach bed counts if available for admin consumers
+                totalBeds,
+                occupiedBeds,
+            } as Workspace & { totalBeds?: number; occupiedBeds?: number };
         }));
         return workspaces;
     } catch (error) {
@@ -380,6 +398,48 @@ export async function createWorkspace(workspace: Omit<Workspace, 'id' | 'folders
     } catch (error) {
         console.error("Error creating workspace:", error);
         throw error;
+    }
+}
+
+/**
+ * Admin helper: return all care homes. This reads a top-level `care-homes` collection
+ * when present (used in dev mode API) or falls back to deriving care-home like data
+ * from the `workspaces` collection when a dedicated collection isn't available.
+ */
+export async function getAllCareHomes(): Promise<any[]> {
+    try {
+        // Try reading a dedicated collection first
+        const q = query(collection(db, 'care-homes'));
+        const snaps = await getDocs(q);
+        if (!snaps.empty) {
+            return snaps.docs.map(docSnap => {
+                const data = docSnap.data() as any;
+                return {
+                    id: docSnap.id,
+                    name: data.name || data.title || docSnap.id,
+                    occupancy: typeof data.occupancy === 'number' ? data.occupancy : (typeof data.occupiedBeds === 'number' && typeof data.totalBeds === 'number' && data.totalBeds > 0 ? (data.occupiedBeds / data.totalBeds) : undefined),
+                    totalBeds: typeof data.totalBeds === 'number' ? data.totalBeds : undefined,
+                    occupiedBeds: typeof data.occupiedBeds === 'number' ? data.occupiedBeds : undefined,
+                    complianceScore: typeof data.complianceScore === 'number' ? data.complianceScore : undefined,
+                    renewalBacklog: typeof data.renewalBacklog === 'number' ? data.renewalBacklog : 0,
+                };
+            });
+        }
+
+        // Fallback: derive from workspaces collection (works for cases where care homes are represented as workspaces)
+        const allWorkspaces = await getAllWorkspaces();
+        return allWorkspaces.map(ws => ({
+            id: ws.id,
+            name: ws.name || ws.id,
+            occupancy: typeof (ws as any).occupancy === 'number' ? (ws as any).occupancy : (typeof (ws as any).totalBeds === 'number' && typeof (ws as any).occupiedBeds === 'number' && (ws as any).totalBeds > 0 ? ((ws as any).occupiedBeds / (ws as any).totalBeds) : undefined),
+            totalBeds: (ws as any).totalBeds,
+            occupiedBeds: (ws as any).occupiedBeds,
+            complianceScore: (ws as any).complianceScore,
+            renewalBacklog: (ws as any).renewalBacklog || 0,
+        }));
+    } catch (error) {
+        console.error('Error fetching care homes', error);
+        return [];
     }
 }
 
