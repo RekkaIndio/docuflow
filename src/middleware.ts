@@ -8,45 +8,44 @@ export async function middleware(req: NextRequest) {
 
   if (!pathname.startsWith('/admin')) return NextResponse.next();
 
-  // Try to verify Firebase ID token if possible.
+  // Try to verify Firebase ID token if possible by delegating verification
+  // to a server-side API route so we avoid importing `firebase-admin` in
+  // the Edge middleware (which is not allowed).
   try {
     const authHeader = req.headers.get('authorization') || '';
     const tokenFromHeader = authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
     const tokenFromCookie = req.cookies.get('token')?.value ?? null;
     const idToken = tokenFromHeader || tokenFromCookie;
 
-    // Only attempt firebase-admin verification if there's a token and credentials available
+    // Only attempt server-side verification if there's a token and credentials available
     const canUseAdmin = Boolean(process.env.FIREBASE_ADMIN_CREDENTIALS || process.env.GOOGLE_APPLICATION_CREDENTIALS);
     if (idToken && canUseAdmin) {
-      // Lazy import to avoid adding firebase-admin at runtime unless configured
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const admin = require('firebase-admin');
-      if (!admin.apps.length) {
-        // Initialize admin SDK with credentials from env if provided
-        if (process.env.FIREBASE_ADMIN_CREDENTIALS) {
-          const creds = JSON.parse(process.env.FIREBASE_ADMIN_CREDENTIALS);
-          admin.initializeApp({ credential: admin.credential.cert(creds) });
-        } else {
-          admin.initializeApp();
-        }
-      }
-
       try {
-        const decoded = await admin.auth().verifyIdToken(idToken);
-        // Accept if token contains admin custom claim or role
-        const isAdmin = decoded.admin === true || decoded.role === 'Admin' || decoded.role === 'admin';
-        if (isAdmin) return NextResponse.next();
-        // otherwise redirect
-        const url = req.nextUrl.clone();
-        url.pathname = '/';
-        return NextResponse.redirect(url);
+        // Call an internal server-side API that performs the firebase-admin verification.
+        // Use the incoming request's URL as the base so the origin is correct.
+        const verifyUrl = new URL('/api/admin/verify', req.url);
+        const res = await fetch(verifyUrl.toString(), {
+          method: 'GET',
+          headers: {
+            authorization: `Bearer ${idToken}`,
+          },
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.isAdmin) return NextResponse.next();
+          // Not admin -> redirect
+          const url = req.nextUrl.clone();
+          url.pathname = '/';
+          return NextResponse.redirect(url);
+        }
       } catch (e) {
-        // token verification failed -> fall through to cookie check
-        console.warn('Firebase token verification failed in middleware:', e?.toString?.() ?? e);
+        // verification failed or internal API not available -> fall through to cookie check
+        console.warn('Middleware token verification via internal API failed:', e?.toString?.() ?? e);
       }
     }
   } catch (e) {
-    console.warn('Middleware firebase-admin init error:', e?.toString?.() ?? e);
+    console.warn('Middleware verification error:', e?.toString?.() ?? e);
   }
 
   // Fallback dev check: cookie 'isAdmin' === '1'

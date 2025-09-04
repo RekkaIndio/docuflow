@@ -87,6 +87,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     console.warn('AdminLayout.setView: unknown view', view);
                     router.push('/admin');
                 }
+                // Emit an event so any admin page consumers can react to the
+                // centralized navigation (for example closing an open
+                // workspace view in the admin page which is stored in
+                // component state). This keeps navigation user-friendly when
+                // the layout and page state are decoupled.
+                try {
+                  if (typeof window !== 'undefined' && window.dispatchEvent) {
+                    window.dispatchEvent(new CustomEvent('admin-set-view', { detail: { view } }));
+                  }
+                } catch (e) {
+                  // noop
+                }
               } catch (e) {
                 // If router.push fails for any reason, log and navigate to admin root
                 // eslint-disable-next-line no-console

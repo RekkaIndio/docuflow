@@ -3,6 +3,10 @@ import React, { useMemo } from 'react';
 import type { Workspace, Folder, Document } from '@/lib/types';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import AdminDependencyTable from '@/components/admin/admin-dependency-table';
+import { TeamsView } from '@/components/dashboard/teams-view';
+import { StatsView } from '@/components/dashboard/stats-view';
 import { Folder as FolderIcon, FileText, FileSpreadsheet, FileX2, Home, ChevronRight, ArrowLeft, PlusSquare, Users, Tag, Clock, BarChart2 } from 'lucide-react';
 import OccupancyPie from '@/components/admin/occupancy-pie';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -112,6 +116,16 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
     return crumbs;
   }, [stack, workspace]);
 
+  // Helper to navigate to a crumb by index (0 = root)
+  const navigateToCrumb = (index: number) => {
+    if (index <= 0) {
+      setStack([]);
+      return;
+    }
+    // Keep first `index` entries in stack
+    setStack(s => s.slice(0, index));
+  };
+
   const totalFolders = useMemo(() => workspace.folders?.length || 0, [workspace]);
   const totalDocuments = useMemo(() => {
     const countDocuments = (items: (Folder | Document)[]): number => {
@@ -157,7 +171,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
   }, [workspace]);
 
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="flex flex-col h-screen bg-background">
       {/* Hero header */}
       <div className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white p-6 rounded-b-lg shadow-sm">
         <div className="w-full mx-auto flex items-start justify-between gap-6">
@@ -212,105 +226,357 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
         </div>
       </div>
 
-      {/* Main content */}
-  <div className="p-6 w-full mx-auto flex flex-col lg:flex-row gap-8">
-        <div className="flex-1">
-          <div className="mb-4">
-            <div className="text-sm text-slate-500">Location</div>
-            <nav className="text-sm text-muted-foreground mt-1">
-              {breadcrumb.map((b, index) => (
-                <span key={b.id} className="mr-2">{b.name}{index < breadcrumb.length - 1 ? ' / ' : ''}</span>
-              ))}
-            </nav>
-          </div>
-
-          <main className="overflow-y-auto">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-              {currentFolder.items?.map((item) => (
-                <Card
-                  key={item.id}
-                  className="hover:shadow-lg transition-shadow transform hover:-translate-y-1 cursor-pointer min-h-[100px] w-full"
-                  onClick={() => {
-                    if (item.type === 'folder') {
-                      pushFolder(item.id);
-                      return;
-                    }
-                    // If it's a document, dispatch the shared navigation event so
-                    // the admin page can listen and open DocumentView.
-                    try {
-                      const documentId = item.id;
-                      if (typeof window !== 'undefined' && window.dispatchEvent) {
-                        window.dispatchEvent(new CustomEvent('navigate-to-document', { detail: { documentId, documentName: item.name } }));
-                        try { localStorage.setItem('lastHighlightedDocumentId', documentId); } catch (e) {}
-                        if (item.name) try { localStorage.setItem('lastHighlightedDocumentName', item.name); } catch (e) {}
-                      }
-                    } catch (e) {
-                      // ignore
-                    }
-                  }}
-                >
-                  <CardHeader>
-                    <div className="flex items-center gap-3 p-3">
-                      <div className="w-12 h-12 flex items-center justify-center bg-white/5 rounded flex-shrink-0">
-                        {item.type === 'folder' ? (
-                          <FolderIcon className="w-7 h-7 text-yellow-500" />
-                        ) : (
-                          getFileIcon(item.fileType)
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium break-words">{item.name}</p>
-                        {item.type === 'folder' && (
-                          <p className="text-sm text-muted-foreground">{item.items?.filter(c => c.type === 'document').length} document{(item.items?.filter(c => c.type === 'document').length === 1) ? '' : 's'}</p>
-                        )}
-                        {item.type === 'document' && (
-                          <p className="text-sm text-muted-foreground">Uploaded: {new Date(item.createdAt).toLocaleDateString()}</p>
-                        )}
-                      </div>
-                    </div>
-                  </CardHeader>
-                </Card>
-              ))}
-            </div>
-          </main>
-        </div>
-
-        <aside className="w-full lg:w-80">
-          <div className="space-y-4">
-            <Card>
-              <CardHeader>Recent uploads</CardHeader>
-              <CardContent>
-                <ul className="divide-y">
-                  {recentUploads.length === 0 && <div className="text-sm text-muted-foreground">No recent uploads</div>}
-                  {recentUploads.map((r, idx) => (
-                    <li key={r.name + String(r.createdAt) + idx} className="py-2">
-                      <div className="flex items-center justify-between">
-                        <div className="text-sm truncate">{r.name}</div>
-                        <div className="text-xs text-muted-foreground">{r.createdAt ? new Date(r.createdAt).toLocaleString() : ''}</div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>Top file types</CardHeader>
-              <CardContent>
-                <div className="flex flex-col gap-2">
-                  {Object.entries(fileTypeCounts).length === 0 && <div className="text-sm text-muted-foreground">No documents</div>}
-                  {Object.entries(fileTypeCounts).slice(0, 8).map(([k, v]) => (
-                    <div key={k} className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2"><Tag className="w-4 h-4 text-slate-400" /> {k}</div>
-                      <div className="font-medium">{v}</div>
-                    </div>
-                  ))}
+  {/* Main content */}
+  <div className="p-6 w-full mx-auto flex-1 flex flex-col gap-6 overflow-auto">
+        <Tabs defaultValue="folders" className="w-full">
+          <TabsList className="grid w-[640px] grid-cols-3">
+            <TabsTrigger value="folders" className="flex items-center gap-2">
+              <FolderIcon className="w-4 h-4" />
+              Folders
+            </TabsTrigger>
+            <TabsTrigger value="teams" className="flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              Teams
+            </TabsTrigger>
+            <TabsTrigger value="stats" className="flex items-center gap-2">
+              <BarChart2 className="w-4 h-4" />
+              Stats
+            </TabsTrigger>
+            { /* Dependency Calculator temporarily hidden until backend/frontend integration is fixed.
+            <TabsTrigger value="dependency" className="flex items-center gap-2">
+              <Clock className="w-4 h-4" />
+              Dependency Calculator
+            </TabsTrigger>
+            */ }
+          </TabsList>
+          { /* Dependency tab disabled for now */ }
+          
+          <TabsContent value="folders" className="mt-6 flex-1">
+            <div className="flex flex-col lg:flex-row gap-8 flex-1">
+              <div className="flex-1 flex flex-col">
+                <div className="mb-4 flex items-center justify-between">
+                  <div>
+                    <div className="text-sm text-slate-500">Location</div>
+                    <nav className="text-sm text-muted-foreground mt-1">
+                      {breadcrumb.map((b, index) => (
+                        <button
+                          key={b.id}
+                          onClick={() => navigateToCrumb(index)}
+                          className={`mr-2 inline-flex items-center ${index < breadcrumb.length - 1 ? 'text-blue-600 hover:underline' : 'text-slate-700 font-medium'}`}
+                        >
+                          {b.name}{index < breadcrumb.length - 1 ? ' / ' : ''}
+                        </button>
+                      ))}
+                    </nav>
+                  </div>
+                  <div>
+                    {stack.length > 0 ? (
+                      <button
+                        onClick={() => setStack(s => s.slice(0, -1))}
+                        className="text-sm text-muted-foreground hover:text-slate-900"
+                      >
+                        ← Back
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
-            {/* occupancy moved to header */}
-          </div>
-        </aside>
+
+                <main className="overflow-y-auto flex-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                    {currentFolder.items?.map((item) => (
+                      <Card
+                        key={item.id}
+                        className="hover:shadow-lg transition-shadow transform hover:-translate-y-1 cursor-pointer min-h-[100px] w-full"
+                        onClick={() => {
+                          if (item.type === 'folder') {
+                            pushFolder(item.id);
+                            return;
+                          }
+                          // If it's a document, dispatch the shared navigation event so
+                          // the admin page can listen and open DocumentView.
+                          try {
+                            const documentId = item.id;
+                            if (typeof window !== 'undefined' && window.dispatchEvent) {
+                              window.dispatchEvent(new CustomEvent('navigate-to-document', { detail: { documentId, documentName: item.name } }));
+                              try { localStorage.setItem('lastHighlightedDocumentId', documentId); } catch (e) {}
+                              if (item.name) try { localStorage.setItem('lastHighlightedDocumentName', item.name); } catch (e) {}
+                            }
+                          } catch (e) {
+                            // ignore
+                          }
+                        }}
+                      >
+                        <CardHeader className="p-0">
+                          <div className="flex items-stretch">
+                            <div className="w-12 h-12 flex items-center justify-center bg-white/5 rounded-l flex-shrink-0">
+                              {item.type === 'folder' ? (
+                                <FolderIcon className="w-7 h-7 text-yellow-500" />
+                              ) : (
+                                getFileIcon(item.fileType)
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              {/* Title bar with subtle colored background */}
+                              <div className="px-3 py-2 bg-gradient-to-r from-slate-50/40 via-transparent to-transparent dark:from-slate-800/40 rounded-r">
+                                <p className="font-medium break-words text-slate-900 dark:text-slate-100">{item.name}</p>
+                                {item.type === 'folder' && (
+                                  <p className="text-sm text-muted-foreground">{item.items?.filter(c => c.type === 'document').length} document{(item.items?.filter(c => c.type === 'document').length === 1) ? '' : 's'}</p>
+                                )}
+                                {item.type === 'document' && (
+                                  <p className="text-sm text-muted-foreground">Uploaded: {new Date(item.createdAt).toLocaleDateString()}</p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </CardHeader>
+                      </Card>
+                    ))}
+                  </div>
+                </main>
+              </div>
+
+              <aside className="w-full lg:w-80">
+                <div className="space-y-4">
+                  <Card>
+                    <CardHeader>Recent uploads</CardHeader>
+                    <CardContent>
+                      <ul className="divide-y">
+                        {recentUploads.length === 0 && <div className="text-sm text-muted-foreground">No recent uploads</div>}
+                        {recentUploads.map((r, idx) => (
+                          <li key={r.name + String(r.createdAt) + idx} className="py-2">
+                            <button
+                              onClick={() => {
+                                try {
+                                  let documentId = (r as any).id || (r as any).documentId || null;
+
+                                  // If no explicit id, try to find the document by name in the workspace folders
+                                  if (!documentId && r && r.name) {
+                                    const targetName = String(r.name).toLowerCase().trim();
+                                    const findDoc = (items: any[]): string | null => {
+                                      for (const it of items || []) {
+                                        if (it.type === 'document') {
+                                          const n = String(it.name || '').toLowerCase().trim();
+                                          if (n === targetName || n.includes(targetName) || targetName.includes(n)) return it.id;
+                                        } else if (it.type === 'folder') {
+                                          const res = findDoc(it.items || []);
+                                          if (res) return res;
+                                        }
+                                      }
+                                      return null;
+                                    };
+                                    try {
+                                      const found = findDoc(workspace.folders || []);
+                                      if (found) documentId = found;
+                                    } catch (e) {
+                                      // ignore
+                                    }
+
+                                    // last-resort: slugify name (legacy behavior)
+                                    if (!documentId) {
+                                      documentId = String(r.name).replace(/\s+/g, '-').toLowerCase().replace(/[^a-z0-9-]/g, '');
+                                    }
+                                  }
+
+                                  if (documentId && typeof window !== 'undefined' && window.dispatchEvent) {
+                                    window.dispatchEvent(new CustomEvent('navigate-to-document', { detail: { documentId, documentName: r.name } }));
+                                    try { localStorage.setItem('lastHighlightedDocumentId', documentId); } catch (e) {}
+                                    if (r.name) try { localStorage.setItem('lastHighlightedDocumentName', r.name); } catch (e) {}
+                                  } else {
+                                    console.warn('Could not locate document for recent upload:', r.name);
+                                  }
+                                } catch (e) { console.warn('Recent upload click error', e); }
+                              }}
+                              className="w-full text-left cursor-pointer hover:underline"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="text-sm truncate">{r.name}</div>
+                                <div className="text-xs text-muted-foreground">{r.createdAt ? new Date(r.createdAt).toLocaleString() : ''}</div>
+                              </div>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>Top file types</CardHeader>
+                    <CardContent>
+                      <div className="flex flex-col gap-2">
+                        {Object.entries(fileTypeCounts).length === 0 && <div className="text-sm text-muted-foreground">No documents</div>}
+                        {Object.entries(fileTypeCounts).slice(0, 8).map(([k, v]) => (
+                          <div key={k} className="flex items-center justify-between text-sm">
+                            <div className="flex items-center gap-2"><Tag className="w-4 h-4 text-slate-400" /> {k}</div>
+                            <div className="font-medium">{v}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                  {/* occupancy moved to header */}
+                </div>
+              </aside>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="teams" className="mt-6">
+            <TeamsView workspace={workspace} />
+          </TabsContent>
+          
+          <TabsContent value="stats" className="mt-6">
+            <div className="space-y-6">
+              {/* Workspace Overview Cards */}
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold mb-4">Workspace Overview</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <Card>
+                    <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg flex flex-row items-center justify-between space-y-0 pb-2">
+                      <div className="text-sm font-medium text-white">Total Folders</div>
+                      <FolderIcon className="h-4 w-4 text-slate-200" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{totalFolders}</div>
+                      <p className="text-xs text-muted-foreground">
+                        Organization units
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg flex flex-row items-center justify-between space-y-0 pb-2">
+                      <div className="text-sm font-medium text-white">Total Documents</div>
+                      <FileText className="h-4 w-4 text-slate-200" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{totalDocuments}</div>
+                      <p className="text-xs text-muted-foreground">
+                        All files in workspace
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg flex flex-row items-center justify-between space-y-0 pb-2">
+                      <div className="text-sm font-medium text-white">File Types</div>
+                      <Tag className="h-4 w-4 text-slate-200" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{Object.keys(fileTypeCounts).length}</div>
+                      <p className="text-xs text-muted-foreground">
+                        Different formats
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg flex flex-row items-center justify-between space-y-0 pb-2">
+                      <div className="text-sm font-medium text-white">Occupancy</div>
+                      <BarChart2 className="h-4 w-4 text-slate-200" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">
+                        {typeof occupancyPercent === 'number' ? `${occupancyPercent}%` : 'N/A'}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Current occupancy rate
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+
+              {/* Audit Statistics with Summary Cards */}
+              <StatsView workspaceId={workspace.id} />
+
+              {/* Charts and Analytics */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* File Type Distribution */}
+                <Card>
+                  <CardHeader>
+                    <div className="text-lg font-semibold">File Type Breakdown</div>
+                    <div className="text-sm text-muted-foreground">Distribution of document types</div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {Object.entries(fileTypeCounts).length === 0 ? (
+                        <div className="text-sm text-muted-foreground">No documents in workspace</div>
+                      ) : (
+                        Object.entries(fileTypeCounts)
+                          .sort(([,a], [,b]) => b - a)
+                          .map(([type, count]) => (
+                            <div key={type} className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <div className="w-3 h-3 rounded-full bg-primary" />
+                                <span className="text-sm font-medium">{type.toUpperCase()}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <div className="text-sm text-muted-foreground">{count} files</div>
+                                <div className="text-xs text-muted-foreground">
+                                  ({Math.round((count / totalDocuments) * 100)}%)
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Recent Activity */}
+                <Card>
+                  <CardHeader>
+                    <div className="text-lg font-semibold">Recent Activity</div>
+                    <div className="text-sm text-muted-foreground">Latest document uploads</div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {recentUploads.length === 0 ? (
+                        <div className="text-sm text-muted-foreground">No recent uploads</div>
+                      ) : (
+                        recentUploads.map((upload, index) => (
+                          <div key={`${upload.name}-${index}`} className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                              <span className="text-sm font-medium truncate">{upload.name}</span>
+                            </div>
+                            <div className="text-xs text-muted-foreground flex-shrink-0">
+                              {upload.createdAt ? new Date(upload.createdAt).toLocaleDateString() : 'Unknown'}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Occupancy Visualization */}
+              {typeof occupancyPercent === 'number' && (
+                <Card>
+                  <CardHeader>
+                    <div className="text-lg font-semibold">Occupancy Overview</div>
+                    <div className="text-sm text-muted-foreground">Current capacity utilization</div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center justify-center py-8">
+                      <div className="flex items-center gap-8">
+                        <div className="flex items-center justify-center">
+                          <OccupancyPie percent={occupancyPercent} size={120} strokeWidth={12} />
+                        </div>
+                        <div className="space-y-2">
+                          <div className="text-3xl font-bold">{occupancyPercent}%</div>
+                          <div className="text-sm text-muted-foreground">Current Occupancy</div>
+                          {workspace.totalBeds && workspace.occupiedBeds && (
+                            <div className="text-sm text-muted-foreground">
+                              {workspace.occupiedBeds} of {workspace.totalBeds} beds occupied
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

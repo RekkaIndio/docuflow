@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 export async function PATCH(req: Request, { params }: any) {
@@ -7,6 +7,11 @@ export async function PATCH(req: Request, { params }: any) {
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
   const body = await req.json().catch(() => ({}));
   const allowed: any = {};
+
+  // Allow name updates
+  if (body.name !== undefined) {
+    allowed.name = String(body.name).trim();
+  }
 
   // Accept explicit totalBeds and occupiedBeds (numbers) and/or occupancy (0..1)
   if (body.totalBeds !== undefined) {
@@ -53,5 +58,22 @@ export async function GET(req: Request, { params }: any) {
   } catch (e) {
     console.error('Failed to get workspace', e);
     return NextResponse.json({ error: 'Failed' }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: Request, { params }: any) {
+  const { id } = params || {};
+  if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
+  
+  try {
+    const ref = doc(db, 'workspaces', id);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) return NextResponse.json({ error: 'Workspace not found' }, { status: 404 });
+    
+    await deleteDoc(ref);
+    return NextResponse.json({ success: true, message: 'Workspace deleted successfully' });
+  } catch (e) {
+    console.error('Failed to delete workspace', e);
+    return NextResponse.json({ error: 'Failed to delete workspace' }, { status: 500 });
   }
 }

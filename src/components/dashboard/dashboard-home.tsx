@@ -2,7 +2,7 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Folder, Users, FileText, FileSpreadsheet, FileIcon, FileX2, Briefcase, Clock, User, TrendingUp, Archive, Calendar, BarChart3, Edit3 } from "lucide-react";
+import { Folder, Users, FileText, FileSpreadsheet, FileIcon, FileX2, Briefcase, Clock, User, TrendingUp, TrendingDown, Minus, Archive, Calendar, BarChart3, Edit3 } from "lucide-react";
 import type { Workspace, Document, Folder as FolderType } from "@/lib/types";
 import { useMemo } from "react";
 import {
@@ -21,10 +21,44 @@ import { NewFolderDialog } from "./new-folder-dialog";
 import { SidebarTrigger } from "../ui/sidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useEffect, useState } from "react";
-import { doc, getDoc, setDoc, updateDoc, onSnapshot } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query as fsQuery, orderBy, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import OccupancyPie from '@/components/admin/occupancy-pie';
 import OverviewCards from './overview-cards';
+// consolidated imports above
+
+// Component to display trend indicators
+const TrendIndicator = ({ auditType, trends }: { auditType: string, trends: Record<string, { direction: 'up' | 'down' | 'stable', change: number }> }) => {
+    const trend = trends[auditType];
+    if (!trend) return null;
+
+    const { direction, change } = trend;
+    const isPositive = direction === 'up';
+    const isNegative = direction === 'down';
+    
+    return (
+        <div className="flex items-center gap-1 text-xs">
+            {isPositive && (
+                <>
+                    <TrendingUp className="h-3 w-3 text-green-600" />
+                    <span className="text-green-600">+{change}%</span>
+                </>
+            )}
+            {isNegative && (
+                <>
+                    <TrendingDown className="h-3 w-3 text-red-600" />
+                    <span className="text-red-600">{change}%</span>
+                </>
+            )}
+            {direction === 'stable' && (
+                <>
+                    <Minus className="h-3 w-3 text-gray-500" />
+                    <span className="text-gray-500">No change</span>
+                </>
+            )}
+        </div>
+    );
+};
 
 
 const getFileIcon = (fileType: Document["fileType"]) => {
@@ -87,9 +121,9 @@ const RecentFilesTable = ({ documents, onSelect }: { documents: Document[], onSe
                         {documents.length > 0 ? documents.map(doc => (
                              <TableRow key={doc.id} className="cursor-pointer" onClick={() => onSelect(doc)}>
                                 <TableCell>
-                                    <div className="flex items-center gap-3">
-                                        {getFileIcon(doc.fileType)}
-                                        <span className="font-medium truncate">{doc.name}</span>
+                                    <div className="flex items-center gap-4">
+                                        <div className="text-xs text-slate-300">Occupancy</div>
+                                        {/* Removed duplicate right-hand percent — now displayed in the pie center */}
                                     </div>
                                 </TableCell>
                                 <TableCell>
@@ -119,7 +153,14 @@ const RecentFilesTable = ({ documents, onSelect }: { documents: Document[], onSe
     </Card>
 );
 
-const QuickActions = ({ documents, onSelect, workspaceId }: { documents: Document[], onSelect: (doc: Document) => void, workspaceId?: string }) => {
+const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradientColors, trends }: { 
+    documents: Document[], 
+    onSelect: (doc: Document) => void, 
+    workspaceId?: string,
+    overallStats: any,
+    getGradientColors: (score: number | null) => { start: string; end: string },
+    trends: Record<string, { direction: 'up' | 'down' | 'stable', change: number }>
+}) => {
     const actionableItems = useMemo(() => {
         const today = new Date();
         const overdueRenewals = documents.filter(doc => {
@@ -141,7 +182,6 @@ const QuickActions = ({ documents, onSelect, workspaceId }: { documents: Documen
 
     return (
         <div className="w-full">
-            <h2 className="text-lg font-semibold mb-4 text-blue-900 tracking-tight">Quick Actions</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Overdue Renewals */}
                 <Card className="hover:shadow-lg transition-shadow border border-blue-200 bg-white/80 backdrop-blur-md rounded-xl">
@@ -171,28 +211,44 @@ const QuickActions = ({ documents, onSelect, workspaceId }: { documents: Documen
                 {/* Occupancy card: enter occupied beds, total beds shown in title */}
                 <OccupancyCard workspaceId={workspaceId} />
             
-                {/* Recent Activity */}
+                {/* Overall Score Card - replacing Recent Activity */}
                 <Card className="hover:shadow-lg transition-shadow border border-blue-200 bg-white/80 backdrop-blur-md rounded-xl">
                     <CardHeader className="pb-2 border-b border-blue-100 bg-gradient-to-r from-blue-50/60 to-transparent rounded-t-xl">
                         <CardTitle className="text-sm font-medium flex items-center gap-2">
-                            <TrendingUp className="h-4 w-4 text-green-500" />
-                            Recent Activity
+                            <BarChart3 className="h-4 w-4 text-blue-500" />
+                            Overall Audit Score
                         </CardTitle>
+                    <CardDescription className="text-xs text-muted-foreground">Audit score for all categories</CardDescription>
+
                     </CardHeader>
-                    <CardContent className="space-y-2 pt-3">
-                        {actionableItems.recentDocs.length > 0 ? (
-                            actionableItems.recentDocs.map(doc => (
-                                <div key={doc.id} className="flex items-center justify-between p-2 hover:bg-muted rounded cursor-pointer" onClick={() => onSelect(doc)}>
-                                    <div className="flex items-center gap-2 min-w-0">
-                                        {getFileIcon(doc.fileType)}
-                                        <span className="text-sm truncate">{doc.name}</span>
-                                    </div>
-                                    <Badge variant="outline" className="text-xs">New</Badge>
+                    <CardContent className="space-y-3 pt-3">
+                        <div className="flex items-center gap-4">
+                            <div className="w-36 h-36 flex items-center justify-center relative">
+                                <OccupancyPie 
+                                    percent={overallStats.overallPercentage ?? 0} 
+                                    size={120} 
+                                    strokeWidth={16} 
+                                    gradientColors={getGradientColors(overallStats.overallPercentage)}
+                                    centerFontSize={16} 
+                                />
+                            </div>
+                            <div>
+                                <div className="text-lg font-semibold">
+                                    {overallStats.overallPercentage !== null ? `${overallStats.overallPercentage}%` : 'N/A'}
                                 </div>
-                            ))
-                        ) : (
-                            <p className="text-sm text-muted-foreground text-center py-2">No recent activity</p>
-                        )}
+                                <div className="text-xs text-muted-foreground">
+                                    {overallStats.totalYesCount} of {overallStats.totalQuestions} passed
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                    {overallStats.auditsCompleted}/10 audits completed
+                                </div>
+                                {overallStats.overallPercentage !== null && (
+                                    <div className="mt-2">
+                                        <TrendIndicator auditType="overall" trends={trends} />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     </CardContent>
                 </Card>
             </div>
@@ -467,6 +523,295 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
         return workspace.folders.filter(item => item.type === 'folder').slice(0, 4) as FolderType[];
     }, [workspace.folders])
 
+    // Quick read of latest audit scores from workspace settings for the header quick card
+    const [carePlanScore, setCarePlanScore] = useState<number | null>(null);
+    const [carePlanUpdatedAt, setCarePlanUpdatedAt] = useState<number | null>(null);
+    const [hsScore, setHsScore] = useState<number | null>(null);
+    const [hsUpdatedAt, setHsUpdatedAt] = useState<number | null>(null);
+
+    // Add all audit scores state for overall calculation
+    const [carePlanYesCount, setCarePlanYesCount] = useState<number | null>(null);
+    const [carePlanTotalCount, setCarePlanTotalCount] = useState<number | null>(null);
+    const [hsYesCount, setHsYesCount] = useState<number | null>(null);
+    const [hsTotalCount, setHsTotalCount] = useState<number | null>(null);
+    const [maintenanceScore, setMaintenanceScore] = useState<number | null>(null);
+    const [maintenanceYesCount, setMaintenanceYesCount] = useState<number | null>(null);
+    const [maintenanceTotalCount, setMaintenanceTotalCount] = useState<number | null>(null);
+    const [restrictiveScore, setRestrictiveScore] = useState<number | null>(null);
+    const [restrictiveYesCount, setRestrictiveYesCount] = useState<number | null>(null);
+    const [restrictiveTotalCount, setRestrictiveTotalCount] = useState<number | null>(null);
+    const [fireScore, setFireScore] = useState<number | null>(null);
+    const [fireYesCount, setFireYesCount] = useState<number | null>(null);
+    const [fireTotalCount, setFireTotalCount] = useState<number | null>(null);
+    const [infectionScore, setInfectionScore] = useState<number | null>(null);
+    const [infectionYesCount, setInfectionYesCount] = useState<number | null>(null);
+    const [infectionTotalCount, setInfectionTotalCount] = useState<number | null>(null);
+    const [mealtimeScore, setMealtimeScore] = useState<number | null>(null);
+    const [mealtimeYesCount, setMealtimeYesCount] = useState<number | null>(null);
+    const [mealtimeTotalCount, setMealtimeTotalCount] = useState<number | null>(null);
+    const [nightScore, setNightScore] = useState<number | null>(null);
+    const [nightYesCount, setNightYesCount] = useState<number | null>(null);
+    const [nightTotalCount, setNightTotalCount] = useState<number | null>(null);
+    const [staffFileScore, setStaffFileScore] = useState<number | null>(null);
+    const [staffFileYesCount, setStaffFileYesCount] = useState<number | null>(null);
+    const [staffFileTotalCount, setStaffFileTotalCount] = useState<number | null>(null);
+    const [kitchenScore, setKitchenScore] = useState<number | null>(null);
+    const [kitchenYesCount, setKitchenYesCount] = useState<number | null>(null);
+    const [kitchenTotalCount, setKitchenTotalCount] = useState<number | null>(null);
+
+    // Trend tracking state
+    const [trends, setTrends] = useState<Record<string, { direction: 'up' | 'down' | 'stable', change: number }>>({});
+    const [historicalData, setHistoricalData] = useState<Record<string, any>>({});
+
+    useEffect(() => {
+        if (!workspace?.id) return;
+        const ref = doc(db, `workspaces/${workspace.id}/settings`, 'audit_latest_scores');
+        const unsub = onSnapshot(ref, (snap) => {
+            if (snap.exists()) {
+                const data = snap.data() as any;
+                const cp = data?.['care-plan'];
+                const hs = data?.['health-safety'];
+                const m = data?.['maintenance'];
+                const r = data?.['restrictive-practice'];
+                const f = data?.['fire-safety'];
+                const ic = data?.['infection-control'];
+                const mt = data?.['mealtime'];
+                const nv = data?.['night-visit'];
+                const sf = data?.['staff-file'];
+                const k = data?.['kitchen'];
+
+                // Care plan
+                setCarePlanScore(typeof cp?.scorePercent === 'number' ? cp.scorePercent : null);
+                setCarePlanYesCount(typeof cp?.yesCount === 'number' ? cp.yesCount : null);
+                setCarePlanTotalCount(typeof cp?.totalCount === 'number' ? cp.totalCount : null);
+                setCarePlanUpdatedAt(cp?.updatedAt ?? null);
+
+                // Health & Safety
+                setHsScore(typeof hs?.scorePercent === 'number' ? hs.scorePercent : null);
+                setHsYesCount(typeof hs?.yesCount === 'number' ? hs.yesCount : null);
+                setHsTotalCount(typeof hs?.totalCount === 'number' ? hs.totalCount : null);
+                setHsUpdatedAt(hs?.updatedAt ?? null);
+
+                // Maintenance
+                setMaintenanceScore(typeof m?.scorePercent === 'number' ? m.scorePercent : null);
+                setMaintenanceYesCount(typeof m?.yesCount === 'number' ? m.yesCount : null);
+                setMaintenanceTotalCount(typeof m?.totalCount === 'number' ? m.totalCount : null);
+
+                // Restrictive Practice
+                setRestrictiveScore(typeof r?.scorePercent === 'number' ? r.scorePercent : null);
+                setRestrictiveYesCount(typeof r?.yesCount === 'number' ? r.yesCount : null);
+                setRestrictiveTotalCount(typeof r?.totalCount === 'number' ? r.totalCount : null);
+
+                // Fire Safety
+                setFireScore(typeof f?.scorePercent === 'number' ? f.scorePercent : null);
+                setFireYesCount(typeof f?.yesCount === 'number' ? f.yesCount : null);
+                setFireTotalCount(typeof f?.totalCount === 'number' ? f.totalCount : null);
+
+                // Infection Control
+                setInfectionScore(typeof ic?.scorePercent === 'number' ? ic.scorePercent : null);
+                setInfectionYesCount(typeof ic?.yesCount === 'number' ? ic.yesCount : null);
+                setInfectionTotalCount(typeof ic?.totalCount === 'number' ? ic.totalCount : null);
+
+                // Mealtime
+                setMealtimeScore(typeof mt?.scorePercent === 'number' ? mt.scorePercent : null);
+                setMealtimeYesCount(typeof mt?.yesCount === 'number' ? mt.yesCount : null);
+                setMealtimeTotalCount(typeof mt?.totalCount === 'number' ? mt.totalCount : null);
+
+                // Night Visit
+                setNightScore(typeof nv?.scorePercent === 'number' ? nv.scorePercent : null);
+                setNightYesCount(typeof nv?.yesCount === 'number' ? nv.yesCount : null);
+                setNightTotalCount(typeof nv?.totalCount === 'number' ? nv.totalCount : null);
+
+                // Staff File
+                setStaffFileScore(typeof sf?.scorePercent === 'number' ? sf.scorePercent : null);
+                setStaffFileYesCount(typeof sf?.yesCount === 'number' ? sf.yesCount : null);
+                setStaffFileTotalCount(typeof sf?.totalCount === 'number' ? sf.totalCount : null);
+
+                // Kitchen
+                setKitchenScore(typeof k?.scorePercent === 'number' ? k.scorePercent : null);
+                setKitchenYesCount(typeof k?.yesCount === 'number' ? k.yesCount : null);
+                setKitchenTotalCount(typeof k?.totalCount === 'number' ? k.totalCount : null);
+
+                // Calculate trends by comparing with previous month's data
+                if (data) {
+                    calculateTrends(data);
+                }
+            } else {
+                // Reset all values if no data
+                setCarePlanScore(null);
+                setCarePlanYesCount(null);
+                setCarePlanTotalCount(null);
+                setCarePlanUpdatedAt(null);
+                setHsScore(null);
+                setHsYesCount(null);
+                setHsTotalCount(null);
+                setHsUpdatedAt(null);
+                setMaintenanceScore(null);
+                setMaintenanceYesCount(null);
+                setMaintenanceTotalCount(null);
+                setRestrictiveScore(null);
+                setRestrictiveYesCount(null);
+                setRestrictiveTotalCount(null);
+                setFireScore(null);
+                setFireYesCount(null);
+                setFireTotalCount(null);
+                setInfectionScore(null);
+                setInfectionYesCount(null);
+                setInfectionTotalCount(null);
+                setMealtimeScore(null);
+                setMealtimeYesCount(null);
+                setMealtimeTotalCount(null);
+                setNightScore(null);
+                setNightYesCount(null);
+                setNightTotalCount(null);
+                setStaffFileScore(null);
+                setStaffFileYesCount(null);
+                setStaffFileTotalCount(null);
+                setKitchenScore(null);
+                setKitchenYesCount(null);
+                setKitchenTotalCount(null);
+            }
+        }, (err) => {
+            console.warn('Failed to listen to audit_latest_scores', err);
+        });
+        return () => unsub();
+    }, [workspace?.id]);
+
+    // Function to calculate trends
+    const calculateTrends = (currentData: any) => {
+        const currentMonth = new Date().getMonth();
+        const currentYear = new Date().getFullYear();
+        const monthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+        
+        // Store current month's data
+        setHistoricalData(prev => ({
+            ...prev,
+            [monthKey]: currentData
+        }));
+
+        // Calculate previous month
+        const prevDate = new Date(currentYear, currentMonth - 1);
+        const prevMonthKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+        
+        // Get previous month's data from localStorage
+        const savedHistory = localStorage.getItem(`audit_history_${workspace?.id}`);
+        const history = savedHistory ? JSON.parse(savedHistory) : {};
+        
+        const prevData = history[prevMonthKey];
+        
+        if (prevData && currentData && workspace?.id) {
+            const newTrends: Record<string, { direction: 'up' | 'down' | 'stable', change: number }> = {};
+            
+            // Calculate overall trend
+            const currentOverall = calculateOverallStatsFromData(currentData);
+            const prevOverall = calculateOverallStatsFromData(prevData);
+            
+            if (currentOverall.overallPercentage !== null && prevOverall.overallPercentage !== null) {
+                const overallChange = currentOverall.overallPercentage - prevOverall.overallPercentage;
+                const overallDirection = overallChange > 2 ? 'up' : overallChange < -2 ? 'down' : 'stable';
+                newTrends['overall'] = { direction: overallDirection, change: Math.round(overallChange) };
+            }
+            
+            setTrends(newTrends);
+        }
+        
+        // Save current data to localStorage for next month comparison
+        if (workspace?.id) {
+            const savedHistory = localStorage.getItem(`audit_history_${workspace.id}`);
+            const history = savedHistory ? JSON.parse(savedHistory) : {};
+            const updatedHistory = { ...history, [monthKey]: currentData };
+            localStorage.setItem(`audit_history_${workspace.id}`, JSON.stringify(updatedHistory));
+        }
+    };
+
+    // Helper function to calculate overall stats from raw data
+    const calculateOverallStatsFromData = (data: any) => {
+        const auditTypes = ['care-plan', 'health-safety', 'maintenance', 'restrictive-practice', 
+                           'fire-safety', 'infection-control', 'mealtime', 'night-visit', 'staff-file', 'kitchen'];
+        
+        let totalYes = 0;
+        let totalQuestions = 0;
+        let completedAudits = 0;
+        
+        auditTypes.forEach(auditType => {
+            const audit = data[auditType];
+            if (audit && typeof audit.yesCount === 'number' && typeof audit.totalCount === 'number') {
+                totalYes += audit.yesCount;
+                totalQuestions += audit.totalCount;
+                completedAudits++;
+            }
+        });
+        
+        const overallPercentage = totalQuestions > 0 ? Math.round((totalYes / totalQuestions) * 100) : null;
+        
+        return {
+            overallPercentage,
+            totalYes,
+            totalQuestions,
+            completedAudits
+        };
+    };
+
+    // Calculate overall statistics
+    const calculateOverallStats = () => {
+        const scores = [
+            { score: carePlanScore, yesCount: carePlanYesCount, totalCount: carePlanTotalCount },
+            { score: hsScore, yesCount: hsYesCount, totalCount: hsTotalCount },
+            { score: maintenanceScore, yesCount: maintenanceYesCount, totalCount: maintenanceTotalCount },
+            { score: restrictiveScore, yesCount: restrictiveYesCount, totalCount: restrictiveTotalCount },
+            { score: fireScore, yesCount: fireYesCount, totalCount: fireTotalCount },
+            { score: infectionScore, yesCount: infectionYesCount, totalCount: infectionTotalCount },
+            { score: mealtimeScore, yesCount: mealtimeYesCount, totalCount: mealtimeTotalCount },
+            { score: nightScore, yesCount: nightYesCount, totalCount: nightTotalCount },
+            { score: staffFileScore, yesCount: staffFileYesCount, totalCount: staffFileTotalCount },
+            { score: kitchenScore, yesCount: kitchenYesCount, totalCount: kitchenTotalCount }
+        ];
+
+        const validScores = scores.filter(item => 
+            item.score !== null && item.yesCount !== null && item.totalCount !== null
+        );
+
+        if (validScores.length === 0) {
+            return {
+                totalYesCount: 0,
+                totalQuestions: 0,
+                overallPercentage: null,
+                auditsCompleted: 0,
+                totalAudits: 10
+            };
+        }
+
+        const totalYesCount = validScores.reduce((sum, item) => sum + item.yesCount!, 0);
+        const totalQuestions = validScores.reduce((sum, item) => sum + item.totalCount!, 0);
+        const overallPercentage = totalQuestions > 0 ? Math.round((totalYesCount / totalQuestions) * 100) : null;
+
+        return {
+            totalYesCount,
+            totalQuestions,
+            overallPercentage,
+            auditsCompleted: validScores.length,
+            totalAudits: 10
+        };
+    };
+
+    const overallStats = calculateOverallStats();
+
+    // Function to get gradient colors based on score percentage
+    const getGradientColors = (score: number | null) => {
+        if (score === null) return { start: '#e5e7eb', end: '#cbd5e1' }; // Gray gradient for N/A
+        if (score >= 80) return { start: '#34d399', end: '#059669' }; // Green gradient for high scores
+        if (score >= 20) return { start: '#fbbf24', end: '#d97706' }; // Amber gradient for medium scores  
+        return { start: '#f87171', end: '#dc2626' }; // Red gradient for low scores
+    };
+
+    // Function to get color based on score percentage
+    const getScoreColor = (score: number | null) => {
+        if (score === null) return '#cbd5e1'; // Gray for N/A
+        if (score >= 80) return '#10b981'; // Green for high scores (80%+)
+        if (score >= 20) return '#f59e0b'; // Amber for medium scores (20-79%)
+        return '#ef4444'; // Red for low scores (0-19%)
+    };
+
     return (
     <div className="flex flex-col h-full min-h-screen bg-background">
             {/* Dark hero header (workspace style) */}
@@ -506,11 +851,18 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
                             </div>
                             <div className="p-4 bg-white/6 rounded-lg flex items-center gap-4 shadow-md">
                                 <div className="flex items-center justify-center w-16 h-16 bg-white/5 rounded-full">
-                                    <OccupancyPie percent={Math.round(((workspace?.settings?.occupancy || 0) * 100) || 0)} size={64} strokeWidth={8} />
+                                    <OccupancyPie
+                                        percent={Math.round(((workspace?.settings?.occupancy ?? workspace?.occupancy ?? 0) * 100) || 0)}
+                                        size={72}
+                                        strokeWidth={10}
+                                        centerFill="#ffffff"
+                                        centerFontSize={20}
+                                        centerClassName="font-bold"
+                                    />
                                 </div>
                                 <div className="min-w-0">
                                     <div className="text-xs text-slate-300">Occupancy</div>
-                                    <div className="text-2xl font-bold leading-tight text-white">{Math.round(((workspace?.settings?.occupancy || 0) * 100) || 0)}%</div>
+                                    {/* numeric percent intentionally removed from right side; primary value is in pie center */}
                                 </div>
                             </div>
                         </div>
@@ -518,10 +870,51 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
                 </div>
             </div>
             <main className="flex-1 p-3 sm:p-4 md:p-8 overflow-y-auto space-y-6 sm:space-y-8 md:space-y-12">
-               <QuickActions documents={documents} onSelect={onSelect} workspaceId={workspace.id} />
+               <QuickActions 
+                   documents={documents} 
+                   onSelect={onSelect} 
+                   workspaceId={workspace.id} 
+                   overallStats={overallStats}
+                   getGradientColors={getGradientColors}
+                   trends={trends}
+               />
                <QuickAccess folders={quickAccessFolders} onSelect={onSelect} />
-               <RecentFilesTable documents={recentDocuments} onSelect={onSelect} />
+               
+               {/* Recent Activity Section */}
+               <div className="w-full">
+                   <h2 className="text-lg font-semibold mb-4 text-blue-900 tracking-tight">Recent Activity</h2>
+                   <Card className="hover:shadow-lg transition-shadow border border-blue-200 bg-white/80 backdrop-blur-md rounded-xl">
+                       <CardHeader className="pb-2 border-b border-blue-100 bg-gradient-to-r from-blue-50/60 to-transparent rounded-t-xl">
+                           <CardTitle className="text-sm font-medium flex items-center gap-2">
+                               <TrendingUp className="h-4 w-4 text-green-500" />
+                               Recent Documents
+                           </CardTitle>
+                           <CardDescription className="text-xs text-blue-700/70">Latest documents that were uploaded or modified.</CardDescription>
+                       </CardHeader>
+                       <CardContent className="space-y-2 pt-3">
+                           {recentDocuments.length > 0 ? (
+                               recentDocuments.map(doc => (
+                                   <div key={doc.id} className="flex items-center justify-between p-2 hover:bg-muted rounded cursor-pointer" onClick={() => onSelect(doc)}>
+                                       <div className="flex items-center gap-2 min-w-0">
+                                           {getFileIcon(doc.fileType)}
+                                           <span className="text-sm truncate">{doc.name}</span>
+                                       </div>
+                                       <div className="flex items-center gap-2">
+                                           <Badge variant="outline" className="text-xs">
+                                               {new Date(doc.createdAt).toLocaleDateString()}
+                                           </Badge>
+                                       </div>
+                                   </div>
+                               ))
+                           ) : (
+                               <p className="text-sm text-muted-foreground text-center py-4">No recent activity</p>
+                           )}
+                       </CardContent>
+                   </Card>
+               </div>
             </main>
         </div>
     );
 }
+
+// Care plan stats are now surfaced in the standalone StatsView component.
