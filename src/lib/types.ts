@@ -49,6 +49,7 @@ export type Document = {
   workspaceId?: string;
   folderId?: string | null;
   storagePath?: string;
+  downloadUrl?: string; // Direct download URL for PDF or other files
   tags?: string[];
   renewalDate?: string; // ISO string or null
 };

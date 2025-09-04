@@ -1,0 +1,1167 @@
+"use client";
+import { useState } from "react";
+import { useWorkspace } from '@/context/workspace';
+
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+import { useAuth } from '@/hooks/use-auth';
+import { saveAudit, markAuditCompleted } from '@/lib/firestore';
+
+interface HealthSafetyAuditData {
+  home: string;
+  date: string;
+  personCompletingAudit: string;
+  
+  // Section 1
+  hsa_policy_in_place: string;
+  hsa_policy_in_place_comment: string;
+  staff_trained_hsa: string;
+  staff_trained_hsa_comment: string;
+  checks_documented: string;
+  checks_documented_comment: string;
+  hsa_lead_poster: string;
+  hsa_lead_poster_comment: string;
+
+  // Section 2
+  risk_assessments_in_place: string;
+  risk_assessments_in_place_comment: string;
+  risk_assessments_reviewed: string;
+  risk_assessments_reviewed_comment: string;
+  control_measures_followed: string;
+  control_measures_followed_comment: string;
+  staff_aware_risk_assessments: string;
+  staff_aware_risk_assessments_comment: string;
+
+  // Section 3
+  reporting_system_clear: string;
+  reporting_system_clear_comment: string;
+  incidents_recorded_investigated: string;
+  incidents_recorded_investigated_comment: string;
+  riddor_reported: string;
+  riddor_reported_comment: string;
+  lessons_learned_shared: string;
+  lessons_learned_shared_comment: string;
+
+  // Section 4
+  manual_handling_training: string;
+  manual_handling_training_comment: string;
+  handling_equipment_available: string;
+  handling_equipment_available_comment: string;
+  individual_manual_risk_assessments: string;
+  individual_manual_risk_assessments_comment: string;
+  correct_techniques_used: string;
+  correct_techniques_used_comment: string;
+
+  // Section 5
+  floors_free_from_hazards: string;
+  floors_free_from_hazards_comment: string;
+  safety_aids_secure: string;
+  safety_aids_secure_comment: string;
+  falls_risk_assessments: string;
+  falls_risk_assessments_comment: string;
+  falls_incidents_reviewed: string;
+  falls_incidents_reviewed_comment: string;
+
+  // Section 6
+  handwashing_facilities: string;
+  handwashing_facilities_comment: string;
+  ppe_supplies_available: string;
+  ppe_supplies_available_comment: string;
+  waste_bins_condition: string;
+  waste_bins_condition_comment: string;
+  cleaning_equipment_coloured: string;
+  cleaning_equipment_coloured_comment: string;
+
+  // Section 7
+  hazardous_substances_stored: string;
+  hazardous_substances_stored_comment: string;
+  coshh_risk_assessments: string;
+  coshh_risk_assessments_comment: string;
+  chemicals_labelled: string;
+  chemicals_labelled_comment: string;
+  staff_trained_hazardous: string;
+  staff_trained_hazardous_comment: string;
+
+  // Section 8
+  fire_exits_marked: string;
+  fire_exits_marked_comment: string;
+  extinguishers_alarms_serviced: string;
+  extinguishers_alarms_serviced_comment: string;
+  staff_trained_fire: string;
+  staff_trained_fire_comment: string;
+  fire_risk_assessment_up_to_date: string;
+  fire_risk_assessment_up_to_date_comment: string;
+
+  // Section 9
+  pat_testing: string;
+  pat_testing_comment: string;
+  fixed_wiring_tested: string;
+  fixed_wiring_tested_comment: string;
+  sockets_cables_good: string;
+  sockets_cables_good_comment: string;
+  faulty_items_reported: string;
+  faulty_items_reported_comment: string;
+
+  // Section 10
+  kitchen_clean: string;
+  kitchen_clean_comment: string;
+  food_hygiene_followed: string;
+  food_hygiene_followed_comment: string;
+  cleaning_schedules_signed: string;
+  cleaning_schedules_signed_comment: string;
+  food_stored_appropriately: string;
+  food_stored_appropriately_comment: string;
+
+  // Section 11
+  legionella_risk_assessment: string;
+  legionella_risk_assessment_comment: string;
+  water_temps_monitored: string;
+  water_temps_monitored_comment: string;
+  showers_taps_flushed: string;
+  showers_taps_flushed_comment: string;
+  water_safety_training: string;
+  water_safety_training_comment: string;
+
+  // Section 12
+  environment_free_from_hazards: string;
+  environment_free_from_hazards_comment: string;
+  staff_areas_safe: string;
+  staff_areas_safe_comment: string;
+  break_times_managed: string;
+  break_times_managed_comment: string;
+  lone_working_policies: string;
+  lone_working_policies_comment: string;
+
+  // Section 13
+  ppe_available: string;
+  ppe_available_comment: string;
+  ppe_stored_cleanly: string;
+  ppe_stored_cleanly_comment: string;
+  staff_trained_ppe: string;
+  staff_trained_ppe_comment: string;
+
+  // Section 14
+  staff_hs_training_up_to_date: string;
+  staff_hs_training_up_to_date_comment: string;
+  new_staff_trained_hs: string;
+  new_staff_trained_hs_comment: string;
+  staff_supervised_supported: string;
+  staff_supervised_supported_comment: string;
+  refresher_training_scheduled: string;
+  refresher_training_scheduled_comment: string;
+
+  // Section 15
+  warning_signs_displayed: string;
+  warning_signs_displayed_comment: string;
+  first_aid_posters_visible: string;
+  first_aid_posters_visible_comment: string;
+  residents_informed: string;
+  residents_informed_comment: string;
+}
+
+export default function HealthSafetyAuditPage() {
+  const [showModal, setShowModal] = useState(false);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [finalComments, setFinalComments] = useState('');
+
+  const [auditData, setAuditData] = useState<HealthSafetyAuditData>({
+    home: '',
+    date: '',
+    personCompletingAudit: '',
+
+    // Section 1
+    hsa_policy_in_place: '',
+    hsa_policy_in_place_comment: '',
+    staff_trained_hsa: '',
+    staff_trained_hsa_comment: '',
+    checks_documented: '',
+    checks_documented_comment: '',
+    hsa_lead_poster: '',
+    hsa_lead_poster_comment: '',
+
+    // Section 2
+    risk_assessments_in_place: '',
+    risk_assessments_in_place_comment: '',
+    risk_assessments_reviewed: '',
+    risk_assessments_reviewed_comment: '',
+    control_measures_followed: '',
+    control_measures_followed_comment: '',
+    staff_aware_risk_assessments: '',
+    staff_aware_risk_assessments_comment: '',
+
+    // Section 3
+    reporting_system_clear: '',
+    reporting_system_clear_comment: '',
+    incidents_recorded_investigated: '',
+    incidents_recorded_investigated_comment: '',
+    riddor_reported: '',
+    riddor_reported_comment: '',
+    lessons_learned_shared: '',
+    lessons_learned_shared_comment: '',
+
+    // Section 4
+    manual_handling_training: '',
+    manual_handling_training_comment: '',
+    handling_equipment_available: '',
+    handling_equipment_available_comment: '',
+    individual_manual_risk_assessments: '',
+    individual_manual_risk_assessments_comment: '',
+    correct_techniques_used: '',
+    correct_techniques_used_comment: '',
+
+    // Section 5
+    floors_free_from_hazards: '',
+    floors_free_from_hazards_comment: '',
+    safety_aids_secure: '',
+    safety_aids_secure_comment: '',
+    falls_risk_assessments: '',
+    falls_risk_assessments_comment: '',
+    falls_incidents_reviewed: '',
+    falls_incidents_reviewed_comment: '',
+
+    // Section 6
+    handwashing_facilities: '',
+    handwashing_facilities_comment: '',
+    ppe_supplies_available: '',
+    ppe_supplies_available_comment: '',
+    waste_bins_condition: '',
+    waste_bins_condition_comment: '',
+    cleaning_equipment_coloured: '',
+    cleaning_equipment_coloured_comment: '',
+
+    // Section 7
+    hazardous_substances_stored: '',
+    hazardous_substances_stored_comment: '',
+    coshh_risk_assessments: '',
+    coshh_risk_assessments_comment: '',
+    chemicals_labelled: '',
+    chemicals_labelled_comment: '',
+    staff_trained_hazardous: '',
+    staff_trained_hazardous_comment: '',
+
+    // Section 8
+    fire_exits_marked: '',
+    fire_exits_marked_comment: '',
+    extinguishers_alarms_serviced: '',
+    extinguishers_alarms_serviced_comment: '',
+    staff_trained_fire: '',
+    staff_trained_fire_comment: '',
+    fire_risk_assessment_up_to_date: '',
+    fire_risk_assessment_up_to_date_comment: '',
+
+    // Section 9
+    pat_testing: '',
+    pat_testing_comment: '',
+    fixed_wiring_tested: '',
+    fixed_wiring_tested_comment: '',
+    sockets_cables_good: '',
+    sockets_cables_good_comment: '',
+    faulty_items_reported: '',
+    faulty_items_reported_comment: '',
+
+    // Section 10
+    kitchen_clean: '',
+    kitchen_clean_comment: '',
+    food_hygiene_followed: '',
+    food_hygiene_followed_comment: '',
+    cleaning_schedules_signed: '',
+    cleaning_schedules_signed_comment: '',
+    food_stored_appropriately: '',
+    food_stored_appropriately_comment: '',
+
+    // Section 11
+    legionella_risk_assessment: '',
+    legionella_risk_assessment_comment: '',
+    water_temps_monitored: '',
+    water_temps_monitored_comment: '',
+    showers_taps_flushed: '',
+    showers_taps_flushed_comment: '',
+    water_safety_training: '',
+    water_safety_training_comment: '',
+
+    // Section 12
+    environment_free_from_hazards: '',
+    environment_free_from_hazards_comment: '',
+    staff_areas_safe: '',
+    staff_areas_safe_comment: '',
+    break_times_managed: '',
+    break_times_managed_comment: '',
+    lone_working_policies: '',
+    lone_working_policies_comment: '',
+
+    // Section 13
+    ppe_available: '',
+    ppe_available_comment: '',
+    ppe_stored_cleanly: '',
+    ppe_stored_cleanly_comment: '',
+    staff_trained_ppe: '',
+    staff_trained_ppe_comment: '',
+
+    // Section 14
+    staff_hs_training_up_to_date: '',
+    staff_hs_training_up_to_date_comment: '',
+    new_staff_trained_hs: '',
+    new_staff_trained_hs_comment: '',
+    staff_supervised_supported: '',
+    staff_supervised_supported_comment: '',
+    refresher_training_scheduled: '',
+    refresher_training_scheduled_comment: '',
+
+    // Section 15
+    warning_signs_displayed: '',
+    warning_signs_displayed_comment: '',
+    first_aid_posters_visible: '',
+    first_aid_posters_visible_comment: '',
+    residents_informed: '',
+    residents_informed_comment: '',
+  });
+
+  // Y/N fields used to compute an overall percentage score
+  const YES_NO_FIELDS: (keyof HealthSafetyAuditData)[] = [
+    'hsa_policy_in_place', 'staff_trained_hsa', 'checks_documented', 'hsa_lead_poster',
+    'risk_assessments_in_place', 'risk_assessments_reviewed', 'control_measures_followed', 'staff_aware_risk_assessments',
+    'reporting_system_clear', 'incidents_recorded_investigated', 'riddor_reported', 'lessons_learned_shared',
+    'manual_handling_training', 'handling_equipment_available', 'individual_manual_risk_assessments', 'correct_techniques_used',
+    'floors_free_from_hazards', 'safety_aids_secure', 'falls_risk_assessments', 'falls_incidents_reviewed',
+    'handwashing_facilities', 'ppe_supplies_available', 'waste_bins_condition', 'cleaning_equipment_coloured',
+    'hazardous_substances_stored', 'coshh_risk_assessments', 'chemicals_labelled', 'staff_trained_hazardous',
+    'fire_exits_marked', 'extinguishers_alarms_serviced', 'staff_trained_fire', 'fire_risk_assessment_up_to_date',
+    'pat_testing', 'fixed_wiring_tested', 'sockets_cables_good', 'faulty_items_reported',
+    'kitchen_clean', 'food_hygiene_followed', 'cleaning_schedules_signed', 'food_stored_appropriately',
+    'legionella_risk_assessment', 'water_temps_monitored', 'showers_taps_flushed', 'water_safety_training',
+    'environment_free_from_hazards', 'staff_areas_safe', 'break_times_managed', 'lone_working_policies',
+    'ppe_available', 'ppe_stored_cleanly', 'staff_trained_ppe',
+    'staff_hs_training_up_to_date', 'new_staff_trained_hs', 'staff_supervised_supported', 'refresher_training_scheduled',
+    'warning_signs_displayed', 'first_aid_posters_visible', 'residents_informed'
+  ];
+
+  const activeWorkspace = useWorkspace();
+  const { user } = useAuth();
+
+  const handleInputChange = (field: keyof HealthSafetyAuditData, value: string) => {
+    setAuditData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+    
+    if (value.trim() !== '' && errors.includes(field)) {
+      setErrors(prev => prev.filter(error => error !== field));
+    }
+  };
+
+  const YesNoQuestion = ({
+    label,
+    yesNoField,
+    commentField,
+    yesNoValue,
+    commentValue,
+    onYesNoChange,
+    onCommentChange
+  }: {
+    label: string;
+    yesNoField: string;
+    commentField: string;
+    yesNoValue: string;
+    commentValue: string;
+    onYesNoChange: (value: string) => void;
+    onCommentChange: (value: string) => void;
+  }) => (
+    <div className="space-y-3">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+        <div className="flex gap-4" data-field={yesNoField}>
+          <label className="flex items-center">
+            <input
+              type="radio"
+              name={yesNoField}
+              value="Yes"
+              checked={yesNoValue === 'Yes'}
+              onChange={(e) => onYesNoChange(e.target.value)}
+              className="mr-2"
+            />
+            Yes
+          </label>
+          <label className="flex items-center">
+            <input
+              type="radio"
+              name={yesNoField}
+              value="No"
+              checked={yesNoValue === 'No'}
+              onChange={(e) => onYesNoChange(e.target.value)}
+              className="mr-2"
+            />
+            No
+          </label>
+        </div>
+        {errors.includes(yesNoField) && (
+          <p className="text-red-500 text-sm mt-1">This field is required</p>
+        )}
+      </div>
+      <div>
+        {/* per-question comment UI removed — use final comments at the end of the page */}
+      </div>
+    </div>
+  );
+
+  const validateForm = () => {
+    const requiredFields: (keyof HealthSafetyAuditData)[] = [
+      'home', 'date', 'personCompletingAudit',
+      'hsa_policy_in_place', 'staff_trained_hsa', 'checks_documented', 'hsa_lead_poster',
+      'risk_assessments_in_place', 'risk_assessments_reviewed', 'control_measures_followed', 'staff_aware_risk_assessments',
+      'reporting_system_clear', 'incidents_recorded_investigated', 'riddor_reported', 'lessons_learned_shared',
+      'manual_handling_training', 'handling_equipment_available', 'individual_manual_risk_assessments', 'correct_techniques_used',
+      'floors_free_from_hazards', 'safety_aids_secure', 'falls_risk_assessments', 'falls_incidents_reviewed',
+      'handwashing_facilities', 'ppe_supplies_available', 'waste_bins_condition', 'cleaning_equipment_coloured',
+      'hazardous_substances_stored', 'coshh_risk_assessments', 'chemicals_labelled', 'staff_trained_hazardous',
+      'fire_exits_marked', 'extinguishers_alarms_serviced', 'staff_trained_fire', 'fire_risk_assessment_up_to_date',
+      'pat_testing', 'fixed_wiring_tested', 'sockets_cables_good', 'faulty_items_reported',
+      'kitchen_clean', 'food_hygiene_followed', 'cleaning_schedules_signed', 'food_stored_appropriately',
+      'legionella_risk_assessment', 'water_temps_monitored', 'showers_taps_flushed', 'water_safety_training',
+      'environment_free_from_hazards', 'staff_areas_safe', 'break_times_managed', 'lone_working_policies',
+      'ppe_available', 'ppe_stored_cleanly', 'staff_trained_ppe',
+      'staff_hs_training_up_to_date', 'new_staff_trained_hs', 'staff_supervised_supported', 'refresher_training_scheduled',
+      'warning_signs_displayed', 'first_aid_posters_visible', 'residents_informed'
+    ];
+
+    const newErrors = requiredFields.filter(field => !auditData[field].trim());
+    setErrors(newErrors as string[]);
+
+    if (newErrors.length > 0) {
+      const firstErrorElement = document.querySelector(`[data-field="${newErrors[0]}"]`);
+      firstErrorElement?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    return newErrors.length === 0;
+  };
+
+  const handleCompleteAudit = () => {
+    if (validateForm()) {
+      setShowModal(true);
+    }
+  };
+
+  const handleModalCreate = async (createActionPlan: boolean) => {
+    if (!activeWorkspace?.id) {
+      alert('Please select a workspace before saving');
+      return;
+    }
+    setSaving(true);
+    try {
+      const yesCount = YES_NO_FIELDS.reduce((acc, f) => acc + (auditData[f] === 'Yes' ? 1 : 0), 0);
+      const totalCount = YES_NO_FIELDS.length;
+      const scorePercent = totalCount > 0 ? Math.round((yesCount / totalCount) * 100) : 0;
+
+  const payload = { auditType: 'health-safety', ...auditData, comments: finalComments, createActionPlan, createdBy: user?.id ?? null, workspaceId: activeWorkspace.id, yesCount, totalCount, scorePercent };
+      const id = await saveAudit(payload, activeWorkspace.id);
+      await markAuditCompleted(activeWorkspace.id, 'health-safety', auditData.date || new Date().toISOString());
+      alert('Audit saved');
+      setShowModal(false);
+    } catch (e) {
+      console.error('Failed to save audit', e);
+      alert('Failed to save audit');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleModalClose = () => {
+    setShowModal(false);
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto p-6 bg-white">
+      <div className="mb-6">
+        <div className="flex justify-between items-center mb-4">
+          <h1 className="text-2xl font-bold text-gray-900">Health and Safety Audit</h1>
+        </div>
+
+        <div className="bg-blue-50 p-4 rounded-lg mb-6">
+          <h2 className="text-lg font-semibold text-blue-900 mb-4">Audit Information</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Home</label>
+              <input
+                type="text"
+                data-field="home"
+                value={auditData.home}
+                onChange={(e) => handleInputChange('home', e.target.value)}
+                className={`w-full p-2 border rounded-md ${errors.includes('home') ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                placeholder="Enter home name"
+              />
+              {errors.includes('home') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
+              <input
+                type="date"
+                data-field="date"
+                value={auditData.date}
+                onChange={(e) => handleInputChange('date', e.target.value)}
+                className={`w-full p-2 border rounded-md ${errors.includes('date') ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+              />
+              {errors.includes('date') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Person Completing the Audit</label>
+              <input
+                type="text"
+                data-field="personCompletingAudit"
+                value={auditData.personCompletingAudit}
+                onChange={(e) => handleInputChange('personCompletingAudit', e.target.value)}
+                className={`w-full p-2 border rounded-md ${errors.includes('personCompletingAudit') ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                placeholder="Enter auditor name"
+              />
+              {errors.includes('personCompletingAudit') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
+            </div>
+          </div>
+        </div>
+
+        {/* Sections */}
+        <div className="space-y-6">
+          <div className="bg-green-50 p-4 rounded-lg">
+            <h3 className="text-lg font-semibold text-green-900 mb-3">1. General Health and Safety Management</h3>
+            <div className="space-y-4">
+              <YesNoQuestion
+                label="Is there a current Health and Safety policy in place and reviewed?"
+                yesNoField="hsa_policy_in_place"
+                commentField="hsa_policy_in_place_comment"
+                yesNoValue={auditData.hsa_policy_in_place}
+                commentValue={auditData.hsa_policy_in_place_comment}
+                onYesNoChange={(value) => handleInputChange('hsa_policy_in_place', value)}
+                onCommentChange={(value) => handleInputChange('hsa_policy_in_place_comment', value)}
+              />
+              <YesNoQuestion
+                label="Are staff aware of and trained in the Health and Safety procedures?"
+                yesNoField="staff_trained_hsa"
+                commentField="staff_trained_hsa_comment"
+                yesNoValue={auditData.staff_trained_hsa}
+                commentValue={auditData.staff_trained_hsa_comment}
+                onYesNoChange={(value) => handleInputChange('staff_trained_hsa', value)}
+                onCommentChange={(value) => handleInputChange('staff_trained_hsa_comment', value)}
+              />
+              <YesNoQuestion
+                label="Are regular Health and Safety checks carried out and documented?"
+                yesNoField="checks_documented"
+                commentField="checks_documented_comment"
+                yesNoValue={auditData.checks_documented}
+                commentValue={auditData.checks_documented_comment}
+                onYesNoChange={(value) => handleInputChange('checks_documented', value)}
+                onCommentChange={(value) => handleInputChange('checks_documented_comment', value)}
+              />
+              <YesNoQuestion
+                label="Is there a designated Health and Safety lead or officer and poster displayed?"
+                yesNoField="hsa_lead_poster"
+                commentField="hsa_lead_poster_comment"
+                yesNoValue={auditData.hsa_lead_poster}
+                commentValue={auditData.hsa_lead_poster_comment}
+                onYesNoChange={(value) => handleInputChange('hsa_lead_poster', value)}
+                onCommentChange={(value) => handleInputChange('hsa_lead_poster_comment', value)}
+              />
+            </div>
+          </div>
+
+          <div className="bg-yellow-50 p-4 rounded-lg">
+            <h3 className="text-lg font-semibold text-yellow-900 mb-3">2. Risk Assessments</h3>
+            <div className="space-y-4">
+              <YesNoQuestion
+                label="Are risk assessments in place for all relevant activities (e.g. manual handling, COSHH, fire)?"
+                yesNoField="risk_assessments_in_place"
+                commentField="risk_assessments_in_place_comment"
+                yesNoValue={auditData.risk_assessments_in_place}
+                commentValue={auditData.risk_assessments_in_place_comment}
+                onYesNoChange={(value) => handleInputChange('risk_assessments_in_place', value)}
+                onCommentChange={(value) => handleInputChange('risk_assessments_in_place_comment', value)}
+              />
+              <YesNoQuestion
+                label="Are risk assessments reviewed at least annually or after significant changes/incidents?"
+                yesNoField="risk_assessments_reviewed"
+                commentField="risk_assessments_reviewed_comment"
+                yesNoValue={auditData.risk_assessments_reviewed}
+                commentValue={auditData.risk_assessments_reviewed_comment}
+                onYesNoChange={(value) => handleInputChange('risk_assessments_reviewed', value)}
+                onCommentChange={(value) => handleInputChange('risk_assessments_reviewed_comment', value)}
+              />
+              <YesNoQuestion
+                label="Are control measures from risk assessments in place and followed?"
+                yesNoField="control_measures_followed"
+                commentField="control_measures_followed_comment"
+                yesNoValue={auditData.control_measures_followed}
+                commentValue={auditData.control_measures_followed_comment}
+                onYesNoChange={(value) => handleInputChange('control_measures_followed', value)}
+                onCommentChange={(value) => handleInputChange('control_measures_followed_comment', value)}
+              />
+              <YesNoQuestion
+                label="Are staff aware of relevant risk assessments relating to their duties?"
+                yesNoField="staff_aware_risk_assessments"
+                commentField="staff_aware_risk_assessments_comment"
+                yesNoValue={auditData.staff_aware_risk_assessments}
+                commentValue={auditData.staff_aware_risk_assessments_comment}
+                onYesNoChange={(value) => handleInputChange('staff_aware_risk_assessments', value)}
+                onCommentChange={(value) => handleInputChange('staff_aware_risk_assessments_comment', value)}
+              />
+            </div>
+          </div>
+
+          <div className="bg-red-50 p-4 rounded-lg">
+            <h3 className="text-lg font-semibold text-red-900 mb-3">3. Accident and Incident Reporting</h3>
+            <div className="space-y-4">
+              <YesNoQuestion
+                label="Is there a clear system in place for reporting accidents and incidents?"
+                yesNoField="reporting_system_clear"
+                commentField="reporting_system_clear_comment"
+                yesNoValue={auditData.reporting_system_clear}
+                commentValue={auditData.reporting_system_clear_comment}
+                onYesNoChange={(value) => handleInputChange('reporting_system_clear', value)}
+                onCommentChange={(value) => handleInputChange('reporting_system_clear_comment', value)}
+              />
+              <YesNoQuestion
+                label="Are all incidents recorded  and investigated promptly?"
+                yesNoField="incidents_recorded_investigated"
+                commentField="incidents_recorded_investigated_comment"
+                yesNoValue={auditData.incidents_recorded_investigated}
+                commentValue={auditData.incidents_recorded_investigated_comment}
+                onYesNoChange={(value) => handleInputChange('incidents_recorded_investigated', value)}
+                onCommentChange={(value) => handleInputChange('incidents_recorded_investigated_comment', value)}
+              />
+              <YesNoQuestion
+                label="Are RIDDOR-reportable incidents reported to the HSE as required?"
+                yesNoField="riddor_reported"
+                commentField="riddor_reported_comment"
+                yesNoValue={auditData.riddor_reported}
+                commentValue={auditData.riddor_reported_comment}
+                onYesNoChange={(value) => handleInputChange('riddor_reported', value)}
+                onCommentChange={(value) => handleInputChange('riddor_reported_comment', value)}
+              />
+              <YesNoQuestion
+                label="Are lessons learned from incidents shared and actions implemented?"
+                yesNoField="lessons_learned_shared"
+                commentField="lessons_learned_shared_comment"
+                yesNoValue={auditData.lessons_learned_shared}
+                commentValue={auditData.lessons_learned_shared_comment}
+                onYesNoChange={(value) => handleInputChange('lessons_learned_shared', value)}
+                onCommentChange={(value) => handleInputChange('lessons_learned_shared_comment', value)}
+              />
+            </div>
+          </div>
+
+          <div className="bg-indigo-50 p-4 rounded-lg">
+            <h3 className="text-lg font-semibold text-indigo-900 mb-3">4. Manual Handling</h3>
+            <div className="space-y-4">
+              <YesNoQuestion
+                label="Have staff received manual handling training?"
+                yesNoField="manual_handling_training"
+                commentField="manual_handling_training_comment"
+                yesNoValue={auditData.manual_handling_training}
+                commentValue={auditData.manual_handling_training_comment}
+                onYesNoChange={(value) => handleInputChange('manual_handling_training', value)}
+                onCommentChange={(value) => handleInputChange('manual_handling_training_comment', value)}
+              />
+              <YesNoQuestion
+                label="Are moving and handling equipment (hoists, slings, stand aids) available, well maintained, and used correctly?"
+                yesNoField="handling_equipment_available"
+                commentField="handling_equipment_available_comment"
+                yesNoValue={auditData.handling_equipment_available}
+                commentValue={auditData.handling_equipment_available_comment}
+                onYesNoChange={(value) => handleInputChange('handling_equipment_available', value)}
+                onCommentChange={(value) => handleInputChange('handling_equipment_available_comment', value)}
+              />
+              <YesNoQuestion
+                label="Are individual manual handling risk assessments in place for residents?"
+                yesNoField="individual_manual_risk_assessments"
+                commentField="individual_manual_risk_assessments_comment"
+                yesNoValue={auditData.individual_manual_risk_assessments}
+                commentValue={auditData.individual_manual_risk_assessments_comment}
+                onYesNoChange={(value) => handleInputChange('individual_manual_risk_assessments', value)}
+                onCommentChange={(value) => handleInputChange('individual_manual_risk_assessments_comment', value)}
+              />
+              <YesNoQuestion
+                label="Are staff using correct techniques and equipment during manual handling?"
+                yesNoField="correct_techniques_used"
+                commentField="correct_techniques_used_comment"
+                yesNoValue={auditData.correct_techniques_used}
+                commentValue={auditData.correct_techniques_used_comment}
+                onYesNoChange={(value) => handleInputChange('correct_techniques_used', value)}
+                onCommentChange={(value) => handleInputChange('correct_techniques_used_comment', value)}
+              />
+            </div>
+          </div>
+
+          <div className="bg-pink-50 p-4 rounded-lg">
+            <h3 className="text-lg font-semibold text-pink-900 mb-3">5. Slips, Trips, and Falls Prevention</h3>
+            <div className="space-y-4">
+              <YesNoQuestion
+                label="Are floors clean, dry, and free from trip hazards?"
+                yesNoField="floors_free_from_hazards"
+                commentField="floors_free_from_hazards_comment"
+                yesNoValue={auditData.floors_free_from_hazards}
+                commentValue={auditData.floors_free_from_hazards_comment}
+                onYesNoChange={(value) => handleInputChange('floors_free_from_hazards', value)}
+                onCommentChange={(value) => handleInputChange('floors_free_from_hazards_comment', value)}
+              />
+              <YesNoQuestion
+                label="Are safety aids (grab rails, alarms, non-slip mats) secure and in good condition?"
+                yesNoField="safety_aids_secure"
+                commentField="safety_aids_secure_comment"
+                yesNoValue={auditData.safety_aids_secure}
+                commentValue={auditData.safety_aids_secure_comment}
+                onYesNoChange={(value) => handleInputChange('safety_aids_secure', value)}
+                onCommentChange={(value) => handleInputChange('safety_aids_secure_comment', value)}
+              />
+              <YesNoQuestion
+                label="Are falls risk assessments completed and up to date?"
+                yesNoField="falls_risk_assessments"
+                commentField="falls_risk_assessments_comment"
+                yesNoValue={auditData.falls_risk_assessments}
+                commentValue={auditData.falls_risk_assessments_comment}
+                onYesNoChange={(value) => handleInputChange('falls_risk_assessments', value)}
+                onCommentChange={(value) => handleInputChange('falls_risk_assessments_comment', value)}
+              />
+              <YesNoQuestion
+                label="Are falls and related incidents reviewed with learning/actions recorded?"
+                yesNoField="falls_incidents_reviewed"
+                commentField="falls_incidents_reviewed_comment"
+                yesNoValue={auditData.falls_incidents_reviewed}
+                commentValue={auditData.falls_incidents_reviewed_comment}
+                onYesNoChange={(value) => handleInputChange('falls_incidents_reviewed', value)}
+                onCommentChange={(value) => handleInputChange('falls_incidents_reviewed_comment', value)}
+              />
+            </div>
+          </div>
+
+          <div className="bg-rose-50 p-4 rounded-lg">
+            <h3 className="text-lg font-semibold text-rose-900 mb-3">6. Infection Prevention and Control</h3>
+            <div className="space-y-4">
+              <YesNoQuestion
+                label="Are handwashing facilities available and stocked?"
+                yesNoField="handwashing_facilities"
+                commentField="handwashing_facilities_comment"
+                yesNoValue={auditData.handwashing_facilities}
+                commentValue={auditData.handwashing_facilities_comment}
+                onYesNoChange={(value) => handleInputChange('handwashing_facilities', value)}
+                onCommentChange={(value) => handleInputChange('handwashing_facilities_comment', value)}
+              />
+              <YesNoQuestion
+                label="Are PPE supplies available and accessible?"
+                yesNoField="ppe_supplies_available"
+                commentField="ppe_supplies_available_comment"
+                yesNoValue={auditData.ppe_supplies_available}
+                commentValue={auditData.ppe_supplies_available_comment}
+                onYesNoChange={(value) => handleInputChange('ppe_supplies_available', value)}
+                onCommentChange={(value) => handleInputChange('ppe_supplies_available_comment', value)}
+              />
+              <YesNoQuestion
+                label="Are waste bins in good condition and used appropriately?"
+                yesNoField="waste_bins_condition"
+                commentField="waste_bins_condition_comment"
+                yesNoValue={auditData.waste_bins_condition}
+                commentValue={auditData.waste_bins_condition_comment}
+                onYesNoChange={(value) => handleInputChange('waste_bins_condition', value)}
+                onCommentChange={(value) => handleInputChange('waste_bins_condition_comment', value)}
+              />
+              <YesNoQuestion
+                label="Is cleaning equipment colour-coded and stored correctly?"
+                yesNoField="cleaning_equipment_coloured"
+                commentField="cleaning_equipment_coloured_comment"
+                yesNoValue={auditData.cleaning_equipment_coloured}
+                commentValue={auditData.cleaning_equipment_coloured_comment}
+                onYesNoChange={(value) => handleInputChange('cleaning_equipment_coloured', value)}
+                onCommentChange={(value) => handleInputChange('cleaning_equipment_coloured_comment', value)}
+              />
+            </div>
+          </div>
+
+          <div className="bg-violet-50 p-4 rounded-lg">
+            <h3 className="text-lg font-semibold text-violet-900 mb-3">7. Hazardous Substances (COSHH)</h3>
+            <div className="space-y-4">
+              <YesNoQuestion
+                label="Are hazardous substances stored safely?"
+                yesNoField="hazardous_substances_stored"
+                commentField="hazardous_substances_stored_comment"
+                yesNoValue={auditData.hazardous_substances_stored}
+                commentValue={auditData.hazardous_substances_stored_comment}
+                onYesNoChange={(value) => handleInputChange('hazardous_substances_stored', value)}
+                onCommentChange={(value) => handleInputChange('hazardous_substances_stored_comment', value)}
+              />
+              <YesNoQuestion
+                label="Are COSHH risk assessments available and up to date?"
+                yesNoField="coshh_risk_assessments"
+                commentField="coshh_risk_assessments_comment"
+                yesNoValue={auditData.coshh_risk_assessments}
+                commentValue={auditData.coshh_risk_assessments_comment}
+                onYesNoChange={(value) => handleInputChange('coshh_risk_assessments', value)}
+                onCommentChange={(value) => handleInputChange('coshh_risk_assessments_comment', value)}
+              />
+              <YesNoQuestion
+                label="Are chemicals labelled correctly with safety data?"
+                yesNoField="chemicals_labelled"
+                commentField="chemicals_labelled_comment"
+                yesNoValue={auditData.chemicals_labelled}
+                commentValue={auditData.chemicals_labelled_comment}
+                onYesNoChange={(value) => handleInputChange('chemicals_labelled', value)}
+                onCommentChange={(value) => handleInputChange('chemicals_labelled_comment', value)}
+              />
+              <YesNoQuestion
+                label="Are staff trained in handling hazardous substances?"
+                yesNoField="staff_trained_hazardous"
+                commentField="staff_trained_hazardous_comment"
+                yesNoValue={auditData.staff_trained_hazardous}
+                commentValue={auditData.staff_trained_hazardous_comment}
+                onYesNoChange={(value) => handleInputChange('staff_trained_hazardous', value)}
+                onCommentChange={(value) => handleInputChange('staff_trained_hazardous_comment', value)}
+              />
+            </div>
+          </div>
+
+          <div className="bg-amber-50 p-4 rounded-lg">
+            <h3 className="text-lg font-semibold text-amber-900 mb-3">8. Fire Safety</h3>
+            <div className="space-y-4">
+              <YesNoQuestion
+                label="Are fire exits marked, clear and accessible?"
+                yesNoField="fire_exits_marked"
+                commentField="fire_exits_marked_comment"
+                yesNoValue={auditData.fire_exits_marked}
+                commentValue={auditData.fire_exits_marked_comment}
+                onYesNoChange={(value) => handleInputChange('fire_exits_marked', value)}
+                onCommentChange={(value) => handleInputChange('fire_exits_marked_comment', value)}
+              />
+              <YesNoQuestion
+                label="Are extinguishers and alarms serviced and records up to date?"
+                yesNoField="extinguishers_alarms_serviced"
+                commentField="extinguishers_alarms_serviced_comment"
+                yesNoValue={auditData.extinguishers_alarms_serviced}
+                commentValue={auditData.extinguishers_alarms_serviced_comment}
+                onYesNoChange={(value) => handleInputChange('extinguishers_alarms_serviced', value)}
+                onCommentChange={(value) => handleInputChange('extinguishers_alarms_serviced_comment', value)}
+              />
+              <YesNoQuestion
+                label="Are staff trained and aware of fire procedures?"
+                yesNoField="staff_trained_fire"
+                commentField="staff_trained_fire_comment"
+                yesNoValue={auditData.staff_trained_fire}
+                commentValue={auditData.staff_trained_fire_comment}
+                onYesNoChange={(value) => handleInputChange('staff_trained_fire', value)}
+                onCommentChange={(value) => handleInputChange('staff_trained_fire_comment', value)}
+              />
+              <YesNoQuestion
+                label="Is the fire risk assessment up to date?"
+                yesNoField="fire_risk_assessment_up_to_date"
+                commentField="fire_risk_assessment_up_to_date_comment"
+                yesNoValue={auditData.fire_risk_assessment_up_to_date}
+                commentValue={auditData.fire_risk_assessment_up_to_date_comment}
+                onYesNoChange={(value) => handleInputChange('fire_risk_assessment_up_to_date', value)}
+                onCommentChange={(value) => handleInputChange('fire_risk_assessment_up_to_date_comment', value)}
+              />
+            </div>
+          </div>
+
+          <div className="bg-sky-50 p-4 rounded-lg">
+            <h3 className="text-lg font-semibold text-sky-900 mb-3">9. Electrical Safety</h3>
+            <div className="space-y-4">
+              <YesNoQuestion
+                label="Is PAT testing up to date where applicable?"
+                yesNoField="pat_testing"
+                commentField="pat_testing_comment"
+                yesNoValue={auditData.pat_testing}
+                commentValue={auditData.pat_testing_comment}
+                onYesNoChange={(value) => handleInputChange('pat_testing', value)}
+                onCommentChange={(value) => handleInputChange('pat_testing_comment', value)}
+              />
+              <YesNoQuestion
+                label="Is fixed wiring tested and shown as maintained?"
+                yesNoField="fixed_wiring_tested"
+                commentField="fixed_wiring_tested_comment"
+                yesNoValue={auditData.fixed_wiring_tested}
+                commentValue={auditData.fixed_wiring_tested_comment}
+                onYesNoChange={(value) => handleInputChange('fixed_wiring_tested', value)}
+                onCommentChange={(value) => handleInputChange('fixed_wiring_tested_comment', value)}
+              />
+              <YesNoQuestion
+                label="Are sockets and cables in good condition?"
+                yesNoField="sockets_cables_good"
+                commentField="sockets_cables_good_comment"
+                yesNoValue={auditData.sockets_cables_good}
+                commentValue={auditData.sockets_cables_good_comment}
+                onYesNoChange={(value) => handleInputChange('sockets_cables_good', value)}
+                onCommentChange={(value) => handleInputChange('sockets_cables_good_comment', value)}
+              />
+              <YesNoQuestion
+                label="Are faulty items reported and isolated?"
+                yesNoField="faulty_items_reported"
+                commentField="faulty_items_reported_comment"
+                yesNoValue={auditData.faulty_items_reported}
+                commentValue={auditData.faulty_items_reported_comment}
+                onYesNoChange={(value) => handleInputChange('faulty_items_reported', value)}
+                onCommentChange={(value) => handleInputChange('faulty_items_reported_comment', value)}
+              />
+            </div>
+          </div>
+
+          <div className="bg-emerald-50 p-4 rounded-lg">
+            <h3 className="text-lg font-semibold text-emerald-900 mb-3">10. Kitchen and Food Safety</h3>
+            <div className="space-y-4">
+              <YesNoQuestion
+                label="Is the kitchen clean and maintained to hygiene standards?"
+                yesNoField="kitchen_clean"
+                commentField="kitchen_clean_comment"
+                yesNoValue={auditData.kitchen_clean}
+                commentValue={auditData.kitchen_clean_comment}
+                onYesNoChange={(value) => handleInputChange('kitchen_clean', value)}
+                onCommentChange={(value) => handleInputChange('kitchen_clean_comment', value)}
+              />
+              <YesNoQuestion
+                label="Are food hygiene practices followed (storage, temperatures)?"
+                yesNoField="food_hygiene_followed"
+                commentField="food_hygiene_followed_comment"
+                yesNoValue={auditData.food_hygiene_followed}
+                commentValue={auditData.food_hygiene_followed_comment}
+                onYesNoChange={(value) => handleInputChange('food_hygiene_followed', value)}
+                onCommentChange={(value) => handleInputChange('food_hygiene_followed_comment', value)}
+              />
+              <YesNoQuestion
+                label="Are cleaning schedules signed and followed?"
+                yesNoField="cleaning_schedules_signed"
+                commentField="cleaning_schedules_signed_comment"
+                yesNoValue={auditData.cleaning_schedules_signed}
+                commentValue={auditData.cleaning_schedules_signed_comment}
+                onYesNoChange={(value) => handleInputChange('cleaning_schedules_signed', value)}
+                onCommentChange={(value) => handleInputChange('cleaning_schedules_signed_comment', value)}
+              />
+              <YesNoQuestion
+                label="Is food stored appropriately and labelled?"
+                yesNoField="food_stored_appropriately"
+                commentField="food_stored_appropriately_comment"
+                yesNoValue={auditData.food_stored_appropriately}
+                commentValue={auditData.food_stored_appropriately_comment}
+                onYesNoChange={(value) => handleInputChange('food_stored_appropriately', value)}
+                onCommentChange={(value) => handleInputChange('food_stored_appropriately_comment', value)}
+              />
+            </div>
+          </div>
+
+          <div className="bg-slate-50 p-4 rounded-lg">
+            <h3 className="text-lg font-semibold text-slate-900 mb-3">11. Water and Legionella</h3>
+            <div className="space-y-4">
+              <YesNoQuestion
+                label="Is a legionella risk assessment in place?"
+                yesNoField="legionella_risk_assessment"
+                commentField="legionella_risk_assessment_comment"
+                yesNoValue={auditData.legionella_risk_assessment}
+                commentValue={auditData.legionella_risk_assessment_comment}
+                onYesNoChange={(value) => handleInputChange('legionella_risk_assessment', value)}
+                onCommentChange={(value) => handleInputChange('legionella_risk_assessment_comment', value)}
+              />
+              <YesNoQuestion
+                label="Are water temperatures monitored and recorded?"
+                yesNoField="water_temps_monitored"
+                commentField="water_temps_monitored_comment"
+                yesNoValue={auditData.water_temps_monitored}
+                commentValue={auditData.water_temps_monitored_comment}
+                onYesNoChange={(value) => handleInputChange('water_temps_monitored', value)}
+                onCommentChange={(value) => handleInputChange('water_temps_monitored_comment', value)}
+              />
+              <YesNoQuestion
+                label="Are showers and infrequently used outlets flushed as required?"
+                yesNoField="showers_taps_flushed"
+                commentField="showers_taps_flushed_comment"
+                yesNoValue={auditData.showers_taps_flushed}
+                commentValue={auditData.showers_taps_flushed_comment}
+                onYesNoChange={(value) => handleInputChange('showers_taps_flushed', value)}
+                onCommentChange={(value) => handleInputChange('showers_taps_flushed_comment', value)}
+              />
+              <YesNoQuestion
+                label="Are staff trained in water safety where appropriate?"
+                yesNoField="water_safety_training"
+                commentField="water_safety_training_comment"
+                yesNoValue={auditData.water_safety_training}
+                commentValue={auditData.water_safety_training_comment}
+                onYesNoChange={(value) => handleInputChange('water_safety_training', value)}
+                onCommentChange={(value) => handleInputChange('water_safety_training_comment', value)}
+              />
+            </div>
+          </div>
+
+          <div className="bg-rose-50 p-4 rounded-lg">
+            <h3 className="text-lg font-semibold text-rose-900 mb-3">12. Environment and Staff Welfare</h3>
+            <div className="space-y-4">
+              <YesNoQuestion
+                label="Is the environment free from obvious hazards?"
+                yesNoField="environment_free_from_hazards"
+                commentField="environment_free_from_hazards_comment"
+                yesNoValue={auditData.environment_free_from_hazards}
+                commentValue={auditData.environment_free_from_hazards_comment}
+                onYesNoChange={(value) => handleInputChange('environment_free_from_hazards', value)}
+                onCommentChange={(value) => handleInputChange('environment_free_from_hazards_comment', value)}
+              />
+              <YesNoQuestion
+                label="Are staff areas (rest rooms, lockers) safe and maintained?"
+                yesNoField="staff_areas_safe"
+                commentField="staff_areas_safe_comment"
+                yesNoValue={auditData.staff_areas_safe}
+                commentValue={auditData.staff_areas_safe_comment}
+                onYesNoChange={(value) => handleInputChange('staff_areas_safe', value)}
+                onCommentChange={(value) => handleInputChange('staff_areas_safe_comment', value)}
+              />
+              <YesNoQuestion
+                label="Are break times and staff welfare managed appropriately?"
+                yesNoField="break_times_managed"
+                commentField="break_times_managed_comment"
+                yesNoValue={auditData.break_times_managed}
+                commentValue={auditData.break_times_managed_comment}
+                onYesNoChange={(value) => handleInputChange('break_times_managed', value)}
+                onCommentChange={(value) => handleInputChange('break_times_managed_comment', value)}
+              />
+              <YesNoQuestion
+                label="Are lone working policies in place and followed?"
+                yesNoField="lone_working_policies"
+                commentField="lone_working_policies_comment"
+                yesNoValue={auditData.lone_working_policies}
+                commentValue={auditData.lone_working_policies_comment}
+                onYesNoChange={(value) => handleInputChange('lone_working_policies', value)}
+                onCommentChange={(value) => handleInputChange('lone_working_policies_comment', value)}
+              />
+            </div>
+          </div>
+
+          <div className="bg-lime-50 p-4 rounded-lg">
+            <h3 className="text-lg font-semibold text-lime-900 mb-3">13. PPE and Training</h3>
+            <div className="space-y-4">
+              <YesNoQuestion
+                label="Is PPE available for staff?"
+                yesNoField="ppe_available"
+                commentField="ppe_available_comment"
+                yesNoValue={auditData.ppe_available}
+                commentValue={auditData.ppe_available_comment}
+                onYesNoChange={(value) => handleInputChange('ppe_available', value)}
+                onCommentChange={(value) => handleInputChange('ppe_available_comment', value)}
+              />
+              <YesNoQuestion
+                label="Is PPE stored cleanly and replaced as needed?"
+                yesNoField="ppe_stored_cleanly"
+                commentField="ppe_stored_cleanly_comment"
+                yesNoValue={auditData.ppe_stored_cleanly}
+                commentValue={auditData.ppe_stored_cleanly_comment}
+                onYesNoChange={(value) => handleInputChange('ppe_stored_cleanly', value)}
+                onCommentChange={(value) => handleInputChange('ppe_stored_cleanly_comment', value)}
+              />
+              <YesNoQuestion
+                label="Are staff trained in correct use of PPE?"
+                yesNoField="staff_trained_ppe"
+                commentField="staff_trained_ppe_comment"
+                yesNoValue={auditData.staff_trained_ppe}
+                commentValue={auditData.staff_trained_ppe_comment}
+                onYesNoChange={(value) => handleInputChange('staff_trained_ppe', value)}
+                onCommentChange={(value) => handleInputChange('staff_trained_ppe_comment', value)}
+              />
+            </div>
+          </div>
+
+          <div className="bg-cyan-50 p-4 rounded-lg">
+            <h3 className="text-lg font-semibold text-cyan-900 mb-3">14. Staff Training and Supervision</h3>
+            <div className="space-y-4">
+              <YesNoQuestion
+                label="Is staff health & safety training up to date?"
+                yesNoField="staff_hs_training_up_to_date"
+                commentField="staff_hs_training_up_to_date_comment"
+                yesNoValue={auditData.staff_hs_training_up_to_date}
+                commentValue={auditData.staff_hs_training_up_to_date_comment}
+                onYesNoChange={(value) => handleInputChange('staff_hs_training_up_to_date', value)}
+                onCommentChange={(value) => handleInputChange('staff_hs_training_up_to_date_comment', value)}
+              />
+              <YesNoQuestion
+                label="Are new staff being trained in health & safety?"
+                yesNoField="new_staff_trained_hs"
+                commentField="new_staff_trained_hs_comment"
+                yesNoValue={auditData.new_staff_trained_hs}
+                commentValue={auditData.new_staff_trained_hs_comment}
+                onYesNoChange={(value) => handleInputChange('new_staff_trained_hs', value)}
+                onCommentChange={(value) => handleInputChange('new_staff_trained_hs_comment', value)}
+              />
+              <YesNoQuestion
+                label="Are staff supervised and supported in their roles?"
+                yesNoField="staff_supervised_supported"
+                commentField="staff_supervised_supported_comment"
+                yesNoValue={auditData.staff_supervised_supported}
+                commentValue={auditData.staff_supervised_supported_comment}
+                onYesNoChange={(value) => handleInputChange('staff_supervised_supported', value)}
+                onCommentChange={(value) => handleInputChange('staff_supervised_supported_comment', value)}
+              />
+              <YesNoQuestion
+                label="Are refresher trainings scheduled where needed?"
+                yesNoField="refresher_training_scheduled"
+                commentField="refresher_training_scheduled_comment"
+                yesNoValue={auditData.refresher_training_scheduled}
+                commentValue={auditData.refresher_training_scheduled_comment}
+                onYesNoChange={(value) => handleInputChange('refresher_training_scheduled', value)}
+                onCommentChange={(value) => handleInputChange('refresher_training_scheduled_comment', value)}
+              />
+            </div>
+          </div>
+
+          <div className="bg-fuchsia-50 p-4 rounded-lg">
+            <h3 className="text-lg font-semibold text-fuchsia-900 mb-3">15. Notices, First Aid and Communication</h3>
+            <div className="space-y-4">
+              <YesNoQuestion
+                label="Are warning and safety signs displayed where required?"
+                yesNoField="warning_signs_displayed"
+                commentField="warning_signs_displayed_comment"
+                yesNoValue={auditData.warning_signs_displayed}
+                commentValue={auditData.warning_signs_displayed_comment}
+                onYesNoChange={(value) => handleInputChange('warning_signs_displayed', value)}
+                onCommentChange={(value) => handleInputChange('warning_signs_displayed_comment', value)}
+              />
+              <YesNoQuestion
+                label="Are first aid posters and information visible and accessible?"
+                yesNoField="first_aid_posters_visible"
+                commentField="first_aid_posters_visible_comment"
+                yesNoValue={auditData.first_aid_posters_visible}
+                commentValue={auditData.first_aid_posters_visible_comment}
+                onYesNoChange={(value) => handleInputChange('first_aid_posters_visible', value)}
+                onCommentChange={(value) => handleInputChange('first_aid_posters_visible_comment', value)}
+              />
+              <YesNoQuestion
+                label="Are residents and visitors informed of relevant safety arrangements?"
+                yesNoField="residents_informed"
+                commentField="residents_informed_comment"
+                yesNoValue={auditData.residents_informed}
+                commentValue={auditData.residents_informed_comment}
+                onYesNoChange={(value) => handleInputChange('residents_informed', value)}
+                onCommentChange={(value) => handleInputChange('residents_informed_comment', value)}
+              />
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <label className="block text-sm font-medium">Final comments</label>
+            <textarea value={finalComments} onChange={(e) => setFinalComments(e.target.value)} className="w-full p-2 border rounded" rows={4} />
+          </div>
+
+          {/* Complete Audit Button */}
+          <div className="flex justify-center mt-8">
+            <button
+              onClick={handleCompleteAudit}
+              className="bg-green-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors"
+            >
+              Complete Audit
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">Audit Completed</h3>
+            <p className="text-gray-600 mb-6">Would you like to create an action plan based on this audit?</p>
+            <div className="flex gap-3 justify-end">
+              <button onClick={handleModalClose} className="px-4 py-2 text-gray-600 hover:text-gray-800">No, thanks</button>
+              <button onClick={() => handleModalCreate(false)} disabled={saving} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Save Audit</button>
+              <button onClick={() => handleModalCreate(true)} disabled={saving} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Save & Create Action Plan</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

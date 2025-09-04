@@ -8,6 +8,7 @@ interface MetricCardProps {
   change?: string;
   changeType?: 'positive' | 'negative' | 'neutral';
   icon?: LucideIcon;
+  accent?: string;
   description?: string;
   className?: string;
   size?: 'sm' | 'md' | 'lg';
@@ -19,6 +20,7 @@ export default function MetricCard({
   change, 
   changeType = 'neutral',
   icon: Icon,
+  accent = 'text-primary',
   description,
   className = "",
   size = 'md'
@@ -57,7 +59,7 @@ export default function MetricCard({
         <div className="flex items-start justify-between">
           <div className="space-y-1 flex-1">
             <div className="flex items-center space-x-2">
-              {Icon && <Icon className="w-4 h-4 text-muted-foreground" />}
+              {Icon && <Icon className={`w-4 h-4 ${accent}`} />}
               <p className={`font-medium text-muted-foreground ${textSizes[size].title}`}>
                 {title}
               </p>

@@ -44,6 +44,7 @@ export type Document = {
   workspaceId?: string;
   folderId?: string;
   storagePath?: string;
+  downloadUrl?: string;
 };
 
 export type Team = {

@@ -167,10 +167,10 @@ export async function deleteDocument(workspaceId: string, documentId: string): P
 }
 
 
-import { collection, getDocs, doc, getDoc, addDoc, query, where, Timestamp, setDoc, deleteDoc, writeBatch } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc, addDoc, query, where, Timestamp, setDoc, deleteDoc, writeBatch, updateDoc, orderBy, limit } from "firebase/firestore";
 import type { Workspace, Folder, Document, User } from './types';
 import { db, storage } from './firebase';
-import { ref, deleteObject } from "firebase/storage";
+import { ref, deleteObject, uploadBytes, getDownloadURL } from "firebase/storage";
 
 async function fetchAndStructureData(workspaceId: string): Promise<{ folders: (Folder | Document)[], documents: Document[] }> {
     const foldersQuery = query(collection(db, `workspaces/${workspaceId}/folders`));
@@ -187,7 +187,32 @@ async function fetchAndStructureData(workspaceId: string): Promise<{ folders: (F
         const createdAt = data.createdAt instanceof Timestamp 
             ? data.createdAt.toDate().toISOString() 
             : new Date().toISOString();
-        allDocuments[docSnap.id] = { id: docSnap.id, ...data, createdAt } as Document;
+        const document = { id: docSnap.id, ...data, createdAt } as Document;
+        
+        // Debug logging for audit PDFs
+        if (document.name && document.name.includes('audit')) {
+            console.log('Fetched audit document:', {
+                id: document.id,
+                name: document.name,
+                storagePath: document.storagePath,
+                downloadUrl: document.downloadUrl,
+                fileType: document.fileType
+            });
+        }
+        
+        // Auto-fix audit document names that are still in filename format
+        if (document.extractedJson?.isAuditSnapshot && document.name && 
+            (document.name.includes('_audit_') || document.name.endsWith('.pdf'))) {
+            const auditType = document.extractedJson.auditType;
+            if (auditType) {
+                const displayName = getAuditDisplayName(auditType);
+                document.name = displayName;
+                // Optionally update in Firestore (uncomment if you want to persist the fix)
+                // updateDoc(doc(db, `workspaces/${document.workspaceId}/documents`, document.id), { name: displayName });
+            }
+        }
+        
+        allDocuments[docSnap.id] = document;
     });
 
     const allFoldersMap: Record<string, Folder> = {};
@@ -367,6 +392,36 @@ export async function getAllWorkspaces(): Promise<Workspace[]> {
                 console.warn('Failed to read occupancy settings for workspace', docSnap.id, e);
             }
 
+            // Fetch latest dependency snapshot for admin view
+            let dependencySnapshot: any = null;
+            try {
+                // Prefer ownerId, fallback to first member
+                const userId = (workspaceData.ownerId && typeof workspaceData.ownerId === 'string')
+                  ? workspaceData.ownerId
+                  : (Array.isArray(workspaceData.members) && workspaceData.members.length > 0 ? workspaceData.members[0] : null);
+                if (userId) {
+                    // Query all dependency_calculator_snapshots for this user
+                    const snapshotsCol = collection(db, 'users', userId, 'dependency_calculator_snapshots');
+                    const snapshotsSnap = await getDocs(snapshotsCol);
+                    let latest: any = null;
+                    snapshotsSnap.forEach(doc => {
+                        const data = doc.data();
+                        // Use savedAt or updatedAt for recency
+                        const ts = (typeof data.savedAt === 'number') ? data.savedAt : (data.updatedAt && data.updatedAt.toMillis ? data.updatedAt.toMillis() : 0);
+                        if (!latest || ts > latest._ts) {
+                            latest = { ...data, _ts: ts, _id: doc.id };
+                        }
+                    });
+                    if (latest) {
+                        dependencySnapshot = { ...latest };
+                        delete dependencySnapshot._ts;
+                        delete dependencySnapshot._id;
+                    }
+                }
+            } catch (e) {
+                console.warn('Failed to fetch dependency snapshot for workspace', docSnap.id, e);
+            }
+
             return {
                 id: docSnap.id,
                 ...workspaceData,
@@ -374,12 +429,626 @@ export async function getAllWorkspaces(): Promise<Workspace[]> {
                 // attach bed counts if available for admin consumers
                 totalBeds,
                 occupiedBeds,
-            } as Workspace & { totalBeds?: number; occupiedBeds?: number };
+                // attach latest dependency snapshot for admin consumers
+                dependencySnapshot,
+            } as Workspace & { totalBeds?: number; occupiedBeds?: number; dependencySnapshot?: any };
         }));
         return workspaces;
     } catch (error) {
         console.error('Error fetching all workspaces', error);
         return [];
+    }
+}
+
+// Save a daily check-in document under workspaces/{workspaceId}/daily-checkins
+export async function saveDailyCheckin(workspaceId: string, data: any): Promise<string> {
+    try {
+        const colRef = collection(db, `workspaces/${workspaceId}/daily-checkins`);
+        const docRef = await addDoc(colRef, { ...data, createdAt: Timestamp.now() });
+        return docRef.id;
+    } catch (e) {
+        console.error('Failed to save daily checkin', e);
+        throw e;
+    }
+}
+
+// Save a generic audit record to a top-level `audits` collection
+export async function saveAudit(data: any, workspaceId?: string): Promise<string> {
+    try {
+        if (workspaceId) {
+            const colRef = collection(db, `workspaces/${workspaceId}/audits`);
+            const docRef = await addDoc(colRef, { ...data, workspaceId, createdAt: Timestamp.now() });
+
+            // If the audit contains a numeric scorePercent and an auditType, mirror it
+            // to workspace settings for quick dashboard access.
+            try {
+                if (data && typeof data.scorePercent === 'number' && typeof data.auditType === 'string') {
+                    const latestRef = doc(db, `workspaces/${workspaceId}/settings`, 'audit_latest_scores');
+                    await setDoc(latestRef, { [data.auditType]: { scorePercent: data.scorePercent, yesCount: data.yesCount ?? null, totalCount: data.totalCount ?? null, updatedAt: new Date().toISOString() } }, { merge: true });
+                }
+            } catch (mirrorErr) {
+                console.warn('Failed to mirror latest audit score to workspace settings', mirrorErr);
+            }
+            return docRef.id;
+        }
+        // Fallback: write to top-level audits collection so older code paths don't fail
+        // Log a warning for debugging so we can surface missing workspace usage
+        // eslint-disable-next-line no-console
+        console.warn('saveAudit called without workspaceId — falling back to top-level `audits` collection.');
+        const docRef = await addDoc(collection(db, 'audits'), { ...data, createdAt: Timestamp.now() });
+        return docRef.id;
+    } catch (e) {
+        console.error('Failed to save audit', e);
+        throw e;
+    }
+}
+
+export async function updateAudit(auditId: string, data: any, workspaceId?: string): Promise<void> {
+    try {
+        if (workspaceId) {
+            const docRef = doc(db, `workspaces/${workspaceId}/audits`, auditId);
+            await updateDoc(docRef, { ...data, updatedAt: Timestamp.now() });
+            return;
+        }
+        // Fallback to top-level audits collection
+        // eslint-disable-next-line no-console
+        console.warn('updateAudit called without workspaceId — falling back to top-level `audits` collection.');
+        const docRef = doc(db, 'audits', auditId);
+        await updateDoc(docRef, { ...data, updatedAt: Timestamp.now() });
+    } catch (e) {
+        console.error('Failed to update audit', e);
+        throw e;
+    }
+}
+
+// Update an existing daily checkin document
+export async function updateDailyCheckin(workspaceId: string, checkinId: string, data: any): Promise<void> {
+    try {
+        const docRef = doc(db, `workspaces/${workspaceId}/daily-checkins`, checkinId);
+        await setDoc(docRef, { ...data, updatedAt: Timestamp.now() }, { merge: true });
+    } catch (e) {
+        console.error('Failed to update daily checkin', e);
+        throw e;
+    }
+}
+
+// -------------------- Audit schedule & status helpers --------------------
+/**
+ * Set the scheduled completion date for a named audit (e.g., 'accident-incident')
+ * stored under workspaces/{workspaceId}/settings/audit_schedule
+ */
+export async function setAuditSchedule(workspaceId: string, auditKey: string, scheduledDateIso: string | null): Promise<void> {
+    try {
+        const docRef = doc(db, `workspaces/${workspaceId}/settings`, 'audit_schedule');
+        // Merge update: store a map of auditKey -> ISO date (or null to clear)
+        await setDoc(docRef, { [auditKey]: scheduledDateIso }, { merge: true });
+    } catch (e) {
+        console.error('Failed to set audit schedule', e);
+        throw e;
+    }
+}
+
+/**
+ * Get the audit schedule map for a workspace. Returns an object mapping auditKey -> ISO date string | null
+ */
+export async function getAuditSchedule(workspaceId: string): Promise<Record<string, string | null>> {
+    try {
+        const docRef = doc(db, `workspaces/${workspaceId}/settings`, 'audit_schedule');
+        const snap = await getDoc(docRef);
+        if (!snap.exists()) return {};
+        return snap.data() as Record<string, string | null>;
+    } catch (e) {
+        console.error('Failed to get audit schedule', e);
+        return {};
+    }
+}
+
+/**
+ * Mark an audit as completed for a given auditKey. Stores lastCompletedAt under workspaces/{workspaceId}/settings/audit_status
+ */
+export async function markAuditCompleted(workspaceId: string, auditKey: string, completedAtIso?: string): Promise<void> {
+    try {
+        const docRef = doc(db, `workspaces/${workspaceId}/settings`, 'audit_status');
+        const payload: any = {};
+        payload[auditKey] = completedAtIso ?? new Date().toISOString();
+        await setDoc(docRef, payload, { merge: true });
+    } catch (e) {
+        console.error('Failed to mark audit completed', e);
+        throw e;
+    }
+}
+
+/**
+ * Get the audit status map for a workspace: auditKey -> ISO date string when last completed.
+ */
+export async function getAuditStatus(workspaceId: string): Promise<Record<string, string>> {
+    try {
+        const docRef = doc(db, `workspaces/${workspaceId}/settings`, 'audit_status');
+        const snap = await getDoc(docRef);
+        if (!snap.exists()) return {};
+        return snap.data() as Record<string, string>;
+    } catch (e) {
+        console.error('Failed to get audit status', e);
+        return {};
+    }
+}
+
+/**
+ * Save an audit snapshot for a specific month. Used to archive completed audits.
+ */
+export async function saveAuditSnapshot(workspaceId: string, auditType: string, auditData: any): Promise<string> {
+    try {
+        const date = new Date();
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0'); // 01-12
+        const monthKey = `${year}-${month}`;
+        
+        // Check for existing snapshot and delete it to avoid duplicates
+        const snapshotCollectionRef = collection(db, `workspaces/${workspaceId}/audit-snapshots/${monthKey}/${auditType}`);
+        try {
+            const existingSnapshots = await getDocs(snapshotCollectionRef);
+            // Delete all existing snapshots for this audit type in this month
+            for (const existingDoc of existingSnapshots.docs) {
+                await deleteDoc(existingDoc.ref);
+                console.log(`Deleted existing ${auditType} snapshot:`, existingDoc.id);
+            }
+        } catch (deleteErr) {
+            console.warn('Failed to delete existing snapshots:', deleteErr);
+            // Continue with creation even if deletion fails
+        }
+        
+        // Save new snapshot to monthly snapshot collection
+        const docRef = await addDoc(snapshotCollectionRef, {
+            ...auditData,
+            snapshotCreatedAt: Timestamp.now(),
+            monthKey,
+            year,
+            month,
+        });
+        
+        console.log(`Saved new ${auditType} snapshot:`, docRef.id);
+        return docRef.id;
+    } catch (e) {
+        console.error('Failed to save audit snapshot', e);
+        throw e;
+    }
+}
+
+/**
+ * Check if an audit has been completed for the current month
+ */
+export async function isAuditCompletedThisMonth(workspaceId: string, auditType: string): Promise<boolean> {
+    try {
+        const date = new Date();
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const monthKey = `${year}-${month}`;
+        
+        // Check if there are any snapshots for this audit type in the current month
+        const snapshotQuery = query(
+            collection(db, `workspaces/${workspaceId}/audit-snapshots/${monthKey}/${auditType}`)
+        );
+        const snapshot = await getDocs(snapshotQuery);
+        
+        return !snapshot.empty;
+    } catch (e) {
+        console.error('Failed to check audit completion status', e);
+        return false;
+    }
+}
+
+/**
+ * Mark an audit as completed for the current month and save a snapshot
+ */
+export async function markAuditCompletedWithSnapshot(workspaceId: string, auditType: string, auditData: any, completedAtIso?: string): Promise<{ snapshotId: string; pdfDocId?: string }> {
+    try {
+        console.log('[markAuditCompletedWithSnapshot] starting for', auditType, 'workspace', workspaceId);
+        // Save the snapshot first
+        const snapshotId = await saveAuditSnapshot(workspaceId, auditType, auditData);
+        console.log('[markAuditCompletedWithSnapshot] snapshot saved', snapshotId);
+
+        // Generate and save PDF to Audits folder
+        let pdfDocId: string | undefined = undefined;
+        try {
+            pdfDocId = await generateAndSaveAuditPDF(workspaceId, auditType, auditData, completedAtIso);
+            console.log('[markAuditCompletedWithSnapshot] PDF saved with doc id', pdfDocId);
+        } catch (pdfError) {
+            console.error('[markAuditCompletedWithSnapshot] Failed to generate audit PDF, but audit snapshot was saved', pdfError);
+        }
+
+        // Then mark as completed in the status map
+        await markAuditCompleted(workspaceId, auditType, completedAtIso);
+        console.log('[markAuditCompletedWithSnapshot] audit marked completed');
+
+        return { snapshotId, pdfDocId };
+    } catch (e) {
+        console.error('Failed to mark audit completed with snapshot', e);
+        throw e;
+    }
+}
+
+/**
+ * Generate PDF and save to Audits folder
+ */
+async function generateAndSaveAuditPDF(workspaceId: string, auditType: string, auditData: any, completedAtIso?: string): Promise<string | undefined> {
+    try {
+        // Import PDF generator (dynamic import to avoid SSR issues)
+        const { generateAuditPDF, getAuditPDFFilename } = await import('./pdf-generator');
+        
+        // Get home name from audit data or use workspace ID as fallback
+        const homeName = auditData.home || auditData.facility || `Workspace ${workspaceId}`;
+        
+        // Prepare PDF data
+        const pdfData = {
+            auditType,
+            home: homeName,
+            auditDate: completedAtIso || auditData.auditDate || new Date().toISOString(),
+            completedBy: auditData.completedBy || 'Unknown',
+            data: auditData,
+            comments: auditData.comments || auditData.finalComments,
+            scorePercent: auditData.scorePercent,
+            yesCount: auditData.yesCount,
+            totalCount: auditData.totalCount
+        };
+        
+    // Generate PDF
+    const pdfBuffer = generateAuditPDF(pdfData);
+        
+        // Generate filename
+        const filename = getAuditPDFFilename(auditType, homeName, pdfData.auditDate);
+        
+        // Save to Audits folder
+        const docId = await saveAuditPDFToFolder(workspaceId, auditType, pdfBuffer, filename, pdfData.auditDate);
+        console.log(`Successfully generated and saved audit PDF: ${filename} as document ${docId}`);
+        return docId;
+    } catch (e) {
+        console.error('Failed to generate and save audit PDF', e);
+        throw e;
+    }
+}
+
+/**
+ * Get the audit completion status for all audit types in the current month
+ */
+export async function getMonthlyAuditCompletionStatus(workspaceId: string): Promise<Record<string, boolean>> {
+    try {
+        const auditTypes = [
+            'accident-incident', 'call-bell-monitoring', 'care-plan', 'equipment', 
+            'fire-safety', 'hand-hygiene', 'health-safety', 'infection-control', 
+            'kitchen', 'maintenance', 'managers-weekly', 'mealtime', 'night-visit', 
+            'restrictive-practice', 'staff-file', 'weight-monitoring', 'wound-monitoring', 
+            'risk-register'
+        ];
+        
+        const result: Record<string, boolean> = {};
+        
+        // Check each audit type for completion in current month
+        for (const auditType of auditTypes) {
+            result[auditType] = await isAuditCompletedThisMonth(workspaceId, auditType);
+        }
+        
+        return result;
+    } catch (e) {
+        console.error('Failed to get monthly audit completion status', e);
+        return {};
+    }
+}
+
+/**
+ * Get the current month key for organizing audit snapshots
+ */
+export function getCurrentMonthKey(): string {
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}`;
+}
+
+/**
+ * Get audit snapshots for a specific month
+ */
+export async function getMonthlyAuditSnapshots(workspaceId: string, monthKey?: string): Promise<Record<string, any[]>> {
+    try {
+        const targetMonth = monthKey || getCurrentMonthKey();
+        const result: Record<string, any[]> = {};
+        
+        const auditTypes = [
+            'accident-incident', 'call-bell-monitoring', 'care-plan', 'equipment', 
+            'fire-safety', 'hand-hygiene', 'health-safety', 'infection-control', 
+            'kitchen', 'maintenance', 'managers-weekly', 'mealtime', 'night-visit', 
+            'restrictive-practice', 'staff-file', 'weight-monitoring', 'wound-monitoring', 
+            'risk-register'
+        ];
+        
+        for (const auditType of auditTypes) {
+            const snapshotQuery = query(
+                collection(db, `workspaces/${workspaceId}/audit-snapshots/${targetMonth}/${auditType}`)
+            );
+            const snapshot = await getDocs(snapshotQuery);
+            result[auditType] = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+        }
+        
+        return result;
+    } catch (e) {
+        console.error('Failed to get monthly audit snapshots', e);
+        return {};
+    }
+}
+
+/**
+ * Get the latest (most recent) audit data for a specific audit type in the current month
+ */
+export async function getLatestAuditData(workspaceId: string, auditType: string, monthKey?: string): Promise<any | null> {
+    try {
+        const targetMonth = monthKey || getCurrentMonthKey();
+        const snapshotQuery = query(
+            collection(db, `workspaces/${workspaceId}/audit-snapshots/${targetMonth}/${auditType}`),
+            orderBy('snapshotCreatedAt', 'desc'),
+            limit(1)
+        );
+        const snapshot = await getDocs(snapshotQuery);
+        
+        if (snapshot.empty) {
+            return null;
+        }
+        
+        const latestDoc = snapshot.docs[0];
+        return {
+            id: latestDoc.id,
+            ...latestDoc.data()
+        };
+    } catch (e) {
+        console.error('Failed to get latest audit data', e);
+        return null;
+    }
+}
+
+/**
+ * Save an audit PDF to the Audits folder with month organization
+ */
+// Convert audit type slug to human-readable name
+function getAuditDisplayName(auditType: string): string {
+    const auditNames: Record<string, string> = {
+        'accident-incident': 'Accident And Incident Audit',
+        'infection-control': 'Infection Control Audit', 
+        'fire-safety': 'Fire Safety Audit',
+        'health-safety': 'Health And Safety Audit',
+        'kitchen': 'Kitchen Audit',
+        'maintenance': 'Maintenance Audit',
+        'equipment': 'Equipment Audit',
+        'hand-hygiene': 'Hand Hygiene Audit',
+        'care-plan': 'Care Plan Audit',
+        'call-bell-monitoring': 'Call Bell Monitoring Audit',
+        'mealtime': 'Mealtime Audit',
+        'managers-weekly': 'Managers Weekly Audit',
+        'managers-monthly': 'Managers Monthly Audit'
+    };
+    
+    return auditNames[auditType] || auditType.split('-').map(word => 
+        word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(' ') + ' Audit';
+}
+
+export async function saveAuditPDFToFolder(
+    workspaceId: string,
+    auditType: string,
+    pdfData: Uint8Array,
+    filename: string,
+    auditDate: string
+): Promise<string> {
+    try {
+        // Get the month key from audit date
+        const date = new Date(auditDate);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const monthKey = `${year}-${month}`;
+        const monthName = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+        // Create month folder if it doesn't exist
+        const monthFolderId = await createMonthlyAuditFolder(workspaceId, monthKey, monthName);
+
+        // Check for existing audit document of the same type in this month and delete it
+        try {
+            const existingDocsQuery = query(
+                collection(db, `workspaces/${workspaceId}/documents`),
+                where('folderId', '==', monthFolderId),
+                where('extractedJson.auditType', '==', auditType),
+                where('extractedJson.isAuditSnapshot', '==', true)
+            );
+            const existingDocs = await getDocs(existingDocsQuery);
+            
+            // Delete existing audit documents and their storage files
+            for (const docSnap of existingDocs.docs) {
+                const docData = docSnap.data();
+                try {
+                    // Delete from storage if storagePath exists
+                    if (docData.storagePath) {
+                        const oldFileRef = ref(storage, docData.storagePath);
+                        await deleteObject(oldFileRef);
+                        console.log('Deleted old audit file from storage:', docData.storagePath);
+                    }
+                    // Delete document from Firestore
+                    await deleteDoc(doc(db, `workspaces/${workspaceId}/documents`, docSnap.id));
+                    console.log('Deleted old audit document:', docSnap.id);
+                } catch (deleteErr) {
+                    console.warn('Failed to delete old audit file/document:', deleteErr);
+                    // Continue with creation even if deletion fails
+                }
+            }
+        } catch (queryErr) {
+            console.warn('Failed to query for existing audit documents:', queryErr);
+            // Continue with creation even if query fails
+        }
+
+        // Upload PDF binary to Firebase Storage
+        try {
+            const safeFilename = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+            const storagePath = `workspaces/${workspaceId}/audits/${monthKey}/${auditType}/${safeFilename}`;
+            const fileRef = ref(storage, storagePath);
+
+            // uploadBytes accepts ArrayBuffer | Uint8Array
+            await uploadBytes(fileRef, pdfData);
+            const downloadUrl = await getDownloadURL(fileRef);
+
+            // Save the PDF as a document with storage metadata
+            const displayName = getAuditDisplayName(auditType);
+            const document = {
+                name: displayName,
+                type: 'document' as const,
+                fileType: 'pdf' as const,
+                createdAt: new Date().toISOString(),
+                owner: { id: 'system', name: 'Audit System', email: null, avatarUrl: null },
+                folderId: monthFolderId,
+                workspaceId: workspaceId,
+                storagePath,
+                downloadUrl,
+                extractedJson: {
+                    auditType,
+                    auditDate,
+                    monthKey,
+                    generatedAt: new Date().toISOString(),
+                    isAuditSnapshot: true,
+                    originalFilename: filename // Keep the original filename for reference
+                }
+            };
+
+            console.log('About to save audit PDF document:', {
+                name: document.name,
+                storagePath: document.storagePath,
+                downloadUrl: document.downloadUrl,
+                fileType: document.fileType,
+                folderId: document.folderId
+            });
+
+            const docId = await saveDocument(document as any);
+            console.log('Saved audit PDF document with id:', docId, 'storagePath:', storagePath);
+            return docId;
+        } catch (uploadErr) {
+            console.error('Failed to upload PDF to storage or save document metadata', uploadErr);
+            throw uploadErr;
+        }
+    } catch (e) {
+        console.error('Failed to save audit PDF to folder', e);
+        throw e;
+    }
+}
+
+/**
+ * Create or get monthly audit folder
+ */
+async function createMonthlyAuditFolder(workspaceId: string, monthKey: string, monthName: string): Promise<string> {
+    try {
+        // Check if Audits folder exists
+        const auditsFolder = await getOrCreateAuditsFolder(workspaceId);
+        
+        // Check if month folder exists
+        const monthFolderQuery = query(
+            collection(db, `workspaces/${workspaceId}/folders`),
+            where('name', '==', monthName),
+            where('parentId', '==', auditsFolder.id)
+        );
+        
+        const monthFolderSnapshot = await getDocs(monthFolderQuery);
+        
+        if (!monthFolderSnapshot.empty) {
+            return monthFolderSnapshot.docs[0].id;
+        }
+        
+        // Create month folder
+        const monthFolder = {
+            name: monthName,
+            parentId: auditsFolder.id,
+            workspaceId: workspaceId,
+            createdAt: Timestamp.now(),
+            type: 'folder',
+            metadata: {
+                monthKey,
+                auditFolder: true
+            }
+        };
+        
+        const docRef = await addDoc(collection(db, `workspaces/${workspaceId}/folders`), monthFolder);
+        return docRef.id;
+        
+    } catch (e) {
+        console.error('Failed to create monthly audit folder', e);
+        throw e;
+    }
+}
+
+/**
+ * Get or create the main Audits folder
+ */
+async function getOrCreateAuditsFolder(workspaceId: string): Promise<{ id: string; name: string }> {
+    try {
+        // Check if Audits folder exists
+        const auditsFolderQuery = query(
+            collection(db, `workspaces/${workspaceId}/folders`),
+            where('name', '==', 'Audits'),
+            where('parentId', '==', null)
+        );
+        
+        const auditsFolderSnapshot = await getDocs(auditsFolderQuery);
+        
+        if (!auditsFolderSnapshot.empty) {
+            const folder = auditsFolderSnapshot.docs[0];
+            return { id: folder.id, name: folder.data().name };
+        }
+        
+        // Create Audits folder
+        const auditsFolder = {
+            name: 'Audits',
+            parentId: null,
+            workspaceId: workspaceId,
+            createdAt: Timestamp.now(),
+            type: 'folder',
+            metadata: {
+                systemFolder: true,
+                description: 'Monthly audit reports and snapshots'
+            }
+        };
+        
+        const docRef = await addDoc(collection(db, `workspaces/${workspaceId}/folders`), auditsFolder);
+        return { id: docRef.id, name: auditsFolder.name };
+        
+    } catch (e) {
+        console.error('Failed to get or create Audits folder', e);
+        throw e;
+    }
+}
+
+// Delete a daily checkin document
+export async function deleteDailyCheckin(workspaceId: string, checkinId: string): Promise<void> {
+    try {
+        const docRef = doc(db, `workspaces/${workspaceId}/daily-checkins`, checkinId);
+        await deleteDoc(docRef);
+    } catch (e) {
+        console.error('Failed to delete daily checkin', e);
+        throw e;
+    }
+}
+
+// Fetch daily checkins in a given time range (inclusive)
+export async function getDailyCheckinsInRange(workspaceId: string, fromTs: any, toTs: any): Promise<any[]> {
+    try {
+        const colRef = collection(db, `workspaces/${workspaceId}/daily-checkins`);
+        const q = query(colRef, where('createdAt', '>=', fromTs), where('createdAt', '<=', toTs));
+        const snaps = await getDocs(q);
+        const items: any[] = [];
+        snaps.forEach(s => items.push({ id: s.id, ...s.data() }));
+        // sort ascending by createdAt
+        items.sort((a, b) => {
+            const aTs = a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : (a.createdAt && typeof a.createdAt === 'number' ? a.createdAt : 0);
+            const bTs = b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : (b.createdAt && typeof b.createdAt === 'number' ? b.createdAt : 0);
+            return aTs - bTs;
+        });
+        return items;
+    } catch (e) {
+        console.error('Failed to fetch daily checkins', e);
+        throw e;
     }
 }
 

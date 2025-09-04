@@ -7,6 +7,7 @@ import {
   Sidebar,
   SidebarInset,
 } from "@/components/ui/sidebar";
+import WorkspaceContext from '@/context/workspace';
 import { AppSidebar } from "./app-sidebar";
 import { getWorkspacesForUser, createWorkspace, deleteFolder, deleteDocument } from "@/lib/firestore";
 import type { Document, Folder, Workspace } from "@/lib/types";
@@ -33,6 +34,7 @@ import { SettingsView } from "./settings-view";
 import { AllDocumentsView } from "./all-documents-view";
 import { RenewalsView } from "./renewals-view";
 import { TagsView } from "./tags-view";
+import { StatsView } from "./stats-view";
 import { TopNav } from "./top-nav";
 import { NotificationsView } from "./notifications-view";
 import { db } from '@/lib/firebase';
@@ -154,7 +156,7 @@ export function Dashboard() {
   // evidenceSelected removed; evidence folders are part of the main folders tree
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'dependency-calculator' | 'notifications'>('home');
+  const [view, setView] = useState<'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'dependency-calculator' | 'daily' | 'notifications' | 'audits' | 'policies' | 'stats'>('home');
   const [unreadNotifications, setUnreadNotifications] = useState<number>(0);
   const [breadcrumb, setBreadcrumb] = useState<(Folder | { id: 'root', name: string, type: 'folder' })[]>([]);
   const [lastChatDetail, setLastChatDetail] = useState<{ text?: string; documents?: any[] } | undefined>(undefined);
@@ -337,6 +339,7 @@ export function Dashboard() {
         
         // For demo purposes, show a helpful message
         if (typeof window !== 'undefined') {
+        
           window.alert(`Document "${documentName || documentId}" not found in the current workspace.\n\nThis might be because:\n- The document hasn't been uploaded yet\n- You don't have access to this document\n- The document was moved or deleted\n\nIn a real application, this would show proper error handling or redirect to an upload page.`);
         }
       }
@@ -720,6 +723,15 @@ export function Dashboard() {
                         onDocumentAdd={handleDocumentAdd} 
                         onFolderAdd={handleFolderAdd} 
                     />;
+        case 'daily':
+            return (
+                <React.Suspense fallback={<div>Loading...</div>}>
+                  {(() => {
+                    const DailyPage = require("./daily").default;
+                    return <DailyPage workspaceId={activeWorkspace?.id} />;
+                  })()}
+                </React.Suspense>
+            );
         case 'teams':
             return <TeamsView workspace={activeWorkspace} />;
         case 'settings':
@@ -766,6 +778,26 @@ export function Dashboard() {
                   })()}
                 </React.Suspense>
             );
+        case 'audits':
+            return (
+                <React.Suspense fallback={<div>Loading...</div>}>
+                  {(() => {
+                    const AuditsPage = require("@/app/audits/page").default;
+                    return <AuditsPage />;
+                  })()}
+                </React.Suspense>
+            );
+        case 'stats':
+            return <StatsView workspaceId={activeWorkspace?.id} />;
+        case 'policies':
+            return (
+                <React.Suspense fallback={<div>Loading...</div>}>
+                  {(() => {
+                    const PoliciesPage = require("@/app/policies/page").default;
+                    return <PoliciesPage />;
+                  })()}
+                </React.Suspense>
+            );
         default:
              return <DashboardHome 
                         workspace={activeWorkspace} 
@@ -778,8 +810,9 @@ export function Dashboard() {
 
 
   return (
-    <SidebarProvider defaultOpen={!isMobile}>
-      <TooltipProvider>
+    <WorkspaceContext.Provider value={activeWorkspace}>
+      <SidebarProvider defaultOpen={!isMobile}>
+        <TooltipProvider>
         <Sidebar>
           <AppSidebar 
             workspaces={workspaces}
@@ -894,7 +927,8 @@ export function Dashboard() {
             </Tooltip>
           )}
         </div>
-      </TooltipProvider>
-    </SidebarProvider>
+        </TooltipProvider>
+      </SidebarProvider>
+    </WorkspaceContext.Provider>
   );
 }

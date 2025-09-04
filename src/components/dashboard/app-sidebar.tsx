@@ -24,6 +24,7 @@ import {
   Plus,
   Tag,
   Accessibility,
+  BarChart3,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Logo } from "@/components/icons/logo";
@@ -56,7 +57,7 @@ interface AppSidebarProps {
   workspaces: Workspace[];
   activeWorkspace: Workspace;
   onWorkspaceChange: (workspaceId: string) => void;
-  setView: (view: 'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'dependency-calculator') => void;
+  setView: React.Dispatch<React.SetStateAction<'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'dependency-calculator' | 'daily' | 'notifications' | 'audits' | 'policies' | 'stats'>>;
   onGoToFiles: () => void;
   onCreateWorkspace: (name: string) => void;
 }
@@ -202,11 +203,35 @@ export function AppSidebar({
           <span className="text-lg">Teams</span>
         </SidebarMenuButton>
       </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={() => handleNavigation(() => setView('audits'))} className="text-lg h-14">
+                <Tag className="w-7 h-7 mr-2" />
+                <span className="text-lg">Audits</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={() => handleNavigation(() => setView('stats'))} className="text-lg h-14">
+                <BarChart3 className="w-7 h-7 mr-2" />
+                <span className="text-lg">Stats</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={() => handleNavigation(() => setView('policies'))} className="text-lg h-14">
+                <Tag className="w-7 h-7 mr-2" />
+                <span className="text-lg">Policies</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
       {/* Settings & Accessibility moved to footer */}
       <SidebarMenuItem>
-        <SidebarMenuButton onClick={() => handleNavigation(() => setView('dependency-calculator'))} className="text-lg h-14">
+         <SidebarMenuButton onClick={() => handleNavigation(() => setView('dependency-calculator'))} className="text-lg h-14">
           <UsersRound className="w-7 h-7 mr-2" />
           <span className="text-lg">Dependency Calculator</span>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+      <SidebarMenuItem>
+        <SidebarMenuButton onClick={() => handleNavigation(() => setView('daily'))} className="text-lg h-14">
+          <Tag className="w-7 h-7 mr-2" />
+          <span className="text-lg">Daily</span>
         </SidebarMenuButton>
       </SidebarMenuItem>
         </SidebarMenu>
