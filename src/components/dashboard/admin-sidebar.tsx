@@ -19,6 +19,7 @@ import {
   ChevronsUpDown,
   PanelLeft,
   Accessibility,
+  Tag,
 } from "lucide-react";
 import { Logo } from "@/components/icons/logo";
 import type { Workspace } from "@/lib/types";
@@ -29,7 +30,7 @@ interface AdminSidebarProps {
   workspaces: Workspace[];
   activeWorkspace: Workspace;
   onWorkspaceChange: (workspaceId: string) => void;
-  setView: (view: 'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility') => void;
+  setView: (view: 'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'policies') => void;
   onGoToFiles: () => void;
 }
 
@@ -90,6 +91,12 @@ export function AdminSidebar({
             <SidebarMenuButton onClick={() => handleNavigation(() => setView('documents'))} className="text-lg h-14">
               <FileText className="w-7 h-7 mr-2" />
               <span className="text-lg">Documents</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton onClick={() => handleNavigation(() => { console.log('Dashboard AdminSidebar: policies clicked'); setView('policies'); })} className="text-lg h-14">
+              <Tag className="w-7 h-7 mr-2" />
+              <span className="text-lg">Policies</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>

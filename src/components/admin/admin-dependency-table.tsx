@@ -48,13 +48,49 @@ const FIELDS = [
   { key: "nightNeeds", label: "Night Needs" },
 ];
 
-function calculateResidentCareHours(r: Resident) {
-  // Dummy implementation, replace with real logic if needed
-  // Should match the logic from the main dependency calculator
-  return {
-    Day: r.personalCare === "High" ? 3 : 1.5, // Example logic
-    Night: r.nightNeeds === "High" ? 2 : 1,
-  };
+// Minute mappings for admin table (match values shown in screenshot)
+const MINUTES_BY_FIELD_DAY_ADMIN: Record<string, Record<string, number>> = {
+  personalCare: { '': 0, None: 0, Low: 10, Medium: 20, High: 30 },
+  eatingDrinking: { '': 0, None: 0, Low: 5, Medium: 15, High: 25 },
+  medical: { '': 0, None: 0, Low: 5, Medium: 10, High: 20 },
+  mobility: { '': 0, None: 0, Low: 5, Medium: 15, High: 25 },
+  continence: { '': 0, None: 0, Low: 5, Medium: 10, High: 20 },
+  skinIntegrity: { '': 0, None: 0, Low: 5, Medium: 10, High: 20 },
+  medication: { '': 0, None: 0, Low: 5, Medium: 10, High: 15 },
+  emotionalSupport: { '': 0, None: 0, Low: 5, Medium: 10, High: 15 },
+  cognition: { '': 0, None: 0, Low: 5, Medium: 10, High: 20 },
+  nightNeeds: { '': 0, None: 0, Low: 5, Medium: 10, High: 20 },
+  additionalNeeds: { '': 0, None: 0, Low: 0, Medium: 10, High: 20 },
+  behaviours: { '': 0, None: 0, Low: 0, Medium: 10, High: 20 },
+  breathing: { '': 0, None: 0, Low: 0, Medium: 10, High: 20 },
+};
+
+const MINUTES_BY_FIELD_NIGHT_ADMIN: Record<string, Record<string, number>> = {
+  personalCare: { '': 0, None: 0, Low: 5, Medium: 10, High: 15 },
+  eatingDrinking: { '': 0, None: 0, Low: 3, Medium: 8, High: 13 },
+  medical: { '': 0, None: 0, Low: 3, Medium: 5, High: 10 },
+  mobility: { '': 0, None: 0, Low: 3, Medium: 8, High: 13 },
+  continence: { '': 0, None: 0, Low: 3, Medium: 5, High: 10 },
+  skinIntegrity: { '': 0, None: 0, Low: 3, Medium: 5, High: 10 },
+  medication: { '': 0, None: 0, Low: 3, Medium: 5, High: 8 },
+  emotionalSupport: { '': 0, None: 0, Low: 3, Medium: 5, High: 8 },
+  cognition: { '': 0, None: 0, Low: 3, Medium: 5, High: 10 },
+  nightNeeds: { '': 0, None: 0, Low: 3, Medium: 5, High: 10 },
+  additionalNeeds: { '': 0, None: 0, Low: 0, Medium: 5, High: 10 },
+  behaviours: { '': 0, None: 0, Low: 0, Medium: 5, High: 10 },
+  breathing: { '': 0, None: 0, Low: 0, Medium: 5, High: 10 },
+};
+
+function calculateResidentCareMinutes(r: Resident) {
+  let day = 0;
+  let night = 0;
+  for (const f of FIELDS) {
+    const key = f.key;
+    const lvl = (r as any)[key] || '';
+    day += MINUTES_BY_FIELD_DAY_ADMIN[key]?.[lvl] ?? 0;
+    night += MINUTES_BY_FIELD_NIGHT_ADMIN[key]?.[lvl] ?? 0;
+  }
+  return { Day: Math.round(day), Night: Math.round(night) };
 }
 
 function ceilToQuarter(x: number) {
@@ -67,9 +103,11 @@ export default function AdminDependencyTable({ residents, communities, selectedC
     ? residents.filter(r => r.communityId === selectedCommunityId || communities.find(c => c.id === selectedCommunityId)?.residentIds.includes(r.id || ""))
     : residents;
 
-  // Pooled totals: sum hours first, then convert to 12h shifts (ceil to nearest 0.25)
-  const totalDayHours = Math.round(list.reduce((s, r) => s + calculateResidentCareHours(r).Day, 0) * 100) / 100;
-  const totalNightHours = Math.round(list.reduce((s, r) => s + calculateResidentCareHours(r).Night, 0) * 100) / 100;
+  // Pooled totals: sum minutes, convert to hours for shifts
+  const totalDayMinutes = Math.round(list.reduce((s, r) => s + calculateResidentCareMinutes(r).Day, 0));
+  const totalNightMinutes = Math.round(list.reduce((s, r) => s + calculateResidentCareMinutes(r).Night, 0));
+  const totalDayHours = Math.round((totalDayMinutes / 60) * 100) / 100;
+  const totalNightHours = Math.round((totalNightMinutes / 60) * 100) / 100;
   const totalDayShifts = Math.ceil((totalDayHours / 12) * 4) / 4;
   const totalNightShifts = Math.ceil((totalNightHours / 12) * 4) / 4;
 
@@ -95,7 +133,7 @@ export default function AdminDependencyTable({ residents, communities, selectedC
                 <TooltipTrigger>
                   <span className="ml-1 text-gray-500 cursor-pointer">(i)</span>
                 </TooltipTrigger>
-                <TooltipContent>Total Care Hours</TooltipContent>
+                <TooltipContent>Total Care Hours (rounded to 0.25)</TooltipContent>
               </Tooltip>
             </th>
             <th className="px-3 py-2 text-left">
@@ -104,7 +142,7 @@ export default function AdminDependencyTable({ residents, communities, selectedC
                 <TooltipTrigger>
                   <span className="ml-1 text-gray-500 cursor-pointer">(i)</span>
                 </TooltipTrigger>
-                <TooltipContent>Total Care Hours</TooltipContent>
+                <TooltipContent>Total Care Hours (rounded to 0.25)</TooltipContent>
               </Tooltip>
             </th>
             <th className="px-3 py-2 text-left">
@@ -129,16 +167,16 @@ export default function AdminDependencyTable({ residents, communities, selectedC
         </thead>
         <tbody>
           {list.map((r, idx) => {
-            const careHours = calculateResidentCareHours(r);
+            const careMinutes = calculateResidentCareMinutes(r);
             return (
               <tr className="border-t" key={r.id || `${r.name}-${r.room}`}>
                 <td className="px-3 py-2 text-center">{/* No expand/collapse in admin view */}</td>
                 <td className="px-3 py-2">{r.name}</td>
                 <td className="px-3 py-2 font-mono">{r.room}</td>
-                <td className="px-3 py-2 font-mono">{careHours.Day}</td>
-                <td className="px-3 py-2 font-mono">{careHours.Night}</td>
-                <td className="px-3 py-2 font-mono">{Math.round(ceilToQuarter((careHours.Day / 12)) * 100) / 100}</td>
-                <td className="px-3 py-2 font-mono">{Math.round(ceilToQuarter((careHours.Night / 12)) * 100) / 100}</td>
+                <td className="px-3 py-2 font-mono">{Math.round((careMinutes.Day / 60) * 100) / 100}</td>
+                <td className="px-3 py-2 font-mono">{Math.round((careMinutes.Night / 60) * 100) / 100}</td>
+                <td className="px-3 py-2 font-mono">{Math.round(ceilToQuarter((careMinutes.Day / 60 / 12)) * 100) / 100}</td>
+                <td className="px-3 py-2 font-mono">{Math.round(ceilToQuarter((careMinutes.Night / 60 / 12)) * 100) / 100}</td>
               </tr>
             );
           })}

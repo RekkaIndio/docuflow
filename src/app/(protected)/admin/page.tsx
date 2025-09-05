@@ -3,6 +3,7 @@ import React from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import AdminWorkspaceView from '@/components/admin/admin-workspace-view';
+import AdminWorkspacesView from '@/components/admin/admin-workspaces-view';
 import { DocumentView } from '@/components/dashboard/document-view';
 import { TeamsView } from '@/components/dashboard/teams-view';
 import { Button } from '@/components/ui/button';
@@ -11,9 +12,10 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Users, MapPin, BarChart2, Download, MessageSquare, X, ArrowLeft, BarChart3, TrendingUp, TrendingDown, Plus, MoreVertical, Edit, Trash2, Target, AlertTriangle } from 'lucide-react';
+import { Users, MapPin, BarChart2, Download, MessageSquare, X, ArrowLeft, BarChart3, TrendingUp, TrendingDown, Plus, MoreVertical, Edit, Trash2, Target, AlertTriangle, UserCheck } from 'lucide-react';
 import OccupancyPie from '@/components/admin/occupancy-pie';
 import OverviewCards from '@/components/dashboard/overview-cards';
+import AdminSettings from '@/components/admin/admin-settings';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
@@ -22,7 +24,7 @@ import { ChatPanel } from '@/components/chat/chat-panel';
 import { AdminChatPanel } from '@/components/admin/admin-chat-panel';
 import type { Folder, Document } from '@/lib/types';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, query, where, onSnapshot } from 'firebase/firestore';
 
 export default function AdminPage() {
   const { user, loading } = useAuth();
@@ -66,7 +68,7 @@ export default function AdminPage() {
         try {
           const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
           const v = params?.get('view');
-          if (v && ['home','files','documents','tags','teams','settings','renewals','accessibility','stats'].includes(v)) {
+          if (v && ['home','files','documents','tags','teams','settings','renewals','accessibility','stats','workspaces','policies'].includes(v)) {
             setAdminView(v as any);
           }
         } catch (e) {
@@ -117,7 +119,7 @@ export default function AdminPage() {
     };
 
     if (typeof window !== 'undefined') {
-      window.addEventListener('navigate-to-workspace', handleNavigateToWorkspace as EventListener);
+  window.addEventListener('navigate-to-workspace', handleNavigateToWorkspace as EventListener);
       // Listen for centralized navigation events emitted by the AdminLayout so
       // the page can react (close selected workspace/document when navigating
       // back to dashboard, etc.). This keeps layout-driven router.push in
@@ -126,7 +128,7 @@ export default function AdminPage() {
         try {
           const v = ev?.detail?.view;
           if (!v) return;
-          if (['home','files','documents','tags','teams','settings','renewals','accessibility','stats'].includes(v)) {
+          if (['home','files','documents','tags','teams','settings','renewals','accessibility','stats','workspaces','policies'].includes(v)) {
             setAdminView(v as any);
             // If navigating back to the top-level admin dashboard, clear the
             // selected workspace/document so AdminWorkspaceView closes.
@@ -142,7 +144,10 @@ export default function AdminPage() {
         }
       };
       window.addEventListener('admin-set-view', handleAdminSetView as EventListener);
-      return () => window.removeEventListener('navigate-to-workspace', handleNavigateToWorkspace as EventListener);
+      return () => {
+        window.removeEventListener('navigate-to-workspace', handleNavigateToWorkspace as EventListener);
+        window.removeEventListener('admin-set-view', handleAdminSetView as EventListener);
+      };
     }
   }, [workspaces]);
 
@@ -150,25 +155,10 @@ export default function AdminPage() {
   const [selectedWorkspaceForTeams, setSelectedWorkspaceForTeams] = React.useState<any | null>(null);
   const [selectedDocument, setSelectedDocument] = React.useState<Document | null>(null);
   const [lastChatDetail, setLastChatDetail] = React.useState<{ text?: string; documents?: any[] } | undefined>(undefined);
-  type AdminViewType = 'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'stats';
+  type AdminViewType = 'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'stats' | 'workspaces' | 'policies';
   const [adminView, setAdminView] = React.useState<AdminViewType>('home');
   const [regionFilter, setRegionFilter] = React.useState<string[]>((['All']));
-  const [isCreateWorkspaceOpen, setIsCreateWorkspaceOpen] = React.useState(false);
-  const [newWorkspaceName, setNewWorkspaceName] = React.useState('');
-  const [newWorkspaceOwner, setNewWorkspaceOwner] = React.useState('');
-  const [isCreatingWorkspace, setIsCreatingWorkspace] = React.useState(false);
-  
-  // Rename workspace state
-  const [isRenameWorkspaceOpen, setIsRenameWorkspaceOpen] = React.useState(false);
-  const [renameWorkspaceData, setRenameWorkspaceData] = React.useState<{id: string, currentName: string} | null>(null);
-  const [newRenameWorkspaceName, setNewRenameWorkspaceName] = React.useState('');
-  const [isRenamingWorkspace, setIsRenamingWorkspace] = React.useState(false);
-  
-  // Delete workspace state
-  const [isDeleteWorkspaceOpen, setIsDeleteWorkspaceOpen] = React.useState(false);
-  const [deleteWorkspaceData, setDeleteWorkspaceData] = React.useState<{id: string, name: string} | null>(null);
-  const [deleteConfirmationName, setDeleteConfirmationName] = React.useState('');
-  const [isDeletingWorkspace, setIsDeletingWorkspace] = React.useState(false);
+  // Workspace management moved to AdminWorkspacesView component
 
   // Client-side mount state to prevent hydration mismatches
   const [isMounted, setIsMounted] = React.useState(false);
@@ -209,154 +199,30 @@ export default function AdminPage() {
     workspacesWithData: 0
   });
 
+  // Aggregate staffing data state
+  const [aggregateStaffingData, setAggregateStaffingData] = React.useState<{
+    totalDay: number;
+    totalNight: number;
+    averageDay: number;
+    averageNight: number;
+    workspacesWithData: number;
+  }>({
+    totalDay: 0,
+    totalNight: 0,
+    averageDay: 0,
+    averageNight: 0,
+    workspacesWithData: 0
+  });
+
+  // Enhanced staffing chart state
+  const [staffingTimeframe, setStaffingTimeframe] = React.useState<'day' | 'week' | 'month'>('week');
+  const [staffingHistory, setStaffingHistory] = React.useState<Array<{ date: string; day: number; night: number; total: number }>>([]);
+  const [staffingLoading, setStaffingLoading] = React.useState(false);
+
   // Helper: return a folder-like object for the selected workspace (chat expects a Folder)
   const getWorkspaceRootForChat = (ws: any) => ({ id: ws?.id || 'admin-root', name: ws?.name || 'Admin', type: 'folder' as const, items: ws?.folders || [], workspaceId: ws?.id || 'admin' });
 
-  // Function to create a new workspace
-  const handleCreateWorkspace = async () => {
-    if (!newWorkspaceName.trim() || !newWorkspaceOwner.trim()) {
-      alert('Please provide both workspace name and owner ID');
-      return;
-    }
-
-    setIsCreatingWorkspace(true);
-    try {
-      const response = await fetch('/api/admin/workspaces', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: newWorkspaceName.trim(),
-          ownerId: newWorkspaceOwner.trim(),
-          members: [newWorkspaceOwner.trim()],
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create workspace');
-      }
-
-      const data = await response.json();
-      
-      // Refresh the workspaces list
-      const workspacesResponse = await fetch('/api/admin/workspaces');
-      if (workspacesResponse.ok) {
-        const workspacesData = await workspacesResponse.json();
-        setWorkspaces(workspacesData.workspaces || []);
-      }
-
-      // Reset form and close dialog
-      setNewWorkspaceName('');
-      setNewWorkspaceOwner('');
-      setIsCreateWorkspaceOpen(false);
-
-      alert(`Workspace "${data.workspace?.name}" created successfully!`);
-    } catch (error) {
-      console.error('Error creating workspace:', error);
-      alert(`Failed to create workspace: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setIsCreatingWorkspace(false);
-    }
-  };
-
-  // Function to rename a workspace
-  const handleRenameWorkspace = async () => {
-    if (!renameWorkspaceData || !newRenameWorkspaceName.trim()) {
-      alert('Please provide a valid workspace name');
-      return;
-    }
-
-    setIsRenamingWorkspace(true);
-    try {
-      const response = await fetch(`/api/admin/workspaces/${renameWorkspaceData.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: newRenameWorkspaceName.trim(),
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to rename workspace');
-      }
-
-      // Refresh the workspaces list
-      const workspacesResponse = await fetch('/api/admin/workspaces');
-      if (workspacesResponse.ok) {
-        const workspacesData = await workspacesResponse.json();
-        setWorkspaces(workspacesData.workspaces || []);
-      }
-
-      // Reset form and close dialog
-      setNewRenameWorkspaceName('');
-      setRenameWorkspaceData(null);
-      setIsRenameWorkspaceOpen(false);
-
-      alert(`Workspace renamed to "${newRenameWorkspaceName.trim()}" successfully!`);
-    } catch (error) {
-      console.error('Error renaming workspace:', error);
-      alert(`Failed to rename workspace: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setIsRenamingWorkspace(false);
-    }
-  };
-
-  // Function to delete a workspace
-  const handleDeleteWorkspace = async () => {
-    if (!deleteWorkspaceData || deleteConfirmationName.trim() !== deleteWorkspaceData.name) {
-      alert('Please type the exact workspace name to confirm deletion');
-      return;
-    }
-
-    setIsDeletingWorkspace(true);
-    try {
-      const response = await fetch(`/api/admin/workspaces/${deleteWorkspaceData.id}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to delete workspace');
-      }
-
-      // Refresh the workspaces list
-      const workspacesResponse = await fetch('/api/admin/workspaces');
-      if (workspacesResponse.ok) {
-        const workspacesData = await workspacesResponse.json();
-        setWorkspaces(workspacesData.workspaces || []);
-      }
-
-      // Reset form and close dialog
-      setDeleteConfirmationName('');
-      setDeleteWorkspaceData(null);
-      setIsDeleteWorkspaceOpen(false);
-
-      alert(`Workspace "${deleteWorkspaceData.name}" deleted successfully!`);
-    } catch (error) {
-      console.error('Error deleting workspace:', error);
-      alert(`Failed to delete workspace: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setIsDeletingWorkspace(false);
-    }
-  };
-
-  // Helper functions to open rename/delete dialogs
-  const openRenameDialog = (workspace: any) => {
-    setRenameWorkspaceData({ id: workspace.id, currentName: workspace.name || workspace.id });
-    setNewRenameWorkspaceName(workspace.name || workspace.id);
-    setIsRenameWorkspaceOpen(true);
-  };
-
-  const openDeleteDialog = (workspace: any) => {
-    setDeleteWorkspaceData({ id: workspace.id, name: workspace.name || workspace.id });
-    setDeleteConfirmationName('');
-    setIsDeleteWorkspaceOpen(true);
-  };
+  // Workspace management (create/rename/delete) moved to AdminWorkspacesView
 
   // Function to calculate aggregate audit scores across all workspaces
   const calculateAggregateAuditScores = async () => {
@@ -450,6 +316,158 @@ export default function AdminPage() {
         totalAudits: 0,
         workspacesWithData: 0
       });
+    }
+  };
+
+  // Function to calculate aggregate staffing data across all workspaces
+  const calculateAggregateStaffingData = async () => {
+    if (!workspaces || workspaces.length === 0) {
+      setAggregateStaffingData({
+        totalDay: 0,
+        totalNight: 0,
+        averageDay: 0,
+        averageNight: 0,
+        workspacesWithData: 0
+      });
+      setStaffingHistory([]);
+      return;
+    }
+
+    setStaffingLoading(true);
+
+    try {
+      let totalDayStaff = 0;
+      let totalNightStaff = 0;
+      let workspacesWithData = 0;
+      const allStaffingHistory: Array<{ date: string; day: number; night: number; total: number; workspaceId: string }> = [];
+
+      // Calculate date range based on timeframe
+      let startDate = new Date();
+      switch (staffingTimeframe) {
+        case 'day':
+          startDate.setHours(0, 0, 0, 0);
+          break;
+        case 'week':
+          startDate.setDate(startDate.getDate() - 7);
+          break;
+        case 'month':
+          startDate.setDate(startDate.getDate() - 30);
+          break;
+      }
+      
+      // Process each workspace sequentially
+      for (const workspace of workspaces) {
+        try {
+          const colRef = collection(db, `workspaces/${workspace.id}/daily-checkins`);
+          const snap = await getDocs(colRef);
+          
+          const historyData: Array<{ date: string; day: number; night: number; total: number }> = [];
+          let latestStaffingDay = 0;
+          let latestStaffingNight = 0;
+          let latestTimestamp = 0;
+          
+          if (!snap.empty) {
+            snap.docs.forEach((doc, index) => {
+              const data = doc.data();
+              console.log(`� Document ${index + 1}/${snap.docs.length} for ${workspace.id}:`, {
+                id: doc.id,
+                hasStaffingDay: 'staffingDay' in data,
+                hasStaffingNight: 'staffingNight' in data,
+                staffingDay: data.staffingDay,
+                staffingNight: data.staffingNight,
+                hasStaffingObject: 'staffing' in data,
+                staffingObject: data.staffing,
+                createdAt: data.createdAt?.toDate?.()?.toISOString(),
+                allFields: Object.keys(data)
+              });
+              
+              // Use exact same parsing logic as individual workspace
+              const day = parseInt(String(data.staffingDay || data.staffing?.day || '0')) || 0;
+              const night = parseInt(String(data.staffingNight || data.staffing?.night || '0')) || 0;
+              const total = day + night;
+              
+              console.log(`🔢 Parsed values for ${workspace.id}, doc ${doc.id}: day=${day}, night=${night}, total=${total}`);
+              
+              const recordDate = data.createdAt ? 
+                (data.createdAt.toDate ? data.createdAt.toDate() : new Date(data.createdAt)) :
+                new Date(data.recordedAt || Date.now());
+              
+              const timestamp = recordDate.getTime();
+              
+              // Only include data within timeframe
+              if (timestamp >= startDate.getTime()) {
+                historyData.push({
+                  date: recordDate.toISOString().split('T')[0],
+                  day,
+                  night,
+                  total
+                });
+              }
+              
+              // Track latest by timestamp for current totals
+              if (timestamp > latestTimestamp) {
+                latestTimestamp = timestamp;
+                latestStaffingDay = day;
+                latestStaffingNight = night;
+              }
+            });
+          } else {
+          }
+          
+          // Add to totals
+          totalDayStaff += latestStaffingDay;
+          totalNightStaff += latestStaffingNight;
+          
+          if (latestStaffingDay > 0 || latestStaffingNight > 0) {
+            workspacesWithData += 1;
+          }
+          
+          // Add workspace history to aggregate
+          allStaffingHistory.push(...historyData.map(h => ({ ...h, workspaceId: workspace.id })));
+          
+        } catch (error) {
+          console.warn(`Failed to fetch staffing data for workspace ${workspace.id}:`, error);
+        }
+      }
+
+      const averageDay = workspacesWithData > 0 ? Math.round(totalDayStaff / workspacesWithData * 10) / 10 : 0;
+      const averageNight = workspacesWithData > 0 ? Math.round(totalNightStaff / workspacesWithData * 10) / 10 : 0;
+
+      // Group and aggregate history by date (same logic as individual workspace)
+      const groupedHistory = allStaffingHistory.reduce((acc, curr) => {
+        if (!acc[curr.date]) {
+          acc[curr.date] = { date: curr.date, day: 0, night: 0, total: 0 };
+        }
+        acc[curr.date].day += curr.day;
+        acc[curr.date].night += curr.night;
+        acc[curr.date].total += curr.total;
+        return acc;
+      }, {} as Record<string, { date: string; day: number; night: number; total: number }>);
+
+      const sortedHistory = Object.values(groupedHistory).sort((a, b) => a.date.localeCompare(b.date));
+
+      setAggregateStaffingData({
+        totalDay: totalDayStaff,
+        totalNight: totalNightStaff,
+        averageDay,
+        averageNight,
+        workspacesWithData
+      });
+
+      setStaffingHistory(sortedHistory);
+
+    } catch (error) {
+      console.error('❌ Failed to calculate aggregate staffing data:', error);
+      setAggregateStaffingData({
+        totalDay: 0,
+        totalNight: 0,
+        averageDay: 0,
+        averageNight: 0,
+        workspacesWithData: 0
+      });
+      setStaffingHistory([]);
+    } finally {
+      setStaffingLoading(false);
     }
   };
 
@@ -564,8 +582,9 @@ export default function AdminPage() {
     if (workspaces.length > 0) {
       calculateAggregateAuditScores();
       calculateAggregateWoundsData();
+      calculateAggregateStaffingData();
     }
-  }, [workspaces]);
+  }, [workspaces, staffingTimeframe]);
 
   // Set mounted state to prevent hydration mismatches
   React.useEffect(() => {
@@ -673,7 +692,38 @@ export default function AdminPage() {
     };
 
   const handleDocumentNavigation = async (event: CustomEvent) => {
-      const { documentId, documentName } = event.detail || {};
+      const { documentId, documentName, policyFile, policyUrl } = event.detail || {};
+      // If an admin policy card dispatched navigation, synthesize a Document
+      // and open it inside the Admin UI (DocumentView) so behavior matches the
+      // user-side (no external tab). This requires no selectedWorkspace; we'll
+      // attach it to the currently selected workspace if present.
+      if (policyFile || policyUrl) {
+        try {
+          const docId = `policy:${policyFile || (policyUrl || '').split('/').pop()}`;
+          const docName = documentName || (policyFile || (policyUrl || '').split('/').pop()) || 'Policy Document';
+          
+          const syntheticDoc: Document = {
+            id: docId,
+            name: docName,
+            type: 'document',
+            fileType: 'pdf',
+            createdAt: new Date().toISOString(),
+            owner: user || { id: 'system', name: 'Policy Library', email: null, avatarUrl: null },
+            workspaceId: selectedWorkspace ? selectedWorkspace.id : 'admin',
+            folderId: null,
+            downloadUrl: policyUrl || `/policies/${policyFile}`,
+          } as unknown as Document;
+
+          setLastChatDetail(undefined);
+          setSelectedDocument(syntheticDoc as any);
+          setAdminView('files');
+
+          try { window.dispatchEvent(new CustomEvent('highlight-document', { detail: { documentId: syntheticDoc.id } })); } catch (e) {}
+          return;
+        } catch (e) {
+          console.warn('Failed to open policy inside admin UI', e);
+        }
+      }
       if (!selectedWorkspace) return;
 
       const findDocument = (items: (Folder | Document)[]): Document | null => {
@@ -753,16 +803,13 @@ export default function AdminPage() {
 
     // Create wrappers so we can register EventListener (non-async) while delegating
     // to our async handler for the navigate event.
-    const navWrapper = (evt: Event) => {
-      try {
-        // Cast to CustomEvent to access .detail
-        handleDocumentNavigation(evt as CustomEvent).catch((err) => console.error('navigate handler error', err));
-      } catch (e) {
-        console.error('navigate-to-document wrapper error', e);
-      }
-    };
-
-    window.addEventListener('chat-response', handleChatResponse as EventListener);
+     const navWrapper = (evt: Event) => {
+       try {
+         handleDocumentNavigation(evt as CustomEvent).catch((err) => console.error('navigate handler error', err));
+       } catch (e) {
+         console.error('navigate-to-document wrapper error', e);
+       }
+     };    window.addEventListener('chat-response', handleChatResponse as EventListener);
     window.addEventListener('navigate-to-document', navWrapper as EventListener);
 
     return () => {
@@ -841,12 +888,12 @@ export default function AdminPage() {
                                       </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
-                                      <DropdownMenuItem onClick={() => openRenameDialog(ws)}>
+                                      <DropdownMenuItem onClick={() => { setAdminView('workspaces'); window.dispatchEvent(new CustomEvent('navigate-to-workspace', { detail: { workspaceId: ws.id, workspaceName: ws.name } })); }}>
                                         <Edit className="w-4 h-4 mr-2" />
-                                        Rename
+                                        Rename / Manage
                                       </DropdownMenuItem>
                                       <DropdownMenuItem 
-                                        onClick={() => openDeleteDialog(ws)}
+                                        onClick={() => { setAdminView('workspaces'); window.dispatchEvent(new CustomEvent('navigate-to-workspace', { detail: { workspaceId: ws.id, workspaceName: ws.name } })); }}
                                         className="text-red-600 focus:text-red-600"
                                       >
                                         <Trash2 className="w-4 h-4 mr-2" />
@@ -876,6 +923,14 @@ export default function AdminPage() {
                 </>
               )}
             </>
+          ) : adminView === 'workspaces' ? (
+            // Dedicated Workspaces page moved into its own component
+            <AdminWorkspacesView />
+          ) : adminView === 'settings' ? (
+            // Admin settings / superuser tools
+            <div>
+              <AdminSettings workspaces={workspaces} />
+            </div>
           ) : adminView === 'stats' ? (
             // Stats admin view
             <>
@@ -1035,7 +1090,14 @@ export default function AdminPage() {
                 </>
               )}
             </>
-          ) : (
+            ) : adminView === 'policies' ? (
+              <React.Suspense fallback={<div>Loading...</div>}>
+                {(() => {
+                  const PoliciesPage = require('@/app/(protected)/admin/policies/page').default;
+                  return <PoliciesPage />;
+                })()}
+              </React.Suspense>
+            ) : (
             // Default dashboard / files view (unchanged)
             <>
               {loadingData ? (
@@ -1101,27 +1163,11 @@ export default function AdminPage() {
                           <h1 className="text-2xl font-bold">Overview</h1>
                         </div>
                         <div className="flex items-center gap-4">
-                          <Button onClick={() => setIsCreateWorkspaceOpen(true)} className="flex items-center gap-2">
-                            <Plus className="w-4 h-4" />
-                            Create Workspace
-                          </Button>
-                          <p className="text-sm text-muted-foreground">Showing <span className="font-medium">{workspaces.length}</span> workspaces</p>
-                          <div className="flex items-center gap-2">
-                            <MapPin className="w-4 h-4 text-muted-foreground" />
-                            <select multiple value={regionFilter} onChange={(e) => {
-                              const opts = Array.from(e.currentTarget.selectedOptions).map(o => o.value);
-                              setRegionFilter(opts);
-                            }} className="text-sm bg-background border rounded px-2 py-1">
-                              <option value="All">All regions</option>
-                              {Object.keys(aggregated.regions || {}).map(r => (
-                                <option key={r} value={r}>{r} ({aggregated.regions[r].workspaces.length})</option>
-                              ))}
-                            </select>
-                          </div>
+                          {/* Workspace management moved to dedicated Workspaces page */}
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                         <Card>
                           <CardHeader className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
@@ -1270,6 +1316,141 @@ export default function AdminPage() {
                             </div>
                           </CardContent>
                         </Card>
+                      </div>
+
+                      {/* Enhanced Staffing Chart Card */}
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+                        <Card className="lg:col-span-2">
+                          <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg">
+                            <div className="flex flex-row items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <UserCheck className="h-5 w-5 text-slate-200" />
+                                <div className="text-lg font-medium text-white">Aggregate Staffing Levels</div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  className="text-white border-white/20 hover:bg-white/10"
+                                  onClick={() => {
+                                    calculateAggregateStaffingData();
+                                  }}
+                                >
+                                  <TrendingUp className="w-4 h-4 mr-1" />
+                                  Refresh
+                                </Button>
+                              </div>
+                            </div>
+                            <div className="flex gap-2 mt-2">
+                              {(['day', 'week', 'month'] as const).map((timeframe) => (
+                                <Button
+                                  key={timeframe}
+                                  size="sm"
+                                  variant={staffingTimeframe === timeframe ? "secondary" : "ghost"}
+                                  className={staffingTimeframe === timeframe ? 
+                                    "bg-white/20 text-white hover:bg-white/30" : 
+                                    "text-white/70 hover:bg-white/10 hover:text-white"}
+                                  onClick={() => setStaffingTimeframe(timeframe)}
+                                >
+                                  {timeframe.charAt(0).toUpperCase() + timeframe.slice(1)}
+                                </Button>
+                              ))}
+                            </div>
+                          </CardHeader>
+                          <CardContent className="p-6">
+                            {staffingLoading ? (
+                              <div className="h-48 flex items-center justify-center">
+                                <div className="text-muted-foreground">Loading aggregate staffing data...</div>
+                              </div>
+                            ) : staffingHistory.length > 0 ? (
+                              <div className="space-y-4">
+                                {/* Current Aggregate Stats */}
+                                <div className="grid grid-cols-3 gap-4 p-4 bg-slate-50 rounded-lg">
+                                  <div className="text-center">
+                                    <div className="text-2xl font-bold text-amber-600">{aggregateStaffingData.totalDay}</div>
+                                    <div className="text-sm text-muted-foreground">Total Day Staff</div>
+                                    <div className="text-xs text-muted-foreground">avg {aggregateStaffingData.averageDay}/workspace</div>
+                                  </div>
+                                  <div className="text-center">
+                                    <div className="text-2xl font-bold text-blue-600">{aggregateStaffingData.totalNight}</div>
+                                    <div className="text-sm text-muted-foreground">Total Night Staff</div>
+                                    <div className="text-xs text-muted-foreground">avg {aggregateStaffingData.averageNight}/workspace</div>
+                                  </div>
+                                  <div className="text-center">
+                                    <div className="text-2xl font-bold text-green-600">{aggregateStaffingData.totalDay + aggregateStaffingData.totalNight}</div>
+                                    <div className="text-sm text-muted-foreground">Total Staff</div>
+                                    <div className="text-xs text-muted-foreground">{aggregateStaffingData.workspacesWithData}/{workspaces.length} workspaces</div>
+                                  </div>
+                                </div>
+
+                                {/* Aggregate Bar Chart */}
+                                <div className="h-32">
+                                  <div className="text-sm font-medium mb-2">Aggregate Staffing Trend ({staffingTimeframe})</div>
+                                  <div className="flex items-end justify-between h-24 gap-1">
+                                    {staffingHistory.slice(-10).map((entry, index) => {
+                                      const maxTotal = Math.max(...staffingHistory.map(h => h.total), 1);
+                                      const dayHeight = (entry.day / maxTotal) * 100;
+                                      const nightHeight = (entry.night / maxTotal) * 100;
+                                      
+                                      return (
+                                        <div key={entry.date} className="flex flex-col items-center flex-1 min-w-0">
+                                          <div className="flex flex-col w-full" style={{ height: '72px' }}>
+                                            <div 
+                                              className="bg-amber-500 rounded-t"
+                                              style={{ height: `${dayHeight}%`, minHeight: entry.day > 0 ? '2px' : '0' }}
+                                              title={`Day: ${entry.day} across all workspaces`}
+                                            />
+                                            <div 
+                                              className="bg-blue-500 rounded-b"
+                                              style={{ height: `${nightHeight}%`, minHeight: entry.night > 0 ? '2px' : '0' }}
+                                              title={`Night: ${entry.night} across all workspaces`}
+                                            />
+                                          </div>
+                                          <div className="text-xs text-muted-foreground mt-1 truncate w-full text-center">
+                                            {new Date(entry.date).toLocaleDateString('en-US', { 
+                                              month: 'short', 
+                                              day: 'numeric' 
+                                            })}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                  <div className="flex items-center gap-4 mt-2 text-xs">
+                                    <div className="flex items-center gap-1">
+                                      <div className="w-3 h-3 bg-amber-500 rounded"></div>
+                                      <span>Day Staff</span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <div className="w-3 h-3 bg-blue-500 rounded"></div>
+                                      <span>Night Staff</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="h-48 flex flex-col items-center justify-center">
+                                <UserCheck className="w-12 h-12 text-muted-foreground mb-2" />
+                                <div className="text-muted-foreground text-center">
+                                  No aggregate staffing data available for the selected timeframe
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  Record daily staffing levels in workspaces to see trends
+                                </div>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  className="mt-2"
+                                  onClick={() => {
+                                    calculateAggregateStaffingData();
+                                  }}
+                                >
+                                  Refresh
+                                </Button>
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
 
                         <Card className="border">
                           <CardHeader className="flex items-center justify-between">
@@ -1305,54 +1486,7 @@ export default function AdminPage() {
                     
                   </div>
 
-                  {workspaces.length === 0 ? (
-                    <div className="rounded border p-6 text-center text-muted-foreground">No workspaces found.</div>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {filteredWorkspaces.map((ws: any) => (
-                        <Card key={ws.id} className={cn('hover:shadow-lg transition-shadow', ws.region ? '' : 'opacity-90') }>
-                          <CardHeader className="flex items-center justify-between w-full px-4 py-3 rounded-t-lg bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white">
-                            <div className="flex-1 min-w-0 text-lg font-semibold truncate text-left">{ws.name || ws.id}</div>
-                            <div className="flex items-center gap-2 ml-4">
-                              <Badge variant="secondary">{ws.folders?.length || 0} folders</Badge>
-                              <Button onClick={() => setSelectedWorkspace(ws)}>Open</Button>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon">
-                                    <MoreVertical className="w-4 h-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => openRenameDialog(ws)}>
-                                    <Edit className="w-4 h-4 mr-2" />
-                                    Rename
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem 
-                                    onClick={() => openDeleteDialog(ws)}
-                                    className="text-red-600 focus:text-red-600"
-                                  >
-                                    <Trash2 className="w-4 h-4 mr-2" />
-                                    Delete
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </div>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="mt-2 text-sm text-muted-foreground space-y-2">
-                              {(ws.folders || []).slice(0, 6).map((f: any) => (
-                                <div key={f.id} className="flex items-center justify-between">
-                                  <div className="truncate">{f.name}</div>
-                                  <div className="text-xs text-muted-foreground">{(f.items || []).filter((it: any) => it.type === 'document').length} docs</div>
-                                </div>
-                              ))}
-                              {(ws.folders || []).length > 6 && <div className="text-xs text-muted-foreground">And more...</div>}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  )}
+                  {/* Workspaces moved to dedicated Workspaces page - dashboard now shows only overview stats */}
                 </>
               )}
             </>
@@ -1421,163 +1555,11 @@ export default function AdminPage() {
         )}
       </div>
 
-      {/* Create Workspace Dialog */}
-      <Dialog open={isCreateWorkspaceOpen} onOpenChange={setIsCreateWorkspaceOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Create New Workspace</DialogTitle>
-            <DialogDescription>
-              Create a new workspace for organizing documents and teams.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <label htmlFor="workspace-name" className="text-right text-sm font-medium">
-                Name
-              </label>
-              <Input
-                id="workspace-name"
-                value={newWorkspaceName}
-                onChange={(e) => setNewWorkspaceName(e.target.value)}
-                placeholder="Enter workspace name"
-                className="col-span-3"
-                disabled={isCreatingWorkspace}
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <label htmlFor="workspace-owner" className="text-right text-sm font-medium">
-                Owner ID
-              </label>
-              <Input
-                id="workspace-owner"
-                value={newWorkspaceOwner}
-                onChange={(e) => setNewWorkspaceOwner(e.target.value)}
-                placeholder="Enter owner user ID"
-                className="col-span-3"
-                disabled={isCreatingWorkspace}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsCreateWorkspaceOpen(false);
-                setNewWorkspaceName('');
-                setNewWorkspaceOwner('');
-              }}
-              disabled={isCreatingWorkspace}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleCreateWorkspace}
-              disabled={isCreatingWorkspace || !newWorkspaceName.trim() || !newWorkspaceOwner.trim()}
-            >
-              {isCreatingWorkspace ? 'Creating...' : 'Create Workspace'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Rename Workspace Dialog */}
-      <Dialog open={isRenameWorkspaceOpen} onOpenChange={setIsRenameWorkspaceOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Rename Workspace</DialogTitle>
-            <DialogDescription>
-              Change the name of "{renameWorkspaceData?.currentName}"
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <label htmlFor="rename-workspace-name" className="text-right text-sm font-medium">
-                New Name
-              </label>
-              <Input
-                id="rename-workspace-name"
-                value={newRenameWorkspaceName}
-                onChange={(e) => setNewRenameWorkspaceName(e.target.value)}
-                placeholder="Enter new workspace name"
-                className="col-span-3"
-                disabled={isRenamingWorkspace}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsRenameWorkspaceOpen(false);
-                setNewRenameWorkspaceName('');
-                setRenameWorkspaceData(null);
-              }}
-              disabled={isRenamingWorkspace}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleRenameWorkspace}
-              disabled={isRenamingWorkspace || !newRenameWorkspaceName.trim()}
-            >
-              {isRenamingWorkspace ? 'Renaming...' : 'Rename Workspace'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Workspace Dialog */}
-      <Dialog open={isDeleteWorkspaceOpen} onOpenChange={setIsDeleteWorkspaceOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Delete Workspace</DialogTitle>
-            <DialogDescription>
-              This action cannot be undone. This will permanently delete the workspace "{deleteWorkspaceData?.name}" and all its contents.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="text-sm text-muted-foreground">
-              To confirm deletion, please type the workspace name exactly as shown:
-            </div>
-            <div className="font-mono text-sm bg-muted p-2 rounded">
-              {deleteWorkspaceData?.name}
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <label htmlFor="delete-confirmation" className="text-right text-sm font-medium">
-                Confirm
-              </label>
-              <Input
-                id="delete-confirmation"
-                value={deleteConfirmationName}
-                onChange={(e) => setDeleteConfirmationName(e.target.value)}
-                placeholder="Type workspace name here"
-                className="col-span-3"
-                disabled={isDeletingWorkspace}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsDeleteWorkspaceOpen(false);
-                setDeleteConfirmationName('');
-                setDeleteWorkspaceData(null);
-              }}
-              disabled={isDeletingWorkspace}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDeleteWorkspace}
-              disabled={isDeletingWorkspace || deleteConfirmationName.trim() !== deleteWorkspaceData?.name}
-            >
-              {isDeletingWorkspace ? 'Deleting...' : 'Delete Workspace'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Workspace create/rename/delete dialogs moved to AdminWorkspacesView */}
     </>
   );
 }
+function orderBy(arg0: string, arg1: string): import("@firebase/firestore").QueryConstraint {
+  throw new Error('Function not implemented.');
+}
+

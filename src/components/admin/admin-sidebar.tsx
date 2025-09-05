@@ -20,6 +20,8 @@ import {
   PanelLeft,
   Accessibility,
   BarChart2,
+  Building2,
+  Tag,
 } from "lucide-react";
 import { Logo } from "@/components/icons/logo";
 import { usePathname } from 'next/navigation';
@@ -31,7 +33,7 @@ interface AdminSidebarProps {
   workspaces: Workspace[];
   activeWorkspace: Workspace;
   onWorkspaceChange: (workspaceId: string) => void;
-  setView: (view: 'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'stats' | 'care-homes') => void;
+  setView: (view: 'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'stats' | 'care-homes' | 'workspaces' | 'policies') => void;
   onGoToFiles: () => void;
 }
 
@@ -89,6 +91,12 @@ export function AdminSidebar({
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
+            <SidebarMenuButton onClick={() => handleNavigation(() => setView('workspaces'))} className="text-lg h-14">
+              <Building2 className="w-7 h-7 mr-2" />
+              <span className="text-lg">Workspaces</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
             <SidebarMenuButton onClick={() => handleNavigation(() => setView('care-homes'))} className={`text-lg h-14 ${isActive('/admin/care-homes') ? 'bg-muted/50 rounded' : ''}`}>
               <UsersRound className="w-7 h-7 mr-2" />
               <span className="text-lg">Occupancy</span>
@@ -104,6 +112,12 @@ export function AdminSidebar({
             <SidebarMenuButton onClick={() => handleNavigation(() => setView('documents'))} className="text-lg h-14">
               <FileText className="w-7 h-7 mr-2" />
               <span className="text-lg">Documents</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton onClick={() => handleNavigation(() => { console.log('AdminSidebar: policies clicked'); setView('policies'); })} className="text-lg h-14">
+              <Tag className="w-7 h-7 mr-2" />
+              <span className="text-lg">Policies</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>

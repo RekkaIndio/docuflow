@@ -68,6 +68,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   case 'files':
                     router.push('/files');
                     break;
+                  case 'policies':
+                    router.push('/admin/policies');
+                    break;
+                  case 'workspaces':
+                    router.push('/admin?view=workspaces');
+                    break;
                   case 'care-homes':
                     router.push('/admin/care-homes');
                     break;
@@ -77,6 +83,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   case 'settings':
                   case 'renewals':
                   case 'accessibility':
+                  case 'policies':
                     // These views are rendered inside the admin page via a `view` query param
                     router.push(`/admin?view=${encodeURIComponent(view)}`);
                     break;
@@ -111,7 +118,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </Sidebar>
 
         <SidebarInset className="flex flex-col min-h-screen w-full overflow-hidden">
-          <TopNav onSettingsClick={() => {}} />
+          <TopNav onSettingsClick={() => { try { router.push('/admin?view=settings'); } catch (e) { console.error('Failed to open admin settings', e); } }} />
           <AdminWorkspacesContext.Provider value={workspaces}>
             {children}
           </AdminWorkspacesContext.Provider>

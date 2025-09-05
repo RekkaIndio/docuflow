@@ -303,7 +303,35 @@ export function Dashboard() {
   // Add event listener for document navigation from chat
   useEffect(() => {
     const handleDocumentNavigation = (event: CustomEvent) => {
-      const { documentId, documentName } = event.detail;
+      const { documentId, documentName, policyFile } = event.detail || {};
+
+      // If a policyFile is provided, open the policy PDF as a synthetic Document inside the app
+      if (policyFile) {
+        if (!activeWorkspace) return; // require an active workspace to show DocumentView
+        const doc: Document = {
+          id: `policy:${policyFile}`,
+          name: documentName || policyFile.replace(/[-_]/g, ' ').replace('.pdf', ''),
+          type: 'document',
+          fileType: 'pdf',
+          createdAt: new Date().toISOString(),
+          owner: user || { id: 'system', name: 'Policy Library', email: null, avatarUrl: null },
+          workspaceId: activeWorkspace.id,
+          folderId: null,
+          // Use a public URL; DocumentPreview/PdfPreview will handle fetching it
+          downloadUrl: `/policies/${policyFile}`,
+        } as Document;
+
+        setLastChatDetail(undefined);
+        setSelected(doc as Document);
+        setView('files');
+
+        // dispatch highlight so file browser (if visible) can react
+        if (typeof window !== 'undefined' && window.dispatchEvent) {
+          try { window.dispatchEvent(new CustomEvent('highlight-document', { detail: { documentId: doc.id } })); } catch (e) {}
+        }
+
+        return;
+      }
       
       if (!activeWorkspace) return;
       

@@ -155,13 +155,17 @@ export default function AdminStatsPage() {
   const router = useRouter();
   const [userStats, setUserStats] = React.useState<UserStats | null>(null);
   const [analyticsData, setAnalyticsData] = React.useState<AnalyticsData | null>(null);
-  const [loadingData, setLoadingData] = React.useState(false);
+  const [loadingData, setLoadingData] = React.useState(true);
   const [fetchError, setFetchError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
       return;
+    }
+
+    if (loading) {
+      return; // Wait for auth to complete
     }
 
     const fetchData = async () => {
@@ -392,8 +396,8 @@ export default function AdminStatsPage() {
     );
   }
 
-  // If we are still loading and don't have any data, show a spinner.
-  if (loadingData && !userStats && !analyticsData) {
+  // If we are still loading, show a spinner.
+  if (loading || loadingData) {
     return (
       <div className="p-6">
         <div className="flex items-center gap-3 mb-4">

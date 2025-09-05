@@ -28,7 +28,8 @@ export default function OccupancyPie({
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const dash = (clamped / 100) * circumference;
-  const computedFontSize = centerFontSize ?? size * 0.18;
+  // Use a slightly larger default font size for better consistency across cards
+  const computedFontSize = centerFontSize ?? Math.round(size * 0.25);
   
   // Generate unique IDs for gradients
   const gradientId = `gradient-${Math.random().toString(36).substr(2, 9)}`;
@@ -38,44 +39,57 @@ export default function OccupancyPie({
     <div className="flex items-center justify-center">
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
         <defs>
-          {/* Radial gradient for the stroke */}
-          {gradientColors && (
-            <radialGradient id={gradientId} cx="50%" cy="50%" r="50%">
+          {/* Linear gradient for the stroke (left->right) */}
+          {gradientColors ? (
+            <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
               <stop offset="0%" stopColor={gradientColors.start} />
               <stop offset="100%" stopColor={gradientColors.end} />
-            </radialGradient>
+            </linearGradient>
+          ) : (
+            <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor={color} />
+              <stop offset="100%" stopColor={color} />
+            </linearGradient>
           )}
-          {/* Radial gradient for the center - matches the stroke colors but darker */}
+          {/* Radial gradient for the inner fill: darker center -> lighter edge (darker stops for better contrast) */}
           <radialGradient id={centerGradientId} cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor={gradientColors ? gradientColors.start : "#334155"} />
-            <stop offset="100%" stopColor={gradientColors ? gradientColors.end : "#1e293b"} />
+            {/* Darker center extends further toward the edge for stronger contrast */}
+            <stop offset="0%" stopColor={gradientColors ? gradientColors.end : color} stopOpacity="1" />
+            <stop offset="55%" stopColor={gradientColors ? gradientColors.end : color} stopOpacity="0.98" />
+            <stop offset="85%" stopColor={gradientColors ? gradientColors.start : color} stopOpacity="0.86" />
+            <stop offset="100%" stopColor={gradientColors ? gradientColors.start : color} stopOpacity="0.72" />
           </radialGradient>
         </defs>
+
+        {/* shift and rotate so stroke starts at top */}
         <g transform={`translate(${size / 2}, ${size / 2}) rotate(-90)`}>
+          {/* background ring */}
           <circle r={radius} fill="none" stroke={bgColor} strokeWidth={strokeWidth} />
+          {/* progress ring */}
           {hasValue ? (
             <circle
               r={radius}
               fill="none"
-              stroke={gradientColors ? `url(#${gradientId})` : color}
+              stroke={`url(#${gradientId})`}
               strokeWidth={strokeWidth}
               strokeLinecap="round"
               strokeDasharray={`${dash} ${circumference}`}
+              style={{ transition: 'stroke-dasharray 0.5s, stroke-dashoffset 0.5s' }}
             />
           ) : (
-            // muted ring when value is missing
             <circle r={radius} fill="none" stroke="#cbd5e1" strokeWidth={strokeWidth} strokeDasharray={`${circumference} ${circumference}`} />
           )}
         </g>
-        {/* Center circle with gradient and blue border */}
+
+        {/* Inner circle with radial gradient (darker center -> lighter edge). No dark border. */}
         <circle
           cx="50%"
           cy="50%"
-          r={radius - strokeWidth / 2}
+          r={radius - strokeWidth / 2 - 2}
           fill={`url(#${centerGradientId})`}
-          stroke="#334155"
-          strokeWidth="2"
         />
+
+        {/* Center percentage - large white with drop shadow */}
         <text
           x="50%"
           y="50%"
@@ -84,6 +98,7 @@ export default function OccupancyPie({
           fontSize={computedFontSize}
           fontWeight={700}
           fill="#ffffff"
+          style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.25))' }}
           className={centerClassName}
         >
           {hasValue ? `${Math.round(clamped)}%` : '--'}
