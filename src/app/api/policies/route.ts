@@ -10,6 +10,8 @@ type PolicyMeta = {
   effectiveDate?: string | null;
   reviewDate?: string | null;
   appliesTo?: string | null;
+  isCompleted?: boolean; // whether this policy has been customized
+  lastCustomized?: string | null; // timestamp of last customization
 };
 
 function deriveTitleFromFilename(filename: string) {
@@ -20,13 +22,22 @@ function deriveTitleFromFilename(filename: string) {
 export async function GET() {
   const publicDir = path.join(process.cwd(), 'public', 'policies');
   const mdDir = path.join(process.cwd(), 'src', 'policies');
+  const filledDir = path.join(process.cwd(), 'src', 'policies', 'filled');
 
-  let pdfFiles: string[] = [];
+  // Get list of all markdown templates to determine available policies
+  let mdFiles: string[] = [];
   try {
-    pdfFiles = fs.readdirSync(publicDir).filter((f) => f.endsWith('.pdf'));
+    mdFiles = fs.readdirSync(mdDir).filter((f) => f.endsWith('.md'));
   } catch (e) {
-    // no pdfs yet
-    pdfFiles = [];
+    mdFiles = [];
+  }
+
+  // Get list of completed policies from filled directory
+  let filledFiles: string[] = [];
+  try {
+    filledFiles = fs.readdirSync(filledDir).filter((f) => f.endsWith('.md'));
+  } catch (e) {
+    filledFiles = [];
   }
 
   const policies: PolicyMeta[] = [];
@@ -42,9 +53,29 @@ export async function GET() {
     matter = null;
   }
 
-  for (const f of pdfFiles) {
-    const base = f.replace(/\.pdf$/i, '');
-    const mdPath = path.join(mdDir, `${base}.md`);
+  // Check each markdown template
+  for (const md of mdFiles) {
+    const base = md.replace(/\.md$/i, '');
+    const pdfName = `${base}.pdf`;
+    const mdPath = path.join(mdDir, md);
+    
+    // Check if this policy has been completed (has files in filled directory)
+    const completedFiles = filledFiles.filter(f => f.startsWith(base + '-'));
+    const isCompleted = completedFiles.length > 0;
+    
+    // Get the most recent completion timestamp
+    let lastCustomized: string | null = null;
+    if (isCompleted) {
+      const timestamps = completedFiles.map(f => {
+        const match = f.match(/-(\d{4}-\d{2}-\d{2}T[\d:-]+Z)\.md$/);
+        return match ? match[1] : null;
+      }).filter(Boolean);
+      
+      if (timestamps.length > 0) {
+        timestamps.sort();
+        lastCustomized = timestamps[timestamps.length - 1];
+      }
+    }
 
     let meta: any = {};
     if (fs.existsSync(mdPath)) {
@@ -60,51 +91,19 @@ export async function GET() {
       }
     }
 
-    const title = meta.title || deriveTitleFromFilename(f);
+    const title = meta.title || deriveTitleFromFilename(pdfName);
 
     policies.push({
-      file: f,
-      url: `/policies/${encodeURIComponent(f)}`,
+      file: pdfName,
+      url: `/policies/${encodeURIComponent(pdfName)}`,
       title,
       version: meta.version || null,
       effectiveDate: meta.effectiveDate || null,
       reviewDate: meta.reviewDate || null,
       appliesTo: meta.appliesTo || null,
+      isCompleted,
+      lastCustomized,
     });
-  }
-
-  // If there are no PDFs in public yet, fall back to scanning src/policies for .md files
-  if (policies.length === 0) {
-    try {
-      const mdFiles = fs.readdirSync(mdDir).filter((f) => f.endsWith('.md'));
-      for (const md of mdFiles) {
-        const base = md.replace(/\.md$/i, '');
-        const pdfName = `${base}.pdf`;
-        const mdPath = path.join(mdDir, md);
-        let meta: any = {};
-        try {
-          const content = fs.readFileSync(mdPath, 'utf8');
-          if (matter) {
-            const parsed = matter(content);
-            meta = parsed && parsed.data ? parsed.data : {};
-          }
-        } catch (e) {
-          meta = {};
-        }
-        const title = meta.title || deriveTitleFromFilename(pdfName);
-        policies.push({
-          file: pdfName,
-          url: `/policies/${encodeURIComponent(pdfName)}`,
-          title,
-          version: meta.version || null,
-          effectiveDate: meta.effectiveDate || null,
-          reviewDate: meta.reviewDate || null,
-          appliesTo: meta.appliesTo || null,
-        });
-      }
-    } catch (e) {
-      // ignore
-    }
   }
 
   return NextResponse.json({ files: policies });

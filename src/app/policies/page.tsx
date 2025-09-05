@@ -10,6 +10,8 @@ type PolicyItem = {
   effectiveDate?: string | null;
   reviewDate?: string | null;
   appliesTo?: string | null;
+  isCompleted?: boolean;
+  lastCustomized?: string | null;
 };
 
 export default function PoliciesPage() {
@@ -57,6 +59,10 @@ export default function PoliciesPage() {
     if (!files || files.length === 0) return { total: 0, overdue: 0, dueSoon: 0, ok: 0, noDate: 0 };
     let total = 0, overdue = 0, dueSoon = 0, ok = 0, noDate = 0;
     (files as any[]).forEach((f) => {
+      // Only count completed policies for users
+      const isCompleted = typeof f !== 'string' && f.isCompleted;
+      if (!isCompleted) return;
+      
       total += 1;
       const reviewDate = typeof f === 'string' ? null : (f.reviewDate || null);
       const s = getReviewStatus(reviewDate);
@@ -70,7 +76,10 @@ export default function PoliciesPage() {
 
   const sortedItems = useMemo(() => {
     if (!files || files.length === 0) return [];
-    const items = (files as any[]).map((f) => {
+    // Filter to only include completed policies for users
+    const completedPolicies = (files as any[]).filter(f => typeof f !== 'string' && f.isCompleted);
+    
+    const items = completedPolicies.map((f) => {
       const isString = typeof f === 'string';
       const fileName = isString ? f : f.file;
       const title = isString ? fileName.replace(/[-_]/g, ' ').replace('.pdf', '') : (f.title || fileName.replace(/[-_]/g, ' ').replace('.pdf', ''));
@@ -83,8 +92,8 @@ export default function PoliciesPage() {
       return { raw: f, fileName, title, version, effectiveDate, reviewDate, appliesTo, review, ts };
     });
 
-  // priority: overdue (0) -> due-soon (1) -> no-date (2) -> ok (3)
-  const priority = (kind: string) => (kind === 'overdue' ? 0 : kind === 'due-soon' ? 1 : kind === 'ok' ? 3 : 2);
+    // priority: overdue (0) -> due-soon (1) -> no-date (2) -> ok (3)
+    const priority = (kind: string) => (kind === 'overdue' ? 0 : kind === 'due-soon' ? 1 : kind === 'ok' ? 3 : 2);
 
     items.sort((a, b) => {
       const pa = priority(a.review.kind);
@@ -138,13 +147,16 @@ export default function PoliciesPage() {
     <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
       {(() => {
         if (files === null) return <div className="text-sm text-muted-foreground">Loading…</div>;
-        if (files.length === 0) return <div className="text-sm text-muted-foreground">No policies published yet.</div>;
+        if (sortedItems.length === 0) return <div className="text-sm text-muted-foreground">No completed policies available yet. Please contact your administrator.</div>;
 
-        // render sorted items (overdue -> due-soon -> ok -> no-date)
+        // render sorted items
         return sortedItems.map((it) => {
           const { fileName, title, version, effectiveDate, reviewDate, appliesTo, review } = it;
           const isString = typeof it.raw === 'string';
-          const borderClass = review.kind === 'overdue' ? 'border-l-4 border-red-500' : review.kind === 'due-soon' ? 'border-l-4 border-yellow-500' : review.kind === 'ok' ? 'border-l-4 border-green-500' : '';
+          const lastCustomized = !isString && it.raw.lastCustomized;
+          
+          // Remove colored border
+          const borderClass = '';
 
           return (
             <div
@@ -160,37 +172,27 @@ export default function PoliciesPage() {
                 }
               }}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); try { window.dispatchEvent(new CustomEvent('navigate-to-document', { detail: { policyFile: fileName, documentName: title } })); } catch (err) { const url = isString ? `/policies/${encodeURIComponent(fileName)}` : (it.raw.url || `/policies/${encodeURIComponent(fileName)}`); window.open(url, '_blank'); } } }}
-              className={`bg-card border rounded-lg p-4 flex flex-col justify-between shadow-sm cursor-pointer hover:shadow-md focus:outline-none ${borderClass}`}
+              className={`bg-card border rounded-lg p-4 flex flex-col justify-between shadow-sm cursor-pointer hover:shadow-md focus:outline-none`}
             >
               <div className="flex items-start gap-3">
                 <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <div className="font-medium text-lg">{title}</div>
-                    {review && review.kind !== 'neutral' && (
-                      <span
-                        className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${
-                          review.kind === 'overdue' ? 'bg-red-100 text-red-800' : review.kind === 'due-soon' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'
-                        }`}
-                      >
-                        {review.label}
-                      </span>
-                    )}
-                  </div>
-
-                  {(version || effectiveDate || appliesTo) && (
+                  <div className="font-medium text-lg mb-1">{title}</div>
+                  {/* Show renewal date (reviewDate) prominently if completed */}
+                  {reviewDate && (
+                    <div className="text-xs text-green-700 font-semibold mb-1">Renewal date: {formatDateSafe(reviewDate)}</div>
+                  )}
+                  {(version || effectiveDate || appliesTo || lastCustomized) && (
                     <div className="text-xs text-muted-foreground mt-1">
                       {version && <span className="mr-2">v{version}</span>}
                       {effectiveDate && <span className="mr-2">Effective: {formatDateSafe(effectiveDate)}</span>}
                       {appliesTo && <div className="mt-1 text-[13px]">Applies to: <span className="font-medium">{appliesTo}</span></div>}
+                      {lastCustomized && <div className="mt-1 text-[13px]">Last updated: <span className="font-medium">{formatDateSafe(lastCustomized)}</span></div>}
                     </div>
                   )}
                 </div>
               </div>
               <div className="mt-4 flex items-center justify-between">
                 <div className="text-xs text-muted-foreground">PDF • {new Date().toLocaleDateString()}</div>
-                <div className="text-xs text-muted-foreground">
-                  {reviewDate ? `Review: ${formatDateSafe(reviewDate)}` : 'Review date: —'}
-                </div>
               </div>
             </div>
           );

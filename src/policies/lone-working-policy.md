@@ -1,9 +1,9 @@
 ---
-title: "Lone Working Policy"
-version: "1.0"
-effectiveDate: "[Insert Date]"
-reviewDate: "[Insert Date – usually annually]"
-appliesTo: "All employees, agency staff, and volunteers at [INSERT CARE HOME NAME]"
+title: Lone Working Policy
+version: '1.0'
+effectiveDate: '[Insert Date]'
+reviewDate: '[Insert Date – usually annually]'
+appliesTo: 'All employees, agency staff, and volunteers at Test'
 ---
 
 # Lone Working Policy
