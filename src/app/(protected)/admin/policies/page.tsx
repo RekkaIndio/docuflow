@@ -15,6 +15,8 @@ type PolicyItem = {
   effectiveDate?: string | null;
   reviewDate?: string | null;
   appliesTo?: string | null;
+  isCompleted?: boolean;
+  lastCustomized?: string | null;
 };
 
 function formatDateSafe(d?: string | null) {
@@ -161,7 +163,7 @@ export default function AdminPoliciesPage() {
             </div>
               <div>
               <h2 className="text-2xl font-bold leading-tight">Policies</h2>
-              <div className="mt-1 text-sm text-slate-200">Manage and preview published policy documents.</div>
+              <div className="mt-1 text-sm text-slate-200">Manage policy documents. Create policies from templates or edit existing ones.</div>
 
               <div className="mt-3 flex items-center gap-3">
                 <div className="p-3 bg-white/5 rounded-md">
@@ -199,60 +201,87 @@ export default function AdminPoliciesPage() {
             sortedItems.map((it) => {
               const { fileName, title, version, effectiveDate, reviewDate, appliesTo, review } = it;
               const isString = typeof it.raw === 'string';
-              const borderClass = review.kind === 'overdue' ? 'border-l-4 border-red-500' : review.kind === 'due-soon' ? 'border-l-4 border-yellow-500' : review.kind === 'ok' ? 'border-l-4 border-green-500' : '';
+              const isCompleted = !isString && it.raw.isCompleted;
+              const lastCustomized = !isString && it.raw.lastCustomized;
+              
+              // Remove colored border
+              const borderClass = '';
 
               return (
                 <div
                   key={fileName}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => {
-                    try {
-                      const url = isString ? `/policies/${encodeURIComponent(fileName)}` : (it.raw.url || `/policies/${encodeURIComponent(fileName)}`);
-                      
-                      // Dispatch navigation event and let the admin listener open the
-                      // document inside the platform (same behavior as user side).
-                      try {
-                        const event = new CustomEvent('navigate-to-document', { 
-                          detail: { policyFile: fileName, documentName: title, policyUrl: url },
-                          bubbles: true 
-                        });
-                        window.dispatchEvent(event);
-                      } catch (e) {
-                        // Fallback: open new tab if dispatch fails
-                        window.open(url, '_blank');
-                      }
-                    } catch (e) {
-                      const url = isString ? `/policies/${encodeURIComponent(fileName)}` : (it.raw.url || `/policies/${encodeURIComponent(fileName)}`);
-                      window.open(url, '_blank');
-                    }
-                  }}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); try { window.dispatchEvent(new CustomEvent('navigate-to-document', { detail: { policyFile: fileName, documentName: title } })); } catch (err) { const url = isString ? `/policies/${encodeURIComponent(fileName)}` : (it.raw.url || `/policies/${encodeURIComponent(fileName)}`); window.open(url, '_blank'); } } }}
-                  className={`bg-card border rounded-lg p-4 flex flex-col justify-between shadow-sm cursor-pointer hover:shadow-md focus:outline-none ${borderClass}`}
+                  className={`bg-card border rounded-lg p-4 flex flex-col justify-between shadow-sm relative ${borderClass}`}
                 >
+
                   <div className="flex items-start gap-3">
                     <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <div className="font-medium text-lg">{title}</div>
-                        {review && review.kind !== 'neutral' && (
-                          <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${review.kind === 'overdue' ? 'bg-red-100 text-red-800' : review.kind === 'due-soon' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
-                            {review.label}
-                          </span>
-                        )}
-                      </div>
+                      <div className="font-medium text-lg mb-1">{title}</div>
+                      
+                      {/* Show renewal date prominently for completed policies */}
+                      {isCompleted && reviewDate && (
+                        <div className="text-xs text-green-700 font-semibold mb-1">Renewal date: {formatDateSafe(reviewDate)}</div>
+                      )}
 
-                      {(version || effectiveDate || appliesTo) && (
+                      {(version || effectiveDate || isCompleted) && (
                         <div className="text-xs text-muted-foreground mt-1">
                           {version && <span className="mr-2">v{version}</span>}
                           {effectiveDate && <span className="mr-2">Effective: {formatDateSafe(effectiveDate)}</span>}
-                          {appliesTo && <div className="mt-1 text-[13px]">Applies to: <span className="font-medium">{appliesTo}</span></div>}
+                          {isCompleted && lastCustomized && (
+                            <div className="mt-1 text-[13px]">Last updated: <span className="font-medium">{formatDateSafe(lastCustomized)}</span></div>
+                          )}
                         </div>
                       )}
                     </div>
                   </div>
+                  
                   <div className="mt-4 flex items-center justify-between">
-                    <div className="text-xs text-muted-foreground">PDF • {new Date().toLocaleDateString()}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {isCompleted ? 'Customized PDF' : 'Template PDF'} • {new Date().toLocaleDateString()}
+                    </div>
                     <div className="text-xs text-muted-foreground">{reviewDate ? `Review: ${formatDateSafe(reviewDate)}` : 'Review date: —'}</div>
+                  </div>
+                  
+                  {/* Action Button */}
+                  <div className="mt-4">
+                    {isCompleted ? (
+                      <Button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          try {
+                            const url = isString ? `/policies/${encodeURIComponent(fileName)}` : (it.raw.url || `/policies/${encodeURIComponent(fileName)}`);
+                            const event = new CustomEvent('navigate-to-document', { 
+                              detail: { policyFile: fileName, documentName: title, policyUrl: url },
+                              bubbles: true 
+                            });
+                            window.dispatchEvent(event);
+                          } catch (e) {
+                            const url = isString ? `/policies/${encodeURIComponent(fileName)}` : (it.raw.url || `/policies/${encodeURIComponent(fileName)}`);
+                            window.open(url, '_blank');
+                          }
+                        }}
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                      >
+                        View Policy
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const policyBaseName = fileName.replace(/\.pdf$/, '');
+                          router.push(`/admin/policies/${encodeURIComponent(policyBaseName)}/edit`);
+                        }}
+                        variant="default"
+                        size="sm"
+                        className="w-full"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="mr-2">
+                          <path d="M12 5v14m-7-7h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                        Create Policy
+                      </Button>
+                    )}
                   </div>
                 </div>
               );
