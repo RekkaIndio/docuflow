@@ -269,15 +269,32 @@ const PdfPreview = ({ document: doc }: { document: DocumentType }) => {
                     // Use the Firebase Admin SDK path
                     base64Data = await getDocumentAsBase64(doc.storagePath);
                 } else if (doc.downloadUrl) {
-                    // For downloadUrl, try to extract the storage path or use it directly
-                    // Firebase download URLs contain the path after the 'o/' parameter
-                    const urlMatch = doc.downloadUrl.match(/\/o\/(.+?)\?/);
-                    if (urlMatch) {
-                        const storagePath = decodeURIComponent(urlMatch[1]);
-                        console.log('Extracted storage path from downloadUrl:', storagePath);
-                        base64Data = await getDocumentAsBase64(storagePath);
+                    const url = doc.downloadUrl;
+                    // If it's an absolute or relative HTTP URL (public asset), fetch it directly
+                    if (url.startsWith('http') || url.startsWith('/')) {
+                        console.log('Fetching PDF directly from URL:', url);
+                        const resp = await fetch(url);
+                        if (!resp.ok) throw new Error(`Failed to fetch PDF from URL: ${resp.status}`);
+                        const arrayBuffer = await resp.arrayBuffer();
+                        const uint8 = new Uint8Array(arrayBuffer);
+                        // Convert to base64 in chunks to avoid stack/argument size issues
+                        let binary = '';
+                        const chunkSize = 0x8000;
+                        for (let i = 0; i < uint8.length; i += chunkSize) {
+                            const slice = uint8.subarray(i, i + chunkSize);
+                            binary += String.fromCharCode.apply(null, Array.from(slice));
+                        }
+                        base64Data = typeof window !== 'undefined' && window.btoa ? window.btoa(binary) : Buffer.from(uint8).toString('base64');
                     } else {
-                        throw new Error("Could not extract storage path from downloadUrl");
+                        // For Firebase-style downloadUrl, attempt to extract storage path and fetch via server helper
+                        const urlMatch = url.match(/\/o\/(.+?)\?/);
+                        if (urlMatch) {
+                            const storagePath = decodeURIComponent(urlMatch[1]);
+                            console.log('Extracted storage path from downloadUrl:', storagePath);
+                            base64Data = await getDocumentAsBase64(storagePath);
+                        } else {
+                            throw new Error("Could not extract storage path from downloadUrl");
+                        }
                     }
                 }
                 

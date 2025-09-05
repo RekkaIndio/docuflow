@@ -26,6 +26,8 @@ import { db } from "@/lib/firebase";
 import OccupancyPie from '@/components/admin/occupancy-pie';
 import OverviewCards from './overview-cards';
 // consolidated imports above
+import { Sun, Moon } from "lucide-react";
+import DailyPage from '@/components/dashboard/daily';
 
 // Component to display trend indicators
 const TrendIndicator = ({ auditType, trends }: { auditType: string, trends: Record<string, { direction: 'up' | 'down' | 'stable', change: number }> }) => {
@@ -153,13 +155,14 @@ const RecentFilesTable = ({ documents, onSelect }: { documents: Document[], onSe
     </Card>
 );
 
-const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradientColors, trends }: { 
+const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradientColors, trends, dailyEntry }: { 
     documents: Document[], 
     onSelect: (doc: Document) => void, 
     workspaceId?: string,
     overallStats: any,
     getGradientColors: (score: number | null) => { start: string; end: string },
     trends: Record<string, { direction: 'up' | 'down' | 'stable', change: number }>
+    dailyEntry?: any
 }) => {
     const actionableItems = useMemo(() => {
         const today = new Date();
@@ -182,7 +185,7 @@ const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradi
 
     return (
         <div className="w-full">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {/* Overdue Renewals */}
                 <Card className="hover:shadow-lg transition-shadow border border-blue-200 bg-white/80 backdrop-blur-md rounded-xl">
                     <CardHeader className="pb-2 border-b border-blue-100 bg-gradient-to-r from-blue-50/60 to-transparent rounded-t-xl">
@@ -209,7 +212,10 @@ const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradi
                 </Card>
                 
                 {/* Occupancy card: enter occupied beds, total beds shown in title */}
-                <OccupancyCard workspaceId={workspaceId} />
+                <OccupancyCard workspaceId={workspaceId} dailyEntry={dailyEntry} />
+
+                {/* Staffing Card */}
+                <StaffingCard workspaceId={workspaceId} dailyEntry={dailyEntry} />
             
                 {/* Overall Score Card - replacing Recent Activity */}
                 <Card className="hover:shadow-lg transition-shadow border border-blue-200 bg-white/80 backdrop-blur-md rounded-xl">
@@ -229,7 +235,8 @@ const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradi
                                     size={120} 
                                     strokeWidth={16} 
                                     gradientColors={getGradientColors(overallStats.overallPercentage)}
-                                    centerFontSize={16} 
+                                    centerFontSize={32}
+                                    centerClassName="font-bold"
                                 />
                             </div>
                             <div>
@@ -279,13 +286,10 @@ const QuickAccess = ({ folders, onSelect }: { folders: FolderType[], onSelect: (
 
 type OccupancyData = { totalBeds: number; occupiedBeds: number };
 
-function OccupancyCard({ workspaceId }: { workspaceId?: string }) {
-    const [totalBeds, setTotalBeds] = useState<number | ''>('');
-    const [occupiedBeds, setOccupiedBeds] = useState<number | ''>('');
+function OccupancyCard({ workspaceId, dailyEntry }: { workspaceId?: string, dailyEntry?: any }) {
+    const [totalBeds, setTotalBeds] = useState<number | null>(null);
+    const [occupiedBeds, setOccupiedBeds] = useState<number | null>(null);
     const [loading, setLoading] = useState(false);
-    const [saving, setSaving] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [editingTotal, setEditingTotal] = useState(false);
     const [careHomePercent, setCareHomePercent] = useState<number | null>(null);
 
     useEffect(() => {
@@ -294,7 +298,7 @@ function OccupancyCard({ workspaceId }: { workspaceId?: string }) {
         let unsubCareHome: (() => void) | null = null;
         let unsubSettings: (() => void) | null = null;
 
-        // Try dev HTTP API for care-homes first (in dev this is an in-memory store)
+    // Try dev HTTP API for care-homes first (in dev this is an in-memory store)
         (async () => {
             try {
                 const resp = await fetch(`/api/care-homes/${workspaceId}`);
@@ -316,8 +320,8 @@ function OccupancyCard({ workspaceId }: { workspaceId?: string }) {
             unsubCareHome = onSnapshot(chRef, (snap) => {
                 if (snap.exists()) {
                     const data = snap.data() as OccupancyData;
-                    setTotalBeds(typeof data.totalBeds === 'number' ? data.totalBeds : '');
-                    setOccupiedBeds(typeof data.occupiedBeds === 'number' ? data.occupiedBeds : '');
+                    setTotalBeds(typeof data.totalBeds === 'number' ? data.totalBeds : null);
+                    setOccupiedBeds(typeof data.occupiedBeds === 'number' ? data.occupiedBeds : null);
                 }
                 setLoading(false);
             }, (err) => {
@@ -333,10 +337,10 @@ function OccupancyCard({ workspaceId }: { workspaceId?: string }) {
             const ref = doc(db, `workspaces/${workspaceId}/settings`, 'occupancy');
             unsubSettings = onSnapshot(ref, (snap) => {
                 if (snap.exists()) {
-                    const data = snap.data() as OccupancyData;
-                    setTotalBeds(typeof data.totalBeds === 'number' ? data.totalBeds : '');
-                    setOccupiedBeds(typeof data.occupiedBeds === 'number' ? data.occupiedBeds : '');
-                }
+                        const data = snap.data() as OccupancyData;
+                        setTotalBeds(typeof data.totalBeds === 'number' ? data.totalBeds : null);
+                        setOccupiedBeds(typeof data.occupiedBeds === 'number' ? data.occupiedBeds : null);
+                    }
                 setLoading(false);
             }, (err) => {
                 console.error('workspace settings occupancy listener error', err);
@@ -353,67 +357,64 @@ function OccupancyCard({ workspaceId }: { workspaceId?: string }) {
         };
     }, [workspaceId]);
 
-    const save = async () => {
-        setError(null);
-        // validation
-        const t = typeof totalBeds === 'number' ? totalBeds : parseInt(String(totalBeds || '0'), 10);
-        const o = typeof occupiedBeds === 'number' ? occupiedBeds : parseInt(String(occupiedBeds || '0'), 10);
-        if (isNaN(t) || isNaN(o) || t < 0 || o < 0) {
-            setError('Please enter valid non-negative numbers');
-            return;
-        }
-        if (o > t) {
-            setError('Occupied beds cannot exceed total beds');
-            return;
-        }
-        if (!workspaceId) {
-            setError('Workspace not available');
-            return;
-        }
-        setSaving(true);
-        try {
-            const ref = doc(db, `workspaces/${workspaceId}/settings`, 'occupancy');
-            await setDoc(ref, { totalBeds: t, occupiedBeds: o }, { merge: true });
-            // Also update top-level workspace occupancy (0..1) so admin views can read it directly
-            try {
-                const wsRef = doc(db, 'workspaces', workspaceId);
-                const occupancyValue = t > 0 ? (o / t) : 0;
-                await updateDoc(wsRef, { occupancy: occupancyValue });
-                // Also update dev in-memory care-homes store via API so /admin/care-homes shows updated values
-                try {
-                    await fetch(`/api/care-homes/${workspaceId}`, {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ occupancy: occupancyValue })
-                    });
-                    // reflect immediately in local dev indicator
-                    setCareHomePercent(occupancyValue);
-                } catch (apiErr) {
-                    // not critical
-                    console.warn('Failed to PATCH dev care-homes API', apiErr);
-                }
-            } catch (we) {
-                // log but don't fail the whole save if workspace doc update fails
-                console.error('Failed to update workspace occupancy', we);
+    // Occupancy on the card is read-only; values are sourced from the daily check-in or workspace settings.
+
+    // Compute percent primarily from dailyEntry if available, supporting 'occ/total' or numeric percent.
+    let percent = 0;
+    let displayOccupied: number | null = null;
+    let displayTotal: number | null = null;
+
+    if (dailyEntry && dailyEntry.occupancy !== undefined && dailyEntry.occupancy !== null) {
+        const v = String(dailyEntry.occupancy).trim();
+        if (v.includes('/')) {
+            const parts = v.split('/').map(p => p.trim());
+            const occ = parseFloat(parts[0]) || 0;
+            const tot = parseFloat(parts[1]) || 0;
+            if (tot > 0) {
+                percent = Math.round((occ / tot) * 100);
+                displayOccupied = Math.round(occ);
+                displayTotal = Math.round(tot);
             }
-        } catch (e) {
-            console.error('Failed to save occupancy', e);
-            setError('Failed to save occupancy');
-        } finally {
-            setSaving(false);
+        } else {
+            const n = parseFloat(v);
+            if (!isNaN(n)) {
+                // If totalBeds is available (from settings or care-home), treat v as occupied count
+                const knownTotal = (typeof totalBeds === 'number' && totalBeds > 0) ? totalBeds : null;
+                if (knownTotal) {
+                    displayOccupied = Math.round(n);
+                    displayTotal = Math.round(knownTotal);
+                    percent = Math.round((n / knownTotal) * 100);
+                } else {
+                    // No total available — if 0 < n <= 1 treat as fraction, else treat as percent
+                    if (n > 0 && n <= 1) {
+                        percent = Math.round(n * 100);
+                    } else {
+                        percent = Math.round(n);
+                    }
+                }
+            }
         }
     }
 
-    const computedPercent = typeof totalBeds === 'number' && totalBeds > 0 && typeof occupiedBeds === 'number'
-        ? Math.round((occupiedBeds / totalBeds) * 100)
-        : 0;
-    const percent = typeof careHomePercent === 'number' ? Math.round(careHomePercent * 100) : computedPercent;
+    // fallback to careHomePercent or computed from stored beds
+    if ((!percent || percent === 0) && typeof careHomePercent === 'number') {
+        percent = Math.round(careHomePercent * 100);
+    }
+    if ((!displayOccupied || displayOccupied === null) && typeof occupiedBeds === 'number' && typeof totalBeds === 'number' && totalBeds > 0) {
+        displayOccupied = Math.round(occupiedBeds);
+        displayTotal = Math.round(totalBeds);
+    }
 
     const radius = 48;
     const stroke = 12;
     const normalizedRadius = radius - stroke / 2;
     const circumference = normalizedRadius * 2 * Math.PI;
     const strokeDashoffset = circumference - (percent / 100) * circumference;
+
+    // Choose gradient colors based on percent (green/amber/red)
+    let gradientColors = { start: '#34d399', end: '#059669' };
+    if (percent < 80 && percent >= 20) gradientColors = { start: '#fbbf24', end: '#d97706' };
+    else if (percent < 20) gradientColors = { start: '#f87171', end: '#dc2626' };
 
     return (
         <Card className="hover:shadow-lg transition-shadow border border-blue-200 bg-white/80 backdrop-blur-md rounded-xl">
@@ -429,53 +430,227 @@ function OccupancyCard({ workspaceId }: { workspaceId?: string }) {
                             <CardDescription className="text-xs text-muted-foreground">Track current occupancy for this workspace.</CardDescription>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="sm" onClick={() => setEditingTotal(!editingTotal)} className="text-xs">
-                            <Edit3 className="w-4 h-4 mr-1" /> {editingTotal ? 'Done' : 'Edit total'}
-                        </Button>
-                    </div>
+                    <div />
                 </div>
             </CardHeader>
             <CardContent className="space-y-3 pt-3">
                 <div className="flex items-center gap-6">
-                    <div className="w-36 h-36 flex items-center justify-center relative">
-                        <OccupancyPie percent={percent} size={120} strokeWidth={16} />
-                    </div>
+                        <div className="w-36 h-36 flex items-center justify-center relative">
+                            <OccupancyPie percent={percent} size={120} strokeWidth={16} gradientColors={gradientColors} centerFontSize={32} />
+                        </div>
 
                     <div className="flex-1">
                         <div className="space-y-3">
                             <div>
                                 <label className="text-xs text-muted-foreground">Occupied beds</label>
-                                <input
-                                    type="number"
-                                    className="w-full border rounded px-2 py-1"
-                                    value={occupiedBeds as any}
-                                    onChange={e => setOccupiedBeds(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value || '0', 10)))}
-                                    min={0}
-                                />
+                                <div className="text-lg font-semibold mt-1">{displayOccupied !== null ? displayOccupied : '—'}</div>
                             </div>
-                            {editingTotal && (
-                                <div>
-                                    <label className="text-xs text-muted-foreground">Total beds</label>
-                                    <input
-                                        type="number"
-                                        className="w-full border rounded px-2 py-1"
-                                        value={totalBeds as any}
-                                        onChange={e => setTotalBeds(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value || '0', 10)))}
-                                        min={0}
-                                    />
-                                </div>
-                            )}
-                            {error && <p className="text-xs text-destructive">{error}</p>}
-                            <div className="flex items-center gap-2">
-                                <Button onClick={save} disabled={saving || loading}>
-                                    {saving ? 'Saving...' : 'Save'}
-                                </Button>
-                                <span className="text-xs text-muted-foreground">{loading ? 'Loading…' : ''}</span>
+                            <div>
+                                <label className="text-xs text-muted-foreground">Total beds</label>
+                                <div className="text-lg font-semibold mt-1">{displayTotal !== null ? displayTotal : (totalBeds !== null ? totalBeds : '—')}</div>
                             </div>
+                            <div className="text-sm text-muted-foreground">{loading ? 'Loading…' : ''}</div>
                         </div>
                     </div>
                 </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+
+// Use shared OccupancyPie for staffing visual
+
+function StaffingCard({ workspaceId, dailyEntry }: { workspaceId?: string, dailyEntry?: any }) {
+    const [staffingData, setStaffingData] = useState<{ day: string; night: string; lastUpdated?: string } | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [editing, setEditing] = useState(false);
+    const [dayInput, setDayInput] = useState('');
+    const [nightInput, setNightInput] = useState('');
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    // Optionally, set a target/ideal staff number for visual reference
+    const STAFF_TARGET = 20; // You can make this configurable or fetch from settings
+
+    useEffect(() => {
+        if (!workspaceId) return;
+        setLoading(true);
+        try {
+            const colRef = collection(db, `workspaces/${workspaceId}/daily-checkins`);
+            const q = fsQuery(colRef, orderBy('createdAt', 'desc'), limit(1));
+            const unsub = onSnapshot(q, (snap) => {
+                if (!snap.empty) {
+                    const latestDoc = snap.docs[0];
+                    const data = latestDoc.data();
+                    const day = data.staffingDay || data.staffing?.day || '0';
+                    const night = data.staffingNight || data.staffing?.night || '0';
+                    const lastUpdated = data.createdAt ? 
+                        (data.createdAt.toDate ? data.createdAt.toDate() : new Date(data.createdAt)) :
+                        new Date(data.recordedAt || Date.now());
+                    // If dailyEntry exists, prefer its values for immediate UI feedback
+                    const preferredDay = (dailyEntry && (dailyEntry.staffingDay !== undefined)) ? String(dailyEntry.staffingDay) : String(day);
+                    const preferredNight = (dailyEntry && (dailyEntry.staffingNight !== undefined)) ? String(dailyEntry.staffingNight) : String(night);
+                    setStaffingData({
+                        day: preferredDay,
+                        night: preferredNight,
+                        lastUpdated: lastUpdated.toLocaleString()
+                    });
+                    setDayInput(preferredDay);
+                    setNightInput(preferredNight);
+                } else {
+                    setStaffingData(null);
+                    setDayInput('');
+                    setNightInput('');
+                }
+                setLoading(false);
+            }, (err) => {
+                console.error('Failed to listen to daily checkins for staffing', err);
+                setLoading(false);
+            });
+            return () => unsub();
+        } catch (e) {
+            console.error('Failed to set up daily checkins listener', e);
+            setLoading(false);
+        }
+    }, [workspaceId]);
+
+    const totalStaff = (editing
+        ? (parseInt(dayInput || '0', 10) + parseInt(nightInput || '0', 10))
+        : (staffingData ? (parseInt(staffingData.day || '0') + parseInt(staffingData.night || '0')) : 0)
+    );
+    const percent = STAFF_TARGET > 0 ? Math.min(100, Math.round((totalStaff / STAFF_TARGET) * 100)) : 0;
+    // Gradient colors for ring, matching audit card style
+    let gradientColors = { start: '#34d399', end: '#059669' };
+    if (percent < 80 && percent >= 20) gradientColors = { start: '#fbbf24', end: '#d97706' };
+    else if (percent < 20) gradientColors = { start: '#f87171', end: '#dc2626' };
+
+    const handleSave = async () => {
+        setError(null);
+        if (!workspaceId) return;
+        const day = parseInt(dayInput || '0', 10);
+        const night = parseInt(nightInput || '0', 10);
+        if (isNaN(day) || isNaN(night) || day < 0 || night < 0) {
+            setError('Please enter valid non-negative numbers');
+            return;
+        }
+        setSaving(true);
+        try {
+            // Save as a new daily check-in for today
+            const now = new Date();
+            const dateKey = now.toISOString().split('T')[0]; // YYYY-MM-DD
+            const colRef = collection(db, `workspaces/${workspaceId}/daily-checkins`);
+            // Use dateKey as doc id to avoid multiple for same day
+            const docRef = doc(colRef, dateKey);
+            await setDoc(docRef, {
+                staffingDay: day,
+                staffingNight: night,
+                createdAt: now,
+                recordedAt: now,
+                // Optionally, add a userId if available
+            }, { merge: true });
+            setEditing(false);
+        } catch (e) {
+            setError('Failed to save staff levels');
+            console.error(e);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <Card className="hover:shadow-lg transition-shadow border border-blue-200 bg-white/80 backdrop-blur-md rounded-xl">
+            <CardHeader className="pb-2 border-b border-blue-100 bg-gradient-to-r from-blue-50/60 to-blue-100/40 rounded-t-xl">
+                <div className="flex items-center justify-between w-full">
+                    <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4 text-blue-500" />
+                        <div>
+                            <CardTitle className="text-sm font-medium text-blue-900">Staffing</CardTitle>
+                            <CardDescription className="text-xs text-muted-foreground">Latest staffing levels from check-ins</CardDescription>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Button variant="ghost" size="sm" className="text-xs" onClick={() => setEditing(e => !e)} disabled={saving || loading}>
+                            <Edit3 className="w-4 h-4 mr-1" /> {editing ? 'Cancel' : 'Edit'}
+                        </Button>
+                    </div>
+                </div>
+            </CardHeader>
+            <CardContent className="space-y-3 pt-3">
+                {loading ? (
+                    <div className="text-sm text-muted-foreground">Loading...</div>
+                ) : (
+                    <div className="flex items-center gap-6">
+                        <div className="w-36 h-36 flex items-center justify-center relative">
+                            <style>{`.staffing-hide-pie-text text { display: none !important; }`}</style>
+                            <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+                                <span className="text-4xl font-bold text-white drop-shadow" style={{marginTop: '-2px'}}>{totalStaff}</span>
+                            </div>
+                            <div className="staffing-hide-pie-text">
+                                <OccupancyPie
+                                    percent={percent}
+                                    size={120}
+                                    strokeWidth={18}
+                                    gradientColors={gradientColors}
+                                    centerClassName=""
+                                    centerFill="#fff"
+                                    centerFontSize={38}
+                                />
+                            </div>
+                        </div>
+                        <div className="flex-1 space-y-3">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="flex flex-col items-center">
+                                    <Sun className="h-5 w-5 text-yellow-400 mb-1" />
+                                    {editing ? (
+                                        <input
+                                            type="number"
+                                            className="w-16 border rounded px-2 py-1 text-center text-xl font-bold text-blue-600"
+                                            value={dayInput}
+                                            onChange={e => setDayInput(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value || '0', 10)).toString())}
+                                            min={0}
+                                            disabled={saving}
+                                        />
+                                    ) : (
+                                        <span className="text-xl font-bold text-blue-600">{staffingData?.day ?? '0'}</span>
+                                    )}
+                                    <span className="text-xs text-muted-foreground">Day Shift</span>
+                                </div>
+                                <div className="flex flex-col items-center">
+                                    <Moon className="h-5 w-5 text-indigo-500 mb-1" />
+                                    {editing ? (
+                                        <input
+                                            type="number"
+                                            className="w-16 border rounded px-2 py-1 text-center text-xl font-bold text-indigo-600"
+                                            value={nightInput}
+                                            onChange={e => setNightInput(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value || '0', 10)).toString())}
+                                            min={0}
+                                            disabled={saving}
+                                        />
+                                    ) : (
+                                        <span className="text-xl font-bold text-indigo-600">{staffingData?.night ?? '0'}</span>
+                                    )}
+                                    <span className="text-xs text-muted-foreground">Night Shift</span>
+                                </div>
+                            </div>
+                            {error && <div className="text-xs text-destructive text-center mt-1">{error}</div>}
+                            {editing ? (
+                                <div className="flex items-center gap-2 justify-center mt-2">
+                                    <Button onClick={handleSave} disabled={saving || loading}>
+                                        {saving ? 'Saving...' : 'Save'}
+                                    </Button>
+                                </div>
+                            ) : (
+                                staffingData?.lastUpdated && (
+                                    <div className="text-xs text-blue-500 text-center mt-2">
+                                        <Clock className="inline-block h-3 w-3 mr-1 align-text-bottom" />
+                                        Last updated: {staffingData.lastUpdated}
+                                    </div>
+                                )
+                            )}
+                        </div>
+                    </div>
+                )}
             </CardContent>
         </Card>
     );
@@ -796,6 +971,30 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
 
     const overallStats = calculateOverallStats();
 
+    // Latest daily checkin entry for the workspace (used to feed Occupancy/Staffing cards)
+    const [dailyEntry, setDailyEntry] = useState<any | null>(null);
+
+    useEffect(() => {
+        if (!workspace?.id) return;
+        try {
+            const colRef = collection(db, `workspaces/${workspace.id}/daily-checkins`);
+            const q = fsQuery(colRef, orderBy('createdAt', 'desc'), limit(1));
+            const unsub = onSnapshot(q, (snap) => {
+                if (!snap.empty) {
+                    const docSnap = snap.docs[0];
+                    setDailyEntry({ id: docSnap.id, ...docSnap.data() });
+                } else {
+                    setDailyEntry(null);
+                }
+            }, (err) => {
+                console.warn('Failed to listen to daily-checkins', err);
+            });
+            return () => unsub();
+        } catch (e) {
+            console.error('Failed to attach daily-checkins listener', e);
+        }
+    }, [workspace?.id]);
+
     // Function to get gradient colors based on score percentage
     const getGradientColors = (score: number | null) => {
         if (score === null) return { start: '#e5e7eb', end: '#cbd5e1' }; // Gray gradient for N/A
@@ -877,40 +1076,11 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
                    overallStats={overallStats}
                    getGradientColors={getGradientColors}
                    trends={trends}
+                   dailyEntry={dailyEntry}
                />
-               <QuickAccess folders={quickAccessFolders} onSelect={onSelect} />
-               
-               {/* Recent Activity Section */}
+               {/* Daily check-in inserted here (replaces QuickAccess + Recent Activity) */}
                <div className="w-full">
-                   <h2 className="text-lg font-semibold mb-4 text-blue-900 tracking-tight">Recent Activity</h2>
-                   <Card className="hover:shadow-lg transition-shadow border border-blue-200 bg-white/80 backdrop-blur-md rounded-xl">
-                       <CardHeader className="pb-2 border-b border-blue-100 bg-gradient-to-r from-blue-50/60 to-transparent rounded-t-xl">
-                           <CardTitle className="text-sm font-medium flex items-center gap-2">
-                               <TrendingUp className="h-4 w-4 text-green-500" />
-                               Recent Documents
-                           </CardTitle>
-                           <CardDescription className="text-xs text-blue-700/70">Latest documents that were uploaded or modified.</CardDescription>
-                       </CardHeader>
-                       <CardContent className="space-y-2 pt-3">
-                           {recentDocuments.length > 0 ? (
-                               recentDocuments.map(doc => (
-                                   <div key={doc.id} className="flex items-center justify-between p-2 hover:bg-muted rounded cursor-pointer" onClick={() => onSelect(doc)}>
-                                       <div className="flex items-center gap-2 min-w-0">
-                                           {getFileIcon(doc.fileType)}
-                                           <span className="text-sm truncate">{doc.name}</span>
-                                       </div>
-                                       <div className="flex items-center gap-2">
-                                           <Badge variant="outline" className="text-xs">
-                                               {new Date(doc.createdAt).toLocaleDateString()}
-                                           </Badge>
-                                       </div>
-                                   </div>
-                               ))
-                           ) : (
-                               <p className="text-sm text-muted-foreground text-center py-4">No recent activity</p>
-                           )}
-                       </CardContent>
-                   </Card>
+                   <DailyPage workspaceId={workspace.id} />
                </div>
             </main>
         </div>

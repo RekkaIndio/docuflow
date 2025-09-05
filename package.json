@@ -4,6 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 9002",
+    "generate:policy": "node scripts/generate-policy-pdf.js",
+    "policies:add-front-matter": "node scripts/add-front-matter.js",
+    "policies:generate-all": "node scripts/generate-all-policies.js",
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
     "build": "next build",
@@ -96,7 +99,10 @@
     "eslint-config-next": "15.4.6",
     "fuse.js": "^6.6.2",
     "genkit-cli": "^1.14.1",
+    "gray-matter": "^4.0.3",
+    "marked": "^5.1.0",
     "postcss": "^8",
+    "puppeteer": "^19.11.1",
     "tailwindcss": "^3.4.1",
     "typescript": "^5"
   }

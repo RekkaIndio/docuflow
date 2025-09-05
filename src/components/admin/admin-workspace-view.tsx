@@ -1,5 +1,5 @@
 "use client";
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import type { Workspace, Folder, Document } from '@/lib/types';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,9 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import AdminDependencyTable from '@/components/admin/admin-dependency-table';
 import { TeamsView } from '@/components/dashboard/teams-view';
 import { StatsView } from '@/components/dashboard/stats-view';
-import { Folder as FolderIcon, FileText, FileSpreadsheet, FileX2, Home, ChevronRight, ArrowLeft, PlusSquare, Users, Tag, Clock, BarChart2 } from 'lucide-react';
+import { collection, query as fsQuery, orderBy, limit, onSnapshot, where } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { Folder as FolderIcon, FileText, FileSpreadsheet, FileX2, Home, ChevronRight, ArrowLeft, PlusSquare, Users, Tag, Clock, BarChart2, TrendingUp } from 'lucide-react';
 import OccupancyPie from '@/components/admin/occupancy-pie';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -169,6 +171,96 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
     }
     return undefined;
   }, [workspace]);
+
+  // Staffing data state
+  const [staffingData, setStaffingData] = useState<{ day: number; night: number; total: number; lastUpdated?: string } | null>(null);
+  const [staffingLoading, setStaffingLoading] = useState(false);
+  const [staffingTimeframe, setStaffingTimeframe] = useState<'day' | 'week' | 'month'>('week');
+  const [staffingHistory, setStaffingHistory] = useState<Array<{ date: string; day: number; night: number; total: number }>>([]);
+
+  // Fetch latest staffing data from daily check-ins
+  useEffect(() => {
+    if (!workspace?.id) return;
+    
+    setStaffingLoading(true);
+    
+    try {
+      const colRef = collection(db, `workspaces/${workspace.id}/daily-checkins`);
+      
+      // Calculate date range based on timeframe
+      let startDate = new Date();
+      switch (staffingTimeframe) {
+        case 'day':
+          startDate.setHours(0, 0, 0, 0);
+          break;
+        case 'week':
+          startDate.setDate(startDate.getDate() - 7);
+          break;
+        case 'month':
+          startDate.setDate(startDate.getDate() - 30);
+          break;
+      }
+      
+      const q = fsQuery(colRef, where('createdAt', '>=', startDate), orderBy('createdAt', 'desc'));
+      
+      const unsub = onSnapshot(q, (snap) => {
+        const historyData: Array<{ date: string; day: number; night: number; total: number }> = [];
+        let latestStaffing: { day: number; night: number; total: number; lastUpdated: string } | null = null;
+        
+        if (!snap.empty) {
+          snap.docs.forEach((doc) => {
+            const data = doc.data();
+            const day = parseInt(String(data.staffingDay || data.staffing?.day || '0')) || 0;
+            const night = parseInt(String(data.staffingNight || data.staffing?.night || '0')) || 0;
+            const total = day + night;
+            
+            const recordDate = data.createdAt ? 
+              (data.createdAt.toDate ? data.createdAt.toDate() : new Date(data.createdAt)) :
+              new Date(data.recordedAt || Date.now());
+            
+            historyData.push({
+              date: recordDate.toISOString().split('T')[0],
+              day,
+              night,
+              total
+            });
+            
+            // Set latest data from the first (most recent) record
+            if (!latestStaffing) {
+              latestStaffing = {
+                day,
+                night,
+                total,
+                lastUpdated: recordDate.toLocaleDateString()
+              };
+            }
+          });
+        }
+        
+        // Sort by date and group by date for aggregation
+        const groupedData = historyData.reduce((acc, curr) => {
+          if (!acc[curr.date] || acc[curr.date].total < curr.total) {
+            acc[curr.date] = curr;
+          }
+          return acc;
+        }, {} as Record<string, { date: string; day: number; night: number; total: number }>);
+        
+        const sortedHistory = Object.values(groupedData).sort((a, b) => a.date.localeCompare(b.date));
+        
+        setStaffingHistory(sortedHistory);
+        setStaffingData(latestStaffing);
+        setStaffingLoading(false);
+      }, (err) => {
+        console.error('Failed to listen to daily checkins for staffing in admin view', err);
+        setStaffingLoading(false);
+      });
+      
+      return () => unsub();
+    } catch (e) {
+      console.error('Failed to set up daily checkins listener in admin view', e);
+      setStaffingLoading(false);
+    }
+  }, [workspace?.id, staffingTimeframe]);
 
   return (
     <div className="flex flex-col h-screen bg-background">
@@ -428,7 +520,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
               {/* Workspace Overview Cards */}
               <div className="mb-6">
                 <h3 className="text-lg font-semibold mb-4">Workspace Overview</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                   <Card>
                     <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg flex flex-row items-center justify-between space-y-0 pb-2">
                       <div className="text-sm font-medium text-white">Total Folders</div>
@@ -465,6 +557,136 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                       </p>
                     </CardContent>
                   </Card>
+                </div>
+
+                {/* Enhanced Staffing Chart Card */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <Card className="md:col-span-2">
+                    <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg">
+                      <div className="flex flex-row items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Users className="h-5 w-5 text-slate-200" />
+                          <div className="text-lg font-medium text-white">Staffing Levels</div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="text-white border-white/20 hover:bg-white/10"
+                            onClick={() => {
+                              // Refresh data by re-triggering the effect
+                              setStaffingLoading(true);
+                            }}
+                          >
+                            <TrendingUp className="w-4 h-4 mr-1" />
+                            Refresh
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 mt-2">
+                        {(['day', 'week', 'month'] as const).map((timeframe) => (
+                          <Button
+                            key={timeframe}
+                            size="sm"
+                            variant={staffingTimeframe === timeframe ? "secondary" : "ghost"}
+                            className={staffingTimeframe === timeframe ? 
+                              "bg-white/20 text-white hover:bg-white/30" : 
+                              "text-white/70 hover:bg-white/10 hover:text-white"}
+                            onClick={() => setStaffingTimeframe(timeframe)}
+                          >
+                            {timeframe.charAt(0).toUpperCase() + timeframe.slice(1)}
+                          </Button>
+                        ))}
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-6">
+                      {staffingLoading ? (
+                        <div className="h-48 flex items-center justify-center">
+                          <div className="text-muted-foreground">Loading staffing data...</div>
+                        </div>
+                      ) : staffingHistory.length > 0 ? (
+                        <div className="space-y-4">
+                          {/* Current Stats */}
+                          <div className="grid grid-cols-3 gap-4 p-4 bg-slate-50 rounded-lg">
+                            <div className="text-center">
+                              <div className="text-2xl font-bold text-amber-600">{staffingData?.day || 0}</div>
+                              <div className="text-sm text-muted-foreground">Day Staff</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-2xl font-bold text-blue-600">{staffingData?.night || 0}</div>
+                              <div className="text-sm text-muted-foreground">Night Staff</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-2xl font-bold text-green-600">{staffingData?.total || 0}</div>
+                              <div className="text-sm text-muted-foreground">Total Staff</div>
+                            </div>
+                          </div>
+
+                          {/* Simple Bar Chart */}
+                          <div className="h-32">
+                            <div className="text-sm font-medium mb-2">Staffing Trend ({staffingTimeframe})</div>
+                            <div className="flex items-end justify-between h-24 gap-1">
+                              {staffingHistory.slice(-10).map((entry, index) => {
+                                const maxTotal = Math.max(...staffingHistory.map(h => h.total), 1);
+                                const dayHeight = (entry.day / maxTotal) * 100;
+                                const nightHeight = (entry.night / maxTotal) * 100;
+                                
+                                return (
+                                  <div key={entry.date} className="flex flex-col items-center flex-1 min-w-0">
+                                    <div className="flex flex-col w-full" style={{ height: '72px' }}>
+                                      <div 
+                                        className="bg-amber-500 rounded-t"
+                                        style={{ height: `${dayHeight}%`, minHeight: entry.day > 0 ? '2px' : '0' }}
+                                        title={`Day: ${entry.day}`}
+                                      />
+                                      <div 
+                                        className="bg-blue-500 rounded-b"
+                                        style={{ height: `${nightHeight}%`, minHeight: entry.night > 0 ? '2px' : '0' }}
+                                        title={`Night: ${entry.night}`}
+                                      />
+                                    </div>
+                                    <div className="text-xs text-muted-foreground mt-1 truncate w-full text-center">
+                                      {new Date(entry.date).toLocaleDateString('en-US', { 
+                                        month: 'short', 
+                                        day: 'numeric' 
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <div className="flex items-center gap-4 mt-2 text-xs">
+                              <div className="flex items-center gap-1">
+                                <div className="w-3 h-3 bg-amber-500 rounded"></div>
+                                <span>Day Staff</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <div className="w-3 h-3 bg-blue-500 rounded"></div>
+                                <span>Night Staff</span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {staffingData?.lastUpdated && (
+                            <div className="text-xs text-muted-foreground text-center">
+                              Last updated: {staffingData.lastUpdated}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="h-48 flex flex-col items-center justify-center">
+                          <Users className="w-12 h-12 text-muted-foreground mb-2" />
+                          <div className="text-muted-foreground text-center">
+                            No staffing data available for the selected timeframe
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            Record daily staffing levels to see trends
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
                   <Card>
                     <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg flex flex-row items-center justify-between space-y-0 pb-2">
                       <div className="text-sm font-medium text-white">Occupancy</div>

@@ -1,4 +1,6 @@
 import jsPDF from 'jspdf';
+// Fallback: simple word wrap for jsPDF v3+
+import splitTextToSize from 'jspdf/dist/plugins/split_text_to_size';
 
 /**
  * PDF Generator for Audit Reports
@@ -34,9 +36,25 @@ export function generateAuditPDF(auditData: AuditPDFData): Uint8Array {
   const contentWidth = pageWidth - (margin * 2);
 
   // Helper function to add text with automatic line wrapping
+  // Simple word wrap fallback for jsPDF v3+
   const addWrappedText = (text: string, x: number, y: number, maxWidth: number, fontSize: number = 10): number => {
     doc.setFontSize(fontSize);
-    const lines = doc.splitTextToSize(text, maxWidth);
+    // Ensure text is a string
+    const safeText = (typeof text === 'string') ? text : (text == null ? '' : String(text));
+    const words = safeText.split(' ');
+    let lines: string[] = [];
+    let currentLine = '';
+    words.forEach(word => {
+      const testLine = currentLine ? currentLine + ' ' + word : word;
+      const testWidth = doc.getTextWidth(testLine);
+      if (testWidth > maxWidth && currentLine) {
+        lines.push(currentLine);
+        currentLine = word;
+      } else {
+        currentLine = testLine;
+      }
+    });
+    if (currentLine) lines.push(currentLine);
     doc.text(lines, x, y);
     return y + (lines.length * (fontSize * 0.4));
   };

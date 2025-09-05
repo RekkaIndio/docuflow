@@ -1052,6 +1052,25 @@ export async function getDailyCheckinsInRange(workspaceId: string, fromTs: any, 
     }
 }
 
+// Get the latest daily check-in for a workspace
+export async function getLatestDailyCheckin(workspaceId: string): Promise<any | null> {
+    try {
+        const colRef = collection(db, `workspaces/${workspaceId}/daily-checkins`);
+        const q = query(colRef, orderBy('createdAt', 'desc'), limit(1));
+        const snaps = await getDocs(q);
+        
+        if (snaps.empty) {
+            return null;
+        }
+        
+        const latestDoc = snaps.docs[0];
+        return { id: latestDoc.id, ...latestDoc.data() };
+    } catch (e) {
+        console.error('Failed to fetch latest daily checkin', e);
+        throw e;
+    }
+}
+
 
 export async function createWorkspace(workspace: Omit<Workspace, 'id' | 'folders'>): Promise<Workspace> {
     try {

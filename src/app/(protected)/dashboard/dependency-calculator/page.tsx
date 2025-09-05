@@ -73,21 +73,38 @@ function getDefaultAssessment(): Omit<Resident, "name" | "room"> {
   };
 }
 
-// Care minutes per dependency level for Day (former AM) and Night (former PM)
-const DAY_MINUTES: Record<DependencyLevel, number> = {
-  "": 0,
-  None: 0,
-  Low: 15,
-  Medium: 30,
-  High: 45,
+// Care minutes per dependency level for each care area (values from provided screenshot).
+// Separate maps for Day and Night so day/night estimates use distinct values per field.
+const MINUTES_BY_FIELD_DAY: Record<string, Record<DependencyLevel, number>> = {
+  personalCare: { "": 0, None: 0, Low: 10, Medium: 20, High: 30 },
+  eatingDrinking: { "": 0, None: 0, Low: 5, Medium: 15, High: 25 },
+  medical: { "": 0, None: 0, Low: 5, Medium: 10, High: 20 },
+  mobility: { "": 0, None: 0, Low: 5, Medium: 15, High: 25 },
+  continence: { "": 0, None: 0, Low: 5, Medium: 10, High: 20 },
+  skinIntegrity: { "": 0, None: 0, Low: 5, Medium: 10, High: 20 },
+  medication: { "": 0, None: 0, Low: 5, Medium: 10, High: 15 },
+  emotionalSupport: { "": 0, None: 0, Low: 5, Medium: 10, High: 15 },
+  cognition: { "": 0, None: 0, Low: 5, Medium: 10, High: 20 },
+  nightNeeds: { "": 0, None: 0, Low: 5, Medium: 10, High: 20 },
+  additionalNeeds: { "": 0, None: 0, Low: 0, Medium: 10, High: 20 },
+  behaviours: { "": 0, None: 0, Low: 0, Medium: 10, High: 20 },
+  breathing: { "": 0, None: 0, Low: 0, Medium: 10, High: 20 },
 };
 
-const NIGHT_MINUTES: Record<DependencyLevel, number> = {
-  "": 0,
-  None: 0,
-  Low: 10,
-  Medium: 15,
-  High: 20,
+const MINUTES_BY_FIELD_NIGHT: Record<string, Record<DependencyLevel, number>> = {
+  personalCare: { "": 0, None: 0, Low: 5, Medium: 10, High: 15 },
+  eatingDrinking: { "": 0, None: 0, Low: 3, Medium: 8, High: 13 },
+  medical: { "": 0, None: 0, Low: 3, Medium: 5, High: 10 },
+  mobility: { "": 0, None: 0, Low: 3, Medium: 8, High: 13 },
+  continence: { "": 0, None: 0, Low: 3, Medium: 5, High: 10 },
+  skinIntegrity: { "": 0, None: 0, Low: 3, Medium: 5, High: 10 },
+  medication: { "": 0, None: 0, Low: 3, Medium: 5, High: 8 },
+  emotionalSupport: { "": 0, None: 0, Low: 3, Medium: 5, High: 8 },
+  cognition: { "": 0, None: 0, Low: 3, Medium: 5, High: 10 },
+  nightNeeds: { "": 0, None: 0, Low: 3, Medium: 5, High: 10 },
+  additionalNeeds: { "": 0, None: 0, Low: 0, Medium: 5, High: 10 },
+  behaviours: { "": 0, None: 0, Low: 0, Medium: 5, High: 10 },
+  breathing: { "": 0, None: 0, Low: 0, Medium: 5, High: 10 },
 };
 
 // Helper to ceil to nearest 0.25
@@ -100,18 +117,18 @@ function ceilToHalf(x: number) {
   return Math.ceil(x * 2) / 2;
 }
 
-function calculateResidentCareHours(resident: Resident): { Day: number; Night: number } {
-  // Sum minutes for Day and Night sessions separately using different scales
+// Return per-resident totals in minutes for Day and Night
+function calculateResidentCareMinutes(resident: Resident): { Day: number; Night: number } {
   let dayMinutes = 0;
   let nightMinutes = 0;
   for (const field of FIELDS) {
     const level = (resident[field.key as keyof Resident] as DependencyLevel) || "";
-    dayMinutes += DAY_MINUTES[level as DependencyLevel] ?? 0;
-    nightMinutes += NIGHT_MINUTES[level as DependencyLevel] ?? 0;
+    const dayMap = MINUTES_BY_FIELD_DAY[field.key] as Record<DependencyLevel, number> | undefined;
+    const nightMap = MINUTES_BY_FIELD_NIGHT[field.key] as Record<DependencyLevel, number> | undefined;
+    dayMinutes += dayMap?.[level as DependencyLevel] ?? 0;
+    nightMinutes += nightMap?.[level as DependencyLevel] ?? 0;
   }
-  const dayHours = Math.round((dayMinutes / 60) * 100) / 100;
-  const nightHours = Math.round((nightMinutes / 60) * 100) / 100;
-  return { Day: dayHours, Night: nightHours };
+  return { Day: Math.round(dayMinutes), Night: Math.round(nightMinutes) };
 }
 
 // Compare rooms numerically when possible, otherwise fallback to string compare
@@ -524,12 +541,14 @@ export default function DependencyCalculatorPage() {
   // Expandable resident table component. Accepts optional residentsProp to render a filtered set.
   function ResidentTable({ residentsProp }: { residentsProp?: Resident[] }) {
     const [expandedId, setExpandedId] = React.useState<string | null>(null);
-    const list = (residentsProp ?? residents).slice().sort((a, b) => compareRooms(a.room, b.room));
-    // Pooled totals: sum hours first, then convert to 12h shifts (ceil to nearest 0.25)
-    const totalDayHours = Math.round(list.reduce((s, r) => s + calculateResidentCareHours(r).Day, 0) * 100) / 100;
-    const totalNightHours = Math.round(list.reduce((s, r) => s + calculateResidentCareHours(r).Night, 0) * 100) / 100;
-    const totalDayShifts = Math.ceil((totalDayHours / 12) * 4) / 4;
-    const totalNightShifts = Math.ceil((totalNightHours / 12) * 4) / 4;
+  const list = (residentsProp ?? residents).slice().sort((a, b) => compareRooms(a.room, b.room));
+  // Pooled totals: sum minutes, convert to hours for shifts
+  const totalDayMinutes = list.reduce((s, r) => s + calculateResidentCareMinutes(r).Day, 0);
+  const totalNightMinutes = list.reduce((s, r) => s + calculateResidentCareMinutes(r).Night, 0);
+  const totalDayHours = Math.round((totalDayMinutes / 60) * 100) / 100;
+  const totalNightHours = Math.round((totalNightMinutes / 60) * 100) / 100;
+  const totalDayShifts = Math.ceil((totalDayHours / 12) * 4) / 4;
+  const totalNightShifts = Math.ceil((totalNightHours / 12) * 4) / 4;
     return (
       <div className="overflow-x-auto rounded-xl shadow bg-white mb-8">
         <div className="flex items-center justify-between p-4 border-b">
@@ -553,7 +572,7 @@ export default function DependencyCalculatorPage() {
                   <TooltipTrigger>
                     <span className="ml-1 text-gray-500 cursor-pointer">(i)</span>
                   </TooltipTrigger>
-                  <TooltipContent>Total Care Hours</TooltipContent>
+                  <TooltipContent>Total Care Hours (rounded to 0.25)</TooltipContent>
                 </Tooltip>
               </th>
               <th className="px-3 py-2 text-left">
@@ -562,7 +581,7 @@ export default function DependencyCalculatorPage() {
                   <TooltipTrigger>
                     <span className="ml-1 text-gray-500 cursor-pointer">(i)</span>
                   </TooltipTrigger>
-                  <TooltipContent>Total Care Hours</TooltipContent>
+                  <TooltipContent>Total Care Hours (rounded to 0.25)</TooltipContent>
                 </Tooltip>
               </th>
               <th className="px-3 py-2 text-left">
@@ -587,7 +606,7 @@ export default function DependencyCalculatorPage() {
           </thead>
           <tbody>
             {list.map((r) => {
-              const careHours = calculateResidentCareHours(r);
+              const careMinutes = calculateResidentCareMinutes(r);
               const isOpen = expandedId === r.id;
               return (
                 <React.Fragment key={r.id || `${r.name}-${r.room}`}>
@@ -603,10 +622,10 @@ export default function DependencyCalculatorPage() {
                     </td>
                     <td className="px-3 py-2">{r.name}</td>
                     <td className="px-3 py-2 font-mono">{r.room}</td>
-                    <td className="px-3 py-2 font-mono">{careHours.Day}</td>
-                    <td className="px-3 py-2 font-mono">{careHours.Night}</td>
-                    <td className="px-3 py-2 font-mono">{Math.round(ceilToQuarter((careHours.Day / 12)) * 100) / 100}</td>
-                    <td className="px-3 py-2 font-mono">{Math.round(ceilToQuarter((careHours.Night / 12)) * 100) / 100}</td>
+                    <td className="px-3 py-2 font-mono">{Math.round((careMinutes.Day / 60) * 100) / 100}</td>
+                    <td className="px-3 py-2 font-mono">{Math.round((careMinutes.Night / 60) * 100) / 100}</td>
+                    <td className="px-3 py-2 font-mono">{Math.round(ceilToQuarter((careMinutes.Day / 60 / 12)) * 100) / 100}</td>
+                    <td className="px-3 py-2 font-mono">{Math.round(ceilToQuarter((careMinutes.Night / 60 / 12)) * 100) / 100}</td>
                   </tr>
                   {isOpen && (
                     <tr className="bg-blue-50/30">
@@ -646,10 +665,10 @@ export default function DependencyCalculatorPage() {
               <td className="px-3 py-2 text-left">Totals</td>
               <td className="px-3 py-2 font-mono"></td>
               <td className="px-3 py-2 font-mono">
-                {Math.round(list.reduce((s, r) => s + calculateResidentCareHours(r).Day, 0) * 100) / 100}
+                {totalDayHours}
               </td>
               <td className="px-3 py-2 font-mono">
-                {Math.round(list.reduce((s, r) => s + calculateResidentCareHours(r).Night, 0) * 100) / 100}
+                {totalNightHours}
               </td>
               <td className="px-3 py-2 font-mono">
                 {totalDayShifts}
@@ -943,7 +962,7 @@ export default function DependencyCalculatorPage() {
                 <div className="flex flex-wrap gap-6 mb-6">
                       {members.map(r => {
                     const idx = residents.findIndex(rr => rr.id === r.id);
-                    const careHours = calculateResidentCareHours(r);
+                    const careMinutes = calculateResidentCareMinutes(r);
                     const inCommunity = true;
                     return (
                       <div
@@ -978,11 +997,11 @@ export default function DependencyCalculatorPage() {
                           ))}
                         </div>
 
-                        <div className="mt-3 text-xs text-gray-700">
-                          <div className="font-semibold mb-1">Estimated Care:</div>
-                          <div>Day: <span className="font-mono">{careHours.Day}</span>h • Night: <span className="font-mono">{careHours.Night}</span>h</div>
-                          <div className="text-xs mt-1">12h Day: <span className="font-mono">{Math.round(ceilToQuarter((careHours.Day / 12)) * 100) / 100}</span> • 12h Night: <span className="font-mono">{Math.round(ceilToQuarter((careHours.Night / 12)) * 100) / 100}</span></div>
-                        </div>
+                            <div className="mt-3 text-xs text-gray-700">
+                                <div className="font-semibold mb-1">Estimated Care:</div>
+                                <div>Day: <span className="font-mono">{Math.round((careMinutes.Day / 60) * 100) / 100}</span>h • Night: <span className="font-mono">{Math.round((careMinutes.Night / 60) * 100) / 100}</span>h</div>
+                                <div className="text-xs mt-1">12h Day: <span className="font-mono">{Math.round(ceilToQuarter((careMinutes.Day / 60 / 12)) * 100) / 100}</span> • 12h Night: <span className="font-mono">{Math.round(ceilToQuarter((careMinutes.Night / 60 / 12)) * 100) / 100}</span></div>
+                              </div>
                         <div className="mt-2 text-xs text-gray-400">Click for full details</div>
                       </div>
                     );
@@ -994,8 +1013,8 @@ export default function DependencyCalculatorPage() {
         }
 
   {residents.filter(r => !r.communityId).slice().sort((x, y) => compareRooms(x.room, y.room)).map((r) => {
-          const idx = residents.findIndex(rr => rr.id === r.id);
-          const careHours = calculateResidentCareHours(r);
+    const idx = residents.findIndex(rr => rr.id === r.id);
+    const careMinutes = calculateResidentCareMinutes(r);
           const inCommunity = false;
           return (
             <div
@@ -1032,8 +1051,8 @@ export default function DependencyCalculatorPage() {
 
                 <div className="mt-3 text-xs text-gray-700">
                   <div className="font-semibold mb-1">Estimated Care:</div>
-                  <div>Day: <span className="font-mono">{careHours.Day}</span>h • Night: <span className="font-mono">{careHours.Night}</span>h</div>
-                          <div className="text-xs mt-1">12h Day: <span className="font-mono">{Math.round(ceilToQuarter((careHours.Day / 12)) * 100) / 100}</span> • 12h Night: <span className="font-mono">{Math.round(ceilToQuarter((careHours.Night / 12)) * 100) / 100}</span></div>
+                  <div>Day: <span className="font-mono">{Math.round((careMinutes.Day / 60) * 100) / 100}</span>h • Night: <span className="font-mono">{Math.round((careMinutes.Night / 60) * 100) / 100}</span>h</div>
+                          <div className="text-xs mt-1">12h Day: <span className="font-mono">{Math.round(ceilToQuarter((careMinutes.Day / 60 / 12)) * 100) / 100}</span> • 12h Night: <span className="font-mono">{Math.round(ceilToQuarter((careMinutes.Night / 60 / 12)) * 100) / 100}</span></div>
                 </div>
               <div className="mt-2 text-xs text-gray-400">Click for full details</div>
             </div>

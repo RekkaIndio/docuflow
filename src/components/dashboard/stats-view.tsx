@@ -5,7 +5,7 @@ import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '@/com
 import OccupancyPie from '@/components/admin/occupancy-pie';
 import { doc, onSnapshot, collection, query, orderBy, limit, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, FileText, Shield, Wrench, Lock, Flame, Biohazard, Utensils, Moon, Users, Soup } from 'lucide-react';
 
 export function StatsView({ workspaceId }: { workspaceId?: string }) {
   const [carePlanScore, setCarePlanScore] = useState<number | null>(null);
@@ -495,10 +495,13 @@ export function StatsView({ workspaceId }: { workspaceId?: string }) {
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <Card>
-          <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg">
-            <CardTitle className="text-white">care plan score</CardTitle>
-            <CardDescription className="text-slate-200">Based on the most recent saved care plan audit.</CardDescription>
-          </CardHeader>
+            <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg flex items-center gap-2">
+              <FileText className="h-5 w-5 text-blue-300" />
+              <div>
+                <CardTitle className="text-white">Care Plan Score</CardTitle>
+                <CardDescription className="text-slate-200">Based on the most recent saved care plan audit.</CardDescription>
+              </div>
+            </CardHeader>
           <CardContent className="flex items-center gap-4 pt-6">
             <div className="w-24 h-24">
               <OccupancyPie 
@@ -523,10 +526,13 @@ export function StatsView({ workspaceId }: { workspaceId?: string }) {
         </Card>
 
         <Card>
-          <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg">
-            <CardTitle className="text-white">Health & Safety score</CardTitle>
-            <CardDescription className="text-slate-200">Based on the most recent saved health & safety audit.</CardDescription>
-          </CardHeader>
+            <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg flex items-center gap-2">
+              <Shield className="h-5 w-5 text-green-300" />
+              <div>
+                <CardTitle className="text-white">Health & Safety Score</CardTitle>
+                <CardDescription className="text-slate-200">Based on the most recent saved health & safety audit.</CardDescription>
+              </div>
+            </CardHeader>
           <CardContent className="flex items-center gap-4 pt-6">
             <div className="w-24 h-24">
               <OccupancyPie 
@@ -550,10 +556,13 @@ export function StatsView({ workspaceId }: { workspaceId?: string }) {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg">
-            <CardTitle className="text-white">Maintenance score</CardTitle>
-            <CardDescription className="text-slate-200">Based on the most recent saved maintenance audit.</CardDescription>
-          </CardHeader>
+            <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg flex items-center gap-2">
+              <Wrench className="h-5 w-5 text-yellow-300" />
+              <div>
+                <CardTitle className="text-white">Maintenance Score</CardTitle>
+                <CardDescription className="text-slate-200">Based on the most recent saved maintenance audit.</CardDescription>
+              </div>
+            </CardHeader>
           <CardContent className="flex items-center gap-4 pt-6">
             <div className="w-24 h-24">
               <OccupancyPie 
@@ -578,10 +587,13 @@ export function StatsView({ workspaceId }: { workspaceId?: string }) {
         </Card>
 
         <Card>
-          <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg">
-            <CardTitle className="text-white">Restrictive Practice score</CardTitle>
-            <CardDescription className="text-slate-200">Based on the most recent saved restrictive practice audit.</CardDescription>
-          </CardHeader>
+            <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg flex items-center gap-2">
+              <Lock className="h-5 w-5 text-purple-300" />
+              <div>
+                <CardTitle className="text-white">Restrictive Practice Score</CardTitle>
+                <CardDescription className="text-slate-200">Based on the most recent saved restrictive practice audit.</CardDescription>
+              </div>
+            </CardHeader>
           <CardContent className="flex items-center gap-4 pt-6">
             <div className="w-24 h-24">
               <OccupancyPie 
@@ -605,10 +617,13 @@ export function StatsView({ workspaceId }: { workspaceId?: string }) {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg">
-            <CardTitle className="text-white">Fire Safety score</CardTitle>
-            <CardDescription className="text-slate-200">Based on the most recent saved fire safety audit.</CardDescription>
-          </CardHeader>
+            <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg flex items-center gap-2">
+              <Flame className="h-5 w-5 text-red-400" />
+              <div>
+                <CardTitle className="text-white">Fire Safety Score</CardTitle>
+                <CardDescription className="text-slate-200">Based on the most recent saved fire safety audit.</CardDescription>
+              </div>
+            </CardHeader>
           <CardContent className="flex items-center gap-4 pt-6">
             <div className="w-24 h-24">
               <OccupancyPie 
@@ -632,10 +647,13 @@ export function StatsView({ workspaceId }: { workspaceId?: string }) {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg">
-            <CardTitle className="text-white">Infection Control score</CardTitle>
-            <CardDescription className="text-slate-200">Based on the most recent saved infection control audit.</CardDescription>
-          </CardHeader>
+            <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg flex items-center gap-2">
+              <Biohazard className="h-5 w-5 text-pink-400" />
+              <div>
+                <CardTitle className="text-white">Infection Control Score</CardTitle>
+                <CardDescription className="text-slate-200">Based on the most recent saved infection control audit.</CardDescription>
+              </div>
+            </CardHeader>
           <CardContent className="flex items-center gap-4 pt-6">
             <div className="w-24 h-24">
               <OccupancyPie 
@@ -659,10 +677,13 @@ export function StatsView({ workspaceId }: { workspaceId?: string }) {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg">
-            <CardTitle className="text-white">Meal Time score</CardTitle>
-            <CardDescription className="text-slate-200">Based on the most recent saved mealtime audit.</CardDescription>
-          </CardHeader>
+            <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg flex items-center gap-2">
+              <Utensils className="h-5 w-5 text-orange-300" />
+              <div>
+                <CardTitle className="text-white">Meal Time Score</CardTitle>
+                <CardDescription className="text-slate-200">Based on the most recent saved mealtime audit.</CardDescription>
+              </div>
+            </CardHeader>
           <CardContent className="flex items-center gap-4 pt-6">
             <div className="w-24 h-24">
               <OccupancyPie 
@@ -686,10 +707,13 @@ export function StatsView({ workspaceId }: { workspaceId?: string }) {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg">
-            <CardTitle className="text-white">Night Visit score</CardTitle>
-            <CardDescription className="text-slate-200">Based on the most recent saved night visit audit.</CardDescription>
-          </CardHeader>
+            <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg flex items-center gap-2">
+              <Moon className="h-5 w-5 text-indigo-300" />
+              <div>
+                <CardTitle className="text-white">Night Visit Score</CardTitle>
+                <CardDescription className="text-slate-200">Based on the most recent saved night visit audit.</CardDescription>
+              </div>
+            </CardHeader>
           <CardContent className="flex items-center gap-4 pt-6">
             <div className="w-24 h-24">
               <OccupancyPie 
@@ -713,10 +737,13 @@ export function StatsView({ workspaceId }: { workspaceId?: string }) {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg">
-            <CardTitle className="text-white">Staff File score</CardTitle>
-            <CardDescription className="text-slate-200">Based on the most recent saved staff file audit.</CardDescription>
-          </CardHeader>
+            <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg flex items-center gap-2">
+              <Users className="h-5 w-5 text-teal-300" />
+              <div>
+                <CardTitle className="text-white">Staff File Score</CardTitle>
+                <CardDescription className="text-slate-200">Based on the most recent saved staff file audit.</CardDescription>
+              </div>
+            </CardHeader>
           <CardContent className="flex items-center gap-4 pt-6">
             <div className="w-24 h-24">
               <OccupancyPie 
@@ -740,10 +767,13 @@ export function StatsView({ workspaceId }: { workspaceId?: string }) {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg">
-            <CardTitle className="text-white">Kitchen & Kitchenettes score</CardTitle>
-            <CardDescription className="text-slate-200">Based on the most recent saved kitchen audit.</CardDescription>
-          </CardHeader>
+            <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg flex items-center gap-2">
+              <Soup className="h-5 w-5 text-lime-400" />
+              <div>
+                <CardTitle className="text-white">Kitchen & Kitchenettes Score</CardTitle>
+                <CardDescription className="text-slate-200">Based on the most recent saved kitchen audit.</CardDescription>
+              </div>
+            </CardHeader>
           <CardContent className="flex items-center gap-4 pt-6">
             <div className="w-24 h-24">
               <OccupancyPie 

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Plus, Trash2 } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,9 @@ export default function DailyPage({ workspaceId }: { workspaceId?: string }) {
   const [fallsInjuries, setFallsInjuries] = useState<string>("");
   const [fallsWitnessed, setFallsWitnessed] = useState<string>("");
   const [fallsTime, setFallsTime] = useState<string>("");
+
+  // Support multiple fall entries
+  const [fallsEntries, setFallsEntries] = useState<Array<{ id: number; count: number; injuries?: string; witnessed?: string; time?: string }>>([]);
 
   const [cqcNotifications, setCqcNotifications] = useState<number | "">("");
   const [safeguards, setSafeguards] = useState<number | "">("");
@@ -76,6 +80,10 @@ export default function DailyPage({ workspaceId }: { workspaceId?: string }) {
         setStaffDay((latest.staffing && latest.staffing.day) || '');
         setStaffNight((latest.staffing && latest.staffing.night) || '');
         setFallsCount(latest.falls?.count ?? '');
+        // populate multi-fall entries if present
+        if (latest.falls && Array.isArray(latest.falls.entries)) {
+          setFallsEntries(latest.falls.entries.map((e: any, i: number) => ({ id: e.id ?? i, count: Number(e.count) || 0, injuries: e.injuries || '', witnessed: e.witnessed || '', time: e.time || '' })));
+        }
         setFallsInjuries(latest.falls?.injuries || '');
         setFallsWitnessed(latest.falls?.witnessed || '');
         setFallsTime(latest.falls?.time || '');
@@ -104,6 +112,32 @@ export default function DailyPage({ workspaceId }: { workspaceId?: string }) {
     } finally {
       setIsLoadingWeek(false);
     }
+  };
+
+  const addFallEntry = () => {
+    const newEntry = { id: Date.now(), count: 0, injuries: '', witnessed: '', time: '' };
+    setFallsEntries(prev => {
+      const next = [...prev, newEntry];
+      // update aggregated count
+      setFallsCount(next.reduce((s, it) => s + (Number(it.count) || 0), 0));
+      return next;
+    });
+  };
+
+  const updateFallEntry = (id: number, changes: Partial<{ count: number; injuries?: string; witnessed?: string; time?: string }>) => {
+    setFallsEntries(prev => {
+      const next = prev.map(e => e.id === id ? { ...e, ...changes } : e);
+      setFallsCount(next.reduce((s, it) => s + (Number(it.count) || 0), 0));
+      return next;
+    });
+  };
+
+  const removeFallEntry = (id: number) => {
+    setFallsEntries(prev => {
+      const next = prev.filter(e => e.id !== id);
+      setFallsCount(next.reduce((s, it) => s + (Number(it.count) || 0), 0));
+      return next;
+    });
   };
 
   const handleEditEntry = (entry: any) => {
@@ -152,13 +186,17 @@ export default function DailyPage({ workspaceId }: { workspaceId?: string }) {
   };
 
   const handleSave = async () => {
+    // Build falls payload from current state (avoid referencing undefined `falls` variable)
+    const fallsPayload: any = { count: fallsCount, injuries: fallsInjuries, witnessed: fallsWitnessed, time: fallsTime };
+    if (fallsEntries && fallsEntries.length > 0) fallsPayload.entries = fallsEntries;
+
     const payload = {
       occupancy,
       staffing: { day: staffDay, night: staffNight },
       // analytics aggregates expect staffingDay/staffingNight at top-level
       staffingDay: Number(staffDay) || 0,
       staffingNight: Number(staffNight) || 0,
-      falls: { count: fallsCount, injuries: fallsInjuries, witnessed: fallsWitnessed, time: fallsTime },
+      falls: fallsPayload,
       cqcNotifications,
       safeguards,
       wounds: { detail: woundsDetail, types: woundTypes },
@@ -231,196 +269,223 @@ export default function DailyPage({ workspaceId }: { workspaceId?: string }) {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold">Weekly Check-in</h1>
+    <div className="p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold">Daily Check-in</h1>
+          <p className="text-sm text-muted-foreground mt-1">Quickly record the key metrics for this week. Submissions are saved to your workspace.</p>
+        </div>
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="mt-4 sm:mt-0 flex items-center gap-2">
+          <div className="text-sm text-muted-foreground mr-3 hidden sm:block">
+            {format(selectedWeekStart, 'MMM d')} — {format(endOfWeek(selectedWeekStart, { weekStartsOn: 1 }), 'MMM d, yyyy')}
+          </div>
           <Button variant="ghost" onClick={goPrevWeek}>&larr; Prev</Button>
           <Button variant="outline" onClick={goThisWeek}>This Week</Button>
           <Button variant="ghost" onClick={goNextWeek}>Next &rarr;</Button>
         </div>
-        <div className="text-sm text-muted-foreground">
-          {format(selectedWeekStart, 'MMM d')} — {format(endOfWeek(selectedWeekStart, { weekStartsOn: 1 }), 'MMM d, yyyy')}
-        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Occupancy</CardTitle>
-            <CardDescription>Current occupancy for the home.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div>
-                <Label className="mb-1">Occupancy</Label>
-                <Input value={occupancy} onChange={(e) => setOccupancy(e.target.value)} placeholder="e.g. 28/30" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Staffing</CardTitle>
-            <CardDescription>Staffing levels for day and night shifts.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="mb-1">Staffing — Day</Label>
-                  <Input value={staffDay} onChange={(e) => setStaffDay(e.target.value)} placeholder="e.g. 8" />
-                </div>
-                <div>
-                  <Label className="mb-1">Staffing — Night</Label>
-                  <Input value={staffNight} onChange={(e) => setStaffNight(e.target.value)} placeholder="e.g. 4" />
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Falls</CardTitle>
-            <CardDescription>Record falls details including time and witnessed status.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="grid grid-cols-3 gap-2 items-end">
-                <div>
-                  <Label className="mb-1">Count</Label>
-                  <Input type="number" value={fallsCount as any} onChange={(e) => setFallsCount(e.target.value === "" ? "" : Number(e.target.value))} />
-                </div>
-                <div>
-                  <Label className="mb-1">Injuries</Label>
-                  <Input value={fallsInjuries} onChange={(e) => setFallsInjuries(e.target.value)} placeholder="e.g. minor head" />
-                </div>
-                <div>
-                  <Label className="mb-1">Witnessed</Label>
-                  <Input value={fallsWitnessed} onChange={(e) => setFallsWitnessed(e.target.value)} placeholder="witnessed / unwitnessed" />
-                </div>
-              </div>
-
-              <div>
-                <Label className="mb-1">Time</Label>
-                <Input value={fallsTime} onChange={(e) => setFallsTime(e.target.value)} placeholder="e.g. 14:30" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Safeguards & Notifications</CardTitle>
-            <CardDescription>Counts for CQC notifications and safeguards raised.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div>
-                <Label className="mb-1">CQC Notifications</Label>
-                <Input type="number" value={cqcNotifications as any} onChange={(e) => setCqcNotifications(e.target.value === "" ? "" : Number(e.target.value))} />
-              </div>
-              <div>
-                <Label className="mb-1">Safeguards Raised</Label>
-                <Input type="number" value={safeguards as any} onChange={(e) => setSafeguards(e.target.value === "" ? "" : Number(e.target.value))} />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Wounds</CardTitle>
-            <CardDescription>Select wound types and provide details/counts.</CardDescription>
-          </CardHeader>
-          <CardContent>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
+      <div className="grid grid-cols-1 gap-6">
+        <div className="space-y-4">
+          {/* Occupancy, Staffing and Safeguards on a single responsive row */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardHeader className="pb-3 bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-md">
+                <CardTitle>Occupancy</CardTitle>
+                <CardDescription>Current occupancy for the home.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
                   <div>
-                    <Label className="mb-1">Pressure</Label>
-                    <Input type="number" value={woundTypes.pressure as any} onChange={(e) => setWoundCount('pressure', e.target.value === '' ? 0 : Number(e.target.value))} />
-                  </div>
-                  <div>
-                    <Label className="mb-1">Break</Label>
-                    <Input type="number" value={woundTypes.break as any} onChange={(e) => setWoundCount('break', e.target.value === '' ? 0 : Number(e.target.value))} />
-                  </div>
-                  <div>
-                    <Label className="mb-1">Fracture</Label>
-                    <Input type="number" value={woundTypes.fracture as any} onChange={(e) => setWoundCount('fracture', e.target.value === '' ? 0 : Number(e.target.value))} />
+                    <Label className="mb-1">Occupancy</Label>
+                    <Input value={occupancy} onChange={(e) => setOccupancy(e.target.value)} placeholder="e.g. 28/30" />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <div>
-                    <Label className="mb-1">Bruise</Label>
-                    <Input type="number" value={woundTypes.bruise as any} onChange={(e) => setWoundCount('bruise', e.target.value === '' ? 0 : Number(e.target.value))} />
-                  </div>
-                  <div>
-                    <Label className="mb-1">Skin tear</Label>
-                    <Input type="number" value={woundTypes.skintear as any} onChange={(e) => setWoundCount('skintear', e.target.value === '' ? 0 : Number(e.target.value))} />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3 bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-md">
+                <CardTitle>Staffing</CardTitle>
+                <CardDescription>Staffing levels for day and night shifts.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="mb-1">Staffing — Day</Label>
+                      <Input type="number" value={staffDay} onChange={(e) => setStaffDay(e.target.value)} placeholder="e.g. 8" />
+                    </div>
+                    <div>
+                      <Label className="mb-1">Staffing — Night</Label>
+                      <Input type="number" value={staffNight} onChange={(e) => setStaffNight(e.target.value)} placeholder="e.g. 4" />
+                    </div>
                   </div>
                 </div>
-              </div>
+              </CardContent>
+            </Card>
 
-            <div className="mt-3">
-              <Label className="mb-1">Details / counts</Label>
-              <Textarea value={woundsDetail} onChange={(e) => setWoundsDetail(e.target.value)} placeholder="Describe wound types and counts" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Infections</CardTitle>
-            <CardDescription>Counts for common infection types.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <Label className="mb-1">UTI</Label>
-                <Input type="number" value={infectionsUti as any} onChange={(e) => setInfectionsUti(e.target.value === "" ? "" : Number(e.target.value))} />
-              </div>
-              <div>
-                <Label className="mb-1">Chest</Label>
-                <Input type="number" value={infectionsChest as any} onChange={(e) => setInfectionsChest(e.target.value === "" ? "" : Number(e.target.value))} />
-              </div>
-              <div>
-                <Label className="mb-1">Wound</Label>
-                <Input type="number" value={infectionsWound as any} onChange={(e) => setInfectionsWound(e.target.value === "" ? "" : Number(e.target.value))} />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="flex justify-end gap-2">
-        <Button variant="secondary" onClick={resetForm}>Reset</Button>
-        <Button onClick={handleSave}>{editingId ? 'Update Check-in' : 'Save Check-in'}</Button>
-      </div>
-
-      {/* Current week's single entry (canonical) */}
-      <div className="mt-6">
-        <h2 className="text-lg font-semibold">This week's check-in</h2>
-        {isLoadingWeek ? (
-          <div className="text-sm text-muted-foreground">Loading...</div>
-        ) : currentEntry ? (
-          <div className="p-3 border rounded flex items-start justify-between mt-3">
-            <div>
-              <div className="text-sm font-medium">Last saved: {format((currentEntry.createdAt && currentEntry.createdAt.toDate) ? currentEntry.createdAt.toDate() : new Date(currentEntry.recordedAt || currentEntry.createdAt || Date.now()), 'PPpp')}</div>
-              <div className="text-sm text-muted-foreground">Occupancy: {currentEntry.occupancy || '—'} • Falls: {currentEntry.falls?.count ?? 0} • CQC: {currentEntry.cqcNotifications ?? 0}</div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" onClick={() => handleEditEntry(currentEntry)}>Edit</Button>
-              <Button variant="destructive" onClick={() => handleDeleteEntry(currentEntry.id)}>Delete</Button>
-            </div>
+            <Card>
+              <CardHeader className="pb-3 bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-md">
+                <CardTitle>Safeguards & Notifications</CardTitle>
+                <CardDescription>Counts for CQC notifications and safeguards raised.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div>
+                    <Label className="mb-1">CQC Notifications</Label>
+                    <Input type="number" value={cqcNotifications as any} onChange={(e) => setCqcNotifications(e.target.value === "" ? "" : Number(e.target.value))} />
+                  </div>
+                  <div>
+                    <Label className="mb-1">Safeguards Raised</Label>
+                    <Input type="number" value={safeguards as any} onChange={(e) => setSafeguards(e.target.value === "" ? "" : Number(e.target.value))} />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
-        ) : (
-          <div className="text-sm text-muted-foreground mt-3">No saved check-in for this week yet.</div>
-        )}
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardHeader className="pb-3 bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-md">
+                <CardTitle>Falls</CardTitle>
+                <CardDescription>Record falls details. Add multiple entries if needed.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <div className="text-sm text-muted-foreground">Total: {fallsCount || 0}</div>
+                    <button type="button" className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-white/10 hover:bg-white/20 text-white" onClick={addFallEntry} aria-label="Add fall">
+                      <Plus className="h-4 w-4" />
+                      <span className="text-sm">Add</span>
+                    </button>
+                  </div>
+
+                  {fallsEntries.length === 0 && (
+                    <div className="text-sm text-muted-foreground">No individual fall entries. Add one or enter an aggregate count.</div>
+                  )}
+
+                  <div className="space-y-3">
+                    {fallsEntries.map(entry => (
+                      <div key={entry.id} className="grid grid-cols-12 gap-2 items-center">
+                        <div className="col-span-2">
+                          <Label className="mb-1">Count</Label>
+                          <Input type="number" value={entry.count} onChange={(e) => updateFallEntry(entry.id, { count: Number(e.target.value || 0) })} />
+                        </div>
+                        <div className="col-span-4">
+                          <Label className="mb-1">Injuries</Label>
+                          <Input value={entry.injuries} onChange={(e) => updateFallEntry(entry.id, { injuries: e.target.value })} placeholder="e.g. minor head" />
+                        </div>
+                        <div className="col-span-3">
+                          <Label className="mb-1">Witnessed</Label>
+                          <Input value={entry.witnessed} onChange={(e) => updateFallEntry(entry.id, { witnessed: e.target.value })} placeholder="witnessed / unwitnessed" />
+                        </div>
+                        <div className="col-span-2">
+                          <Label className="mb-1">Time</Label>
+                          <Input value={entry.time} onChange={(e) => updateFallEntry(entry.id, { time: e.target.value })} placeholder="e.g. 14:30" />
+                        </div>
+                        <div className="col-span-1 flex items-end">
+                          <button type="button" className="p-2 rounded-md bg-red-600 text-white hover:bg-red-700" onClick={() => removeFallEntry(entry.id)} aria-label="Remove fall">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div>
+                    <Label className="mb-1">Aggregate count (optional)</Label>
+                    <Input type="number" value={fallsCount as any} onChange={(e) => setFallsCount(e.target.value === "" ? "" : Number(e.target.value))} />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                      <Label className="mb-1">Injuries (summary)</Label>
+                      <Input value={fallsInjuries} onChange={(e) => setFallsInjuries(e.target.value)} placeholder="e.g. minor head" />
+                    </div>
+                    <div>
+                      <Label className="mb-1">Witnessed (summary)</Label>
+                      <Input value={fallsWitnessed} onChange={(e) => setFallsWitnessed(e.target.value)} placeholder="witnessed / unwitnessed" />
+                    </div>
+                    <div>
+                      <Label className="mb-1">Time (summary)</Label>
+                      <Input value={fallsTime} onChange={(e) => setFallsTime(e.target.value)} placeholder="e.g. 14:30" />
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3 bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-md">
+                <CardTitle>Wounds</CardTitle>
+                <CardDescription>Select wound types and provide details/counts.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <div>
+                      <Label className="mb-1">Pressure</Label>
+                      <Input type="number" value={woundTypes.pressure as any} onChange={(e) => setWoundCount('pressure', e.target.value === '' ? 0 : Number(e.target.value))} />
+                    </div>
+                    <div>
+                      <Label className="mb-1">Break</Label>
+                      <Input type="number" value={woundTypes.break as any} onChange={(e) => setWoundCount('break', e.target.value === '' ? 0 : Number(e.target.value))} />
+                    </div>
+                    <div>
+                      <Label className="mb-1">Fracture</Label>
+                      <Input type="number" value={woundTypes.fracture as any} onChange={(e) => setWoundCount('fracture', e.target.value === '' ? 0 : Number(e.target.value))} />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div>
+                      <Label className="mb-1">Bruise</Label>
+                      <Input type="number" value={woundTypes.bruise as any} onChange={(e) => setWoundCount('bruise', e.target.value === '' ? 0 : Number(e.target.value))} />
+                    </div>
+                    <div>
+                      <Label className="mb-1">Skin tear</Label>
+                      <Input type="number" value={woundTypes.skintear as any} onChange={(e) => setWoundCount('skintear', e.target.value === '' ? 0 : Number(e.target.value))} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-3">
+                  <Label className="mb-1">Details / counts</Label>
+                  <Textarea value={woundsDetail} onChange={(e) => setWoundsDetail(e.target.value)} placeholder="Describe wound types and counts" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3 bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-md">
+                <CardTitle>Infections</CardTitle>
+                <CardDescription>Counts for common infection types.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <Label className="mb-1">UTI</Label>
+                    <Input type="number" value={infectionsUti as any} onChange={(e) => setInfectionsUti(e.target.value === "" ? "" : Number(e.target.value))} />
+                  </div>
+                  <div>
+                    <Label className="mb-1">Chest</Label>
+                    <Input type="number" value={infectionsChest as any} onChange={(e) => setInfectionsChest(e.target.value === "" ? "" : Number(e.target.value))} />
+                  </div>
+                  <div>
+                    <Label className="mb-1">Wound</Label>
+                    <Input type="number" value={infectionsWound as any} onChange={(e) => setInfectionsWound(e.target.value === "" ? "" : Number(e.target.value))} />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="flex justify-end gap-2 mt-3">
+            <Button variant="secondary" onClick={resetForm}>Reset</Button>
+            <Button onClick={handleSave}>{editingId ? 'Update Check-in' : 'Save Check-in'}</Button>
+          </div>
+        </div>
       </div>
     </div>
   );

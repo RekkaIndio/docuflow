@@ -1,5 +1,8 @@
 "use client";
 import React, { useMemo, useState } from "react";
+import { useAuth } from '@/hooks/use-auth';
+import { useWorkspace } from '@/context/workspace';
+import { markAuditCompletedWithSnapshot } from '@/lib/firestore';
 
 type RiskRow = {
   rm: string;
@@ -41,10 +44,18 @@ const columns = [
 ];
 
 export default function RiskRegisterAuditPage() {
-  // scaffold some rows for demo purposes
-  const [rows, setRows] = useState<RiskRow[]>(() => {
-    return Array.from({ length: 18 }).map((_, i) => ({
-      rm: String(i + 1),
+  const [rows, setRows] = useState<RiskRow[]>([]);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [finalComments, setFinalComments] = useState('');
+  const { user } = useAuth();
+  const activeWorkspace = useWorkspace();
+
+  function createNewRoom(): RiskRow {
+    const nextRoomNumber = rows.length + 1;
+    return {
+      rm: String(nextRoomNumber),
       name: '',
       dementia: false,
       diabetic: false,
@@ -76,10 +87,30 @@ export default function RiskRegisterAuditPage() {
       infectionRisk: false,
       constipation: false,
       notes: ''
-    }));
-  });
+    };
+  }
 
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  function addNewRoom() {
+    const newRoom = createNewRoom();
+    setRows(prev => [...prev, newRoom]);
+  }
+
+  function deleteRoom(index: number) {
+    setRows(prev => {
+      const updated = prev.filter((_, i) => i !== index);
+      // Re-number remaining rooms sequentially
+      return updated.map((room, i) => ({
+        ...room,
+        rm: String(i + 1)
+      }));
+    });
+    // Close modal if the deleted room was selected
+    if (selectedIndex === index) {
+      setSelectedIndex(null);
+    } else if (selectedIndex !== null && selectedIndex > index) {
+      setSelectedIndex(selectedIndex - 1);
+    }
+  }
 
   const summary = useMemo(() => {
     return rows.map((r) => ({
@@ -105,168 +136,325 @@ export default function RiskRegisterAuditPage() {
 
   return (
     <div className="p-6">
-      <button
-        onClick={() => window.history.back()}
-        className="mb-4 p-2 text-blue-600 hover:text-blue-800"
-      >
-        ← Back to Audits
-      </button>
-
+      {/* Complete Audit Button */}
+      <div className="flex justify-end mb-4">
+        <button
+          onClick={() => setShowCompleteModal(true)}
+          disabled={rows.length === 0 || saving}
+          className="bg-green-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors disabled:opacity-50"
+        >
+          {saving ? 'Saving...' : 'Complete Audit'}
+        </button>
+      </div>
+      
       <h1 className="text-2xl font-semibold mb-4">Risk Register</h1>
 
-      <p className="text-sm text-muted-foreground mb-6">Compact list view — click a row's Details to open the full risk form for that room.</p>
+      <p className="text-sm text-muted-foreground mb-6">
+        Manage resident risk information by room. Click "Add New Resident" to start tracking risks for a resident.
+      </p>
 
-      <div className="grid gap-3">
-        {summary.map((s, i) => (
-          <div key={s.rm} className="flex items-center justify-between p-3 bg-white border rounded shadow-sm">
-            <div>
-              <div className="text-lg font-medium">Room {s.rm} — {s.name}</div>
-              <div className="mt-1 flex flex-wrap gap-2">
-                {s.flags.length === 0 ? (
-                  <span className="text-sm text-muted-foreground">No major flags</span>
-                ) : (
-                  s.flags.map((f) => (
-                    <span key={f} className="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded">{f}</span>
-                  ))
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setSelectedIndex(i)}
-                className="px-3 py-1 bg-blue-600 text-white rounded"
-              >
-                Details
-              </button>
-            </div>
-          </div>
-        ))}
+      <div className="mb-6">
+        <button
+          onClick={addNewRoom}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+        >
+          <span>+</span>
+          Add New Resident
+        </button>
       </div>
 
-      {/* modal */}
-      {selectedIndex !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="w-[95%] max-w-4xl bg-white rounded p-6 overflow-auto max-h-[90vh]">
-            <div className="flex items-start justify-between">
-              <h2 className="text-xl font-semibold">Room {rows[selectedIndex].rm} — Details</h2>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setSelectedIndex(null)}
-                  className="px-3 py-1 border rounded"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium">Name</label>
-                <input
-                  value={rows[selectedIndex].name}
-                  onChange={(e) => updateRow(selectedIndex, { name: e.target.value })}
-                  className="mt-1 block w-full p-2 border rounded"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium">Waterlow score</label>
-                <input
-                  type="number"
-                  value={rows[selectedIndex].waterlow ?? ''}
-                  onChange={(e) => updateRow(selectedIndex, { waterlow: e.target.value ? Number(e.target.value) : null })}
-                  className="mt-1 block w-full p-2 border rounded"
-                />
-              </div>
-
-              {/* checkbox grid for many boolean fields */}
-              <div className="md:col-span-2 border-t pt-4">
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                  {(
-                    [
-                      ['dementia','Dementia'],
-                      ['diabetic','Diabetic'],
-                      ['copd','COPD/Asthma'],
-                      ['parkinsons','Parkinson\'s'],
-                      ['epilepsy','Epilepsy'],
-                      ['modifiedDiet','Modified diet'],
-                      ['sensorMat','Sensor Mat/Crash mat'],
-                      ['pacemaker','Pacemaker'],
-                      ['oxygen','Oxygen'],
-                      ['bedrails','Bedrails/Safety gate'],
-                      ['catheter','Catheter'],
-                      ['stoma','Stoma'],
-                      ['airMatress','Air-mattress'],
-                      ['dolsApplied','DOLS applied'],
-                      ['abscondingRisk','Absconding/self-harm/suicide'],
-                      ['palliativeCare','Palliative care/end of life'],
-                      ['must2OrAbove','Must 2 or above'],
-                      ['poa','POA'],
-                      ['smoking','Smoking'],
-                      ['dnacpr','DNACPR'],
-                      ['bloodThinners','Blood thinners'],
-                      ['lapStrap','Lap strap'],
-                      ['creams','Creams'],
-                      ['infectionRisk','Infection risk'],
-                      ['constipation','Constipation']
-                    ] as [keyof RiskRow, string][]
-                  ).map(([key,label]) => (
-                    <label key={String(key)} className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={Boolean(rows[selectedIndex][key])}
-                        onChange={(e) => updateRow(selectedIndex, { [key]: e.target.checked } as any)}
-                      />
-                      <span className="text-sm">{label}</span>
-                    </label>
-                  ))}
+      {rows.length === 0 ? (
+        <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+          <div className="text-gray-500 mb-4">
+            <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No rooms added yet</h3>
+          <p className="text-gray-500 mb-4">Get started by adding your first room to track resident risks.</p>
+          <button
+            onClick={addNewRoom}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Add First Resident
+          </button>
+        </div>
+      ) : (
+        <div className="grid gap-3">
+          {summary.map((s, i) => (
+            <div key={s.rm} className="flex items-center justify-between p-4 bg-white border rounded-lg shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex-1">
+                <div className="text-lg font-medium mb-1">Room {s.rm} — {s.name || 'Unnamed'}</div>
+                <div className="flex flex-wrap gap-2">
+                  {s.flags.length === 0 ? (
+                    <span className="text-sm text-gray-500">No major flags</span>
+                  ) : (
+                    s.flags.map((f) => (
+                      <span key={f} className="text-xs px-3 py-1 bg-amber-100 text-amber-800 rounded-full font-medium">{f}</span>
+                    ))
+                  )}
                 </div>
               </div>
 
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium">Allergies / Medication notes</label>
-                <input
-                  value={rows[selectedIndex].allergies}
-                  onChange={(e) => updateRow(selectedIndex, { allergies: e.target.value })}
-                  className="mt-1 block w-full p-2 border rounded"
-                />
+              <div className="flex items-center gap-2 ml-4">
+                <button
+                  onClick={() => setSelectedIndex(i)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Details
+                </button>
+                <button
+                  onClick={() => deleteRoom(i)}
+                  className="px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
+                >
+                  Delete
+                </button>
               </div>
+            </div>
+          ))}
+        </div>
+      )}
 
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium">Pressure sore / Leg ulcer notes</label>
-                <input
-                  value={rows[selectedIndex].pressureSoreRisk}
-                  onChange={(e) => updateRow(selectedIndex, { pressureSoreRisk: e.target.value })}
-                  className="mt-1 block w-full p-2 border rounded"
-                />
+  {/* Resident Details Modal */}
+  {selectedIndex !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-5xl bg-white rounded-xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b bg-gray-50">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Room {rows[selectedIndex].rm}</h2>
+                <p className="text-gray-600 mt-1">Risk Assessment Details</p>
               </div>
+              <button
+                onClick={() => setSelectedIndex(null)}
+                className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
 
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium">DOLS condition</label>
-                <input
-                  value={rows[selectedIndex].dolsCondition}
-                  onChange={(e) => updateRow(selectedIndex, { dolsCondition: e.target.value })}
-                  className="mt-1 block w-full p-2 border rounded"
-                />
-              </div>
+            {/* Content */}
+            <div className="flex-1 overflow-auto p-6">
+              <div className="space-y-8">
+                {/* Basic Information */}
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h3 className="text-lg font-semibold text-blue-900 mb-4">Basic Information</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Resident Name</label>
+                      <input
+                        value={rows[selectedIndex].name}
+                        onChange={(e) => updateRow(selectedIndex, { name: e.target.value })}
+                        className="block w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Enter resident name"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Waterlow Score</label>
+                      <input
+                        type="number"
+                        value={rows[selectedIndex].waterlow ?? ''}
+                        onChange={(e) => updateRow(selectedIndex, { waterlow: e.target.value ? Number(e.target.value) : null })}
+                        className="block w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Enter score"
+                      />
+                    </div>
+                  </div>
+                </div>
 
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium">Notes / Actions</label>
-                <textarea
-                  value={rows[selectedIndex].notes}
-                  onChange={(e) => updateRow(selectedIndex, { notes: e.target.value })}
-                  className="mt-1 block w-full p-2 border rounded h-24"
-                />
+                {/* Medical Conditions */}
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <h3 className="text-lg font-semibold text-green-900 mb-4">Medical Conditions & Risks</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {(
+                      [
+                        ['dementia','Dementia'],
+                        ['diabetic','Diabetic'],
+                        ['copd','COPD/Asthma'],
+                        ['parkinsons','Parkinson\'s'],
+                        ['epilepsy','Epilepsy'],
+                        ['palliativeCare','Palliative care/end of life'],
+                        ['smoking','Smoking'],
+                        ['bloodThinners','Blood thinners'],
+                        ['infectionRisk','Infection risk'],
+                        ['constipation','Constipation']
+                      ] as [keyof RiskRow, string][]
+                    ).map(([key,label]) => (
+                      <label key={String(key)} className="flex items-center gap-3 p-3 bg-white rounded-lg border hover:border-green-300 transition-colors cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(rows[selectedIndex][key])}
+                          onChange={(e) => updateRow(selectedIndex, { [key]: e.target.checked } as any)}
+                          className="w-4 h-4 text-green-600 rounded focus:ring-green-500"
+                        />
+                        <span className="text-sm font-medium text-gray-700">{label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Equipment & Monitoring */}
+                <div className="bg-purple-50 p-4 rounded-lg">
+                  <h3 className="text-lg font-semibold text-purple-900 mb-4">Equipment & Monitoring</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {(
+                      [
+                        ['modifiedDiet','Modified diet'],
+                        ['sensorMat','Sensor Mat/Crash mat'],
+                        ['pacemaker','Pacemaker'],
+                        ['oxygen','Oxygen'],
+                        ['bedrails','Bedrails/Safety gate'],
+                        ['catheter','Catheter'],
+                        ['stoma','Stoma'],
+                        ['airMatress','Air-mattress'],
+                        ['lapStrap','Lap strap'],
+                        ['creams','Creams']
+                      ] as [keyof RiskRow, string][]
+                    ).map(([key,label]) => (
+                      <label key={String(key)} className="flex items-center gap-3 p-3 bg-white rounded-lg border hover:border-purple-300 transition-colors cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(rows[selectedIndex][key])}
+                          onChange={(e) => updateRow(selectedIndex, { [key]: e.target.checked } as any)}
+                          className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500"
+                        />
+                        <span className="text-sm font-medium text-gray-700">{label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Legal & Administrative */}
+                <div className="bg-orange-50 p-4 rounded-lg">
+                  <h3 className="text-lg font-semibold text-orange-900 mb-4">Legal & Administrative</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {(
+                      [
+                        ['dolsApplied','DOLS applied'],
+                        ['abscondingRisk','Absconding/self-harm/suicide'],
+                        ['must2OrAbove','Must 2 or above'],
+                        ['poa','POA'],
+                        ['dnacpr','DNACPR / Peace Doc']
+                      ] as [keyof RiskRow, string][]
+                    ).map(([key,label]) => (
+                      <label key={String(key)} className="flex items-center gap-3 p-3 bg-white rounded-lg border hover:border-orange-300 transition-colors cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(rows[selectedIndex][key])}
+                          onChange={(e) => updateRow(selectedIndex, { [key]: e.target.checked } as any)}
+                          className="w-4 h-4 text-orange-600 rounded focus:ring-orange-500"
+                        />
+                        <span className="text-sm font-medium text-gray-700">{label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Additional Notes */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Additional Information</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Allergies / Medication Notes</label>
+                      <input
+                        value={rows[selectedIndex].allergies}
+                        onChange={(e) => updateRow(selectedIndex, { allergies: e.target.value })}
+                        className="block w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                        placeholder="Enter allergy information and medication notes"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Pressure Sore / Leg Ulcer Notes</label>
+                      <input
+                        value={rows[selectedIndex].pressureSoreRisk}
+                        onChange={(e) => updateRow(selectedIndex, { pressureSoreRisk: e.target.value })}
+                        className="block w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                        placeholder="Enter pressure sore or leg ulcer information"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">DOLS Condition</label>
+                      <input
+                        value={rows[selectedIndex].dolsCondition}
+                        onChange={(e) => updateRow(selectedIndex, { dolsCondition: e.target.value })}
+                        className="block w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                        placeholder="Enter DOLS condition details"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">General Notes / Actions</label>
+                      <textarea
+                        value={rows[selectedIndex].notes}
+                        onChange={(e) => updateRow(selectedIndex, { notes: e.target.value })}
+                        className="block w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500 h-32 resize-none"
+                        placeholder="Enter any additional notes, care requirements, or actions needed"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="mt-4 flex justify-end gap-2">
+            {/* Footer */}
+            <div className="border-t bg-gray-50 p-6 flex justify-end gap-3">
               <button
                 onClick={() => setSelectedIndex(null)}
-                className="px-4 py-2 bg-gray-200 rounded"
+                className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
               >
-                Done
+                Save & Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Complete Audit Modal */}
+      {showCompleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">Complete Risk Register Audit</h3>
+            <p className="text-gray-600 mb-4">Would you like to add any final comments before completing this audit? A PDF snapshot will be saved.</p>
+            <textarea
+              value={finalComments}
+              onChange={e => setFinalComments(e.target.value)}
+              className="w-full p-3 border border-gray-300 rounded-md resize-none mb-4"
+              rows={4}
+              placeholder="Enter any final comments or notes..."
+            />
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setShowCompleteModal(false)} disabled={saving} className="px-4 py-2 text-gray-600 hover:text-gray-800 disabled:opacity-50">Cancel</button>
+              <button
+                onClick={async () => {
+                  if (!activeWorkspace?.id) {
+                    alert('No active workspace. Please select a workspace before saving.');
+                    return;
+                  }
+                  setSaving(true);
+                  try {
+                    const auditData = {
+                      residents: rows,
+                      comments: finalComments,
+                      completedBy: user?.id ?? null,
+                      completedAt: new Date().toISOString(),
+                    };
+                    await markAuditCompletedWithSnapshot(activeWorkspace.id, 'risk-register', auditData, auditData.completedAt);
+                    setShowCompleteModal(false);
+                    alert('Audit completed and PDF snapshot saved.');
+                  } catch (err) {
+                    console.error('Failed to complete audit', err);
+                    alert('Failed to complete audit. Please try again.');
+                  } finally {
+                    setSaving(false);
+                  }
+                }}
+                disabled={saving}
+                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+              >
+                {saving ? 'Saving...' : 'Save & Complete'}
               </button>
             </div>
           </div>
