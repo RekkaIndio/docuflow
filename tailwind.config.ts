@@ -59,6 +59,31 @@ export default {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
+        // Neurodiversity-inspired color palette
+        'neurodiversity-cyan': {
+          '50': '#e6feff',
+          '100': '#c0fbff',
+          '200': '#81f6ff',
+          '300': '#3cebff',
+          '400': '#00d4ff',
+          '500': '#00bfff', // Main cyan from symbol
+          '600': '#0099cc',
+          '700': '#007399',
+          '800': '#004d66',
+          '900': '#002633',
+        },
+        'neurodiversity-purple': {
+          '50': '#f3f0ff',
+          '100': '#e9e4ff',
+          '200': '#d4ccff',
+          '300': '#b8a5ff',
+          '400': '#9d7eff',
+          '500': '#8a2be2', // Main purple from symbol
+          '600': '#6b22b5',
+          '700': '#4c1a87',
+          '800': '#2d115a',
+          '900': '#0f082c',
+        },
         chart: {
           '1': 'hsl(var(--chart-1))',
           '2': 'hsl(var(--chart-2))',

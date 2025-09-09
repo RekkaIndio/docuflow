@@ -2,6 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
+@import '../styles/print-styles.css';
+
 @layer base {
   :root {
   --background: 216 25% 96.1%;
@@ -10,28 +12,33 @@
   --card-foreground: 222 47% 11%;
   --popover: 0 0% 100%;
   --popover-foreground: 222 47% 11%;
-  --primary: 217 91% 60%; /* blue-500 */
+  --primary: 195 100% 50%; /* neurodiversity cyan */
   --primary-foreground: 210 40% 98%;
   --secondary: 210 40% 96%;
   --secondary-foreground: 222 47% 11%;
   --muted: 210 40% 96%;
   --muted-foreground: 210 20% 50%;
-  --accent: 210 100% 50%;
-  --accent-foreground: 222 47% 11%;
+  --accent: 276 68% 52%; /* neurodiversity purple */
+  --accent-foreground: 210 40% 98%;
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 355.7 100% 97.3%;
   --border: 210 20% 90%;
   --input: 210 20% 90%;
-  --ring: 217 91% 60%;
+  --ring: 195 100% 50%; /* neurodiversity cyan */
   --radius: 0.5rem;
   --sidebar-background: 0 0% 100%;
   --sidebar-foreground: 222 47% 11%;
-  --sidebar-primary: 217 91% 60%;
+  --sidebar-primary: 195 100% 50%; /* neurodiversity cyan */
   --sidebar-primary-foreground: 210 40% 98%;
-  --sidebar-accent: 210 40% 96%;
-  --sidebar-accent-foreground: 222 47% 11%;
+  --sidebar-accent: 276 68% 52%; /* neurodiversity purple */
+  --sidebar-accent-foreground: 210 40% 98%;
   --sidebar-border: 210 20% 90%;
-  --sidebar-ring: 217 91% 60%;
+  --sidebar-ring: 195 100% 50%; /* neurodiversity cyan */
+  --chart-1: 195 100% 50%; /* neurodiversity cyan */
+  --chart-2: 276 68% 52%; /* neurodiversity purple */
+  --chart-3: 195 100% 70%; /* lighter cyan */
+  --chart-4: 276 68% 72%; /* lighter purple */
+  --chart-5: 195 80% 40%; /* darker cyan */
   --font-scale: 1;
   }
 
@@ -42,27 +49,32 @@
   --card-foreground: 210 40% 98%;
   --popover: 222 47% 15%;
   --popover-foreground: 210 40% 98%;
-  --primary: 217 91% 60%; /* blue-500 */
-  --primary-foreground: 210 40% 98%;
+  --primary: 195 100% 60%; /* lighter neurodiversity cyan for dark mode */
+  --primary-foreground: 222 47% 11%;
   --secondary: 215 28% 17%;
   --secondary-foreground: 210 40% 98%;
   --muted: 215 28% 17%;
   --muted-foreground: 215 20.2% 65.1%;
-  --accent: 210 100% 50%;
-  --accent-foreground: 210 40% 98%;
+  --accent: 276 68% 62%; /* lighter neurodiversity purple for dark mode */
+  --accent-foreground: 222 47% 11%;
   --destructive: 0 62.8% 30.6%;
   --destructive-foreground: 210 40% 98%;
   --border: 215 28% 17%;
   --input: 215 28% 17%;
-  --ring: 217 91% 60%;
+  --ring: 195 100% 60%; /* neurodiversity cyan */
   --sidebar-background: 222 47% 15%;
   --sidebar-foreground: 210 40% 98%;
-  --sidebar-primary: 217 91% 60%;
-  --sidebar-primary-foreground: 210 40% 98%;
-  --sidebar-accent: 215 28% 17%;
-  --sidebar-accent-foreground: 210 40% 98%;
+  --sidebar-primary: 195 100% 60%; /* neurodiversity cyan */
+  --sidebar-primary-foreground: 222 47% 11%;
+  --sidebar-accent: 276 68% 62%; /* neurodiversity purple */
+  --sidebar-accent-foreground: 222 47% 11%;
   --sidebar-border: 215 28% 17%;
-  --sidebar-ring: 217 91% 60%;
+  --sidebar-ring: 195 100% 60%; /* neurodiversity cyan */
+  --chart-1: 195 100% 60%; /* neurodiversity cyan */
+  --chart-2: 276 68% 62%; /* neurodiversity purple */
+  --chart-3: 195 100% 80%; /* lighter cyan */
+  --chart-4: 276 68% 82%; /* lighter purple */
+  --chart-5: 195 80% 50%; /* darker cyan */
   --font-scale: 1;
   }
 }
