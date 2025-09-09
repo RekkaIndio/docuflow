@@ -75,6 +75,36 @@ export default function AuditsPage() {
   }, [activeWorkspace?.id]);
   const [currentView, setCurrentView] = useState<'list' | 'accident-incident' | 'call-bell-monitoring' | 'care-plan' | 'equipment' | 'fire-safety' | 'hand-hygiene' | 'health-safety' | 'infection-control' | 'kitchen' | 'maintenance' | 'managers-weekly' | 'night-visit' | 'restrictive-practice' | 'staff-file' | 'weight-monitoring' | 'wound-monitoring' | 'mealtime' | 'risk-register'>('list');
 
+  // Check if we should auto-open a specific audit (from compliance card clicks)
+  useEffect(() => {
+    const openAuditType = localStorage.getItem('openAuditType');
+    if (openAuditType) {
+      // Clear the stored audit type
+      localStorage.removeItem('openAuditType');
+      // Set the current view to the specified audit type
+      if (openAuditType === 'accident-incident' || 
+          openAuditType === 'call-bell-monitoring' ||
+          openAuditType === 'care-plan' ||
+          openAuditType === 'equipment' ||
+          openAuditType === 'fire-safety' ||
+          openAuditType === 'hand-hygiene' ||
+          openAuditType === 'health-safety' ||
+          openAuditType === 'infection-control' ||
+          openAuditType === 'kitchen' ||
+          openAuditType === 'maintenance' ||
+          openAuditType === 'managers-weekly' ||
+          openAuditType === 'night-visit' ||
+          openAuditType === 'restrictive-practice' ||
+          openAuditType === 'staff-file' ||
+          openAuditType === 'weight-monitoring' ||
+          openAuditType === 'wound-monitoring' ||
+          openAuditType === 'mealtime' ||
+          openAuditType === 'risk-register') {
+        setCurrentView(openAuditType as any);
+      }
+    }
+  }, []);
+
   const handleAuditCardClick = (auditType: string) => {
     const isCompleted = monthlyCompletionStatus[auditType];
     if (isCompleted) {

@@ -391,9 +391,20 @@ export function Dashboard() {
 
       window.addEventListener('navigate-to-workspace', handleWorkspaceNavigation as EventListener);
 
+      // Listen for navigate-to-audits events from compliance cards
+      const handleAuditsNavigation = (ev: CustomEvent) => {
+        const { auditType } = ev.detail || {};
+        setView('audits');
+        // The audit type is stored in localStorage by the dashboard-home component
+        // The audits page will check this and open the specific audit
+      };
+
+      window.addEventListener('navigate-to-audits', handleAuditsNavigation as EventListener);
+
       return () => {
         window.removeEventListener('navigate-to-document', handleDocumentNavigation as EventListener);
         window.removeEventListener('navigate-to-workspace', handleWorkspaceNavigation as EventListener);
+        window.removeEventListener('navigate-to-audits', handleAuditsNavigation as EventListener);
       };
     }
   }, [activeWorkspace]);
