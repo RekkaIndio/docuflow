@@ -228,12 +228,6 @@ export function AppSidebar({
           <span className="text-lg">Dependency Calculator</span>
         </SidebarMenuButton>
       </SidebarMenuItem>
-      <SidebarMenuItem>
-        <SidebarMenuButton onClick={() => handleNavigation(() => setView('daily'))} className="text-lg h-14">
-          <Tag className="w-7 h-7 mr-2" />
-          <span className="text-lg">Daily</span>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter>

@@ -1,9 +1,11 @@
 ---
-title: "Medicines Management Policy"
-version: "1.0"
-effectiveDate: "[Insert Date]"
-reviewDate: "[Insert Date – usually annually]"
-appliesTo: "All staff involved in the handling, administration, storage, and disposal of medicines at [INSERT CARE HOME NAME]"
+title: Medicines Management Policy
+version: '1.0'
+effectiveDate: '[Insert Date]'
+reviewDate: '[Insert Date – usually annually]'
+appliesTo: >-
+  All staff involved in the handling, administration, storage, and disposal of
+  medicines at Sanders
 ---
 
 # Medicines Management Policy

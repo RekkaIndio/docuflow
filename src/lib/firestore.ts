@@ -629,8 +629,27 @@ export async function isAuditCompletedThisMonth(workspaceId: string, auditType: 
             collection(db, `workspaces/${workspaceId}/audit-snapshots/${monthKey}/${auditType}`)
         );
         const snapshot = await getDocs(snapshotQuery);
-        
-        return !snapshot.empty;
+
+        if (!snapshot.empty) return true;
+
+        // Fallback: check the audit_status map for a last completed timestamp and ensure
+        // that the timestamp falls within the current month. This handles cases where a
+        // status timestamp might be set but no snapshot exists for the current month.
+        try {
+            const statusRef = doc(db, `workspaces/${workspaceId}/settings`, 'audit_status');
+            const statusSnap = await getDoc(statusRef);
+            if (!statusSnap.exists()) return false;
+            const data = statusSnap.data() as Record<string, string>;
+            const ts = data[auditType];
+            if (!ts) return false;
+            const completedDate = new Date(ts);
+            const completedMonthKey = `${completedDate.getFullYear()}-${String(completedDate.getMonth() + 1).padStart(2, '0')}`;
+            return completedMonthKey === monthKey;
+        } catch (e) {
+            // If the status read fails for any reason, default to snapshot check result (which is false here)
+            console.warn('Failed to read audit_status while checking completion month', e);
+            return false;
+        }
     } catch (e) {
         console.error('Failed to check audit completion status', e);
         return false;
@@ -721,12 +740,50 @@ export async function getMonthlyAuditCompletionStatus(workspaceId: string): Prom
         ];
         
         const result: Record<string, boolean> = {};
-        
-        // Check each audit type for completion in current month
-        for (const auditType of auditTypes) {
-            result[auditType] = await isAuditCompletedThisMonth(workspaceId, auditType);
+
+        // Read audit_status once to avoid repeated reads per-audit
+        let statusMap: Record<string, string> = {};
+        try {
+            const statusRef = doc(db, `workspaces/${workspaceId}/settings`, 'audit_status');
+            const statusSnap = await getDoc(statusRef);
+            if (statusSnap.exists()) {
+                statusMap = statusSnap.data() as Record<string, string>;
+            }
+        } catch (e) {
+            // non-fatal: proceed with snapshot checks only
         }
-        
+
+        const date = new Date();
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+
+        // Parallelize snapshot checks, but consult the statusMap as a fallback
+        await Promise.all(auditTypes.map(async (auditType) => {
+            try {
+                const snapshotQuery = query(
+                    collection(db, `workspaces/${workspaceId}/audit-snapshots/${monthKey}/${auditType}`)
+                );
+                const snapshot = await getDocs(snapshotQuery);
+                if (!snapshot.empty) {
+                    result[auditType] = true;
+                    return;
+                }
+
+                // fallback to statusMap timestamp check
+                const ts = statusMap[auditType];
+                if (ts) {
+                    const completedDate = new Date(ts);
+                    const completedMonthKey = `${completedDate.getFullYear()}-${String(completedDate.getMonth() + 1).padStart(2, '0')}`;
+                    result[auditType] = completedMonthKey === monthKey;
+                    // no debug logging
+                } else {
+                    result[auditType] = false;
+                }
+            } catch (err) {
+                // If snapshot check fails for a specific audit type, treat as not completed
+                result[auditType] = false;
+            }
+        }));
+
         return result;
     } catch (e) {
         console.error('Failed to get monthly audit completion status', e);

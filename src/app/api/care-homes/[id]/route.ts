@@ -1,14 +1,16 @@
 import { NextResponse } from 'next/server';
 import { getHomeById, updateHome } from '@/lib/care-homes-store';
 
-export async function GET(req: Request, { params }: any) {
+export async function GET(req: Request, context: any) {
+  const { params } = await context;
   const { id } = params || { id: 'unknown' };
   const h = getHomeById(id);
   if (!h) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   return NextResponse.json(h);
 }
 
-export async function PATCH(req: Request, { params }: any) {
+export async function PATCH(req: Request, context: any) {
+  const { params } = await context;
   const { id } = params || { id: 'unknown' };
   const body = await req.json().catch(() => ({}));
   const allowed: any = {};

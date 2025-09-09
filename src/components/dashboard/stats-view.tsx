@@ -5,7 +5,7 @@ import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '@/com
 import OccupancyPie from '@/components/admin/occupancy-pie';
 import { doc, onSnapshot, collection, query, orderBy, limit, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { TrendingUp, TrendingDown, Minus, FileText, Shield, Wrench, Lock, Flame, Biohazard, Utensils, Moon, Users, Soup } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, FileText, Shield, Wrench, Lock, Flame, Biohazard, Utensils, Moon, Users, Soup, AlertTriangle } from 'lucide-react';
 
 export function StatsView({ workspaceId }: { workspaceId?: string }) {
   const [carePlanScore, setCarePlanScore] = useState<number | null>(null);
@@ -58,6 +58,11 @@ export function StatsView({ workspaceId }: { workspaceId?: string }) {
   const [kitchenTotalCount, setKitchenTotalCount] = useState<number | null>(null);
   const [kitchenUpdatedAt, setKitchenUpdatedAt] = useState<string | null>(null);
 
+  const [fallsScore, setFallsScore] = useState<number | null>(null);
+  const [fallsYesCount, setFallsYesCount] = useState<number | null>(null);
+  const [fallsTotalCount, setFallsTotalCount] = useState<number | null>(null);
+  const [fallsUpdatedAt, setFallsUpdatedAt] = useState<string | null>(null);
+
   // Historical data for trend calculation
   const [historicalData, setHistoricalData] = useState<Record<string, any>>({});
   const [trends, setTrends] = useState<Record<string, { direction: 'up' | 'down' | 'stable', change: number }>>({});
@@ -80,6 +85,7 @@ export function StatsView({ workspaceId }: { workspaceId?: string }) {
   const nv = data['night-visit'] ?? null;
     const sf = data['staff-file'] ?? null;
     const k = data['kitchen'] ?? null;
+    const falls = data['falls'] ?? null;
 
         if (cp) {
           setCarePlanScore(typeof cp.scorePercent === 'number' ? cp.scorePercent : null);
@@ -201,6 +207,18 @@ export function StatsView({ workspaceId }: { workspaceId?: string }) {
           setKitchenUpdatedAt(null);
         }
 
+        if (falls) {
+          setFallsScore(typeof falls.scorePercent === 'number' ? falls.scorePercent : null);
+          setFallsYesCount(typeof falls.yesCount === 'number' ? falls.yesCount : null);
+          setFallsTotalCount(typeof falls.totalCount === 'number' ? falls.totalCount : null);
+          setFallsUpdatedAt(falls.updatedAt ?? null);
+        } else {
+          setFallsScore(null);
+          setFallsYesCount(null);
+          setFallsTotalCount(null);
+          setFallsUpdatedAt(null);
+        }
+
         // Calculate trends by comparing with previous month's data
         calculateTrends(data);
       }, (err) => console.error('Failed to subscribe to audit_latest_scores', err));
@@ -236,7 +254,7 @@ export function StatsView({ workspaceId }: { workspaceId?: string }) {
       const newTrends: Record<string, { direction: 'up' | 'down' | 'stable', change: number }> = {};
       
       const auditTypes = ['care-plan', 'health-safety', 'maintenance', 'restrictive-practice', 
-                         'fire-safety', 'infection-control', 'mealtime', 'night-visit', 'staff-file', 'kitchen'];
+                         'fire-safety', 'infection-control', 'mealtime', 'night-visit', 'staff-file', 'kitchen', 'falls'];
       
       // Calculate individual audit trends
       auditTypes.forEach(auditType => {
@@ -271,7 +289,7 @@ export function StatsView({ workspaceId }: { workspaceId?: string }) {
   // Helper function to calculate overall stats from raw data
   const calculateOverallStatsFromData = (data: any) => {
     const auditTypes = ['care-plan', 'health-safety', 'maintenance', 'restrictive-practice', 
-                       'fire-safety', 'infection-control', 'mealtime', 'night-visit', 'staff-file', 'kitchen'];
+                       'fire-safety', 'infection-control', 'mealtime', 'night-visit', 'staff-file', 'kitchen', 'falls'];
     
     let totalYes = 0;
     let totalQuestions = 0;
@@ -344,7 +362,8 @@ export function StatsView({ workspaceId }: { workspaceId?: string }) {
       { score: mealtimeScore, yesCount: mealtimeYesCount, totalCount: mealtimeTotalCount },
       { score: nightScore, yesCount: nightYesCount, totalCount: nightTotalCount },
       { score: staffFileScore, yesCount: staffFileYesCount, totalCount: staffFileTotalCount },
-      { score: kitchenScore, yesCount: kitchenYesCount, totalCount: kitchenTotalCount }
+      { score: kitchenScore, yesCount: kitchenYesCount, totalCount: kitchenTotalCount },
+      { score: fallsScore, yesCount: fallsYesCount, totalCount: fallsTotalCount }
     ];
 
     const validScores = scores.filter(item => 
@@ -357,7 +376,7 @@ export function StatsView({ workspaceId }: { workspaceId?: string }) {
         totalQuestions: 0,
         overallPercentage: null,
         auditsCompleted: 0,
-        totalAudits: 10
+        totalAudits: 11
       };
     }
 
@@ -370,7 +389,7 @@ export function StatsView({ workspaceId }: { workspaceId?: string }) {
       totalQuestions,
       overallPercentage,
       auditsCompleted: validScores.length,
-      totalAudits: 10
+      totalAudits: 11
     };
   };
 
@@ -791,6 +810,36 @@ export function StatsView({ workspaceId }: { workspaceId?: string }) {
               {kitchenScore !== null && (
                 <div className="mt-2">
                   <TrendIndicator auditType="kitchen" />
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+            <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-400" />
+              <div>
+                <CardTitle className="text-white">Falls Prevention Score</CardTitle>
+                <CardDescription className="text-slate-200">Based on the most recent saved falls prevention audit.</CardDescription>
+              </div>
+            </CardHeader>
+          <CardContent className="flex items-center gap-4 pt-6">
+            <div className="w-24 h-24">
+              <OccupancyPie 
+                percent={fallsScore ?? 0} 
+                size={96} 
+                strokeWidth={12} 
+                gradientColors={getGradientColors(fallsScore)}
+                centerFontSize={16} 
+              />
+            </div>
+            <div>
+              <div className="text-lg font-semibold">{fallsScore !== null ? 'Score Available' : 'N/A'}</div>
+              <div className="text-sm text-muted-foreground">{fallsYesCount !== null && fallsTotalCount !== null ? `${fallsYesCount} of ${fallsTotalCount} questions` : 'No data'}</div>
+              <div className="text-xs text-muted-foreground mt-2">{fallsUpdatedAt ? `Last saved: ${new Date(fallsUpdatedAt).toLocaleString()}` : ''}</div>
+              {fallsScore !== null && (
+                <div className="mt-2">
+                  <TrendIndicator auditType="falls" />
                 </div>
               )}
             </div>
