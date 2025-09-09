@@ -23,10 +23,13 @@ import {
   Clock,
   Activity,
   AlertCircle,
-  Printer
+  Printer,
+  Download
 } from 'lucide-react';
 import LineChart from '@/components/admin/line-chart';
 import BarChart from '@/components/admin/bar-chart';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 interface FallsDetailModalProps {
   isOpen: boolean;
@@ -98,24 +101,113 @@ export default function FallsDetailModal({
       .slice(0, 5);
   }, [workspaces]);
 
-  const handlePrint = () => {
-    // Add print-specific classes to the modal content
-    const modalContent = document.querySelector('[data-radix-dialog-content]');
-    if (modalContent) {
+  const handlePrint = async () => {
+    // Try multiple selectors to find the modal content
+    let modalContent = document.querySelector('[data-radix-dialog-content]');
+    if (!modalContent) {
+      modalContent = document.querySelector('.fixed.inset-0.z-50 .relative');
+    }
+    if (!modalContent) {
+      modalContent = document.querySelector('[role="dialog"]');
+    }
+
+    if (!modalContent) {
+      return;
+    }
+
+    try {
+      // Add print-specific classes for PDF generation
       modalContent.classList.add('print-modal-content', 'falls-report');
 
-      // Hide dialog overlay and other elements for printing
+      // Hide dialog overlay and other elements for PDF generation
       const overlay = document.querySelector('[data-radix-dialog-overlay]');
       if (overlay) overlay.classList.add('print-hidden');
 
-      // Trigger print
-      window.print();
+      // Create PDF
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
 
-      // Clean up classes after printing
-      setTimeout(() => {
+      // Add header
+      pdf.setFontSize(20);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Falls Prevention - Detailed Analysis', 20, 25);
+
+      pdf.setFontSize(12);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text('Comprehensive overview of falls incidents and prevention measures', 20, 35);
+
+      // Add generation info
+      const currentDate = new Date();
+      pdf.setFontSize(10);
+      pdf.text(`Generated: ${currentDate.toLocaleDateString()} at ${currentDate.toLocaleTimeString()}`, 20, 45);
+
+      // Capture the modal content as image
+      const canvas = await html2canvas(modalContent as HTMLElement, {
+        scale: 1, // Reduce scale to avoid memory issues
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        width: modalContent.scrollWidth,
+        height: modalContent.scrollHeight,
+        logging: true // Enable html2canvas logging
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const imgWidth = pdfWidth - 40; // 20mm margin on each side
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      // Add content to PDF (split into multiple pages if needed)
+      let yPosition = 55;
+      const maxHeight = pdfHeight - 20;
+
+      if (imgHeight <= maxHeight) {
+        // Content fits on one page
+        pdf.addImage(imgData, 'PNG', 20, yPosition, imgWidth, imgHeight);
+      } else {
+        // Content spans multiple pages - simplified version
+        pdf.addImage(imgData, 'PNG', 20, yPosition, imgWidth, maxHeight);
+      }
+
+      // Add footer
+      pdf.setFontSize(8);
+      pdf.setFont('helvetica', 'italic');
+      pdf.text(`DocuFlow Admin Dashboard - Falls Prevention Analysis | Generated: ${currentDate.toLocaleDateString()}`, 20, pdfHeight - 10);
+
+      // Save the PDF
+      const fileName = `falls-prevention-report-${currentDate.toISOString().split('T')[0]}.pdf`;
+
+      // Try multiple approaches to save the PDF
+      try {
+        // Method 1: Standard save
+        pdf.save(fileName);
+
+        // Method 2: Alternative approach using blob
+        const pdfBlob = pdf.output('blob');
+        const url = URL.createObjectURL(pdfBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+      } catch (saveError) {
+        // PDF generated but save failed - continue silently
+      }
+
+    } catch (error) {
+      // Fallback to browser print if PDF generation fails
+      const modalContent = document.querySelector('[data-radix-dialog-content]');
+      if (modalContent) {
+        modalContent.classList.add('print-modal-content', 'falls-report');
+        const overlay = document.querySelector('[data-radix-dialog-overlay]');
+        if (overlay) overlay.classList.add('print-hidden');
+        window.print();
         modalContent.classList.remove('print-modal-content', 'falls-report');
         if (overlay) overlay.classList.remove('print-hidden');
-      }, 1000);
+      }
     }
   };
 
