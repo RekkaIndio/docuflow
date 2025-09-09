@@ -4,6 +4,12 @@ import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import AdminWorkspaceView from '@/components/admin/admin-workspace-view';
 import AdminWorkspacesView from '@/components/admin/admin-workspaces-view';
+import AdminDashboardHeader from '@/components/admin/admin-dashboard-header';
+import AdminOverviewCards from '@/components/admin/admin-overview-cards';
+import AdminStaffingChart from '@/components/admin/admin-staffing-chart';
+import AdminSystemMetrics from '@/components/admin/admin-system-metrics';
+import AdminRecentActivity from '@/components/admin/admin-recent-activity';
+import AdminLowOccupancy from '@/components/admin/admin-low-occupancy';
 import { DocumentView } from '@/components/dashboard/document-view';
 import { TeamsView } from '@/components/dashboard/teams-view';
 import { Button } from '@/components/ui/button';
@@ -205,6 +211,20 @@ export default function AdminPage() {
     workspacesWithData: number;
   }>({
     totalFalls: 0,
+    workspacesWithData: 0
+  });
+
+  const [aggregateInfectionData, setAggregateInfectionData] = React.useState<{
+    totalInfections: number;
+    uti: number;
+    chest: number;
+    wound: number;
+    workspacesWithData: number;
+  }>({
+    totalInfections: 0,
+    uti: 0,
+    chest: 0,
+    wound: 0,
     workspacesWithData: 0
   });
 
@@ -603,22 +623,49 @@ export default function AdminPage() {
       // Fetch falls data from daily-checkins for each workspace
       const fallsPromises = workspaces.map(async (workspace: any) => {
         try {
-          // Get daily-checkins from the last 30 days
-          const thirtyDaysAgo = new Date();
-          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-          
           const colRef = collection(db, `workspaces/${workspace.id}/daily-checkins`);
-          const q = query(colRef, where('createdAt', '>=', thirtyDaysAgo));
-          const snaps = await getDocs(q);
+          // Get all daily-checkins to ensure we don't miss any due to date filtering issues
+          const snaps = await getDocs(colRef);
           
           let workspaceFalls = 0;
 
           if (!snaps.empty) {
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            
             snaps.forEach(snap => {
               const d: any = snap.data();
-              // Falls data might be stored as falls count or falls.total
-              const falls = Number(d.falls || d.fallsCount || 0);
-              workspaceFalls += falls;
+              
+              // Filter by date on client side to handle different date formats
+              let documentDate: Date | null = null;
+              if (d.createdAt) {
+                if (d.createdAt.toDate) {
+                  // Firestore Timestamp
+                  documentDate = d.createdAt.toDate();
+                } else if (d.createdAt instanceof Date) {
+                  documentDate = d.createdAt;
+                } else if (typeof d.createdAt === 'string') {
+                  documentDate = new Date(d.createdAt);
+                }
+              }
+              
+              // Only include documents from the last 30 days
+              if (!documentDate || documentDate >= thirtyDaysAgo) {
+                // Falls data is stored as an object with count property
+                let falls = 0;
+                if (d.falls && typeof d.falls === 'object') {
+                  falls = Number(d.falls.count || 0);
+                } else {
+                  // Fallback for other possible formats
+                  falls = Number(d.falls || d.fallsCount || 0);
+                }
+                workspaceFalls += falls;
+                
+                // Log for debugging
+                if (falls > 0) {
+                  console.log(`Falls found in workspace ${workspace.id}:`, falls, 'on date:', documentDate);
+                }
+              }
             });
 
             if (workspaceFalls > 0) {
@@ -641,6 +688,8 @@ export default function AdminPage() {
         totalFalls += result.falls;
       });
 
+      console.log('Falls data aggregation completed:', { totalFalls, workspacesWithData, workspaceCount: workspaces.length });
+
       setAggregateFallsData({
         totalFalls,
         workspacesWithData
@@ -655,6 +704,115 @@ export default function AdminPage() {
     }
   };
 
+  // Function to calculate aggregate infection data across all workspaces
+  const calculateAggregateInfectionData = async () => {
+    if (!workspaces || workspaces.length === 0) {
+      setAggregateInfectionData({
+        totalInfections: 0,
+        uti: 0,
+        chest: 0,
+        wound: 0,
+        workspacesWithData: 0
+      });
+      return;
+    }
+
+    let totalUti = 0;
+    let totalChest = 0;
+    let totalWound = 0;
+    let workspacesWithData = 0;
+
+    try {
+      // Fetch infection data from daily-checkins for each workspace
+      const infectionPromises = workspaces.map(async (workspace: any) => {
+        try {
+          const colRef = collection(db, `workspaces/${workspace.id}/daily-checkins`);
+          // Get all daily-checkins to ensure we don't miss any due to date filtering issues
+          const snaps = await getDocs(colRef);
+          
+          let workspaceUti = 0;
+          let workspaceChest = 0;
+          let workspaceWound = 0;
+
+          if (!snaps.empty) {
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            
+            snaps.forEach(snap => {
+              const d: any = snap.data();
+              
+              // Filter by date on client side to handle different date formats
+              let documentDate: Date | null = null;
+              if (d.createdAt) {
+                if (d.createdAt.toDate) {
+                  // Firestore Timestamp
+                  documentDate = d.createdAt.toDate();
+                } else if (d.createdAt instanceof Date) {
+                  documentDate = d.createdAt;
+                } else if (typeof d.createdAt === 'string') {
+                  documentDate = new Date(d.createdAt);
+                }
+              }
+              
+              // Only include documents from the last 30 days
+              if (!documentDate || documentDate >= thirtyDaysAgo) {
+                // Infection data is stored in infections object
+                if (d.infections) {
+                  workspaceUti += Number(d.infections.uti || 0);
+                  workspaceChest += Number(d.infections.chest || 0);
+                  workspaceWound += Number(d.infections.wound || 0);
+                }
+              }
+            });
+
+            if (workspaceUti > 0 || workspaceChest > 0 || workspaceWound > 0) {
+              workspacesWithData += 1;
+            }
+          }
+
+          return {
+            uti: workspaceUti,
+            chest: workspaceChest,
+            wound: workspaceWound
+          };
+        } catch (error) {
+          console.warn(`Failed to fetch infection data for workspace ${workspace.id}:`, error);
+          return { uti: 0, chest: 0, wound: 0 };
+        }
+      });
+
+      const results = await Promise.all(infectionPromises);
+      
+      results.forEach(result => {
+        totalUti += result.uti;
+        totalChest += result.chest;
+        totalWound += result.wound;
+      });
+
+      const totalInfections = totalUti + totalChest + totalWound;
+
+      console.log('Infection data aggregation completed:', { totalInfections, totalUti, totalChest, totalWound, workspacesWithData, workspaceCount: workspaces.length });
+
+      setAggregateInfectionData({
+        totalInfections,
+        uti: totalUti,
+        chest: totalChest,
+        wound: totalWound,
+        workspacesWithData
+      });
+
+    } catch (error) {
+      console.error('Failed to calculate aggregate infection data:', error);
+      setAggregateInfectionData({
+        totalInfections: 0,
+        uti: 0,
+        chest: 0,
+        wound: 0,
+        workspacesWithData: 0
+      });
+    }
+  };
+
   // Effect to calculate aggregate audit scores when workspaces change
   React.useEffect(() => {
     if (workspaces.length > 0) {
@@ -662,6 +820,7 @@ export default function AdminPage() {
       calculateAggregateWoundsData();
       calculateAggregateStaffingData();
       calculateAggregateFallsData();
+      calculateAggregateInfectionData();
     }
   }, [workspaces, staffingTimeframe]);
 
@@ -1180,440 +1339,70 @@ export default function AdminPage() {
             // Default dashboard / files view (unchanged)
             <>
               {loadingData ? (
-                <div>Loading...</div>
+                <div className="flex items-center justify-center min-h-[400px]">
+                  <div className="text-center space-y-4">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+                    <div className="text-lg font-semibold">Loading admin dashboard...</div>
+                    <div className="text-sm text-muted-foreground">Fetching workspace data</div>
+                  </div>
+                </div>
               ) : (
                 <>
-                      {/* Dark hero header like workspace view */}
-                      <div className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white p-6 rounded-b-lg shadow-sm mb-6">
-                        <div className="w-full mx-auto flex items-start justify-between gap-6">
-                          <div className="flex items-start gap-4">
-                            <div className="p-3 bg-white/5 rounded-md">
-                              <Users className="w-10 h-10 text-white/90" />
-                            </div>
-                            <div>
-                              <h2 className="text-2xl font-bold leading-tight">Admin Dashboard</h2>
-                              <div className="mt-1 text-sm text-slate-200">Admin overview · {workspaces.length} workspaces · {aggregated.totalFolders} folders · {aggregated.totalDocuments} documents</div>
-                              <div className="mt-3 flex items-center gap-2">
-                                <Button size="sm" onClick={() => { /* noop for now */ }}>Refresh</Button>
-                              </div>
-                            </div>
-                          </div>
+                  {/* Enhanced Dashboard Header */}
+                  <AdminDashboardHeader
+                    workspaceCount={workspaces.length}
+                    totalFolders={aggregated.totalFolders}
+                    totalDocuments={aggregated.totalDocuments}
+                    averageOccupancy={careOverview.averageOccupancy}
+                    totalOccupied={careOverview.totalOccupied}
+                    totalBeds={careOverview.totalBeds}
+                    onRefresh={async () => {
+                      calculateAggregateAuditScores();
+                      calculateAggregateWoundsData();
+                      calculateAggregateStaffingData();
+                      calculateAggregateFallsData();
+                      calculateAggregateInfectionData();
+                    }}
+                  />
 
-                          <div className="hidden md:flex items-center gap-4">
-                            <div className="grid grid-cols-4 gap-3">
-                              <div className="p-3 bg-white/5 rounded flex items-center gap-3">
-                                <div>
-                                  <div className="text-xs text-slate-300">Workspaces</div>
-                                  <div className="text-lg font-semibold">{workspaces.length}</div>
-                                </div>
-                              </div>
-                              <div className="p-3 bg-white/5 rounded flex items-center gap-3">
-                                <div>
-                                  <div className="text-xs text-slate-300">Folders</div>
-                                  <div className="text-lg font-semibold">{aggregated.totalFolders}</div>
-                                </div>
-                              </div>
-                              <div className="p-3 bg-white/5 rounded flex items-center gap-3">
-                                <div>
-                                  <div className="text-xs text-slate-300">Documents</div>
-                                  <div className="text-lg font-semibold">{aggregated.totalDocuments}</div>
-                                </div>
-                              </div>
-                              <div className="p-4 bg-white/6 rounded-lg flex items-center gap-4 shadow-md">
-                                <div className="flex items-center justify-center w-16 h-16 bg-white/5 rounded-full">
-                                  <OccupancyPie percent={Math.round((careOverview.averageOccupancy || 0) * 100)} size={64} strokeWidth={8} />
-                                </div>
-                                <div className="min-w-0">
-                                  <div className="text-xs text-slate-300">Overall Occupancy</div>
-                                  <div className="text-2xl font-bold leading-tight text-white">{Math.round((careOverview.averageOccupancy || 0) * 100)}%</div>
-                                  <div className="text-sm text-slate-200">{careOverview.totalOccupied}/{careOverview.totalBeds} beds</div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                  {/* Main Overview Cards */}
+                  <AdminOverviewCards
+                    aggregateWoundsData={aggregateWoundsData}
+                    aggregateAuditData={aggregateAuditData}
+                    aggregateFallsData={aggregateFallsData}
+                    aggregateInfectionData={aggregateInfectionData}
+                    workspaceCount={workspaces.length}
+                    isMounted={isMounted}
+                    onRefreshWounds={calculateAggregateWoundsData}
+                    onRefreshAudits={calculateAggregateAuditScores}
+                    onRefreshFalls={calculateAggregateFallsData}
+                    onRefreshInfections={calculateAggregateInfectionData}
+                  />
 
-                  <div className="flex items-start gap-6 mb-6">
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <BarChart2 className="w-6 h-6 text-primary" />
-                          <h1 className="text-2xl font-bold">Overview</h1>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          {/* Workspace management moved to dedicated Workspaces page */}
-                        </div>
-                      </div>
+                  {/* Enhanced Staffing Chart */}
+                  <AdminStaffingChart
+                    aggregateStaffingData={aggregateStaffingData}
+                    staffingHistory={staffingHistory}
+                    staffingTimeframe={staffingTimeframe}
+                    staffingLoading={staffingLoading}
+                    workspaceCount={workspaces.length}
+                    onTimeframeChange={setStaffingTimeframe}
+                    onRefresh={calculateAggregateStaffingData}
+                  />
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                        <Card>
-                          <CardHeader className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <AlertTriangle className="w-4 h-4 text-muted-foreground" />
-                              <span>Wounds</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <button 
-                                className="text-xs text-muted-foreground flex items-center gap-1" 
-                                onClick={() => calculateAggregateWoundsData()}
-                                title="Refresh wounds data"
-                              >
-                                <TrendingUp className="w-4 h-4" /> Refresh
-                              </button>
-                            </div>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="space-y-3">
-                              {isMounted && aggregateWoundsData.total > 0 ? (
-                                <>
-                                  <div className="flex items-center justify-between border-b pb-2">
-                                    <span className="text-sm font-medium">Total</span>
-                                    <span className="text-lg font-bold">{aggregateWoundsData.total}</span>
-                                  </div>
-                                  <div className="space-y-2 text-sm">
-                                    <div className="flex justify-between items-center">
-                                      <div className="flex items-center gap-2">
-                                        <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                                        <span className="text-muted-foreground">Pressure</span>
-                                      </div>
-                                      <span className="font-medium">{aggregateWoundsData.pressure}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center">
-                                      <div className="flex items-center gap-2">
-                                        <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                                        <span className="text-muted-foreground">Break</span>
-                                      </div>
-                                      <span className="font-medium">{aggregateWoundsData.break}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center">
-                                      <div className="flex items-center gap-2">
-                                        <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                                        <span className="text-muted-foreground">Fracture</span>
-                                      </div>
-                                      <span className="font-medium">{aggregateWoundsData.fracture}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center">
-                                      <div className="flex items-center gap-2">
-                                        <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                                        <span className="text-muted-foreground">Bruise</span>
-                                      </div>
-                                      <span className="font-medium">{aggregateWoundsData.bruise}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center">
-                                      <div className="flex items-center gap-2">
-                                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                                        <span className="text-muted-foreground">Skintear</span>
-                                      </div>
-                                      <span className="font-medium">{aggregateWoundsData.skintear}</span>
-                                    </div>
-                                  </div>
-                                  <div className="border-t pt-2">
-                                    <div className="flex justify-between text-xs text-muted-foreground">
-                                      <span>Workspaces with data:</span>
-                                      <span>{aggregateWoundsData.workspacesWithData}/{workspaces.length}</span>
-                                    </div>
-                                  </div>
-                                </>
-                              ) : (
-                                <div className="text-center py-4">
-                                  <div className="text-sm text-muted-foreground">
-                                    {!isMounted ? 'Loading...' : 'No wounds data available'}
-                                  </div>
-                                  {isMounted && (
-                                    <div className="text-xs text-muted-foreground mt-1">
-                                      Record wound incidents in workspaces to see aggregate data
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
+                  {/* Additional Analytics Grid */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                    {/* Recent Activity */}
+                    <AdminRecentActivity 
+                      workspaces={workspaces}
+                      aggregated={aggregated}
+                    />
 
-                        <Card>
-                          <CardHeader className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <Target className="w-4 h-4 text-muted-foreground" />
-                              <span>Overall Audit Score</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <button 
-                                className="text-xs text-muted-foreground flex items-center gap-1" 
-                                onClick={() => calculateAggregateAuditScores()}
-                                title="Refresh audit data"
-                              >
-                                <TrendingUp className="w-4 h-4" /> Refresh
-                              </button>
-                            </div>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="space-y-4">
-                              {isMounted && aggregateAuditData.overallPercentage !== null ? (
-                                <>
-                                  <div className="flex items-center justify-center">
-                                    <div 
-                                      className="w-20 h-20 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg"
-                                      style={{
-                                        background: `linear-gradient(135deg, ${getGradientColors(aggregateAuditData.overallPercentage).start}, ${getGradientColors(aggregateAuditData.overallPercentage).end})`
-                                      }}
-                                    >
-                                      {aggregateAuditData.overallPercentage}%
-                                    </div>
-                                  </div>
-                                  <div className="space-y-2 text-sm">
-                                    <div className="flex justify-between">
-                                      <span className="text-muted-foreground">Yes Responses:</span>
-                                      <span className="font-medium">{aggregateAuditData.totalYesCount}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                      <span className="text-muted-foreground">Total Questions:</span>
-                                      <span className="font-medium">{aggregateAuditData.totalQuestions}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                      <span className="text-muted-foreground">Audits Completed:</span>
-                                      <span className="font-medium">{aggregateAuditData.auditsCompleted}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                      <span className="text-muted-foreground">Workspaces with Data:</span>
-                                      <span className="font-medium">{aggregateAuditData.workspacesWithData}/{workspaces.length}</span>
-                                    </div>
-                                  </div>
-                                </>
-                              ) : (
-                                <div className="text-center py-4">
-                                  <div className="text-sm text-muted-foreground">
-                                    {!isMounted ? 'Loading...' : 'No audit data available'}
-                                  </div>
-                                  {isMounted && (
-                                    <div className="text-xs text-muted-foreground mt-1">
-                                      Complete audits in workspaces to see aggregate scores
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
-
-                        <Card>
-                          <CardHeader className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <AlertTriangle className="w-4 h-4 text-orange-500" />
-                              <span>Falls Prevention</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <button 
-                                className="text-xs text-muted-foreground flex items-center gap-1" 
-                                onClick={() => calculateAggregateFallsData()}
-                                title="Refresh falls data"
-                              >
-                                <TrendingUp className="w-4 h-4" /> Refresh
-                              </button>
-                            </div>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="space-y-3">
-                              {isMounted && aggregateFallsData.totalFalls > 0 ? (
-                                <>
-                                  <div className="flex items-center justify-between border-b pb-2">
-                                    <span className="text-sm font-medium">Total Falls</span>
-                                    <span className="text-lg font-bold">{aggregateFallsData.totalFalls}</span>
-                                  </div>
-                                  <div className="border-t pt-2">
-                                    <div className="flex justify-between text-xs text-muted-foreground">
-                                      <span>Workspaces with data:</span>
-                                      <span>{aggregateFallsData.workspacesWithData}/{workspaces.length}</span>
-                                    </div>
-                                  </div>
-                                  <div className="mt-2">
-                                    <div className="text-xs text-muted-foreground">Last 30 days</div>
-                                  </div>
-                                </>
-                              ) : (
-                                <div className="text-center py-4">
-                                  <div className="text-sm text-muted-foreground">
-                                    {!isMounted ? 'Loading...' : 'No falls data available'}
-                                  </div>
-                                  {isMounted && (
-                                    <div className="text-xs text-muted-foreground mt-1">
-                                      Record falls incidents in workspaces to see aggregate data
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </div>
-
-                      {/* Enhanced Staffing Chart Card */}
-                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-                        <Card className="lg:col-span-2">
-                          <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg">
-                            <div className="flex flex-row items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <UserCheck className="h-5 w-5 text-slate-200" />
-                                <div className="text-lg font-medium text-white">Aggregate Staffing Levels</div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Button 
-                                  size="sm" 
-                                  variant="outline" 
-                                  className="text-white border-white/20 hover:bg-white/10"
-                                  onClick={() => {
-                                    calculateAggregateStaffingData();
-                                  }}
-                                >
-                                  <TrendingUp className="w-4 h-4 mr-1" />
-                                  Refresh
-                                </Button>
-                              </div>
-                            </div>
-                            <div className="flex gap-2 mt-2">
-                              {(['day', 'week', 'month'] as const).map((timeframe) => (
-                                <Button
-                                  key={timeframe}
-                                  size="sm"
-                                  variant={staffingTimeframe === timeframe ? "secondary" : "ghost"}
-                                  className={staffingTimeframe === timeframe ? 
-                                    "bg-white/20 text-white hover:bg-white/30" : 
-                                    "text-white/70 hover:bg-white/10 hover:text-white"}
-                                  onClick={() => setStaffingTimeframe(timeframe)}
-                                >
-                                  {timeframe.charAt(0).toUpperCase() + timeframe.slice(1)}
-                                </Button>
-                              ))}
-                            </div>
-                          </CardHeader>
-                          <CardContent className="p-6">
-                            {staffingLoading ? (
-                              <div className="h-48 flex items-center justify-center">
-                                <div className="text-muted-foreground">Loading aggregate staffing data...</div>
-                              </div>
-                            ) : staffingHistory.length > 0 ? (
-                              <div className="space-y-4">
-                                {/* Current Aggregate Stats */}
-                                <div className="grid grid-cols-3 gap-4 p-4 bg-slate-50 rounded-lg">
-                                  <div className="text-center">
-                                    <div className="text-2xl font-bold text-amber-600">{aggregateStaffingData.totalDay}</div>
-                                    <div className="text-sm text-muted-foreground">Total Day Staff</div>
-                                    <div className="text-xs text-muted-foreground">avg {aggregateStaffingData.averageDay}/workspace</div>
-                                  </div>
-                                  <div className="text-center">
-                                    <div className="text-2xl font-bold text-blue-600">{aggregateStaffingData.totalNight}</div>
-                                    <div className="text-sm text-muted-foreground">Total Night Staff</div>
-                                    <div className="text-xs text-muted-foreground">avg {aggregateStaffingData.averageNight}/workspace</div>
-                                  </div>
-                                  <div className="text-center">
-                                    <div className="text-2xl font-bold text-green-600">{aggregateStaffingData.totalDay + aggregateStaffingData.totalNight}</div>
-                                    <div className="text-sm text-muted-foreground">Total Staff</div>
-                                    <div className="text-xs text-muted-foreground">{aggregateStaffingData.workspacesWithData}/{workspaces.length} workspaces</div>
-                                  </div>
-                                </div>
-
-                                {/* Aggregate Bar Chart */}
-                                <div className="h-32">
-                                  <div className="text-sm font-medium mb-2">Aggregate Staffing Trend ({staffingTimeframe})</div>
-                                  <div className="flex items-end justify-between h-24 gap-1">
-                                    {staffingHistory.slice(-10).map((entry, index) => {
-                                      const maxTotal = Math.max(...staffingHistory.map(h => h.total), 1);
-                                      const dayHeight = (entry.day / maxTotal) * 100;
-                                      const nightHeight = (entry.night / maxTotal) * 100;
-                                      
-                                      return (
-                                        <div key={entry.date} className="flex flex-col items-center flex-1 min-w-0">
-                                          <div className="flex flex-col w-full" style={{ height: '72px' }}>
-                                            <div 
-                                              className="bg-amber-500 rounded-t"
-                                              style={{ height: `${dayHeight}%`, minHeight: entry.day > 0 ? '2px' : '0' }}
-                                              title={`Day: ${entry.day} across all workspaces`}
-                                            />
-                                            <div 
-                                              className="bg-blue-500 rounded-b"
-                                              style={{ height: `${nightHeight}%`, minHeight: entry.night > 0 ? '2px' : '0' }}
-                                              title={`Night: ${entry.night} across all workspaces`}
-                                            />
-                                          </div>
-                                          <div className="text-xs text-muted-foreground mt-1 truncate w-full text-center">
-                                            {new Date(entry.date).toLocaleDateString('en-US', { 
-                                              month: 'short', 
-                                              day: 'numeric' 
-                                            })}
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                  <div className="flex items-center gap-4 mt-2 text-xs">
-                                    <div className="flex items-center gap-1">
-                                      <div className="w-3 h-3 bg-amber-500 rounded"></div>
-                                      <span>Day Staff</span>
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                      <div className="w-3 h-3 bg-blue-500 rounded"></div>
-                                      <span>Night Staff</span>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="h-48 flex flex-col items-center justify-center">
-                                <UserCheck className="w-12 h-12 text-muted-foreground mb-2" />
-                                <div className="text-muted-foreground text-center">
-                                  No aggregate staffing data available for the selected timeframe
-                                </div>
-                                <div className="text-xs text-muted-foreground mt-1">
-                                  Record daily staffing levels in workspaces to see trends
-                                </div>
-                                <Button 
-                                  size="sm" 
-                                  variant="outline" 
-                                  className="mt-2"
-                                  onClick={() => {
-                                    calculateAggregateStaffingData();
-                                  }}
-                                >
-                                  Refresh
-                                </Button>
-                              </div>
-                            )}
-                          </CardContent>
-                        </Card>
-
-                        <Card className="border">
-                          <CardHeader className="flex items-center justify-between">
-                            <div>Low Occupancy</div>
-                            <div className="text-xs text-muted-foreground">Watchlist</div>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="space-y-3">
-                              {(workspaces || []).slice().sort((a,b) => {
-                                const av = typeof a.occupancy === 'number' ? a.occupancy : (a.totalBeds ? (a.occupiedBeds || 0) / a.totalBeds : 1);
-                                const bv = typeof b.occupancy === 'number' ? b.occupancy : (b.totalBeds ? (b.occupiedBeds || 0) / b.totalBeds : 1);
-                                return av - bv;
-                              }).slice(0,3).map((w: any) => (
-                                <div key={`low-${w.id}`} className="flex items-center justify-between">
-                                  <div className="flex items-center gap-3">
-                                    <div className="w-16 h-16 flex items-center justify-center bg-slate-50 rounded-full">
-                                      <OccupancyPie percent={Math.round(((typeof w.occupancy === 'number' ? w.occupancy : (w.totalBeds ? (w.occupiedBeds||0)/w.totalBeds : 0)) || 0) * 100)} size={56} strokeWidth={8} />
-                                    </div>
-                                    <div>
-                                      <div className="text-sm font-medium">{w.name || w.id}</div>
-                                      <div className="text-xs text-muted-foreground">{Math.round(((typeof w.occupancy === 'number' ? w.occupancy : (w.totalBeds ? (w.occupiedBeds||0)/w.totalBeds : 0)) || 0) * 100)}% occupied</div>
-                                    </div>
-                                  </div>
-                                  <div className="text-sm text-muted-foreground">{w.totalBeds ? `${w.occupiedBeds || 0}/${w.totalBeds}` : 'n/a'}</div>
-                                </div>
-                              ))}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </div>
-                    </div>
-
-                    
+                    {/* Low Occupancy Alert */}
+                    <AdminLowOccupancy workspaces={workspaces} />
                   </div>
+
+
 
                   {/* Workspaces moved to dedicated Workspaces page - dashboard now shows only overview stats */}
                 </>

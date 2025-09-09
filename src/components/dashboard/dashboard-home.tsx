@@ -2,7 +2,7 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Folder, Users, FileText, FileSpreadsheet, FileIcon, FileX2, Briefcase, Clock, User, TrendingUp, TrendingDown, Minus, Archive, Calendar, BarChart3, Edit3, FileCheck, CheckCircle, AlertCircle } from "lucide-react";
+import { Folder, Users, FileText, FileSpreadsheet, FileIcon, FileX2, Briefcase, Clock, User, TrendingUp, TrendingDown, Minus, Archive, Calendar, BarChart3, Edit3, FileCheck, CheckCircle, AlertCircle, ClipboardList } from "lucide-react";
 import type { Workspace, Document, Folder as FolderType } from "@/lib/types";
 import { useMemo } from "react";
 import {
@@ -21,13 +21,14 @@ import { NewFolderDialog } from "./new-folder-dialog";
 import { SidebarTrigger } from "../ui/sidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useEffect, useState } from "react";
-import { doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query as fsQuery, orderBy, limit } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query as fsQuery, orderBy, limit, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import OccupancyPie from '@/components/admin/occupancy-pie';
 import OverviewCards from './overview-cards';
 // consolidated imports above
 import { Sun, Moon } from "lucide-react";
 import DailyCheckinModal from './daily-checkin-modal';
+import { openDocument } from '@/lib/document-utils';
 
 // Component to display trend indicators
 const TrendIndicator = ({ auditType, trends }: { auditType: string, trends: Record<string, { direction: 'up' | 'down' | 'stable', change: number }> }) => {
@@ -80,71 +81,76 @@ const getFileIcon = (fileType: Document["fileType"]) => {
 
 
 const RecentFilesTable = ({ documents, onSelect }: { documents: Document[], onSelect: (doc: Document) => void }) => (
-    <Card className="border border-blue-200 shadow-sm bg-white/80 backdrop-blur-md rounded-xl">
-        <CardHeader className="pb-2 border-b border-blue-100 bg-gradient-to-r from-blue-50/60 to-transparent rounded-t-xl">
-            <CardTitle className="text-base font-semibold text-blue-900 tracking-tight">Recent Files</CardTitle>
-            <CardDescription className="text-xs text-blue-700/70">The last 5 documents that were uploaded or modified.</CardDescription>
+    <Card className="border border-blue-200/60 shadow-lg bg-white/90 backdrop-blur-sm rounded-2xl">
+        <CardHeader className="pb-3 border-b border-blue-100/80 bg-gradient-to-r from-blue-50/40 to-transparent rounded-t-2xl">
+            <CardTitle className="text-base font-semibold text-blue-900 tracking-tight animate-in slide-in-from-left-2 duration-300">Recent Files</CardTitle>
+            <CardDescription className="text-xs text-blue-700/70 font-medium">The last 5 documents that were uploaded or modified</CardDescription>
         </CardHeader>
     <CardContent className="pt-4">
             {/* Mobile-friendly card layout */}
-            <div className="block sm:hidden space-y-3">
+            <div className="block sm:hidden space-y-4">
                 {documents.length > 0 ? documents.map(doc => (
-                    <Card key={doc.id} className="p-3 hover:shadow-md transition-shadow cursor-pointer border border-blue-500" onClick={() => onSelect(doc)}>
-                        <div className="flex flex-col space-y-2">
-                            <div className="flex items-center gap-3 min-w-0">
+                    <Card key={doc.id} className="p-4 hover:shadow-md transition-all duration-200 cursor-pointer border border-blue-100/60 hover:border-blue-200 bg-white/60 hover:bg-white/80 rounded-xl" onClick={() => onSelect(doc)}>
+                        <div className="flex flex-col space-y-3">
+                            <div className="flex items-center gap-4 min-w-0">
                                 {getFileIcon(doc.fileType)}
                                 <div className="min-w-0 flex-1">
-                                    <p className="font-medium text-sm leading-tight break-words">{doc.name}</p>
+                                    <p className="font-semibold text-sm leading-tight break-words text-gray-900">{doc.name}</p>
                                 </div>
                             </div>
-                            <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                <span className="truncate flex-1 mr-2">{doc.owner.name}</span>
-                                <span className="flex-shrink-0">
+                            <div className="flex items-center justify-between text-xs text-gray-600">
+                                <span className="truncate flex-1 mr-2 font-medium">{doc.owner.name}</span>
+                                <span className="flex-shrink-0 bg-gray-100 px-2 py-1 rounded-full font-medium">
                                     {new Date(doc.createdAt).toLocaleDateString()}
                                 </span>
                             </div>
                         </div>
                     </Card>
                 )) : (
-                    <p className="text-sm text-muted-foreground text-center py-4">No documents uploaded yet.</p>
+                    <div className="text-center py-8">
+                        <FileText className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                        <p className="text-sm text-gray-600 font-medium">No documents uploaded yet</p>
+                        <p className="text-xs text-gray-500 mt-1">Upload your first document to get started</p>
+                    </div>
                 )}
             </div>
             {/* Desktop table layout */}
             <div className="hidden sm:block">
                 <Table>
                     <TableHeader>
-                        <TableRow>
-                            <TableHead>Name</TableHead>
-                            <TableHead>Owner</TableHead>
-                            <TableHead>Last Modified</TableHead>
+                        <TableRow className="border-b border-gray-100">
+                            <TableHead className="font-semibold text-gray-700">Name</TableHead>
+                            <TableHead className="font-semibold text-gray-700">Owner</TableHead>
+                            <TableHead className="font-semibold text-gray-700">Last Modified</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {documents.length > 0 ? documents.map(doc => (
-                             <TableRow key={doc.id} className="cursor-pointer" onClick={() => onSelect(doc)}>
-                                <TableCell>
-                                    <div className="flex items-center gap-4">
-                                        <div className="text-xs text-slate-300">Occupancy</div>
-                                        {/* Removed duplicate right-hand percent — now displayed in the pie center */}
+                             <TableRow key={doc.id} className="cursor-pointer hover:bg-blue-50/30 transition-colors duration-200 border-b border-gray-50" onClick={() => onSelect(doc)}>
+                                <TableCell className="font-medium text-gray-900">
+                                    <div className="flex items-center gap-3">
+                                        {getFileIcon(doc.fileType)}
+                                        <span className="truncate">{doc.name}</span>
                                     </div>
                                 </TableCell>
                                 <TableCell>
                                     <div className="flex items-center gap-2">
                                          <Avatar className="h-6 w-6">
                                             <AvatarImage src={doc.owner.avatarUrl ?? undefined} alt={doc.owner.name ?? undefined} />
-                                            <AvatarFallback>{doc.owner.name?.charAt(0)}</AvatarFallback>
+                                            <AvatarFallback className="text-xs font-medium bg-blue-100 text-blue-700">{doc.owner.name?.charAt(0)}</AvatarFallback>
                                         </Avatar>
-                                        <span className="text-muted-foreground">{doc.owner.name}</span>
+                                        <span className="text-gray-700 font-medium">{doc.owner.name}</span>
                                     </div>
                                 </TableCell>
-                                <TableCell className="text-muted-foreground">
+                                <TableCell className="text-gray-600 font-medium">
                                     {new Date(doc.createdAt).toLocaleDateString()}
                                 </TableCell>
                             </TableRow>
                         )) : (
                             <TableRow>
-                               <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
-                                 No documents uploaded yet.
+                               <TableCell colSpan={3} className="text-center text-gray-600 py-8">
+                                 <FileText className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                                 <p className="font-medium">No documents uploaded yet</p>
                                </TableCell>
                             </TableRow>
                         )}
@@ -155,7 +161,7 @@ const RecentFilesTable = ({ documents, onSelect }: { documents: Document[], onSe
     </Card>
 );
 
-const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradientColors, trends, dailyEntry, onDailyEntryUpdate, carePlanScore, hsScore, maintenanceScore, restrictiveScore, fireScore, infectionScore, mealtimeScore, nightScore, staffFileScore, kitchenScore }: { 
+const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradientColors, trends, dailyEntry, onDailyEntryUpdate, carePlanScore, hsScore, maintenanceScore, restrictiveScore, fireScore, infectionScore, mealtimeScore, nightScore, staffFileScore, kitchenScore, handleAuditCardClick }: { 
     documents: Document[], 
     onSelect: (doc: Document) => void, 
     workspaceId?: string,
@@ -173,22 +179,19 @@ const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradi
     mealtimeScore: number | null,
     nightScore: number | null,
     staffFileScore: number | null,
-    kitchenScore: number | null
+    kitchenScore: number | null,
+
+    handleAuditCardClick: (auditKey: string) => void
 }) => {
     const actionableItems = useMemo(() => {
         const today = new Date();
-        const overdueRenewals = documents.filter(doc => {
-            if (!doc.renewalDate) return false;
-            return new Date(doc.renewalDate) < today;
-        });
-
+        
         const untaggedDocs = documents.filter(doc => !doc.tags || doc.tags.length === 0);
         const recentDocs = documents
             .filter(doc => new Date(doc.createdAt) > new Date(today.getTime() - 3 * 24 * 60 * 60 * 1000))
             .slice(0, 3);
 
         return {
-            overdueRenewals: overdueRenewals.slice(0, 3),
             untaggedDocs: untaggedDocs.slice(0, 3),
             recentDocs
         };
@@ -196,29 +199,30 @@ const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradi
 
     return (
         <div className="w-full">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {/* Overdue Renewals */}
-                <Card className="hover:shadow-lg transition-shadow border border-blue-200 bg-white/80 backdrop-blur-md rounded-xl">
-                    <CardHeader className="pb-2 border-b border-blue-100 bg-gradient-to-r from-blue-50/60 to-transparent rounded-t-xl">
-                        <CardTitle className="text-sm font-medium flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-red-500" />
-                            Overdue Renewals
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-6">
+                {/* Daily Check-in */}
+                <Card className="group hover:shadow-xl transition-all duration-300 border border-blue-200/60 bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-blue-100/50">
+                    <CardHeader className="pb-3 border-b border-blue-100/80 bg-gradient-to-r from-blue-50/40 to-transparent rounded-t-2xl">
+                        <CardTitle className="text-sm font-semibold flex items-center gap-2 text-blue-900">
+                            <Calendar className="h-4 w-4 text-blue-500" />
+                            Daily Check-in
                         </CardTitle>
+                        <CardDescription className="text-xs text-blue-700/70 font-medium">Record occupancy, staffing, and other daily metrics</CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-2 pt-3">
-                        {actionableItems.overdueRenewals.length > 0 ? (
-                            actionableItems.overdueRenewals.map(doc => (
-                                <div key={doc.id} className="flex items-center justify-between p-2 hover:bg-muted rounded cursor-pointer" onClick={() => onSelect(doc)}>
-                                    <div className="flex items-center gap-2 min-w-0">
-                                        {getFileIcon(doc.fileType)}
-                                        <span className="text-sm truncate">{doc.name}</span>
-                                    </div>
-                                    <Badge variant="destructive" className="text-xs">Overdue</Badge>
-                                </div>
-                            ))
-                        ) : (
-                            <p className="text-sm text-muted-foreground text-center py-2">No overdue renewals</p>
-                        )}
+                    <CardContent className="space-y-4 pt-4">
+                        <div className="text-sm text-gray-600 leading-relaxed">
+                            Quick daily metrics recording for your workspace
+                        </div>
+                        <DailyCheckinModal 
+                            workspaceId={workspaceId || ''} 
+                            onEntryUpdate={onDailyEntryUpdate}
+                            trigger={
+                                <Button className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-md hover:shadow-lg">
+                                    <Calendar className="h-4 w-4 mr-2" />
+                                    {dailyEntry ? 'Update Check-in' : 'Start Check-in'}
+                                </Button>
+                            }
+                        />
                     </CardContent>
                 </Card>
                 
@@ -229,39 +233,61 @@ const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradi
                 <StaffingCard workspaceId={workspaceId} dailyEntry={dailyEntry} />
                 
                 {/* Overall Score Card */}
-                <Card className="hover:shadow-lg transition-shadow border border-blue-200 bg-white/80 backdrop-blur-md rounded-xl">
-                    <CardHeader className="pb-2 border-b border-blue-100 bg-gradient-to-r from-blue-50/60 to-transparent rounded-t-xl">
-                        <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Card className="group hover:shadow-xl transition-all duration-300 border border-blue-200/60 bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-blue-100/50">
+                    <CardHeader className="pb-3 border-b border-blue-100/80 bg-gradient-to-r from-blue-50/40 to-transparent rounded-t-2xl">
+                        <CardTitle className="text-sm font-semibold flex items-center gap-2 text-blue-900">
                             <BarChart3 className="h-4 w-4 text-blue-500" />
                             Overall Audit Score
                         </CardTitle>
-                    <CardDescription className="text-xs text-muted-foreground">Audit score for all categories</CardDescription>
+                    <CardDescription className="text-xs text-blue-700/70 font-medium">Audit score for all categories</CardDescription>
 
                     </CardHeader>
-                    <CardContent className="space-y-3 pt-3">
-                        <div className="flex items-center gap-4">
-                            <div className="w-36 h-36 flex items-center justify-center relative">
+                    <CardContent className="space-y-4 pt-4">
+                        <div className="flex items-center gap-6">
+                            <div className="w-32 h-32 flex items-center justify-center relative">
                                 <OccupancyPie 
                                     percent={overallStats.overallPercentage ?? 0} 
-                                    size={120} 
-                                    strokeWidth={16} 
+                                    size={112} 
+                                    strokeWidth={14} 
                                     gradientColors={getGradientColors(overallStats.overallPercentage)}
-                                    centerFontSize={32}
+                                    centerFontSize={28}
                                     centerClassName="font-bold"
                                 />
                             </div>
-                            <div>
-                                <div className="text-lg font-semibold">
-                                    {overallStats.overallPercentage !== null ? `${overallStats.overallPercentage}%` : 'N/A'}
+                            <div className="flex-1 space-y-3">
+                                <div className="flex items-center gap-2">
+                                    <div className="text-2xl font-bold text-gray-900">
+                                        {overallStats.overallPercentage !== null ? `${overallStats.overallPercentage}%` : 'N/A'}
+                                    </div>
+                                    {overallStats.overallPercentage !== null && (
+                                        <div className="flex items-center">
+                                            {overallStats.overallPercentage >= 80 ? 
+                                                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div> :
+                                            overallStats.overallPercentage >= 60 ? 
+                                                <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div> :
+                                                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                                            }
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="text-xs text-muted-foreground">
-                                    {overallStats.totalYesCount} of {overallStats.totalQuestions} passed
+                                <div className="space-y-1">
+                                    <div className="text-sm text-gray-600">
+                                        {overallStats.totalYesCount} of {overallStats.totalQuestions} passed
+                                    </div>
+                                    {overallStats.totalQuestions > 0 && (
+                                        <div className="w-full bg-gray-200 rounded-full h-2">
+                                            <div 
+                                                className="bg-blue-500 h-2 rounded-full transition-all duration-300" 
+                                                style={{ width: `${(overallStats.totalYesCount / overallStats.totalQuestions) * 100}%` }}
+                                            ></div>
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="text-xs text-muted-foreground">
-                                    {overallStats.auditsCompleted}/10 audits completed
+                                <div className="text-sm text-gray-600">
+                                    {overallStats.auditsCompleted}/{overallStats.totalAudits} audits completed
                                 </div>
                                 {overallStats.overallPercentage !== null && (
-                                    <div className="mt-2">
+                                    <div className="mt-3">
                                         <TrendIndicator auditType="overall" trends={trends} />
                                     </div>
                                 )}
@@ -271,45 +297,143 @@ const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradi
                 </Card>
             </div>
             
-            {/* Daily Check-in Section */}
+            {/* Compliance Status Grid */}
             <div className="mt-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
-                    <Card className="hover:shadow-lg transition-shadow border border-blue-200 bg-white/80 backdrop-blur-md rounded-xl">
-                        <CardHeader className="pb-2 border-b border-blue-100 bg-gradient-to-r from-blue-50/60 to-transparent rounded-t-xl">
-                            <CardTitle className="text-sm font-medium flex items-center gap-2">
-                                <Calendar className="h-4 w-4 text-blue-500" />
-                                Daily Check-in
-                            </CardTitle>
-                            <CardDescription className="text-xs text-muted-foreground">Record occupancy, staffing, and other daily metrics</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-3 pt-3">
-                            <div className="text-sm text-muted-foreground">
-                                {dailyEntry ? 'Update today\'s check-in' : 'Complete your daily check-in'}
+                <h2 className="text-xl font-bold mb-6 text-gray-900 tracking-tight animate-in slide-in-from-left-4 duration-300">Compliance Overview</h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mb-8">
+                    {(() => {
+                        // Complete audit list matching audits page and firestore function
+                        const allAudits = [
+                            { key: 'accident-incident', name: 'Accident & Incident', score: null, icon: '�' },
+                            { key: 'call-bell-monitoring', name: 'Call Bell Monitoring', score: null, icon: '�' },
+                            { key: 'care-plan', name: 'Care Plan', score: carePlanScore, icon: '�' },
+                            { key: 'equipment', name: 'Equipment', score: null, icon: '⚙️' },
+                            { key: 'fire-safety', name: 'Fire Safety', score: fireScore, icon: '🔥' },
+                            { key: 'hand-hygiene', name: 'Hand Hygiene', score: null, icon: '🧼' },
+                            { key: 'health-safety', name: 'Health & Safety', score: hsScore, icon: '⚕️' },
+                            { key: 'infection-control', name: 'Infection Control', score: infectionScore, icon: '🦠' },
+                            { key: 'kitchen', name: 'Kitchen', score: kitchenScore, icon: '👨‍🍳' },
+                            { key: 'maintenance', name: 'Maintenance', score: maintenanceScore, icon: '🔧' },
+                            { key: 'managers-weekly', name: 'Managers Weekly', score: null, icon: '📊' },
+                            { key: 'mealtime', name: 'Mealtime', score: mealtimeScore, icon: '🍽️' },
+                            { key: 'night-visit', name: 'Night Visit', score: nightScore, icon: '🌙' },
+                            { key: 'restrictive-practice', name: 'Restrictive Practice', score: restrictiveScore, icon: '🔒' },
+                            { key: 'staff-file', name: 'Staff File', score: staffFileScore, icon: '📁' },
+                            { key: 'weight-monitoring', name: 'Weight Monitoring', score: null, icon: '⚖️' },
+                            { key: 'wound-monitoring', name: 'Wound Monitoring', score: null, icon: '🩹' },
+                            { key: 'risk-register', name: 'Risk Register', score: null, icon: '📊' }
+                        ];
+
+                        // Filter to show only pending audits (those without scores or with scores < 100%)
+                        const pendingAudits = allAudits.filter(audit => 
+                            audit.score === null || audit.score < 100
+                        );
+
+                        return pendingAudits.map(audit => {
+                        // All pending audits are shown with pending status
+                        const statusColor = 'bg-gray-100 border-gray-300 text-gray-600';
+                        
+                        return (
+                            <div 
+                                key={audit.key} 
+                                className={`p-3 rounded-xl border transition-all duration-200 hover:shadow-md cursor-pointer hover:scale-105 transform ${statusColor}`}
+                                onClick={() => handleAuditCardClick(audit.key)}
+                                role="button"
+                                tabIndex={0}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                        e.preventDefault();
+                                        handleAuditCardClick(audit.key);
+                                    }
+                                }}
+                                title={`Complete ${audit.name} audit`}
+                            >
+                                <div className="text-center">
+                                    <div className="text-2xl mb-1">{audit.icon}</div>
+                                    <div className="text-xs font-semibold truncate">{audit.name}</div>
+                                    <div className="text-sm font-bold mt-1">
+                                        Pending
+                                    </div>
+                                    <div className="text-xs text-gray-500 mt-1 opacity-75">
+                                        Click to Complete
+                                    </div>
+                                </div>
                             </div>
-                            <DailyCheckinModal 
-                                workspaceId={workspaceId || ''} 
-                                onEntryUpdate={onDailyEntryUpdate}
-                                trigger={
-                                    <Button className="w-full">
-                                        <Calendar className="h-4 w-4 mr-2" />
-                                        {dailyEntry ? 'Update Check-in' : 'Start Check-in'}
-                                    </Button>
-                                }
-                            />
-                        </CardContent>
-                    </Card>
-                    
+                        );
+                        });
+                    })()}
+                </div>
+                
+                {/* Completed Audits Summary */}
+                {(() => {
+                    // Complete audit list matching audits page and firestore function
+                    const allAudits = [
+                        { key: 'accident-incident', name: 'Accident & Incident', score: null, icon: '�' },
+                        { key: 'call-bell-monitoring', name: 'Call Bell Monitoring', score: null, icon: '�' },
+                        { key: 'care-plan', name: 'Care Plan', score: carePlanScore, icon: '�' },
+                        { key: 'equipment', name: 'Equipment', score: null, icon: '⚙️' },
+                        { key: 'fire-safety', name: 'Fire Safety', score: fireScore, icon: '🔥' },
+                        { key: 'hand-hygiene', name: 'Hand Hygiene', score: null, icon: '🧼' },
+                        { key: 'health-safety', name: 'Health & Safety', score: hsScore, icon: '⚕️' },
+                        { key: 'infection-control', name: 'Infection Control', score: infectionScore, icon: '🦠' },
+                        { key: 'kitchen', name: 'Kitchen', score: kitchenScore, icon: '👨‍🍳' },
+                        { key: 'maintenance', name: 'Maintenance', score: maintenanceScore, icon: '🔧' },
+                        { key: 'managers-weekly', name: 'Managers Weekly', score: null, icon: '📊' },
+                        { key: 'mealtime', name: 'Mealtime', score: mealtimeScore, icon: '🍽️' },
+                        { key: 'night-visit', name: 'Night Visit', score: nightScore, icon: '🌙' },
+                        { key: 'restrictive-practice', name: 'Restrictive Practice', score: restrictiveScore, icon: '🔒' },
+                        { key: 'staff-file', name: 'Staff File', score: staffFileScore, icon: '📁' },
+                        { key: 'weight-monitoring', name: 'Weight Monitoring', score: null, icon: '⚖️' },
+                        { key: 'wound-monitoring', name: 'Wound Monitoring', score: null, icon: '🩹' },
+                        { key: 'risk-register', name: 'Risk Register', score: null, icon: '�' }
+                    ];
+
+                    // Show completed audits (those with scores >= 100%)
+                    const completedAudits = allAudits.filter(audit => 
+                        audit.score !== null && audit.score >= 100
+                    );
+
+                    if (completedAudits.length > 0) {
+                        return (
+                            <div className="mt-6">
+                                <h3 className="text-lg font-semibold mb-4 text-gray-800">Completed This Month</h3>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                                    {completedAudits.map(audit => (
+                                        <div key={audit.key} className="p-3 rounded-xl border bg-green-50 border-green-200 text-green-800">
+                                            <div className="text-center">
+                                                <div className="text-2xl mb-1">{audit.icon}</div>
+                                                <div className="text-xs font-semibold truncate">{audit.name}</div>
+                                                <div className="text-sm font-bold mt-1">
+                                                    {audit.score !== null ? `${audit.score}%` : 'Complete'} ✓
+                                                </div>
+                                                <div className="text-xs text-green-600 mt-1 opacity-75">
+                                                    Completed
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        );
+                    }
+                    return null;
+                })()}
+            </div>
+            
+            {/* Audits and Action Plans Section */}
+            <div className="mt-8">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 max-w-6xl">
                     {/* Audits Card */}
-                    <Card className="hover:shadow-lg transition-shadow border border-blue-200 bg-white/80 backdrop-blur-md rounded-xl">
-                        <CardHeader className="pb-2 border-b border-blue-100 bg-gradient-to-r from-blue-50/60 to-transparent rounded-t-xl">
-                            <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Card className="group hover:shadow-xl transition-all duration-300 border border-blue-200/60 bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-blue-100/50">
+                        <CardHeader className="pb-3 border-b border-blue-100/80 bg-gradient-to-r from-blue-50/40 to-transparent rounded-t-2xl">
+                            <CardTitle className="text-sm font-semibold flex items-center gap-2 text-blue-900">
                                 <FileCheck className="h-4 w-4 text-blue-500" />
                                 Audits
                             </CardTitle>
-                            <CardDescription className="text-xs text-muted-foreground">Audits requiring completion</CardDescription>
+                            <CardDescription className="text-xs text-blue-700/70 font-medium">Audits requiring completion</CardDescription>
                         </CardHeader>
-                        <CardContent className="space-y-3 pt-3">
-                            <div className="space-y-2">
+                        <CardContent className="space-y-4 pt-4">
+                            <div className="space-y-3">
                                 {(() => {
                                     const auditTypes = [
                                         { key: 'care-plan', name: 'Care Plan', score: carePlanScore },
@@ -328,26 +452,27 @@ const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradi
 
                                     if (incompleteAudits.length === 0) {
                                         return (
-                                            <div className="text-center py-4">
-                                                <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-2" />
-                                                <p className="text-sm text-muted-foreground">All audits completed!</p>
+                                            <div className="text-center py-6">
+                                                <CheckCircle className="h-10 w-10 text-green-500 mx-auto mb-3" />
+                                                <p className="text-sm text-gray-600 font-medium">All audits completed!</p>
+                                                <p className="text-xs text-gray-500 mt-1">Great job maintaining compliance</p>
                                             </div>
                                         );
                                     }
 
                                     return (
-                                        <div className="space-y-2 max-h-32 overflow-y-auto">
+                                        <div className="space-y-3 max-h-40 overflow-y-auto">
                                             {incompleteAudits.slice(0, 4).map(audit => (
-                                                <div key={audit.key} className="flex items-center justify-between p-2 bg-red-50 rounded border border-red-200">
-                                                    <div className="flex items-center gap-2 min-w-0">
+                                                <div key={audit.key} className="flex items-center justify-between p-3 bg-red-50/60 rounded-xl border border-red-200/40 hover:bg-red-50/80 transition-colors duration-200">
+                                                    <div className="flex items-center gap-3 min-w-0">
                                                         <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
-                                                        <span className="text-sm truncate">{audit.name}</span>
+                                                        <span className="text-sm font-medium truncate text-gray-700">{audit.name}</span>
                                                     </div>
-                                                    <Badge variant="destructive" className="text-xs">Pending</Badge>
+                                                    <Badge variant="destructive" className="text-xs font-medium px-2 py-1">Pending</Badge>
                                                 </div>
                                             ))}
                                             {incompleteAudits.length > 4 && (
-                                                <p className="text-xs text-muted-foreground text-center pt-1">
+                                                <p className="text-xs text-gray-500 text-center pt-2 font-medium">
                                                     +{incompleteAudits.length - 4} more audits pending
                                                 </p>
                                             )}
@@ -355,11 +480,14 @@ const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradi
                                     );
                                 })()}
                             </div>
-                            <div className="text-xs text-muted-foreground text-center pt-2 border-t border-blue-100">
+                            <div className="text-xs text-gray-600 text-center pt-3 border-t border-gray-100 font-medium">
                                 {overallStats.auditsCompleted} of {overallStats.totalAudits} audits completed
                             </div>
                         </CardContent>
                     </Card>
+                    
+                    {/* Action Plans Card */}
+                    <ActionPlansCard workspaceId={workspaceId} documents={documents} onSelect={onSelect} />
                 </div>
             </div>
         </div>
@@ -368,20 +496,24 @@ const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradi
 
 const QuickAccess = ({ folders, onSelect }: { folders: FolderType[], onSelect: (item: FolderType) => void }) => (
     <div className="w-full">
-        <h2 className="text-lg font-semibold mb-4 text-blue-900 tracking-tight">Quick Access</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <h2 className="text-xl font-bold mb-6 text-gray-900 tracking-tight animate-in slide-in-from-left-4 duration-300">Quick Access</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {folders.length > 0 ? folders.map(folder => (
-             <Card key={folder.id} className="hover:shadow-lg transition-shadow cursor-pointer border border-blue-200 bg-white/80 backdrop-blur-md rounded-xl" onClick={() => onSelect(folder)}>
-                <CardHeader className="flex flex-row items-center justify-between pb-2 px-4 sm:px-6 border-b border-blue-100 bg-gradient-to-r from-yellow-50/60 to-transparent rounded-t-xl">
-                    <Folder className="w-6 h-6 sm:w-8 sm:h-8 text-yellow-500 flex-shrink-0" />
-                    <span className="text-xs text-muted-foreground">{folder.items.length} items</span>
+             <Card key={folder.id} className="group hover:shadow-xl transition-all duration-300 cursor-pointer border border-yellow-200/60 bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-yellow-100/50" onClick={() => onSelect(folder)}>
+                <CardHeader className="flex flex-row items-center justify-between pb-3 px-5 sm:px-6 border-b border-yellow-100/80 bg-gradient-to-r from-yellow-50/40 to-transparent rounded-t-2xl">
+                    <Folder className="w-7 h-7 sm:w-8 sm:h-8 text-yellow-500 flex-shrink-0" />
+                    <span className="text-xs text-gray-500 font-medium bg-yellow-100/60 px-2 py-1 rounded-full">{folder.items.length} items</span>
                 </CardHeader>
-                    <CardContent className="px-4 sm:px-6 pt-3">
-                        <p className="font-semibold text-sm sm:text-base break-words leading-tight text-blue-900">{folder.name}</p>
+                    <CardContent className="px-5 sm:px-6 pt-4">
+                        <p className="font-semibold text-sm sm:text-base break-words leading-tight text-gray-900 group-hover:text-yellow-700 transition-colors duration-200">{folder.name}</p>
                     </CardContent>
                 </Card>
             )) : (
-                <p className="text-sm text-muted-foreground col-span-full text-center py-4">No folders created yet.</p>
+                <div className="col-span-full text-center py-8">
+                    <Folder className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                    <p className="text-sm text-gray-600 font-medium">No folders created yet</p>
+                    <p className="text-xs text-gray-500 mt-1">Create your first folder to get started</p>
+                </div>
             )}
         </div>
     </div>
@@ -520,39 +652,39 @@ function OccupancyCard({ workspaceId, dailyEntry }: { workspaceId?: string, dail
     else if (percent < 20) gradientColors = { start: '#f87171', end: '#dc2626' };
 
     return (
-        <Card className="hover:shadow-lg transition-shadow border border-blue-200 bg-white/80 backdrop-blur-md rounded-xl">
-            <CardHeader className="pb-2 border-b border-blue-100 bg-gradient-to-r from-blue-50/60 to-transparent rounded-t-xl">
+        <Card className="group hover:shadow-xl transition-all duration-300 border border-indigo-200/60 bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-indigo-100/50">
+            <CardHeader className="pb-3 border-b border-indigo-100/80 bg-gradient-to-r from-indigo-50/40 to-transparent rounded-t-2xl">
                 <div className="flex items-center justify-between w-full">
-                    <div className="flex items-center gap-2">
-                        <Briefcase className="h-4 w-4 text-indigo-500" />
+                    <div className="flex items-center gap-3">
+                        <Briefcase className="h-5 w-5 text-indigo-500" />
                         <div>
-                            <div className="flex items-baseline gap-2">
-                                <CardTitle className="text-sm font-medium text-blue-900">Occupancy</CardTitle>
-                                <span className="text-sm text-muted-foreground">{typeof totalBeds === 'number' && totalBeds >= 0 ? `${totalBeds} beds` : '— beds'}</span>
+                            <div className="flex items-baseline gap-3">
+                                <CardTitle className="text-sm font-semibold text-gray-900">Occupancy</CardTitle>
+                                <span className="text-sm text-gray-600 font-medium">{typeof totalBeds === 'number' && totalBeds >= 0 ? `${totalBeds} beds` : '— beds'}</span>
                             </div>
-                            <CardDescription className="text-xs text-muted-foreground">Track current occupancy for this workspace.</CardDescription>
+                            <CardDescription className="text-xs text-gray-600 font-medium mt-1">Track current occupancy for this workspace</CardDescription>
                         </div>
                     </div>
                     <div />
                 </div>
             </CardHeader>
-            <CardContent className="space-y-3 pt-3">
-                <div className="flex items-center gap-6">
-                        <div className="w-36 h-36 flex items-center justify-center relative">
-                            <OccupancyPie percent={percent} size={120} strokeWidth={16} gradientColors={gradientColors} centerFontSize={32} />
+            <CardContent className="space-y-4 pt-4">
+                <div className="flex items-center gap-8">
+                        <div className="w-32 h-32 flex items-center justify-center relative">
+                            <OccupancyPie percent={percent} size={112} strokeWidth={14} gradientColors={gradientColors} centerFontSize={28} />
                         </div>
 
                     <div className="flex-1">
                         <div className="space-y-3">
                             <div>
-                                <label className="text-xs text-muted-foreground">Occupied beds</label>
-                                <div className="text-lg font-semibold mt-1">{displayOccupied !== null ? displayOccupied : '—'}</div>
+                                <label className="text-xs text-gray-600 font-medium uppercase tracking-wide">Occupied beds</label>
+                                <div className="text-xl font-bold mt-1 text-gray-900">{displayOccupied !== null ? displayOccupied : '—'}</div>
                             </div>
                             <div>
-                                <label className="text-xs text-muted-foreground">Total beds</label>
-                                <div className="text-lg font-semibold mt-1">{displayTotal !== null ? displayTotal : (totalBeds !== null ? totalBeds : '—')}</div>
+                                <label className="text-xs text-gray-600 font-medium uppercase tracking-wide">Total beds</label>
+                                <div className="text-xl font-bold mt-1 text-gray-900">{displayTotal !== null ? displayTotal : (totalBeds !== null ? totalBeds : '—')}</div>
                             </div>
-                            <div className="text-sm text-muted-foreground">{loading ? 'Loading…' : ''}</div>
+                            <div className="text-sm text-gray-500">{loading ? 'Loading…' : ''}</div>
                         </div>
                     </div>
                 </div>
@@ -563,6 +695,139 @@ function OccupancyCard({ workspaceId, dailyEntry }: { workspaceId?: string, dail
 
 
 // Use shared OccupancyPie for staffing visual
+
+function ActionPlansCard({ workspaceId, documents, onSelect }: { 
+    workspaceId?: string, 
+    documents: Document[], 
+    onSelect: (item: Document) => void 
+}) {
+    const [actionPlans, setActionPlans] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
+
+    // Find action plans folders from documents
+    const actionPlansFolders = useMemo(() => {
+        return documents.filter(doc => 
+            doc.name && (
+                doc.name.toLowerCase().includes('action plan') ||
+                doc.name.toLowerCase().includes('action-plan') ||
+                doc.tags?.some(tag => tag.toLowerCase().includes('action'))
+            )
+        ).slice(0, 3); // Show max 3 recent action plan documents
+    }, [documents]);
+
+    useEffect(() => {
+        if (!workspaceId) return;
+        setLoading(true);
+
+        // Listen to audits collection to find action plans
+        try {
+            const auditsRef = collection(db, 'audits');
+            // Simplified query to avoid composite index requirement
+            const q = fsQuery(auditsRef, 
+                where('workspaceId', '==', workspaceId),
+                orderBy('createdAt', 'desc'),
+                limit(50) // Get more docs to filter client-side
+            );
+            
+            const unsub = onSnapshot(q, (snap) => {
+                // Filter for action plans client-side and limit to 5
+                const plans = snap.docs
+                    .map(doc => ({
+                        id: doc.id,
+                        ...doc.data(),
+                        createdAt: doc.data().createdAt?.toDate?.() || new Date(doc.data().createdAt)
+                    }))
+                    .filter((plan: any) => plan.createActionPlan === true)
+                    .slice(0, 5);
+                setActionPlans(plans);
+                setLoading(false);
+            }, (err) => {
+                console.error('Failed to listen to action plans', err);
+                setLoading(false);
+                setActionPlans([]);
+            });
+            
+            return () => unsub();
+        } catch (e) {
+            console.error('Failed to set up action plans listener', e);
+            setLoading(false);
+            setActionPlans([]);
+        }
+    }, [workspaceId]);
+
+    const totalActionPlans = actionPlans.length + actionPlansFolders.length;
+
+    return (
+        <Card className="group hover:shadow-xl transition-all duration-300 border border-green-200/60 bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-green-100/50">
+            <CardHeader className="pb-3 border-b border-green-100/80 bg-gradient-to-r from-green-50/40 to-transparent rounded-t-2xl">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2 text-gray-900">
+                    <ClipboardList className="h-4 w-4 text-green-600" />
+                    Action Plans
+                </CardTitle>
+                <CardDescription className="text-xs text-gray-600 font-medium">
+                    Active plans and recent documents
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 pt-4">
+                {loading ? (
+                    <div className="text-sm text-gray-600">Loading...</div>
+                ) : (
+                    <>
+                        {totalActionPlans > 0 ? (
+                            <div className="space-y-3">
+                                {/* Show recent action plan audits */}
+                                {actionPlans.slice(0, 2).map(plan => (
+                                    <div key={plan.id} className="flex items-center justify-between p-3 hover:bg-green-50/50 rounded-xl cursor-pointer transition-colors duration-200 border border-green-100/40">
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <FileCheck className="h-4 w-4 text-green-600 flex-shrink-0" />
+                                            <span className="text-sm font-medium truncate text-gray-700">
+                                                {plan.auditType ? 
+                                                    `${plan.auditType.replace(/-/g, ' ')} audit` : 
+                                                    'Audit action plan'
+                                                }
+                                            </span>
+                                        </div>
+                                        <Badge variant="secondary" className="text-xs font-medium px-2 py-1 bg-green-100 text-green-700">
+                                            {plan.createdAt ? 
+                                                new Date(plan.createdAt).toLocaleDateString() : 
+                                                'Recent'
+                                            }
+                                        </Badge>
+                                    </div>
+                                ))}
+                                
+                                {/* Show action plan documents */}
+                                {actionPlansFolders.map(doc => (
+                                    <div key={doc.id} className="flex items-center justify-between p-3 hover:bg-green-50/50 rounded-xl cursor-pointer transition-colors duration-200 border border-green-100/40" onClick={() => onSelect(doc)}>
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            {getFileIcon(doc.fileType)}
+                                            <span className="text-sm font-medium truncate text-gray-700">{doc.name}</span>
+                                        </div>
+                                        <Badge variant="outline" className="text-xs font-medium px-2 py-1 border-green-200 text-green-700">
+                                            {doc.fileType?.toUpperCase()}
+                                        </Badge>
+                                    </div>
+                                ))}
+                                
+                                {totalActionPlans > 3 && (
+                                    <div className="text-xs text-gray-500 text-center pt-2 font-medium">
+                                        +{totalActionPlans - 3} more action plans
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="text-center py-6">
+                                <ClipboardList className="h-10 w-10 text-gray-400 mx-auto mb-3" />
+                                <p className="text-sm text-gray-600 font-medium">No active action plans</p>
+                                <p className="text-xs text-gray-500 mt-1">Complete an audit to create action plans</p>
+                            </div>
+                        )}
+                    </>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
 
 function StaffingCard({ workspaceId, dailyEntry }: { workspaceId?: string, dailyEntry?: any }) {
     const [staffingData, setStaffingData] = useState<{ day: string; night: string; lastUpdated?: string } | null>(null);
@@ -662,90 +927,90 @@ function StaffingCard({ workspaceId, dailyEntry }: { workspaceId?: string, daily
     };
 
     return (
-        <Card className="hover:shadow-lg transition-shadow border border-blue-200 bg-white/80 backdrop-blur-md rounded-xl">
-            <CardHeader className="pb-2 border-b border-blue-100 bg-gradient-to-r from-blue-50/60 to-blue-100/40 rounded-t-xl">
+        <Card className="group hover:shadow-xl transition-all duration-300 border border-blue-200/60 bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-blue-100/50">
+            <CardHeader className="pb-3 border-b border-blue-100/80 bg-gradient-to-r from-blue-50/40 to-blue-100/30 rounded-t-2xl">
                 <div className="flex items-center justify-between w-full">
-                    <div className="flex items-center gap-2">
-                        <Users className="h-4 w-4 text-blue-500" />
+                    <div className="flex items-center gap-3">
+                        <Users className="h-5 w-5 text-blue-500" />
                         <div>
-                            <CardTitle className="text-sm font-medium text-blue-900">Staffing</CardTitle>
-                            <CardDescription className="text-xs text-muted-foreground">Latest staffing levels from check-ins</CardDescription>
+                            <CardTitle className="text-sm font-semibold text-gray-900">Staffing</CardTitle>
+                            <CardDescription className="text-xs text-gray-600 font-medium">Latest staffing levels from check-ins</CardDescription>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="sm" className="text-xs" onClick={() => setEditing(e => !e)} disabled={saving || loading}>
+                        <Button variant="ghost" size="sm" className="text-xs hover:bg-blue-50 transition-colors duration-200" onClick={() => setEditing(e => !e)} disabled={saving || loading}>
                             <Edit3 className="w-4 h-4 mr-1" /> {editing ? 'Cancel' : 'Edit'}
                         </Button>
                     </div>
                 </div>
             </CardHeader>
-            <CardContent className="space-y-3 pt-3">
+            <CardContent className="space-y-4 pt-4">
                 {loading ? (
-                    <div className="text-sm text-muted-foreground">Loading...</div>
+                    <div className="text-sm text-gray-600">Loading...</div>
                 ) : (
-                    <div className="flex items-center gap-6">
-                        <div className="w-36 h-36 flex items-center justify-center relative">
+                    <div className="flex items-center gap-8">
+                        <div className="w-32 h-32 flex items-center justify-center relative">
                             <style>{`.staffing-hide-pie-text text { display: none !important; }`}</style>
                             <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
-                                <span className="text-4xl font-bold text-white drop-shadow" style={{marginTop: '-2px'}}>{totalStaff}</span>
+                                <span className="text-3xl font-bold text-white drop-shadow" style={{marginTop: '-2px'}}>{totalStaff}</span>
                             </div>
                             <div className="staffing-hide-pie-text">
                                 <OccupancyPie
                                     percent={percent}
-                                    size={120}
-                                    strokeWidth={18}
+                                    size={112}
+                                    strokeWidth={16}
                                     gradientColors={gradientColors}
                                     centerClassName=""
                                     centerFill="#fff"
-                                    centerFontSize={38}
+                                    centerFontSize={36}
                                 />
                             </div>
                         </div>
-                        <div className="flex-1 space-y-3">
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="flex flex-col items-center">
-                                    <Sun className="h-5 w-5 text-yellow-400 mb-1" />
+                        <div className="flex-1 space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="flex flex-col items-center p-3 bg-yellow-50/60 rounded-xl border border-yellow-200/40">
+                                    <Sun className="h-6 w-6 text-yellow-500 mb-2" />
                                     {editing ? (
                                         <input
                                             type="number"
-                                            className="w-16 border rounded px-2 py-1 text-center text-xl font-bold text-blue-600"
+                                            className="w-16 border border-yellow-300 rounded-lg px-2 py-1 text-center text-lg font-bold text-yellow-700 bg-white"
                                             value={dayInput}
                                             onChange={e => setDayInput(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value || '0', 10)).toString())}
                                             min={0}
                                             disabled={saving}
                                         />
                                     ) : (
-                                        <span className="text-xl font-bold text-blue-600">{staffingData?.day ?? '0'}</span>
+                                        <span className="text-xl font-bold text-yellow-700">{staffingData?.day ?? '0'}</span>
                                     )}
-                                    <span className="text-xs text-muted-foreground">Day Shift</span>
+                                    <span className="text-xs text-gray-600 font-medium">Day Shift</span>
                                 </div>
-                                <div className="flex flex-col items-center">
-                                    <Moon className="h-5 w-5 text-indigo-500 mb-1" />
+                                <div className="flex flex-col items-center p-3 bg-indigo-50/60 rounded-xl border border-indigo-200/40">
+                                    <Moon className="h-6 w-6 text-indigo-500 mb-2" />
                                     {editing ? (
                                         <input
                                             type="number"
-                                            className="w-16 border rounded px-2 py-1 text-center text-xl font-bold text-indigo-600"
+                                            className="w-16 border border-indigo-300 rounded-lg px-2 py-1 text-center text-lg font-bold text-indigo-700 bg-white"
                                             value={nightInput}
                                             onChange={e => setNightInput(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value || '0', 10)).toString())}
                                             min={0}
                                             disabled={saving}
                                         />
                                     ) : (
-                                        <span className="text-xl font-bold text-indigo-600">{staffingData?.night ?? '0'}</span>
+                                        <span className="text-xl font-bold text-indigo-700">{staffingData?.night ?? '0'}</span>
                                     )}
-                                    <span className="text-xs text-muted-foreground">Night Shift</span>
+                                    <span className="text-xs text-gray-600 font-medium">Night Shift</span>
                                 </div>
                             </div>
-                            {error && <div className="text-xs text-destructive text-center mt-1">{error}</div>}
+                            {error && <div className="text-xs text-red-600 text-center mt-2 font-medium">{error}</div>}
                             {editing ? (
-                                <div className="flex items-center gap-2 justify-center mt-2">
-                                    <Button onClick={handleSave} disabled={saving || loading}>
+                                <div className="flex items-center gap-3 justify-center mt-3">
+                                    <Button onClick={handleSave} disabled={saving || loading} className="bg-blue-500 hover:bg-blue-600 transition-colors duration-200">
                                         {saving ? 'Saving...' : 'Save'}
                                     </Button>
                                 </div>
                             ) : (
                                 staffingData?.lastUpdated && (
-                                    <div className="text-xs text-blue-500 text-center mt-2">
+                                    <div className="text-xs text-blue-600 text-center mt-3 font-medium">
                                         <Clock className="inline-block h-3 w-3 mr-1 align-text-bottom" />
                                         Last updated: {staffingData.lastUpdated}
                                     </div>
@@ -789,6 +1054,8 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
     const isMobile = useIsMobile();
     
     const { documents, folders } = useMemo(() => getAllItems(workspace.folders), [workspace.folders]);
+
+
     
     const recentDocuments = useMemo(() => {
         return [...documents] // Create a shallow copy before sorting
@@ -840,6 +1107,8 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
     // Trend tracking state
     const [trends, setTrends] = useState<Record<string, { direction: 'up' | 'down' | 'stable', change: number }>>({});
     const [historicalData, setHistoricalData] = useState<Record<string, any>>({});
+    
+
 
     useEffect(() => {
         if (!workspace?.id) return;
@@ -954,6 +1223,8 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
         });
         return () => unsub();
     }, [workspace?.id]);
+
+
 
     // Function to calculate trends
     const calculateTrends = (currentData: any) => {
@@ -1111,64 +1382,116 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
         setDailyEntry(entry);
     };
 
+    // Function to navigate to audit forms
+    const handleAuditCardClick = (auditKey: string) => {
+        // Always navigate to audit form
+        navigateToAuditForm(auditKey);
+    };
+
+    // Function to navigate to audit forms by triggering view change to audits
+    const navigateToAuditForm = (auditKey: string) => {
+        // Use the same navigation pattern as the sidebar - trigger a view change event
+        if (typeof window !== 'undefined') {
+            // Store the specific audit type in localStorage so the audits page can open it
+            localStorage.setItem('openAuditType', auditKey);
+            // Dispatch event to change view to audits
+            window.dispatchEvent(new CustomEvent('navigate-to-audits', { 
+                detail: { auditType: auditKey } 
+            }));
+        }
+    };
+
+
+
+
+
     return (
-    <div className="flex flex-col h-full min-h-screen bg-background">
-            {/* Dark hero header (workspace style) */}
-            <div className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white p-6 rounded-b-lg shadow-sm">
-                <div className="w-full mx-auto flex items-start justify-between gap-6">
-                    <div className="flex items-start gap-4">
-                        <div className="p-3 bg-white/5 rounded-md">
-                            <Folder className="w-10 h-10 text-white/90" />
+    <div className="flex flex-col h-full min-h-screen bg-gradient-to-br from-gray-50 to-blue-50/30">
+            {/* Refined hero header with improved spacing and typography */}
+            <div className="bg-gradient-to-br from-slate-800 via-slate-700 to-slate-800 text-white p-8 rounded-b-2xl shadow-lg relative overflow-hidden">
+                {/* Subtle background pattern */}
+                <div className="absolute inset-0 opacity-5">
+                    <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full -translate-y-48 translate-x-48"></div>
+                    <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-400 rounded-full translate-y-32 -translate-x-32"></div>
+                </div>
+                <div className="w-full mx-auto flex items-start justify-between gap-8 relative z-10">
+                    <div className="flex items-start gap-6">
+                        <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg">
+                            <Folder className="w-12 h-12 text-white" />
                         </div>
-                        <div>
-                            <h2 className="text-2xl font-bold leading-tight">{workspace.name}</h2>
-                            <div className="mt-1 text-sm text-slate-200">Welcome back! Here's a summary of your workspace.</div>
-                            <div className="mt-3 flex items-center gap-2">
-                                <Button size="sm" onClick={() => { /* noop for now */ }}>New folder</Button>
-                                <Button size="sm" variant="outline" onClick={() => { /* noop */ }}>Share</Button>
+                        <div className="space-y-2">
+                            <h1 className="text-3xl font-bold leading-tight tracking-tight">{workspace.name}</h1>
+                            <p className="text-slate-200 text-base leading-relaxed">Welcome back! Here's a summary of your workspace activity.</p>
+                            <div className="mt-4 flex items-center gap-3">
+                                <Button size="sm" className="bg-white/10 hover:bg-white/20 border-white/20 backdrop-blur-sm transition-all duration-200" onClick={() => { /* noop for now */ }}>
+                                    <Folder className="w-4 h-4 mr-2" />
+                                    New folder
+                                </Button>
+                                <Button size="sm" variant="outline" className="border-white/30 text-white hover:bg-white/10 backdrop-blur-sm transition-all duration-200" onClick={() => { /* noop */ }}>
+                                    Share workspace
+                                </Button>
                             </div>
                         </div>
                     </div>
 
-                    <div className="hidden md:flex items-center gap-4">
-                        <div className="grid grid-cols-4 gap-3">
-                            <div className="p-3 bg-white/5 rounded flex items-center gap-3">
-                                <div>
-                                    <div className="text-xs text-slate-300">Documents</div>
-                                    <div className="text-lg font-semibold">{documents.length}</div>
+                    <div className="hidden xl:flex items-center gap-6">
+                        <div className="grid grid-cols-4 gap-4">
+                            <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg hover:bg-white/15 transition-all duration-200">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-2 bg-blue-500/20 rounded-lg">
+                                        <FileText className="w-5 h-5 text-blue-300" />
+                                    </div>
+                                    <div>
+                                        <div className="text-xs text-slate-300 font-medium uppercase tracking-wide">Documents</div>
+                                        <div className="text-2xl font-bold text-white">{documents.length}</div>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="p-3 bg-white/5 rounded flex items-center gap-3">
-                                <div>
-                                    <div className="text-xs text-slate-300">Folders</div>
-                                    <div className="text-lg font-semibold">{folders.length}</div>
+                            <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg hover:bg-white/15 transition-all duration-200">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-2 bg-green-500/20 rounded-lg">
+                                        <Folder className="w-5 h-5 text-green-300" />
+                                    </div>
+                                    <div>
+                                        <div className="text-xs text-slate-300 font-medium uppercase tracking-wide">Folders</div>
+                                        <div className="text-2xl font-bold text-white">{folders.length}</div>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="p-3 bg-white/5 rounded flex items-center gap-3">
-                                <div className="text-xs text-slate-300">Recent</div>
-                                <div className="text-lg font-semibold">{recentDocuments.length}</div>
-                            </div>
-                            <div className="p-4 bg-white/6 rounded-lg flex items-center gap-4 shadow-md">
-                                <div className="flex items-center justify-center w-16 h-16 bg-white/5 rounded-full">
-                                    <OccupancyPie
-                                        percent={Math.round(((workspace?.settings?.occupancy ?? workspace?.occupancy ?? 0) * 100) || 0)}
-                                        size={72}
-                                        strokeWidth={10}
-                                        centerFill="#ffffff"
-                                        centerFontSize={20}
-                                        centerClassName="font-bold"
-                                    />
+                            <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg hover:bg-white/15 transition-all duration-200">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-2 bg-purple-500/20 rounded-lg">
+                                        <Clock className="w-5 h-5 text-purple-300" />
+                                    </div>
+                                    <div>
+                                        <div className="text-xs text-slate-300 font-medium uppercase tracking-wide">Recent</div>
+                                        <div className="text-2xl font-bold text-white">{recentDocuments.length}</div>
+                                    </div>
                                 </div>
-                                <div className="min-w-0">
-                                    <div className="text-xs text-slate-300">Occupancy</div>
-                                    {/* numeric percent intentionally removed from right side; primary value is in pie center */}
+                            </div>
+                            <div className="p-5 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg hover:bg-white/15 transition-all duration-200">
+                                <div className="flex items-center gap-4">
+                                    <div className="flex items-center justify-center w-16 h-16 bg-white/10 rounded-full border border-white/20">
+                                        <OccupancyPie
+                                            percent={Math.round(((workspace?.settings?.occupancy ?? workspace?.occupancy ?? 0) * 100) || 0)}
+                                            size={64}
+                                            strokeWidth={8}
+                                            centerFill="#ffffff"
+                                            centerFontSize={18}
+                                            centerClassName="font-bold text-slate-800"
+                                        />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <div className="text-xs text-slate-300 font-medium uppercase tracking-wide">Occupancy</div>
+                                        <div className="text-sm text-slate-200 mt-1">Current status</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-            <main className="flex-1 p-3 sm:p-4 md:p-8 overflow-y-auto space-y-6 sm:space-y-8 md:space-y-12">
+            <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto space-y-6 sm:space-y-8 md:space-y-12 animate-in fade-in-0 duration-500">
                <QuickActions 
                    documents={documents} 
                    onSelect={onSelect} 
@@ -1188,8 +1511,61 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
                    nightScore={nightScore}
                    staffFileScore={staffFileScore}
                    kitchenScore={kitchenScore}
+
+                   handleAuditCardClick={handleAuditCardClick}
                />
-               {/* Daily check-in is now handled by the modal in QuickActions */}
+
+
+               {/* Recent Activity Timeline */}
+               <div>
+                   <h2 className="text-xl font-bold mb-6 text-gray-900 tracking-tight animate-in slide-in-from-left-4 duration-300">Recent Activity</h2>
+                   <Card className="border border-slate-200/60 shadow-lg bg-white/90 backdrop-blur-sm rounded-2xl mb-8">
+                       <CardContent className="p-6">
+                           <div className="space-y-4">
+                               {recentDocuments.slice(0, 3).map((doc: Document) => (
+                                   <div key={doc.id} className="flex items-center gap-4 p-3 hover:bg-slate-50/60 rounded-xl transition-colors duration-200 cursor-pointer" onClick={() => onSelect(doc)}>
+                                       <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                                       <div className="flex items-center gap-3 flex-1 min-w-0">
+                                           {getFileIcon(doc.fileType)}
+                                           <div className="min-w-0 flex-1">
+                                               <div className="text-sm font-medium text-gray-900 truncate">{doc.name}</div>
+                                               <div className="text-xs text-gray-500">
+                                                   Uploaded {new Date(doc.createdAt).toLocaleDateString()}
+                                               </div>
+                                           </div>
+                                       </div>
+                                       <Badge variant="secondary" className="text-xs">{doc.fileType?.toUpperCase()}</Badge>
+                                   </div>
+                               ))}
+                               {overallStats.auditsCompleted > 0 && (
+                                   <div className="flex items-center gap-4 p-3 hover:bg-green-50/60 rounded-xl transition-colors duration-200">
+                                       <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0"></div>
+                                       <div className="flex items-center gap-3 flex-1">
+                                           <CheckCircle className="h-5 w-5 text-green-600" />
+                                           <div>
+                                               <div className="text-sm font-medium text-gray-900">
+                                                   {overallStats.auditsCompleted} audit{overallStats.auditsCompleted > 1 ? 's' : ''} completed
+                                               </div>
+                                               <div className="text-xs text-gray-500">Overall score: {overallStats.overallPercentage}%</div>
+                                           </div>
+                                       </div>
+                                       <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">AUDIT</Badge>
+                                   </div>
+                               )}
+                               {recentDocuments.length === 0 && overallStats.auditsCompleted === 0 && (
+                                   <div className="text-center py-6 text-gray-500">
+                                       <Clock className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                                       <p className="text-sm font-medium">No recent activity</p>
+                                       <p className="text-xs">Start by uploading a document or completing an audit</p>
+                                   </div>
+                               )}
+                           </div>
+                       </CardContent>
+                   </Card>
+               </div>
+
+               <RecentFilesTable documents={recentDocuments} onSelect={onSelect} />
+               <QuickAccess folders={quickAccessFolders} onSelect={onSelect} />
             </main>
         </div>
     );
