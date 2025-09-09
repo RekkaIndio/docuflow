@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Users, MapPin, BarChart2, Download, MessageSquare, X, ArrowLeft, BarChart3, TrendingUp, TrendingDown, Plus, MoreVertical, Edit, Trash2, Target, AlertTriangle, UserCheck } from 'lucide-react';
 import OccupancyPie from '@/components/admin/occupancy-pie';
 import OverviewCards from '@/components/dashboard/overview-cards';
@@ -31,6 +32,10 @@ import { AdminChatPanel } from '@/components/admin/admin-chat-panel';
 import type { Folder, Document } from '@/lib/types';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, collection, getDocs, query, where, onSnapshot } from 'firebase/firestore';
+import WoundsDetailModal from '@/components/admin/wounds-detail-modal';
+import FallsDetailModal from '@/components/admin/falls-detail-modal';
+import InfectionsDetailModal from '@/components/admin/infections-detail-modal';
+import AuditDetailModal from '@/components/admin/audit-detail-modal';
 
 export default function AdminPage() {
   const { user, loading } = useAuth();
@@ -247,6 +252,12 @@ export default function AdminPage() {
   const [staffingTimeframe, setStaffingTimeframe] = React.useState<'day' | 'week' | 'month'>('week');
   const [staffingHistory, setStaffingHistory] = React.useState<Array<{ date: string; day: number; night: number; total: number }>>([]);
   const [staffingLoading, setStaffingLoading] = React.useState(false);
+
+  // Modal state management
+  const [isWoundsModalOpen, setIsWoundsModalOpen] = React.useState(false);
+  const [isFallsModalOpen, setIsFallsModalOpen] = React.useState(false);
+  const [isInfectionsModalOpen, setIsInfectionsModalOpen] = React.useState(false);
+  const [isAuditModalOpen, setIsAuditModalOpen] = React.useState(false);
 
   // Helper: return a folder-like object for the selected workspace (chat expects a Folder)
   const getWorkspaceRootForChat = (ws: any) => ({ id: ws?.id || 'admin-root', name: ws?.name || 'Admin', type: 'folder' as const, items: ws?.folders || [], workspaceId: ws?.id || 'admin' });
@@ -1377,6 +1388,10 @@ export default function AdminPage() {
                     onRefreshAudits={calculateAggregateAuditScores}
                     onRefreshFalls={calculateAggregateFallsData}
                     onRefreshInfections={calculateAggregateInfectionData}
+                    onOpenWoundsModal={() => setIsWoundsModalOpen(true)}
+                    onOpenFallsModal={() => setIsFallsModalOpen(true)}
+                    onOpenInfectionsModal={() => setIsInfectionsModalOpen(true)}
+                    onOpenAuditModal={() => setIsAuditModalOpen(true)}
                   />
 
                   {/* Enhanced Staffing Chart */}
@@ -1474,6 +1489,35 @@ export default function AdminPage() {
       </div>
 
       {/* Workspace create/rename/delete dialogs moved to AdminWorkspacesView */}
+
+      {/* Detail Modals */}
+      <WoundsDetailModal
+        isOpen={isWoundsModalOpen}
+        onClose={() => setIsWoundsModalOpen(false)}
+        aggregateWoundsData={aggregateWoundsData}
+        workspaces={workspaces}
+      />
+
+      <FallsDetailModal
+        isOpen={isFallsModalOpen}
+        onClose={() => setIsFallsModalOpen(false)}
+        aggregateFallsData={aggregateFallsData}
+        workspaces={workspaces}
+      />
+
+      <InfectionsDetailModal
+        isOpen={isInfectionsModalOpen}
+        onClose={() => setIsInfectionsModalOpen(false)}
+        aggregateInfectionData={aggregateInfectionData}
+        workspaces={workspaces}
+      />
+
+      <AuditDetailModal
+        isOpen={isAuditModalOpen}
+        onClose={() => setIsAuditModalOpen(false)}
+        aggregateAuditData={aggregateAuditData}
+        workspaces={workspaces}
+      />
     </>
   );
 }

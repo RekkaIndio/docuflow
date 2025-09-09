@@ -41,6 +41,10 @@ interface AdminOverviewCardsProps {
   onRefreshAudits: () => void;
   onRefreshFalls: () => void;
   onRefreshInfections: () => void;
+  onOpenWoundsModal?: () => void;
+  onOpenFallsModal?: () => void;
+  onOpenInfectionsModal?: () => void;
+  onOpenAuditModal?: () => void;
 }
 
 const getGradientColors = (score: number | null) => {
@@ -60,7 +64,11 @@ export default function AdminOverviewCards({
   onRefreshWounds,
   onRefreshAudits,
   onRefreshFalls,
-  onRefreshInfections
+  onRefreshInfections,
+  onOpenWoundsModal,
+  onOpenFallsModal,
+  onOpenInfectionsModal,
+  onOpenAuditModal
 }: AdminOverviewCardsProps) {
   return (
     <div className="mb-8">
@@ -76,7 +84,7 @@ export default function AdminOverviewCards({
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Wounds Card */}
-        <Card className="relative overflow-hidden border-l-4 border-l-red-500">
+        <Card className="relative overflow-hidden border-l-4 border-l-red-500 cursor-pointer hover:shadow-lg transition-shadow" onClick={onOpenWoundsModal}>
           <div className="absolute top-0 right-0 w-20 h-20 bg-red-50 rounded-full -mr-10 -mt-10"></div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <div className="text-sm font-medium">Incident Reports</div>
@@ -133,7 +141,7 @@ export default function AdminOverviewCards({
         </Card>
 
         {/* Falls Prevention Card */}
-        <Card className="relative overflow-hidden border-l-4 border-l-orange-500">
+        <Card className="relative overflow-hidden border-l-4 border-l-orange-500 cursor-pointer hover:shadow-lg transition-shadow" onClick={onOpenFallsModal}>
           <div className="absolute top-0 right-0 w-20 h-20 bg-orange-50 rounded-full -mr-10 -mt-10"></div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <div className="text-sm font-medium">Falls Prevention</div>
@@ -177,7 +185,7 @@ export default function AdminOverviewCards({
         </Card>
 
         {/* Infections Card */}
-        <Card className="relative overflow-hidden border-l-4 border-l-pink-500">
+        <Card className="relative overflow-hidden border-l-4 border-l-pink-500 cursor-pointer hover:shadow-lg transition-shadow" onClick={onOpenInfectionsModal}>
           <div className="absolute top-0 right-0 w-20 h-20 bg-pink-50 rounded-full -mr-10 -mt-10"></div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <div className="text-sm font-medium">Infection Control</div>
@@ -233,7 +241,7 @@ export default function AdminOverviewCards({
         </Card>
 
         {/* Compliance Score Card - moved to right */}
-        <Card className="relative overflow-hidden border-l-4 border-l-blue-500">
+        <Card className="relative overflow-hidden border-l-4 border-l-blue-500 cursor-pointer hover:shadow-lg transition-shadow" onClick={onOpenAuditModal}>
           <div className="absolute top-0 right-0 w-20 h-20 bg-blue-50 rounded-full -mr-10 -mt-10"></div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <div className="text-sm font-medium">Compliance Score</div>

@@ -1,0 +1,248 @@
+/* Print styles for admin dashboard modal reports */
+
+@media print {
+  /* Hide non-essential elements */
+  .print-hidden {
+    display: none !important;
+  }
+
+  /* Ensure content fits on page */
+  body {
+    font-size: 12px;
+    line-height: 1.4;
+    color: #000 !important;
+    background: #fff !important;
+  }
+
+  /* Modal container */
+  .print-modal-content {
+    max-width: none !important;
+    max-height: none !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Header styling */
+  .print-header {
+    background: #f8fafc !important;
+    border-bottom: 2px solid #e2e8f0 !important;
+    padding: 20px !important;
+    margin-bottom: 20px !important;
+    page-break-after: avoid;
+  }
+
+  .print-title {
+    font-size: 24px !important;
+    font-weight: bold !important;
+    color: #1e293b !important;
+    margin-bottom: 8px !important;
+  }
+
+  .print-description {
+    font-size: 14px !important;
+    color: #64748b !important;
+  }
+
+  /* Cards and metrics */
+  .print-card {
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 8px !important;
+    margin-bottom: 16px !important;
+    page-break-inside: avoid;
+  }
+
+  .print-card-header {
+    background: #f8fafc !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    padding: 12px 16px !important;
+    font-weight: 600 !important;
+    font-size: 14px !important;
+  }
+
+  .print-card-content {
+    padding: 16px !important;
+  }
+
+  .print-metric-value {
+    font-size: 28px !important;
+    font-weight: bold !important;
+    margin-bottom: 4px !important;
+  }
+
+  .print-metric-label {
+    font-size: 12px !important;
+    color: #64748b !important;
+  }
+
+  /* Grid layouts */
+  .print-grid-2 {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 16px !important;
+    margin-bottom: 20px !important;
+  }
+
+  .print-grid-3 {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr 1fr !important;
+    gap: 16px !important;
+    margin-bottom: 20px !important;
+  }
+
+  .print-grid-4 {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr 1fr 1fr !important;
+    gap: 12px !important;
+    margin-bottom: 20px !important;
+  }
+
+  /* Charts and visualizations */
+  .print-chart-container {
+    height: 200px !important;
+    margin: 16px 0 !important;
+    page-break-inside: avoid;
+  }
+
+  /* Tables and data */
+  .print-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin: 16px 0 !important;
+    page-break-inside: avoid;
+  }
+
+  .print-table th,
+  .print-table td {
+    border: 1px solid #e2e8f0 !important;
+    padding: 8px 12px !important;
+    text-align: left !important;
+    font-size: 11px !important;
+  }
+
+  .print-table th {
+    background: #f8fafc !important;
+    font-weight: 600 !important;
+  }
+
+  /* Badges and status indicators */
+  .print-badge {
+    display: inline-block !important;
+    padding: 4px 8px !important;
+    border-radius: 4px !important;
+    font-size: 10px !important;
+    font-weight: 500 !important;
+    border: 1px solid #e2e8f0 !important;
+  }
+
+  /* Progress bars */
+  .print-progress {
+    height: 8px !important;
+    background: #e2e8f0 !important;
+    border-radius: 4px !important;
+    overflow: hidden !important;
+  }
+
+  .print-progress-fill {
+    height: 100% !important;
+    background: #3b82f6 !important;
+    border-radius: 4px !important;
+  }
+
+  /* Color indicators */
+  .print-color-dot {
+    width: 8px !important;
+    height: 8px !important;
+    border-radius: 50% !important;
+    display: inline-block !important;
+    margin-right: 8px !important;
+  }
+
+  /* Section breaks */
+  .print-section {
+    margin-bottom: 24px !important;
+    page-break-inside: avoid;
+  }
+
+  .print-section-title {
+    font-size: 18px !important;
+    font-weight: bold !important;
+    color: #1e293b !important;
+    margin-bottom: 12px !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    padding-bottom: 8px !important;
+  }
+
+  /* Footer information */
+  .print-footer {
+    margin-top: 32px !important;
+    padding-top: 16px !important;
+    border-top: 1px solid #e2e8f0 !important;
+    font-size: 10px !important;
+    color: #64748b !important;
+    text-align: center !important;
+  }
+
+  /* Page breaks */
+  .page-break-before {
+    page-break-before: always;
+  }
+
+  .page-break-after {
+    page-break-after: always;
+  }
+
+  .page-break-inside-avoid {
+    page-break-inside: avoid;
+  }
+
+  /* Hide scrollbars and overflow */
+  * {
+    overflow: visible !important;
+  }
+
+  /* Ensure all text is black for printing */
+  * {
+    color: #000 !important;
+  }
+
+  /* Specific color overrides for different report types */
+  .wounds-report .print-metric-value { color: #dc2626 !important; }
+  .falls-report .print-metric-value { color: #ea580c !important; }
+  .infections-report .print-metric-value { color: #db2777 !important; }
+  .audit-report .print-metric-value { color: #2563eb !important; }
+
+  /* High contrast colors for better printing */
+  .text-red-600 { color: #dc2626 !important; }
+  .text-green-600 { color: #16a34a !important; }
+  .text-blue-600 { color: #2563eb !important; }
+  .text-yellow-600 { color: #ca8a04 !important; }
+  .text-purple-600 { color: #9333ea !important; }
+  .text-pink-600 { color: #db2777 !important; }
+  .text-orange-600 { color: #ea580c !important; }
+
+  /* Ensure borders are visible */
+  .border { border: 1px solid #e2e8f0 !important; }
+  .border-t { border-top: 1px solid #e2e8f0 !important; }
+  .border-b { border-bottom: 1px solid #e2e8f0 !important; }
+  .border-l { border-left: 1px solid #e2e8f0 !important; }
+  .border-r { border-right: 1px solid #e2e8f0 !important; }
+
+  /* Spacing adjustments */
+  .mb-2 { margin-bottom: 8px !important; }
+  .mb-3 { margin-bottom: 12px !important; }
+  .mb-4 { margin-bottom: 16px !important; }
+  .mt-2 { margin-top: 8px !important; }
+  .mt-3 { margin-top: 12px !important; }
+  .mt-4 { margin-top: 16px !important; }
+
+  /* Flex adjustments */
+  .flex { display: flex !important; }
+  .items-center { align-items: center !important; }
+  .justify-between { justify-content: space-between !important; }
+  .gap-2 { gap: 8px !important; }
+  .gap-3 { gap: 12px !important; }
+  .gap-4 { gap: 16px !important; }
+}
