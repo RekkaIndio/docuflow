@@ -22,10 +22,13 @@ import {
   PieChart,
   Clock,
   Activity,
-  Printer
+  Printer,
+  Download
 } from 'lucide-react';
 import LineChart from '@/components/admin/line-chart';
 import BarChart from '@/components/admin/bar-chart';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 interface WoundsDetailModalProps {
   isOpen: boolean;
@@ -107,24 +110,119 @@ export default function WoundsDetailModal({
       .slice(0, 5);
   }, [workspaces]);
 
-  const handlePrint = () => {
-    // Add print-specific classes to the modal content
+  const handlePrint = async () => {
     const modalContent = document.querySelector('[data-radix-dialog-content]');
-    if (modalContent) {
+    if (!modalContent) return;
+
+    try {
+      // Add print-specific classes for PDF generation
       modalContent.classList.add('print-modal-content', 'wounds-report');
 
-      // Hide dialog overlay and other elements for printing
+      // Hide dialog overlay and other elements for PDF generation
       const overlay = document.querySelector('[data-radix-dialog-overlay]');
       if (overlay) overlay.classList.add('print-hidden');
 
-      // Trigger print
-      window.print();
+      // Create PDF
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
 
-      // Clean up classes after printing
-      setTimeout(() => {
+      // Add header
+      pdf.setFontSize(20);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Incident Reports - Detailed Analysis', 20, 25);
+
+      pdf.setFontSize(12);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text('Comprehensive overview of wound incidents across all workspaces', 20, 35);
+
+      // Add generation info
+      const currentDate = new Date();
+      pdf.setFontSize(10);
+      pdf.text(`Generated: ${currentDate.toLocaleDateString()} at ${currentDate.toLocaleTimeString()}`, 20, 45);
+
+      // Capture the modal content as image
+      const canvas = await html2canvas(modalContent as HTMLElement, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        width: modalContent.scrollWidth,
+        height: modalContent.scrollHeight
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const imgWidth = pdfWidth - 40; // 20mm margin on each side
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      // Add content to PDF (split into multiple pages if needed)
+      let yPosition = 55;
+      const maxHeight = pdfHeight - 20;
+
+      if (imgHeight <= maxHeight) {
+        // Content fits on one page
+        pdf.addImage(imgData, 'PNG', 20, yPosition, imgWidth, imgHeight);
+      } else {
+        // Content spans multiple pages
+        const totalPages = Math.ceil(imgHeight / maxHeight);
+        for (let page = 0; page < totalPages; page++) {
+          if (page > 0) {
+            pdf.addPage();
+            yPosition = 20;
+          }
+
+          const sourceY = page * maxHeight * (canvas.height / imgHeight);
+          const sourceHeight = Math.min(maxHeight * (canvas.height / imgHeight), canvas.height - sourceY);
+
+          const pageCanvas = document.createElement('canvas');
+          const pageCtx = pageCanvas.getContext('2d');
+          pageCanvas.width = canvas.width;
+          pageCanvas.height = sourceHeight;
+
+          if (pageCtx) {
+            pageCtx.drawImage(
+              canvas,
+              0, sourceY, canvas.width, sourceHeight,
+              0, 0, canvas.width, sourceHeight
+            );
+
+            const pageImgData = pageCanvas.toDataURL('image/png');
+            const pageImgHeight = (sourceHeight * imgWidth) / canvas.width;
+
+            pdf.addImage(pageImgData, 'PNG', 20, yPosition, imgWidth, pageImgHeight);
+          }
+        }
+      }
+
+      // Add footer to last page
+      const pageCount = pdf.internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        pdf.setPage(i);
+        pdf.setFontSize(8);
+        pdf.setFont('helvetica', 'italic');
+        pdf.text(`DocuFlow Admin Dashboard - Incident Reports Analysis | Page ${i} of ${pageCount}`, 20, pdfHeight - 10);
+      }
+
+      // Save the PDF
+      const fileName = `wounds-incident-report-${currentDate.toISOString().split('T')[0]}.pdf`;
+      pdf.save(fileName);
+
+      // Clean up classes
+      modalContent.classList.remove('print-modal-content', 'wounds-report');
+      if (overlay) overlay.classList.remove('print-hidden');
+
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      // Fallback to browser print if PDF generation fails
+      const modalContent = document.querySelector('[data-radix-dialog-content]');
+      if (modalContent) {
+        modalContent.classList.add('print-modal-content', 'wounds-report');
+        const overlay = document.querySelector('[data-radix-dialog-overlay]');
+        if (overlay) overlay.classList.add('print-hidden');
+        window.print();
         modalContent.classList.remove('print-modal-content', 'wounds-report');
         if (overlay) overlay.classList.remove('print-hidden');
-      }, 1000);
+      }
     }
   };
 
