@@ -321,7 +321,7 @@ export default function PolicyEditor({ policyContent, policyMeta, onSave, onGene
                 
                 <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
                   <p className="text-blue-800 text-sm">
-                    This policy contains <strong>{placeholderFields.length}</strong> customizable field{placeholderFields.length !== 1 ? 's' : ''}. 
+                    This policy contains <strong>{placeholderFields.length}</strong> customisable field{placeholderFields.length !== 1 ? 's' : ''}. 
                     Fields marked with <span className="text-red-500">*</span> are required.
                   </p>
                 </div>

@@ -104,16 +104,23 @@ export default function AuditsPage() {
     onClick: () => void;
   }) => {
     const isCompleted = monthlyCompletionStatus[auditType];
-    
+    // If there are fewer than 5 days remaining until reset and the audit is not completed,
+    // mark it as urgent (red highlight)
+    const isUrgent = !isCompleted && typeof daysRemaining === 'number' && daysRemaining < 5;
+
     return (
-      <div className={`w-full p-4 border rounded-lg shadow-sm text-left flex items-start gap-4 ${
+      <div className={`w-full p-4 border shadow-sm text-left flex items-start gap-4 ${
         isCompleted 
-          ? 'bg-green-50 border-green-200' 
-          : 'bg-white hover:shadow-md cursor-pointer'
+          ? 'bg-green-50 border-green-200 rounded-lg' 
+          : isUrgent
+            ? 'bg-white border-red-300 rounded-xl hover:shadow-md cursor-pointer'
+            : 'bg-white rounded-lg hover:shadow-md cursor-pointer'
       }`}>
-        <div className={`w-2.5 h-12 rounded ${isCompleted ? 'bg-green-600' : colorClass}`} />
+        {/* Left accent: slightly larger when urgent */}
+        <div className={`w-3 h-14 rounded ${isCompleted ? 'bg-green-600' : isUrgent ? 'bg-red-600' : colorClass}`} />
         <div className="flex-1">
-          <div className={`text-lg font-medium ${isCompleted ? 'text-green-700' : ''}`}>
+          {/* Keep title/description in neutral/black text even when urgent; use accent color only on left bar and border */}
+          <div className={`text-lg font-medium ${isCompleted ? 'text-green-700' : 'text-black'}`}>
             {title}
           </div>
           <div className={`text-sm mt-1 ${isCompleted ? 'text-green-600' : 'text-muted-foreground'}`}>
@@ -123,7 +130,7 @@ export default function AuditsPage() {
         <div className="flex flex-col gap-2">
           {isCompleted ? (
             <div className="flex items-center gap-2">
-              <span className="text-sm bg-green-100 text-green-800 px-2 py-1 rounded-full">
+              <span className="text-sm bg-green-700 text-white px-2 py-1 rounded-full">
                 ✓ Completed
               </span>
               <button
@@ -139,7 +146,7 @@ export default function AuditsPage() {
           ) : (
             <button
               onClick={onClick}
-              className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+              className={`px-3 py-1 text-sm rounded ${isUrgent ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
             >
               Start
             </button>

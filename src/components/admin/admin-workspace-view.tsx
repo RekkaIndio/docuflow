@@ -4,7 +4,7 @@ import type { Workspace, Folder, Document } from '@/lib/types';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import AdminDependencyTable from '@/components/admin/admin-dependency-table';
+import AdminDependencyTable from './admin-dependency-table';
 import { TeamsView } from '@/components/dashboard/teams-view';
 import { StatsView } from '@/components/dashboard/stats-view';
 import { collection, query as fsQuery, orderBy, limit, onSnapshot, where } from 'firebase/firestore';

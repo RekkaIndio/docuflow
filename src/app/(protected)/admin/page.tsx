@@ -199,6 +199,15 @@ export default function AdminPage() {
     workspacesWithData: 0
   });
 
+  // Aggregate falls data state
+  const [aggregateFallsData, setAggregateFallsData] = React.useState<{
+    totalFalls: number;
+    workspacesWithData: number;
+  }>({
+    totalFalls: 0,
+    workspacesWithData: 0
+  });
+
   // Aggregate staffing data state
   const [aggregateStaffingData, setAggregateStaffingData] = React.useState<{
     totalDay: number;
@@ -245,7 +254,7 @@ export default function AdminPage() {
 
     const auditTypes = [
       'care-plan', 'health-safety', 'maintenance', 'restrictive-practice',
-      'fire-safety', 'infection-control', 'mealtime', 'night-visit', 'staff-file', 'kitchen'
+      'fire-safety', 'infection-control', 'mealtime', 'night-visit', 'staff-file', 'kitchen', 'falls'
     ];
 
     try {
@@ -577,12 +586,82 @@ export default function AdminPage() {
     }
   };
 
+  // Function to calculate aggregate falls data across all workspaces
+  const calculateAggregateFallsData = async () => {
+    if (!workspaces || workspaces.length === 0) {
+      setAggregateFallsData({
+        totalFalls: 0,
+        workspacesWithData: 0
+      });
+      return;
+    }
+
+    let totalFalls = 0;
+    let workspacesWithData = 0;
+
+    try {
+      // Fetch falls data from daily-checkins for each workspace
+      const fallsPromises = workspaces.map(async (workspace: any) => {
+        try {
+          // Get daily-checkins from the last 30 days
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+          
+          const colRef = collection(db, `workspaces/${workspace.id}/daily-checkins`);
+          const q = query(colRef, where('createdAt', '>=', thirtyDaysAgo));
+          const snaps = await getDocs(q);
+          
+          let workspaceFalls = 0;
+
+          if (!snaps.empty) {
+            snaps.forEach(snap => {
+              const d: any = snap.data();
+              // Falls data might be stored as falls count or falls.total
+              const falls = Number(d.falls || d.fallsCount || 0);
+              workspaceFalls += falls;
+            });
+
+            if (workspaceFalls > 0) {
+              workspacesWithData += 1;
+            }
+          }
+
+          return {
+            falls: workspaceFalls
+          };
+        } catch (error) {
+          console.warn(`Failed to fetch falls data for workspace ${workspace.id}:`, error);
+          return { falls: 0 };
+        }
+      });
+
+      const results = await Promise.all(fallsPromises);
+      
+      results.forEach(result => {
+        totalFalls += result.falls;
+      });
+
+      setAggregateFallsData({
+        totalFalls,
+        workspacesWithData
+      });
+
+    } catch (error) {
+      console.error('Failed to calculate aggregate falls data:', error);
+      setAggregateFallsData({
+        totalFalls: 0,
+        workspacesWithData: 0
+      });
+    }
+  };
+
   // Effect to calculate aggregate audit scores when workspaces change
   React.useEffect(() => {
     if (workspaces.length > 0) {
       calculateAggregateAuditScores();
       calculateAggregateWoundsData();
       calculateAggregateStaffingData();
+      calculateAggregateFallsData();
     }
   }, [workspaces, staffingTimeframe]);
 
@@ -1167,7 +1246,7 @@ export default function AdminPage() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                         <Card>
                           <CardHeader className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
@@ -1309,6 +1388,56 @@ export default function AdminPage() {
                                   {isMounted && (
                                     <div className="text-xs text-muted-foreground mt-1">
                                       Complete audits in workspaces to see aggregate scores
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardHeader className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <AlertTriangle className="w-4 h-4 text-orange-500" />
+                              <span>Falls Prevention</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button 
+                                className="text-xs text-muted-foreground flex items-center gap-1" 
+                                onClick={() => calculateAggregateFallsData()}
+                                title="Refresh falls data"
+                              >
+                                <TrendingUp className="w-4 h-4" /> Refresh
+                              </button>
+                            </div>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-3">
+                              {isMounted && aggregateFallsData.totalFalls > 0 ? (
+                                <>
+                                  <div className="flex items-center justify-between border-b pb-2">
+                                    <span className="text-sm font-medium">Total Falls</span>
+                                    <span className="text-lg font-bold">{aggregateFallsData.totalFalls}</span>
+                                  </div>
+                                  <div className="border-t pt-2">
+                                    <div className="flex justify-between text-xs text-muted-foreground">
+                                      <span>Workspaces with data:</span>
+                                      <span>{aggregateFallsData.workspacesWithData}/{workspaces.length}</span>
+                                    </div>
+                                  </div>
+                                  <div className="mt-2">
+                                    <div className="text-xs text-muted-foreground">Last 30 days</div>
+                                  </div>
+                                </>
+                              ) : (
+                                <div className="text-center py-4">
+                                  <div className="text-sm text-muted-foreground">
+                                    {!isMounted ? 'Loading...' : 'No falls data available'}
+                                  </div>
+                                  {isMounted && (
+                                    <div className="text-xs text-muted-foreground mt-1">
+                                      Record falls incidents in workspaces to see aggregate data
                                     </div>
                                   )}
                                 </div>

@@ -27,6 +27,10 @@ export default function DailyPage({ workspaceId }: { workspaceId?: string }) {
   const [cqcNotifications, setCqcNotifications] = useState<number | "">("");
   const [safeguards, setSafeguards] = useState<number | "">("");
 
+  // Pre-admission / Showarounds
+  const [preAdmissionsCount, setPreAdmissionsCount] = useState<number | "">("");
+  const [showarounds, setShowarounds] = useState<string>("");
+
   const [woundsDetail, setWoundsDetail] = useState<string>("");
   // wound type counts (numeric) rather than booleans
   const [woundTypes, setWoundTypes] = useState<{ [k: string]: number }>({ pressure: 0, break: 0, fracture: 0, bruise: 0, skintear: 0 });
@@ -197,6 +201,7 @@ export default function DailyPage({ workspaceId }: { workspaceId?: string }) {
       staffingDay: Number(staffDay) || 0,
       staffingNight: Number(staffNight) || 0,
       falls: fallsPayload,
+      preAdmissions: { count: Number(preAdmissionsCount) || 0, scheduled: (showarounds || '').split(',').map(s=>s.trim()).filter(Boolean) },
       cqcNotifications,
       safeguards,
       wounds: { detail: woundsDetail, types: woundTypes },
@@ -290,7 +295,7 @@ export default function DailyPage({ workspaceId }: { workspaceId?: string }) {
       <div className="grid grid-cols-1 gap-6">
         <div className="space-y-4">
           {/* Occupancy, Staffing and Safeguards on a single responsive row */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card>
               <CardHeader className="pb-3 bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-md">
                 <CardTitle>Occupancy</CardTitle>
@@ -341,6 +346,25 @@ export default function DailyPage({ workspaceId }: { workspaceId?: string }) {
                   <div>
                     <Label className="mb-1">Safeguards Raised</Label>
                     <Input type="number" value={safeguards as any} onChange={(e) => setSafeguards(e.target.value === "" ? "" : Number(e.target.value))} />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3 bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-md">
+                <CardTitle>Pre-admission & Showarounds</CardTitle>
+                <CardDescription>Record pre-admission bookings and scheduled showarounds.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div>
+                    <Label className="mb-1">Pre-admissions (count)</Label>
+                    <Input type="number" value={preAdmissionsCount as any} onChange={(e) => setPreAdmissionsCount(e.target.value === "" ? "" : Number(e.target.value))} />
+                  </div>
+                  <div>
+                    <Label className="mb-1">Showarounds (comma separated)</Label>
+                    <Textarea value={showarounds} onChange={(e) => setShowarounds(e.target.value)} placeholder="e.g. John Doe, Jane Smith" />
                   </div>
                 </div>
               </CardContent>

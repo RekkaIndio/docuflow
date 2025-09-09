@@ -2,7 +2,7 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Folder, Users, FileText, FileSpreadsheet, FileIcon, FileX2, Briefcase, Clock, User, TrendingUp, TrendingDown, Minus, Archive, Calendar, BarChart3, Edit3 } from "lucide-react";
+import { Folder, Users, FileText, FileSpreadsheet, FileIcon, FileX2, Briefcase, Clock, User, TrendingUp, TrendingDown, Minus, Archive, Calendar, BarChart3, Edit3, FileCheck, CheckCircle, AlertCircle } from "lucide-react";
 import type { Workspace, Document, Folder as FolderType } from "@/lib/types";
 import { useMemo } from "react";
 import {
@@ -27,7 +27,7 @@ import OccupancyPie from '@/components/admin/occupancy-pie';
 import OverviewCards from './overview-cards';
 // consolidated imports above
 import { Sun, Moon } from "lucide-react";
-import DailyPage from '@/components/dashboard/daily';
+import DailyCheckinModal from './daily-checkin-modal';
 
 // Component to display trend indicators
 const TrendIndicator = ({ auditType, trends }: { auditType: string, trends: Record<string, { direction: 'up' | 'down' | 'stable', change: number }> }) => {
@@ -155,14 +155,25 @@ const RecentFilesTable = ({ documents, onSelect }: { documents: Document[], onSe
     </Card>
 );
 
-const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradientColors, trends, dailyEntry }: { 
+const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradientColors, trends, dailyEntry, onDailyEntryUpdate, carePlanScore, hsScore, maintenanceScore, restrictiveScore, fireScore, infectionScore, mealtimeScore, nightScore, staffFileScore, kitchenScore }: { 
     documents: Document[], 
     onSelect: (doc: Document) => void, 
     workspaceId?: string,
     overallStats: any,
     getGradientColors: (score: number | null) => { start: string; end: string },
     trends: Record<string, { direction: 'up' | 'down' | 'stable', change: number }>
-    dailyEntry?: any
+    dailyEntry?: any,
+    onDailyEntryUpdate?: (entry: any) => void,
+    carePlanScore: number | null,
+    hsScore: number | null,
+    maintenanceScore: number | null,
+    restrictiveScore: number | null,
+    fireScore: number | null,
+    infectionScore: number | null,
+    mealtimeScore: number | null,
+    nightScore: number | null,
+    staffFileScore: number | null,
+    kitchenScore: number | null
 }) => {
     const actionableItems = useMemo(() => {
         const today = new Date();
@@ -211,13 +222,13 @@ const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradi
                     </CardContent>
                 </Card>
                 
-                {/* Occupancy card: enter occupied beds, total beds shown in title */}
+                {/* Occupancy Card */}
                 <OccupancyCard workspaceId={workspaceId} dailyEntry={dailyEntry} />
-
+                
                 {/* Staffing Card */}
                 <StaffingCard workspaceId={workspaceId} dailyEntry={dailyEntry} />
-            
-                {/* Overall Score Card - replacing Recent Activity */}
+                
+                {/* Overall Score Card */}
                 <Card className="hover:shadow-lg transition-shadow border border-blue-200 bg-white/80 backdrop-blur-md rounded-xl">
                     <CardHeader className="pb-2 border-b border-blue-100 bg-gradient-to-r from-blue-50/60 to-transparent rounded-t-xl">
                         <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -258,6 +269,98 @@ const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradi
                         </div>
                     </CardContent>
                 </Card>
+            </div>
+            
+            {/* Daily Check-in Section */}
+            <div className="mt-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
+                    <Card className="hover:shadow-lg transition-shadow border border-blue-200 bg-white/80 backdrop-blur-md rounded-xl">
+                        <CardHeader className="pb-2 border-b border-blue-100 bg-gradient-to-r from-blue-50/60 to-transparent rounded-t-xl">
+                            <CardTitle className="text-sm font-medium flex items-center gap-2">
+                                <Calendar className="h-4 w-4 text-blue-500" />
+                                Daily Check-in
+                            </CardTitle>
+                            <CardDescription className="text-xs text-muted-foreground">Record occupancy, staffing, and other daily metrics</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3 pt-3">
+                            <div className="text-sm text-muted-foreground">
+                                {dailyEntry ? 'Update today\'s check-in' : 'Complete your daily check-in'}
+                            </div>
+                            <DailyCheckinModal 
+                                workspaceId={workspaceId || ''} 
+                                onEntryUpdate={onDailyEntryUpdate}
+                                trigger={
+                                    <Button className="w-full">
+                                        <Calendar className="h-4 w-4 mr-2" />
+                                        {dailyEntry ? 'Update Check-in' : 'Start Check-in'}
+                                    </Button>
+                                }
+                            />
+                        </CardContent>
+                    </Card>
+                    
+                    {/* Audits Card */}
+                    <Card className="hover:shadow-lg transition-shadow border border-blue-200 bg-white/80 backdrop-blur-md rounded-xl">
+                        <CardHeader className="pb-2 border-b border-blue-100 bg-gradient-to-r from-blue-50/60 to-transparent rounded-t-xl">
+                            <CardTitle className="text-sm font-medium flex items-center gap-2">
+                                <FileCheck className="h-4 w-4 text-blue-500" />
+                                Audits
+                            </CardTitle>
+                            <CardDescription className="text-xs text-muted-foreground">Audits requiring completion</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3 pt-3">
+                            <div className="space-y-2">
+                                {(() => {
+                                    const auditTypes = [
+                                        { key: 'care-plan', name: 'Care Plan', score: carePlanScore },
+                                        { key: 'health-safety', name: 'Health & Safety', score: hsScore },
+                                        { key: 'maintenance', name: 'Maintenance', score: maintenanceScore },
+                                        { key: 'restrictive-practice', name: 'Restrictive Practice', score: restrictiveScore },
+                                        { key: 'fire-safety', name: 'Fire Safety', score: fireScore },
+                                        { key: 'infection-control', name: 'Infection Control', score: infectionScore },
+                                        { key: 'mealtime', name: 'Mealtime', score: mealtimeScore },
+                                        { key: 'night-visit', name: 'Night Visit', score: nightScore },
+                                        { key: 'staff-file', name: 'Staff File', score: staffFileScore },
+                                        { key: 'kitchen', name: 'Kitchen', score: kitchenScore }
+                                    ];
+
+                                    const incompleteAudits = auditTypes.filter(audit => audit.score === null || audit.score === 0);
+
+                                    if (incompleteAudits.length === 0) {
+                                        return (
+                                            <div className="text-center py-4">
+                                                <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-2" />
+                                                <p className="text-sm text-muted-foreground">All audits completed!</p>
+                                            </div>
+                                        );
+                                    }
+
+                                    return (
+                                        <div className="space-y-2 max-h-32 overflow-y-auto">
+                                            {incompleteAudits.slice(0, 4).map(audit => (
+                                                <div key={audit.key} className="flex items-center justify-between p-2 bg-red-50 rounded border border-red-200">
+                                                    <div className="flex items-center gap-2 min-w-0">
+                                                        <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
+                                                        <span className="text-sm truncate">{audit.name}</span>
+                                                    </div>
+                                                    <Badge variant="destructive" className="text-xs">Pending</Badge>
+                                                </div>
+                                            ))}
+                                            {incompleteAudits.length > 4 && (
+                                                <p className="text-xs text-muted-foreground text-center pt-1">
+                                                    +{incompleteAudits.length - 4} more audits pending
+                                                </p>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+                            <div className="text-xs text-muted-foreground text-center pt-2 border-t border-blue-100">
+                                {overallStats.auditsCompleted} of {overallStats.totalAudits} audits completed
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
             </div>
         </div>
     );
@@ -1003,12 +1106,9 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
         return { start: '#f87171', end: '#dc2626' }; // Red gradient for low scores
     };
 
-    // Function to get color based on score percentage
-    const getScoreColor = (score: number | null) => {
-        if (score === null) return '#cbd5e1'; // Gray for N/A
-        if (score >= 80) return '#10b981'; // Green for high scores (80%+)
-        if (score >= 20) return '#f59e0b'; // Amber for medium scores (20-79%)
-        return '#ef4444'; // Red for low scores (0-19%)
+    // Function to handle daily entry updates from the modal
+    const handleDailyEntryUpdate = (entry: any) => {
+        setDailyEntry(entry);
     };
 
     return (
@@ -1077,11 +1177,19 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
                    getGradientColors={getGradientColors}
                    trends={trends}
                    dailyEntry={dailyEntry}
+                   onDailyEntryUpdate={handleDailyEntryUpdate}
+                   carePlanScore={carePlanScore}
+                   hsScore={hsScore}
+                   maintenanceScore={maintenanceScore}
+                   restrictiveScore={restrictiveScore}
+                   fireScore={fireScore}
+                   infectionScore={infectionScore}
+                   mealtimeScore={mealtimeScore}
+                   nightScore={nightScore}
+                   staffFileScore={staffFileScore}
+                   kitchenScore={kitchenScore}
                />
-               {/* Daily check-in inserted here (replaces QuickAccess + Recent Activity) */}
-               <div className="w-full">
-                   <DailyPage workspaceId={workspace.id} />
-               </div>
+               {/* Daily check-in is now handled by the modal in QuickActions */}
             </main>
         </div>
     );
