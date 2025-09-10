@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { adminDb } from '@/lib/firebase-admin';
 
 export async function PATCH(req: Request, { params }: any) {
   const { id } = params || {};
@@ -35,11 +36,11 @@ export async function PATCH(req: Request, { params }: any) {
   }
 
   try {
-    const ref = doc(db, 'workspaces', id);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    await updateDoc(ref, allowed);
-    const updatedSnap = await getDoc(ref);
+    const ref = adminDb.collection('workspaces').doc(id);
+    const snap = await ref.get();
+    if (!snap.exists) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    await ref.update(allowed);
+    const updatedSnap = await ref.get();
     return NextResponse.json({ id: updatedSnap.id, ...(updatedSnap.data() || {}) });
   } catch (e) {
     console.error('Failed to update workspace', e);
@@ -51,9 +52,9 @@ export async function GET(req: Request, { params }: any) {
   const { id } = params || {};
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
   try {
-    const ref = doc(db, 'workspaces', id);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    const ref = adminDb.collection('workspaces').doc(id);
+    const snap = await ref.get();
+    if (!snap.exists) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     return NextResponse.json({ id: snap.id, ...(snap.data() || {}) });
   } catch (e) {
     console.error('Failed to get workspace', e);
@@ -66,11 +67,11 @@ export async function DELETE(req: Request, { params }: any) {
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
   
   try {
-    const ref = doc(db, 'workspaces', id);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) return NextResponse.json({ error: 'Workspace not found' }, { status: 404 });
+    const ref = adminDb.collection('workspaces').doc(id);
+    const snap = await ref.get();
+    if (!snap.exists) return NextResponse.json({ error: 'Workspace not found' }, { status: 404 });
     
-    await deleteDoc(ref);
+    await ref.delete();
     return NextResponse.json({ success: true, message: 'Workspace deleted successfully' });
   } catch (e) {
     console.error('Failed to delete workspace', e);

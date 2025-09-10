@@ -37,6 +37,8 @@ import {
   deleteDoc,
   arrayUnion,
   arrayRemove,
+  query,
+  where,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
@@ -80,7 +82,8 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     const fetchTeams = async () => {
       try {
         const teamsCollection = collection(db, "teams");
-        const teamsSnapshot = await getDocs(teamsCollection);
+        const teamsQuery = query(teamsCollection, where("workspaceId", "==", workspace.id));
+        const teamsSnapshot = await getDocs(teamsQuery);
         // map docs to include id from Firestore doc id
         let fetchedTeams = teamsSnapshot.docs.map((d) => {
           const data = d.data() as any;
@@ -185,18 +188,8 @@ export function TeamsView({ workspace }: TeamsViewProps) {
   };
 
   const handleTeamCreated = (newTeam: Team) => {
-    // create team in Firestore and add to UI optimistically
-    const tmpId = newTeam.id ?? `team-${Date.now()}`;
-    const teamToAdd = { ...newTeam, id: tmpId } as Team;
-    setTeams((prevTeams) => [...prevTeams, teamToAdd]);
-    (async () => {
-      try {
-        const teamRef = doc(db, "teams", teamToAdd.id);
-        await setDoc(teamRef, teamToAdd);
-      } catch (error) {
-        console.error("Error creating team in Firestore:", error);
-      }
-    })();
+    // Add to UI optimistically (already saved in NewTeamDialog)
+    setTeams((prevTeams) => [...prevTeams, newTeam]);
   };
 
   const handleAddEmail = (teamId: string, email: string) => {
@@ -245,7 +238,7 @@ export function TeamsView({ workspace }: TeamsViewProps) {
           <h1 className="text-xl font-headline font-semibold">Teams & Permissions</h1>
         </div>
         <div className="flex items-center gap-2">
-          <NewTeamDialog onTeamCreated={handleTeamCreated}>
+          <NewTeamDialog onTeamCreated={handleTeamCreated} workspace={workspace}>
             <Button>
               <Plus className="mr-2 h-4 w-4" />
               Create New Team

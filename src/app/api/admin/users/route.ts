@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { collection, getDocs, query, orderBy, where, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { adminDb } from '@/lib/firebase-admin';
 
 interface ExtendedUser {
   id: string;
@@ -14,16 +15,16 @@ interface ExtendedUser {
 
 export async function GET() {
   try {
-    // Fetch all users
-    const usersQuery = query(collection(db, "users"));
-    const usersSnap = await getDocs(usersQuery);
+    // Fetch all users using admin SDK
+    const usersCollection = adminDb.collection('users');
+    const usersSnap = await usersCollection.get();
     
     const users: ExtendedUser[] = [];
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     
-    usersSnap.forEach(docSnap => {
+    usersSnap.forEach((docSnap: any) => {
       const data = docSnap.data();
       const createdAt = data.createdAt instanceof Timestamp 
         ? data.createdAt.toDate().toISOString() 

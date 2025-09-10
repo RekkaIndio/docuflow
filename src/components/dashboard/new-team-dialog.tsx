@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import type { Team } from "@/lib/types";
+import type { Team, Workspace } from "@/lib/types";
 import { useAuth } from "@/hooks/use-auth";
 import { doc, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase"; // Ensure this is the correct path to your Firebase config
@@ -24,9 +24,10 @@ import { db } from "@/lib/firebase"; // Ensure this is the correct path to your 
 interface NewTeamDialogProps {
     children: React.ReactNode;
     onTeamCreated: (team: Team) => void;
+    workspace: Workspace;
 }
 
-export function NewTeamDialog({ children, onTeamCreated }: NewTeamDialogProps) {
+export function NewTeamDialog({ children, onTeamCreated, workspace }: NewTeamDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [teamName, setTeamName] = useState("");
@@ -53,8 +54,8 @@ export function NewTeamDialog({ children, onTeamCreated }: NewTeamDialogProps) {
         members: [user],
         folderCount: 0,
         accessibleFolderIds: [],
-        emails: emails,
-        workspaceId: user.id ?? '',
+        emails: emails.filter(email => email.trim() !== ""), // Filter out empty emails
+        workspaceId: workspace.id,
       };
 
       // Save the team to Firestore
@@ -68,11 +69,12 @@ export function NewTeamDialog({ children, onTeamCreated }: NewTeamDialogProps) {
       setTeamName("");
       setEmails([]); // Reset emails
       setIsOpen(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Team creation failed:", error);
+      const errorMessage = error?.message || "There was an error creating your team. Please try again.";
       toast({
         title: "Creation Failed",
-        description: "There was an error creating your team. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

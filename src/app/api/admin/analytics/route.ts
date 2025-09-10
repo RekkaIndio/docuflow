@@ -2,13 +2,65 @@ import { NextResponse } from 'next/server';
 import { collection, getDocs, query, orderBy, where, Timestamp } from 'firebase/firestore';
 import { startOfWeek } from 'date-fns';
 import { db } from '@/lib/firebase';
+import { adminDb } from '@/lib/firebase-admin';
 import { getAllWorkspaces, getAllCareHomes } from '@/lib/firestore';
 import { getHomes } from '@/lib/care-homes-store';
 
+async function getAllWorkspacesAdmin(): Promise<any[]> {
+  try {
+    const workspacesCollection = adminDb.collection('workspaces');
+    const snapshot = await workspacesCollection.get();
+    
+    const workspaces = await Promise.all(snapshot.docs.map(async (doc: any) => {
+      const data = doc.data();
+      
+      // Fetch folders for this workspace
+      const foldersCollection = adminDb.collection(`workspaces/${doc.id}/folders`);
+      const foldersSnapshot = await foldersCollection.get();
+      
+      const folders = foldersSnapshot.docs.map((folderDoc: any) => ({
+        id: folderDoc.id,
+        ...folderDoc.data()
+      }));
+      
+      // Fetch documents for this workspace  
+      const documentsCollection = adminDb.collection(`workspaces/${doc.id}/documents`);
+      const documentsSnapshot = await documentsCollection.get();
+      
+      const documents = documentsSnapshot.docs.map((docDoc: any) => ({
+        id: docDoc.id,
+        ...docDoc.data(),
+        createdAt: docDoc.data().createdAt?.toDate?.()?.toISOString() || new Date().toISOString()
+      }));
+      
+      // Structure the folders and documents properly
+      const structuredFolders = folders.map((folder: any) => ({
+        ...folder,
+        type: 'folder',
+        items: documents.filter((doc: any) => doc.folderId === folder.id)
+      }));
+      
+      // Add root documents (documents without a folderId)
+      const rootDocuments = documents.filter((doc: any) => !doc.folderId || doc.folderId === 'root');
+      
+      return {
+        id: doc.id,
+        ...data,
+        folders: [...structuredFolders, ...rootDocuments]
+      };
+    }));
+    
+    return workspaces;
+  } catch (e) {
+    console.error('Failed to load workspaces with admin SDK:', e);
+    throw e;
+  }
+}
+
 export async function GET() {
   try {
-    // Fetch all data
-    const workspaces = await getAllWorkspaces();
+    // Fetch all data using admin SDK
+    const workspaces = await getAllWorkspacesAdmin();
     // Build care-home-like entries from workspaces (these are used in the Care Homes page)
     const mappedFromWorkspaces = workspaces.map(ws => ({
       id: ws.id,
@@ -194,12 +246,12 @@ export async function GET() {
 
     const perWorkspaceWeekly: any[] = [];
 
-    // For each workspace, query its daily-checkins since earliestWeekStart
+    // For each workspace, query its daily-checkins since earliestWeekStart using admin SDK
     for (const ws of workspaces) {
       try {
-        const colRef = collection(db, `workspaces/${ws.id}/daily-checkins`);
-        const q30 = query(colRef, where('createdAt', '>=', Timestamp.fromDate(earliestWeekStart)));
-        const snaps = await getDocs(q30);
+        const colRef = adminDb.collection(`workspaces/${ws.id}/daily-checkins`);
+        const q30 = colRef.where('createdAt', '>=', earliestWeekStart);
+        const snaps = await q30.get();
         // prepare per-workspace weekly map
         const wsWeeklyMap: Record<string, { weekStart: string; checkins: number; falls: number; cqc: number; safeguards: number }> = {};
         // initialize weeks for this workspace
@@ -215,7 +267,7 @@ export async function GET() {
           // per-workspace wound/infection accumulators
           const wsWoundsCounts: Record<string, number> = { pressure: 0, break: 0, fracture: 0, bruise: 0, skintear: 0 };
           const wsInfectionsCounts: Record<string, number> = { uti: 0, chest: 0, wound: 0 };
-          snaps.forEach(snap => {
+          snaps.forEach((snap: any) => {
             const d: any = snap.data();
             const createdAt: Date | null = d.createdAt && d.createdAt.toDate ? d.createdAt.toDate() : (d.createdAt ? new Date(d.createdAt) : null);
             if (!createdAt) return;
