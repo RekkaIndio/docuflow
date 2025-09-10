@@ -107,36 +107,79 @@ export default function PoliciesPage() {
   }, [files]);
 
   return (
-    <div className="p-6">
-      <div className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white p-6 rounded-b-lg shadow-sm mb-6">
-        <div className="w-full mx-auto flex items-start justify-between gap-6">
-          <div className="flex items-start gap-4">
-            <div className="p-3 bg-white/5 rounded-md">
-              {/* simple icon */}
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-white/90">
+    <div>
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-8 rounded-b-2xl shadow-lg relative overflow-hidden">
+        {/* Subtle background pattern */}
+        <div className="absolute inset-0 opacity-5">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full -translate-y-48 translate-x-48"></div>
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-400 rounded-full translate-y-32 -translate-x-32"></div>
+        </div>
+        <div className="w-full mx-auto flex items-start justify-between gap-8 relative z-10">
+          <div className="flex items-start gap-6">
+            <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-white">
                 <rect x="3" y="3" width="18" height="18" rx="4" fill="currentColor" />
               </svg>
             </div>
-            <div>
-              <h2 className="text-2xl font-bold leading-tight">Policies</h2>
-              <div className="mt-1 text-sm text-slate-200">Below are the available policy documents. Click to open or download.</div>
-              {/* stat cards */}
-              <div className="mt-3 flex items-center gap-3">
-                <div className="p-3 bg-white/5 rounded-md">
-                  <div className="text-xs text-slate-200">Total</div>
-                  <div className="text-xl font-semibold">{stats.total}</div>
+            <div className="space-y-2">
+              <h2 className="text-3xl font-bold leading-tight tracking-tight">Policies</h2>
+              <div className="text-slate-200 text-base leading-relaxed">Below are the available policy documents. Click to open or download.</div>
+            </div>
+          </div>
+
+          <div className="hidden xl:flex items-center gap-6">
+            <div className="grid grid-cols-4 gap-4">
+              <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg hover:bg-white/15 transition-all duration-200">
+                <div className="flex items-center gap-4">
+                  <div className="p-2 bg-blue-500/20 rounded-lg">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-blue-300">
+                      <rect x="3" y="3" width="18" height="18" rx="4" fill="currentColor" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-300 font-medium uppercase tracking-wide">Total</div>
+                    <div className="text-2xl font-bold text-white">{stats.total}</div>
+                  </div>
                 </div>
-                <div className="p-3 bg-white/5 rounded-md">
-                  <div className="text-xs text-slate-200">Overdue</div>
-                  <div className="text-xl font-semibold text-red-300">{stats.overdue}</div>
+              </div>
+              <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg hover:bg-white/15 transition-all duration-200">
+                <div className="flex items-center gap-4">
+                  <div className="p-2 bg-red-500/20 rounded-lg">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-red-300">
+                      <path d="M12 2L13.09 8.26L19 9L13.09 9.74L12 16L10.91 9.74L5 9L10.91 8.26L12 2Z" fill="currentColor"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-300 font-medium uppercase tracking-wide">Overdue</div>
+                    <div className="text-2xl font-bold text-white">{stats.overdue}</div>
+                  </div>
                 </div>
-                <div className="p-3 bg-white/5 rounded-md">
-                  <div className="text-xs text-slate-200">Due soon</div>
-                  <div className="text-xl font-semibold text-yellow-300">{stats.dueSoon}</div>
+              </div>
+              <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg hover:bg-white/15 transition-all duration-200">
+                <div className="flex items-center gap-4">
+                  <div className="p-2 bg-yellow-500/20 rounded-lg">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-yellow-300">
+                      <circle cx="12" cy="12" r="10" fill="currentColor"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-300 font-medium uppercase tracking-wide">Due soon</div>
+                    <div className="text-2xl font-bold text-white">{stats.dueSoon}</div>
+                  </div>
                 </div>
-                <div className="p-3 bg-white/5 rounded-md">
-                  <div className="text-xs text-slate-200">Up to date</div>
-                  <div className="text-xl font-semibold text-green-300">{stats.ok}</div>
+              </div>
+              <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg hover:bg-white/15 transition-all duration-200">
+                <div className="flex items-center gap-4">
+                  <div className="p-2 bg-green-500/20 rounded-lg">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-green-300">
+                      <path d="M9 12L11 14L15 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-300 font-medium uppercase tracking-wide">Up to date</div>
+                    <div className="text-2xl font-bold text-white">{stats.ok}</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -144,7 +187,8 @@ export default function PoliciesPage() {
         </div>
       </div>
 
-    <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="p-6">
+        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
       {(() => {
         if (files === null) return <div className="text-sm text-muted-foreground">Loading…</div>;
         if (sortedItems.length === 0) return <div className="text-sm text-muted-foreground">No completed policies available yet. Please contact your administrator.</div>;
@@ -198,6 +242,7 @@ export default function PoliciesPage() {
           );
         });
       })()}
+        </div>
       </div>
     </div>
   );

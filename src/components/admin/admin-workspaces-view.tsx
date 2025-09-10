@@ -204,49 +204,59 @@ export default function AdminWorkspacesView() {
 
   return (
     <div>
-      <div className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white p-6 rounded-b-lg shadow-sm mb-6">
-        <div className="w-full mx-auto flex items-start justify-between gap-6">
+      <div className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 rounded-b-2xl shadow-lg mb-6 relative overflow-hidden">
+        {/* Background pattern */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-0 left-0 w-32 h-32 bg-white rounded-full -translate-x-16 -translate-y-16"></div>
+          <div className="absolute top-16 right-16 w-24 h-24 bg-white rounded-full opacity-50"></div>
+          <div className="absolute bottom-8 left-1/4 w-16 h-16 bg-white rounded-full opacity-30"></div>
+          <div className="absolute bottom-4 right-8 w-20 h-20 bg-white rounded-full opacity-40"></div>
+        </div>
+        
+        <div className="relative z-10 flex items-start justify-between gap-6">
           <div className="flex items-start gap-4">
-            <div className="p-3 bg-white/5 rounded-md">
-              <Users className="w-10 h-10 text-white/90" />
+            <div className="p-3 bg-white/10 backdrop-blur-sm rounded-md border border-white/20">
+              <Users className="w-10 h-10 text-white" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold leading-tight">Workspaces</h2>
-              <div className="mt-1 text-sm text-slate-200">Admin workspaces · {workspaces.length} workspaces · {aggregated.totalFolders} folders · {aggregated.totalDocuments} documents</div>
+              <h2 className="text-3xl font-bold leading-tight">Workspaces</h2>
+              <div className="mt-1 text-sm text-blue-100">Admin workspaces · {workspaces.length} workspaces · {aggregated.totalFolders} folders · {aggregated.totalDocuments} documents</div>
               <div className="mt-3 flex items-center gap-2">
-                <Button size="sm" onClick={() => { /* noop for now */ }}>Refresh</Button>
+                <Button size="sm" onClick={() => { /* noop for now */ }} className="bg-white/10 hover:bg-white/20 text-white border-white/20">
+                  Refresh
+                </Button>
               </div>
             </div>
           </div>
 
           <div className="hidden md:flex items-center gap-4">
             <div className="grid grid-cols-4 gap-3">
-              <div className="p-3 bg-white/5 rounded flex items-center gap-3">
+              <div className="p-3 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
                 <div>
-                  <div className="text-xs text-slate-300">Workspaces</div>
+                  <div className="text-xs text-blue-100">Workspaces</div>
                   <div className="text-lg font-semibold">{workspaces.length}</div>
                 </div>
               </div>
-              <div className="p-3 bg-white/5 rounded flex items-center gap-3">
+              <div className="p-3 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
                 <div>
-                  <div className="text-xs text-slate-300">Folders</div>
+                  <div className="text-xs text-blue-100">Folders</div>
                   <div className="text-lg font-semibold">{aggregated.totalFolders}</div>
                 </div>
               </div>
-              <div className="p-3 bg-white/5 rounded flex items-center gap-3">
+              <div className="p-3 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
                 <div>
-                  <div className="text-xs text-slate-300">Documents</div>
+                  <div className="text-xs text-blue-100">Documents</div>
                   <div className="text-lg font-semibold">{aggregated.totalDocuments}</div>
                 </div>
               </div>
-              <div className="p-4 bg-white/6 rounded-lg flex items-center gap-4 shadow-md">
+              <div className="p-4 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 flex items-center gap-4 shadow-md">
                 <div className="flex items-center justify-center w-16 h-16 bg-white/5 rounded-full">
                   <OccupancyPie percent={Math.round((careOverview.averageOccupancy || 0) * 100)} size={64} strokeWidth={8} />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-xs text-slate-300">Overall Occupancy</div>
+                  <div className="text-xs text-blue-100">Overall Occupancy</div>
                   <div className="text-2xl font-bold leading-tight text-white">{Math.round((careOverview.averageOccupancy || 0) * 100)}%</div>
-                  <div className="text-sm text-slate-200">{careOverview.totalOccupied}/{careOverview.totalBeds} beds</div>
+                  <div className="text-sm text-blue-100">{careOverview.totalOccupied}/{careOverview.totalBeds} beds</div>
                 </div>
               </div>
             </div>

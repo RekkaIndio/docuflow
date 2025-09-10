@@ -475,24 +475,40 @@ export default function AuditsPage() {
   };
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-start mb-6">
-        <div>
-          <h1 className="text-2xl font-semibold">Audits</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Audits are completed monthly. Completed audits will become available again next month.
-          </p>
+    <div>
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-8 rounded-b-2xl shadow-lg relative overflow-hidden">
+        {/* Subtle background pattern */}
+        <div className="absolute inset-0 opacity-5">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full -translate-y-48 translate-x-48"></div>
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-400 rounded-full translate-y-32 -translate-x-32"></div>
         </div>
-        <div className="text-right text-sm">
-          <p className="text-muted-foreground">Current month: {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</p>
-          <p className="text-muted-foreground">Next reset: {resetDate.toLocaleDateString()}</p>
-          <div className="flex justify-end mt-1">
-            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getCountdownColor(daysRemaining).bg} ${getCountdownColor(daysRemaining).text}`}>
-              {daysRemaining} {daysRemaining === 1 ? 'day' : 'days'} remaining
-            </span>
+        <div className="w-full mx-auto flex items-start justify-between gap-8 relative z-10">
+          <div className="flex items-start gap-6">
+            <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-white">
+                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-3xl font-bold leading-tight tracking-tight">Audits</h2>
+              <div className="text-slate-200 text-base leading-relaxed">Complete monthly compliance audits and track performance</div>
+            </div>
+          </div>
+          <div className="text-right text-sm">
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg p-4">
+              <p className="text-slate-200">Current month: {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</p>
+              <p className="text-slate-200">Next reset: {resetDate.toLocaleDateString()}</p>
+              <div className="flex justify-end mt-2">
+                <span className={`px-3 py-1 rounded-full text-sm font-medium ${getCountdownColor(daysRemaining).bg} ${getCountdownColor(daysRemaining).text}`}>
+                  {daysRemaining} {daysRemaining === 1 ? 'day' : 'days'} remaining
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
+
+      <div className="p-6">
       <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <AuditCard
           auditType="accident-incident"
@@ -641,6 +657,7 @@ export default function AuditsPage() {
       {/* Audit scheduling controls - shown below the grid */}
       {/* Audit schedule cards removed as requested */}
       <p className="mt-8 text-muted-foreground">Select an audit type to begin.</p>
+      </div>
     </div>
   );
 }

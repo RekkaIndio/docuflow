@@ -33,7 +33,7 @@ interface AdminSidebarProps {
   workspaces: Workspace[];
   activeWorkspace: Workspace;
   onWorkspaceChange: (workspaceId: string) => void;
-  setView: (view: 'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'stats' | 'care-homes' | 'workspaces' | 'policies') => void;
+  setView: (view: 'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'care-homes' | 'workspaces' | 'policies') => void;
   onGoToFiles: () => void;
 }
 
@@ -124,12 +124,6 @@ export function AdminSidebar({
             <SidebarMenuButton onClick={() => handleNavigation(() => setView('teams'))} className="text-lg h-14">
               <UsersRound className="w-7 h-7 mr-2" />
               <span className="text-lg">Teams</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton onClick={() => handleNavigation(() => setView('stats'))} className="text-lg h-14">
-              <BarChart2 className="w-7 h-7 mr-2" />
-              <span className="text-lg">Stats</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

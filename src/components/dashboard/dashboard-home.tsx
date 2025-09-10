@@ -1408,7 +1408,7 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
     return (
     <div className="flex flex-col h-full min-h-screen bg-gradient-to-br from-gray-50 to-blue-50/30">
             {/* Refined hero header with improved spacing and typography */}
-            <div className="bg-gradient-to-br from-slate-800 via-slate-700 to-slate-800 text-white p-8 rounded-b-2xl shadow-lg relative overflow-hidden">
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-8 rounded-b-2xl shadow-lg relative overflow-hidden">
                 {/* Subtle background pattern */}
                 <div className="absolute inset-0 opacity-5">
                     <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full -translate-y-48 translate-x-48"></div>
