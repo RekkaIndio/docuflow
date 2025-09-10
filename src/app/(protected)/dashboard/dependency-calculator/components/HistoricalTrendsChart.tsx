@@ -20,7 +20,7 @@ export function HistoricalTrendsChart({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 8l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M5 3a2 2 0 00-2 2v1c0 8.284 6.716 15 15 15h1a2 2 0 002-2V6a2 2 0 00-2-2H5z" />
             </svg>
           </div>
-          <div className="text-sm font-semibold text-teal-900">NDPS Trends Over Time</div>
+          <div className="text-sm font-semibold text-teal-900">Trends Over Time</div>
         </div>
       </div>
       <div className="p-4">

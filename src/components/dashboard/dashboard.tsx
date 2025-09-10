@@ -156,7 +156,7 @@ export function Dashboard() {
   // evidenceSelected removed; evidence folders are part of the main folders tree
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'dependency-calculator' | 'daily' | 'notifications' | 'audits' | 'policies' | 'stats'>('home');
+  const [view, setView] = useState<'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'dependency-calculator' | 'daily' | 'notifications' | 'audits' | 'policies' | 'stats' | 'action-plans'>('home');
   const [unreadNotifications, setUnreadNotifications] = useState<number>(0);
   const [breadcrumb, setBreadcrumb] = useState<(Folder | { id: 'root', name: string, type: 'folder' })[]>([]);
   const [lastChatDetail, setLastChatDetail] = useState<{ text?: string; documents?: any[] } | undefined>(undefined);
@@ -834,6 +834,15 @@ export function Dashboard() {
                   {(() => {
                     const PoliciesPage = require("@/app/policies/page").default;
                     return <PoliciesPage />;
+                  })()}
+                </React.Suspense>
+            );
+        case 'action-plans':
+            return (
+                <React.Suspense fallback={<div>Loading...</div>}>
+                  {(() => {
+                    const ActionPlansPage = require("@/app/(protected)/action-plans/page").default;
+                    return <ActionPlansPage />;
                   })()}
                 </React.Suspense>
             );

@@ -25,6 +25,7 @@ import {
   Tag,
   Accessibility,
   BarChart3,
+  ClipboardList,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Logo } from "@/components/icons/logo";
@@ -57,7 +58,7 @@ interface AppSidebarProps {
   workspaces: Workspace[];
   activeWorkspace: Workspace;
   onWorkspaceChange: (workspaceId: string) => void;
-  setView: React.Dispatch<React.SetStateAction<'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'dependency-calculator' | 'daily' | 'notifications' | 'audits' | 'policies' | 'stats'>>;
+  setView: React.Dispatch<React.SetStateAction<'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'dependency-calculator' | 'daily' | 'notifications' | 'audits' | 'policies' | 'stats' | 'action-plans'>>;
   onGoToFiles: () => void;
   onCreateWorkspace: (name: string) => void;
 }
@@ -179,28 +180,9 @@ export function AppSidebar({
         </SidebarMenuButton>
       </SidebarMenuItem>
       <SidebarMenuItem>
-         <SidebarMenuButton onClick={() => handleNavigation(onGoToFiles)} className="text-lg h-14">
-          <FolderIcon className="w-7 h-7 mr-2" />
-          <span className="text-lg">Folders</span>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-      <SidebarMenuItem>
-        <SidebarMenuButton onClick={() => handleNavigation(() => setView('renewals'))} className="text-lg h-14">
-          <FileText className="w-7 h-7 mr-2" />
-          <span className="text-lg">Renewals</span>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-       <SidebarMenuItem>
-         <SidebarMenuButton onClick={() => handleNavigation(() => setView('documents'))} className="text-lg h-14">
-          <FileText className="w-7 h-7 mr-2" />
-          <span className="text-lg">Documents</span>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-  {/* Outstanding Evidence removed - folders moved into main folders list */}
-             <SidebarMenuItem>
-        <SidebarMenuButton onClick={() => handleNavigation(() => setView('teams'))} className="text-lg h-14">
+         <SidebarMenuButton onClick={() => handleNavigation(() => setView('dependency-calculator'))} className="text-lg h-14">
           <UsersRound className="w-7 h-7 mr-2" />
-          <span className="text-lg">Teams</span>
+          <span className="text-lg">Dependency Calculator</span>
         </SidebarMenuButton>
       </SidebarMenuItem>
             <SidebarMenuItem>
@@ -210,9 +192,9 @@ export function AppSidebar({
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton onClick={() => handleNavigation(() => setView('stats'))} className="text-lg h-14">
-                <BarChart3 className="w-7 h-7 mr-2" />
-                <span className="text-lg">Stats</span>
+              <SidebarMenuButton onClick={() => handleNavigation(() => setView('action-plans'))} className="text-lg h-14">
+                <ClipboardList className="w-7 h-7 mr-2" />
+                <span className="text-lg">Action Plans</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
@@ -221,13 +203,24 @@ export function AppSidebar({
                 <span className="text-lg">Policies</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
-      {/* Settings & Accessibility moved to footer */}
       <SidebarMenuItem>
-         <SidebarMenuButton onClick={() => handleNavigation(() => setView('dependency-calculator'))} className="text-lg h-14">
-          <UsersRound className="w-7 h-7 mr-2" />
-          <span className="text-lg">Dependency Calculator</span>
+         <SidebarMenuButton onClick={() => handleNavigation(onGoToFiles)} className="text-lg h-14">
+          <FolderIcon className="w-7 h-7 mr-2" />
+          <span className="text-lg">Folders</span>
         </SidebarMenuButton>
       </SidebarMenuItem>
+             <SidebarMenuItem>
+        <SidebarMenuButton onClick={() => handleNavigation(() => setView('teams'))} className="text-lg h-14">
+          <UsersRound className="w-7 h-7 mr-2" />
+          <span className="text-lg">Teams</span>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={() => handleNavigation(() => setView('stats'))} className="text-lg h-14">
+                <BarChart3 className="w-7 h-7 mr-2" />
+                <span className="text-lg">Stats</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter>

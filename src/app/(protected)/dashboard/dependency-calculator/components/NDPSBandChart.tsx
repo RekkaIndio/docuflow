@@ -23,7 +23,7 @@ export function NDPSBandChart({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
             </svg>
           </div>
-          <div className="text-sm font-semibold text-indigo-900">NDPS Band Distribution</div>
+          <div className="text-sm font-semibold text-indigo-900">Band Distribution</div>
         </div>
       </div>
       <div className="p-4">

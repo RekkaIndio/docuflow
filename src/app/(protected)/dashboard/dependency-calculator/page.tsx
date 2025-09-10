@@ -1,9 +1,11 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { useWorkspace } from "@/context/workspace";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import jsPDF from 'jspdf';
 
 // Import extracted components
 import {
@@ -11,10 +13,8 @@ import {
   NDPSBandChart,
   CareTimeBreakdown,
   HistoricalTrendsChart,
-  CommunityOverview,
-  ActionCards,
-  ResidentCards,
   ResidentAssessmentModal,
+  ResidentAssessmentEditModal,
   type Resident,
   type Community,
   type ChartData,
@@ -64,8 +64,401 @@ function getDefaultAssessment(): Omit<Resident, "name" | "room"> {
   };
 }
 
-// Generate historical chart data
-function generateChartData(residents: Resident[], months: number = 6): ChartData[] {
+// Generate PDF Report
+function generatePDFReport(
+  residents: Resident[],
+  communities: Community[],
+  selectedCommunity: string | null,
+  workspace: any,
+  calculateNDPSScore: (resident: Resident) => number,
+  getNDPSBand: (score: number) => { band: number; name: string },
+  calculateResidentCareMinutes: (resident: Resident) => { Day: number; Night: number },
+  calculateNDPSStaffing: (residents: Resident[]) => { Day: number; Night: number },
+  generateChartData: (residents: Resident[], months: number) => ChartData[]
+) {
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  let yPosition = 20;
+
+  // Helper function to add text with word wrapping
+  const addWrappedText = (text: string, x: number, y: number, maxWidth: number, fontSize: number = 10) => {
+    doc.setFontSize(fontSize);
+    const lines = doc.splitTextToSize(text, maxWidth);
+    doc.text(lines, x, y);
+    return y + (lines.length * fontSize * 0.4);
+  };
+
+  // Helper function to check if we need a new page
+  const checkNewPage = (requiredSpace: number) => {
+    if (yPosition + requiredSpace > pageHeight - 20) {
+      doc.addPage();
+      yPosition = 20;
+    }
+  };
+
+  // Helper function to draw a simple bar chart
+  const drawBarChart = (data: { label: string; value: number; color: string }[], x: number, y: number, width: number, height: number) => {
+    const maxValue = Math.max(...data.map(d => d.value));
+    const barWidth = width / data.length;
+    const scale = height / maxValue;
+
+    // Draw bars
+    data.forEach((item, index) => {
+      const barHeight = item.value * scale;
+      const barX = x + (index * barWidth) + 2;
+      const barY = y + height - barHeight;
+
+      doc.setFillColor(item.color);
+      doc.rect(barX, barY, barWidth - 4, barHeight, 'F');
+
+      // Label
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.text(item.label, barX + (barWidth - 4) / 2, y + height + 8, { align: 'center' });
+
+      // Value
+      doc.text(item.value.toString(), barX + (barWidth - 4) / 2, barY - 2, { align: 'center' });
+    });
+  };
+
+  // Header with Logo and Company Info
+  doc.setFillColor(41, 128, 185); // Blue background
+  doc.rect(0, 0, pageWidth, 40, 'F');
+
+  // Simple logo placeholder (you can replace with actual logo)
+  doc.setFillColor(255, 255, 255);
+  doc.roundedRect(15, 10, 25, 20, 3, 3, 'F');
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(41, 128, 185);
+  doc.text('DF', 22, 22);
+
+  // Company header
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(255, 255, 255);
+  doc.text('DocuFlow', 50, 20);
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Professional Care Documentation Platform', 50, 30);
+
+  yPosition = 50;
+
+  // Workspace/Home Name
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Workspace:', 20, yPosition);
+  doc.setFont('helvetica', 'normal');
+  doc.text(workspace?.name || 'Default Workspace', 70, yPosition);
+  yPosition += 10;
+
+  // Report Title
+  doc.setFontSize(20);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Dependency Calculator Report', pageWidth / 2, yPosition, { align: 'center' });
+  yPosition += 15;
+
+  // Date and Community
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'normal');
+  const reportDate = new Date().toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  });
+  doc.text(`Generated: ${reportDate}`, pageWidth / 2, yPosition, { align: 'center' });
+  yPosition += 10;
+
+  if (selectedCommunity) {
+    const communityName = communities.find(c => c.id === selectedCommunity)?.name;
+    doc.text(`Community: ${communityName}`, pageWidth / 2, yPosition, { align: 'center' });
+    yPosition += 15;
+  } else {
+    doc.text('All Communities', pageWidth / 2, yPosition, { align: 'center' });
+    yPosition += 15;
+  }
+
+  // Executive Summary
+  checkNewPage(80);
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Executive Summary', 20, yPosition);
+  yPosition += 15;
+
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'normal');
+  const totalResidents = residents.length;
+  const filteredResidents = selectedCommunity ? residents.filter(r => r.communityId === selectedCommunity) : residents;
+  const avgNDPSScore = filteredResidents.length > 0
+    ? filteredResidents.reduce((sum, r) => sum + calculateNDPSScore(r), 0) / filteredResidents.length
+    : 0;
+
+  const staffing = calculateNDPSStaffing(filteredResidents);
+
+  // Summary metrics in a nice layout
+  const summaryMetrics = [
+    { label: 'Total Residents:', value: filteredResidents.length.toString() },
+    { label: 'Average NDPS Score:', value: avgNDPSScore.toFixed(1) },
+    { label: 'Recommended Day Staff:', value: staffing.Day.toString() },
+    { label: 'Recommended Night Staff:', value: staffing.Night.toString() },
+  ];
+
+  summaryMetrics.forEach((metric, index) => {
+    const colX = index % 2 === 0 ? 20 : pageWidth / 2;
+    const colY = yPosition + Math.floor(index / 2) * 8;
+    doc.text(`${metric.label} ${metric.value}`, colX, colY);
+  });
+
+  yPosition += 25;
+
+  //Band Distribution Chart
+  checkNewPage(80);
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Band Distribution', 20, yPosition);
+  yPosition += 10;
+
+  // Calculate band distribution
+  const bandCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  filteredResidents.forEach(resident => {
+    const score = calculateNDPSScore(resident);
+    const band = getNDPSBand(score).band;
+    bandCounts[band as keyof typeof bandCounts]++;
+  });
+
+  const bandData = [
+    { label: 'Band 1', value: bandCounts[1], color: '#10B981' },
+    { label: 'Band 2', value: bandCounts[2], color: '#3B82F6' },
+    { label: 'Band 3', value: bandCounts[3], color: '#F59E0B' },
+    { label: 'Band 4', value: bandCounts[4], color: '#F97316' },
+    { label: 'Band 5', value: bandCounts[5], color: '#EF4444' },
+  ];
+
+  drawBarChart(bandData, 20, yPosition, pageWidth - 40, 60);
+  yPosition += 80;
+
+  // Community Breakdown
+  if (communities.length > 0) {
+    checkNewPage(60);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Community Breakdown', 20, yPosition);
+    yPosition += 10;
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+
+    communities.forEach(community => {
+      const communityResidents = residents.filter(r => r.communityId === community.id);
+      if (communityResidents.length > 0) {
+        checkNewPage(15);
+        doc.text(`${community.name}: ${communityResidents.length} residents`, 20, yPosition);
+        yPosition += 6;
+
+        // Show NDPS distribution for this community
+        const communityBands = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+        communityResidents.forEach(resident => {
+          const score = calculateNDPSScore(resident);
+          const band = getNDPSBand(score).band;
+          communityBands[band as keyof typeof communityBands]++;
+        });
+
+        const bandSummary = Object.entries(communityBands)
+          .filter(([_, count]) => count > 0)
+          .map(([band, count]) => `Band ${band}: ${count}`)
+          .join(', ');
+
+        doc.setFontSize(8);
+        doc.text(`NDPS Distribution: ${bandSummary}`, 30, yPosition);
+        yPosition += 6;
+        doc.setFontSize(10);
+      }
+    });
+    yPosition += 10;
+  }
+
+  // Care Time Analysis
+  checkNewPage(60);
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Care Time Analysis', 20, yPosition);
+  yPosition += 10;
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+
+  const totalDayMinutes = filteredResidents.reduce((s, r) => s + calculateResidentCareMinutes(r).Day, 0);
+  const totalNightMinutes = filteredResidents.reduce((s, r) => s + calculateResidentCareMinutes(r).Night, 0);
+  const totalDayHours = Math.round((totalDayMinutes / 60) * 100) / 100;
+  const totalNightHours = Math.round((totalNightMinutes / 60) * 100) / 100;
+
+  doc.text(`Total Day Care Time: ${totalDayHours} hours`, 20, yPosition);
+  yPosition += 6;
+  doc.text(`Total Night Care Time: ${totalNightHours} hours`, 20, yPosition);
+  yPosition += 6;
+  doc.text(`Average Day Care per Resident: ${(totalDayHours / filteredResidents.length).toFixed(1)} hours`, 20, yPosition);
+  yPosition += 6;
+  doc.text(`Average Night Care per Resident: ${(totalNightHours / filteredResidents.length).toFixed(1)} hours`, 20, yPosition);
+  yPosition += 15;
+
+  // Resident Details Table
+  checkNewPage(100);
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Resident Details', 20, yPosition);
+  yPosition += 10;
+
+  // Table headers
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  const headers = ['Name', 'Room', 'NDPS Score', 'Band', 'Day Care (h)', 'Night Care (h)'];
+  const colWidths = [35, 20, 25, 30, 30, 30];
+  let xPos = 20;
+
+  headers.forEach((header, index) => {
+    doc.text(header, xPos, yPosition);
+    xPos += colWidths[index];
+  });
+
+  yPosition += 8;
+
+  // Table rows
+  doc.setFont('helvetica', 'normal');
+  filteredResidents.forEach(resident => {
+    checkNewPage(12);
+    xPos = 20;
+
+    const ndpsScore = calculateNDPSScore(resident);
+    const ndpsBand = getNDPSBand(ndpsScore);
+    const careTime = calculateResidentCareMinutes(resident);
+
+    const rowData = [
+      resident.name || 'Unnamed',
+      resident.room || '-',
+      ndpsScore.toString(),
+      `Band ${ndpsBand.band}`,
+      (careTime.Day / 60).toFixed(1),
+      (careTime.Night / 60).toFixed(1)
+    ];
+
+    rowData.forEach((data, index) => {
+      // Truncate long names if necessary
+      const displayText = data.length > 15 ? data.substring(0, 12) + '...' : data;
+      doc.text(displayText, xPos, yPosition);
+      xPos += colWidths[index];
+    });
+
+    yPosition += 6;
+  });
+
+  yPosition += 10;
+
+  // Historical Trends (last 6 months)
+  checkNewPage(80);
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Historical Trends (Last 6 Months)', 20, yPosition);
+  yPosition += 10;
+
+  const historicalData = generateChartData(filteredResidents, 6);
+  if (historicalData.length > 0) {
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+
+    // Simple trend table
+    const trendHeaders = ['Month', 'Avg NDPS', 'Care Hours', 'Staff Required'];
+    xPos = 20;
+
+    trendHeaders.forEach((header, index) => {
+      doc.text(header, xPos, yPosition);
+      xPos += 35;
+    });
+
+    yPosition += 8;
+
+    historicalData.slice(-6).forEach(data => {
+      checkNewPage(12);
+      xPos = 20;
+      const rowData = [
+        data.date,
+        data.ndpsScore.toFixed(1),
+        data.careHours.toFixed(1),
+        data.staffRequired.toString()
+      ];
+
+      rowData.forEach((data, index) => {
+        doc.text(data, xPos, yPosition);
+        xPos += 35;
+      });
+
+      yPosition += 6;
+    });
+  }
+
+  // Methodology Section
+  checkNewPage(60);
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(0, 0, 0);
+  doc.text('Assessment Methodology', 20, yPosition);
+  yPosition += 10;
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  const methodologyText = 'This report uses the National Dependency Projection System (NDPS) methodology, which provides an evidence-based approach to assessing resident dependency levels and calculating required staffing ratios. The NDPS system categorizes residents into five dependency bands based on their care needs and activities of daily living.';
+  const methodologyLines = doc.splitTextToSize(methodologyText, pageWidth - 40);
+  doc.text(methodologyLines, 20, yPosition);
+  yPosition += methodologyLines.length * 5 + 10;
+
+  // Recommendations Section
+  checkNewPage(60);
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Staffing Recommendations', 20, yPosition);
+  yPosition += 10;
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  const totalCareHours = filteredResidents.reduce((total, resident) => {
+    const care = calculateResidentCareMinutes(resident);
+    return total + (care.Day + care.Night) / 60;
+  }, 0);
+  const recommendedStaffing = calculateNDPSStaffing(filteredResidents);
+
+  const recommendationsText = `Based on the current resident dependency profile, the following staffing recommendations are suggested:
+
+• Total Required Care Hours: ${totalCareHours.toFixed(1)} hours per week
+• Recommended Day Staff: ${recommendedStaffing.Day} carers (12-hour shifts)
+• Recommended Night Staff: ${recommendedStaffing.Night} carers (12-hour shifts)
+• Resident-to-Staff Ratio: ${Math.round(filteredResidents.length / (recommendedStaffing.Day + recommendedStaffing.Night))}:1
+
+These recommendations should be reviewed in conjunction with local policies and regulatory requirements. The NDPS methodology provides evidence-based staffing calculations that ensure appropriate care levels for all dependency bands.`;
+  const recommendationLines = doc.splitTextToSize(recommendationsText, pageWidth - 40);
+  doc.text(recommendationLines, 20, yPosition);
+  yPosition += recommendationLines.length * 5 + 10;
+
+  // Footer with generation info
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(128, 128, 128);
+  doc.text(`Generated by DocuFlow - ${workspace?.name || 'Default Workspace'}`, 20, pageHeight - 15);
+  doc.text(`Report Date: ${reportDate}`, 20, pageHeight - 10);
+  doc.text(`Total Residents: ${filteredResidents.length}`, pageWidth - 60, pageHeight - 15);
+  doc.text(`NDPS Methodology v2.0`, pageWidth - 60, pageHeight - 10);
+
+  // Save the PDF
+  const fileName = selectedCommunity
+    ? `dependency-report-${communities.find(c => c.id === selectedCommunity)?.name}-${new Date().toISOString().split('T')[0]}.pdf`
+    : `dependency-report-all-communities-${new Date().toISOString().split('T')[0]}.pdf`;
+
+  doc.save(fileName);
+}
+
+// Generate chart data for historical trends
+function generateChartData(residents: Resident[], months: number): ChartData[] {
   const data: ChartData[] = [];
   const now = new Date();
 
@@ -190,19 +583,19 @@ function getNDPSBand(score: number): { band: number; name: string } {
 
 // NDPS staffing ratios for 12-hour shifts (carers per resident)
 const NDPS_STAFFING_RATIOS_DAY = {
-  1: 1 / 10, // 1 carer per 10 residents
-  2: 1 / 6,  // 1 carer per 6 residents
-  3: 1 / 4,  // 1 carer per 4 residents
-  4: 1 / 3,  // 1 carer per 3 residents
-  5: 1 / 2,  // 1 carer per 2 residents
+  1: 1 / 8,  // 1 carer per 8 residents (higher staffing during day)
+  2: 1 / 5,  // 1 carer per 5 residents
+  3: 1 / 3,  // 1 carer per 3 residents
+  4: 1 / 2,  // 1 carer per 2 residents
+  5: 1 / 1.5, // 1 carer per 1.5 residents (very high dependency)
 };
 
 const NDPS_STAFFING_RATIOS_NIGHT = {
-  1: 1 / 15, // Night ratios are typically lower
-  2: 1 / 8,
-  3: 1 / 5,
-  4: 1 / 4,
-  5: 1 / 3,
+  1: 1 / 15, // 1 carer per 15 residents (lower staffing at night)
+  2: 1 / 10, // 1 carer per 10 residents
+  3: 1 / 6,  // 1 carer per 6 residents
+  4: 1 / 4,  // 1 carer per 4 residents
+  5: 1 / 2.5, // 1 carer per 2.5 residents
 };
 
 // Calculate NDPS-based staffing for a list of residents
@@ -290,12 +683,14 @@ function timeAgo(ts?: number) {
 export default function DependencyCalculatorPage() {
   const [residents, setResidents] = useState<Resident[]>([]);
   const { user, loading: authLoading } = useAuth();
+  const workspace = useWorkspace();
   const [communities, setCommunities] = useState<Community[]>([]);
   const [selectedCommunity, setSelectedCommunity] = useState<string | null>(null);
     const [modalOpen, setModalOpen] = useState(false);
     const [editingIndex, setEditingIndex] = useState<number | null>(null);
     const [step, setStep] = useState(0);
-  const [communityOpen, setCommunityOpen] = useState<Record<string, boolean>>({});
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingResident, setEditingResident] = useState<Resident | null>(null);
     const [form, setForm] = useState<Resident>({
       name: "",
       room: "",
@@ -316,76 +711,10 @@ export default function DependencyCalculatorPage() {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Month-by-month snapshots
-  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-  });
-  const [snapshots, setSnapshots] = useState<Record<string, { residents: Resident[]; communities: Community[]; staffActual: any; savedAt: number }>>({});
-
   // Load snapshots from localStorage on mount
   React.useEffect(() => {
-    try {
-      const raw = localStorage.getItem('dependency_snapshots_v1');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === 'object') setSnapshots(parsed);
-      }
-    } catch (e) {
-      // ignore
-    }
+    // Snapshot functionality removed - data is now automatically saved
   }, []);
-
-  async function saveSnapshot(month: string) {
-    if (!month) return;
-    const exists = Boolean(snapshots[month]);
-    if (exists && !confirm(`A snapshot for ${month} already exists. Overwrite?`)) return;
-    const payload = { residents, communities, staffActual, savedAt: Date.now() };
-    const next = { ...snapshots, [month]: payload };
-    try {
-      localStorage.setItem('dependency_snapshots_v1', JSON.stringify(next));
-      setSnapshots(next);
-    } catch (e) {
-      console.warn('Failed to save snapshot locally', e);
-    }
-
-    // also persist to Firestore for authenticated users
-    if (user) {
-      try {
-        const ref = doc(db, 'users', user.id, 'dependency_calculator_snapshots', month);
-        await setDoc(ref, { ...payload, schemaVersion: 1, updatedAt: serverTimestamp() }, { merge: true });
-      } catch (err) {
-        console.warn('Failed to save snapshot to Firestore', err);
-      }
-    }
-  }
-
-  function loadSnapshot(month: string) {
-    if (!month) return;
-    const s = snapshots[month];
-    if (!s) {
-      alert('No snapshot found for ' + month);
-      return;
-    }
-    // Removed confirmation pop-up for loading snapshots
-    setResidents(s.residents || []);
-    setCommunities(s.communities || []);
-    setStaffActual(s.staffActual || { Day: { nurse: 0, ctm: 0, senior: 0, carer: 0 }, Night: { nurse: 0, ctm: 0, senior: 0, carer: 0 } });
-  }
-
-  function deleteSnapshot(month: string) {
-    if (!month) return;
-    if (!confirm(`Delete snapshot for ${month}? This cannot be undone.`)) return;
-    const next = { ...snapshots };
-    delete next[month];
-    try {
-      localStorage.setItem('dependency_snapshots_v1', JSON.stringify(next));
-      setSnapshots(next);
-    } catch (e) {
-      console.warn('Failed to delete snapshot locally', e);
-    }
-    // Note: we don't delete from Firestore automatically to avoid accidental data loss.
-  }
 
     function openAddModal() {
   setForm({ name: "", room: "", ...getDefaultAssessment(), communityId: selectedCommunity ?? null });
@@ -394,12 +723,15 @@ export default function DependencyCalculatorPage() {
       setModalOpen(true);
     }
 
-    function openEditModal(index: number) {
-      const r = residents[index];
-  setForm({ ...r, communityId: r.communityId ?? null });
-      setEditingIndex(index);
-      setStep(0);
-      setModalOpen(true);
+    function openEditAssessmentModal(resident: Resident) {
+      setEditingResident(resident);
+      setEditModalOpen(true);
+    }
+
+    function handleSaveAssessment(updatedResident: Resident) {
+      setResidents(prev => prev.map(r => r.id === updatedResident.id ? updatedResident : r));
+      setEditModalOpen(false);
+      setEditingResident(null);
     }
 
       function deleteResidentById(id?: string | null) {
@@ -427,7 +759,25 @@ export default function DependencyCalculatorPage() {
 
     function attemptNext() {
       if (!isStepValid(step)) {
-        if (step === 0) setStepError("Please enter a Name and Room before continuing.");
+        if (step === 0) {
+          // Check for specific validation errors
+          if (form.name.trim() === "" || form.room.trim() === "") {
+            setStepError("Please enter a Name and Room before continuing.");
+          } else {
+            // Check for duplicate room
+            const roomExists = residents.some((resident, index) => {
+              if (editingIndex !== null && index === editingIndex) {
+                return false;
+              }
+              return resident.room.trim().toLowerCase() === form.room.trim().toLowerCase();
+            });
+            if (roomExists) {
+              setStepError(`Room "${form.room}" is already assigned to another resident. Please choose a different room number.`);
+            } else {
+              setStepError("Please enter a Name and Room before continuing.");
+            }
+          }
+        }
         else if (step > 0 && step <= FIELDS.length) setStepError(`Please select ${FIELDS[step - 1].label}.`);
         else setStepError("Please select a community or choose None.");
         return;
@@ -438,7 +788,23 @@ export default function DependencyCalculatorPage() {
 
     async function attemptSave() {
       if (!isAllValid()) {
-        setStepError("Please complete all steps before saving.");
+        // Check for specific validation errors
+        if (form.name.trim() === "" || form.room.trim() === "") {
+          setStepError("Please complete all required fields before saving.");
+        } else {
+          // Check for duplicate room
+          const roomExists = residents.some((resident, index) => {
+            if (editingIndex !== null && index === editingIndex) {
+              return false;
+            }
+            return resident.room.trim().toLowerCase() === form.room.trim().toLowerCase();
+          });
+          if (roomExists) {
+            setStepError(`Room "${form.room}" is already assigned to another resident. Please choose a different room number.`);
+          } else {
+            setStepError("Please complete all steps before saving.");
+          }
+        }
         return;
       }
       setStepError(null);
@@ -454,7 +820,25 @@ export default function DependencyCalculatorPage() {
     // Validation: ensure each step is completed before allowing Next
     function isStepValid(s: number) {
       if (s === 0) {
-        return form.name.trim() !== "" && form.room.trim() !== "";
+        // Check basic validation
+        if (form.name.trim() === "" || form.room.trim() === "") {
+          return false;
+        }
+        
+        // Check for duplicate room numbers
+        const roomExists = residents.some((resident, index) => {
+          // If editing, exclude the current resident from the check
+          if (editingIndex !== null && index === editingIndex) {
+            return false;
+          }
+          return resident.room.trim().toLowerCase() === form.room.trim().toLowerCase();
+        });
+        
+        if (roomExists) {
+          return false;
+        }
+        
+        return true;
       }
       if (s > 0 && s <= FIELDS.length) {
         const key = FIELDS[s - 1].key as keyof Resident;
@@ -467,6 +851,17 @@ export default function DependencyCalculatorPage() {
 
     function isAllValid() {
       if (form.name.trim() === "" || form.room.trim() === "") return false;
+      
+      // Check for duplicate room numbers
+      const roomExists = residents.some((resident, index) => {
+        if (editingIndex !== null && index === editingIndex) {
+          return false;
+        }
+        return resident.room.trim().toLowerCase() === form.room.trim().toLowerCase();
+      });
+      
+      if (roomExists) return false;
+      
       for (const f of FIELDS) {
         const val = form[f.key as keyof Resident] as DependencyLevel | undefined;
         if (!(val === "None" || val === "Low" || val === "Medium" || val === "High")) return false;
@@ -537,8 +932,188 @@ export default function DependencyCalculatorPage() {
   React.useEffect(() => {
     let cancelled = false;
     async function load() {
-      // If user is signed in, prefer Firestore
-      if (user) {
+      console.log('🔄 Starting data load process...');
+      console.log('👤 User authenticated:', !!user);
+      console.log('🏢 Workspace available:', !!workspace);
+      console.log('🆔 Workspace ID:', workspace?.id);
+      console.log('⏳ Auth loading:', authLoading);
+
+      // If user is signed in and workspace is available, prefer Firestore
+      if (user && workspace) {
+        console.log('🔥 Loading from Firebase for workspace:', workspace.id);
+        try {
+          const ref = doc(db, "workspaces", workspace.id, "dependency_calculator", "default");
+          const snap = await getDoc(ref);
+          console.log('📄 Firebase document exists:', snap.exists());
+
+          if (snap.exists()) {
+            const data = snap.data();
+            console.log('📊 Firebase data:', {
+              residentsCount: data.residents?.length || 0,
+              communitiesCount: data.communities?.length || 0,
+              hasStaffActual: !!data.staffActual
+            });
+
+            if (Array.isArray(data.residents)) {
+              const normalized: Resident[] = data.residents.map((p: any) => ({
+                name: typeof p.name === "string" ? p.name : "",
+                room: typeof p.room === "string" ? p.room : "",
+                ...getDefaultAssessment(),
+                ...p,
+              }));
+              if (!cancelled) {
+                console.log('✅ Setting residents from Firebase:', normalized.length);
+                setResidents(normalized);
+                localStorage.setItem("dependency_residents_v1", JSON.stringify(normalized));
+              }
+            }
+            if (Array.isArray(data.communities)) {
+              const normalizedComm: Community[] = data.communities.map((c: any) => ({
+                id: c.id || genId(),
+                name: c.name || "",
+                residentIds: Array.isArray(c.residentIds) ? c.residentIds : [],
+              }));
+              if (!cancelled) {
+                console.log('✅ Setting communities from Firebase:', normalizedComm.length);
+                setCommunities(normalizedComm);
+              }
+            }
+          } else {
+            console.log('📭 No Firebase document found in workspace, checking for old user data...');
+            
+            // Check for old user-scoped data and migrate if found
+            try {
+              const oldRef = doc(db, "users", user.id, "dependency_calculator", "default");
+              const oldSnap = await getDoc(oldRef);
+              
+              if (oldSnap.exists()) {
+                console.log('🔄 Found old user data, migrating to workspace...');
+                const oldData = oldSnap.data();
+                
+                // Migrate to new workspace-scoped path
+                const migrationData = {
+                  ...oldData,
+                  migratedAt: serverTimestamp(),
+                  migratedFrom: `users/${user.id}/dependency_calculator/default`,
+                  schemaVersion: 2
+                };
+                
+                await setDoc(ref, migrationData, { merge: true });
+                console.log('✅ Successfully migrated old data to workspace');
+                
+                // Set the migrated data
+                if (Array.isArray(oldData.residents) && !cancelled) {
+                  const normalized: Resident[] = oldData.residents.map((p: any) => ({
+                    name: typeof p.name === "string" ? p.name : "",
+                    room: typeof p.room === "string" ? p.room : "",
+                    ...getDefaultAssessment(),
+                    ...p,
+                  }));
+                  setResidents(normalized);
+                  localStorage.setItem("dependency_residents_v1", JSON.stringify(normalized));
+                }
+                
+                if (Array.isArray(oldData.communities) && !cancelled) {
+                  const normalizedComm: Community[] = oldData.communities.map((c: any) => ({
+                    id: c.id || genId(),
+                    name: c.name || "",
+                    residentIds: Array.isArray(c.residentIds) ? c.residentIds : [],
+                  }));
+                  setCommunities(normalizedComm);
+                }
+                
+                // Don't delete old data immediately - let user verify migration worked
+                console.log('ℹ️ Old data preserved at users/{userId}/dependency_calculator for safety');
+                
+              } else {
+                console.log('📭 No old user data found either, checking localStorage...');
+                // fallback to localStorage if no Firebase data found
+                const raw = localStorage.getItem("dependency_residents_v1");
+                if (raw) {
+                  const parsed = JSON.parse(raw);
+                  if (Array.isArray(parsed) && !cancelled) {
+                    const normalized: Resident[] = parsed.map((p: any) => ({
+                      name: typeof p.name === "string" ? p.name : "",
+                      room: typeof p.room === "string" ? p.room : "",
+                      ...getDefaultAssessment(),
+                      ...p,
+                    }));
+                    setResidents(normalized);
+                  }
+                }
+                const rawComm = localStorage.getItem("dependency_communities_v1");
+                if (rawComm) {
+                  try {
+                    const parsed = JSON.parse(rawComm);
+                    if (Array.isArray(parsed) && !cancelled) setCommunities(parsed);
+                  } catch {}
+                }
+              }
+            } catch (migrationError) {
+              console.warn("❌ Failed during migration attempt:", migrationError);
+              
+              // fallback to localStorage if migration fails
+              const raw = localStorage.getItem("dependency_residents_v1");
+              if (raw) {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed) && !cancelled) {
+                  console.log('📱 Loading from localStorage:', parsed.length, 'residents');
+                  const normalized: Resident[] = parsed.map((p: any) => ({
+                    name: typeof p.name === "string" ? p.name : "",
+                    room: typeof p.room === "string" ? p.room : "",
+                    ...getDefaultAssessment(),
+                    ...p,
+                  }));
+                  setResidents(normalized);
+                }
+              }
+              const rawComm = localStorage.getItem("dependency_communities_v1");
+              if (rawComm) {
+                try {
+                  const parsed = JSON.parse(rawComm);
+                  if (Array.isArray(parsed) && !cancelled) {
+                    console.log('📱 Loading communities from localStorage:', parsed.length);
+                    setCommunities(parsed);
+                  }
+                } catch {}
+              }
+            }
+          }
+        } catch (err) {
+          console.warn("❌ Failed to load residents from Firestore", err);
+          // fallback to localStorage
+          try {
+            const raw = localStorage.getItem("dependency_residents_v1");
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (Array.isArray(parsed) && !cancelled) {
+                console.log('📱 Fallback: Loading from localStorage:', parsed.length, 'residents');
+                const normalized: Resident[] = parsed.map((p: any) => ({
+                  name: typeof p.name === "string" ? p.name : "",
+                  room: typeof p.room === "string" ? p.room : "",
+                  ...getDefaultAssessment(),
+                  ...p,
+                }));
+                setResidents(normalized);
+              }
+            }
+            const rawComm = localStorage.getItem("dependency_communities_v1");
+            if (rawComm) {
+              try {
+                const parsed = JSON.parse(rawComm);
+                if (Array.isArray(parsed) && !cancelled) {
+                  console.log('📱 Fallback: Loading communities from localStorage:', parsed.length);
+                  setCommunities(parsed);
+                }
+              } catch {}
+            }
+          } catch (e) {
+            console.warn("❌ Failed to load residents from localStorage", e);
+          }
+        }
+      } else if (user) {
+        console.log('🏢 No workspace context, trying user-scoped data (legacy)');
+        // Legacy fallback for user-scoped data
         try {
           const ref = doc(db, "users", user.id, "dependency_calculator", "default");
           const snap = await getDoc(ref);
@@ -564,64 +1139,19 @@ export default function DependencyCalculatorPage() {
               }));
               if (!cancelled) setCommunities(normalizedComm);
             }
-          } else {
-            // fallback to localStorage if Firestore doc not present
-            const raw = localStorage.getItem("dependency_residents_v1");
-            if (raw) {
-              const parsed = JSON.parse(raw);
-              if (Array.isArray(parsed) && !cancelled) {
-                const normalized: Resident[] = parsed.map((p: any) => ({
-                  name: typeof p.name === "string" ? p.name : "",
-                  room: typeof p.room === "string" ? p.room : "",
-                  ...getDefaultAssessment(),
-                  ...p,
-                }));
-                setResidents(normalized);
-              }
-            }
-            const rawComm = localStorage.getItem("dependency_communities_v1");
-            if (rawComm) {
-              try {
-                const parsed = JSON.parse(rawComm);
-                if (Array.isArray(parsed) && !cancelled) setCommunities(parsed);
-              } catch {}
-            }
           }
         } catch (err) {
-          console.warn("Failed to load residents from Firestore", err);
-          // fallback to localStorage
-          try {
-            const raw = localStorage.getItem("dependency_residents_v1");
-            if (raw) {
-              const parsed = JSON.parse(raw);
-              if (Array.isArray(parsed) && !cancelled) {
-                const normalized: Resident[] = parsed.map((p: any) => ({
-                  name: typeof p.name === "string" ? p.name : "",
-                  room: typeof p.room === "string" ? p.room : "",
-                  ...getDefaultAssessment(),
-                  ...p,
-                }));
-                setResidents(normalized);
-              }
-            }
-            const rawComm = localStorage.getItem("dependency_communities_v1");
-            if (rawComm) {
-              try {
-                const parsed = JSON.parse(rawComm);
-                if (Array.isArray(parsed) && !cancelled) setCommunities(parsed);
-              } catch {}
-            }
-          } catch (e) {
-            console.warn("Failed to load residents from localStorage", e);
-          }
+          console.warn("❌ Failed to load user-scoped data", err);
         }
       } else {
+        console.log('👤 User not authenticated, loading from localStorage only');
         // not signed in: use localStorage
         try {
           const raw = localStorage.getItem("dependency_residents_v1");
           if (raw) {
             const parsed = JSON.parse(raw);
             if (Array.isArray(parsed) && !cancelled) {
+              console.log('📱 Loading from localStorage (unauthenticated):', parsed.length, 'residents');
               const normalized: Resident[] = parsed.map((p: any) => ({
                 name: typeof p.name === "string" ? p.name : "",
                 room: typeof p.room === "string" ? p.room : "",
@@ -632,16 +1162,22 @@ export default function DependencyCalculatorPage() {
             }
           }
         } catch (e) {
-          console.warn("Failed to load residents from localStorage", e);
+          console.warn("❌ Failed to load residents from localStorage", e);
         }
       }
+
+      console.log('🏁 Data load process completed');
     }
   if (!authLoading) load();
     return () => { cancelled = true; };
-  }, [user?.id, authLoading]);
+  }, [user?.id, workspace?.id, authLoading]);
 
   // Persist: write to localStorage immediately and to Firestore (debounced) when signed in
   React.useEffect(() => {
+    console.log('💾 Persisting data to localStorage and Firestore');
+    console.log('👥 Current residents count:', residents.length);
+    console.log('🏘️ Current communities count:', communities.length);
+
     try {
       localStorage.setItem("dependency_residents_v1", JSON.stringify(residents));
       localStorage.setItem("dependency_communities_v1", JSON.stringify(communities));
@@ -650,23 +1186,77 @@ export default function DependencyCalculatorPage() {
       console.warn("Failed to save residents/communities to localStorage", e);
     }
 
-    if (!user) return; // only save to Firestore for authenticated users
+    if (!user || !workspace) {
+      console.log('👤 No authenticated user or workspace, skipping Firestore save');
+      return;
+    } // only save to Firestore for authenticated users with workspace
 
-    const ref = doc(db, "users", user.id, "dependency_calculator", "default");
+    const ref = doc(db, "workspaces", workspace.id, "dependency_calculator", "default");
     const t = setTimeout(async () => {
       try {
         // include staffActual so the user's main dependency_calculator document stays in sync
         await setDoc(ref, { residents, communities, staffActual, schemaVersion: 1, updatedAt: serverTimestamp() }, { merge: true });
+        console.log('✅ Successfully saved to Firestore');
       } catch (err) {
-        console.warn("Failed to save residents to Firestore", err);
+        console.warn("❌ Failed to save residents to Firestore", err);
       }
     }, 600);
     return () => clearTimeout(t);
-  }, [residents, communities, staffActual, user?.id]);
+  }, [residents, communities, staffActual, user?.id, workspace?.id]);
   // Expandable resident table component. Accepts optional residentsProp to render a filtered set.
-  function ResidentTable({ residentsProp }: { residentsProp?: Resident[] }) {
-    const [expandedId, setExpandedId] = React.useState<string | null>(null);
+  function ResidentTable({
+    residentsProp,
+    communities,
+    selectedCommunity,
+    setSelectedCommunity,
+    setCommunities,
+    genId,
+    openAddModal
+  }: {
+    residentsProp?: Resident[];
+    communities: Community[];
+    selectedCommunity: string | null;
+    setSelectedCommunity: (community: string | null) => void;
+    setCommunities: React.Dispatch<React.SetStateAction<Community[]>>;
+    genId: () => string;
+    openAddModal: () => void;
+  }) {
   const list = (residentsProp ?? residents).slice().sort((a, b) => compareRooms(a.room, b.room));
+  
+  // If no residents to show after filtering, show empty state
+  if (list.length === 0) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+        <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">
+          {selectedCommunity ? 'No Residents in Selected Community' : 'No Residents Found'}
+        </h3>
+        <p className="text-gray-600 mb-4">
+          {selectedCommunity 
+            ? `No residents are currently assigned to ${communities.find(c => c.id === selectedCommunity)?.name}. Try selecting a different community or clear the filter.`
+            : 'Get started by adding your first resident to the dependency calculator.'
+          }
+        </p>
+        {selectedCommunity ? (
+          <button
+            onClick={() => setSelectedCommunity(null)}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors mr-3"
+          >
+            Clear Filter
+          </button>
+        ) : (
+          <button
+            onClick={openAddModal}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Add First Resident
+          </button>
+        )}
+      </div>
+    );
+  }
   // Pooled totals: sum minutes, convert to hours for shifts
   const totalDayMinutes = list.reduce((s, r) => s + calculateResidentCareMinutes(r).Day, 0);
   const totalNightMinutes = list.reduce((s, r) => s + calculateResidentCareMinutes(r).Night, 0);
@@ -686,7 +1276,7 @@ export default function DependencyCalculatorPage() {
 
     return (
       <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-        {/* Table Header */}
+        {/* Table Header with Community Controls */}
         <div className="bg-gradient-to-r from-slate-50 to-gray-50 border-b border-gray-200 px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -697,26 +1287,72 @@ export default function DependencyCalculatorPage() {
               </div>
               <div>
                 <div className="text-lg font-semibold text-gray-800">Resident Assessment Data</div>
-                <div className="text-sm text-gray-600">Showing {list.length} resident{list.length !== 1 ? 's' : ''} • NDPS-based staffing calculations</div>
+                <div className="text-sm text-gray-600">Click any row to edit assessment • {list.length} resident{list.length !== 1 ? 's' : ''} • NDPS-based staffing calculations</div>
               </div>
             </div>
-            {selectedCommunity && (
-              <div className="flex items-center gap-3 bg-blue-50 px-3 py-2 rounded-lg">
-                <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-                <div className="text-sm font-medium text-blue-800">Community: {communities.find(c => c.id === selectedCommunity)?.name}</div>
-                <button
-                  className="text-blue-600 hover:text-blue-800 ml-2"
-                  onClick={() => setSelectedCommunity(null)}
-                  title="Clear community filter"
+            <div className="flex items-center gap-4">
+              {/* Community Controls */}
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <input
+                    id="new-community-table"
+                    placeholder="New community"
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all w-40"
+                  />
+                  <button
+                    className="px-3 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700 transition-colors font-medium shadow-sm"
+                    onClick={() => {
+                      const el = document.getElementById('new-community-table') as HTMLInputElement | null;
+                      if (!el || !el.value.trim()) return;
+                      const c: Community = { id: genId(), name: el.value.trim(), residentIds: [] };
+                      setCommunities(prev => [...prev, c]);
+                      el.value = '';
+                    }}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                  </button>
+                </div>
+
+                <select
+                  id="community-select-table"
+                  value={selectedCommunity || ""}
+                  onChange={(e) => setSelectedCommunity(e.target.value || null)}
+                  className="bg-white text-gray-900 text-sm rounded-lg px-4 py-2 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-[200px]"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+                  <option value="">All Communities</option>
+                  {communities.map((community) => {
+                    const residentCount = residents.filter(r => r.communityId === community.id).length;
+                    return (
+                      <option key={community.id} value={community.id}>
+                        {community.name} ({residentCount} residents)
+                      </option>
+                    );
+                  })}
+                </select>
+                {selectedCommunity && (
+                  <button
+                    onClick={() => setSelectedCommunity(null)}
+                    className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    title="Clear community filter"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
               </div>
-            )}
+
+              {selectedCommunity && (
+                <div className="flex items-center gap-3 bg-blue-50 px-3 py-2 rounded-lg">
+                  <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                  <div className="text-sm font-medium text-blue-800">Community: {communities.find(c => c.id === selectedCommunity)?.name}</div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -725,14 +1361,6 @@ export default function DependencyCalculatorPage() {
           <table className="min-w-full">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="px-6 py-4 text-left">
-                  <div className="flex items-center gap-2">
-                    <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
-                    </svg>
-                    <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Details</span>
-                  </div>
-                </th>
                 <th className="px-6 py-4 text-left">
                   <div className="flex items-center gap-2">
                     <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -778,7 +1406,7 @@ export default function DependencyCalculatorPage() {
                     <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
-                    <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">12h Day Staff</span>
+                    <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">12h Day Carer(s)</span>
                   </div>
                 </th>
                 <th className="px-6 py-4 text-left">
@@ -786,7 +1414,7 @@ export default function DependencyCalculatorPage() {
                     <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
-                    <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">12h Night Staff</span>
+                    <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">12h Night Carer(s)</span>
                   </div>
                 </th>
               </tr>
@@ -796,153 +1424,95 @@ export default function DependencyCalculatorPage() {
                 const careMinutes = calculateResidentCareMinutes(r);
                 const ndpsScore = calculateNDPSScore(r);
                 const ndpsBand = getNDPSBand(ndpsScore);
-                const isOpen = expandedId === r.id;
                 return (
-                  <React.Fragment key={r.id || `${r.name}-${r.room}`}>
-                    <tr className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4">
-                        <button
-                          className="flex items-center justify-center w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                          aria-label={isOpen ? "Collapse details" : "Expand details"}
-                          onClick={() => setExpandedId(isOpen ? null : (r.id ?? null))}
-                        >
-                          <svg className={`w-4 h-4 text-gray-600 transform transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </button>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center">
-                            <span className="text-xs font-semibold text-blue-700">
-                              {(r.name || 'U')[0].toUpperCase()}
-                            </span>
-                          </div>
-                          <div>
-                            <div className="font-medium text-gray-900">{r.name || "Unnamed"}</div>
-                            {r.updatedAt && (
-                              <div className="text-xs text-gray-500">Updated {timeAgo(r.updatedAt)}</div>
-                            )}
-                          </div>
+                  <tr 
+                    key={r.id || `${r.name}-${r.room}`}
+                    className="border-b border-gray-100 hover:bg-blue-50 transition-colors cursor-pointer"
+                    onClick={() => openEditAssessmentModal(r)}
+                  >
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center">
+                          <span className="text-xs font-semibold text-blue-700">
+                            {(r.name || 'U')[0].toUpperCase()}
+                          </span>
                         </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="font-mono text-sm bg-gray-100 px-2 py-1 rounded inline-block">
-                          {r.room || "-"}
+                        <div>
+                          <div className="font-medium text-gray-900">{r.name || "Unnamed"}</div>
+                          {r.updatedAt && (
+                            <div className="text-xs text-gray-500">Updated {timeAgo(r.updatedAt)}</div>
+                          )}
                         </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col gap-1">
-                          <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold ${
-                            ndpsBand.band === 1 ? 'bg-green-100 text-green-800' :
-                            ndpsBand.band === 2 ? 'bg-blue-100 text-blue-800' :
-                            ndpsBand.band === 3 ? 'bg-yellow-100 text-yellow-800' :
-                            ndpsBand.band === 4 ? 'bg-orange-100 text-orange-800' :
-                            'bg-red-100 text-red-800'
-                          }`}>
-                            <div className={`w-2 h-2 rounded-full ${
-                              ndpsBand.band === 1 ? 'bg-green-500' :
-                              ndpsBand.band === 2 ? 'bg-blue-500' :
-                              ndpsBand.band === 3 ? 'bg-yellow-500' :
-                              ndpsBand.band === 4 ? 'bg-orange-500' :
-                              'bg-red-500'
-                            }`}></div>
-                            Band {ndpsBand.band}
-                          </div>
-                          <div className="text-xs text-gray-500">{ndpsBand.name}</div>
-                          <div className="text-xs text-gray-400">Score: {ndpsScore}</div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="font-mono text-sm bg-gray-100 px-2 py-1 rounded inline-block">
+                        {r.room || "-"}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-col gap-1">
+                        <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold ${
+                          ndpsBand.band === 1 ? 'bg-green-100 text-green-800' :
+                          ndpsBand.band === 2 ? 'bg-blue-100 text-blue-800' :
+                          ndpsBand.band === 3 ? 'bg-yellow-100 text-yellow-800' :
+                          ndpsBand.band === 4 ? 'bg-orange-100 text-orange-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          <div className={`w-2 h-2 rounded-full ${
+                            ndpsBand.band === 1 ? 'bg-green-500' :
+                            ndpsBand.band === 2 ? 'bg-blue-500' :
+                            ndpsBand.band === 3 ? 'bg-yellow-500' :
+                            ndpsBand.band === 4 ? 'bg-orange-500' :
+                            'bg-red-500'
+                          }`}></div>
+                          Band {ndpsBand.band}
                         </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="bg-blue-50 px-3 py-2 rounded-lg inline-block">
-                          <div className="font-mono text-sm font-semibold text-blue-800">
-                            {Math.round((careMinutes.Day / 60) * 100) / 100}h
-                          </div>
-                          <div className="text-xs text-blue-600">
-                            12h: {Math.round(ceilToQuarter((careMinutes.Day / 60 / 12)) * 100) / 100}
-                          </div>
+                        <div className="text-xs text-gray-500">{ndpsBand.name}</div>
+                        <div className="text-xs text-gray-400">Score: {ndpsScore}</div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="bg-blue-50 px-3 py-2 rounded-lg inline-block">
+                        <div className="font-mono text-sm font-semibold text-blue-800">
+                          {Math.round((careMinutes.Day / 60) * 100) / 100}h
                         </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="bg-indigo-50 px-3 py-2 rounded-lg inline-block">
-                          <div className="font-mono text-sm font-semibold text-indigo-800">
-                            {Math.round((careMinutes.Night / 60) * 100) / 100}h
-                          </div>
-                          <div className="text-xs text-indigo-600">
-                            12h: {Math.round(ceilToQuarter((careMinutes.Night / 60 / 12)) * 100) / 100}
-                          </div>
+                        <div className="text-xs text-blue-600">
+                          12h: {Math.round(ceilToQuarter((careMinutes.Day / 60 / 12)) * 100) / 100}
                         </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="bg-green-50 px-3 py-2 rounded-lg inline-block">
-                          <div className="font-mono text-sm font-semibold text-green-800">
-                            {ndpsStaffing.Day}
-                          </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="bg-indigo-50 px-3 py-2 rounded-lg inline-block">
+                        <div className="font-mono text-sm font-semibold text-indigo-800">
+                          {Math.round((careMinutes.Night / 60) * 100) / 100}h
                         </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="bg-purple-50 px-3 py-2 rounded-lg inline-block">
-                          <div className="font-mono text-sm font-semibold text-purple-800">
-                            {ndpsStaffing.Night}
-                          </div>
+                        <div className="text-xs text-indigo-600">
+                          12h: {Math.round(ceilToQuarter((careMinutes.Night / 60 / 12)) * 100) / 100}
                         </div>
-                      </td>
-                    </tr>
-                    {isOpen && (
-                      <tr className="bg-gradient-to-r from-blue-50/30 to-indigo-50/30 border-b border-blue-100">
-                        <td colSpan={9} className="px-6 py-6">
-                          <div className="bg-white rounded-lg border border-blue-200 p-6">
-                            <div className="flex items-center gap-2 mb-4">
-                              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                              </svg>
-                              <h3 className="text-lg font-semibold text-gray-800">Detailed Assessment</h3>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                              {FIELDS.map(f => (
-                                <div key={f.key} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                                  <label className="block text-sm font-medium text-gray-700 mb-2">{f.label}</label>
-                                  <select
-                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
-                                    value={(r[f.key as keyof Resident] as DependencyLevel) ?? ""}
-                                    onChange={e => {
-                                      const val = e.target.value as DependencyLevel;
-                                      // update by id
-                                      setResidents(prev => prev.map(pr => pr.id === r.id ? { ...pr, [f.key]: val, id: pr.id || genId(), updatedAt: Date.now(), updatedBy: user?.id ?? null } : pr));
-                                    }}
-                                  >
-                                    <option value="">Select...</option>
-                                    <option value="None">No Needs</option>
-                                    <option value="Low">Low</option>
-                                    <option value="Medium">Medium</option>
-                                    <option value="High">High</option>
-                                  </select>
-                                </div>
-                              ))}
-                            </div>
-                            <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
-                              <div className="text-sm text-gray-600">
-                                Last updated: {r.updatedAt ? timeAgo(r.updatedAt) : 'Never'}
-                                {r.updatedBy && ` by ${r.updatedBy}`}
-                              </div>
-                              <button
-                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                                onClick={() => setExpandedId(null)}
-                              >
-                                Close Details
-                              </button>
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="bg-green-50 px-3 py-2 rounded-lg inline-block">
+                        <div className="font-mono text-sm font-semibold text-green-800">
+                          {ndpsStaffing.Day}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="bg-purple-50 px-3 py-2 rounded-lg inline-block">
+                        <div className="font-mono text-sm font-semibold text-purple-800">
+                          {ndpsStaffing.Night}
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
                 );
               })}
             </tbody>
             <tfoot>
               <tr className="bg-gradient-to-r from-gray-50 to-slate-50 border-t-2 border-gray-200">
-                <td className="px-6 py-4" colSpan={3}>
+                <td className="px-6 py-4" colSpan={2}>
                   <div className="flex items-center gap-2">
                     <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
@@ -1017,7 +1587,7 @@ export default function DependencyCalculatorPage() {
           <div className="absolute top-1/2 left-1/2 w-32 h-32 bg-blue-300 rounded-full -translate-x-1/2 -translate-y-1/2"></div>
         </div>
         <div className="max-w-7xl mx-auto p-8 relative z-10">
-          <div className="flex items-center">
+          <div className="flex items-center justify-between">
             <div className="-ml-40 flex items-center gap-4">
               <div className="p-3 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg">
                 <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1030,7 +1600,7 @@ export default function DependencyCalculatorPage() {
             </div>
             <div className="ml-auto hidden md:flex items-center">
               <div className="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-lg border border-white/30">
-                <div className="text-sm font-medium text-white">NDPS Methodology</div>
+                <div className="text-sm font-medium text-white">Care Overview</div>
                 <div className="text-xs text-blue-100">Evidence-based assessment</div>
               </div>
             </div>
@@ -1046,75 +1616,94 @@ export default function DependencyCalculatorPage() {
           calculateNDPSScore={calculateNDPSScore}
           calculateResidentCareMinutes={calculateResidentCareMinutes}
           calculateNDPSStaffing={calculateNDPSStaffing}
+          openAddModal={openAddModal}
         />
 
-        {/* Chart Visualizations */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-8">
-          <NDPSBandChart
-            residents={residents}
-            calculateNDPSScore={calculateNDPSScore}
-            getNDPSBand={getNDPSBand}
-          />
+        {/* Core Functionality: Communities and Residents Management */}
+        <div className="space-y-6">
+          {/* Residents Table Section */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-800">Resident Management</h2>
+                  <p className="text-gray-600">Manage residents, communities, and dependency assessments</p>
+                </div>
+              </div>
 
-          {/* Care Time Breakdown */}
-          <CareTimeBreakdown
-            residents={residents}
-            calculateResidentCareMinutes={calculateResidentCareMinutes}
-          />
+              {/* PDF Download Button */}
+              <button
+                onClick={() => generatePDFReport(
+                  selectedCommunity ? residents.filter(r => r.communityId === selectedCommunity) : residents,
+                  communities,
+                  selectedCommunity,
+                  workspace,
+                  calculateNDPSScore,
+                  getNDPSBand,
+                  calculateResidentCareMinutes,
+                  calculateNDPSStaffing,
+                  generateChartData
+                )}
+                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg text-sm hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 font-medium shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                title="Generate PDF Report"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Download PDF Report
+              </button>
+            </div>
+          </div>
+
+          {/* Residents Table with integrated community selector */}
+          {selectedCommunity ? (
+            <ResidentTable
+              residentsProp={residents.filter(r => r.communityId === selectedCommunity)}
+              communities={communities}
+              selectedCommunity={selectedCommunity}
+              setSelectedCommunity={setSelectedCommunity}
+              setCommunities={setCommunities}
+              genId={genId}
+              openAddModal={openAddModal}
+            />
+          ) : (
+            <ResidentTable
+              communities={communities}
+              selectedCommunity={selectedCommunity}
+              setSelectedCommunity={setSelectedCommunity}
+              setCommunities={setCommunities}
+              genId={genId}
+              openAddModal={openAddModal}
+            />
+          )}
         </div>
 
-        {/* Historical Trends Chart */}
-        <HistoricalTrendsChart
-          residents={residents}
-          generateChartData={generateChartData}
-        />
-        {/* Community Overview */}
-        <CommunityOverview
-          communities={communities}
-          residents={residents}
-          selectedCommunity={selectedCommunity}
-          setSelectedCommunity={setSelectedCommunity}
-          calculateResidentCareMinutes={calculateResidentCareMinutes}
-          calculateNDPSScore={calculateNDPSScore}
-          setCommunities={setCommunities}
-          setResidents={setResidents}
-        />
+        {/* Analytical Charts - Moved down after core functionality */}
+        <div className="space-y-6">
+          {/* Chart Visualizations */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+            <NDPSBandChart
+              residents={residents}
+              calculateNDPSScore={calculateNDPSScore}
+              getNDPSBand={getNDPSBand}
+            />
 
-        {/* Action Cards */}
-        <ActionCards
-          communities={communities}
-          setCommunities={setCommunities}
-          openAddModal={openAddModal}
-          saveSnapshot={saveSnapshot}
-          loadSnapshot={loadSnapshot}
-          selectedMonth={selectedMonth}
-          setSelectedMonth={setSelectedMonth}
-          genId={genId}
-        />
+            {/* Care Time Breakdown */}
+            <CareTimeBreakdown
+              residents={residents}
+              calculateResidentCareMinutes={calculateResidentCareMinutes}
+            />
+          </div>
 
-        {/* Resident Cards */}
-        <ResidentCards
-          residents={residents}
-          selectedCommunity={selectedCommunity}
-          setSelectedCommunity={setSelectedCommunity}
-          communities={communities}
-          calculateResidentCareMinutes={calculateResidentCareMinutes}
-          calculateNDPSScore={calculateNDPSScore}
-          getNDPSBand={getNDPSBand}
-          openEditModal={openEditModal}
-          deleteResidentById={deleteResidentById}
-          openAddModal={openAddModal}
-          compareRooms={compareRooms}
-        />
-
-        {/* Residents Table (Expandable Rows) */}
-        {residents.length > 0 && (
-          selectedCommunity ? (
-            <ResidentTable residentsProp={residents.filter(r => r.communityId === selectedCommunity)} />
-          ) : (
-            <ResidentTable />
-          )
-        )}
+          {/* Historical Trends Chart */}
+          <HistoricalTrendsChart
+            residents={residents}
+            generateChartData={generateChartData}
+          />
+        </div>
 
         {/* Resident Assessment Modal */}
         <ResidentAssessmentModal
@@ -1135,6 +1724,20 @@ export default function DependencyCalculatorPage() {
           handleChange={handleChange}
           isStepValid={isStepValid}
           isAllValid={isAllValid}
+          residents={residents}
+        />
+
+        {/* Resident Assessment Edit Modal */}
+        <ResidentAssessmentEditModal
+          isOpen={editModalOpen}
+          onClose={() => {
+            setEditModalOpen(false);
+            setEditingResident(null);
+          }}
+          resident={editingResident}
+          communities={communities}
+          onSave={handleSaveAssessment}
+          FIELDS={FIELDS}
         />
 
       </div>

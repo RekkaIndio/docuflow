@@ -9,6 +9,7 @@ interface ResidentCardsProps {
   setSelectedCommunity: (id: string | null) => void;
   openAddModal: () => void;
   openEditModal: (index: number) => void;
+  openEditAssessmentModal: (resident: Resident) => void;
   deleteResidentById: (id: string | undefined) => void;
   calculateResidentCareMinutes: (resident: Resident) => { Day: number; Night: number };
   calculateNDPSScore: (resident: Resident) => number;
@@ -23,6 +24,7 @@ export function ResidentCards({
   setSelectedCommunity,
   openAddModal,
   openEditModal,
+  openEditAssessmentModal,
   deleteResidentById,
   calculateResidentCareMinutes,
   calculateNDPSScore,
@@ -52,7 +54,7 @@ export function ResidentCards({
                 e.dataTransfer.setData('text/residentId', r.id);
               }}
               className={`relative bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-sm border border-gray-200 p-5 cursor-pointer hover:shadow-lg hover:ring-2 ring-blue-400/50 transition-all duration-200 ${inCommunity ? 'ring-2 ring-green-300/70' : ''}`}
-              onClick={() => { if (idx >= 0) openEditModal(idx); }}
+              onClick={() => { if (idx >= 0) openEditAssessmentModal(r); }}
             >
               {/* Header with avatar and actions */}
               <div className="flex items-start justify-between mb-4">
@@ -75,7 +77,7 @@ export function ResidentCards({
                 <div className="flex items-center gap-1">
                   <button
                     className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                    onClick={e => { e.stopPropagation(); if (idx >= 0) openEditModal(idx); }}
+                    onClick={e => { e.stopPropagation(); if (idx >= 0) openEditAssessmentModal(r); }}
                     title="Edit resident"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

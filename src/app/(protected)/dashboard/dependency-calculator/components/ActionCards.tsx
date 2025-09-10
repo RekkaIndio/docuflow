@@ -6,10 +6,6 @@ interface ActionCardsProps {
   openAddModal: () => void;
   communities: Community[];
   setCommunities: React.Dispatch<React.SetStateAction<Community[]>>;
-  selectedMonth: string;
-  setSelectedMonth: (month: string) => void;
-  saveSnapshot: (month: string) => void;
-  loadSnapshot: (month: string) => void;
   genId: () => string;
 }
 
@@ -17,14 +13,10 @@ export function ActionCards({
   openAddModal,
   communities,
   setCommunities,
-  selectedMonth,
-  setSelectedMonth,
-  saveSnapshot,
-  loadSnapshot,
   genId
 }: ActionCardsProps) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-8">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-8">
       {/* Add Resident Card */}
       <div className="group hover:shadow-xl transition-all duration-300 border border-blue-200/60 bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-blue-100/50">
         <div className="pb-3 border-b border-blue-100/80 bg-gradient-to-r from-blue-50/40 to-transparent rounded-t-2xl">
@@ -44,46 +36,6 @@ export function ActionCards({
           >
             <span className="font-semibold text-sm">Create Assessment</span>
             <span className="text-xs text-blue-500/80 mt-1">Add new resident profile</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Quick Actions Card */}
-      <div className="group hover:shadow-xl transition-all duration-300 border border-purple-200/60 bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-purple-100/50">
-        <div className="pb-3 border-b border-purple-100/80 bg-gradient-to-r from-purple-50/40 to-transparent rounded-t-2xl">
-          <div className="flex items-center gap-2 p-4">
-            <div className="w-6 h-6 bg-purple-100 rounded-lg flex items-center justify-center">
-              <svg className="w-3 h-3 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
-            <div className="text-sm font-semibold text-purple-900">Snapshots</div>
-          </div>
-        </div>
-        <div className="p-4 space-y-3">
-          <button
-            className="w-full text-left px-3 py-2 text-sm bg-purple-50/60 hover:bg-purple-100/80 rounded-lg transition-colors font-medium text-purple-800 border border-purple-200/40"
-            onClick={() => {
-              const month = prompt('Enter month (YYYY-MM):', selectedMonth);
-              if (month) {
-                setSelectedMonth(month);
-                saveSnapshot(month);
-              }
-            }}
-          >
-            💾 Save Snapshot
-          </button>
-          <button
-            className="w-full text-left px-3 py-2 text-sm bg-purple-50/60 hover:bg-purple-100/80 rounded-lg transition-colors font-medium text-purple-800 border border-purple-200/40"
-            onClick={() => {
-              const month = prompt('Enter month (YYYY-MM):', selectedMonth);
-              if (month) {
-                setSelectedMonth(month);
-                loadSnapshot(month);
-              }
-            }}
-          >
-            📂 Load Snapshot
           </button>
         </div>
       </div>
