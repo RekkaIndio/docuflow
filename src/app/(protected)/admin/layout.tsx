@@ -59,9 +59,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               // This ensures clicking buttons always results in a router.push call.
               try {
                 switch (view) {
-                  case 'stats':
-                    router.push('/admin/stats');
-                    break;
                   case 'home':
                     router.push('/admin');
                     break;

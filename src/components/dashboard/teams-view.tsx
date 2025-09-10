@@ -22,7 +22,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { mockUser } from "@/lib/data";
-import { ArrowLeft, MoreVertical, Plus, Trash2, Edit, FolderLock } from "lucide-react";
+import { ArrowLeft, MoreVertical, Plus, Trash2, Edit, FolderLock, Users } from "lucide-react";
 import type { Workspace, Team } from "@/lib/types";
 import { ManageFolderAccessDialog } from "./manage-folder-access-dialog";
 import { NewTeamDialog } from "./new-team-dialog";
@@ -239,20 +239,35 @@ export function TeamsView({ workspace }: TeamsViewProps) {
 
   return (
     <div className="flex flex-col h-full bg-muted/20">
-      <header className="bg-background p-4 border-b flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2">
-          {/* Sidebar toggle is provided by the Sidebar rail between sidebar and content */}
-          <h1 className="text-xl font-headline font-semibold">Teams & Permissions</h1>
+      {/* Full-width themed header */}
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-8 rounded-b-2xl shadow-lg relative overflow-hidden">
+        {/* Subtle background pattern */}
+        <div className="absolute inset-0 opacity-5">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full -translate-y-48 translate-x-48"></div>
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-400 rounded-full translate-y-32 -translate-x-32"></div>
         </div>
-        <div className="flex items-center gap-2">
-          <NewTeamDialog onTeamCreated={handleTeamCreated}>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Create New Team
-            </Button>
-          </NewTeamDialog>
+        <div className="w-full mx-auto flex items-start justify-between gap-8 relative z-10">
+          <div className="flex items-start gap-6">
+            <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg">
+              <Users className="w-8 h-8 text-white" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-3xl font-bold leading-tight tracking-tight">Teams & Permissions</h2>
+              <div className="text-slate-200 text-base leading-relaxed">Manage team access and folder permissions across your workspace</div>
+            </div>
+          </div>
+          {/* Action buttons */}
+          <div className="flex items-center gap-3">
+            <NewTeamDialog onTeamCreated={handleTeamCreated}>
+              <Button className="bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur-sm">
+                <Plus className="mr-2 h-4 w-4" />
+                Create New Team
+              </Button>
+            </NewTeamDialog>
+          </div>
         </div>
-      </header>
+      </div>
+
       <main className="flex-1 p-6 overflow-y-auto">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {teams.map((team: Team) => (

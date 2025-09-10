@@ -6,7 +6,7 @@ import { useAdminWorkspaces } from '@/context/admin-workspaces';
 import { Button } from '@/components/ui/button';
 import BedOccupancyInput from '@/components/admin/bed-occupancy-input';
 import OccupancyPie from '@/components/admin/occupancy-pie';
-import { TrendingUp, TrendingDown, Users, Building, BarChart3 } from 'lucide-react';
+import { TrendingUp, TrendingDown, Users, Building, BarChart3, Building2 } from 'lucide-react';
 
 export default function CareHomesPage() {
   const router = useRouter();
@@ -186,14 +186,37 @@ export default function CareHomesPage() {
 
   return (
     <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-extrabold">Care Homes</h1>
-          <p className="text-sm text-muted-foreground">Manage bed counts, occupancy and compliance across workspaces.</p>
+      {/* Full-width themed header */}
+      <div className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 relative overflow-hidden shadow-lg mb-6">
+        {/* Subtle background pattern */}
+        <div className="absolute inset-0 opacity-5">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full -translate-y-48 translate-x-48"></div>
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-400 rounded-full translate-y-32 -translate-x-32"></div>
         </div>
-        <div>
-          <Button onClick={() => router.push('/admin/care-homes/new')}>Add Care Home</Button>
+        <div className="relative z-10 px-6 py-8 md:px-8 md:py-12">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+              {/* Header content */}
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <div className="w-16 h-16 bg-white/10 backdrop-blur-sm rounded-2xl flex items-center justify-center border border-white/20">
+                    <Building2 className="w-8 h-8 text-white" />
+                  </div>
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold text-white mb-2">Care Homes</h1>
+                  <p className="text-blue-100 text-lg">Manage bed counts, occupancy and compliance across workspaces.</p>
+                </div>
+              </div>
+              {/* Action buttons */}
+              <div className="flex items-center gap-3">
+                <Button onClick={() => router.push('/admin/care-homes/new')}>Add Care Home</Button>
+              </div>
+            </div>
+          </div>
         </div>
+        {/* Bottom rounded corner overlay */}
+        <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-muted/20 to-transparent rounded-b-2xl"></div>
       </div>
 
       {loading ? (

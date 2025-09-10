@@ -1185,6 +1185,27 @@ export default function AdminPage() {
                   ) : (
                     // Show workspaces list with Manage Teams button
                     <>
+                      {/* Teams Header */}
+                      <div className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 rounded-b-2xl shadow-lg mb-6 relative overflow-hidden">
+                        {/* Background pattern */}
+                        <div className="absolute inset-0 opacity-10">
+                          <div className="absolute top-0 left-0 w-32 h-32 bg-white rounded-full -translate-x-16 -translate-y-16"></div>
+                          <div className="absolute top-16 right-16 w-24 h-24 bg-white rounded-full opacity-50"></div>
+                          <div className="absolute bottom-8 left-1/4 w-16 h-16 bg-white rounded-full opacity-30"></div>
+                          <div className="absolute bottom-4 right-8 w-20 h-20 bg-white rounded-full opacity-40"></div>
+                        </div>
+                        
+                        <div className="relative z-10 flex items-center gap-4">
+                          <div className="p-3 bg-white/10 backdrop-blur-sm rounded-md border border-white/20">
+                            <Users className="w-8 h-8 text-white" />
+                          </div>
+                          <div>
+                            <h1 className="text-3xl font-extrabold">Teams Management</h1>
+                            <p className="text-blue-100">Manage teams and permissions across workspaces</p>
+                          </div>
+                        </div>
+                      </div>
+
                       {workspaces.length === 0 ? (
                         <div className="rounded border p-6 text-center text-muted-foreground">No workspaces found.</div>
                       ) : (

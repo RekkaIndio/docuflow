@@ -6,10 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import AdminDependencyTable from './admin-dependency-table';
 import { TeamsView } from '@/components/dashboard/teams-view';
-import { StatsView } from '@/components/dashboard/stats-view';
 import { collection, query as fsQuery, orderBy, limit, onSnapshot, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Folder as FolderIcon, FileText, FileSpreadsheet, FileX2, Home, ChevronRight, ArrowLeft, PlusSquare, Users, Tag, Clock, BarChart2, TrendingUp, Activity, Shield, CheckCircle, AlertTriangle, Calendar, Zap } from 'lucide-react';
+import { Folder as FolderIcon, FileText, FileSpreadsheet, FileX2, Home, ChevronRight, ArrowLeft, PlusSquare, Users, Tag, Clock, TrendingUp, Activity, Shield, CheckCircle, AlertTriangle, Calendar, Zap } from 'lucide-react';
 import OccupancyPie from '@/components/admin/occupancy-pie';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -298,7 +297,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                 </div>
               </div>
               <div className="p-3 bg-white/5 rounded-lg flex items-center gap-3 border border-white/10">
-                <BarChart2 className="w-6 h-6 text-emerald-400" />
+                <Tag className="w-6 h-6 text-emerald-400" />
                 <div>
                   <div className="text-xs text-slate-300">Types</div>
                   <div className="text-lg font-semibold">{Object.keys(fileTypeCounts).length}</div>
@@ -397,7 +396,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
         </div>
 
         <Tabs defaultValue="folders" className="w-full">
-          <TabsList className="grid w-[640px] grid-cols-3">
+          <TabsList className="grid w-[480px] grid-cols-2">
             <TabsTrigger value="folders" className="flex items-center gap-2">
               <FolderIcon className="w-4 h-4" />
               Folders
@@ -405,10 +404,6 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
             <TabsTrigger value="teams" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
               Teams
-            </TabsTrigger>
-            <TabsTrigger value="stats" className="flex items-center gap-2">
-              <BarChart2 className="w-4 h-4" />
-              Stats
             </TabsTrigger>
             { /* Dependency Calculator temporarily hidden until backend/frontend integration is fixed.
             <TabsTrigger value="dependency" className="flex items-center gap-2">
@@ -589,290 +584,6 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
           
           <TabsContent value="teams" className="mt-6">
             <TeamsView workspace={workspace} />
-          </TabsContent>
-          
-          <TabsContent value="stats" className="mt-6">
-            <div className="space-y-6">
-              {/* Workspace Overview Cards */}
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold mb-4">Workspace Overview</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                  <Card className="border-l-4 border-l-yellow-500">
-                    <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg flex flex-row items-center justify-between space-y-0 pb-2">
-                      <div className="text-sm font-medium text-white">Total Folders</div>
-                      <FolderIcon className="h-4 w-4 text-slate-200" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{totalFolders}</div>
-                      <p className="text-xs text-muted-foreground">
-                        Organization units
-                      </p>
-                    </CardContent>
-                  </Card>
-                  <Card className="border-l-4 border-l-blue-500">
-                    <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg flex flex-row items-center justify-between space-y-0 pb-2">
-                      <div className="text-sm font-medium text-white">Total Documents</div>
-                      <FileText className="h-4 w-4 text-slate-200" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{totalDocuments}</div>
-                      <p className="text-xs text-muted-foreground">
-                        All files in workspace
-                      </p>
-                    </CardContent>
-                  </Card>
-                  <Card className="border-l-4 border-l-purple-500">
-                    <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg flex flex-row items-center justify-between space-y-0 pb-2">
-                      <div className="text-sm font-medium text-white">File Types</div>
-                      <Tag className="h-4 w-4 text-slate-200" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{Object.keys(fileTypeCounts).length}</div>
-                      <p className="text-xs text-muted-foreground">
-                        Different formats
-                      </p>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* Enhanced Staffing Chart Card */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                  <Card className="md:col-span-2 border-l-4 border-l-blue-500">
-                    <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg">
-                      <div className="flex flex-row items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Users className="h-5 w-5 text-slate-200" />
-                          <div className="text-lg font-medium text-white">Staffing Levels</div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            className="text-white border-white/20 hover:bg-white/10"
-                            onClick={() => {
-                              // Refresh data by re-triggering the effect
-                              setStaffingLoading(true);
-                            }}
-                          >
-                            <TrendingUp className="w-4 h-4 mr-1" />
-                            Refresh
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="flex gap-2 mt-2">
-                        {(['day', 'week', 'month'] as const).map((timeframe) => (
-                          <Button
-                            key={timeframe}
-                            size="sm"
-                            variant={staffingTimeframe === timeframe ? "secondary" : "ghost"}
-                            className={staffingTimeframe === timeframe ? 
-                              "bg-white/20 text-white hover:bg-white/30" : 
-                              "text-white/70 hover:bg-white/10 hover:text-white"}
-                            onClick={() => setStaffingTimeframe(timeframe)}
-                          >
-                            {timeframe.charAt(0).toUpperCase() + timeframe.slice(1)}
-                          </Button>
-                        ))}
-                      </div>
-                    </CardHeader>
-                    <CardContent className="p-6">
-                      {staffingLoading ? (
-                        <div className="h-48 flex items-center justify-center">
-                          <div className="text-muted-foreground">Loading staffing data...</div>
-                        </div>
-                      ) : staffingHistory.length > 0 ? (
-                        <div className="space-y-4">
-                          {/* Current Stats */}
-                          <div className="grid grid-cols-3 gap-4 p-4 bg-slate-50 rounded-lg">
-                            <div className="text-center">
-                              <div className="text-2xl font-bold text-amber-600">{staffingData?.day || 0}</div>
-                              <div className="text-sm text-muted-foreground">Day Staff</div>
-                            </div>
-                            <div className="text-center">
-                              <div className="text-2xl font-bold text-blue-600">{staffingData?.night || 0}</div>
-                              <div className="text-sm text-muted-foreground">Night Staff</div>
-                            </div>
-                            <div className="text-center">
-                              <div className="text-2xl font-bold text-green-600">{staffingData?.total || 0}</div>
-                              <div className="text-sm text-muted-foreground">Total Staff</div>
-                            </div>
-                          </div>
-
-                          {/* Simple Bar Chart */}
-                          <div className="h-32">
-                            <div className="text-sm font-medium mb-2">Staffing Trend ({staffingTimeframe})</div>
-                            <div className="flex items-end justify-between h-24 gap-1">
-                              {staffingHistory.slice(-10).map((entry, index) => {
-                                const maxTotal = Math.max(...staffingHistory.map(h => h.total), 1);
-                                const dayHeight = (entry.day / maxTotal) * 100;
-                                const nightHeight = (entry.night / maxTotal) * 100;
-                                
-                                return (
-                                  <div key={entry.date} className="flex flex-col items-center flex-1 min-w-0">
-                                    <div className="flex flex-col w-full" style={{ height: '72px' }}>
-                                      <div 
-                                        className="bg-amber-500 rounded-t"
-                                        style={{ height: `${dayHeight}%`, minHeight: entry.day > 0 ? '2px' : '0' }}
-                                        title={`Day: ${entry.day}`}
-                                      />
-                                      <div 
-                                        className="bg-blue-500 rounded-b"
-                                        style={{ height: `${nightHeight}%`, minHeight: entry.night > 0 ? '2px' : '0' }}
-                                        title={`Night: ${entry.night}`}
-                                      />
-                                    </div>
-                                    <div className="text-xs text-muted-foreground mt-1 truncate w-full text-center">
-                                      {new Date(entry.date).toLocaleDateString('en-US', { 
-                                        month: 'short', 
-                                        day: 'numeric' 
-                                      })}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                            <div className="flex items-center gap-4 mt-2 text-xs">
-                              <div className="flex items-center gap-1">
-                                <div className="w-3 h-3 bg-amber-500 rounded"></div>
-                                <span>Day Staff</span>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <div className="w-3 h-3 bg-blue-500 rounded"></div>
-                                <span>Night Staff</span>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          {staffingData?.lastUpdated && (
-                            <div className="text-xs text-muted-foreground text-center">
-                              Last updated: {staffingData.lastUpdated}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="h-48 flex flex-col items-center justify-center">
-                          <Users className="w-12 h-12 text-muted-foreground mb-2" />
-                          <div className="text-muted-foreground text-center">
-                            No staffing data available for the selected timeframe
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-1">
-                            Record daily staffing levels to see trends
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  <Card className="border-l-4 border-l-green-500">
-                    <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg flex flex-row items-center justify-between space-y-0 pb-2">
-                      <div className="text-sm font-medium text-white">Occupancy Rate</div>
-                      <BarChart2 className="h-4 w-4 text-slate-200" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">
-                        {typeof occupancyPercent === 'number' ? `${occupancyPercent}%` : 'N/A'}
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Current occupancy rate
-                      </p>
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-
-              {/* Audit Statistics with Summary Cards */}
-              <StatsView workspaceId={workspace.id} />
-
-              {/* Charts and Analytics */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* File Type Distribution */}
-                <Card>
-                  <CardHeader>
-                    <div className="text-lg font-semibold">File Type Breakdown</div>
-                    <div className="text-sm text-muted-foreground">Distribution of document types</div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {Object.entries(fileTypeCounts).length === 0 ? (
-                        <div className="text-sm text-muted-foreground">No documents in workspace</div>
-                      ) : (
-                        Object.entries(fileTypeCounts)
-                          .sort(([,a], [,b]) => b - a)
-                          .map(([type, count]) => (
-                            <div key={type} className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <div className="w-3 h-3 rounded-full bg-primary" />
-                                <span className="text-sm font-medium">{type.toUpperCase()}</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <div className="text-sm text-muted-foreground">{count} files</div>
-                                <div className="text-xs text-muted-foreground">
-                                  ({Math.round((count / totalDocuments) * 100)}%)
-                                </div>
-                              </div>
-                            </div>
-                          ))
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Recent Activity */}
-                <Card>
-                  <CardHeader>
-                    <div className="text-lg font-semibold">Recent Activity</div>
-                    <div className="text-sm text-muted-foreground">Latest document uploads</div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {recentUploads.length === 0 ? (
-                        <div className="text-sm text-muted-foreground">No recent uploads</div>
-                      ) : (
-                        recentUploads.map((upload, index) => (
-                          <div key={`${upload.name}-${index}`} className="flex items-center justify-between">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                              <span className="text-sm font-medium truncate">{upload.name}</span>
-                            </div>
-                            <div className="text-xs text-muted-foreground flex-shrink-0">
-                              {upload.createdAt ? new Date(upload.createdAt).toLocaleDateString() : 'Unknown'}
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Occupancy Visualization */}
-              {typeof occupancyPercent === 'number' && (
-                <Card>
-                  <CardHeader>
-                    <div className="text-lg font-semibold">Occupancy Overview</div>
-                    <div className="text-sm text-muted-foreground">Current capacity utilization</div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center justify-center py-8">
-                      <div className="flex items-center gap-8">
-                        <div className="flex items-center justify-center">
-                          <OccupancyPie percent={occupancyPercent} size={120} strokeWidth={12} />
-                        </div>
-                        <div className="space-y-2">
-                          <div className="text-3xl font-bold">{occupancyPercent}%</div>
-                          <div className="text-sm text-muted-foreground">Current Occupancy</div>
-                          {workspace.totalBeds && workspace.occupiedBeds && (
-                            <div className="text-sm text-muted-foreground">
-                              {workspace.occupiedBeds} of {workspace.totalBeds} beds occupied
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
           </TabsContent>
         </Tabs>
       </div>

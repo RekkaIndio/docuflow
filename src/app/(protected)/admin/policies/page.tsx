@@ -178,12 +178,17 @@ export default function AdminPoliciesPage() {
 
   return (
     <div className="p-6">
-      <div className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white p-6 rounded-b-lg shadow-sm mb-6">
-        <div className="w-full mx-auto flex items-start justify-between gap-6">
-          <div className="flex items-start gap-4">
-            <div className="p-3 bg-white/5 rounded-md">
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-8 rounded-b-2xl shadow-lg relative overflow-hidden mb-6">
+        {/* Subtle background pattern */}
+        <div className="absolute inset-0 opacity-5">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full -translate-y-48 translate-x-48"></div>
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-400 rounded-full translate-y-32 -translate-x-32"></div>
+        </div>
+        <div className="w-full mx-auto flex items-start justify-between gap-8 relative z-10">
+          <div className="flex items-start gap-6">
+            <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg">
               {/* Policy icon */}
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2003.org/2000/svg" className="text-white/90">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2003.org/2000/svg" className="text-white">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 <polyline points="14,2 14,8 20,8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 <line x1="16" y1="13" x2="8" y2="13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -192,11 +197,11 @@ export default function AdminPoliciesPage() {
               </svg>
             </div>
               <div>
-              <h2 className="text-2xl font-bold leading-tight">Policies</h2>
-              <div className="mt-1 text-sm text-slate-200">Manage policy documents. Create policies from templates or edit existing ones.</div>
+              <h2 className="text-3xl font-bold leading-tight tracking-tight">Policies</h2>
+              <div className="mt-1 text-slate-200 text-base leading-relaxed">Manage policy documents. Create policies from templates or edit existing ones.</div>
 
               <div className="mt-4 flex items-center gap-4">
-                <div className="p-3 bg-white/5 rounded-md text-center">
+                <div className="p-3 bg-white/10 backdrop-blur-sm rounded-md text-center border border-white/20">
                   <div className="text-xs text-slate-200 mb-1">Total</div>
                   <div className="text-xl font-semibold">{stats.total}</div>
                 </div>
