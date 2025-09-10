@@ -43,7 +43,59 @@ export default function AdminPage() {
   const [isChatOpen, setIsChatOpen] = React.useState(false);
   const [workspaces, setWorkspaces] = React.useState<any[]>([]);
   const [loadingData, setLoadingData] = React.useState(false);
+  const [loadingError, setLoadingError] = React.useState<string | null>(null);
+  const [retryCount, setRetryCount] = React.useState(0);
   const router = useRouter();
+
+  // Define fetchData function at component level so it can be used by retryFetch
+  const fetchData = React.useCallback(async (isRetry = false) => {
+    if (!isRetry) {
+      setLoadingData(true);
+      setLoadingError(null);
+    }
+    
+    try {
+      const resp = await fetch('/api/admin/workspaces', {
+        signal: AbortSignal.timeout(30000) // 30 second timeout
+      });
+      
+      if (!resp.ok) {
+        const errorText = await resp.text().catch(() => 'Unknown error');
+        throw new Error(`HTTP ${resp.status}: ${errorText}`);
+      }
+      
+      const data = await resp.json();
+      setWorkspaces(data.workspaces || []);
+      setLoadingError(null);
+      setRetryCount(0);
+      
+    } catch (e: any) {
+      console.error('Failed to fetch admin data:', e);
+      const errorMessage = e.message || 'Unknown error occurred';
+      
+      if (e.name === 'AbortError' || errorMessage.includes('timeout')) {
+        setLoadingError('Request timed out. Please check your connection and try again.');
+      } else if (errorMessage.includes('NetworkError') || errorMessage.includes('Failed to fetch')) {
+        setLoadingError('Network error. Please check your connection and try again.');
+      } else if (errorMessage.includes('500')) {
+        setLoadingError('Server error. This might be a temporary issue. Please try again.');
+      } else {
+        setLoadingError(`Failed to load admin data: ${errorMessage}`);
+      }
+      
+      // Keep existing data if available and this is a retry
+      if (!isRetry) {
+        setWorkspaces([]);
+      }
+    } finally {
+      setLoadingData(false);
+    }
+  }, []);
+
+  const retryFetch = React.useCallback(() => {
+    setRetryCount(prev => prev + 1);
+    fetchData(true);
+  }, [fetchData]);
 
   React.useEffect(() => {
     if (!loading && !user) {
@@ -52,23 +104,6 @@ export default function AdminPage() {
       return;
     }
     // Simple client-side role check: we expect admin users to have role 'Admin' on their user doc
-    const fetchData = async () => {
-      setLoadingData(true);
-      try {
-        const resp = await fetch('/api/admin/workspaces');
-        if (!resp.ok) {
-          console.error('Failed to fetch workspaces');
-          setWorkspaces([]);
-          return;
-        }
-        const data = await resp.json();
-        setWorkspaces(data.workspaces || []);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoadingData(false);
-      }
-    };
 
     // Only fetch if current user looks like an admin (client-side). This is a convenience
     // check only; server must also protect this route in production.
@@ -109,7 +144,7 @@ export default function AdminPage() {
         await fetchData();
       }
     })();
-  }, [user, loading, router]);
+  }, [user, loading, router, fetchData]);
 
   // Listen for navigate-to-workspace events (from admin chat) so chat can open a workspace
   React.useEffect(() => {
@@ -265,7 +300,7 @@ export default function AdminPage() {
   // Workspace management (create/rename/delete) moved to AdminWorkspacesView
 
   // Function to calculate aggregate audit scores across all workspaces
-  const calculateAggregateAuditScores = async () => {
+  const calculateAggregateAuditScores = async (retryAttempt = 0) => {
     if (!workspaces || workspaces.length === 0) {
       setAggregateAuditData({
         totalYesCount: 0,
@@ -346,8 +381,22 @@ export default function AdminPage() {
         workspacesWithData
       });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to calculate aggregate audit scores:', error);
+      
+      // Retry logic for transient errors
+      const isTransientError = error.message?.includes('RPC') || 
+                              error.message?.includes('UNAVAILABLE') ||
+                              error.message?.includes('timeout') ||
+                              error.code === 'unavailable';
+      
+      if (isTransientError && retryAttempt < 3) {
+        const backoffMs = Math.pow(2, retryAttempt) * 1000; // 1s, 2s, 4s
+        console.log(`Retrying audit scores calculation in ${backoffMs}ms (attempt ${retryAttempt + 1})`);
+        setTimeout(() => calculateAggregateAuditScores(retryAttempt + 1), backoffMs);
+        return;
+      }
+      
       setAggregateAuditData({
         totalYesCount: 0,
         totalQuestions: 0,
@@ -1094,7 +1143,24 @@ export default function AdminPage() {
             // Teams admin view
             <>
               {loadingData ? (
-                <div>Loading...</div>
+                <div className="flex items-center justify-center min-h-[400px]">
+                  <div className="text-center space-y-4">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+                    <div className="text-lg font-semibold">Loading teams data...</div>
+                    <div className="text-sm text-muted-foreground">Fetching workspace information</div>
+                  </div>
+                </div>
+              ) : loadingError ? (
+                <div className="flex items-center justify-center min-h-[400px]">
+                  <div className="text-center space-y-4 max-w-md">
+                    <AlertTriangle className="h-12 w-12 text-destructive mx-auto" />
+                    <div className="text-lg font-semibold text-destructive">Failed to Load Teams Data</div>
+                    <div className="text-sm text-muted-foreground">{loadingError}</div>
+                    <Button onClick={retryFetch} disabled={loadingData}>
+                      {loadingData ? 'Retrying...' : 'Try Again'}
+                    </Button>
+                  </div>
+                </div>
               ) : (
                 <>
                   {selectedWorkspaceForTeams ? (
@@ -1184,7 +1250,24 @@ export default function AdminPage() {
             // Stats admin view
             <>
               {loadingData ? (
-                <div>Loading...</div>
+                <div className="flex items-center justify-center min-h-[400px]">
+                  <div className="text-center space-y-4">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+                    <div className="text-lg font-semibold">Loading statistics...</div>
+                    <div className="text-sm text-muted-foreground">Calculating metrics across all workspaces</div>
+                  </div>
+                </div>
+              ) : loadingError ? (
+                <div className="flex items-center justify-center min-h-[400px]">
+                  <div className="text-center space-y-4 max-w-md">
+                    <AlertTriangle className="h-12 w-12 text-destructive mx-auto" />
+                    <div className="text-lg font-semibold text-destructive">Failed to Load Statistics</div>
+                    <div className="text-sm text-muted-foreground">{loadingError}</div>
+                    <Button onClick={retryFetch} disabled={loadingData}>
+                      {loadingData ? 'Retrying...' : 'Try Again'}
+                    </Button>
+                  </div>
+                </div>
               ) : (
                 <>
                   {/* Overview Stats Cards */}
@@ -1359,6 +1442,25 @@ export default function AdminPage() {
                 </div>
               ) : (
                 <>
+                  {loadingError ? (
+                    <div className="mb-6">
+                      <Card className="border-destructive/50 bg-destructive/5">
+                        <CardContent className="flex items-center gap-3 p-4">
+                          <AlertTriangle className="h-5 w-5 text-destructive" />
+                          <div className="flex-1">
+                            <div className="text-sm font-medium text-destructive">
+                              Data Loading Issue
+                            </div>
+                            <div className="text-xs text-muted-foreground">{loadingError}</div>
+                          </div>
+                          <Button size="sm" variant="outline" onClick={retryFetch} disabled={loadingData}>
+                            {loadingData ? 'Retrying...' : 'Retry'}
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  ) : null}
+
                   {/* Enhanced Dashboard Header */}
                   <AdminDashboardHeader
                     workspaceCount={workspaces.length}
@@ -1368,6 +1470,9 @@ export default function AdminPage() {
                     totalOccupied={careOverview.totalOccupied}
                     totalBeds={careOverview.totalBeds}
                     onRefresh={async () => {
+                      // Refresh workspace data first
+                      await fetchData();
+                      // Then recalculate aggregates
                       calculateAggregateAuditScores();
                       calculateAggregateWoundsData();
                       calculateAggregateStaffingData();
