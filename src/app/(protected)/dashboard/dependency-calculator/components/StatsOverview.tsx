@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
 import { Resident } from "./types";
 
 interface StatsOverviewProps {
@@ -7,14 +7,17 @@ interface StatsOverviewProps {
   calculateNDPSScore: (resident: Resident) => number;
   calculateResidentCareMinutes: (resident: Resident) => { Day: number; Night: number };
   calculateNDPSStaffing: (residents: Resident[]) => { Day: number; Night: number };
+  openAddModal?: () => void;
 }
 
 export function StatsOverview({
   residents,
   calculateNDPSScore,
   calculateResidentCareMinutes,
-  calculateNDPSStaffing
+  calculateNDPSStaffing,
+  openAddModal
 }: StatsOverviewProps) {
+  const [showBandInfo, setShowBandInfo] = useState(false);
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6 mb-8">
       {/* Total Residents */}
@@ -31,47 +34,106 @@ export function StatsOverview({
         </div>
         <div className="p-4">
           <div className="text-3xl font-bold text-blue-900 mb-2">{residents.length}</div>
-          <div className="text-xs text-blue-700 font-medium">Active assessments</div>
+          <div className="text-xs text-blue-700 font-medium mb-3">Active assessments</div>
+          {openAddModal && (
+            <button
+              onClick={openAddModal}
+              className="w-full bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 text-sm font-medium flex items-center justify-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              Add Resident
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Average NDPS Score */}
+      {/* NDPS Banding Key */}
       <div className="group hover:shadow-xl transition-all duration-300 border border-emerald-200/60 bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-emerald-100/50">
         <div className="pb-3 border-b border-emerald-100/80 bg-gradient-to-r from-emerald-50/40 to-transparent rounded-t-2xl">
-          <div className="flex items-center gap-2 p-4">
-            <div className="w-6 h-6 bg-emerald-100 rounded-lg flex items-center justify-center">
-              <svg className="w-3 h-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
+          <div className="flex items-center justify-between p-4">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 bg-emerald-100 rounded-lg flex items-center justify-center">
+                <svg className="w-3 h-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div className="text-sm font-semibold text-emerald-900">NDPS Banding Key</div>
             </div>
-            <div className="text-sm font-semibold text-emerald-900">Avg NDPS Score</div>
+            <button
+              onClick={() => setShowBandInfo(true)}
+              className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center hover:bg-emerald-200 transition-colors duration-200"
+              title="More information about NDPS bands"
+            >
+              <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </button>
           </div>
         </div>
         <div className="p-4">
-          <div className="text-3xl font-bold text-emerald-900 mb-2">
-            {residents.length > 0 ? Math.round(residents.reduce((sum, r) => sum + calculateNDPSScore(r), 0) / residents.length * 10) / 10 : 0}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+              <span className="text-xs font-medium text-gray-700">Band 1: Independent (0-5)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+              <span className="text-xs font-medium text-gray-700">Band 2: Low Dependency (6-10)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+              <span className="text-xs font-medium text-gray-700">Band 3: Medium Dependency (11-15)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+              <span className="text-xs font-medium text-gray-700">Band 4: High Dependency (16-20)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+              <span className="text-xs font-medium text-gray-700">Band 5: Very High Dependency (21+)</span>
+            </div>
           </div>
-          <div className="text-xs text-emerald-700 font-medium">Care dependency level</div>
+          <div className="mt-3 pt-3 border-t border-emerald-100">
+            <div className="text-xs text-emerald-700 font-medium">Score ranges for dependency levels</div>
+          </div>
         </div>
       </div>
 
-      {/* Total Care Hours */}
+      {/* PPD (Per Person Per Day) */}
       <div className="group hover:shadow-xl transition-all duration-300 border border-purple-200/60 bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-purple-100/50">
         <div className="pb-3 border-b border-purple-100/80 bg-gradient-to-r from-purple-50/40 to-transparent rounded-t-2xl">
           <div className="flex items-center gap-2 p-4">
             <div className="w-6 h-6 bg-purple-100 rounded-lg flex items-center justify-center">
               <svg className="w-3 h-3 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
             </div>
-            <div className="text-sm font-semibold text-purple-900">Care Hours</div>
+            <div className="text-sm font-semibold text-purple-900">Staff Ratios</div>
           </div>
         </div>
         <div className="p-4">
-          <div className="text-3xl font-bold text-purple-900 mb-2">
-            {Math.round((residents.reduce((sum, r) => sum + calculateResidentCareMinutes(r).Day, 0) / 60 + residents.reduce((sum, r) => sum + calculateResidentCareMinutes(r).Night, 0) / 60) * 10) / 10}h
+          <div className="grid grid-cols-2 gap-4 text-center">
+            <div>
+              <div className="text-2xl font-bold text-purple-800 mb-1">
+                {(() => {
+                  const dayStaff = calculateNDPSStaffing(residents).Day;
+                  return residents.length > 0 && dayStaff > 0 ? (Math.round((residents.length / dayStaff) * 100) / 100) : 0;
+                })()}:1
+              </div>
+              <div className="text-xs text-purple-600 font-medium">Day Ratio</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-purple-800 mb-1">
+                {(() => {
+                  const nightStaff = calculateNDPSStaffing(residents).Night;
+                  return residents.length > 0 && nightStaff > 0 ? (Math.round((residents.length / nightStaff) * 100) / 100) : 0;
+                })()}:1
+              </div>
+              <div className="text-xs text-purple-600 font-medium">Night Ratio</div>
+            </div>
           </div>
-          <div className="text-xs text-purple-700 font-medium">Daily requirements</div>
         </div>
       </div>
 
@@ -104,6 +166,75 @@ export function StatsOverview({
           </div>
         </div>
       </div>
+
+      {/* NDPS Band Information Modal */}
+      {showBandInfo && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[80vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-gray-900">NDPS Banding System</h3>
+                <button
+                  onClick={() => setShowBandInfo(false)}
+                  className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center hover:bg-gray-200 transition-colors duration-200"
+                >
+                  <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-4 h-4 bg-green-500 rounded-full"></div>
+                    <span className="font-semibold text-green-800">Band 1: Independent</span>
+                  </div>
+                  <p className="text-sm text-green-700">No assistance required</p>
+                </div>
+
+                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
+                    <span className="font-semibold text-blue-800">Band 2: Low Dependency</span>
+                  </div>
+                  <p className="text-sm text-blue-700">Prompt/supervision/occasional assistance of 1</p>
+                </div>
+
+                <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-4 h-4 bg-yellow-500 rounded-full"></div>
+                    <span className="font-semibold text-yellow-800">Band 3: Medium Dependency</span>
+                  </div>
+                  <p className="text-sm text-yellow-700">Full assistance of 1 for all of the task and can not complete any of the task independently</p>
+                </div>
+
+                <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-4 h-4 bg-orange-500 rounded-full"></div>
+                    <span className="font-semibold text-orange-800">Band 4: High Dependency</span>
+                  </div>
+                  <p className="text-sm text-orange-700">Assistance of 2 required but can complete some of the task with prompt/encouragement</p>
+                </div>
+
+                <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-4 h-4 bg-red-500 rounded-full"></div>
+                    <span className="font-semibold text-red-800">Band 5: Very High Dependency</span>
+                  </div>
+                  <p className="text-sm text-red-700">Full assistance of 2 and can not complete any of the task</p>
+                </div>
+              </div>
+
+              <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                <p className="text-xs text-gray-600">
+                  <strong>Note:</strong> The NDPS (National Dependency Projection System) provides an evidence-based approach to assessing resident dependency levels and calculating required staffing ratios.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

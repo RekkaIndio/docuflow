@@ -1422,15 +1422,6 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
                         <div className="space-y-2">
                             <h1 className="text-3xl font-bold leading-tight tracking-tight">{workspace.name}</h1>
                             <p className="text-slate-200 text-base leading-relaxed">Welcome back! Here's a summary of your workspace activity.</p>
-                            <div className="mt-4 flex items-center gap-3">
-                                <Button size="sm" className="bg-white/10 hover:bg-white/20 border-white/20 backdrop-blur-sm transition-all duration-200" onClick={() => { /* noop for now */ }}>
-                                    <Folder className="w-4 h-4 mr-2" />
-                                    New folder
-                                </Button>
-                                <Button size="sm" variant="outline" className="border-white/30 text-white hover:bg-white/10 backdrop-blur-sm transition-all duration-200" onClick={() => { /* noop */ }}>
-                                    Share workspace
-                                </Button>
-                            </div>
                         </div>
                     </div>
 

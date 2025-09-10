@@ -5,7 +5,9 @@ import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '@/com
 import OccupancyPie from '@/components/admin/occupancy-pie';
 import { doc, onSnapshot, collection, query, orderBy, limit, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { TrendingUp, TrendingDown, Minus, FileText, Shield, Wrench, Lock, Flame, Biohazard, Utensils, Moon, Users, Soup, AlertTriangle } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, FileText, Shield, Wrench, Lock, Flame, Biohazard, Utensils, Moon, Users, Soup, AlertTriangle, BarChart3, Target, CheckCircle2, Clock, Award, Activity } from 'lucide-react';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Area, AreaChart } from 'recharts';
 
 export function StatsView({ workspaceId }: { workspaceId?: string }) {
   const [carePlanScore, setCarePlanScore] = useState<number | null>(null);
@@ -314,43 +316,6 @@ export function StatsView({ workspaceId }: { workspaceId?: string }) {
     };
   };
 
-  // Small debug panel (dev only) to show the raw audit_latest_scores document
-  const [rawJsonVisible, setRawJsonVisible] = React.useState(false);
-
-  // Calculate overall statistics
-  // Component to display trend indicators
-  const TrendIndicator = ({ auditType }: { auditType: string }) => {
-    const trend = trends[auditType];
-    if (!trend) return null;
-
-    const { direction, change } = trend;
-    const isPositive = direction === 'up';
-    const isNegative = direction === 'down';
-    
-    return (
-      <div className="flex items-center gap-1 text-xs">
-        {isPositive && (
-          <>
-            <TrendingUp className="h-3 w-3 text-green-600" />
-            <span className="text-green-600">+{change}%</span>
-          </>
-        )}
-        {isNegative && (
-          <>
-            <TrendingDown className="h-3 w-3 text-red-600" />
-            <span className="text-red-600">{change}%</span>
-          </>
-        )}
-        {direction === 'stable' && (
-          <>
-            <Minus className="h-3 w-3 text-gray-500" />
-            <span className="text-gray-500">No change</span>
-          </>
-        )}
-      </div>
-    );
-  };
-
   const calculateOverallStats = () => {
     const scores = [
       { score: carePlanScore, yesCount: carePlanYesCount, totalCount: carePlanTotalCount },
@@ -366,7 +331,7 @@ export function StatsView({ workspaceId }: { workspaceId?: string }) {
       { score: fallsScore, yesCount: fallsYesCount, totalCount: fallsTotalCount }
     ];
 
-    const validScores = scores.filter(item => 
+    const validScores = scores.filter(item =>
       item.score !== null && item.yesCount !== null && item.totalCount !== null
     );
 
@@ -395,6 +360,249 @@ export function StatsView({ workspaceId }: { workspaceId?: string }) {
 
   const overallStats = calculateOverallStats();
 
+  // Component to display trend indicators
+  const TrendIndicator = ({ auditType }: { auditType: string }) => {
+    const trend = trends[auditType];
+    if (!trend) return null;
+
+    const { direction, change } = trend;
+    const isPositive = direction === 'up';
+    const isNegative = direction === 'down';
+
+    return (
+      <div className="flex items-center gap-1 text-xs">
+        {isPositive && (
+          <>
+            <TrendingUp className="h-3 w-3 text-green-600" />
+            <span className="text-green-600">+{change}%</span>
+          </>
+        )}
+        {isNegative && (
+          <>
+            <TrendingDown className="h-3 w-3 text-red-600" />
+            <span className="text-red-600">{change}%</span>
+          </>
+        )}
+        {direction === 'stable' && (
+          <>
+            <Minus className="h-3 w-3 text-gray-500" />
+            <span className="text-gray-500">No change</span>
+          </>
+        )}
+      </div>
+    );
+  };
+
+  // Helper functions for charts and data
+  const getAuditChartData = () => {
+    const audits = [
+      { name: 'Care Plan', score: carePlanScore },
+      { name: 'Health & Safety', score: hsScore },
+      { name: 'Maintenance', score: maintenanceScore },
+      { name: 'Restrictive Practice', score: restrictiveScore },
+      { name: 'Fire Safety', score: fireScore },
+      { name: 'Infection Control', score: infectionScore },
+      { name: 'Mealtime', score: mealtimeScore },
+      { name: 'Night Visit', score: nightScore },
+      { name: 'Staff File', score: staffFileScore },
+      { name: 'Kitchen', score: kitchenScore },
+      { name: 'Falls Prevention', score: fallsScore }
+    ];
+    return audits.filter(audit => audit.score !== null);
+  };
+
+  const getAuditStatusData = () => {
+    const audits = [
+      { key: 'care-plan', name: 'Care Plan', score: carePlanScore },
+      { key: 'health-safety', name: 'Health & Safety', score: hsScore },
+      { key: 'maintenance', name: 'Maintenance', score: maintenanceScore },
+      { key: 'restrictive-practice', name: 'Restrictive Practice', score: restrictiveScore },
+      { key: 'fire-safety', name: 'Fire Safety', score: fireScore },
+      { key: 'infection-control', name: 'Infection Control', score: infectionScore },
+      { key: 'mealtime', name: 'Mealtime', score: mealtimeScore },
+      { key: 'night-visit', name: 'Night Visit', score: nightScore },
+      { key: 'staff-file', name: 'Staff File', score: staffFileScore },
+      { key: 'kitchen', name: 'Kitchen', score: kitchenScore },
+      { key: 'falls', name: 'Falls Prevention', score: fallsScore }
+    ];
+
+    return audits.map(audit => ({
+      ...audit,
+      status: audit.score === null ? 'pending' : audit.score >= 80 ? 'completed' : 'in-progress'
+    }));
+  };
+
+  const getTrendSummary = () => {
+    const trendsData = [
+      { category: 'Overall', direction: trends['overall']?.direction || 'stable', change: trends['overall']?.change || 0 },
+      { category: 'Care Plan', direction: trends['care-plan']?.direction || 'stable', change: trends['care-plan']?.change || 0 },
+      { category: 'Health & Safety', direction: trends['health-safety']?.direction || 'stable', change: trends['health-safety']?.change || 0 }
+    ];
+    return trendsData;
+  };
+
+  const getTrendChartData = () => {
+    // Mock data for demonstration - in real app this would come from historical data
+    return [
+      { month: 'Jan', overall: 75 },
+      { month: 'Feb', overall: 78 },
+      { month: 'Mar', overall: 82 },
+      { month: 'Apr', overall: overallStats.overallPercentage || 0 }
+    ];
+  };
+
+  const getDetailedAuditCards = () => {
+    const audits = [
+      {
+        title: 'Care Plan',
+        score: carePlanScore,
+        yesCount: carePlanYesCount,
+        totalCount: carePlanTotalCount,
+        updatedAt: carePlanUpdatedAt,
+        icon: <FileText className="h-5 w-5 text-blue-600" />,
+        trend: trends['care-plan']
+      },
+      {
+        title: 'Health & Safety',
+        score: hsScore,
+        yesCount: hsYesCount,
+        totalCount: hsTotalCount,
+        updatedAt: hsUpdatedAt,
+        icon: <Shield className="h-5 w-5 text-green-600" />,
+        trend: trends['health-safety']
+      },
+      {
+        title: 'Maintenance',
+        score: maintenanceScore,
+        yesCount: maintenanceYesCount,
+        totalCount: maintenanceTotalCount,
+        updatedAt: maintenanceUpdatedAt,
+        icon: <Wrench className="h-5 w-5 text-yellow-600" />,
+        trend: trends['maintenance']
+      },
+      {
+        title: 'Restrictive Practice',
+        score: restrictiveScore,
+        yesCount: restrictiveYesCount,
+        totalCount: restrictiveTotalCount,
+        updatedAt: restrictiveUpdatedAt,
+        icon: <Lock className="h-5 w-5 text-purple-600" />,
+        trend: trends['restrictive-practice']
+      },
+      {
+        title: 'Fire Safety',
+        score: fireScore,
+        yesCount: fireYesCount,
+        totalCount: fireTotalCount,
+        updatedAt: fireUpdatedAt,
+        icon: <Flame className="h-5 w-5 text-red-600" />,
+        trend: trends['fire-safety']
+      },
+      {
+        title: 'Infection Control',
+        score: infectionScore,
+        yesCount: infectionYesCount,
+        totalCount: infectionTotalCount,
+        updatedAt: infectionUpdatedAt,
+        icon: <Biohazard className="h-5 w-5 text-orange-600" />,
+        trend: trends['infection-control']
+      },
+      {
+        title: 'Mealtime',
+        score: mealtimeScore,
+        yesCount: mealtimeYesCount,
+        totalCount: mealtimeTotalCount,
+        updatedAt: mealtimeUpdatedAt,
+        icon: <Utensils className="h-5 w-5 text-cyan-600" />,
+        trend: trends['mealtime']
+      },
+      {
+        title: 'Night Visit',
+        score: nightScore,
+        yesCount: nightYesCount,
+        totalCount: nightTotalCount,
+        updatedAt: nightUpdatedAt,
+        icon: <Moon className="h-5 w-5 text-indigo-600" />,
+        trend: trends['night-visit']
+      },
+      {
+        title: 'Staff File',
+        score: staffFileScore,
+        yesCount: staffFileYesCount,
+        totalCount: staffFileTotalCount,
+        updatedAt: staffFileUpdatedAt,
+        icon: <Users className="h-5 w-5 text-teal-600" />,
+        trend: trends['staff-file']
+      },
+      {
+        title: 'Kitchen',
+        score: kitchenScore,
+        yesCount: kitchenYesCount,
+        totalCount: kitchenTotalCount,
+        updatedAt: kitchenUpdatedAt,
+        icon: <Soup className="h-5 w-5 text-emerald-600" />,
+        trend: trends['kitchen']
+      },
+      {
+        title: 'Falls Prevention',
+        score: fallsScore,
+        yesCount: fallsYesCount,
+        totalCount: fallsTotalCount,
+        updatedAt: fallsUpdatedAt,
+        icon: <AlertTriangle className="h-5 w-5 text-amber-600" />,
+        trend: trends['falls']
+      }
+    ];
+
+    return audits.filter(audit => audit.score !== null).map((audit, index) => (
+      <Card key={index} className="bg-white/80 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            {audit.icon}
+            {audit.title}
+          </CardTitle>
+          <CardDescription>
+            {audit.yesCount !== null && audit.totalCount !== null
+              ? `${audit.yesCount} of ${audit.totalCount} questions passed`
+              : 'No data available'
+            }
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16">
+                <OccupancyPie
+                  percent={audit.score ?? 0}
+                  size={64}
+                  strokeWidth={8}
+                  gradientColors={getGradientColors(audit.score)}
+                  centerFontSize={14}
+                />
+              </div>
+              <div>
+                <div className="text-2xl font-bold" style={{ color: getScoreColor(audit.score) }}>
+                  {audit.score !== null ? `${audit.score}%` : 'N/A'}
+                </div>
+                <div className="text-sm text-gray-600">Current Score</div>
+              </div>
+            </div>
+            {audit.trend && (
+              <div className="text-right">
+                <TrendIndicator auditType={audit.title.toLowerCase().replace(' ', '-')} />
+              </div>
+            )}
+          </div>
+          {audit.updatedAt && (
+            <div className="text-xs text-gray-500 mt-4">
+              Last updated: {new Date(audit.updatedAt).toLocaleDateString()}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    ));
+  };
+
   // Function to get color based on score percentage
   const getScoreColor = (score: number | null) => {
     if (score === null) return '#cbd5e1'; // Gray for N/A
@@ -412,461 +620,210 @@ export function StatsView({ workspaceId }: { workspaceId?: string }) {
   };
 
   return (
-    <div>
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-8 rounded-b-2xl shadow-lg relative overflow-hidden">
-        {/* Subtle background pattern */}
-        <div className="absolute inset-0 opacity-5">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full -translate-y-48 translate-x-48"></div>
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-400 rounded-full translate-y-32 -translate-x-32"></div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
+      {/* Modern Hero Section */}
+      <div className="relative overflow-hidden bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600">
+        <div className="absolute inset-0 bg-black/10"></div>
+        <div className="absolute inset-0">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -translate-y-48 translate-x-48 blur-3xl"></div>
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-400/10 rounded-full translate-y-32 -translate-x-32 blur-2xl"></div>
         </div>
-        <div className="w-full mx-auto flex items-start justify-between gap-8 relative z-10">
-          <div className="flex items-start gap-6">
-            <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-white">
-                <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
+
+        <div className="relative z-10 px-6 py-8 lg:py-10">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-6">
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full border border-white/20 mb-4">
+                <BarChart3 className="h-4 w-4 text-blue-200" />
+                <span className="text-sm font-medium text-white">Performance Analytics</span>
+              </div>
+              <h1 className="text-3xl lg:text-4xl font-bold text-white mb-3">
+                Audit Performance Dashboard
+              </h1>
+              <p className="text-lg text-blue-100 max-w-2xl mx-auto">
+                Track your compliance progress and identify areas for improvement across all audit categories
+              </p>
             </div>
-            <div className="space-y-2">
-              <h2 className="text-3xl font-bold leading-tight tracking-tight">Stats</h2>
-              <div className="text-slate-200 text-base leading-relaxed">View audit scores and performance metrics</div>
+
+            {/* Key Metrics Row */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-blue-100 mb-1">Overall Score</p>
+                      <p className="text-3xl font-bold">{overallStats.overallPercentage !== null ? `${overallStats.overallPercentage}%` : 'N/A'}</p>
+                    </div>
+                    <div className="w-16 h-16">
+                      <OccupancyPie
+                        percent={overallStats.overallPercentage ?? 0}
+                        size={64}
+                        strokeWidth={8}
+                        gradientColors={getGradientColors(overallStats.overallPercentage)}
+                        centerFontSize={16}
+                        centerClassName="text-white font-bold"
+                      />
+                    </div>
+                  </div>
+                  {overallStats.overallPercentage !== null && (
+                    <div className="mt-4">
+                      <TrendIndicator auditType="overall" />
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-blue-100 mb-1">Audits Completed</p>
+                      <p className="text-3xl font-bold">{overallStats.auditsCompleted}/{overallStats.totalAudits}</p>
+                    </div>
+                    <div className="w-16 h-16 flex items-center justify-center">
+                      <CheckCircle2 className="h-12 w-12 text-green-300" />
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <div className="w-full bg-white/20 rounded-full h-2">
+                      <div
+                        className="bg-green-400 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${(overallStats.auditsCompleted / overallStats.totalAudits) * 100}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-xs text-blue-100 mt-2">Completion Rate</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-blue-100 mb-1">Questions Passed</p>
+                      <p className="text-3xl font-bold">{overallStats.totalYesCount}</p>
+                    </div>
+                    <div className="w-16 h-16 flex items-center justify-center">
+                      <Target className="h-12 w-12 text-yellow-300" />
+                    </div>
+                  </div>
+                  <p className="text-sm text-blue-100 mt-4">
+                    of {overallStats.totalQuestions} total questions
+                  </p>
+                </CardContent>
+              </Card>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="p-6">
-      <div className="mb-4">
-        <button className="text-sm text-muted-foreground underline" onClick={() => setRawJsonVisible(v => !v)}>{rawJsonVisible ? 'Hide' : 'Show'} raw audit_latest_scores</button>
-        {rawJsonVisible && (
-          <pre className="mt-2 p-2 bg-gray-100 rounded text-xs overflow-auto max-h-48">{JSON.stringify((window as any).__DEBUG_audit_latest_scores ?? {}, null, 2)}</pre>
-        )}
-      </div>
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold mb-4">Overall Statistics</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Overall Score Card */}
-          <Card>
-            <CardHeader className="bg-gradient-to-r from-blue-600 via-blue-500 to-blue-600 text-white rounded-t-lg">
-              <CardTitle className="text-white text-lg">Overall Score</CardTitle>
-              <CardDescription className="text-blue-100">Combined score across all audits</CardDescription>
+      {/* Main Content */}
+      <div className="w-full px-6 py-6 space-y-6">
+        {/* Performance Overview */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Audit Performance Chart */}
+          <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-xl">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="h-5 w-5 text-blue-600" />
+                Audit Performance Overview
+              </CardTitle>
+              <CardDescription>Current scores across all audit categories</CardDescription>
             </CardHeader>
-            <CardContent className="flex items-center gap-4 pt-6">
-              <div className="w-20 h-20">
-                <OccupancyPie 
-                  percent={overallStats.overallPercentage ?? 0} 
-                  size={80} 
-                  strokeWidth={10} 
-                  gradientColors={getGradientColors(overallStats.overallPercentage)}
-                  centerFontSize={14} 
-                />
-              </div>
-              <div>
-                <div className="text-2xl font-bold" style={{ color: getScoreColor(overallStats.overallPercentage) }}>
-                  {overallStats.overallPercentage !== null ? `${overallStats.overallPercentage}%` : 'N/A'}
-                </div>
-                <div className="text-sm text-muted-foreground">Overall Performance</div>
-                {overallStats.overallPercentage !== null && (
-                  <div className="mt-1">
-                    <TrendIndicator auditType="overall" />
+            <CardContent>
+              <ChartContainer config={{
+                score: { label: "Score", color: "#3b82f6" }
+              }} className="h-80">
+                <BarChart data={getAuditChartData()}>
+                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                  <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar dataKey="score" fill="var(--color-score)" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ChartContainer>
+            </CardContent>
+          </Card>
+
+          {/* Audit Status Grid */}
+          <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-xl">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Award className="h-5 w-5 text-green-600" />
+                Audit Status
+              </CardTitle>
+              <CardDescription>Quick overview of all audit categories</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4">
+                {getAuditStatusData().map((audit) => (
+                  <div key={audit.key} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+                    <div className={`w-3 h-3 rounded-full ${audit.status === 'completed' ? 'bg-green-500' : audit.status === 'in-progress' ? 'bg-yellow-500' : 'bg-gray-400'}`}></div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{audit.name}</p>
+                      <p className="text-xs text-gray-600">
+                        {audit.score !== null ? `${audit.score}%` : 'Not started'}
+                      </p>
+                    </div>
                   </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Total Questions Card */}
-          <Card>
-            <CardHeader className="bg-gradient-to-r from-green-600 via-green-500 to-green-600 text-white rounded-t-lg">
-              <CardTitle className="text-white text-lg">Total Questions</CardTitle>
-              <CardDescription className="text-green-100">Questions answered correctly</CardDescription>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-green-600">
-                  {overallStats.totalYesCount}
-                </div>
-                <div className="text-lg text-muted-foreground">
-                  of {overallStats.totalQuestions}
-                </div>
-                <div className="text-sm text-muted-foreground mt-1">questions passed</div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Audits Completed Card */}
-          <Card>
-            <CardHeader className="bg-gradient-to-r from-purple-600 via-purple-500 to-purple-600 text-white rounded-t-lg">
-              <CardTitle className="text-white text-lg">Audits Completed</CardTitle>
-              <CardDescription className="text-purple-100">Number of audits with data</CardDescription>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-purple-600">
-                  {overallStats.auditsCompleted}
-                </div>
-                <div className="text-lg text-muted-foreground">
-                  of {overallStats.totalAudits}
-                </div>
-                <div className="text-sm text-muted-foreground mt-1">audits completed</div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Completion Rate Card */}
-          <Card>
-            <CardHeader className="bg-gradient-to-r from-orange-600 via-orange-500 to-orange-600 text-white rounded-t-lg">
-              <CardTitle className="text-white text-lg">Completion Rate</CardTitle>
-              <CardDescription className="text-orange-100">Percentage of audits completed</CardDescription>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-orange-600">
-                  {Math.round((overallStats.auditsCompleted / overallStats.totalAudits) * 100)}%
-                </div>
-                <div className="text-sm text-muted-foreground mt-1">audits have data</div>
+                ))}
               </div>
             </CardContent>
           </Card>
         </div>
-      </div>
 
-      <div className="mb-4">
-        <h3 className="text-lg font-semibold mb-4">Individual Audit Scores</h3>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <Card>
-            <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg flex items-center gap-2">
-              <FileText className="h-5 w-5 text-blue-300" />
-              <div>
-                <CardTitle className="text-white">Care Plan Score</CardTitle>
-                <CardDescription className="text-slate-200">Based on the most recent saved care plan audit.</CardDescription>
-              </div>
-            </CardHeader>
-          <CardContent className="flex items-center gap-4 pt-6">
-            <div className="w-24 h-24">
-              <OccupancyPie 
-                percent={carePlanScore ?? 0} 
-                size={96} 
-                strokeWidth={12} 
-                gradientColors={getGradientColors(carePlanScore)}
-                centerFontSize={16} 
-              />
-            </div>
-            <div>
-              <div className="text-lg font-semibold">{carePlanScore !== null ? 'Score Available' : 'N/A'}</div>
-              <div className="text-sm text-muted-foreground">{carePlanYesCount !== null && carePlanTotalCount !== null ? `${carePlanYesCount} of ${carePlanTotalCount} questions` : 'No data'}</div>
-              <div className="text-xs text-muted-foreground mt-2">{carePlanUpdatedAt ? `Last saved: ${new Date(carePlanUpdatedAt).toLocaleString()}` : ''}</div>
-              {carePlanScore !== null && (
-                <div className="mt-2">
-                  <TrendIndicator auditType="care-plan" />
+        {/* Trend Analysis */}
+        <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-xl">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-purple-600" />
+              Performance Trends
+            </CardTitle>
+            <CardDescription>Monthly performance changes and trends</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              {getTrendSummary().map((trend) => (
+                <div key={trend.category} className="text-center">
+                  <div className={`inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium ${
+                    trend.direction === 'up' ? 'bg-green-100 text-green-800' :
+                    trend.direction === 'down' ? 'bg-red-100 text-red-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>
+                    {trend.direction === 'up' ? <TrendingUp className="h-4 w-4" /> :
+                     trend.direction === 'down' ? <TrendingDown className="h-4 w-4" /> :
+                     <Minus className="h-4 w-4" />}
+                    {trend.change !== 0 ? `${trend.change > 0 ? '+' : ''}${trend.change}%` : 'No change'}
+                  </div>
+                  <p className="text-sm text-gray-600 mt-2">{trend.category}</p>
                 </div>
-              )}
+              ))}
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-            <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg flex items-center gap-2">
-              <Shield className="h-5 w-5 text-green-300" />
-              <div>
-                <CardTitle className="text-white">Health & Safety Score</CardTitle>
-                <CardDescription className="text-slate-200">Based on the most recent saved health & safety audit.</CardDescription>
-              </div>
-            </CardHeader>
-          <CardContent className="flex items-center gap-4 pt-6">
-            <div className="w-24 h-24">
-              <OccupancyPie 
-                percent={hsScore ?? 0} 
-                size={96} 
-                strokeWidth={12} 
-                gradientColors={getGradientColors(hsScore)}
-                centerFontSize={16} 
-              />
-            </div>
-            <div>
-              <div className="text-lg font-semibold">{hsScore !== null ? 'Score Available' : 'N/A'}</div>
-              <div className="text-sm text-muted-foreground">{hsYesCount !== null && hsTotalCount !== null ? `${hsYesCount} of ${hsTotalCount} questions` : 'No data'}</div>
-              <div className="text-xs text-muted-foreground mt-2">{hsUpdatedAt ? `Last saved: ${new Date(hsUpdatedAt).toLocaleString()}` : ''}</div>
-              {hsScore !== null && (
-                <div className="mt-2">
-                  <TrendIndicator auditType="health-safety" />
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-            <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg flex items-center gap-2">
-              <Wrench className="h-5 w-5 text-yellow-300" />
-              <div>
-                <CardTitle className="text-white">Maintenance Score</CardTitle>
-                <CardDescription className="text-slate-200">Based on the most recent saved maintenance audit.</CardDescription>
-              </div>
-            </CardHeader>
-          <CardContent className="flex items-center gap-4 pt-6">
-            <div className="w-24 h-24">
-              <OccupancyPie 
-                percent={maintenanceScore ?? 0} 
-                size={96} 
-                strokeWidth={12} 
-                gradientColors={getGradientColors(maintenanceScore)}
-                centerFontSize={16} 
-              />
-            </div>
-            <div>
-              <div className="text-lg font-semibold">{maintenanceScore !== null ? 'Score Available' : 'N/A'}</div>
-              <div className="text-sm text-muted-foreground">{maintenanceYesCount !== null && maintenanceTotalCount !== null ? `${maintenanceYesCount} of ${maintenanceTotalCount} questions` : 'No data'}</div>
-              <div className="text-xs text-muted-foreground mt-2">{maintenanceUpdatedAt ? `Last saved: ${new Date(maintenanceUpdatedAt).toLocaleString()}` : ''}</div>
-              {maintenanceScore !== null && (
-                <div className="mt-2">
-                  <TrendIndicator auditType="maintenance" />
-                </div>
-              )}
-            </div>
+            <ChartContainer config={{
+              overall: { label: "Overall Score", color: "#6366f1" }
+            }} className="h-64">
+              <AreaChart data={getTrendChartData()}>
+                <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Area
+                  type="monotone"
+                  dataKey="overall"
+                  stroke="var(--color-overall)"
+                  fill="var(--color-overall)"
+                  fillOpacity={0.2}
+                  strokeWidth={2}
+                />
+              </AreaChart>
+            </ChartContainer>
           </CardContent>
         </Card>
 
-        <Card>
-            <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg flex items-center gap-2">
-              <Lock className="h-5 w-5 text-purple-300" />
-              <div>
-                <CardTitle className="text-white">Restrictive Practice Score</CardTitle>
-                <CardDescription className="text-slate-200">Based on the most recent saved restrictive practice audit.</CardDescription>
-              </div>
-            </CardHeader>
-          <CardContent className="flex items-center gap-4 pt-6">
-            <div className="w-24 h-24">
-              <OccupancyPie 
-                percent={restrictiveScore ?? 0} 
-                size={96} 
-                strokeWidth={12} 
-                gradientColors={getGradientColors(restrictiveScore)}
-                centerFontSize={16} 
-              />
-            </div>
-            <div>
-              <div className="text-lg font-semibold">{restrictiveScore !== null ? 'Score Available' : 'N/A'}</div>
-              <div className="text-sm text-muted-foreground">{restrictiveYesCount !== null && restrictiveTotalCount !== null ? `${restrictiveYesCount} of ${restrictiveTotalCount} questions` : 'No data'}</div>
-              <div className="text-xs text-muted-foreground mt-2">{restrictiveUpdatedAt ? `Last saved: ${new Date(restrictiveUpdatedAt).toLocaleString()}` : ''}</div>
-              {restrictiveScore !== null && (
-                <div className="mt-2">
-                  <TrendIndicator auditType="restrictive-practice" />
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-            <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg flex items-center gap-2">
-              <Flame className="h-5 w-5 text-red-400" />
-              <div>
-                <CardTitle className="text-white">Fire Safety Score</CardTitle>
-                <CardDescription className="text-slate-200">Based on the most recent saved fire safety audit.</CardDescription>
-              </div>
-            </CardHeader>
-          <CardContent className="flex items-center gap-4 pt-6">
-            <div className="w-24 h-24">
-              <OccupancyPie 
-                percent={fireScore ?? 0} 
-                size={96} 
-                strokeWidth={12} 
-                gradientColors={getGradientColors(fireScore)}
-                centerFontSize={16} 
-              />
-            </div>
-            <div>
-              <div className="text-lg font-semibold">{fireScore !== null ? 'Score Available' : 'N/A'}</div>
-              <div className="text-sm text-muted-foreground">{fireYesCount !== null && fireTotalCount !== null ? `${fireYesCount} of ${fireTotalCount} questions` : 'No data'}</div>
-              <div className="text-xs text-muted-foreground mt-2">{fireUpdatedAt ? `Last saved: ${new Date(fireUpdatedAt).toLocaleString()}` : ''}</div>
-              {fireScore !== null && (
-                <div className="mt-2">
-                  <TrendIndicator auditType="fire-safety" />
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-            <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg flex items-center gap-2">
-              <Biohazard className="h-5 w-5 text-pink-400" />
-              <div>
-                <CardTitle className="text-white">Infection Control Score</CardTitle>
-                <CardDescription className="text-slate-200">Based on the most recent saved infection control audit.</CardDescription>
-              </div>
-            </CardHeader>
-          <CardContent className="flex items-center gap-4 pt-6">
-            <div className="w-24 h-24">
-              <OccupancyPie 
-                percent={infectionScore ?? 0} 
-                size={96} 
-                strokeWidth={12} 
-                gradientColors={getGradientColors(infectionScore)}
-                centerFontSize={16} 
-              />
-            </div>
-            <div>
-              <div className="text-lg font-semibold">{infectionScore !== null ? 'Score Available' : 'N/A'}</div>
-              <div className="text-sm text-muted-foreground">{infectionYesCount !== null && infectionTotalCount !== null ? `${infectionYesCount} of ${infectionTotalCount} questions` : 'No data'}</div>
-              <div className="text-xs text-muted-foreground mt-2">{infectionUpdatedAt ? `Last saved: ${new Date(infectionUpdatedAt).toLocaleString()}` : ''}</div>
-              {infectionScore !== null && (
-                <div className="mt-2">
-                  <TrendIndicator auditType="infection-control" />
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-            <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg flex items-center gap-2">
-              <Utensils className="h-5 w-5 text-orange-300" />
-              <div>
-                <CardTitle className="text-white">Meal Time Score</CardTitle>
-                <CardDescription className="text-slate-200">Based on the most recent saved mealtime audit.</CardDescription>
-              </div>
-            </CardHeader>
-          <CardContent className="flex items-center gap-4 pt-6">
-            <div className="w-24 h-24">
-              <OccupancyPie 
-                percent={mealtimeScore ?? 0} 
-                size={96} 
-                strokeWidth={12} 
-                gradientColors={getGradientColors(mealtimeScore)}
-                centerFontSize={16} 
-              />
-            </div>
-            <div>
-              <div className="text-lg font-semibold">{mealtimeScore !== null ? 'Score Available' : 'N/A'}</div>
-              <div className="text-sm text-muted-foreground">{mealtimeYesCount !== null && mealtimeTotalCount !== null ? `${mealtimeYesCount} of ${mealtimeTotalCount} questions` : 'No data'}</div>
-              <div className="text-xs text-muted-foreground mt-2">{mealtimeUpdatedAt ? `Last saved: ${new Date(mealtimeUpdatedAt).toLocaleString()}` : ''}</div>
-              {mealtimeScore !== null && (
-                <div className="mt-2">
-                  <TrendIndicator auditType="mealtime" />
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-            <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg flex items-center gap-2">
-              <Moon className="h-5 w-5 text-indigo-300" />
-              <div>
-                <CardTitle className="text-white">Night Visit Score</CardTitle>
-                <CardDescription className="text-slate-200">Based on the most recent saved night visit audit.</CardDescription>
-              </div>
-            </CardHeader>
-          <CardContent className="flex items-center gap-4 pt-6">
-            <div className="w-24 h-24">
-              <OccupancyPie 
-                percent={nightScore ?? 0} 
-                size={96} 
-                strokeWidth={12} 
-                gradientColors={getGradientColors(nightScore)}
-                centerFontSize={16} 
-              />
-            </div>
-            <div>
-              <div className="text-lg font-semibold">{nightScore !== null ? 'Score Available' : 'N/A'}</div>
-              <div className="text-sm text-muted-foreground">{nightYesCount !== null && nightTotalCount !== null ? `${nightYesCount} of ${nightTotalCount} questions` : 'No data'}</div>
-              <div className="text-xs text-muted-foreground mt-2">{nightUpdatedAt ? `Last saved: ${new Date(nightUpdatedAt).toLocaleString()}` : ''}</div>
-              {nightScore !== null && (
-                <div className="mt-2">
-                  <TrendIndicator auditType="night-visit" />
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-            <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg flex items-center gap-2">
-              <Users className="h-5 w-5 text-teal-300" />
-              <div>
-                <CardTitle className="text-white">Staff File Score</CardTitle>
-                <CardDescription className="text-slate-200">Based on the most recent saved staff file audit.</CardDescription>
-              </div>
-            </CardHeader>
-          <CardContent className="flex items-center gap-4 pt-6">
-            <div className="w-24 h-24">
-              <OccupancyPie 
-                percent={staffFileScore ?? 0} 
-                size={96} 
-                strokeWidth={12} 
-                gradientColors={getGradientColors(staffFileScore)}
-                centerFontSize={16} 
-              />
-            </div>
-            <div>
-              <div className="text-lg font-semibold">{staffFileScore !== null ? 'Score Available' : 'N/A'}</div>
-              <div className="text-sm text-muted-foreground">{staffFileYesCount !== null && staffFileTotalCount !== null ? `${staffFileYesCount} of ${staffFileTotalCount} questions` : 'No data'}</div>
-              <div className="text-xs text-muted-foreground mt-2">{staffFileUpdatedAt ? `Last saved: ${new Date(staffFileUpdatedAt).toLocaleString()}` : ''}</div>
-              {staffFileScore !== null && (
-                <div className="mt-2">
-                  <TrendIndicator auditType="staff-file" />
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-            <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg flex items-center gap-2">
-              <Soup className="h-5 w-5 text-lime-400" />
-              <div>
-                <CardTitle className="text-white">Kitchen & Kitchenettes Score</CardTitle>
-                <CardDescription className="text-slate-200">Based on the most recent saved kitchen audit.</CardDescription>
-              </div>
-            </CardHeader>
-          <CardContent className="flex items-center gap-4 pt-6">
-            <div className="w-24 h-24">
-              <OccupancyPie 
-                percent={kitchenScore ?? 0} 
-                size={96} 
-                strokeWidth={12} 
-                gradientColors={getGradientColors(kitchenScore)}
-                centerFontSize={16} 
-              />
-            </div>
-            <div>
-              <div className="text-lg font-semibold">{kitchenScore !== null ? 'Score Available' : 'N/A'}</div>
-              <div className="text-sm text-muted-foreground">{kitchenYesCount !== null && kitchenTotalCount !== null ? `${kitchenYesCount} of ${kitchenTotalCount} questions` : 'No data'}</div>
-              <div className="text-xs text-muted-foreground mt-2">{kitchenUpdatedAt ? `Last saved: ${new Date(kitchenUpdatedAt).toLocaleString()}` : ''}</div>
-              {kitchenScore !== null && (
-                <div className="mt-2">
-                  <TrendIndicator auditType="kitchen" />
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-            <CardHeader className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white rounded-t-lg flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-400" />
-              <div>
-                <CardTitle className="text-white">Falls Prevention Score</CardTitle>
-                <CardDescription className="text-slate-200">Based on the most recent saved falls prevention audit.</CardDescription>
-              </div>
-            </CardHeader>
-          <CardContent className="flex items-center gap-4 pt-6">
-            <div className="w-24 h-24">
-              <OccupancyPie 
-                percent={fallsScore ?? 0} 
-                size={96} 
-                strokeWidth={12} 
-                gradientColors={getGradientColors(fallsScore)}
-                centerFontSize={16} 
-              />
-            </div>
-            <div>
-              <div className="text-lg font-semibold">{fallsScore !== null ? 'Score Available' : 'N/A'}</div>
-              <div className="text-sm text-muted-foreground">{fallsYesCount !== null && fallsTotalCount !== null ? `${fallsYesCount} of ${fallsTotalCount} questions` : 'No data'}</div>
-              <div className="text-xs text-muted-foreground mt-2">{fallsUpdatedAt ? `Last saved: ${new Date(fallsUpdatedAt).toLocaleString()}` : ''}</div>
-              {fallsScore !== null && (
-                <div className="mt-2">
-                  <TrendIndicator auditType="falls" />
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+        {/* Detailed Audit Cards */}
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Detailed Audit Results</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {getDetailedAuditCards()}
+          </div>
+        </div>
       </div>
     </div>
   );
