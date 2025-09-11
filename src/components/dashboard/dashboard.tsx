@@ -38,7 +38,7 @@ import { StatsView } from "./stats-view";
 import { TopNav } from "./top-nav";
 import { NotificationsView } from "./notifications-view";
 import { db } from '@/lib/firebase';
-import { collection, query as fsQuery, where, onSnapshot } from 'firebase/firestore';
+import { collection, query as fsQuery, where, onSnapshot, orderBy, limit } from 'firebase/firestore';
 import { AccessibilityView } from "./accessibility-view";
 // Outstanding Evidence view removed; evidence folders are now regular protected folders
 
@@ -160,6 +160,7 @@ export function Dashboard() {
   const [unreadNotifications, setUnreadNotifications] = useState<number>(0);
   const [breadcrumb, setBreadcrumb] = useState<(Folder | { id: 'root', name: string, type: 'folder' })[]>([]);
   const [lastChatDetail, setLastChatDetail] = useState<{ text?: string; documents?: any[] } | undefined>(undefined);
+  const [dailyEntry, setDailyEntry] = useState<any | null>(null);
 
 
   useEffect(() => {
@@ -172,6 +173,7 @@ export function Dashboard() {
 
     // Listen for unread notifications count for the active workspace
     let unsub: (() => void) | undefined;
+    let dailyUnsub: (() => void) | undefined;
       if (typeof window !== 'undefined') {
         window.addEventListener('chat-response', handleChatResponse as EventListener);
       }
@@ -182,11 +184,31 @@ export function Dashboard() {
       }, (err: any) => {
         console.error('Failed to listen for unread notifications', err);
       });
+      
+      // Listen for latest daily checkin entry
+      try {
+        const colRef = collection(db, `workspaces/${activeWorkspace.id}/daily-checkins`);
+        const dailyQ = fsQuery(colRef, orderBy('createdAt', 'desc'), limit(1));
+        dailyUnsub = onSnapshot(dailyQ, (snap) => {
+          if (!snap.empty) {
+            const docSnap = snap.docs[0];
+            setDailyEntry({ id: docSnap.id, ...docSnap.data() });
+          } else {
+            setDailyEntry(null);
+          }
+        }, (err) => {
+          console.warn('Failed to listen to daily-checkins', err);
+        });
+      } catch (e) {
+        console.error('Failed to attach daily-checkins listener', e);
+      }
     } else {
       setUnreadNotifications(0);
+      setDailyEntry(null);
     }
     return () => {
       if (unsub) unsub();
+      if (dailyUnsub) dailyUnsub();
       if (typeof window !== 'undefined') {
         try { window.removeEventListener('chat-response', handleChatResponse as EventListener); } catch (e) {}
       }
@@ -622,22 +644,7 @@ export function Dashboard() {
 
   const handleFolderDelete = async (folder: Folder) => {
     if (!activeWorkspace) return;
-    // Prevent deletion of protected/immutable folders
-    const protectedIds = [
-      'outstanding-evidence',
-      'evidence-safe', 'evidence-effective', 'evidence-caring', 'evidence-well-led', 'evidence-responsive',
-      'audits', 'audits-managers-monthly-audit', 'audits-audits',
-      'complaints-and-compliments', 'complaints', 'compliments',
-      'surveys', 'surveys-staff', 'surveys-residents', 'surveys-professional', 'surveys-relatives',
-      'rd-compliance-report', 'action-plans', 'action-plans-external', 'action-plans-internal',
-      'cqc-notifications', 'safeguards', 'riddor', 'hdp', 'sip', 'pr-submissions', 'business-continuity-plan',
-      'service-user-guide', 'statement-of-purpose', 'lessons-learnt', 'rcas'
-    ];
-
-    if (protectedIds.includes(folder.id)) {
-      console.warn("Attempted to delete protected folder:", folder.id);
-      return;
-    }
+    // All folders can now be deleted
 
     try {
         await deleteFolder(activeWorkspace.id, folder.id);
@@ -868,6 +875,7 @@ export function Dashboard() {
             setView={setView} 
             onGoToFiles={handleGoToFiles} 
             onCreateWorkspace={handleCreateWorkspace}
+            dailyEntry={dailyEntry}
            />
         </Sidebar>
 

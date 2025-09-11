@@ -26,6 +26,7 @@ import {
   Accessibility,
   BarChart3,
   ClipboardList,
+  AlertCircle,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Logo } from "@/components/icons/logo";
@@ -61,6 +62,7 @@ interface AppSidebarProps {
   setView: React.Dispatch<React.SetStateAction<'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'dependency-calculator' | 'daily' | 'notifications' | 'audits' | 'policies' | 'stats' | 'action-plans'>>;
   onGoToFiles: () => void;
   onCreateWorkspace: (name: string) => void;
+  dailyEntry?: any;
 }
 
 const NewWorkspaceDialog = ({ onCreate }: { onCreate: (name: string) => void }) => {
@@ -124,6 +126,7 @@ export function AppSidebar({
   setView,
   onGoToFiles,
   onCreateWorkspace,
+  dailyEntry,
 }: AppSidebarProps) {
   const { user, signOut } = useAuth();
   const { isMobile, setOpenMobile, toggleSidebar, state } = useSidebar();
@@ -135,6 +138,10 @@ export function AppSidebar({
       setOpenMobile(false);
     }
   };
+
+  // Check if today's daily check-in has been completed
+  const todayKey = new Date().toISOString().split('T')[0];
+  const isTodayCompleted = dailyEntry && dailyEntry.id === todayKey;
 
   return (
     <>
@@ -176,13 +183,18 @@ export function AppSidebar({
       <SidebarMenuItem>
          <SidebarMenuButton onClick={() => handleNavigation(() => setView('home'))} className="text-lg h-14">
           <LayoutDashboard className="w-7 h-7 mr-2" />
-          <span className="text-lg">Dashboard</span>
+          <div className="flex items-center gap-2">
+            <span className="text-lg">Dashboard</span>
+            {!isTodayCompleted && (
+              <AlertCircle className="w-4 h-4 text-red-500 animate-pulse" />
+            )}
+          </div>
         </SidebarMenuButton>
       </SidebarMenuItem>
       <SidebarMenuItem>
          <SidebarMenuButton onClick={() => handleNavigation(() => setView('dependency-calculator'))} className="text-lg h-14">
           <UsersRound className="w-7 h-7 mr-2" />
-          <span className="text-lg">Dependency Calculator</span>
+          <span className="text-lg">Dependency</span>
         </SidebarMenuButton>
       </SidebarMenuItem>
             <SidebarMenuItem>

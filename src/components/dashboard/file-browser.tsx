@@ -268,7 +268,21 @@ export function FileBrowser({
                 <p className="font-medium truncate">{item.name}</p>
                 {item.type === "folder" && (
                   <p className="text-sm text-muted-foreground">
-                    {item.items?.filter(child => child.type === 'document').length} document{item.items?.filter(child => child.type === 'document').length === 1 ? '' : 's'}
+                    {(() => {
+                      const getTotalDocumentCount = (folder: Folder): number => {
+                        let count = 0;
+                        folder.items?.forEach(child => {
+                          if (child.type === 'document') {
+                            count++;
+                          } else if (child.type === 'folder') {
+                            count += getTotalDocumentCount(child);
+                          }
+                        });
+                        return count;
+                      };
+                      const totalCount = getTotalDocumentCount(item);
+                      return `${totalCount} document${totalCount === 1 ? '' : 's'}`;
+                    })()}
                   </p>
                 )}
                 {item.type === "document" && (
@@ -314,15 +328,8 @@ const ItemMenu = ({ item, onFolderDelete, onDocumentDelete, updateItem }: { item
   const [deleteInput, setDeleteInput] = useState("");
   const isDeleteMatch = deleteInput === item.name;
 
-  // Protected folder ids for the main folders view (immutable)
-  const protectedFolderIds = item.type === 'folder' && [
-    'audits', 'audits-managers-monthly-audit', 'audits-audits',
-    'complaints-and-compliments', 'complaints', 'compliments',
-    'surveys', 'surveys-staff', 'surveys-residents', 'surveys-professional', 'surveys-relatives',
-    'rd-compliance-report', 'action-plans', 'action-plans-external', 'action-plans-internal',
-    'cqc-notifications', 'safeguards', 'riddor', 'hdp', 'sip', 'pr-submissions', 'business-continuity-plan',
-    'service-user-guide', 'statement-of-purpose', 'lessons-learnt', 'rcas'
-  ].includes(item.id);
+  // All folders are now editable and deletable
+  const protectedFolderIds = false;
 
   const handleDelete = () => {
     if (item.type === 'folder') {

@@ -143,114 +143,77 @@ export default function ActionPlansPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
       {/* Header */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600">
-        <div className="absolute inset-0 bg-black/10"></div>
-        <div className="absolute inset-0">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -translate-y-48 translate-x-48 blur-3xl"></div>
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-400/10 rounded-full translate-y-32 -translate-x-32 blur-2xl"></div>
-          <div className="absolute top-1/2 left-1/3 w-32 h-32 bg-purple-300/10 rounded-full blur-xl"></div>
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-8 rounded-b-2xl shadow-lg relative overflow-hidden">
+        {/* Subtle background pattern */}
+        <div className="absolute inset-0 opacity-5">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full -translate-y-48 translate-x-48"></div>
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-400 rounded-full translate-y-32 -translate-x-32"></div>
         </div>
         
-        <div className="relative z-10 px-6 py-8 lg:py-10">
-          <div className="w-full">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-6">
-              {/* Left side - Title and description */}
-              <div className="flex-1">
-                <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full border border-white/20 mb-4">
-                  <CheckCircle className="h-4 w-4 text-blue-200" />
-                  <span className="text-sm font-medium text-white">Correction Management</span>
-                </div>
-                <h1 className="text-3xl lg:text-4xl font-bold text-white mb-3">Action Plans</h1>
-                <p className="text-lg text-blue-100 max-w-2xl">
-                  Track and correct issues identified from monthly audits to maintain compliance standards
-                </p>
-              </div>
-
-              {/* Right side - Progress cards */}
-              <div className="flex-shrink-0">
-                <div className="bg-white/10 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center border border-white/30">
-                      <AlertCircle className="h-5 w-5 text-white" />
-                    </div>
-                    <h2 className="text-xl font-semibold text-white">Correction Progress</h2>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="text-2xl font-bold text-white">{actionPlan?.totalItems || 0}</div>
-                        <AlertCircle className="h-5 w-5 text-red-300" />
-                      </div>
-                      <div className="text-sm font-medium text-red-200">Issues Found</div>
-                    </div>
-                    
-                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="text-2xl font-bold text-white">
-                          {(actionPlan?.totalItems || 0) - (actionPlan?.completedItems || 0)}
-                        </div>
-                        <Clock className="h-5 w-5 text-blue-300" />
-                      </div>
-                      <div className="text-sm font-medium text-blue-200">Pending</div>
-                    </div>
-                    
-                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="text-2xl font-bold text-white">{actionPlan?.completedItems || 0}</div>
-                        <CheckCircle className="h-5 w-5 text-green-300" />
-                      </div>
-                      <div className="text-sm font-medium text-green-200">Completed</div>
-                    </div>
-                    
-                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="text-2xl font-bold text-white">{actionPlan?.progressPercent || 0}%</div>
-                        <FileCheck className="h-5 w-5 text-purple-300" />
-                      </div>
-                      <div className="text-sm font-medium text-purple-200">Progress</div>
-                    </div>
-                  </div>
-
-                  {/* Progress Bar */}
-                  <div>
-                    <div className="flex justify-between text-sm font-medium text-blue-100 mb-2">
-                      <span>Correction Progress</span>
-                      <span>{actionPlan?.progressPercent || 0}% Complete</span>
-                    </div>
-                    <div className="w-full bg-white/20 rounded-full h-3 shadow-inner">
-                      <div
-                        className="bg-gradient-to-r from-green-400 to-emerald-500 h-3 rounded-full transition-all duration-500 shadow-sm"
-                        style={{ width: `${actionPlan?.progressPercent || 0}%` }}
-                      ></div>
-                    </div>
-                    {!allAuditsCompleted && actionPlan && actionPlan.totalItems > 0 && (
-                      <div className="mt-2 text-xs text-amber-200 text-center bg-amber-500/20 px-3 py-1 rounded-lg border border-amber-300/30">
-                        Complete all audits to enable correction actions
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
+        <div className="w-full mx-auto flex items-start justify-between gap-8 relative z-10">
+          <div className="flex items-start gap-6">
+            <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg">
+              <CheckCircle className="w-12 h-12 text-white" />
             </div>
+            <div className="space-y-2">
+              <h1 className="text-3xl font-bold leading-tight tracking-tight">Action Plans</h1>
+              <p className="text-slate-200 text-base leading-relaxed">Track and correct issues identified from monthly audits to maintain compliance standards</p>
+            </div>
+          </div>
 
-            {/* Month and audit info */}
-            <div className="flex flex-wrap gap-4 justify-center lg:justify-start">
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/20">
-                <span className="text-sm text-blue-100">Current Month: </span>
-                <span className="text-sm font-medium text-white">{currentMonthName}</span>
+          <div className="hidden xl:flex items-center gap-6">
+            <div className="grid grid-cols-4 gap-4">
+              <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg hover:bg-white/15 transition-all duration-200">
+                <div className="flex items-center gap-4">
+                  <div className="p-2 bg-red-500/20 rounded-lg">
+                    <AlertCircle className="w-5 h-5 text-red-300" />
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-300 font-medium uppercase tracking-wide">Issues Found</div>
+                    <div className="text-2xl font-bold text-white">{actionPlan?.totalItems || 0}</div>
+                  </div>
+                </div>
               </div>
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/20">
-                <span className="text-sm text-blue-100">Audits Completed: </span>
-                <span className="text-sm font-medium text-white">{completedAuditsCount}/{totalAuditsCount}</span>
+              <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg hover:bg-white/15 transition-all duration-200">
+                <div className="flex items-center gap-4">
+                  <div className="p-2 bg-blue-500/20 rounded-lg">
+                    <Clock className="w-5 h-5 text-blue-300" />
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-300 font-medium uppercase tracking-wide">Pending</div>
+                    <div className="text-2xl font-bold text-white">{(actionPlan?.totalItems || 0) - (actionPlan?.completedItems || 0)}</div>
+                  </div>
+                </div>
+              </div>
+              <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg hover:bg-white/15 transition-all duration-200">
+                <div className="flex items-center gap-4">
+                  <div className="p-2 bg-green-500/20 rounded-lg">
+                    <CheckCircle className="w-5 h-5 text-green-300" />
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-300 font-medium uppercase tracking-wide">Completed</div>
+                    <div className="text-2xl font-bold text-white">{actionPlan?.completedItems || 0}</div>
+                  </div>
+                </div>
+              </div>
+              <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg hover:bg-white/15 transition-all duration-200">
+                <div className="flex items-center gap-4">
+                  <div className="p-2 bg-purple-500/20 rounded-lg">
+                    <FileCheck className="w-5 h-5 text-purple-300" />
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-300 font-medium uppercase tracking-wide">Progress</div>
+                    <div className="text-2xl font-bold text-white">{actionPlan?.progressPercent || 0}%</div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-
-
+      {/* Main Content Container */}
+      <div className="pt-8">
         {/* Action Plan Status */}
         <div className="w-full px-6 mb-6">
           {!allAuditsCompleted && (
@@ -391,7 +354,7 @@ export default function ActionPlansPage() {
                       {/* Section Content */}
                       {isExpanded && (
                         <div className="border-t border-gray-200/50 bg-gradient-to-b from-white/50 to-gray-50/30 p-6">
-                          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
+                          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                             {items.map((item) => {
                               const isCompleted = item.status === 'completed';
                               const isPending = item.status === 'pending';
@@ -587,6 +550,7 @@ export default function ActionPlansPage() {
             </div>
           </div>
         )}
+      </div>
     </div>
   );
 }

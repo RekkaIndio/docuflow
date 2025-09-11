@@ -2,7 +2,7 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Folder, Users, FileText, FileSpreadsheet, FileIcon, FileX2, Briefcase, Clock, User, TrendingUp, TrendingDown, Minus, Archive, Calendar, BarChart3, Edit3, FileCheck, CheckCircle, AlertCircle, ClipboardList } from "lucide-react";
+import { Folder, Users, FileText, FileSpreadsheet, FileIcon, FileX2, Briefcase, Clock, User, TrendingUp, TrendingDown, Minus, Archive, Calendar, BarChart3, Edit3, FileCheck, CheckCircle, AlertCircle, ClipboardList, ChevronRight } from "lucide-react";
 import type { Workspace, Document, Folder as FolderType } from "@/lib/types";
 import { useMemo } from "react";
 import {
@@ -79,88 +79,6 @@ const getFileIcon = (fileType: Document["fileType"]) => {
   }
 };
 
-
-const RecentFilesTable = ({ documents, onSelect }: { documents: Document[], onSelect: (doc: Document) => void }) => (
-    <Card className="border border-blue-200/60 shadow-lg bg-white/90 backdrop-blur-sm rounded-2xl">
-        <CardHeader className="pb-3 border-b border-blue-100/80 bg-gradient-to-r from-blue-50/40 to-transparent rounded-t-2xl">
-            <CardTitle className="text-base font-semibold text-blue-900 tracking-tight animate-in slide-in-from-left-2 duration-300">Recent Files</CardTitle>
-            <CardDescription className="text-xs text-blue-700/70 font-medium">The last 5 documents that were uploaded or modified</CardDescription>
-        </CardHeader>
-    <CardContent className="pt-4">
-            {/* Mobile-friendly card layout */}
-            <div className="block sm:hidden space-y-4">
-                {documents.length > 0 ? documents.map(doc => (
-                    <Card key={doc.id} className="p-4 hover:shadow-md transition-all duration-200 cursor-pointer border border-blue-100/60 hover:border-blue-200 bg-white/60 hover:bg-white/80 rounded-xl" onClick={() => onSelect(doc)}>
-                        <div className="flex flex-col space-y-3">
-                            <div className="flex items-center gap-4 min-w-0">
-                                {getFileIcon(doc.fileType)}
-                                <div className="min-w-0 flex-1">
-                                    <p className="font-semibold text-sm leading-tight break-words text-gray-900">{doc.name}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center justify-between text-xs text-gray-600">
-                                <span className="truncate flex-1 mr-2 font-medium">{doc.owner.name}</span>
-                                <span className="flex-shrink-0 bg-gray-100 px-2 py-1 rounded-full font-medium">
-                                    {new Date(doc.createdAt).toLocaleDateString()}
-                                </span>
-                            </div>
-                        </div>
-                    </Card>
-                )) : (
-                    <div className="text-center py-8">
-                        <FileText className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                        <p className="text-sm text-gray-600 font-medium">No documents uploaded yet</p>
-                        <p className="text-xs text-gray-500 mt-1">Upload your first document to get started</p>
-                    </div>
-                )}
-            </div>
-            {/* Desktop table layout */}
-            <div className="hidden sm:block">
-                <Table>
-                    <TableHeader>
-                        <TableRow className="border-b border-gray-100">
-                            <TableHead className="font-semibold text-gray-700">Name</TableHead>
-                            <TableHead className="font-semibold text-gray-700">Owner</TableHead>
-                            <TableHead className="font-semibold text-gray-700">Last Modified</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {documents.length > 0 ? documents.map(doc => (
-                             <TableRow key={doc.id} className="cursor-pointer hover:bg-blue-50/30 transition-colors duration-200 border-b border-gray-50" onClick={() => onSelect(doc)}>
-                                <TableCell className="font-medium text-gray-900">
-                                    <div className="flex items-center gap-3">
-                                        {getFileIcon(doc.fileType)}
-                                        <span className="truncate">{doc.name}</span>
-                                    </div>
-                                </TableCell>
-                                <TableCell>
-                                    <div className="flex items-center gap-2">
-                                         <Avatar className="h-6 w-6">
-                                            <AvatarImage src={doc.owner.avatarUrl ?? undefined} alt={doc.owner.name ?? undefined} />
-                                            <AvatarFallback className="text-xs font-medium bg-blue-100 text-blue-700">{doc.owner.name?.charAt(0)}</AvatarFallback>
-                                        </Avatar>
-                                        <span className="text-gray-700 font-medium">{doc.owner.name}</span>
-                                    </div>
-                                </TableCell>
-                                <TableCell className="text-gray-600 font-medium">
-                                    {new Date(doc.createdAt).toLocaleDateString()}
-                                </TableCell>
-                            </TableRow>
-                        )) : (
-                            <TableRow>
-                               <TableCell colSpan={3} className="text-center text-gray-600 py-8">
-                                 <FileText className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                                 <p className="font-medium">No documents uploaded yet</p>
-                               </TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
-            </div>
-        </CardContent>
-    </Card>
-);
-
 const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradientColors, trends, dailyEntry, onDailyEntryUpdate, carePlanScore, hsScore, maintenanceScore, restrictiveScore, fireScore, infectionScore, mealtimeScore, nightScore, staffFileScore, kitchenScore, handleAuditCardClick }: { 
     documents: Document[], 
     onSelect: (doc: Document) => void, 
@@ -197,32 +115,76 @@ const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradi
         };
     }, [documents]);
 
+    // Check if today's daily check-in has been completed
+    const todayKey = new Date().toISOString().split('T')[0];
+    const isTodayCompleted = dailyEntry && dailyEntry.id === todayKey;
+
     return (
-        <div className="w-full">
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-6">
-                {/* Daily Check-in */}
-                <Card className="group hover:shadow-xl transition-all duration-300 border border-blue-200/60 bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-blue-100/50">
-                    <CardHeader className="pb-3 border-b border-blue-100/80 bg-gradient-to-r from-blue-50/40 to-transparent rounded-t-2xl">
-                        <CardTitle className="text-sm font-semibold flex items-center gap-2 text-blue-900">
-                            <Calendar className="h-4 w-4 text-blue-500" />
-                            Daily Check-in
-                        </CardTitle>
-                        <CardDescription className="text-xs text-blue-700/70 font-medium">Record occupancy, staffing, and other daily metrics</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4 pt-4">
-                        <div className="text-sm text-gray-600 leading-relaxed">
-                            Quick daily metrics recording for your workspace
+        <div className="w-full space-y-8">
+            {/* Section Header */}
+            <div className="text-center space-y-3">
+                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">Quick Actions</h2>
+                <p className="text-gray-600 max-w-2xl mx-auto">Access your most important tools and monitor key metrics at a glance</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 relative z-10">
+                {/* Daily Check-in Card */}
+                <Card className="group relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-blue-500 to-blue-600 hover:shadow-xl text-white transition-all duration-300">
+                    <CardHeader className="pb-3">
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="p-3 bg-white/15 backdrop-blur-sm rounded-2xl border border-white/20">
+                                <Calendar className="h-6 w-6 text-white" />
+                            </div>
+                            {!isTodayCompleted && (
+                                <div className="flex items-center gap-1 px-2 py-1 bg-amber-500/20 rounded-full border border-amber-400/30">
+                                    <AlertCircle className="h-3 w-3 text-amber-300" />
+                                    <span className="text-xs font-medium text-amber-200">Pending</span>
+                                </div>
+                            )}
                         </div>
-                        <DailyCheckinModal 
-                            workspaceId={workspaceId || ''} 
-                            onEntryUpdate={onDailyEntryUpdate}
-                            trigger={
-                                <Button className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-md hover:shadow-lg">
-                                    <Calendar className="h-4 w-4 mr-2" />
-                                    {dailyEntry ? 'Update Check-in' : 'Start Check-in'}
-                                </Button>
-                            }
-                        />
+                        <CardTitle className="text-lg font-bold text-white mb-2">Daily Check-in</CardTitle>
+                        <CardDescription className="text-blue-100">Record occupancy, staffing, and daily metrics</CardDescription>
+                    </CardHeader>
+                    
+                    <CardContent className="space-y-4">
+                        <div className="flex items-center gap-4 min-h-[80px]">
+                            <div className="flex-shrink-0 w-16 h-16 bg-white/10 rounded-xl flex items-center justify-center">
+                                <span className="text-2xl font-bold text-white">
+                                    {isTodayCompleted ? '✓' : '!'}
+                                </span>
+                            </div>
+                            <div className="flex-1">
+                                <div className="text-sm text-blue-50 leading-relaxed mb-3">
+                                    {isTodayCompleted ? 
+                                        "Today's check-in completed ✓" : 
+                                        "Complete today's daily metrics"
+                                    }
+                                </div>
+                                <DailyCheckinModal 
+                                    workspaceId={workspaceId || ''} 
+                                    onEntryUpdate={onDailyEntryUpdate}
+                                    trigger={
+                                        <Button className={`relative z-20 w-full transition-all duration-300 shadow-lg hover:shadow-xl pointer-events-auto ${
+                                            isTodayCompleted 
+                                                ? 'bg-white/20 hover:bg-white/30 text-white border-white/30 hover:border-white/50' 
+                                                : 'bg-white text-blue-600 hover:bg-blue-50 border-white hover:border-blue-200'
+                                        } border backdrop-blur-sm`}>
+                                            {isTodayCompleted ? (
+                                                <>
+                                                    <CheckCircle className="h-4 w-4 mr-2" />
+                                                    Update Check-in
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <AlertCircle className="h-4 w-4 mr-2" />
+                                                    Complete Check-in
+                                                </>
+                                            )}
+                                        </Button>
+                                    }
+                                />
+                            </div>
+                        </div>
                     </CardContent>
                 </Card>
                 
@@ -233,95 +195,128 @@ const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradi
                 <StaffingCard workspaceId={workspaceId} dailyEntry={dailyEntry} />
                 
                 {/* Overall Score Card */}
-                <Card className="group hover:shadow-xl transition-all duration-300 border border-blue-200/60 bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-blue-100/50">
-                    <CardHeader className="pb-3 border-b border-blue-100/80 bg-gradient-to-r from-blue-50/40 to-transparent rounded-t-2xl">
-                        <CardTitle className="text-sm font-semibold flex items-center gap-2 text-blue-900">
-                            <BarChart3 className="h-4 w-4 text-blue-500" />
-                            Overall Audit Score
-                        </CardTitle>
-                    <CardDescription className="text-xs text-blue-700/70 font-medium">Audit score for all categories</CardDescription>
-
+                <Card className="group relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-emerald-500 to-green-600 hover:shadow-xl text-white transition-all duration-300">
+                    <CardHeader className="pb-3">
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="p-3 bg-white/15 backdrop-blur-sm rounded-2xl border border-white/20">
+                                <BarChart3 className="h-6 w-6 text-white" />
+                            </div>
+                            {overallStats.overallPercentage !== null && (
+                                <div className="flex items-center">
+                                    {overallStats.overallPercentage >= 80 ? 
+                                        <div className="w-3 h-3 bg-green-300 rounded-full"></div> :
+                                    overallStats.overallPercentage >= 60 ? 
+                                        <div className="w-3 h-3 bg-yellow-300 rounded-full"></div> :
+                                        <div className="w-3 h-3 bg-red-300 rounded-full"></div>
+                                    }
+                                </div>
+                            )}
+                        </div>
+                        <CardTitle className="text-lg font-bold text-white mb-2">Compliance Score</CardTitle>
+                        <CardDescription className="text-emerald-100">Overall audit performance across all categories</CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-4 pt-4">
-                        <div className="flex items-center gap-6">
-                            <div className="w-32 h-32 flex items-center justify-center relative">
+                    
+                    <CardContent className="space-y-4">
+                        <div className="flex items-center gap-4 min-h-[80px]">
+                            <div className="flex-shrink-0 w-16 h-16 flex items-center justify-center">
                                 <OccupancyPie 
                                     percent={overallStats.overallPercentage ?? 0} 
-                                    size={112} 
-                                    strokeWidth={14} 
+                                    size={64} 
+                                    strokeWidth={6} 
                                     gradientColors={getGradientColors(overallStats.overallPercentage)}
-                                    centerFontSize={28}
-                                    centerClassName="font-bold"
+                                    centerFontSize={14}
+                                    centerClassName="font-bold text-white"
+                                    centerFill="transparent"
                                 />
                             </div>
-                            <div className="flex-1 space-y-3">
-                                <div className="flex items-center gap-2">
-                                    <div className="text-2xl font-bold text-gray-900">
+                            <div className="flex-1 space-y-1">
+                                <div className="flex items-baseline gap-2">
+                                    <div className="text-xl font-bold text-white">
                                         {overallStats.overallPercentage !== null ? `${overallStats.overallPercentage}%` : 'N/A'}
                                     </div>
                                     {overallStats.overallPercentage !== null && (
-                                        <div className="flex items-center">
-                                            {overallStats.overallPercentage >= 80 ? 
-                                                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div> :
-                                            overallStats.overallPercentage >= 60 ? 
-                                                <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div> :
-                                                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                                            }
-                                        </div>
+                                        <TrendIndicator auditType="overall" trends={trends} />
                                     )}
                                 </div>
-                                <div className="space-y-1">
-                                    <div className="text-sm text-gray-600">
-                                        {overallStats.totalYesCount} of {overallStats.totalQuestions} passed
-                                    </div>
-                                    {overallStats.totalQuestions > 0 && (
-                                        <div className="w-full bg-gray-200 rounded-full h-2">
-                                            <div 
-                                                className="bg-blue-500 h-2 rounded-full transition-all duration-300" 
-                                                style={{ width: `${(overallStats.totalYesCount / overallStats.totalQuestions) * 100}%` }}
-                                            ></div>
-                                        </div>
-                                    )}
+                                <div className="text-sm text-emerald-100">
+                                    {overallStats.totalYesCount} of {overallStats.totalQuestions} passed
                                 </div>
-                                <div className="text-sm text-gray-600">
+                                <div className="text-sm text-emerald-100">
                                     {overallStats.auditsCompleted}/{overallStats.totalAudits} audits completed
                                 </div>
-                                {overallStats.overallPercentage !== null && (
-                                    <div className="mt-3">
-                                        <TrendIndicator auditType="overall" trends={trends} />
-                                    </div>
-                                )}
                             </div>
                         </div>
                     </CardContent>
                 </Card>
             </div>
             
-            {/* Compliance Status Grid */}
-            <div className="mt-8">
-                <h2 className="text-xl font-bold mb-6 text-gray-900 tracking-tight animate-in slide-in-from-left-4 duration-300">Compliance Overview</h2>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mb-8">
+            {/* Enhanced Compliance Status Grid */}
+            <div className="space-y-6">
+                <div className="text-center space-y-3">
+                    <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">Compliance Overview</h2>
+                    <p className="text-gray-600 max-w-2xl mx-auto">Monitor your audit progress and identify areas needing attention</p>
+                </div>
+
+                {/* Progress Summary Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                    <Card className="p-4 bg-gradient-to-br from-blue-50 to-blue-100/50 border border-blue-200/50 hover:shadow-lg transition-all duration-300">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-blue-500 rounded-xl">
+                                <FileCheck className="h-6 w-6 text-white" />
+                            </div>
+                            <div>
+                                <div className="text-2xl font-bold text-blue-900">{overallStats.auditsCompleted}</div>
+                                <div className="text-sm text-blue-700 font-medium">Completed Audits</div>
+                            </div>
+                        </div>
+                    </Card>
+                    <Card className="p-4 bg-gradient-to-br from-amber-50 to-amber-100/50 border border-amber-200/50 hover:shadow-lg transition-all duration-300">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-amber-500 rounded-xl">
+                                <AlertCircle className="h-6 w-6 text-white" />
+                            </div>
+                            <div>
+                                <div className="text-2xl font-bold text-amber-900">{overallStats.totalAudits - overallStats.auditsCompleted}</div>
+                                <div className="text-sm text-amber-700 font-medium">Pending Audits</div>
+                            </div>
+                        </div>
+                    </Card>
+                    <Card className="p-4 bg-gradient-to-br from-emerald-50 to-emerald-100/50 border border-emerald-200/50 hover:shadow-lg transition-all duration-300">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-emerald-500 rounded-xl">
+                                <TrendingUp className="h-6 w-6 text-white" />
+                            </div>
+                            <div>
+                                <div className="text-2xl font-bold text-emerald-900">{overallStats.overallPercentage !== null ? `${overallStats.overallPercentage}%` : '—'}</div>
+                                <div className="text-sm text-emerald-700 font-medium">Overall Score</div>
+                            </div>
+                        </div>
+                    </Card>
+                </div>
+
+                {/* Audit Status Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 relative z-10">
                     {(() => {
                         // Complete audit list matching audits page and firestore function
                         const allAudits = [
-                            { key: 'accident-incident', name: 'Accident & Incident', score: null, icon: '�' },
-                            { key: 'call-bell-monitoring', name: 'Call Bell Monitoring', score: null, icon: '�' },
-                            { key: 'care-plan', name: 'Care Plan', score: carePlanScore, icon: '�' },
-                            { key: 'equipment', name: 'Equipment', score: null, icon: '⚙️' },
-                            { key: 'fire-safety', name: 'Fire Safety', score: fireScore, icon: '🔥' },
-                            { key: 'hand-hygiene', name: 'Hand Hygiene', score: null, icon: '🧼' },
-                            { key: 'health-safety', name: 'Health & Safety', score: hsScore, icon: '⚕️' },
-                            { key: 'infection-control', name: 'Infection Control', score: infectionScore, icon: '🦠' },
-                            { key: 'kitchen', name: 'Kitchen', score: kitchenScore, icon: '👨‍🍳' },
-                            { key: 'maintenance', name: 'Maintenance', score: maintenanceScore, icon: '🔧' },
-                            { key: 'managers-weekly', name: 'Managers Weekly', score: null, icon: '📊' },
-                            { key: 'mealtime', name: 'Mealtime', score: mealtimeScore, icon: '🍽️' },
-                            { key: 'night-visit', name: 'Night Visit', score: nightScore, icon: '🌙' },
-                            { key: 'restrictive-practice', name: 'Restrictive Practice', score: restrictiveScore, icon: '🔒' },
-                            { key: 'staff-file', name: 'Staff File', score: staffFileScore, icon: '📁' },
-                            { key: 'weight-monitoring', name: 'Weight Monitoring', score: null, icon: '⚖️' },
-                            { key: 'wound-monitoring', name: 'Wound Monitoring', score: null, icon: '🩹' },
-                            { key: 'risk-register', name: 'Risk Register', score: null, icon: '📊' }
+                            { key: 'accident-incident', name: 'Accident & Incident', score: null, icon: '🚨', color: 'from-red-500 to-red-600' },
+                            { key: 'call-bell-monitoring', name: 'Call Bell Monitoring', score: null, icon: '🔔', color: 'from-blue-500 to-blue-600' },
+                            { key: 'care-plan', name: 'Care Plan', score: carePlanScore, icon: '📋', color: 'from-green-500 to-green-600' },
+                            { key: 'equipment', name: 'Equipment', score: null, icon: '🔧', color: 'from-gray-500 to-gray-600' },
+                            { key: 'fire-safety', name: 'Fire Safety', score: fireScore, icon: '🔥', color: 'from-orange-500 to-red-600' },
+                            { key: 'hand-hygiene', name: 'Hand Hygiene', score: null, icon: '🧼', color: 'from-cyan-500 to-blue-600' },
+                            { key: 'health-safety', name: 'Health & Safety', score: hsScore, icon: '⚕️', color: 'from-emerald-500 to-green-600' },
+                            { key: 'infection-control', name: 'Infection Control', score: infectionScore, icon: '🦠', color: 'from-purple-500 to-purple-600' },
+                            { key: 'kitchen', name: 'Kitchen', score: kitchenScore, icon: '👨‍🍳', color: 'from-yellow-500 to-orange-600' },
+                            { key: 'maintenance', name: 'Maintenance', score: maintenanceScore, icon: '�', color: 'from-slate-500 to-slate-600' },
+                            { key: 'managers-weekly', name: 'Managers Weekly', score: null, icon: '📊', color: 'from-indigo-500 to-indigo-600' },
+                            { key: 'mealtime', name: 'Mealtime', score: mealtimeScore, icon: '🍽️', color: 'from-pink-500 to-rose-600' },
+                            { key: 'night-visit', name: 'Night Visit', score: nightScore, icon: '🌙', color: 'from-indigo-500 to-purple-600' },
+                            { key: 'restrictive-practice', name: 'Restrictive Practice', score: restrictiveScore, icon: '🔒', color: 'from-amber-500 to-orange-600' },
+                            { key: 'staff-file', name: 'Staff File', score: staffFileScore, icon: '📁', color: 'from-teal-500 to-cyan-600' },
+                            { key: 'weight-monitoring', name: 'Weight Monitoring', score: null, icon: '⚖️', color: 'from-lime-500 to-green-600' },
+                            { key: 'wound-monitoring', name: 'Wound Monitoring', score: null, icon: '🩹', color: 'from-rose-500 to-pink-600' },
+                            { key: 'risk-register', name: 'Risk Register', score: null, icon: '�', color: 'from-violet-500 to-purple-600' }
                         ];
 
                         // Filter to show only pending audits (those without scores or with scores < 100%)
@@ -330,54 +325,75 @@ const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradi
                         );
 
                         return pendingAudits.map(audit => {
-                        // All pending audits are shown with pending status
-                        const statusColor = 'bg-gray-100 border-gray-300 text-gray-600';
-                        
-                        return (
-                            <div 
-                                key={audit.key} 
-                                className={`p-3 rounded-xl border transition-all duration-200 hover:shadow-md cursor-pointer hover:scale-105 transform ${statusColor}`}
-                                onClick={() => handleAuditCardClick(audit.key)}
-                                role="button"
-                                tabIndex={0}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter' || e.key === ' ') {
+                            const isCompleted = audit.score !== null && audit.score >= 100;
+                            const statusColor = isCompleted 
+                                ? 'bg-gradient-to-br from-green-100 to-green-200 border-green-300 text-green-800' 
+                                : 'bg-gradient-to-br from-gray-100 to-gray-200 border-gray-300 text-gray-700 hover:from-gray-200 hover:to-gray-300';
+                            const iconBg = isCompleted 
+                                ? 'bg-green-500' 
+                                : `bg-gradient-to-br ${audit.color}`;
+
+                            return (
+                                <Card 
+                                    key={audit.key} 
+                                    className={`group relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-xl border-2 pointer-events-auto z-10 ${statusColor}`}
+                                    onClick={(e) => {
                                         e.preventDefault();
+                                        e.stopPropagation();
                                         handleAuditCardClick(audit.key);
-                                    }
-                                }}
-                                title={`Complete ${audit.name} audit`}
-                            >
-                                <div className="text-center">
-                                    <div className="text-2xl mb-1">{audit.icon}</div>
-                                    <div className="text-xs font-semibold truncate">{audit.name}</div>
-                                    <div className="text-sm font-bold mt-1">
-                                        Pending
-                                    </div>
-                                    <div className="text-xs text-gray-500 mt-1 opacity-75">
-                                        Click to Complete
-                                    </div>
-                                </div>
-                            </div>
-                        );
+                                    }}
+                                    role="button"
+                                    tabIndex={0}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            handleAuditCardClick(audit.key);
+                                        }
+                                    }}
+                                >
+                                    <CardContent className="p-4 text-center space-y-3">
+                                        <div className={`w-12 h-12 mx-auto rounded-xl flex items-center justify-center text-white text-xl shadow-lg ${iconBg}`}>
+                                            {audit.icon}
+                                        </div>
+                                        <div>
+                                            <div className="text-sm font-bold leading-tight mb-1">{audit.name}</div>
+                                            <div className="text-lg font-bold">
+                                                {audit.score !== null ? `${audit.score}%` : 'Pending'}
+                                            </div>
+                                            <div className="text-xs opacity-75 mt-1">
+                                                {isCompleted ? 'Completed ✓' : 'Click to Complete'}
+                                            </div>
+                                        </div>
+                                        {audit.score !== null && audit.score < 100 && (
+                                            <div className="w-full bg-gray-300 rounded-full h-1">
+                                                <div 
+                                                    className="bg-current h-1 rounded-full transition-all duration-500" 
+                                                    style={{ width: `${audit.score}%` }}
+                                                ></div>
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            );
                         });
                     })()}
                 </div>
-                
+
                 {/* Completed Audits Summary */}
                 {(() => {
                     // Complete audit list matching audits page and firestore function
                     const allAudits = [
-                        { key: 'accident-incident', name: 'Accident & Incident', score: null, icon: '�' },
-                        { key: 'call-bell-monitoring', name: 'Call Bell Monitoring', score: null, icon: '�' },
-                        { key: 'care-plan', name: 'Care Plan', score: carePlanScore, icon: '�' },
-                        { key: 'equipment', name: 'Equipment', score: null, icon: '⚙️' },
+                        { key: 'accident-incident', name: 'Accident & Incident', score: null, icon: '🚨' },
+                        { key: 'call-bell-monitoring', name: 'Call Bell Monitoring', score: null, icon: '🔔' },
+                        { key: 'care-plan', name: 'Care Plan', score: carePlanScore, icon: '📋' },
+                        { key: 'equipment', name: 'Equipment', score: null, icon: '🔧' },
                         { key: 'fire-safety', name: 'Fire Safety', score: fireScore, icon: '🔥' },
                         { key: 'hand-hygiene', name: 'Hand Hygiene', score: null, icon: '🧼' },
                         { key: 'health-safety', name: 'Health & Safety', score: hsScore, icon: '⚕️' },
                         { key: 'infection-control', name: 'Infection Control', score: infectionScore, icon: '🦠' },
                         { key: 'kitchen', name: 'Kitchen', score: kitchenScore, icon: '👨‍🍳' },
-                        { key: 'maintenance', name: 'Maintenance', score: maintenanceScore, icon: '🔧' },
+                        { key: 'maintenance', name: 'Maintenance', score: maintenanceScore, icon: '�' },
                         { key: 'managers-weekly', name: 'Managers Weekly', score: null, icon: '📊' },
                         { key: 'mealtime', name: 'Mealtime', score: mealtimeScore, icon: '🍽️' },
                         { key: 'night-visit', name: 'Night Visit', score: nightScore, icon: '🌙' },
@@ -385,7 +401,7 @@ const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradi
                         { key: 'staff-file', name: 'Staff File', score: staffFileScore, icon: '📁' },
                         { key: 'weight-monitoring', name: 'Weight Monitoring', score: null, icon: '⚖️' },
                         { key: 'wound-monitoring', name: 'Wound Monitoring', score: null, icon: '🩹' },
-                        { key: 'risk-register', name: 'Risk Register', score: null, icon: '�' }
+                        { key: 'risk-register', name: 'Risk Register', score: null, icon: '📋' }
                     ];
 
                     // Show completed audits (those with scores >= 100%)
@@ -395,22 +411,27 @@ const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradi
 
                     if (completedAudits.length > 0) {
                         return (
-                            <div className="mt-6">
-                                <h3 className="text-lg font-semibold mb-4 text-gray-800">Completed This Month</h3>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                            <div className="mt-8">
+                                <div className="flex items-center gap-3 mb-6">
+                                    <div className="p-2 bg-green-500 rounded-lg">
+                                        <CheckCircle className="h-5 w-5 text-white" />
+                                    </div>
+                                    <h3 className="text-xl font-bold text-gray-800">Completed This Month</h3>
+                                </div>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                                     {completedAudits.map(audit => (
-                                        <div key={audit.key} className="p-3 rounded-xl border bg-green-50 border-green-200 text-green-800">
-                                            <div className="text-center">
-                                                <div className="text-2xl mb-1">{audit.icon}</div>
-                                                <div className="text-xs font-semibold truncate">{audit.name}</div>
-                                                <div className="text-sm font-bold mt-1">
-                                                    {audit.score !== null ? `${audit.score}%` : 'Complete'} ✓
+                                        <Card key={audit.key} className="p-4 bg-gradient-to-br from-green-50 to-green-100 border border-green-200 hover:shadow-lg transition-all duration-300 hover:scale-105">
+                                            <div className="text-center space-y-2">
+                                                <div className="text-2xl">{audit.icon}</div>
+                                                <div className="text-sm font-bold text-green-800">{audit.name}</div>
+                                                <div className="text-lg font-bold text-green-700">
+                                                    {audit.score}% ✓
                                                 </div>
-                                                <div className="text-xs text-green-600 mt-1 opacity-75">
+                                                <div className="text-xs text-green-600">
                                                     Completed
                                                 </div>
                                             </div>
-                                        </div>
+                                        </Card>
                                     ))}
                                 </div>
                             </div>
@@ -494,31 +515,6 @@ const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradi
     );
 };
 
-const QuickAccess = ({ folders, onSelect }: { folders: FolderType[], onSelect: (item: FolderType) => void }) => (
-    <div className="w-full">
-        <h2 className="text-xl font-bold mb-6 text-gray-900 tracking-tight animate-in slide-in-from-left-4 duration-300">Quick Access</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {folders.length > 0 ? folders.map(folder => (
-             <Card key={folder.id} className="group hover:shadow-xl transition-all duration-300 cursor-pointer border border-yellow-200/60 bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-yellow-100/50" onClick={() => onSelect(folder)}>
-                <CardHeader className="flex flex-row items-center justify-between pb-3 px-5 sm:px-6 border-b border-yellow-100/80 bg-gradient-to-r from-yellow-50/40 to-transparent rounded-t-2xl">
-                    <Folder className="w-7 h-7 sm:w-8 sm:h-8 text-yellow-500 flex-shrink-0" />
-                    <span className="text-xs text-gray-500 font-medium bg-yellow-100/60 px-2 py-1 rounded-full">{folder.items.length} items</span>
-                </CardHeader>
-                    <CardContent className="px-5 sm:px-6 pt-4">
-                        <p className="font-semibold text-sm sm:text-base break-words leading-tight text-gray-900 group-hover:text-yellow-700 transition-colors duration-200">{folder.name}</p>
-                    </CardContent>
-                </Card>
-            )) : (
-                <div className="col-span-full text-center py-8">
-                    <Folder className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                    <p className="text-sm text-gray-600 font-medium">No folders created yet</p>
-                    <p className="text-xs text-gray-500 mt-1">Create your first folder to get started</p>
-                </div>
-            )}
-        </div>
-    </div>
-);
-
 type OccupancyData = { totalBeds: number; occupiedBeds: number };
 
 function OccupancyCard({ workspaceId, dailyEntry }: { workspaceId?: string, dailyEntry?: any }) {
@@ -526,6 +522,10 @@ function OccupancyCard({ workspaceId, dailyEntry }: { workspaceId?: string, dail
     const [occupiedBeds, setOccupiedBeds] = useState<number | null>(null);
     const [loading, setLoading] = useState(false);
     const [careHomePercent, setCareHomePercent] = useState<number | null>(null);
+    const [editing, setEditing] = useState(false);
+    const [totalBedsInput, setTotalBedsInput] = useState('');
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         if (!workspaceId) return;
@@ -651,41 +651,118 @@ function OccupancyCard({ workspaceId, dailyEntry }: { workspaceId?: string, dail
     if (percent < 80 && percent >= 20) gradientColors = { start: '#fbbf24', end: '#d97706' };
     else if (percent < 20) gradientColors = { start: '#f87171', end: '#dc2626' };
 
-    return (
-        <Card className="group hover:shadow-xl transition-all duration-300 border border-indigo-200/60 bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-indigo-100/50">
-            <CardHeader className="pb-3 border-b border-indigo-100/80 bg-gradient-to-r from-indigo-50/40 to-transparent rounded-t-2xl">
-                <div className="flex items-center justify-between w-full">
-                    <div className="flex items-center gap-3">
-                        <Briefcase className="h-5 w-5 text-indigo-500" />
-                        <div>
-                            <div className="flex items-baseline gap-3">
-                                <CardTitle className="text-sm font-semibold text-gray-900">Occupancy</CardTitle>
-                                <span className="text-sm text-gray-600 font-medium">{typeof totalBeds === 'number' && totalBeds >= 0 ? `${totalBeds} beds` : '— beds'}</span>
-                            </div>
-                            <CardDescription className="text-xs text-gray-600 font-medium mt-1">Track current occupancy for this workspace</CardDescription>
-                        </div>
-                    </div>
-                    <div />
-                </div>
-            </CardHeader>
-            <CardContent className="space-y-4 pt-4">
-                <div className="flex items-center gap-8">
-                        <div className="w-32 h-32 flex items-center justify-center relative">
-                            <OccupancyPie percent={percent} size={112} strokeWidth={14} gradientColors={gradientColors} centerFontSize={28} />
-                        </div>
+    // Initialize editing input when totalBeds changes
+    useEffect(() => {
+        if (totalBeds !== null) {
+            setTotalBedsInput(totalBeds.toString());
+        }
+    }, [totalBeds]);
 
-                    <div className="flex-1">
-                        <div className="space-y-3">
-                            <div>
-                                <label className="text-xs text-gray-600 font-medium uppercase tracking-wide">Occupied beds</label>
-                                <div className="text-xl font-bold mt-1 text-gray-900">{displayOccupied !== null ? displayOccupied : '—'}</div>
+    const handleSaveTotalBeds = async () => {
+        setError(null);
+        if (!workspaceId) return;
+        const beds = parseInt(totalBedsInput || '0', 10);
+        if (isNaN(beds) || beds < 0) {
+            setError('Please enter a valid non-negative number');
+            return;
+        }
+        setSaving(true);
+        try {
+            // Save to workspace settings
+            const settingsRef = doc(db, `workspaces/${workspaceId}/settings`, 'occupancy');
+            await setDoc(settingsRef, {
+                totalBeds: beds,
+                occupiedBeds: occupiedBeds || 0,
+                updatedAt: new Date()
+            }, { merge: true });
+            setEditing(false);
+        } catch (e) {
+            setError('Failed to save total beds');
+            console.error(e);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <Card className="group relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-indigo-500 to-indigo-600 hover:shadow-xl text-white transition-all duration-300">
+            <CardHeader className="pb-3 relative z-20">
+                <div className="flex items-center justify-between mb-3">
+                    <div className="p-3 bg-white/15 backdrop-blur-sm rounded-2xl border border-white/20">
+                        <Briefcase className="h-6 w-6 text-white" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm text-indigo-200 font-medium bg-white/10 px-3 py-1 rounded-full border border-white/20">
+                            {typeof totalBeds === 'number' && totalBeds >= 0 ? `${totalBeds} beds` : '— beds'}
+                        </span>
+                        <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="relative z-30 text-white/80 hover:text-white hover:bg-white/10 transition-colors duration-200 pointer-events-auto" 
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setEditing(prev => !prev);
+                            }} 
+                            disabled={saving || loading}
+                        >
+                            <Edit3 className="w-4 h-4 mr-1" /> {editing ? 'Cancel' : 'Edit'}
+                        </Button>
+                    </div>
+                </div>
+                <CardTitle className="text-lg font-bold text-white mb-2">Occupancy</CardTitle>
+                <CardDescription className="text-indigo-100">Track current occupancy levels</CardDescription>
+            </CardHeader>
+            
+            <CardContent className="space-y-4">
+                <div className="flex items-center gap-4 min-h-[80px]">
+                    <div className="flex-shrink-0 w-16 h-16 flex items-center justify-center">
+                        <OccupancyPie percent={percent} size={64} strokeWidth={6} gradientColors={gradientColors} centerFontSize={14} centerClassName="font-bold text-white" centerFill="transparent" />
+                    </div>
+                    <div className="flex-1 space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                            <div className="text-center p-2 bg-white/10 rounded-lg border border-white/20">
+                                <div className="text-lg font-bold text-white">{displayOccupied !== null ? displayOccupied : '—'}</div>
+                                <div className="text-xs text-indigo-200 font-medium">Occupied</div>
                             </div>
-                            <div>
-                                <label className="text-xs text-gray-600 font-medium uppercase tracking-wide">Total beds</label>
-                                <div className="text-xl font-bold mt-1 text-gray-900">{displayTotal !== null ? displayTotal : (totalBeds !== null ? totalBeds : '—')}</div>
+                            <div className="text-center p-2 bg-white/10 rounded-lg border border-white/20">
+                                {editing ? (
+                                    <input
+                                        type="number"
+                                        className="w-12 border border-white/30 rounded px-1 py-0.5 text-center text-sm font-bold text-white bg-white/10 placeholder-white/50"
+                                        value={totalBedsInput}
+                                        onChange={e => setTotalBedsInput(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value || '0', 10)).toString())}
+                                        min={0}
+                                        disabled={saving}
+                                        placeholder="0"
+                                    />
+                                ) : (
+                                    <div className="text-lg font-bold text-white">{displayTotal !== null ? displayTotal : (totalBeds !== null ? totalBeds : '—')}</div>
+                                )}
+                                <div className="text-xs text-indigo-200 font-medium">Total</div>
                             </div>
-                            <div className="text-sm text-gray-500">{loading ? 'Loading…' : ''}</div>
                         </div>
+                        {error && <div className="text-xs text-red-300 text-center font-medium">{error}</div>}
+                        {editing ? (
+                            <div className="flex justify-center mt-2">
+                                <Button 
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        handleSaveTotalBeds();
+                                    }} 
+                                    disabled={saving || loading} 
+                                    size="sm" 
+                                    className="relative z-30 pointer-events-auto bg-white/20 hover:bg-white/30 text-white border-white/30 hover:border-white/50 transition-colors duration-200"
+                                >
+                                    {saving ? 'Saving...' : 'Save'}
+                                </Button>
+                            </div>
+                        ) : (
+                            <div className="text-xs text-indigo-200 text-center">
+                                {loading ? 'Loading…' : 'Real-time occupancy data'}
+                            </div>
+                        )}
                     </div>
                 </div>
             </CardContent>
@@ -927,90 +1004,108 @@ function StaffingCard({ workspaceId, dailyEntry }: { workspaceId?: string, daily
     };
 
     return (
-        <Card className="group hover:shadow-xl transition-all duration-300 border border-blue-200/60 bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-blue-100/50">
-            <CardHeader className="pb-3 border-b border-blue-100/80 bg-gradient-to-r from-blue-50/40 to-blue-100/30 rounded-t-2xl">
-                <div className="flex items-center justify-between w-full">
-                    <div className="flex items-center gap-3">
-                        <Users className="h-5 w-5 text-blue-500" />
-                        <div>
-                            <CardTitle className="text-sm font-semibold text-gray-900">Staffing</CardTitle>
-                            <CardDescription className="text-xs text-gray-600 font-medium">Latest staffing levels from check-ins</CardDescription>
-                        </div>
+        <Card className="group relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-purple-500 to-purple-600 hover:shadow-xl text-white transition-all duration-300">
+            <CardHeader className="pb-3 relative z-20">
+                <div className="flex items-center justify-between mb-3">
+                    <div className="p-3 bg-white/15 backdrop-blur-sm rounded-2xl border border-white/20">
+                        <Users className="h-6 w-6 text-white" />
                     </div>
-                    <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="sm" className="text-xs hover:bg-blue-50 transition-colors duration-200" onClick={() => setEditing(e => !e)} disabled={saving || loading}>
-                            <Edit3 className="w-4 h-4 mr-1" /> {editing ? 'Cancel' : 'Edit'}
-                        </Button>
-                    </div>
+                    <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="relative z-30 text-white/80 hover:text-white hover:bg-white/10 transition-colors duration-200 pointer-events-auto" 
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setEditing(prev => !prev);
+                        }} 
+                        disabled={saving || loading}
+                    >
+                        <Edit3 className="w-4 h-4 mr-1" /> {editing ? 'Cancel' : 'Edit'}
+                    </Button>
                 </div>
+                <CardTitle className="text-lg font-bold text-white mb-2">Staffing</CardTitle>
+                <CardDescription className="text-purple-100">Latest staffing levels from check-ins</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4 pt-4">
+            
+            <CardContent className="space-y-4">
                 {loading ? (
-                    <div className="text-sm text-gray-600">Loading...</div>
+                    <div className="text-sm text-purple-100">Loading...</div>
                 ) : (
-                    <div className="flex items-center gap-8">
-                        <div className="w-32 h-32 flex items-center justify-center relative">
+                    <div className="flex items-center gap-4 min-h-[80px]">
+                        <div className="flex-shrink-0 w-16 h-16 flex items-center justify-center relative">
                             <style>{`.staffing-hide-pie-text text { display: none !important; }`}</style>
                             <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
-                                <span className="text-3xl font-bold text-white drop-shadow" style={{marginTop: '-2px'}}>{totalStaff}</span>
+                                <span className="text-xl font-bold text-white drop-shadow">{totalStaff}</span>
                             </div>
                             <div className="staffing-hide-pie-text">
                                 <OccupancyPie
                                     percent={percent}
-                                    size={112}
-                                    strokeWidth={16}
+                                    size={64}
+                                    strokeWidth={6}
                                     gradientColors={gradientColors}
                                     centerClassName=""
                                     centerFill="#fff"
-                                    centerFontSize={36}
+                                    centerFontSize={18}
                                 />
                             </div>
                         </div>
-                        <div className="flex-1 space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="flex flex-col items-center p-3 bg-yellow-50/60 rounded-xl border border-yellow-200/40">
-                                    <Sun className="h-6 w-6 text-yellow-500 mb-2" />
+                        <div className="flex-1 space-y-2">
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="text-center p-2 bg-white/10 rounded-lg border border-white/20">
+                                    <Sun className="h-4 w-4 text-yellow-300 mx-auto mb-1" />
                                     {editing ? (
                                         <input
                                             type="number"
-                                            className="w-16 border border-yellow-300 rounded-lg px-2 py-1 text-center text-lg font-bold text-yellow-700 bg-white"
+                                            className="w-12 border border-white/30 rounded px-1 py-0.5 text-center text-sm font-bold text-white bg-white/10 placeholder-white/50"
                                             value={dayInput}
                                             onChange={e => setDayInput(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value || '0', 10)).toString())}
                                             min={0}
                                             disabled={saving}
+                                            placeholder="0"
                                         />
                                     ) : (
-                                        <span className="text-xl font-bold text-yellow-700">{staffingData?.day ?? '0'}</span>
+                                        <div className="text-lg font-bold text-white">{staffingData?.day ?? '0'}</div>
                                     )}
-                                    <span className="text-xs text-gray-600 font-medium">Day Shift</span>
+                                    <div className="text-xs text-purple-200 font-medium">Day</div>
                                 </div>
-                                <div className="flex flex-col items-center p-3 bg-indigo-50/60 rounded-xl border border-indigo-200/40">
-                                    <Moon className="h-6 w-6 text-indigo-500 mb-2" />
+                                <div className="text-center p-2 bg-white/10 rounded-lg border border-white/20">
+                                    <Moon className="h-4 w-4 text-indigo-300 mx-auto mb-1" />
                                     {editing ? (
                                         <input
                                             type="number"
-                                            className="w-16 border border-indigo-300 rounded-lg px-2 py-1 text-center text-lg font-bold text-indigo-700 bg-white"
+                                            className="w-12 border border-white/30 rounded px-1 py-0.5 text-center text-sm font-bold text-white bg-white/10 placeholder-white/50"
                                             value={nightInput}
                                             onChange={e => setNightInput(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value || '0', 10)).toString())}
                                             min={0}
                                             disabled={saving}
+                                            placeholder="0"
                                         />
                                     ) : (
-                                        <span className="text-xl font-bold text-indigo-700">{staffingData?.night ?? '0'}</span>
+                                        <div className="text-lg font-bold text-white">{staffingData?.night ?? '0'}</div>
                                     )}
-                                    <span className="text-xs text-gray-600 font-medium">Night Shift</span>
+                                    <div className="text-xs text-purple-200 font-medium">Night</div>
                                 </div>
                             </div>
-                            {error && <div className="text-xs text-red-600 text-center mt-2 font-medium">{error}</div>}
+                            {error && <div className="text-xs text-red-300 text-center font-medium">{error}</div>}
                             {editing ? (
-                                <div className="flex items-center gap-3 justify-center mt-3">
-                                    <Button onClick={handleSave} disabled={saving || loading} className="bg-blue-500 hover:bg-blue-600 transition-colors duration-200">
+                                <div className="flex justify-center mt-2">
+                                    <Button 
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            handleSave();
+                                        }} 
+                                        disabled={saving || loading} 
+                                        size="sm" 
+                                        className="relative z-30 pointer-events-auto bg-white/20 hover:bg-white/30 text-white border-white/30 hover:border-white/50 transition-colors duration-200"
+                                    >
                                         {saving ? 'Saving...' : 'Save'}
                                     </Button>
                                 </div>
                             ) : (
                                 staffingData?.lastUpdated && (
-                                    <div className="text-xs text-blue-600 text-center mt-3 font-medium">
+                                    <div className="text-xs text-purple-200 text-center font-medium">
                                         <Clock className="inline-block h-3 w-3 mr-1 align-text-bottom" />
                                         Last updated: {staffingData.lastUpdated}
                                     </div>
@@ -1406,157 +1501,270 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
 
 
     return (
-    <div className="flex flex-col h-full min-h-screen bg-gradient-to-br from-gray-50 to-blue-50/30">
-            {/* Refined hero header with improved spacing and typography */}
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-8 rounded-b-2xl shadow-lg relative overflow-hidden">
-                {/* Subtle background pattern */}
-                <div className="absolute inset-0 opacity-5">
-                    <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full -translate-y-48 translate-x-48"></div>
-                    <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-400 rounded-full translate-y-32 -translate-x-32"></div>
+    <div className="flex flex-col h-full min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
+            {/* Enhanced hero header with modern design */}
+            <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-blue-600 to-purple-700 text-white">
+                {/* Animated background elements */}
+                <div className="absolute inset-0">
+                    <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-white/10 to-transparent rounded-full -translate-y-48 translate-x-48 animate-pulse"></div>
+                    <div className="absolute bottom-0 left-0 w-80 h-80 bg-gradient-to-tr from-purple-400/20 to-transparent rounded-full translate-y-40 -translate-x-40"></div>
+                    <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-gradient-to-br from-blue-300/10 to-transparent rounded-full -translate-x-1/2 -translate-y-1/2 animate-pulse delay-1000"></div>
                 </div>
-                <div className="w-full mx-auto flex items-start justify-between gap-8 relative z-10">
-                    <div className="flex items-start gap-6">
-                        <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg">
-                            <Folder className="w-12 h-12 text-white" />
-                        </div>
-                        <div className="space-y-2">
-                            <h1 className="text-3xl font-bold leading-tight tracking-tight">{workspace.name}</h1>
-                            <p className="text-slate-200 text-base leading-relaxed">Welcome back! Here's a summary of your workspace activity.</p>
-                        </div>
-                    </div>
 
-                    <div className="hidden xl:flex items-center gap-6">
-                        <div className="grid grid-cols-4 gap-4">
-                            <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg hover:bg-white/15 transition-all duration-200">
-                                <div className="flex items-center gap-4">
-                                    <div className="p-2 bg-blue-500/20 rounded-lg">
-                                        <FileText className="w-5 h-5 text-blue-300" />
-                                    </div>
-                                    <div>
-                                        <div className="text-xs text-slate-300 font-medium uppercase tracking-wide">Documents</div>
-                                        <div className="text-2xl font-bold text-white">{documents.length}</div>
-                                    </div>
+                <div className="relative z-10 p-6 sm:p-8 lg:p-10">
+                    <div className="max-w-7xl mx-auto">
+                        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8 lg:gap-12">
+                            {/* Main content - left side */}
+                            <div className="flex-1 space-y-4 lg:space-y-6">
+                                <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full border border-white/20">
+                                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                                    <span className="text-sm font-medium text-white/90">Welcome back</span>
                                 </div>
+                                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight tracking-tight bg-gradient-to-r from-white via-blue-100 to-purple-100 bg-clip-text text-transparent">
+                                    {workspace.name}
+                                </h1>
                             </div>
-                            <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg hover:bg-white/15 transition-all duration-200">
-                                <div className="flex items-center gap-4">
-                                    <div className="p-2 bg-green-500/20 rounded-lg">
-                                        <Folder className="w-5 h-5 text-green-300" />
+
+                            {/* Key metrics cards - right side */}
+                            <div className="w-full lg:w-auto">
+                                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 lg:gap-4">
+                                    <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
+                                        <div className="flex items-center gap-2 lg:gap-3 h-full">
+                                            <div className="p-2 bg-blue-500/20 rounded-xl group-hover:bg-blue-500/30 transition-colors duration-300">
+                                                <FileText className="w-4 h-4 lg:w-5 lg:h-5 text-blue-300" />
+                                            </div>
+                                            <div>
+                                                <div className="text-xl lg:text-2xl font-bold text-white">{documents.length}</div>
+                                                <div className="text-xs text-blue-200 font-medium uppercase tracking-wide">Documents</div>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <div className="text-xs text-slate-300 font-medium uppercase tracking-wide">Folders</div>
-                                        <div className="text-2xl font-bold text-white">{folders.length}</div>
+                                    <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
+                                        <div className="flex items-center gap-2 lg:gap-3 h-full">
+                                            <div className="p-2 bg-green-500/20 rounded-xl group-hover:bg-green-500/30 transition-colors duration-300">
+                                                <Folder className="w-4 h-4 lg:w-5 lg:h-5 text-green-300" />
+                                            </div>
+                                            <div>
+                                                <div className="text-xl lg:text-2xl font-bold text-white">{folders.length}</div>
+                                                <div className="text-xs text-green-200 font-medium uppercase tracking-wide">Folders</div>
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                            </div>
-                            <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg hover:bg-white/15 transition-all duration-200">
-                                <div className="flex items-center gap-4">
-                                    <div className="p-2 bg-purple-500/20 rounded-lg">
-                                        <Clock className="w-5 h-5 text-purple-300" />
+                                    <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
+                                        <div className="flex items-center gap-2 lg:gap-3 h-full">
+                                            <div className="p-2 bg-purple-500/20 rounded-xl group-hover:bg-purple-500/30 transition-colors duration-300">
+                                                <Clock className="w-4 h-4 lg:w-5 lg:h-5 text-purple-300" />
+                                            </div>
+                                            <div>
+                                                <div className="text-xl lg:text-2xl font-bold text-white">{recentDocuments.length}</div>
+                                                <div className="text-xs text-purple-200 font-medium uppercase tracking-wide">Recent</div>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <div className="text-xs text-slate-300 font-medium uppercase tracking-wide">Recent</div>
-                                        <div className="text-2xl font-bold text-white">{recentDocuments.length}</div>
+                                    <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
+                                        <div className="flex items-center gap-2 lg:gap-3 h-full">
+                                            <div className="p-2 bg-emerald-500/20 rounded-xl group-hover:bg-emerald-500/30 transition-colors duration-300">
+                                                <Users className="w-4 h-4 lg:w-5 lg:h-5 text-emerald-300" />
+                                            </div>
+                                            <div>
+                                                <div className="text-xl lg:text-2xl font-bold text-white">{overallStats.auditsCompleted}</div>
+                                                <div className="text-xs text-emerald-200 font-medium uppercase tracking-wide">Audits Done</div>
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                            </div>
-                            <div className="p-5 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg hover:bg-white/15 transition-all duration-200">
-                                <div className="flex items-center gap-4">
-                                    <div className="flex items-center justify-center w-16 h-16 bg-white/10 rounded-full border border-white/20">
-                                        <OccupancyPie
-                                            percent={Math.round(((workspace?.settings?.occupancy ?? workspace?.occupancy ?? 0) * 100) || 0)}
-                                            size={64}
-                                            strokeWidth={8}
-                                            centerFill="#ffffff"
-                                            centerFontSize={18}
-                                            centerClassName="font-bold text-slate-800"
-                                        />
-                                    </div>
-                                    <div className="min-w-0">
-                                        <div className="text-xs text-slate-300 font-medium uppercase tracking-wide">Occupancy</div>
-                                        <div className="text-sm text-slate-200 mt-1">Current status</div>
+
+                                    {/* Overall compliance card with pie chart on left */}
+                                    <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
+                                        <div className="flex items-center gap-2 lg:gap-3 h-full">
+                                            <div className="flex-shrink-0">
+                                                <OccupancyPie
+                                                    percent={overallStats.overallPercentage ?? 0}
+                                                    size={40}
+                                                    strokeWidth={5}
+                                                    centerFill="#ffffff"
+                                                    centerFontSize={10}
+                                                    centerClassName="font-bold text-slate-800"
+                                                />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-xl lg:text-2xl font-bold text-white truncate">
+                                                    {overallStats.overallPercentage !== null ? `${overallStats.overallPercentage}%` : '—'}
+                                                </div>
+                                                <div className="text-xs text-blue-200 font-medium uppercase tracking-wide">Compliance</div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
+
+
             </div>
-            <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto space-y-6 sm:space-y-8 md:space-y-12 animate-in fade-in-0 duration-500">
-               <QuickActions 
-                   documents={documents} 
-                   onSelect={onSelect} 
-                   workspaceId={workspace.id} 
-                   overallStats={overallStats}
-                   getGradientColors={getGradientColors}
-                   trends={trends}
-                   dailyEntry={dailyEntry}
-                   onDailyEntryUpdate={handleDailyEntryUpdate}
-                   carePlanScore={carePlanScore}
-                   hsScore={hsScore}
-                   maintenanceScore={maintenanceScore}
-                   restrictiveScore={restrictiveScore}
-                   fireScore={fireScore}
-                   infectionScore={infectionScore}
-                   mealtimeScore={mealtimeScore}
-                   nightScore={nightScore}
-                   staffFileScore={staffFileScore}
-                   kitchenScore={kitchenScore}
+            <main className="flex-1 overflow-y-auto">
+                <div className="min-h-full bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/10">
+                    <div className="w-full p-4 sm:p-6 lg:p-8 space-y-8 lg:space-y-12">
+                        {/* Quick Actions Section */}
+                        <QuickActions
+                            documents={documents}
+                            onSelect={onSelect}
+                            workspaceId={workspace.id}
+                            overallStats={overallStats}
+                            getGradientColors={getGradientColors}
+                            trends={trends}
+                            dailyEntry={dailyEntry}
+                            onDailyEntryUpdate={handleDailyEntryUpdate}
+                            carePlanScore={carePlanScore}
+                            hsScore={hsScore}
+                            maintenanceScore={maintenanceScore}
+                            restrictiveScore={restrictiveScore}
+                            fireScore={fireScore}
+                            infectionScore={infectionScore}
+                            mealtimeScore={mealtimeScore}
+                            nightScore={nightScore}
+                            staffFileScore={staffFileScore}
+                            kitchenScore={kitchenScore}
+                            handleAuditCardClick={handleAuditCardClick}
+                        />
 
-                   handleAuditCardClick={handleAuditCardClick}
-               />
+                        {/* Recent Activity Timeline */}
+                        <div>
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="p-2 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg">
+                                    <Clock className="h-5 w-5 text-white" />
+                                </div>
+                                <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Recent Activity</h2>
+                            </div>
 
+                            <Card className="border-0 shadow-xl bg-gradient-to-br from-white via-blue-50/30 to-indigo-50/20 overflow-hidden">
+                                <div className="absolute inset-0 bg-gradient-to-br from-transparent via-blue-50/10 to-indigo-50/20"></div>
+                                <CardContent className="relative p-6">
+                                    <div className="space-y-6">
+                                        {/* Timeline items */}
+                                        {recentDocuments.slice(0, 4).map((doc: Document, index: number) => (
+                                            <div key={doc.id} className="flex items-start gap-4 group cursor-pointer" onClick={() => onSelect(doc)}>
+                                                {/* Timeline connector */}
+                                                <div className="flex flex-col items-center">
+                                                    <div className="w-3 h-3 bg-blue-500 rounded-full shadow-lg group-hover:bg-blue-600 transition-colors duration-300"></div>
+                                                    {index < recentDocuments.slice(0, 4).length - 1 && (
+                                                        <div className="w-0.5 h-16 bg-gradient-to-b from-blue-300 to-transparent mt-2"></div>
+                                                    )}
+                                                </div>
 
-               {/* Recent Activity Timeline */}
-               <div>
-                   <h2 className="text-xl font-bold mb-6 text-gray-900 tracking-tight animate-in slide-in-from-left-4 duration-300">Recent Activity</h2>
-                   <Card className="border border-slate-200/60 shadow-lg bg-white/90 backdrop-blur-sm rounded-2xl mb-8">
-                       <CardContent className="p-6">
-                           <div className="space-y-4">
-                               {recentDocuments.slice(0, 3).map((doc: Document) => (
-                                   <div key={doc.id} className="flex items-center gap-4 p-3 hover:bg-slate-50/60 rounded-xl transition-colors duration-200 cursor-pointer" onClick={() => onSelect(doc)}>
-                                       <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
-                                       <div className="flex items-center gap-3 flex-1 min-w-0">
-                                           {getFileIcon(doc.fileType)}
-                                           <div className="min-w-0 flex-1">
-                                               <div className="text-sm font-medium text-gray-900 truncate">{doc.name}</div>
-                                               <div className="text-xs text-gray-500">
-                                                   Uploaded {new Date(doc.createdAt).toLocaleDateString()}
-                                               </div>
-                                           </div>
-                                       </div>
-                                       <Badge variant="secondary" className="text-xs">{doc.fileType?.toUpperCase()}</Badge>
-                                   </div>
-                               ))}
-                               {overallStats.auditsCompleted > 0 && (
-                                   <div className="flex items-center gap-4 p-3 hover:bg-green-50/60 rounded-xl transition-colors duration-200">
-                                       <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0"></div>
-                                       <div className="flex items-center gap-3 flex-1">
-                                           <CheckCircle className="h-5 w-5 text-green-600" />
-                                           <div>
-                                               <div className="text-sm font-medium text-gray-900">
-                                                   {overallStats.auditsCompleted} audit{overallStats.auditsCompleted > 1 ? 's' : ''} completed
-                                               </div>
-                                               <div className="text-xs text-gray-500">Overall score: {overallStats.overallPercentage}%</div>
-                                           </div>
-                                       </div>
-                                       <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">AUDIT</Badge>
-                                   </div>
-                               )}
-                               {recentDocuments.length === 0 && overallStats.auditsCompleted === 0 && (
-                                   <div className="text-center py-6 text-gray-500">
-                                       <Clock className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-                                       <p className="text-sm font-medium">No recent activity</p>
-                                       <p className="text-xs">Start by uploading a document or completing an audit</p>
-                                   </div>
-                               )}
-                           </div>
-                       </CardContent>
-                   </Card>
-               </div>
+                                                {/* Content */}
+                                                <div className="flex-1 pb-6">
+                                                    <Card className="p-4 bg-white/80 backdrop-blur-sm border border-blue-100/50 hover:shadow-lg hover:bg-white/90 transition-all duration-300 group-hover:scale-[1.02]">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="p-2 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors duration-300">
+                                                                {getFileIcon(doc.fileType)}
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="flex items-center gap-3 mb-1">
+                                                                    <h3 className="font-semibold text-gray-900 truncate group-hover:text-blue-700 transition-colors duration-300">
+                                                                        {doc.name}
+                                                                    </h3>
+                                                                    <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">
+                                                                        {doc.fileType?.toUpperCase()}
+                                                                    </Badge>
+                                                                </div>
+                                                                <div className="flex items-center gap-4 text-sm text-gray-600">
+                                                                    <span className="flex items-center gap-1">
+                                                                        <User className="h-3 w-3" />
+                                                                        {doc.owner.name}
+                                                                    </span>
+                                                                    <span className="flex items-center gap-1">
+                                                                        <Calendar className="h-3 w-3" />
+                                                                        {new Date(doc.createdAt).toLocaleDateString()}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                                                <ChevronRight className="h-4 w-4" />
+                                                            </div>
+                                                        </div>
+                                                    </Card>
+                                                </div>
+                                            </div>
+                                        ))}
 
-               <RecentFilesTable documents={recentDocuments} onSelect={onSelect} />
-               <QuickAccess folders={quickAccessFolders} onSelect={onSelect} />
+                                        {/* Audit completion activity */}
+                                        {overallStats.auditsCompleted > 0 && (
+                                            <div className="flex items-start gap-4">
+                                                <div className="flex flex-col items-center">
+                                                    <div className="w-3 h-3 bg-green-500 rounded-full shadow-lg"></div>
+                                                    {recentDocuments.length > 0 && (
+                                                        <div className="w-0.5 h-16 bg-gradient-to-b from-green-300 to-transparent mt-2"></div>
+                                                    )}
+                                                </div>
+                                                <div className="flex-1">
+                                                    <Card className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200/50 hover:shadow-lg transition-all duration-300">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="p-2 bg-green-500 rounded-lg">
+                                                                <CheckCircle className="h-5 w-5 text-white" />
+                                                            </div>
+                                                            <div className="flex-1">
+                                                                <h3 className="font-semibold text-green-800 mb-1">
+                                                                    {overallStats.auditsCompleted} audit{overallStats.auditsCompleted > 1 ? 's' : ''} completed
+                                                                </h3>
+                                                                <div className="flex items-center gap-4 text-sm text-green-700">
+                                                                    <span className="flex items-center gap-1">
+                                                                        <BarChart3 className="h-3 w-3" />
+                                                                        Overall score: {overallStats.overallPercentage}%
+                                                                    </span>
+                                                                    <span className="flex items-center gap-1">
+                                                                        <TrendingUp className="h-3 w-3" />
+                                                                        {overallStats.auditsCompleted}/{overallStats.totalAudits} completed
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-green-500">
+                                                                <ChevronRight className="h-4 w-4" />
+                                                            </div>
+                                                        </div>
+                                                    </Card>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Empty state */}
+                                        {recentDocuments.length === 0 && overallStats.auditsCompleted === 0 && (
+                                            <div className="text-center py-12">
+                                                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                                    <Clock className="h-8 w-8 text-gray-400" />
+                                                </div>
+                                                <h3 className="text-lg font-semibold text-gray-900 mb-2">No recent activity</h3>
+                                                <p className="text-gray-600 max-w-md mx-auto">
+                                                    Start by uploading a document or completing an audit to see your activity timeline here.
+                                                </p>
+                                                <div className="mt-6 flex justify-center gap-3">
+                                                    <Button variant="outline" className="gap-2">
+                                                        <FileText className="h-4 w-4" />
+                                                        Upload Document
+                                                    </Button>
+                                                    <Button variant="outline" className="gap-2">
+                                                        <FileCheck className="h-4 w-4" />
+                                                        Start Audit
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* View more link */}
+                                        {(recentDocuments.length > 4 || overallStats.auditsCompleted > 0) && (
+                                            <div className="text-center pt-4">
+                                                <Button variant="ghost" className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 gap-2">
+                                                    View All Activity
+                                                    <ChevronRight className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    </div>
+                </div>
             </main>
         </div>
     );
