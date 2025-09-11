@@ -7,7 +7,6 @@ import { db } from "@/lib/firebase";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import jsPDF from 'jspdf';
 
-// Import extracted components
 import {
   StatsOverview,
   NDPSBandChart,
@@ -22,21 +21,33 @@ import {
   type Shift
 } from "./components";
 
+// NPDS Assessment Fields - Based on authentic Northwick Park Dependency Score methodology
+const NPDS_FIELDS = [
+  // Basic Care Needs (BCN) - 12 items, max score 65
+  { key: "bcn_mobility", label: "Mobility", section: "BCN", maxScore: 5 },
+  { key: "bcn_transfers", label: "Transfers", section: "BCN", maxScore: 5 },
+  { key: "bcn_washing", label: "Washing", section: "BCN", maxScore: 5 },
+  { key: "bcn_dressing", label: "Dressing", section: "BCN", maxScore: 5 },
+  { key: "bcn_toileting", label: "Toileting", section: "BCN", maxScore: 5 },
+  { key: "bcn_continence", label: "Continence", section: "BCN", maxScore: 5 },
+  { key: "bcn_feeding", label: "Feeding", section: "BCN", maxScore: 5 },
+  { key: "bcn_turning", label: "Turning in Bed", section: "BCN", maxScore: 5 },
+  { key: "bcn_getting_up", label: "Getting Up", section: "BCN", maxScore: 5 },
+  { key: "bcn_bed_mobility", label: "Bed Mobility", section: "BCN", maxScore: 5 },
+  { key: "bcn_walking", label: "Walking", section: "BCN", maxScore: 5 },
+  { key: "bcn_stairs", label: "Stairs", section: "BCN", maxScore: 5 },
 
-const FIELDS = [
-  { key: "personalCare", label: "Personal Care" },
-  { key: "mobility", label: "Mobility" },
-  { key: "continence", label: "Continence" },
-  { key: "eatingDrinking", label: "Eating & Drinking" },
-  { key: "skinIntegrity", label: "Skin Integrity" },
-  { key: "medication", label: "Medication" },
-  { key: "medical", label: "Medical" },
-  { key: "breathing", label: "Breathing" },
-  { key: "emotionalSupport", label: "Emotional Support" },
-  { key: "behaviours", label: "Behaviours" },
-  { key: "additionalNeeds", label: "Additional Needs" },
-  { key: "cognition", label: "Cognition" },
-  { key: "nightNeeds", label: "Night Needs" },
+  // Special Nursing Needs (SNN) - 5 items, max score 25
+  { key: "snn_breathing", label: "Breathing", section: "SNN", maxScore: 5 },
+  { key: "snn_drugs", label: "Drugs/Medication", section: "SNN", maxScore: 5 },
+  { key: "snn_skin_care", label: "Skin Care", section: "SNN", maxScore: 5 },
+  { key: "snn_treatment", label: "Treatment", section: "SNN", maxScore: 5 },
+  { key: "snn_observation", label: "Observation", section: "SNN", maxScore: 5 },
+
+  // Therapy Needs - 3 items, max score 10
+  { key: "therapy_communication", label: "Communication", section: "THERAPY", maxScore: 5 },
+  { key: "therapy_cognitive", label: "Cognitive", section: "THERAPY", maxScore: 5 },
+  { key: "therapy_behaviour", label: "Behaviour", section: "THERAPY", maxScore: 5 },
 ];
 
 // Community colors for visual distinction
@@ -45,23 +56,13 @@ const COMMUNITY_COLORS = [
   'bg-yellow-500', 'bg-indigo-500', 'bg-pink-500', 'bg-teal-500'
 ];
 
-// Returns an object with all dependency fields set to ""
+// Returns an object with all NPDS fields set to ""
 function getDefaultAssessment(): Omit<Resident, "name" | "room"> {
-  return {
-    personalCare: "",
-    mobility: "",
-    continence: "",
-    eatingDrinking: "",
-    skinIntegrity: "",
-    medication: "",
-    medical: "",
-    breathing: "",
-    emotionalSupport: "",
-    behaviours: "",
-    additionalNeeds: "",
-    cognition: "",
-    nightNeeds: "",
-  };
+  const assessment: any = {};
+  NPDS_FIELDS.forEach(field => {
+    assessment[field.key] = "";
+  });
+  return assessment;
 }
 
 // Generate PDF Report
@@ -529,6 +530,39 @@ const MINUTES_BY_FIELD_NIGHT: Record<string, Record<DependencyLevel, number>> = 
   breathing: { "": 0, None: 0, Low: 0, Medium: 5, High: 10 },
 };
 
+// Mapping from NPDS field keys to care time calculation keys
+const FIELD_MAPPING: Record<string, string> = {
+  // Basic Care Needs (BCN) - Mobility
+  "bcn_mobility": "mobility",
+  "bcn_transfers": "mobility",
+  "bcn_bed_mobility": "mobility",
+  "bcn_walking": "mobility",
+  "bcn_stairs": "mobility",
+
+  // Basic Care Needs (BCN) - Personal Care
+  "bcn_washing": "personalCare",
+  "bcn_dressing": "personalCare",
+  "bcn_toileting": "personalCare",
+
+  // Basic Care Needs (BCN) - Other
+  "bcn_continence": "continence",
+  "bcn_feeding": "eatingDrinking",
+  "bcn_turning": "mobility",
+  "bcn_getting_up": "mobility",
+
+  // Special Nursing Needs (SNN)
+  "snn_breathing": "breathing",
+  "snn_drugs": "medication",
+  "snn_skin_care": "skinIntegrity",
+  "snn_treatment": "medical",
+  "snn_observation": "medical",
+
+  // Therapy Needs
+  "therapy_communication": "emotionalSupport",
+  "therapy_cognitive": "cognition",
+  "therapy_behaviour": "behaviours",
+};
+
 // Helper to ceil to nearest 0.25
 function ceilToQuarter(x: number) {
   return Math.ceil(x * 4) / 4;
@@ -543,33 +577,52 @@ function ceilToHalf(x: number) {
 function calculateResidentCareMinutes(resident: Resident): { Day: number; Night: number } {
   let dayMinutes = 0;
   let nightMinutes = 0;
-  for (const field of FIELDS) {
+  for (const field of NPDS_FIELDS) {
     const level = (resident[field.key as keyof Resident] as DependencyLevel) || "";
-    const dayMap = MINUTES_BY_FIELD_DAY[field.key] as Record<DependencyLevel, number> | undefined;
-    const nightMap = MINUTES_BY_FIELD_NIGHT[field.key] as Record<DependencyLevel, number> | undefined;
-    dayMinutes += dayMap?.[level as DependencyLevel] ?? 0;
-    nightMinutes += nightMap?.[level as DependencyLevel] ?? 0;
+    const careTimeKey = FIELD_MAPPING[field.key];
+    if (careTimeKey) {
+      const dayMap = MINUTES_BY_FIELD_DAY[careTimeKey] as Record<DependencyLevel, number> | undefined;
+      const nightMap = MINUTES_BY_FIELD_NIGHT[careTimeKey] as Record<DependencyLevel, number> | undefined;
+      dayMinutes += dayMap?.[level as DependencyLevel] ?? 0;
+      nightMinutes += nightMap?.[level as DependencyLevel] ?? 0;
+    }
   }
   return { Day: Math.round(dayMinutes), Night: Math.round(nightMinutes) };
 }
 
-// NDPS scoring: map dependency levels to points
-const NDPS_POINTS: Record<DependencyLevel, number> = {
-  "": 0,
-  None: 0,
-  Low: 1,
-  Medium: 2,
-  High: 3,
-};
-
-// Calculate NDPS score for a resident
+// Calculate NPDS score for a resident (0-100 scale)
 function calculateNDPSScore(resident: Resident): number {
-  let score = 0;
-  for (const field of FIELDS) {
+  let bcnScore = 0;
+  let snnScore = 0;
+  let therapyScore = 0;
+
+  for (const field of NPDS_FIELDS) {
     const level = (resident[field.key as keyof Resident] as DependencyLevel) || "";
-    score += NDPS_POINTS[level] || 0;
+    let score = 0;
+
+    // Convert dependency level to numeric score
+    switch (level) {
+      case "None": score = 0; break;
+      case "Low": score = 1; break;
+      case "Medium": score = 2; break;
+      case "High": score = 3; break;
+      default: score = 0;
+    }
+
+    // Add to appropriate section total
+    switch (field.section) {
+      case "BCN": bcnScore += score; break;
+      case "SNN": snnScore += score; break;
+      case "THERAPY": therapyScore += score; break;
+    }
   }
-  return score;
+
+  // Cap section scores at maximums
+  bcnScore = Math.min(bcnScore, 65);
+  snnScore = Math.min(snnScore, 25);
+  therapyScore = Math.min(therapyScore, 10);
+
+  return bcnScore + snnScore + therapyScore;
 }
 
 // Get NDPS band from score
@@ -619,6 +672,17 @@ function calculateNDPSStaffing(residents: Resident[]): { Day: number; Night: num
   return {
     Day: Math.ceil(dayStaff),
     Night: Math.ceil(nightStaff),
+  };
+}
+
+// Calculate per-resident staffing needs based on NDPS band
+function calculateResidentStaffing(resident: Resident): { Day: number; Night: number } {
+  const score = calculateNDPSScore(resident);
+  const band = getNDPSBand(score).band;
+
+  return {
+    Day: NDPS_STAFFING_RATIOS_DAY[band as keyof typeof NDPS_STAFFING_RATIOS_DAY],
+    Night: NDPS_STAFFING_RATIOS_NIGHT[band as keyof typeof NDPS_STAFFING_RATIOS_NIGHT],
   };
 }
 
@@ -749,13 +813,11 @@ export default function DependencyCalculatorPage() {
         }
       }
 
-  function handleNext() {
-    // add an extra step for community selection after the FIELDS
-    if (step < FIELDS.length + 1) setStep(step + 1);
-    else if (step === FIELDS.length + 1) setStep(step + 1);
-  }
-
-    const [stepError, setStepError] = React.useState<string | null>(null);
+    function handleNext() {
+      // add an extra step for community selection after the NPDS fields
+      if (step < NPDS_FIELDS.length + 1) setStep(step + 1);
+      else if (step === NPDS_FIELDS.length + 1) setStep(step + 1);
+    }    const [stepError, setStepError] = React.useState<string | null>(null);
 
     function attemptNext() {
       if (!isStepValid(step)) {
@@ -778,7 +840,7 @@ export default function DependencyCalculatorPage() {
             }
           }
         }
-        else if (step > 0 && step <= FIELDS.length) setStepError(`Please select ${FIELDS[step - 1].label}.`);
+        else if (step > 0 && step <= NPDS_FIELDS.length) setStepError(`Please select ${NPDS_FIELDS[step - 1].label}.`);
         else setStepError("Please select a community or choose None.");
         return;
       }
@@ -840,12 +902,12 @@ export default function DependencyCalculatorPage() {
         
         return true;
       }
-      if (s > 0 && s <= FIELDS.length) {
-        const key = FIELDS[s - 1].key as keyof Resident;
+      if (s > 0 && s <= NPDS_FIELDS.length) {
+        const key = NPDS_FIELDS[s - 1].key as keyof Resident;
         const val = form[key] as DependencyLevel | undefined;
       return val === "None" || val === "Low" || val === "Medium" || val === "High";
       }
-      if (s === FIELDS.length + 1) return true; // community selection optional
+      if (s === NPDS_FIELDS.length + 1) return true; // community selection optional
       return true;
     }
 
@@ -862,7 +924,7 @@ export default function DependencyCalculatorPage() {
       
       if (roomExists) return false;
       
-      for (const f of FIELDS) {
+      for (const f of NPDS_FIELDS) {
         const val = form[f.key as keyof Resident] as DependencyLevel | undefined;
         if (!(val === "None" || val === "Low" || val === "Medium" || val === "High")) return false;
       }
@@ -914,7 +976,7 @@ export default function DependencyCalculatorPage() {
   const dependencyCounts = residents.reduce(
     (acc: { Low: number; Medium: number; High: number; Total: number }, r: Resident) => {
       let found = false;
-      for (const f of FIELDS) {
+      for (const f of NPDS_FIELDS) {
         const val = r[f.key as keyof Resident] as DependencyLevel | undefined;
   if (val === "High") acc.High++;
   else if (val === "Medium") acc.Medium++;
@@ -1339,7 +1401,7 @@ export default function DependencyCalculatorPage() {
                     <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                     </svg>
-                    <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">NDPS Band</span>
+                    <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Band</span>
                   </div>
                 </th>
                 <th className="px-6 py-4 text-left">
@@ -1381,6 +1443,7 @@ export default function DependencyCalculatorPage() {
                 const careMinutes = calculateResidentCareMinutes(r);
                 const ndpsScore = calculateNDPSScore(r);
                 const ndpsBand = getNDPSBand(ndpsScore);
+                const residentStaffing = calculateResidentStaffing(r);
                 return (
                   <tr 
                     key={r.id || `${r.name}-${r.room}`}
@@ -1452,14 +1515,20 @@ export default function DependencyCalculatorPage() {
                     <td className="px-6 py-4">
                       <div className="bg-green-50 px-3 py-2 rounded-lg inline-block">
                         <div className="font-mono text-sm font-semibold text-green-800">
-                          {ndpsStaffing.Day}
+                          {residentStaffing.Day.toFixed(3)}
+                        </div>
+                        <div className="text-xs text-green-600">
+                          {Math.round(1 / residentStaffing.Day)}:1 ratio
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="bg-purple-50 px-3 py-2 rounded-lg inline-block">
                         <div className="font-mono text-sm font-semibold text-purple-800">
-                          {ndpsStaffing.Night}
+                          {residentStaffing.Night.toFixed(3)}
+                        </div>
+                        <div className="text-xs text-purple-600">
+                          {Math.round(1 / residentStaffing.Night)}:1 ratio
                         </div>
                       </div>
                     </td>
@@ -1674,7 +1743,7 @@ export default function DependencyCalculatorPage() {
           stepError={stepError}
           setStepError={setStepError}
           communities={communities}
-          FIELDS={FIELDS}
+          FIELDS={NPDS_FIELDS}
           attemptNext={attemptNext}
           attemptSave={attemptSave}
           handleBack={handleBack}
@@ -1694,7 +1763,7 @@ export default function DependencyCalculatorPage() {
           resident={editingResident}
           communities={communities}
           onSave={handleSaveAssessment}
-          FIELDS={FIELDS}
+          FIELDS={NPDS_FIELDS}
         />
 
       </div>
