@@ -12,8 +12,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return;
   }
   try {
-    console.log('[search-documents] workspaceId=', workspaceId, 'query=', query, 'searchAll=', !!searchAll);
-
     let results: any[] = [];
     // If searchAll is true, aggregate results across all workspaces
     if (searchAll) {
@@ -33,8 +31,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const wsResults = await searchDocumentsInWorkspace(wsId, query);
       results = (wsResults || []).map(r => ({ ...r, workspaceId: wsId }));
     }
-
-    console.log('[search-documents] results count=', results ? results.length : 0);
 
     // Also return the best match's documentId and folderId for UI highlighting
     let bestMatch = null;

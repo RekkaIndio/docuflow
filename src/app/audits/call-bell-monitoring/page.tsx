@@ -137,7 +137,6 @@ export default function CallBellMonitoringAuditPage() {
       try {
   const completedAt = currentReport.auditDate || new Date().toISOString();
   const result = await markAuditCompletedWithSnapshot(workspaceId, 'call-bell-monitoring', payload, completedAt);
-  console.log('markAuditCompletedWithSnapshot result', result);
       } catch (e) {
         console.warn('Failed to mark audit completed with snapshot', e);
       }

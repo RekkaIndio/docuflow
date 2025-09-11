@@ -157,7 +157,6 @@ export function ManageFolderAccessDialog({ children, team, workspace, onAccessUp
         const newlyGrantedIds = [...newIds].filter(id => !originalIds.has(id));
 
         // In a real app, you would save this to Firestore
-        console.log(`Saving access for team ${team.name}:`, selectedFolderIds);
         await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API call to save permissions
         
         if (newlyGrantedIds.length > 0 && team.members.length > 0) {
@@ -166,7 +165,6 @@ export function ManageFolderAccessDialog({ children, team, workspace, onAccessUp
                 .filter((f): f is Folder => f !== null);
 
             if (newlyGrantedFolders.length > 0) {
-                console.log("Sending emails for new access to folders: ", newlyGrantedFolders.map(f => f.name));
                 await sendFolderAccessEmail({
                     teamName: team.name,
                     folderNames: newlyGrantedFolders.map(f => f.name),

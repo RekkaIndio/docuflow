@@ -44,11 +44,6 @@ export default function AdminStaffingChart({
         new Date(h.date).toDateString() === date.toDateString()
       );
       
-      // Log for debugging
-      if (existingData) {
-        console.log(`Staffing data found for ${date.toDateString()}:`, existingData);
-      }
-      
       weekData.push({
         date: date.toISOString().split('T')[0],
         day: existingData?.day || 0, // Use real data or 0
@@ -60,7 +55,6 @@ export default function AdminStaffingChart({
       });
     }
     
-    console.log('Generated week staffing data:', weekData);
     return weekData;
   };
 

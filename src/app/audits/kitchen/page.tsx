@@ -5,7 +5,7 @@ import { useWorkspace } from '@/context/workspace';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
-import { saveAudit, markAuditCompleted, getLatestAuditData } from '@/lib/firestore';
+import { saveAudit, markAuditCompletedWithSnapshot, getLatestAuditData } from '@/lib/firestore';
 
 interface KitchenAuditData {
   home: string;
@@ -345,9 +345,9 @@ export default function KitchenAuditPage() {
         scorePercent,
       };
 
-      await saveAudit(payload, activeWorkspace.id);
+      const id = await saveAudit(payload, activeWorkspace.id);
       const completedAt = data.date || new Date().toISOString();
-      await markAuditCompleted(activeWorkspace.id, 'kitchen', completedAt);
+      const result = await markAuditCompletedWithSnapshot(activeWorkspace.id, 'kitchen', payload, completedAt);
       setShowModal(false);
       alert('Audit saved');
     } catch (err) {

@@ -59,13 +59,11 @@ export default function CareHomesPage() {
   }, [overviewStats.averageOccupancy, previousOccupancy]);
 
   const handleBedCountSave = async (homeId: string, totalBeds: number, occupiedBeds: number) => {
-    console.log('💾 Saving bed count data:', { homeId, totalBeds, occupiedBeds });
     try {
       const home = homes.find(h => h.id === homeId);
       if (!home) throw new Error('Home not found');
 
       if (home._isAdminWorkspace) {
-        console.log('🔄 Updating admin workspace...');
         // Update admin workspace
         const resp = await fetch(`/api/admin/workspaces/${homeId}`, {
           method: 'PATCH',
@@ -74,12 +72,10 @@ export default function CareHomesPage() {
         });
         if (!resp.ok) throw new Error('Failed to update admin workspace');
         const updated = await resp.json();
-        console.log('✅ Admin workspace updated:', updated);
         setHomes(prev => prev.map(p => p.id === updated.id ? { ...p, ...updated } : p));
         // Refresh admin workspaces context to persist data across navigation
   // await refreshWorkspaces(); // Removed: not implemented
       } else {
-        console.log('🔄 Updating care home via API...');
         // Update care home
         const resp = await fetch(`/api/care-homes/${homeId}`, {
           method: 'PATCH',
@@ -88,7 +84,6 @@ export default function CareHomesPage() {
         });
         if (!resp.ok) throw new Error('Failed to update care home');
         const updated = await resp.json();
-        console.log('✅ Care home updated:', updated);
         setDevHomes(prev => prev.map(p => p.id === updated.id ? updated : p));
         setHomes(prev => prev.map(p => p.id === updated.id ? { ...p, ...updated } : p));
         // Refresh admin workspaces context to persist data across navigation
@@ -102,16 +97,13 @@ export default function CareHomesPage() {
       } else {
         setOccupancyValues(prev => ({ ...prev, [homeId]: '' }));
       }
-      console.log('📊 Updated occupancy values for:', homeId);
     } catch (error) {
-      console.error('💥 Failed to save bed counts:', error);
       throw error;
     }
   };
 
   React.useEffect(() => {
     const fetchHomes = async () => {
-      console.log('🏠 Fetching care homes data...');
       setLoading(true);
       try {
         // Map admin workspaces (preserve occupancy if available)
@@ -136,14 +128,11 @@ export default function CareHomesPage() {
         });
 
         // Always fetch dev-mode care-homes (editable)
-        console.log('🔄 Fetching from /api/care-homes...');
         const resp = await fetch('/api/care-homes');
         let mappedCH: any[] = [];
         if (resp && resp.ok) {
           const json = await resp.json();
-          console.log('📋 Care homes API response:', json);
           mappedCH = (json.homes || []).map((h: any) => ({ ...h, _isAdminWorkspace: false }));
-          console.log('🏠 Mapped care homes:', mappedCH);
           // initialize occupancyValues for editable homes as strings, but don't overwrite if already set
           const initial: Record<string, string> = {};
           for (const h of mappedCH) {
@@ -155,12 +144,10 @@ export default function CareHomesPage() {
           }
           setOccupancyValues(prev => Object.keys(prev).length ? prev : initial);
         } else {
-          console.error('❌ Failed to fetch care homes:', resp.status, resp.statusText);
         }
 
         // Combine: admin workspaces first, then dev care-homes
         const combined = [...adminMapped, ...mappedCH];
-        console.log('🔗 Combined homes data:', combined);
         setHomes(combined);
         setDevHomes(mappedCH);
         // initialize occupancyValues for admin and dev homes as strings, but don't overwrite if already set
@@ -174,7 +161,6 @@ export default function CareHomesPage() {
         }
         setOccupancyValues(prev => Object.keys(prev).length ? prev : initialAll);
       } catch (e) {
-        console.error('💥 Error fetching care homes:', e);
         setHomes([]);
       } finally {
         setLoading(false);

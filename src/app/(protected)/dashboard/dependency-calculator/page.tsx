@@ -932,27 +932,14 @@ export default function DependencyCalculatorPage() {
   React.useEffect(() => {
     let cancelled = false;
     async function load() {
-      console.log('🔄 Starting data load process...');
-      console.log('👤 User authenticated:', !!user);
-      console.log('🏢 Workspace available:', !!workspace);
-      console.log('🆔 Workspace ID:', workspace?.id);
-      console.log('⏳ Auth loading:', authLoading);
-
       // If user is signed in and workspace is available, prefer Firestore
       if (user && workspace) {
-        console.log('🔥 Loading from Firebase for workspace:', workspace.id);
         try {
           const ref = doc(db, "workspaces", workspace.id, "dependency_calculator", "default");
           const snap = await getDoc(ref);
-          console.log('📄 Firebase document exists:', snap.exists());
 
           if (snap.exists()) {
             const data = snap.data();
-            console.log('📊 Firebase data:', {
-              residentsCount: data.residents?.length || 0,
-              communitiesCount: data.communities?.length || 0,
-              hasStaffActual: !!data.staffActual
-            });
 
             if (Array.isArray(data.residents)) {
               const normalized: Resident[] = data.residents.map((p: any) => ({
@@ -962,7 +949,6 @@ export default function DependencyCalculatorPage() {
                 ...p,
               }));
               if (!cancelled) {
-                console.log('✅ Setting residents from Firebase:', normalized.length);
                 setResidents(normalized);
                 localStorage.setItem("dependency_residents_v1", JSON.stringify(normalized));
               }
@@ -974,20 +960,16 @@ export default function DependencyCalculatorPage() {
                 residentIds: Array.isArray(c.residentIds) ? c.residentIds : [],
               }));
               if (!cancelled) {
-                console.log('✅ Setting communities from Firebase:', normalizedComm.length);
                 setCommunities(normalizedComm);
               }
             }
           } else {
-            console.log('📭 No Firebase document found in workspace, checking for old user data...');
-            
             // Check for old user-scoped data and migrate if found
             try {
               const oldRef = doc(db, "users", user.id, "dependency_calculator", "default");
               const oldSnap = await getDoc(oldRef);
               
               if (oldSnap.exists()) {
-                console.log('🔄 Found old user data, migrating to workspace...');
                 const oldData = oldSnap.data();
                 
                 // Migrate to new workspace-scoped path
@@ -999,7 +981,6 @@ export default function DependencyCalculatorPage() {
                 };
                 
                 await setDoc(ref, migrationData, { merge: true });
-                console.log('✅ Successfully migrated old data to workspace');
                 
                 // Set the migrated data
                 if (Array.isArray(oldData.residents) && !cancelled) {
@@ -1023,10 +1004,8 @@ export default function DependencyCalculatorPage() {
                 }
                 
                 // Don't delete old data immediately - let user verify migration worked
-                console.log('ℹ️ Old data preserved at users/{userId}/dependency_calculator for safety');
                 
               } else {
-                console.log('📭 No old user data found either, checking localStorage...');
                 // fallback to localStorage if no Firebase data found
                 const raw = localStorage.getItem("dependency_residents_v1");
                 if (raw) {
@@ -1050,14 +1029,12 @@ export default function DependencyCalculatorPage() {
                 }
               }
             } catch (migrationError) {
-              console.warn("❌ Failed during migration attempt:", migrationError);
               
               // fallback to localStorage if migration fails
               const raw = localStorage.getItem("dependency_residents_v1");
               if (raw) {
                 const parsed = JSON.parse(raw);
                 if (Array.isArray(parsed) && !cancelled) {
-                  console.log('📱 Loading from localStorage:', parsed.length, 'residents');
                   const normalized: Resident[] = parsed.map((p: any) => ({
                     name: typeof p.name === "string" ? p.name : "",
                     room: typeof p.room === "string" ? p.room : "",
@@ -1072,7 +1049,6 @@ export default function DependencyCalculatorPage() {
                 try {
                   const parsed = JSON.parse(rawComm);
                   if (Array.isArray(parsed) && !cancelled) {
-                    console.log('📱 Loading communities from localStorage:', parsed.length);
                     setCommunities(parsed);
                   }
                 } catch {}
@@ -1080,14 +1056,12 @@ export default function DependencyCalculatorPage() {
             }
           }
         } catch (err) {
-          console.warn("❌ Failed to load residents from Firestore", err);
           // fallback to localStorage
           try {
             const raw = localStorage.getItem("dependency_residents_v1");
             if (raw) {
               const parsed = JSON.parse(raw);
               if (Array.isArray(parsed) && !cancelled) {
-                console.log('📱 Fallback: Loading from localStorage:', parsed.length, 'residents');
                 const normalized: Resident[] = parsed.map((p: any) => ({
                   name: typeof p.name === "string" ? p.name : "",
                   room: typeof p.room === "string" ? p.room : "",
@@ -1102,17 +1076,14 @@ export default function DependencyCalculatorPage() {
               try {
                 const parsed = JSON.parse(rawComm);
                 if (Array.isArray(parsed) && !cancelled) {
-                  console.log('📱 Fallback: Loading communities from localStorage:', parsed.length);
                   setCommunities(parsed);
                 }
               } catch {}
             }
           } catch (e) {
-            console.warn("❌ Failed to load residents from localStorage", e);
           }
         }
       } else if (user) {
-        console.log('🏢 No workspace context, trying user-scoped data (legacy)');
         // Legacy fallback for user-scoped data
         try {
           const ref = doc(db, "users", user.id, "dependency_calculator", "default");
@@ -1141,17 +1112,14 @@ export default function DependencyCalculatorPage() {
             }
           }
         } catch (err) {
-          console.warn("❌ Failed to load user-scoped data", err);
         }
       } else {
-        console.log('👤 User not authenticated, loading from localStorage only');
         // not signed in: use localStorage
         try {
           const raw = localStorage.getItem("dependency_residents_v1");
           if (raw) {
             const parsed = JSON.parse(raw);
             if (Array.isArray(parsed) && !cancelled) {
-              console.log('📱 Loading from localStorage (unauthenticated):', parsed.length, 'residents');
               const normalized: Resident[] = parsed.map((p: any) => ({
                 name: typeof p.name === "string" ? p.name : "",
                 room: typeof p.room === "string" ? p.room : "",
@@ -1162,11 +1130,8 @@ export default function DependencyCalculatorPage() {
             }
           }
         } catch (e) {
-          console.warn("❌ Failed to load residents from localStorage", e);
         }
       }
-
-      console.log('🏁 Data load process completed');
     }
   if (!authLoading) load();
     return () => { cancelled = true; };
@@ -1174,20 +1139,14 @@ export default function DependencyCalculatorPage() {
 
   // Persist: write to localStorage immediately and to Firestore (debounced) when signed in
   React.useEffect(() => {
-    console.log('💾 Persisting data to localStorage and Firestore');
-    console.log('👥 Current residents count:', residents.length);
-    console.log('🏘️ Current communities count:', communities.length);
-
     try {
       localStorage.setItem("dependency_residents_v1", JSON.stringify(residents));
       localStorage.setItem("dependency_communities_v1", JSON.stringify(communities));
   localStorage.setItem("dependency_staff_actual_v1", JSON.stringify(staffActual));
     } catch (e) {
-      console.warn("Failed to save residents/communities to localStorage", e);
     }
 
     if (!user || !workspace) {
-      console.log('👤 No authenticated user or workspace, skipping Firestore save');
       return;
     } // only save to Firestore for authenticated users with workspace
 
@@ -1196,9 +1155,7 @@ export default function DependencyCalculatorPage() {
       try {
         // include staffActual so the user's main dependency_calculator document stays in sync
         await setDoc(ref, { residents, communities, staffActual, schemaVersion: 1, updatedAt: serverTimestamp() }, { merge: true });
-        console.log('✅ Successfully saved to Firestore');
       } catch (err) {
-        console.warn("❌ Failed to save residents to Firestore", err);
       }
     }, 600);
     return () => clearTimeout(t);

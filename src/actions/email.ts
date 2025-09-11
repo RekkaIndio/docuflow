@@ -25,7 +25,6 @@ export async function sendFolderAccessEmail({
   recipientEmails,
 }: SendFolderAccessEmailProps): Promise<void> {
   if (recipientEmails.length === 0) {
-    console.log('No recipients, skipping email.');
     return;
   }
 
@@ -54,7 +53,6 @@ export async function sendFolderAccessEmail({
         `,
       },
     });
-    console.log('Email trigger document created successfully for:', recipientEmails.join(', '));
   } catch (error) {
     console.error('Error creating email trigger document:', error);
     // Depending on requirements, you might want to throw this error
