@@ -1113,7 +1113,7 @@ export default function AdminPage() {
 
   return (
     <>
-      <div className="p-6">
+      <div className="flex flex-col h-full min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
         {/* Simple header */}
         {!selectedWorkspace ? (
           // Top-level switch for admin views
@@ -1460,70 +1460,74 @@ export default function AdminPage() {
                     </div>
                   ) : null}
 
-                  {/* Enhanced Dashboard Header */}
-                  <AdminDashboardHeader
-                    workspaceCount={workspaces.length}
-                    totalFolders={aggregated.totalFolders}
-                    totalDocuments={aggregated.totalDocuments}
-                    averageOccupancy={careOverview.averageOccupancy}
-                    totalOccupied={careOverview.totalOccupied}
-                    totalBeds={careOverview.totalBeds}
-                    onRefresh={async () => {
-                      // Refresh workspace data first
-                      await fetchData();
-                      // Then recalculate aggregates
-                      calculateAggregateAuditScores();
-                      calculateAggregateWoundsData();
-                      calculateAggregateStaffingData();
-                      calculateAggregateFallsData();
-                      calculateAggregateInfectionData();
-                    }}
-                  />
+                    <main className="flex-1 overflow-y-auto">
+                      <div className="min-h-full bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/10">
+                        {/* Enhanced Dashboard Header - Full Width with negative margins to counteract TopNav padding */}
+                        <div className="-mx-4 md:-mx-6">
+                          <AdminDashboardHeader
+                            workspaceCount={workspaces.length}
+                            totalFolders={aggregated.totalFolders}
+                            totalDocuments={aggregated.totalDocuments}
+                            averageOccupancy={careOverview.averageOccupancy}
+                            totalOccupied={careOverview.totalOccupied}
+                            totalBeds={careOverview.totalBeds}
+                            onRefresh={async () => {
+                              // Refresh workspace data first
+                              await fetchData();
+                              // Then recalculate aggregates
+                              calculateAggregateAuditScores();
+                              calculateAggregateWoundsData();
+                              calculateAggregateStaffingData();
+                              calculateAggregateFallsData();
+                              calculateAggregateInfectionData();
+                            }}
+                          />
+                        </div>
+                        
+                        {/* Content with padding */}
+                        <div className="w-full p-4 sm:p-6 lg:p-8 space-y-8 lg:space-y-12">                        {/* Main Overview Cards */}
+                        <AdminOverviewCards
+                          aggregateWoundsData={aggregateWoundsData}
+                          aggregateAuditData={aggregateAuditData}
+                          aggregateFallsData={aggregateFallsData}
+                          aggregateInfectionData={aggregateInfectionData}
+                          workspaceCount={workspaces.length}
+                          isMounted={isMounted}
+                          onRefreshWounds={calculateAggregateWoundsData}
+                          onRefreshAudits={calculateAggregateAuditScores}
+                          onRefreshFalls={calculateAggregateFallsData}
+                          onRefreshInfections={calculateAggregateInfectionData}
+                          onOpenWoundsModal={() => setIsWoundsModalOpen(true)}
+                          onOpenFallsModal={() => setIsFallsModalOpen(true)}
+                          onOpenInfectionsModal={() => setIsInfectionsModalOpen(true)}
+                          onOpenAuditModal={() => setIsAuditModalOpen(true)}
+                        />
 
-                  {/* Main Overview Cards */}
-                  <AdminOverviewCards
-                    aggregateWoundsData={aggregateWoundsData}
-                    aggregateAuditData={aggregateAuditData}
-                    aggregateFallsData={aggregateFallsData}
-                    aggregateInfectionData={aggregateInfectionData}
-                    workspaceCount={workspaces.length}
-                    isMounted={isMounted}
-                    onRefreshWounds={calculateAggregateWoundsData}
-                    onRefreshAudits={calculateAggregateAuditScores}
-                    onRefreshFalls={calculateAggregateFallsData}
-                    onRefreshInfections={calculateAggregateInfectionData}
-                    onOpenWoundsModal={() => setIsWoundsModalOpen(true)}
-                    onOpenFallsModal={() => setIsFallsModalOpen(true)}
-                    onOpenInfectionsModal={() => setIsInfectionsModalOpen(true)}
-                    onOpenAuditModal={() => setIsAuditModalOpen(true)}
-                  />
+                        {/* Enhanced Staffing Chart */}
+                        <AdminStaffingChart
+                          aggregateStaffingData={aggregateStaffingData}
+                          staffingHistory={staffingHistory}
+                          staffingTimeframe={staffingTimeframe}
+                          staffingLoading={staffingLoading}
+                          workspaceCount={workspaces.length}
+                          onTimeframeChange={setStaffingTimeframe}
+                          onRefresh={calculateAggregateStaffingData}
+                        />
 
-                  {/* Enhanced Staffing Chart */}
-                  <AdminStaffingChart
-                    aggregateStaffingData={aggregateStaffingData}
-                    staffingHistory={staffingHistory}
-                    staffingTimeframe={staffingTimeframe}
-                    staffingLoading={staffingLoading}
-                    workspaceCount={workspaces.length}
-                    onTimeframeChange={setStaffingTimeframe}
-                    onRefresh={calculateAggregateStaffingData}
-                  />
+                        {/* Additional Analytics Grid */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                          {/* Recent Activity */}
+                          <AdminRecentActivity 
+                            workspaces={workspaces}
+                            aggregated={aggregated}
+                          />
 
-                  {/* Additional Analytics Grid */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                    {/* Recent Activity */}
-                    <AdminRecentActivity 
-                      workspaces={workspaces}
-                      aggregated={aggregated}
-                    />
-
-                    {/* Low Occupancy Alert */}
-                    <AdminLowOccupancy workspaces={workspaces} />
-                  </div>
-
-
-
-                  {/* Workspaces moved to dedicated Workspaces page - dashboard now shows only overview stats */}
+                          {/* Low Occupancy Alert */}
+                          <AdminLowOccupancy workspaces={workspaces} />
+                        </div>
+                      </div>
+                    </div>
+                  </main>
                 </>
               )}
             </>
