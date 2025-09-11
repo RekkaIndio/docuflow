@@ -8,7 +8,7 @@ interface ResidentAssessmentEditModalProps {
   resident: Resident | null;
   communities: Community[];
   onSave: (updatedResident: Resident) => void;
-  FIELDS: Array<{ key: string; label: string }>;
+  FIELDS: Array<{ key: string; label: string; section: string; maxScore: number }>;
 }
 
 export function ResidentAssessmentEditModal({
@@ -57,14 +57,57 @@ export function ResidentAssessmentEditModal({
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  // Calculate completion progress
+  const totalFields = FIELDS.length;
+  const completedFields = FIELDS.filter(field => formData[field.key as keyof Resident]).length;
+  const completionPercentage = Math.round((completedFields / totalFields) * 100);
+
+  // Group fields by section
+  const groupedFields = FIELDS.reduce((acc, field) => {
+    if (!acc[field.section]) acc[field.section] = [];
+    acc[field.section].push(field);
+    return acc;
+  }, {} as Record<string, typeof FIELDS>);
+
+  // Section configurations
+  const sectionConfig = {
+    BCN: {
+      title: "Basic Care Needs",
+      description: "Essential daily living activities",
+      icon: "🧼",
+      color: "blue",
+      bgColor: "bg-blue-50",
+      borderColor: "border-blue-200",
+      textColor: "text-blue-800"
+    },
+    SNN: {
+      title: "Special Nursing Needs",
+      description: "Medical and specialized care requirements",
+      icon: "🏥",
+      color: "red",
+      bgColor: "bg-red-50",
+      borderColor: "border-red-200",
+      textColor: "text-red-800"
+    },
+    THERAPY: {
+      title: "Therapy Needs",
+      description: "Communication and cognitive support",
+      icon: "🧠",
+      color: "purple",
+      bgColor: "bg-purple-50",
+      borderColor: "border-purple-200",
+      textColor: "text-purple-800"
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4">
+      <div className="bg-white rounded-[2rem] shadow-2xl max-w-6xl w-full max-h-[98vh] flex flex-col">
+        {/* Header - Enhanced */}
+        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                 </svg>
@@ -74,102 +117,215 @@ export function ResidentAssessmentEditModal({
                 <p className="text-blue-100 text-sm">Update {resident.name}'s care requirements</p>
               </div>
             </div>
+            <div className="flex items-center gap-4">
+              {/* Progress Indicator */}
+              <div className="bg-white/20 backdrop-blur-sm px-3 py-2 rounded-xl">
+                <div className="flex items-center gap-2">
+                  <div className="w-16 h-2 bg-white/30 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-white rounded-full transition-all duration-300"
+                      style={{ width: `${completionPercentage}%` }}
+                    ></div>
+                  </div>
+                  <span className="text-xs font-medium text-white">{completionPercentage}% Complete</span>
+                </div>
+              </div>
+              <button
+                onClick={onClose}
+                className="w-8 h-8 bg-white/20 hover:bg-white/30 rounded-xl flex items-center justify-center transition-colors"
+              >
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Content - Optimized for no scrolling */}
+        <div className="flex-1 overflow-y-auto p-4">
+          {/* Basic Info Card - Compact */}
+          <div className="mb-4 bg-gradient-to-r from-slate-50 to-gray-50 rounded-xl p-4 border border-gray-200">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 bg-blue-100 rounded-xl flex items-center justify-center">
+                <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-gray-900">Resident Information</h3>
+                <p className="text-xs text-gray-600">Basic details and community assignment</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <label className="block text-xs font-medium text-gray-700">Full Name</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={formData.name || ""}
+                    onChange={(e) => handleChange("name", e.target.value)}
+                    className="w-full pl-8 pr-2 py-2 text-sm border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all bg-white"
+                    placeholder="Enter resident's full name"
+                  />
+                  <svg className="w-4 h-4 text-gray-400 absolute left-2 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-xs font-medium text-gray-700">Room Number</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={formData.room || ""}
+                    onChange={(e) => handleChange("room", e.target.value)}
+                    className="w-full pl-8 pr-2 py-2 text-sm border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all bg-white"
+                    placeholder="Room number"
+                  />
+                  <svg className="w-4 h-4 text-gray-400 absolute left-2 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-xs font-medium text-gray-700">Community</label>
+                <div className="relative">
+                  <select
+                    value={formData.communityId || ""}
+                    onChange={(e) => handleChange("communityId", e.target.value || null)}
+                    className="w-full pl-8 pr-2 py-2 text-sm border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all bg-white appearance-none"
+                  >
+                    <option value="">No Community</option>
+                    {communities.map(community => (
+                      <option key={community.id} value={community.id}>
+                        {community.name}
+                      </option>
+                    ))}
+                  </select>
+                  <svg className="w-4 h-4 text-gray-400 absolute left-2 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Assessment Sections - Compact */}
+          <div className="space-y-4">
+            {Object.entries(groupedFields).map(([sectionKey, sectionFields]) => {
+              const config = sectionConfig[sectionKey as keyof typeof sectionConfig];
+              const sectionCompleted = sectionFields.filter(field => formData[field.key as keyof Resident]).length;
+              const sectionTotal = sectionFields.length;
+              const sectionProgress = Math.round((sectionCompleted / sectionTotal) * 100);
+
+              return (
+                <div key={sectionKey} className={`${config.bgColor} rounded-xl p-4 border ${config.borderColor}`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="text-lg">{config.icon}</div>
+                      <div>
+                        <h3 className={`text-sm font-semibold ${config.textColor}`}>{config.title}</h3>
+                        <p className="text-xs text-gray-600">{config.description}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-right">
+                        <div className={`text-xs font-medium ${config.textColor}`}>{sectionCompleted}/{sectionTotal}</div>
+                        <div className="w-16 h-1.5 bg-white/50 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full ${config.color === 'blue' ? 'bg-blue-500' : config.color === 'red' ? 'bg-red-500' : 'bg-purple-500'} rounded-full transition-all duration-300`}
+                            style={{ width: `${sectionProgress}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+                    {sectionFields.map(field => {
+                      const value = formData[field.key as keyof Resident] as DependencyLevel;
+                      const isCompleted = !!value;
+
+                      return (
+                        <div key={field.key} className="bg-white rounded-lg p-2 border border-gray-200 hover:border-gray-300 transition-colors">
+                          <label className="block text-xs font-medium text-gray-700 mb-1 leading-tight">
+                            {field.label}
+                          </label>
+                          <select
+                            value={value || ""}
+                            onChange={(e) => handleChange(field.key, e.target.value as DependencyLevel)}
+                            className={`w-full border rounded-lg px-1.5 py-1 text-xs bg-white transition-all ${
+                              isCompleted
+                                ? 'border-green-300 focus:border-green-500 focus:ring-1 focus:ring-green-500/20'
+                                : 'border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20'
+                            }`}
+                          >
+                            <option value="">Select...</option>
+                            <option value="None">No Needs</option>
+                            <option value="Low">Low</option>
+                            <option value="Medium">Medium</option>
+                            <option value="High">High</option>
+                          </select>
+                          {isCompleted && (
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <svg className="w-2.5 h-2.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                              <span className="text-xs text-green-600 font-medium">{value}</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Footer - Compact */}
+        <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 flex justify-between items-center flex-shrink-0">
+          <div className="flex items-center gap-4">
+            <div className="text-sm text-gray-600">
+              <span className="font-medium">{completedFields}</span> of <span className="font-medium">{totalFields}</span> fields completed
+            </div>
+            <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full transition-all duration-300"
+                style={{ width: `${completionPercentage}%` }}
+              ></div>
+            </div>
+          </div>
+
+          <div className="flex gap-3">
             <button
               onClick={onClose}
-              className="w-8 h-8 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center transition-colors"
+              className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors font-medium"
             >
-              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium shadow-sm"
+            >
+              {isSaving ? (
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Saving...
+                </div>
+              ) : (
+                "Save Changes"
+              )}
             </button>
           </div>
-        </div>
-
-        {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-          {/* Basic Info */}
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Basic Information</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
-                <input
-                  type="text"
-                  value={formData.name || ""}
-                  onChange={(e) => handleChange("name", e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Room</label>
-                <input
-                  type="text"
-                  value={formData.room || ""}
-                  onChange={(e) => handleChange("room", e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Community Selection */}
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Community Assignment</h3>
-            <select
-              value={formData.communityId || ""}
-              onChange={(e) => handleChange("communityId", e.target.value || null)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="">No Community</option>
-              {communities.map(community => (
-                <option key={community.id} value={community.id}>
-                  {community.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Assessment Fields */}
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Care Assessment</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {FIELDS.map(field => (
-                <div key={field.key} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {field.label}
-                  </label>
-                  <select
-                    value={(formData[field.key as keyof Resident] as DependencyLevel) || ""}
-                    onChange={(e) => handleChange(field.key, e.target.value as DependencyLevel)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  >
-                    <option value="">Select...</option>
-                    <option value="None">No Needs</option>
-                    <option value="Low">Low</option>
-                    <option value="Medium">Medium</option>
-                    <option value="High">High</option>
-                  </select>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {isSaving ? "Saving..." : "Save Changes"}
-          </button>
         </div>
       </div>
     </div>

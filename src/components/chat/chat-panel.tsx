@@ -11,7 +11,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { mockUser } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { chatWithDocuments } from "@/ai/flows/chat-with-documents";
-// import { chatWithFolder } from "@/ai/flows/chat-with-folder";
+import { chatWithFolder } from "@/ai/flows/chat-with-folder";
 import { useToast } from "@/hooks/use-toast";
 import { DocumentCard } from "@/components/ui/document-card";
 import {
@@ -53,11 +53,15 @@ interface ChatPanelProps {
 }
 
 interface UserIntent {
-  type: 'document_search' | 'file_search' | 'folder_creation' | 'general_query' | 'multi_document_query';
+  type: 'document_search' | 'file_search' | 'folder_creation' | 'general_query' | 'multi_document_query' | 'audit_query' | 'send_email' | 'user_search' | 'create_audit' | 'document_connection' | 'dependency_query';
   openDocument?: boolean; // indicates intent to open/view the document
   searchTerm?: string;
   fileName?: string;
   folderName?: string;
+  auditType?: string;
+  emailSubject?: string;
+  emailBody?: string;
+  userName?: string;
   originalInput: string;
 }
 
@@ -201,6 +205,43 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
   const detectIntent = (userInput: string): UserIntent => {
     const raw = userInput || '';
     const input = raw.toLowerCase().trim();
+    
+    // Audit query patterns - check these FIRST before document search
+    const auditPatterns = [
+      /(show|display|get|give|tell|what|how)\s+(me\s+)?(the\s+)?(latest\s+)?audit\s+(results?|scores?|status|completion)/i,
+      /(audit|audits)\s+(results?|scores?|status|completion)/i,
+      /(what\s+is\s+the\s+status\s+of|check)\s+(the\s+)?audit/i,
+      /(are\s+there\s+any|list)\s+(overdue|pending|completed)\s+audits/i
+    ];
+
+    for (const pattern of auditPatterns) {
+      if (pattern.test(input)) {
+        return {
+          type: 'audit_query',
+          originalInput: userInput
+        };
+      }
+    }
+
+    // Dependency/staffing query patterns - check before document search
+    const dependencyPatterns = [
+      /(show|display|get|give|tell|what|how)\s+(me\s+)?(the\s+)?(latest\s+)?(dependency|dependencies|staffing|staff)\s+(data|levels?|calculations?|requirements?|breakdown|analysis)/i,
+      /(dependency|dependencies|staffing|staff)\s+(data|levels?|calculations?|requirements?|breakdown|analysis)/i,
+      /(what\s+is\s+the|check|calculate)\s+(dependency|staffing)\s+(level|requirement|data)/i,
+      /(how\s+many|what)\s+(staff|carers?|nurses?)\s+(do\s+we\s+need|are\s+required)/i,
+      /(staffing\s+calculator|dependency\s+calculator|staffing\s+breakdown)/i,
+      /(show\s+me|get)\s+(staffing|dependency)\s+(for|at)\s+(.+)/i
+    ];
+
+    for (const pattern of dependencyPatterns) {
+      if (pattern.test(input)) {
+        return {
+          type: 'dependency_query',
+          originalInput: userInput
+        };
+      }
+    }
+
     // Multi-document query patterns
     const multiDocPatterns = [
       /(compare|difference|differences|similarities|all|list|summarize all|summarise all|overview of|across|between|versus|vs\.?|compare .* and .*)/i
@@ -304,6 +345,83 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         originalInput: userInput
       };
     }
+
+    // Send email patterns
+    const emailPatterns = [
+      /(send|email|mail)\s+(an?\s+)?email\s+(to\s+)?(the\s+)?(.+)/i,
+      /(notify|alert)\s+(the\s+)?team\s+(about|regarding)\s+(.+)/i,
+      /(message|contact)\s+(the\s+)?(.+)\s+(about|regarding)\s+(.+)/i
+    ];
+
+    for (const pattern of emailPatterns) {
+      const match = input.match(pattern);
+      if (match) {
+        const content = (match[5] || match[4] || match[3] || '').trim();
+        return {
+          type: 'send_email',
+          emailSubject: `Message from DocuFlow Chat`,
+          emailBody: content || 'Please check your DocuFlow workspace for updates.',
+          originalInput: userInput
+        };
+      }
+    }
+
+    // User search patterns
+    const userPatterns = [
+      /(find|search|look\s+for|who\s+is|get)\s+(me\s+)?(information\s+about|details\s+on|the\s+)?user\s+(.+)/i,
+      /(who\s+is|tell\s+me\s+about)\s+(.+)/i,
+      /(search\s+for|find)\s+(user|person)\s+(.+)/i
+    ];
+
+    for (const pattern of userPatterns) {
+      const match = input.match(pattern);
+      if (match) {
+        const userName = (match[4] || match[2] || match[3] || '').trim();
+        return {
+          type: 'user_search',
+          userName: userName,
+          originalInput: userInput
+        };
+      }
+    }
+
+    // Create audit patterns
+    const createAuditPatterns = [
+      /(create|start|begin|make)\s+(a\s+|an\s+|new\s+)?audit(\s+for|\s+on|\s+about)?\s*(.+)?/i,
+      /(i\s+need|i\s+want)\s+(to\s+)?create\s+(a\s+|an\s+)?audit/i,
+      /(let's|let\s+us)\s+(do|perform|conduct)\s+(an?\s+)?audit/i
+    ];
+
+    for (const pattern of createAuditPatterns) {
+      const match = input.match(pattern);
+      if (match) {
+        const auditType = (match[4] || '').trim();
+        return {
+          type: 'create_audit',
+          auditType: auditType,
+          originalInput: userInput
+        };
+      }
+    }
+
+    // Document connection patterns
+    const connectionPatterns = [
+      /(link|connect|relate|associate)\s+(this|these|the)\s+(document|documents|file|files)\s+(to|with)\s+(.+)/i,
+      /(find|show|get)\s+(related|connected|linked|associated)\s+(documents?|files?)\s+(to|for|about)\s+(.+)/i,
+      /(what\s+(documents?|files?)\s+are\s+(related|connected|linked)\s+to)\s+(.+)/i
+    ];
+
+    for (const pattern of connectionPatterns) {
+      const match = input.match(pattern);
+      if (match) {
+        const searchTerm = (match[5] || match[4] || '').trim();
+        return {
+          type: 'document_connection',
+          searchTerm: searchTerm,
+          originalInput: userInput
+        };
+      }
+    }
     
     // Default to general query
     return {
@@ -397,9 +515,288 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
       return;
     }
 
-  if (inputVal.trim() === '') return;
+    if (inputVal.trim() === '') return;
 
-    // Handle folder creation
+    // Handle audit query
+    if (intent.type === 'audit_query') {
+      appendMessages([{ sender: 'user', text: inputVal }, { sender: 'ai', text: 'Fetching audit information...' }]);
+      setInput('');
+      setIsTyping(true);
+      try {
+        const workspaceId = selectedItem.workspaceId;
+        if (!workspaceId) {
+          appendMessages({ sender: 'ai', text: 'No workspace selected for audit query.' });
+          setIsTyping(false);
+          return;
+        }
+
+        const { getMonthlyAuditCompletionStatus, getLatestAuditData } = await import('@/lib/firestore');
+        const completionStatus = await getMonthlyAuditCompletionStatus(workspaceId);
+        const auditTypes = Object.keys(completionStatus);
+        
+        let response = 'Here is the current audit status:\n\n';
+        const completed = auditTypes.filter(type => completionStatus[type]);
+        const pending = auditTypes.filter(type => !completionStatus[type]);
+        
+        if (completed.length > 0) {
+          response += `✅ Completed audits: ${completed.join(', ')}\n`;
+        }
+        if (pending.length > 0) {
+          response += `⏳ Pending audits: ${pending.join(', ')}\n`;
+        }
+
+        // Get latest scores if available
+        const latestScores: any[] = [];
+        for (const type of auditTypes) {
+          const latest = await getLatestAuditData(workspaceId, type);
+          if (latest && latest.scorePercent !== undefined) {
+            latestScores.push({ type, score: latest.scorePercent });
+          }
+        }
+
+        if (latestScores.length > 0) {
+          response += '\nLatest audit scores:\n';
+          latestScores.forEach(({ type, score }) => {
+            response += `${type}: ${score}%\n`;
+          });
+        }
+
+        appendMessages({ sender: 'ai', text: response });
+      } catch (error) {
+        console.error('Error fetching audit data:', error);
+        appendMessages({ sender: 'ai', text: 'Sorry, I couldn\'t fetch the audit information. Please try again.' });
+      } finally {
+        setIsTyping(false);
+      }
+      return;
+    }
+
+    // Handle dependency query
+    if (intent.type === 'dependency_query') {
+      appendMessages([{ sender: 'user', text: inputVal }, { sender: 'ai', text: 'Fetching dependency data...' }]);
+      setInput('');
+      setIsTyping(true);
+      try {
+        const workspaceId = selectedItem.workspaceId;
+        if (!workspaceId) {
+          appendMessages({ sender: 'ai', text: 'No workspace selected for dependency query.' });
+          setIsTyping(false);
+          return;
+        }
+
+        // Try to get dependency data from user's snapshots or calculate from current data
+        const userIdToUse = user?.id ?? mockUser.id;
+        if (!userIdToUse) {
+          appendMessages({ sender: 'ai', text: 'User authentication required for dependency data.' });
+          setIsTyping(false);
+          return;
+        }
+
+        const { collection, getDocs, query, orderBy, limit } = await import('firebase/firestore');
+        
+        // Get latest dependency snapshot from user's collection
+        const snapshotsCol = collection(db, 'users', userIdToUse, 'dependency_calculator_snapshots');
+        const snapshotsQuery = query(snapshotsCol, orderBy('savedAt', 'desc'), limit(1));
+        const snapshotsSnap = await getDocs(snapshotsQuery);
+        
+        let response = '';
+        
+        if (!snapshotsSnap.empty) {
+          const latestSnapshot = snapshotsSnap.docs[0].data();
+          const { computeStaffing } = await import('@/lib/staffing');
+          
+          // Process the snapshot data
+          const residents = latestSnapshot.residents || [];
+          const options = latestSnapshot.options || {};
+          
+          if (residents.length > 0) {
+            const staffingResult = computeStaffing(residents, options);
+            
+            response = `📊 **Latest Dependency Analysis**\n\n`;
+            response += `**Residents:** ${residents.length} total\n\n`;
+            
+            // Breakdown by dependency level
+            const levelCounts: Record<string, number> = {};
+            staffingResult.perResident.forEach(r => {
+              if (r.level) {
+                levelCounts[r.level] = (levelCounts[r.level] || 0) + 1;
+              }
+            });
+            
+            response += `**Dependency Levels:**\n`;
+            Object.entries(levelCounts).forEach(([level, count]) => {
+              response += `• ${level}: ${count} resident(s)\n`;
+            });
+            
+            response += `\n**Staffing Requirements:**\n`;
+            response += `**Day Shift:**\n`;
+            response += `• Carers: ${staffingResult.totals.rounded.day.carers}\n`;
+            response += `• Nurses/Seniors: ${staffingResult.totals.rounded.day.ns}\n`;
+            response += `• Total: ${staffingResult.totals.rounded.day.all}\n\n`;
+            
+            response += `**Night Shift:**\n`;
+            response += `• Carers: ${staffingResult.totals.rounded.night.carers}\n`;
+            response += `• Nurses/Seniors: ${staffingResult.totals.rounded.night.ns}\n`;
+            response += `• Total: ${staffingResult.totals.rounded.night.all}\n\n`;
+            
+            response += `**Total Hours (24h):**\n`;
+            response += `• Day: ${staffingResult.totals.hours.day.all.toFixed(1)} hours\n`;
+            response += `• Night: ${staffingResult.totals.hours.night.all.toFixed(1)} hours\n`;
+            
+            const saveDate = latestSnapshot.savedAt ? new Date(latestSnapshot.savedAt).toLocaleString() : 'Unknown';
+            response += `\n*Data from: ${saveDate}*`;
+          } else {
+            response = 'No resident dependency data found in the latest snapshot.';
+          }
+        } else {
+          response = 'No dependency data found. Please use the Dependency Calculator to create staffing calculations first.';
+        }
+
+        appendMessages({ sender: 'ai', text: response });
+      } catch (error) {
+        console.error('Error fetching dependency data:', error);
+        appendMessages({ sender: 'ai', text: 'Sorry, I couldn\'t fetch the dependency information. Please try again.' });
+      } finally {
+        setIsTyping(false);
+      }
+      return;
+    }
+
+    // Handle send email
+    if (intent.type === 'send_email') {
+      appendMessages([{ sender: 'user', text: inputVal }, { sender: 'ai', text: 'Preparing to send email...' }]);
+      setInput('');
+      setIsTyping(true);
+      try {
+        const workspaceId = selectedItem.workspaceId;
+        if (!workspaceId) {
+          appendMessages({ sender: 'ai', text: 'No workspace selected for sending email.' });
+          setIsTyping(false);
+          return;
+        }
+
+        // Get teams for the workspace
+        const { collection, getDocs, doc: docRef } = await import('firebase/firestore');
+        const teamsCol = collection(db, 'teams');
+        const snapshot = await getDocs(teamsCol);
+        const teams = snapshot.docs
+          .filter(t => !t.data().workspaceId || t.data().workspaceId === workspaceId)
+          .map(d => ({ id: d.id, name: d.data().name ?? 'Untitled Team' }));
+
+        if (teams.length === 0) {
+          appendMessages({ sender: 'ai', text: 'No teams found in this workspace to send email to.' });
+          setIsTyping(false);
+          return;
+        }
+
+        // For now, send to all teams (can be enhanced to specify which team)
+        const recipientEmails: string[] = [];
+        for (const team of teams) {
+          // Get team members - this is simplified, in reality you'd need to fetch team members
+          // For now, we'll use a placeholder
+        }
+
+        if (recipientEmails.length === 0) {
+          appendMessages({ sender: 'ai', text: 'No email recipients found. Please ensure teams have members with email addresses.' });
+          setIsTyping(false);
+          return;
+        }
+
+        const { sendFolderAccessEmail } = await import('@/actions/email');
+        await sendFolderAccessEmail({
+          teamName: teams.map(t => t.name).join(', '),
+          folderNames: [],
+          workspaceName: selectedItem.name || 'Workspace',
+          grantedBy: user?.name || user?.email || 'DocuFlow User',
+          recipientEmails
+        });
+
+        appendMessages({ sender: 'ai', text: `Email sent successfully to ${teams.length} team(s).` });
+      } catch (error) {
+        console.error('Error sending email:', error);
+        appendMessages({ sender: 'ai', text: 'Sorry, I couldn\'t send the email. Please try again.' });
+      } finally {
+        setIsTyping(false);
+      }
+      return;
+    }
+
+    // Handle user search
+    if (intent.type === 'user_search') {
+      appendMessages([{ sender: 'user', text: inputVal }, { sender: 'ai', text: 'Searching for user...' }]);
+      setInput('');
+      setIsTyping(true);
+      try {
+        const { getUserById } = await import('@/lib/firestore');
+        // This is simplified - in a real implementation, you'd search users by name/email
+        // For now, assume userName is an ID or search term
+        const userData = await getUserById(intent.userName || '');
+        if (userData) {
+          appendMessages({ sender: 'ai', text: `Found user: ${userData.name || userData.email || 'Unknown'} (${userData.email || 'No email'})` });
+        } else {
+          appendMessages({ sender: 'ai', text: `No user found with the name "${intent.userName}".` });
+        }
+      } catch (error) {
+        console.error('Error searching user:', error);
+        appendMessages({ sender: 'ai', text: 'Sorry, I couldn\'t search for the user. Please try again.' });
+      } finally {
+        setIsTyping(false);
+      }
+      return;
+    }
+
+    // Handle create audit
+    if (intent.type === 'create_audit') {
+      appendMessages([{ sender: 'user', text: inputVal }, { sender: 'ai', text: 'Preparing to create audit...' }]);
+      setInput('');
+      setIsTyping(true);
+      try {
+        // Navigate to audit page or provide instructions
+        if (typeof window !== 'undefined' && window.dispatchEvent) {
+          window.dispatchEvent(new CustomEvent('navigate-to-audits', { detail: { auditType: intent.auditType } }));
+        }
+        appendMessages({ sender: 'ai', text: `I've opened the audits page for you${intent.auditType ? ` to create a ${intent.auditType} audit` : ''}. You can start creating your audit there.` });
+      } catch (error) {
+        console.error('Error creating audit:', error);
+        appendMessages({ sender: 'ai', text: 'Sorry, I couldn\'t navigate to the audit creation page. Please go to the Audits section manually.' });
+      } finally {
+        setIsTyping(false);
+      }
+      return;
+    }
+
+    // Handle document connection
+    if (intent.type === 'document_connection') {
+      appendMessages([{ sender: 'user', text: inputVal }, { sender: 'ai', text: 'Finding related documents...' }]);
+      setInput('');
+      setIsTyping(true);
+      try {
+        const workspaceId = selectedItem.workspaceId;
+        if (!workspaceId) {
+          appendMessages({ sender: 'ai', text: 'No workspace selected for document search.' });
+          setIsTyping(false);
+          return;
+        }
+
+        const { searchDocumentsInWorkspace } = await import('@/lib/firestore');
+        const relatedDocs = await searchDocumentsInWorkspace(workspaceId, intent.searchTerm || '');
+
+        if (relatedDocs.length > 0) {
+          const docList = relatedDocs.slice(0, 5).map(doc => `- ${doc.name}`).join('\n');
+          appendMessages({ sender: 'ai', text: `Found ${relatedDocs.length} related document(s):\n${docList}` });
+        } else {
+          appendMessages({ sender: 'ai', text: `No related documents found for "${intent.searchTerm}".` });
+        }
+      } catch (error) {
+        console.error('Error finding related documents:', error);
+        appendMessages({ sender: 'ai', text: 'Sorry, I couldn\'t find related documents. Please try again.' });
+      } finally {
+        setIsTyping(false);
+      }
+      return;
+    }
+
+    // Handle folder creation (existing)
     if (intent.type === 'folder_creation') {
   appendMessages({ sender: 'user', text: input });
       setInput('');
@@ -467,6 +864,22 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         setLastContext({ doc: selectedItem });
         setIsTyping(false);
         return;
+      }
+
+      // If selectedItem is a folder and no specific document context, use folder chat
+      if (!usedContextDoc && selectedItem.type === 'folder' && intent.type === 'general_query') {
+        try {
+          result = await chatWithFolder({
+            query: userInput,
+            documentsJson: JSON.stringify(getAllDocuments([selectedItem])),
+          });
+          appendMessages({ sender: 'ai', text: result.answer });
+          setIsTyping(false);
+          return;
+        } catch (folderError) {
+          console.warn('Folder chat failed, falling back to document search', folderError);
+          // Fall through to document search
+        }
       }
 
       // At this point selectedItem is a folder/workspace
@@ -890,14 +1303,14 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
               <Button size="sm" variant="ghost" onClick={() => { setInput('Show me the COSHH Policy'); setTimeout(() => handleSend(), 60); }}>
                 Show me the COSHH Policy
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => { setInput('Show me the IPC policy'); setTimeout(() => handleSend(), 60); }}>
-                Show me the IPC policy
+              <Button size="sm" variant="ghost" onClick={() => { setInput('Show me audit results'); setTimeout(() => handleSend(), 60); }}>
+                Show audit results
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => { setInput('Find the medicine policy'); setTimeout(() => handleSend(), 60); }}>
-                Find the medicine policy
+              <Button size="sm" variant="ghost" onClick={() => { setInput('Show me dependency data'); setTimeout(() => handleSend(), 60); }}>
+                Show dependency data
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => { setInput('What documents do we have about safeguarding?'); setTimeout(() => handleSend(), 60); }}>
-                Safeguarding documents
+              <Button size="sm" variant="ghost" onClick={() => { setInput('Send email to team about updates'); setTimeout(() => handleSend(), 60); }}>
+                Send email to team
               </Button>
             </div>
           </div>
@@ -950,7 +1363,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
       <div className="p-4 border-t bg-white shrink-0">
         <div className="relative">
           <Textarea
-            placeholder="Ask me anything... 'Please find the medicine policy', 'Show me documents about safeguarding', 'I need the health and safety procedures'..."
+            placeholder="Ask me anything... 'Show me audit results', 'Show dependency data', 'Send email to team', 'Find user John', 'Create new audit'..."
             className="w-full resize-none pr-12 min-h-[48px] border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:border-blue-300 transition-colors"
             value={input}
             onChange={(e) => setInput(e.target.value)}
