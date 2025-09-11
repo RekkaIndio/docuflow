@@ -5,7 +5,7 @@ import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '@/com
 import OccupancyPie from '@/components/admin/occupancy-pie';
 import { doc, onSnapshot, collection, query, orderBy, limit, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { TrendingUp, TrendingDown, Minus, FileText, Shield, Wrench, Lock, Flame, Biohazard, Utensils, Moon, Users, Soup, AlertTriangle, BarChart3, Target, CheckCircle2, Clock, Award, Activity } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, FileText, Shield, Wrench, Lock, Flame, Biohazard, Utensils, Moon, Users, Soup, AlertTriangle, BarChart3, Target, CheckCircle, CheckCircle2, Clock, Award, Activity } from 'lucide-react';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Area, AreaChart } from 'recharts';
 
@@ -621,96 +621,71 @@ export function StatsView({ workspaceId }: { workspaceId?: string }) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
-      {/* Modern Hero Section */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600">
-        <div className="absolute inset-0 bg-black/10"></div>
-        <div className="absolute inset-0">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -translate-y-48 translate-x-48 blur-3xl"></div>
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-400/10 rounded-full translate-y-32 -translate-x-32 blur-2xl"></div>
+      {/* Header */}
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-8 rounded-b-2xl shadow-lg relative overflow-hidden">
+        {/* Subtle background pattern */}
+        <div className="absolute inset-0 opacity-5">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full -translate-y-48 translate-x-48"></div>
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-400 rounded-full translate-y-32 -translate-x-32"></div>
         </div>
-
-        <div className="relative z-10 px-6 py-8 lg:py-10">
-          <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-6">
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full border border-white/20 mb-4">
-                <BarChart3 className="h-4 w-4 text-blue-200" />
-                <span className="text-sm font-medium text-white">Performance Analytics</span>
-              </div>
-              <h1 className="text-3xl lg:text-4xl font-bold text-white mb-3">
-                Audit Performance Dashboard
-              </h1>
-              <p className="text-lg text-blue-100 max-w-2xl mx-auto">
-                Track your compliance progress and identify areas for improvement across all audit categories
-              </p>
+        
+        <div className="w-full mx-auto flex items-start justify-between gap-8 relative z-10">
+          <div className="flex items-start gap-6">
+            <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg">
+              <BarChart3 className="w-12 h-12 text-white" />
             </div>
+            <div className="space-y-2">
+              <h1 className="text-3xl font-bold leading-tight tracking-tight">Audit Performance Dashboard</h1>
+              <p className="text-slate-200 text-base leading-relaxed">Monitor compliance scores and track audit performance across all care home standards</p>
+            </div>
+          </div>
 
-            {/* Key Metrics Row */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-blue-100 mb-1">Overall Score</p>
-                      <p className="text-3xl font-bold">{overallStats.overallPercentage !== null ? `${overallStats.overallPercentage}%` : 'N/A'}</p>
-                    </div>
-                    <div className="w-16 h-16">
-                      <OccupancyPie
-                        percent={overallStats.overallPercentage ?? 0}
-                        size={64}
-                        strokeWidth={8}
-                        gradientColors={getGradientColors(overallStats.overallPercentage)}
-                        centerFontSize={16}
-                        centerClassName="text-white font-bold"
-                      />
-                    </div>
+          <div className="hidden xl:flex items-center gap-6">
+            <div className="grid grid-cols-4 gap-4">
+              <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg hover:bg-white/15 transition-all duration-200">
+                <div className="flex items-center gap-4">
+                  <div className="p-2 bg-blue-500/20 rounded-lg">
+                    <FileText className="w-5 h-5 text-blue-300" />
                   </div>
-                  {overallStats.overallPercentage !== null && (
-                    <div className="mt-4">
-                      <TrendIndicator auditType="overall" />
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-blue-100 mb-1">Audits Completed</p>
-                      <p className="text-3xl font-bold">{overallStats.auditsCompleted}/{overallStats.totalAudits}</p>
-                    </div>
-                    <div className="w-16 h-16 flex items-center justify-center">
-                      <CheckCircle2 className="h-12 w-12 text-green-300" />
-                    </div>
+                  <div>
+                    <div className="text-xs text-slate-300 font-medium uppercase tracking-wide">Total Audits</div>
+                    <div className="text-2xl font-bold text-white">{overallStats.totalAudits}</div>
                   </div>
-                  <div className="mt-4">
-                    <div className="w-full bg-white/20 rounded-full h-2">
-                      <div
-                        className="bg-green-400 h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${(overallStats.auditsCompleted / overallStats.totalAudits) * 100}%` }}
-                      ></div>
-                    </div>
-                    <p className="text-xs text-blue-100 mt-2">Completion Rate</p>
+                </div>
+              </div>
+              <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg hover:bg-white/15 transition-all duration-200">
+                <div className="flex items-center gap-4">
+                  <div className="p-2 bg-green-500/20 rounded-lg">
+                    <CheckCircle className="w-5 h-5 text-green-300" />
                   </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-blue-100 mb-1">Questions Passed</p>
-                      <p className="text-3xl font-bold">{overallStats.totalYesCount}</p>
-                    </div>
-                    <div className="w-16 h-16 flex items-center justify-center">
-                      <Target className="h-12 w-12 text-yellow-300" />
-                    </div>
+                  <div>
+                    <div className="text-xs text-slate-300 font-medium uppercase tracking-wide">Completed</div>
+                    <div className="text-2xl font-bold text-white">{overallStats.auditsCompleted}</div>
                   </div>
-                  <p className="text-sm text-blue-100 mt-4">
-                    of {overallStats.totalQuestions} total questions
-                  </p>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
+              <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg hover:bg-white/15 transition-all duration-200">
+                <div className="flex items-center gap-4">
+                  <div className="p-2 bg-purple-500/20 rounded-lg">
+                    <Target className="w-5 h-5 text-purple-300" />
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-300 font-medium uppercase tracking-wide">Overall Score</div>
+                    <div className="text-2xl font-bold text-white">{overallStats.overallPercentage || 0}%</div>
+                  </div>
+                </div>
+              </div>
+              <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg hover:bg-white/15 transition-all duration-200">
+                <div className="flex items-center gap-4">
+                  <div className="p-2 bg-amber-500/20 rounded-lg">
+                    <Activity className="w-5 h-5 text-amber-300" />
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-300 font-medium uppercase tracking-wide">Questions</div>
+                    <div className="text-2xl font-bold text-white">{overallStats.totalYesCount}/{overallStats.totalQuestions}</div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
