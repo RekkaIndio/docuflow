@@ -3,7 +3,7 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import { AdminSidebar } from '@/components/admin/admin-sidebar';
 import AdminWorkspacesContext from '@/context/admin-workspaces';
-import { SidebarProvider, Sidebar, SidebarInset } from '@/components/ui/sidebar';
+import { SidebarProvider, Sidebar, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { TopNav } from '@/components/dashboard/top-nav';
 import { TooltipProvider } from '@/components/ui/tooltip';
 

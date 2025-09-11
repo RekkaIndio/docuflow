@@ -203,60 +203,107 @@ export default function AdminWorkspacesView() {
   };
 
   return (
-    <div>
-      <div className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 rounded-b-2xl shadow-lg mb-6 relative overflow-hidden">
-        {/* Background pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-0 left-0 w-32 h-32 bg-white rounded-full -translate-x-16 -translate-y-16"></div>
-          <div className="absolute top-16 right-16 w-24 h-24 bg-white rounded-full opacity-50"></div>
-          <div className="absolute bottom-8 left-1/4 w-16 h-16 bg-white rounded-full opacity-30"></div>
-          <div className="absolute bottom-4 right-8 w-20 h-20 bg-white rounded-full opacity-40"></div>
+    <div className="min-h-screen bg-gray-50">
+      <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-blue-600 to-purple-700 text-white rounded-b-3xl shadow-2xl">
+        {/* Animated background elements */}
+        <div className="absolute inset-0">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-white/10 to-transparent rounded-full -translate-y-48 translate-x-48 animate-pulse"></div>
+          <div className="absolute bottom-0 left-0 w-80 h-80 bg-gradient-to-tr from-purple-400/20 to-transparent rounded-full translate-y-40 -translate-x-40"></div>
+          <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-gradient-to-br from-blue-300/10 to-transparent rounded-full -translate-x-1/2 -translate-y-1/2 animate-pulse delay-1000"></div>
         </div>
         
-        <div className="relative z-10 flex items-start justify-between gap-6">
-          <div className="flex items-start gap-4">
-            <div className="p-3 bg-white/10 backdrop-blur-sm rounded-md border border-white/20">
-              <Users className="w-10 h-10 text-white" />
-            </div>
-            <div>
-              <h2 className="text-3xl font-bold leading-tight">Workspaces</h2>
-              <div className="mt-1 text-sm text-blue-100">Admin workspaces · {workspaces.length} workspaces · {aggregated.totalFolders} folders · {aggregated.totalDocuments} documents</div>
-              <div className="mt-3 flex items-center gap-2">
-                <Button size="sm" onClick={() => { /* noop for now */ }} className="bg-white/10 hover:bg-white/20 text-white border-white/20">
+        <div className="relative z-10 py-6 sm:py-8 lg:py-10 px-8 md:px-12 lg:px-16">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8 lg:gap-12">
+            {/* Main content - left side */}
+            <div className="flex-1">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="p-3 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
+                  <Users className="w-8 h-8 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight tracking-tight bg-gradient-to-r from-white via-blue-100 to-purple-100 bg-clip-text text-transparent">
+                    Workspaces
+                  </h1>
+                  <div className="mt-2 text-sm text-blue-100 font-medium">
+                    Admin workspaces · {workspaces.length} workspaces · {aggregated.totalFolders} folders · {aggregated.totalDocuments} documents
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <Button size="sm" onClick={() => { /* noop for now */ }} className="bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur-sm">
                   Refresh
                 </Button>
               </div>
             </div>
-          </div>
 
-          <div className="hidden md:flex items-center gap-4">
-            <div className="grid grid-cols-4 gap-3">
-              <div className="p-3 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
-                <div>
-                  <div className="text-xs text-blue-100">Workspaces</div>
-                  <div className="text-lg font-semibold">{workspaces.length}</div>
+            {/* Key metrics cards - right side */}
+            <div className="w-full lg:w-auto">
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 lg:gap-4">
+                {/* Workspaces */}
+                <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
+                  <div className="flex items-center gap-2 lg:gap-3 h-full">
+                    <div className="p-2 bg-blue-500/20 rounded-xl group-hover:bg-blue-500/30 transition-colors duration-300">
+                      <Building2 className="w-4 h-4 lg:w-5 lg:h-5 text-blue-400" />
+                    </div>
+                    <div>
+                      <div className="text-xl lg:text-2xl font-bold text-white">{workspaces.length}</div>
+                      <div className="text-xs text-blue-200 font-medium uppercase tracking-wide">Workspaces</div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div className="p-3 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
-                <div>
-                  <div className="text-xs text-blue-100">Folders</div>
-                  <div className="text-lg font-semibold">{aggregated.totalFolders}</div>
+
+                {/* Folders */}
+                <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
+                  <div className="flex items-center gap-2 lg:gap-3 h-full">
+                    <div className="p-2 bg-yellow-500/20 rounded-xl group-hover:bg-yellow-500/30 transition-colors duration-300">
+                      <Folder className="w-4 h-4 lg:w-5 lg:h-5 text-yellow-400" />
+                    </div>
+                    <div>
+                      <div className="text-xl lg:text-2xl font-bold text-white">{aggregated.totalFolders}</div>
+                      <div className="text-xs text-yellow-200 font-medium uppercase tracking-wide">Folders</div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div className="p-3 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
-                <div>
-                  <div className="text-xs text-blue-100">Documents</div>
-                  <div className="text-lg font-semibold">{aggregated.totalDocuments}</div>
+
+                {/* Documents */}
+                <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
+                  <div className="flex items-center gap-2 lg:gap-3 h-full">
+                    <div className="p-2 bg-purple-500/20 rounded-xl group-hover:bg-purple-500/30 transition-colors duration-300">
+                      <FileText className="w-4 h-4 lg:w-5 lg:h-5 text-purple-400" />
+                    </div>
+                    <div>
+                      <div className="text-xl lg:text-2xl font-bold text-white">{aggregated.totalDocuments}</div>
+                      <div className="text-xs text-purple-200 font-medium uppercase tracking-wide">Documents</div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div className="p-4 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 flex items-center gap-4 shadow-md">
-                <div className="flex items-center justify-center w-16 h-16 bg-white/5 rounded-full">
-                  <OccupancyPie percent={Math.round((careOverview.averageOccupancy || 0) * 100)} size={64} strokeWidth={8} />
+
+                {/* System Health */}
+                <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
+                  <div className="flex items-center gap-2 lg:gap-3 h-full">
+                    <div className="p-2 bg-emerald-500/20 rounded-xl group-hover:bg-emerald-500/30 transition-colors duration-300">
+                      <Zap className="w-4 h-4 lg:w-5 lg:h-5 text-emerald-400" />
+                    </div>
+                    <div>
+                      <div className="text-xl lg:text-2xl font-bold text-white">98%</div>
+                      <div className="text-xs text-emerald-200 font-medium uppercase tracking-wide">Health</div>
+                    </div>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <div className="text-xs text-blue-100">Overall Occupancy</div>
-                  <div className="text-2xl font-bold leading-tight text-white">{Math.round((careOverview.averageOccupancy || 0) * 100)}%</div>
-                  <div className="text-sm text-blue-100">{careOverview.totalOccupied}/{careOverview.totalBeds} beds</div>
+
+                {/* Occupancy */}
+                <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
+                  <div className="flex items-center gap-2 lg:gap-3 h-full">
+                    <div className="p-2 bg-rose-500/20 rounded-xl group-hover:bg-rose-500/30 transition-colors duration-300">
+                      <div className="w-4 h-4 lg:w-5 lg:h-5">
+                        <OccupancyPie percent={Math.round((careOverview.averageOccupancy || 0) * 100)} size={20} strokeWidth={3} />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xl lg:text-2xl font-bold text-white">{Math.round((careOverview.averageOccupancy || 0) * 100)}%</div>
+                      <div className="text-xs text-rose-200 font-medium uppercase tracking-wide">Occupancy</div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -264,27 +311,31 @@ export default function AdminWorkspacesView() {
         </div>
       </div>
 
-      {/* Enhanced System Overview */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <BarChart2 className="w-6 h-6 text-primary" />
-            <h1 className="text-2xl font-bold">System Overview</h1>
-          </div>
-          <div className="flex items-center gap-4">
-            <Button onClick={() => setIsCreateWorkspaceOpen(true)} className="flex items-center gap-2">
-              <Plus className="w-4 h-4" />
-              Create Workspace
-            </Button>
-            <p className="text-sm text-muted-foreground">Managing <span className="font-medium">{workspaces.length}</span> workspaces</p>
+      {/* Main content */}
+      <div className="p-6 space-y-6">
+        {/* System Overview */}
+        <div>
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg">
+                <BarChart2 className="h-5 w-5 text-white" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 tracking-tight">System Overview</h2>
+            </div>
+            <div className="flex items-center gap-4">
+              <Button onClick={() => setIsCreateWorkspaceOpen(true)} className="flex items-center gap-2">
+                <Plus className="w-4 h-4" />
+                Create Workspace
+              </Button>
+              <p className="text-sm text-gray-600">Managing <span className="font-medium">{workspaces.length}</span> workspaces</p>
+            </div>
           </div>
         </div>
-      </div>
-
-      
 
       {workspaces.length === 0 ? (
-        <div className="rounded border p-6 text-center text-muted-foreground">No workspaces found.</div>
+        <div className="rounded-lg border border-gray-200 p-6 text-center text-gray-500 bg-white">
+          No workspaces found.
+        </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {workspaces.map((ws: any) => {
@@ -295,17 +346,11 @@ export default function AdminWorkspacesView() {
               (ws.occupancy ? Math.round(ws.occupancy * 100) : null);
             
             return (
-              <Card key={ws.id} className={cn(
-                'hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border-l-4',
-                occupancyPercent && occupancyPercent > 80 ? 'border-l-red-500' :
-                occupancyPercent && occupancyPercent > 60 ? 'border-l-yellow-500' :
-                'border-l-green-500',
-                ws.region ? '' : 'opacity-90'
-              )}>
-                <CardHeader className="flex items-center justify-between w-full px-4 py-4 rounded-t-lg bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white">
+              <Card key={ws.id} className="hover:shadow-lg transition-all duration-300 border border-gray-200 hover:border-gray-300 bg-white">
+                <CardHeader className="flex items-center justify-between w-full px-4 py-4 rounded-t-lg bg-gradient-to-br from-indigo-600 via-blue-600 to-purple-700 text-white">
                   <div className="flex-1 min-w-0">
                     <div className="text-lg font-semibold truncate text-left">{ws.name || ws.id}</div>
-                    <div className="text-xs text-slate-300 mt-1">
+                    <div className="text-xs text-blue-100 mt-1 font-medium">
                       {ws.folders?.length || 0} folders • {totalDocs} documents
                     </div>
                   </div>
@@ -319,13 +364,14 @@ export default function AdminWorkspacesView() {
                         }`}>
                           {occupancyPercent}%
                         </div>
-                        <div className="text-xs text-slate-300">occupancy</div>
+                        <div className="text-xs text-blue-100">occupancy</div>
                       </div>
                     )}
                     <Button 
                       size="sm" 
                       variant="secondary" 
                       onClick={() => window.dispatchEvent(new CustomEvent('navigate-to-workspace', { detail: { workspaceId: ws.id, workspaceName: ws.name } }))}
+                      className="bg-white/10 hover:bg-white/20 text-white border-white/20"
                     >
                       Open
                     </Button>
@@ -349,15 +395,15 @@ export default function AdminWorkspacesView() {
                   </div>
                 </CardHeader>
                 <CardContent className="p-4">
-                  {/* Enhanced Workspace Metrics */}
+                  {/* Workspace Metrics */}
                   <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div className="text-center p-2 bg-blue-50 rounded-lg">
+                    <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-100">
                       <div className="text-lg font-bold text-blue-600">{ws.folders?.length || 0}</div>
-                      <div className="text-xs text-blue-600">Folders</div>
+                      <div className="text-xs text-blue-600 font-medium">Folders</div>
                     </div>
-                    <div className="text-center p-2 bg-green-50 rounded-lg">
+                    <div className="text-center p-3 bg-green-50 rounded-lg border border-green-100">
                       <div className="text-lg font-bold text-green-600">{totalDocs}</div>
-                      <div className="text-xs text-green-600">Documents</div>
+                      <div className="text-xs text-green-600 font-medium">Documents</div>
                     </div>
                   </div>
                   
@@ -368,11 +414,11 @@ export default function AdminWorkspacesView() {
                       Folders Preview
                     </div>
                     {(ws.folders || []).length === 0 ? (
-                      <div className="text-xs text-muted-foreground text-center py-2">No folders created</div>
+                      <div className="text-xs text-gray-500 text-center py-3 bg-gray-50 rounded-lg">No folders created</div>
                     ) : (
                       <div className="space-y-1">
                         {(ws.folders || []).slice(0, 4).map((f: any) => (
-                          <div key={f.id} className="flex items-center justify-between p-2 bg-gray-50 rounded text-xs">
+                          <div key={f.id} className="flex items-center justify-between p-2 bg-gray-50 rounded text-xs border border-gray-100">
                             <div className="flex items-center gap-2 truncate flex-1">
                               <Folder className="w-3 h-3 text-yellow-500 flex-shrink-0" />
                               <span className="truncate">{f.name}</span>
@@ -383,7 +429,7 @@ export default function AdminWorkspacesView() {
                           </div>
                         ))}
                         {(ws.folders || []).length > 4 && (
-                          <div className="text-xs text-muted-foreground text-center py-1">
+                          <div className="text-xs text-gray-500 text-center py-1">
                             +{(ws.folders || []).length - 4} more folders...
                           </div>
                         )}
@@ -396,6 +442,7 @@ export default function AdminWorkspacesView() {
           })}
         </div>
       )}
+      </div>
 
       {/* Create Workspace Dialog */}
       <Dialog open={isCreateWorkspaceOpen} onOpenChange={setIsCreateWorkspaceOpen}>

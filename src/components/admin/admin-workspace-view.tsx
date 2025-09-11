@@ -262,61 +262,91 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
   }, [workspace?.id, staffingTimeframe]);
 
   return (
-    <div className="flex flex-col h-screen bg-background">
-      {/* Hero header */}
-      <div className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white p-6 rounded-b-lg shadow-sm">
-        <div className="w-full mx-auto flex items-start justify-between gap-6">
-          <div className="flex items-start gap-4">
-            <div className="p-3 bg-white/5 rounded-md">
-              <Home className="w-10 h-10 text-white/90" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold leading-tight">{workspace.name}</h2>
-              <div className="mt-1 text-sm text-slate-200">Owner: {workspace.ownerId || '—'} · {totalFolders} folders · {totalDocuments} documents</div>
-              <div className="mt-3 flex items-center gap-2">
-                <Button size="sm" onClick={() => { const n = window.prompt('New folder name'); if (n) onFolderAdd(n); }}> <PlusSquare className="w-4 h-4 mr-2" /> New folder</Button>
-                <Button size="sm" variant="outline" onClick={() => { navigator.clipboard?.writeText(window.location.href); }}>Share</Button>
-              </div>
-            </div>
-          </div>
+    <div className="flex flex-col h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
+      {/* Slim admin header */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-blue-600 to-purple-700 text-white rounded-b-3xl shadow-2xl">
+        {/* Animated background elements */}
+        <div className="absolute inset-0">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-white/10 to-transparent rounded-full -translate-y-48 translate-x-48 animate-pulse"></div>
+          <div className="absolute bottom-0 left-0 w-80 h-80 bg-gradient-to-tr from-purple-400/20 to-transparent rounded-full translate-y-40 -translate-x-40"></div>
+          <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-gradient-to-br from-blue-300/10 to-transparent rounded-full -translate-x-1/2 -translate-y-1/2 animate-pulse delay-1000"></div>
+        </div>
 
-          <div className="hidden md:flex items-center gap-4">
-            <div className="grid grid-cols-5 gap-3">
-              <div className="p-3 bg-white/5 rounded-lg flex items-center gap-3 border border-white/10">
-                <FolderIcon className="w-6 h-6 text-yellow-400" />
-                <div>
-                  <div className="text-xs text-slate-300">Folders</div>
-                  <div className="text-lg font-semibold">{totalFolders}</div>
+        <div className="relative z-10 py-6 sm:py-8 lg:py-10 px-8 md:px-12 lg:px-16">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8 lg:gap-12">
+            {/* Main content - left side */}
+            <div className="flex-1">
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight tracking-tight bg-gradient-to-r from-white via-blue-100 to-purple-100 bg-clip-text text-transparent">
+                {workspace.name}
+              </h1>
+            </div>
+
+            {/* Key metrics cards - right side */}
+            <div className="w-full lg:w-auto">
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 lg:gap-4">
+                {/* Folders */}
+                <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
+                  <div className="flex items-center gap-2 lg:gap-3 h-full">
+                    <div className="p-2 bg-yellow-500/20 rounded-xl group-hover:bg-yellow-500/30 transition-colors duration-300">
+                      <FolderIcon className="w-4 h-4 lg:w-5 lg:h-5 text-yellow-400" />
+                    </div>
+                    <div>
+                      <div className="text-xl lg:text-2xl font-bold text-white">{totalFolders}</div>
+                      <div className="text-xs text-yellow-200 font-medium uppercase tracking-wide">Folders</div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div className="p-3 bg-white/5 rounded-lg flex items-center gap-3 border border-white/10">
-                <FileText className="w-6 h-6 text-rose-400" />
-                <div>
-                  <div className="text-xs text-slate-300">Documents</div>
-                  <div className="text-lg font-semibold">{totalDocuments}</div>
+
+                {/* Documents */}
+                <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
+                  <div className="flex items-center gap-2 lg:gap-3 h-full">
+                    <div className="p-2 bg-purple-500/20 rounded-xl group-hover:bg-purple-500/30 transition-colors duration-300">
+                      <FileText className="w-4 h-4 lg:w-5 lg:h-5 text-purple-400" />
+                    </div>
+                    <div>
+                      <div className="text-xl lg:text-2xl font-bold text-white">{totalDocuments}</div>
+                      <div className="text-xs text-purple-200 font-medium uppercase tracking-wide">Documents</div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div className="p-3 bg-white/5 rounded-lg flex items-center gap-3 border border-white/10">
-                <Tag className="w-6 h-6 text-emerald-400" />
-                <div>
-                  <div className="text-xs text-slate-300">Types</div>
-                  <div className="text-lg font-semibold">{Object.keys(fileTypeCounts).length}</div>
+
+                {/* Types */}
+                <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
+                  <div className="flex items-center gap-2 lg:gap-3 h-full">
+                    <div className="p-2 bg-emerald-500/20 rounded-xl group-hover:bg-emerald-500/30 transition-colors duration-300">
+                      <Tag className="w-4 h-4 lg:w-5 lg:h-5 text-emerald-400" />
+                    </div>
+                    <div>
+                      <div className="text-xl lg:text-2xl font-bold text-white">{Object.keys(fileTypeCounts).length}</div>
+                      <div className="text-xs text-emerald-200 font-medium uppercase tracking-wide">Types</div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div className="p-3 bg-white/5 rounded-lg flex items-center gap-3 border border-white/10">
-                <Shield className={`w-6 h-6 ${totalDocuments > 10 ? 'text-green-400' : totalDocuments > 5 ? 'text-yellow-400' : 'text-red-400'}`} />
-                <div>
-                  <div className="text-xs text-slate-300">Compliance</div>
-                  <div className="text-lg font-semibold">{totalDocuments > 10 ? '95%' : totalDocuments > 5 ? '78%' : '45%'}</div>
+
+                {/* Compliance */}
+                <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
+                  <div className="flex items-center gap-2 lg:gap-3 h-full">
+                    <div className="p-2 bg-emerald-500/20 rounded-xl group-hover:bg-emerald-500/30 transition-colors duration-300">
+                      <Shield className={`w-4 h-4 lg:w-5 lg:h-5 ${totalDocuments > 10 ? 'text-green-400' : totalDocuments > 5 ? 'text-yellow-400' : 'text-red-400'}`} />
+                    </div>
+                    <div>
+                      <div className="text-xl lg:text-2xl font-bold text-white">{totalDocuments > 10 ? '95%' : totalDocuments > 5 ? '78%' : '45%'}</div>
+                      <div className="text-xs text-emerald-200 font-medium uppercase tracking-wide">Compliance</div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div className="p-3 bg-white/5 rounded-lg flex items-center gap-3 border border-white/10">
-                <div className="w-10 h-10">
-                  <OccupancyPie percent={occupancyPercent ?? 0} size={44} strokeWidth={6} />
-                </div>
-                <div>
-                  <div className="text-xs text-slate-300">Occupancy</div>
-                  <div className="text-lg font-semibold">{typeof occupancyPercent === 'number' ? `${occupancyPercent}%` : 'n/a'}</div>
+
+                {/* Occupancy */}
+                <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
+                  <div className="flex items-center gap-2 lg:gap-3 h-full">
+                    <div className="p-2 bg-rose-500/20 rounded-xl group-hover:bg-rose-500/30 transition-colors duration-300">
+                      <Users className="w-4 h-4 lg:w-5 lg:h-5 text-rose-400" />
+                    </div>
+                    <div>
+                      <div className="text-xl lg:text-2xl font-bold text-white">{typeof occupancyPercent === 'number' ? `${occupancyPercent}%` : 'n/a'}</div>
+                      <div className="text-xs text-rose-200 font-medium uppercase tracking-wide">Occupancy</div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -325,78 +355,85 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
       </div>
 
   {/* Main content */}
-  <div className="p-6 w-full mx-auto flex-1 flex flex-col gap-6 overflow-auto">
-        {/* Enhanced Workspace Analytics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-          {/* Workspace Health */}
-          <Card className="relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-500 to-emerald-500"></div>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <div className="text-sm font-medium">Workspace Health</div>
-              <Zap className="h-4 w-4 text-green-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">Excellent</div>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                <CheckCircle className="w-3 h-3 text-green-500" />
-                <span>All systems operational</span>
-              </div>
-            </CardContent>
-          </Card>
+  <main className="flex-1 overflow-y-auto">
+    <div className="min-h-full bg-gray-50">
+      <div className="w-full p-6 space-y-6">
+        {/* Workspace Analytics */}
+        <div>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg">
+              <Users className="h-5 w-5 text-white" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Workspace Analytics</h2>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {/* Workspace Health */}
+            <Card className="hover:shadow-lg transition-all duration-300 border border-gray-200">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <div className="text-sm font-medium text-gray-700">Workspace Health</div>
+                <Zap className="h-4 w-4 text-green-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-gray-900">Excellent</div>
+                <div className="flex items-center gap-1 text-xs text-gray-600 mt-1">
+                  <CheckCircle className="w-3 h-3 text-green-500" />
+                  <span>All systems operational</span>
+                </div>
+              </CardContent>
+            </Card>
 
-          {/* Document Compliance */}
-          <Card className="relative overflow-hidden">
-            <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${totalDocuments > 10 ? 'from-green-500 to-emerald-500' : totalDocuments > 5 ? 'from-yellow-500 to-amber-500' : 'from-red-500 to-orange-500'}`}></div>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <div className="text-sm font-medium">Document Compliance</div>
-              <Shield className={`h-4 w-4 ${totalDocuments > 10 ? 'text-green-500' : totalDocuments > 5 ? 'text-yellow-500' : 'text-red-500'}`} />
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${totalDocuments > 10 ? 'text-green-600' : totalDocuments > 5 ? 'text-yellow-600' : 'text-red-600'}`}>
-                {totalDocuments > 10 ? '95%' : totalDocuments > 5 ? '78%' : '45%'}
-              </div>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                <div className={`w-2 h-2 rounded-full ${totalDocuments > 10 ? 'bg-green-500' : totalDocuments > 5 ? 'bg-yellow-500' : 'bg-red-500'}`}></div>
-                <span>{totalDocuments} documents tracked</span>
-              </div>
-            </CardContent>
-          </Card>
+            {/* Document Compliance */}
+            <Card className="hover:shadow-lg transition-all duration-300 border border-gray-200">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <div className="text-sm font-medium text-gray-700">Document Compliance</div>
+                <Shield className={`h-4 w-4 ${totalDocuments > 10 ? 'text-green-500' : totalDocuments > 5 ? 'text-yellow-500' : 'text-red-500'}`} />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-gray-900">
+                  {totalDocuments > 10 ? '95%' : totalDocuments > 5 ? '78%' : '45%'}
+                </div>
+                <div className="flex items-center gap-1 text-xs text-gray-600 mt-1">
+                  <div className={`w-2 h-2 rounded-full ${totalDocuments > 10 ? 'bg-green-500' : totalDocuments > 5 ? 'bg-yellow-500' : 'bg-red-500'}`}></div>
+                  <span>{totalDocuments} documents tracked</span>
+                </div>
+              </CardContent>
+            </Card>
 
-          {/* Recent Activity */}
-          <Card className="relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-cyan-500"></div>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <div className="text-sm font-medium">Recent Activity</div>
-              <Activity className="h-4 w-4 text-blue-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{recentUploads.length}</div>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                <TrendingUp className="w-3 h-3 text-blue-500" />
-                <span>uploads this week</span>
-              </div>
-            </CardContent>
-          </Card>
+            {/* Recent Activity */}
+            <Card className="hover:shadow-lg transition-all duration-300 border border-gray-200">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <div className="text-sm font-medium text-gray-700">Recent Activity</div>
+                <Activity className="h-4 w-4 text-blue-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-gray-900">{recentUploads.length}</div>
+                <div className="flex items-center gap-1 text-xs text-gray-600 mt-1">
+                  <TrendingUp className="w-3 h-3 text-blue-500" />
+                  <span>uploads this week</span>
+                </div>
+              </CardContent>
+            </Card>
 
-          {/* Last Updated */}
-          <Card className="relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-pink-500"></div>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <div className="text-sm font-medium">Last Updated</div>
-              <Calendar className="h-4 w-4 text-purple-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">Today</div>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                <Clock className="w-3 h-3 text-purple-500" />
-                <span>{new Date().toLocaleTimeString()}</span>
-              </div>
-            </CardContent>
-          </Card>
+            {/* Last Updated */}
+            <Card className="hover:shadow-lg transition-all duration-300 border border-gray-200">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <div className="text-sm font-medium text-gray-700">Last Updated</div>
+                <Calendar className="h-4 w-4 text-purple-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-gray-900">Today</div>
+                <div className="flex items-center gap-1 text-xs text-gray-600 mt-1">
+                  <Clock className="w-3 h-3 text-purple-500" />
+                  <span>{new Date().toLocaleTimeString()}</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
 
         <Tabs defaultValue="folders" className="w-full">
-          <TabsList className="grid w-[480px] grid-cols-2">
+          <TabsList className="grid w-[400px] grid-cols-2 bg-white border border-gray-200 rounded-lg">
             <TabsTrigger value="folders" className="flex items-center gap-2">
               <FolderIcon className="w-4 h-4" />
               Folders
@@ -449,7 +486,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                     {currentFolder.items?.map((item) => (
                       <Card
                         key={item.id}
-                        className="hover:shadow-lg transition-shadow transform hover:-translate-y-1 cursor-pointer min-h-[100px] w-full"
+                        className="hover:shadow-lg transition-all duration-300 cursor-pointer min-h-[100px] w-full border border-gray-200 hover:border-gray-300"
                         onClick={() => {
                           if (item.type === 'folder') {
                             pushFolder(item.id);
@@ -471,7 +508,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                       >
                         <CardHeader className="p-0">
                           <div className="flex items-stretch">
-                            <div className="w-12 h-12 flex items-center justify-center bg-white/5 rounded-l flex-shrink-0">
+                            <div className="w-12 h-12 flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50 rounded-l flex-shrink-0 border-r border-blue-100/50">
                               {item.type === 'folder' ? (
                                 <FolderIcon className="w-7 h-7 text-yellow-500" />
                               ) : (
@@ -500,10 +537,12 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
 
               <aside className="w-full lg:w-80">
                 <div className="space-y-4">
-                  <Card>
-                    <CardHeader>Recent uploads</CardHeader>
+                  <Card className="border border-gray-200 hover:shadow-lg transition-all duration-300">
+                    <CardHeader>
+                      <div className="text-sm font-semibold text-gray-900">Recent uploads</div>
+                    </CardHeader>
                     <CardContent>
-                      <ul className="divide-y">
+                      <ul className="divide-y divide-blue-100/50">
                         {recentUploads.length === 0 && <div className="text-sm text-muted-foreground">No recent uploads</div>}
                         {recentUploads.map((r, idx) => (
                           <li key={r.name + String(r.createdAt) + idx} className="py-2">
@@ -562,8 +601,10 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                     </CardContent>
                   </Card>
 
-                  <Card>
-                    <CardHeader>Top file types</CardHeader>
+                  <Card className="border border-gray-200 hover:shadow-lg transition-all duration-300">
+                    <CardHeader>
+                      <div className="text-sm font-semibold text-gray-900">Top file types</div>
+                    </CardHeader>
                     <CardContent>
                       <div className="flex flex-col gap-2">
                         {Object.entries(fileTypeCounts).length === 0 && <div className="text-sm text-muted-foreground">No documents</div>}
@@ -587,6 +628,8 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
           </TabsContent>
         </Tabs>
       </div>
+    </div>
+  </main>
     </div>
   );
 }
