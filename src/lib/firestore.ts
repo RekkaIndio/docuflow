@@ -189,17 +189,6 @@ async function fetchAndStructureData(workspaceId: string): Promise<{ folders: (F
             : new Date().toISOString();
         const document = { id: docSnap.id, ...data, createdAt } as Document;
         
-        // Debug logging for audit PDFs
-        if (document.name && document.name.includes('audit')) {
-            console.log('Fetched audit document:', {
-                id: document.id,
-                name: document.name,
-                storagePath: document.storagePath,
-                downloadUrl: document.downloadUrl,
-                fileType: document.fileType
-            });
-        }
-        
         // Auto-fix audit document names that are still in filename format
         if (document.extractedJson?.isAuditSnapshot && document.name && 
             (document.name.includes('_audit_') || document.name.endsWith('.pdf'))) {
@@ -311,9 +300,6 @@ export async function ensureProtectedFolders(workspaceId: string): Promise<void>
                             createdAt: Timestamp.now(),
                             protected: true,
                         });
-                        // Helpful log for debugging in browser console
-                        // eslint-disable-next-line no-console
-                        console.log(`Created protected folder ${f.id} in workspace ${workspaceId}`);
                     }
         }
     } catch (error) {
@@ -590,7 +576,6 @@ export async function saveAuditSnapshot(workspaceId: string, auditType: string, 
             // Delete all existing snapshots for this audit type in this month
             for (const existingDoc of existingSnapshots.docs) {
                 await deleteDoc(existingDoc.ref);
-                console.log(`Deleted existing ${auditType} snapshot:`, existingDoc.id);
             }
         } catch (deleteErr) {
             console.warn('Failed to delete existing snapshots:', deleteErr);
@@ -606,7 +591,6 @@ export async function saveAuditSnapshot(workspaceId: string, auditType: string, 
             month,
         });
         
-        console.log(`Saved new ${auditType} snapshot:`, docRef.id);
         return docRef.id;
     } catch (e) {
         console.error('Failed to save audit snapshot', e);
@@ -661,23 +645,31 @@ export async function isAuditCompletedThisMonth(workspaceId: string, auditType: 
  */
 export async function markAuditCompletedWithSnapshot(workspaceId: string, auditType: string, auditData: any, completedAtIso?: string): Promise<{ snapshotId: string; pdfDocId?: string }> {
     try {
-        console.log('[markAuditCompletedWithSnapshot] starting for', auditType, 'workspace', workspaceId);
         // Save the snapshot first
         const snapshotId = await saveAuditSnapshot(workspaceId, auditType, auditData);
-        console.log('[markAuditCompletedWithSnapshot] snapshot saved', snapshotId);
 
         // Generate and save PDF to Audits folder
         let pdfDocId: string | undefined = undefined;
         try {
             pdfDocId = await generateAndSaveAuditPDF(workspaceId, auditType, auditData, completedAtIso);
-            console.log('[markAuditCompletedWithSnapshot] PDF saved with doc id', pdfDocId);
         } catch (pdfError) {
             console.error('[markAuditCompletedWithSnapshot] Failed to generate audit PDF, but audit snapshot was saved', pdfError);
         }
 
+        // Generate action plan items from audit data
+        try {
+            const { generateActionPlanItemsFromAudit, saveActionPlanItems, getCurrentMonthKey } = await import('./action-plans');
+            const actionItems = generateActionPlanItemsFromAudit(auditData, auditType, snapshotId);
+            if (actionItems.length > 0) {
+                const monthKey = getCurrentMonthKey();
+                await saveActionPlanItems(workspaceId, monthKey, actionItems);
+            }
+        } catch (actionPlanError) {
+            console.error('[markAuditCompletedWithSnapshot] Failed to generate action plan items:', actionPlanError);
+        }
+
         // Then mark as completed in the status map
         await markAuditCompleted(workspaceId, auditType, completedAtIso);
-        console.log('[markAuditCompletedWithSnapshot] audit marked completed');
 
         return { snapshotId, pdfDocId };
     } catch (e) {
@@ -718,7 +710,6 @@ async function generateAndSaveAuditPDF(workspaceId: string, auditType: string, a
         
         // Save to Audits folder
         const docId = await saveAuditPDFToFolder(workspaceId, auditType, pdfBuffer, filename, pdfData.auditDate);
-        console.log(`Successfully generated and saved audit PDF: ${filename} as document ${docId}`);
         return docId;
     } catch (e) {
         console.error('Failed to generate and save audit PDF', e);
@@ -925,11 +916,9 @@ export async function saveAuditPDFToFolder(
                     if (docData.storagePath) {
                         const oldFileRef = ref(storage, docData.storagePath);
                         await deleteObject(oldFileRef);
-                        console.log('Deleted old audit file from storage:', docData.storagePath);
                     }
                     // Delete document from Firestore
                     await deleteDoc(doc(db, `workspaces/${workspaceId}/documents`, docSnap.id));
-                    console.log('Deleted old audit document:', docSnap.id);
                 } catch (deleteErr) {
                     console.warn('Failed to delete old audit file/document:', deleteErr);
                     // Continue with creation even if deletion fails
@@ -972,16 +961,7 @@ export async function saveAuditPDFToFolder(
                 }
             };
 
-            console.log('About to save audit PDF document:', {
-                name: document.name,
-                storagePath: document.storagePath,
-                downloadUrl: document.downloadUrl,
-                fileType: document.fileType,
-                folderId: document.folderId
-            });
-
             const docId = await saveDocument(document as any);
-            console.log('Saved audit PDF document with id:', docId, 'storagePath:', storagePath);
             return docId;
         } catch (uploadErr) {
             console.error('Failed to upload PDF to storage or save document metadata', uploadErr);
@@ -1212,9 +1192,6 @@ export async function saveDocument(document: Omit<Document, 'id'>): Promise<stri
                     folderId: document.folderId ?? null,
                 },
             });
-            // Helpful debug log for client/browser console
-            // eslint-disable-next-line no-console
-            console.log(`Created notification ${notifRef.id} for document ${docRef.id} in workspace ${document.workspaceId}`);
         } catch (notifErr) {
             // Non-critical: fail gracefully if notification couldn't be created
             console.error('Failed to create notification for new document', notifErr);

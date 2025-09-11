@@ -228,14 +228,11 @@ export default function FireSafetyAuditPage() {
     const loadExistingAuditData = async () => {
       if (!activeWorkspace?.id) return;
       
-      console.log('Loading existing audit data for workspace:', activeWorkspace.id);
       try {
         const existingData = await getLatestAuditData(activeWorkspace.id, 'fire-safety');
-        console.log('Loaded existing data:', existingData);
         if (existingData) {
           // Remove metadata fields and populate form
           const { id, createdAt, snapshotCreatedAt, monthKey, year, month, ...formData } = existingData;
-          console.log('Form data to populate:', formData);
           setAuditData(prevData => ({
             ...prevData,
             ...formData
@@ -245,9 +242,8 @@ export default function FireSafetyAuditPage() {
           if (existingData.comments) {
             setFinalComments(existingData.comments);
           }
-          console.log('Fire safety audit data loaded successfully');
         } else {
-          console.log('No existing fire safety audit data found');
+          // No existing data found
         }
       } catch (error) {
         console.error('Failed to load existing audit data:', error);
@@ -331,7 +327,6 @@ export default function FireSafetyAuditPage() {
       const payload = { ...auditData, comments: finalComments, createActionPlan, createdBy: user?.id ?? null, workspaceId: activeWorkspace.id, auditType: 'fire-safety', scorePercent, yesCount, totalCount };
   const id = await saveAudit(payload, activeWorkspace.id);
   const result = await markAuditCompletedWithSnapshot(activeWorkspace.id, 'fire-safety', payload, auditData.date || new Date().toISOString());
-  console.log('markAuditCompletedWithSnapshot result', result);
   alert('Audit completed and saved');
       setShowModal(false);
     } catch (e) {

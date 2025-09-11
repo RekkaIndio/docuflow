@@ -312,9 +312,7 @@ export default function InfectionControlAuditPage() {
       
       // Save snapshot and mark as completed (also generates PDF)
       const result = await markAuditCompletedWithSnapshot(activeWorkspace.id, 'infection-control', payload, data.date || new Date().toISOString());
-      console.log('markAuditCompletedWithSnapshot result', result);
       if (result.pdfDocId) {
-        console.log('Audit snapshot PDF saved as document id:', result.pdfDocId);
       }
 
       alert('Audit completed and saved for this month');

@@ -245,7 +245,6 @@ const PdfPreview = ({ document: doc }: { document: DocumentType }) => {
     const { toast } = useToast();
 
     useEffect(() => {
-        console.log('PdfPreview useEffect - doc props:', { id: doc.id, downloadUrl: doc.downloadUrl, storagePath: doc.storagePath, fileType: doc.fileType });
         
         setIsLoading(true);
         setFileData(null);
@@ -254,13 +253,11 @@ const PdfPreview = ({ document: doc }: { document: DocumentType }) => {
         const pathToUse = doc.storagePath || doc.downloadUrl;
         
         if (!pathToUse) {
-            console.log('No downloadUrl or storagePath available for PDF');
             toast({ variant: 'destructive', title: 'Error', description: 'No file path available for this PDF.' });
             setIsLoading(false);
             return;
         }
 
-        console.log('Fetching PDF from path:', pathToUse);
         const fetchFile = async () => {
             try {
                 let base64Data;
@@ -272,7 +269,6 @@ const PdfPreview = ({ document: doc }: { document: DocumentType }) => {
                     const url = doc.downloadUrl;
                     // If it's an absolute or relative HTTP URL (public asset), fetch it directly
                     if (url.startsWith('http') || url.startsWith('/')) {
-                        console.log('Fetching PDF directly from URL:', url);
                         const resp = await fetch(url);
                         if (!resp.ok) throw new Error(`Failed to fetch PDF from URL: ${resp.status}`);
                         const arrayBuffer = await resp.arrayBuffer();
@@ -290,7 +286,6 @@ const PdfPreview = ({ document: doc }: { document: DocumentType }) => {
                         const urlMatch = url.match(/\/o\/(.+?)\?/);
                         if (urlMatch) {
                             const storagePath = decodeURIComponent(urlMatch[1]);
-                            console.log('Extracted storage path from downloadUrl:', storagePath);
                             base64Data = await getDocumentAsBase64(storagePath);
                         } else {
                             throw new Error("Could not extract storage path from downloadUrl");
@@ -300,12 +295,10 @@ const PdfPreview = ({ document: doc }: { document: DocumentType }) => {
                 
                 if (base64Data) {
                     setFileData(`data:application/pdf;base64,${base64Data}`);
-                    console.log('Successfully loaded PDF');
                 } else {
                     throw new Error("Received no data from server");
                 }
             } catch (err: any) {
-                console.error("Error fetching file for preview:", err);
                 toast({ variant: 'destructive', title: 'Error', description: 'Could not load PDF for preview.' });
             } finally {
                 setIsLoading(false);
@@ -416,18 +409,12 @@ const DocxPreview = ({ document: doc }: { document: DocumentType }) => {
 };
 
 const DocumentPreview = ({ document }: { document: DocumentType }) => {
-    // Debug: log document props
-    console.log('DocumentPreview props:', document);
-    
     // Check if it's a PDF with either downloadUrl or storagePath
     const isPdf = document.fileType === 'pdf';
     const hasDownloadUrl = !!document.downloadUrl;
     const hasStoragePath = !!document.storagePath;
     
-    console.log('PDF check:', { isPdf, hasDownloadUrl, hasStoragePath });
-    
     if (isPdf && (hasDownloadUrl || hasStoragePath)) {
-        console.log('Using PdfPreview for PDF document');
         return <PdfPreview document={document} />;
     }
     if (document.fileType === 'xlsx') {
@@ -437,7 +424,6 @@ const DocumentPreview = ({ document }: { document: DocumentType }) => {
         return <DocxPreview document={document} />;
     }
     // Fallback for unknown or missing fileType
-    console.log('Using DownloadOnlyPreview fallback for document:', document.fileType);
     return <DownloadOnlyPreview document={document} />;
 }
 

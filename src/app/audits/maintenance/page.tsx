@@ -1,7 +1,7 @@
 'use client';
 import React, { useState } from 'react';
 import { useWorkspace } from '@/context/workspace';
-import { saveAudit, updateAudit, markAuditCompleted } from '@/lib/firestore';
+import { saveAudit, updateAudit, markAuditCompletedWithSnapshot } from '@/lib/firestore';
 import { useAuth } from '@/hooks/use-auth';
 
 interface MaintenanceAuditData {
@@ -314,7 +314,7 @@ export default function MaintenanceAuditPage() {
       setSavedAuditId(id);
       try {
         const completedAt = data.date || new Date().toISOString();
-        await markAuditCompleted(workspaceId, 'maintenance', completedAt);
+        const result = await markAuditCompletedWithSnapshot(workspaceId, 'maintenance', payload, completedAt);
       } catch (e) {
         console.warn('Failed to mark audit completed', e);
       }

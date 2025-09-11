@@ -5,7 +5,7 @@ import { useWorkspace } from '@/context/workspace';
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
 import { useAuth } from '@/hooks/use-auth';
-import { saveAudit, markAuditCompleted } from '@/lib/firestore';
+import { saveAudit, markAuditCompletedWithSnapshot } from '@/lib/firestore';
 
 interface HealthSafetyAuditData {
   home: string;
@@ -454,7 +454,7 @@ export default function HealthSafetyAuditPage() {
 
   const payload = { auditType: 'health-safety', ...auditData, comments: finalComments, createActionPlan, createdBy: user?.id ?? null, workspaceId: activeWorkspace.id, yesCount, totalCount, scorePercent };
       const id = await saveAudit(payload, activeWorkspace.id);
-      await markAuditCompleted(activeWorkspace.id, 'health-safety', auditData.date || new Date().toISOString());
+      const result = await markAuditCompletedWithSnapshot(activeWorkspace.id, 'health-safety', payload, auditData.date || new Date().toISOString());
       alert('Audit saved');
       setShowModal(false);
     } catch (e) {

@@ -17,8 +17,6 @@ export async function migrateDependencyDataToWorkspace(
   deleteOldData: boolean = false
 ): Promise<{ success: boolean; message: string }> {
   try {
-    console.log(`🔄 Starting migration from users/${userId} to workspaces/${workspaceId}`);
-
     // Read old data from user-scoped path
     const oldRef = doc(db, "users", userId, "dependency_calculator", "default");
     const oldSnap = await getDoc(oldRef);
@@ -31,12 +29,6 @@ export async function migrateDependencyDataToWorkspace(
     }
 
     const oldData = oldSnap.data();
-    console.log(`📊 Found data in old location:`, {
-      residentsCount: oldData.residents?.length || 0,
-      communitiesCount: oldData.communities?.length || 0,
-      hasStaffActual: !!oldData.staffActual
-    });
-
     // Check if new location already has data
     const newRef = doc(db, "workspaces", workspaceId, "dependency_calculator", "default");
     const newSnap = await getDoc(newRef);
@@ -62,12 +54,9 @@ export async function migrateDependencyDataToWorkspace(
     };
 
     await setDoc(newRef, migratedData, { merge: true });
-    console.log(`✅ Successfully migrated data to workspaces/${workspaceId}`);
-
     // Optionally delete old data
     if (deleteOldData) {
       await deleteDoc(oldRef);
-      console.log(`🗑️ Deleted old data from users/${userId}`);
     }
 
     return {
@@ -91,12 +80,7 @@ export function runMigrationInBrowser(userId: string, workspaceId: string) {
     return;
   }
 
-  console.log('🔧 Starting browser migration...');
-  console.log(`👤 User ID: ${userId}`);
-  console.log(`🏢 Workspace ID: ${workspaceId}`);
-  
   // Note: This would need to be adapted based on how your Firebase is initialized in the browser
-  console.log('⚠️ This is a template - you need to adapt it with your actual Firebase instance');
   
   // Example of what the migration command would look like:
   console.log(`

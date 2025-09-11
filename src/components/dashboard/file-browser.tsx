@@ -523,7 +523,6 @@ function LockFolderButton({ folderName, onLock }: { folderName: string, onLock: 
     <DropdownMenuItem
       onClick={() => {
         onLock();
-        console.log(`Folder ${folderName} is now locked.`);
       }}
       className="text-muted focus:text-muted"
     >

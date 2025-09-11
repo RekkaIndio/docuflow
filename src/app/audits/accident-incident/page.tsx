@@ -120,7 +120,6 @@ export default function AccidentIncidentAuditPage() {
       try {
   const completedAt = currentReport.auditDate || new Date().toISOString();
   const result = await markAuditCompletedWithSnapshot(workspaceId, 'accident-incident', auditPayload, completedAt);
-  console.log('markAuditCompletedWithSnapshot result', result);
       } catch (e) {
         console.warn('Failed to mark audit completed with snapshot', e);
       }

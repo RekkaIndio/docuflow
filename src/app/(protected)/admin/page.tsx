@@ -392,7 +392,6 @@ export default function AdminPage() {
       
       if (isTransientError && retryAttempt < 3) {
         const backoffMs = Math.pow(2, retryAttempt) * 1000; // 1s, 2s, 4s
-        console.log(`Retrying audit scores calculation in ${backoffMs}ms (attempt ${retryAttempt + 1})`);
         setTimeout(() => calculateAggregateAuditScores(retryAttempt + 1), backoffMs);
         return;
       }
@@ -458,24 +457,11 @@ export default function AdminPage() {
           if (!snap.empty) {
             snap.docs.forEach((doc, index) => {
               const data = doc.data();
-              console.log(`� Document ${index + 1}/${snap.docs.length} for ${workspace.id}:`, {
-                id: doc.id,
-                hasStaffingDay: 'staffingDay' in data,
-                hasStaffingNight: 'staffingNight' in data,
-                staffingDay: data.staffingDay,
-                staffingNight: data.staffingNight,
-                hasStaffingObject: 'staffing' in data,
-                staffingObject: data.staffing,
-                createdAt: data.createdAt?.toDate?.()?.toISOString(),
-                allFields: Object.keys(data)
-              });
               
               // Use exact same parsing logic as individual workspace
               const day = parseInt(String(data.staffingDay || data.staffing?.day || '0')) || 0;
               const night = parseInt(String(data.staffingNight || data.staffing?.night || '0')) || 0;
               const total = day + night;
-              
-              console.log(`🔢 Parsed values for ${workspace.id}, doc ${doc.id}: day=${day}, night=${night}, total=${total}`);
               
               const recordDate = data.createdAt ? 
                 (data.createdAt.toDate ? data.createdAt.toDate() : new Date(data.createdAt)) :
@@ -723,7 +709,6 @@ export default function AdminPage() {
                 
                 // Log for debugging
                 if (falls > 0) {
-                  console.log(`Falls found in workspace ${workspace.id}:`, falls, 'on date:', documentDate);
                 }
               }
             });
@@ -747,8 +732,6 @@ export default function AdminPage() {
       results.forEach(result => {
         totalFalls += result.falls;
       });
-
-      console.log('Falls data aggregation completed:', { totalFalls, workspacesWithData, workspaceCount: workspaces.length });
 
       setAggregateFallsData({
         totalFalls,
@@ -850,8 +833,6 @@ export default function AdminPage() {
       });
 
       const totalInfections = totalUti + totalChest + totalWound;
-
-      console.log('Infection data aggregation completed:', { totalInfections, totalUti, totalChest, totalWound, workspacesWithData, workspaceCount: workspaces.length });
 
       setAggregateInfectionData({
         totalInfections,
@@ -1019,7 +1000,6 @@ export default function AdminPage() {
           try { window.dispatchEvent(new CustomEvent('highlight-document', { detail: { documentId: syntheticDoc.id } })); } catch (e) {}
           return;
         } catch (e) {
-          console.warn('Failed to open policy inside admin UI', e);
         }
       }
       if (!selectedWorkspace) return;
@@ -1091,7 +1071,6 @@ export default function AdminPage() {
             }
           }
         } catch (e) {
-          console.warn('Cross-workspace document lookup failed', e);
         }
 
         console.warn(`Document ${documentId} (${documentName}) not found in selected workspace`);
@@ -1103,9 +1082,8 @@ export default function AdminPage() {
     // to our async handler for the navigate event.
      const navWrapper = (evt: Event) => {
        try {
-         handleDocumentNavigation(evt as CustomEvent).catch((err) => console.error('navigate handler error', err));
+         handleDocumentNavigation(evt as CustomEvent).catch((err) => {});
        } catch (e) {
-         console.error('navigate-to-document wrapper error', e);
        }
      };    window.addEventListener('chat-response', handleChatResponse as EventListener);
     window.addEventListener('navigate-to-document', navWrapper as EventListener);

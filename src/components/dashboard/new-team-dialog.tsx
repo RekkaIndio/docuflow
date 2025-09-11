@@ -60,7 +60,6 @@ export function NewTeamDialog({ children, onTeamCreated }: NewTeamDialogProps) {
       // Save the team to Firestore
       const teamRef = doc(db, "teams", newTeam.id);
       await setDoc(teamRef, newTeam);
-      console.log("Team saved to Firestore:", newTeam);
 
       onTeamCreated(newTeam);
       toast({ title: "Success!", description: `Team "${teamName}" has been created.` });

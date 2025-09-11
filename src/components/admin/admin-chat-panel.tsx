@@ -489,7 +489,6 @@ export function AdminChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
       try {
         if (typeof onFolderAdd === 'function') {
           const folderName = intent.folderName || 'Untitled Folder';
-          console.log('onFolderAdd called with:', folderName);
           onFolderAdd(folderName);
           appendMessages({ sender: 'ai', text: `Creating a new folder named \"${folderName}\"...` });
         } else {

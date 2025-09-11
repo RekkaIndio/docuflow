@@ -388,7 +388,6 @@ export default function CarePlanAuditPage() {
       const auditId = await saveAudit(payload, activeWorkspace.id);
   // mark audit completed and save snapshot (generate PDF)
   const result = await markAuditCompletedWithSnapshot(activeWorkspace.id, 'care-plan', payload, new Date().toISOString());
-  console.log('markAuditCompletedWithSnapshot result', result);
       try {
         // store last care-plan score under workspace settings for easy dashboard access
         const { doc, setDoc } = await import('firebase/firestore');

@@ -201,7 +201,6 @@ export function Dashboard() {
       let userWorkspaces = await getWorkspacesForUser(user.id);
       
       if (!userWorkspaces || userWorkspaces.length === 0) {
-        console.log("No workspaces found, creating a new one.");
         const newWorkspace = await handleCreateWorkspace(`${user.name || 'My'}'s Workspace`);
         userWorkspaces = [newWorkspace];
       }

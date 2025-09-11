@@ -115,7 +115,7 @@ export function AdminSidebar({
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={() => handleNavigation(() => { console.log('AdminSidebar: policies clicked'); setView('policies'); })} className="text-lg h-14">
+            <SidebarMenuButton onClick={() => handleNavigation(() => { setView('policies'); })} className="text-lg h-14">
               <Tag className="w-7 h-7 mr-2" />
               <span className="text-lg">Policies</span>
             </SidebarMenuButton>

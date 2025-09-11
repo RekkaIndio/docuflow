@@ -208,7 +208,7 @@ export default function DailyPage({ workspaceId }: { workspaceId?: string }) {
       infections: { uti: infectionsUti, chest: infectionsChest, wound: infectionsWound },
       recordedAt: new Date().toISOString(),
     };
-    console.log("Daily payload:", payload);
+    
     if (!workspaceId) {
       toast({ title: "Workspace missing", description: "Cannot save without an active workspace.", variant: 'destructive' });
       return;

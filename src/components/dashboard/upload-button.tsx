@@ -180,10 +180,7 @@ export function UploadButton({ onDocumentAdd, workspaceId, folderId, size = "def
 
       // --- ALERT LOGIC: If uploaded to 'audits' folder, send email to Admin team ---
       try {
-        // Debug: log folderId and alert logic
-        console.log('[Audit Alert Debug] folderId:', folderId, 'workspaceId:', workspaceId);
         if (folderId === 'audits') {
-          console.log('[Audit Alert Debug] Triggering alert email for Admin team.');
           // Try multiple strategies to find Admin recipients
           let emails: string[] = [];
           let adminTeamName = 'Admin';
@@ -196,10 +193,9 @@ export function UploadButton({ onDocumentAdd, workspaceId, folderId, size = "def
               const adminTeam = teamsSnap.docs[0].data();
               emails = Array.isArray(adminTeam.emails) ? adminTeam.emails : [];
               adminTeamName = adminTeam.name || adminTeamName;
-              console.log('[Audit Alert Debug] Found workspace-scoped Admin team:', adminTeamName, emails);
             }
           } catch (e) {
-            console.error('[Audit Alert Debug] Error querying workspace-scoped Admin team', e);
+            console.error('Error querying workspace-scoped Admin team', e);
           }
 
           // 2) Fallback: name-only Admin team anywhere
@@ -211,7 +207,6 @@ export function UploadButton({ onDocumentAdd, workspaceId, folderId, size = "def
                 const adminTeam = teamsSnap2.docs[0].data();
                 emails = Array.isArray(adminTeam.emails) ? adminTeam.emails : [];
                 adminTeamName = adminTeam.name || adminTeamName;
-                console.log('[Audit Alert Debug] Found name-only Admin team fallback:', adminTeamName, emails);
                 // If team is missing workspaceId, patch it
                 if (!adminTeam.workspaceId) {
                   const teamRef = doc(db, 'teams', teamsSnap2.docs[0].id);
@@ -219,7 +214,7 @@ export function UploadButton({ onDocumentAdd, workspaceId, folderId, size = "def
                 }
               }
             } catch (e) {
-              console.error('[Audit Alert Debug] Error querying name-only Admin team', e);
+              console.error('Error querying name-only Admin team', e);
             }
           }
 
@@ -232,10 +227,9 @@ export function UploadButton({ onDocumentAdd, workspaceId, folderId, size = "def
                 const adminTeam = adminSnap.data() as any;
                 emails = Array.isArray(adminTeam.emails) ? adminTeam.emails : [];
                 adminTeamName = adminTeam.name || adminTeamName;
-                console.log('[Audit Alert Debug] Found admin by fixed id:', adminTeamName, emails);
               }
             } catch (e) {
-              console.error('[Audit Alert Debug] Error fetching admin by fixed id', e);
+              console.error('Error fetching admin by fixed id', e);
             }
           }
 
@@ -256,18 +250,15 @@ export function UploadButton({ onDocumentAdd, workspaceId, folderId, size = "def
                   }
                 })
               });
-              console.log('[Audit Alert Debug] Email send response:', resp);
               toast({ title: 'Admin Alert Sent', description: `Sent to ${emails.length} recipient(s)`, });
             } catch (e) {
-              console.error('[Audit Alert Debug] Failed to send email', e);
+              console.error('Failed to send email', e);
               toast({ title: 'Failed to send Admin Alert', description: 'See console for details', variant: 'destructive' });
             }
           } else {
-            console.log('[Audit Alert Debug] No Admin emails found after fallbacks.');
             toast({ title: 'No Admin recipients', description: 'No Admin emails configured for this workspace', variant: 'default' });
           }
         } else {
-          console.log('[Audit Alert Debug] Not an audits folder upload, skipping alert.');
         }
       } catch (err) {
         // Non-blocking: log error but don't interrupt upload
