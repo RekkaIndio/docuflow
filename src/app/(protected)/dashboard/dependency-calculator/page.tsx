@@ -675,6 +675,101 @@ function calculateNDPSStaffing(residents: Resident[]): { Day: number; Night: num
   };
 }
 
+// Calculate breakdown of nurses and CTMs from total staff
+function calculateStaffBreakdown(residents: Resident[]): { 
+  Day: { nurses: number; ctms: number; carers: number; total: number }; 
+  Night: { nurses: number; ctms: number; carers: number; total: number } 
+} {
+  const totalStaffing = calculateNDPSStaffing(residents);
+  
+  // Debug: Log the input data
+  console.log('=== STAFF BREAKDOWN DEBUG ===');
+  console.log('Total residents:', residents.length);
+  console.log('Total staffing needed:', totalStaffing);
+  
+  // Fixed CTMs: 1 per shift
+  const dayCTMs = 1;
+  const nightCTMs = 1;
+  
+  // Calculate remaining staff after CTMs
+  const dayRemainingStaff = Math.max(0, totalStaffing.Day - dayCTMs);
+  const nightRemainingStaff = Math.max(0, totalStaffing.Night - nightCTMs);
+  
+  // Analyze resident dependency profile to determine nurse/carer split
+  let highDependencyCount = 0; // Band 4-5
+  let mediumDependencyCount = 0; // Band 3
+  let lowDependencyCount = 0; // Band 1-2
+  
+  residents.forEach(resident => {
+    const score = calculateNDPSScore(resident);
+    const band = getNDPSBand(score).band;
+    console.log(`Resident ${resident.name}: Score ${score}, Band ${band}`);
+    
+    if (band >= 4) highDependencyCount++;
+    else if (band === 3) mediumDependencyCount++;
+    else lowDependencyCount++;
+  });
+  
+  console.log('Dependency breakdown:', { 
+    high: highDependencyCount, 
+    medium: mediumDependencyCount, 
+    low: lowDependencyCount 
+  });
+  
+  // Calculate nurse percentage based on dependency profile
+  const totalResidents = residents.length;
+  let dayNurses = 0;
+  let nightNurses = 0;
+  
+  if (totalResidents > 0) {
+    // More direct approach: ensure nurses for high dependency residents
+    if (highDependencyCount > 0) {
+      // Minimum 1 nurse per shift if any high dependency residents
+      // Plus additional nurses for multiple high dependency residents
+      dayNurses = Math.max(1, Math.ceil(highDependencyCount * 0.5));
+      nightNurses = Math.max(1, Math.ceil(highDependencyCount * 0.3));
+    } else if (mediumDependencyCount >= 3) {
+      // If 3+ medium dependency residents, consider 1 nurse for day shift
+      dayNurses = 1;
+      nightNurses = 0;
+    }
+    
+    // Ensure we don't exceed remaining staff
+    dayNurses = Math.min(dayNurses, dayRemainingStaff);
+    nightNurses = Math.min(nightNurses, nightRemainingStaff);
+  }
+  
+  console.log('Calculated nurses - Day:', dayNurses, 'Night:', nightNurses);
+  
+  // Remaining staff are carers
+  const dayCarers = dayRemainingStaff - dayNurses;
+  const nightCarers = nightRemainingStaff - nightNurses;
+  
+  console.log('Staff allocation:');
+  console.log('Day - Nurses:', dayNurses, 'CTMs:', dayCTMs, 'Carers:', dayCarers);
+  console.log('Night - Nurses:', nightNurses, 'CTMs:', nightCTMs, 'Carers:', nightCarers);
+
+  const result = {
+    Day: {
+      nurses: dayNurses,
+      ctms: dayCTMs,
+      carers: dayCarers,
+      total: dayNurses + dayCTMs + dayCarers
+    },
+    Night: {
+      nurses: nightNurses,
+      ctms: nightCTMs,
+      carers: nightCarers,
+      total: nightNurses + nightCTMs + nightCarers
+    }
+  };
+  
+  console.log('Final breakdown:', result);
+  console.log('=== END DEBUG ===');
+  
+  return result;
+}
+
 // Calculate per-resident staffing needs based on NDPS band
 function calculateResidentStaffing(resident: Resident): { Day: number; Night: number } {
   const score = calculateNDPSScore(resident);
@@ -1642,6 +1737,7 @@ export default function DependencyCalculatorPage() {
           calculateNDPSScore={calculateNDPSScore}
           calculateResidentCareMinutes={calculateResidentCareMinutes}
           calculateNDPSStaffing={calculateNDPSStaffing}
+          calculateStaffBreakdown={calculateStaffBreakdown}
           openAddModal={openAddModal}
         />
 
