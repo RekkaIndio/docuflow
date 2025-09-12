@@ -794,7 +794,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
         </div>
 
         <Tabs defaultValue="folders" className="w-full">
-          <TabsList className="grid w-[800px] grid-cols-5 bg-white border border-gray-200 rounded-lg">
+          <TabsList className="grid w-[600px] grid-cols-3 bg-white border border-gray-200 rounded-lg">
             <TabsTrigger value="folders" className="flex items-center gap-2">
               <FolderIcon className="w-4 h-4" />
               Folders
