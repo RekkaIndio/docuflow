@@ -85,7 +85,16 @@ export function AdminSidebar({
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={() => handleNavigation(onGoToFiles)} className={`text-lg h-14 ${isActive('/files') ? 'bg-muted/50 rounded' : ''}`}>
+            <SidebarMenuButton
+              onClick={() => {
+                handleNavigation(() => {
+                  if (typeof window !== 'undefined') {
+                    window.location.href = '/admin/appraisals';
+                  }
+                });
+              }}
+              className={`text-lg h-14 ${isActive('/admin/appraisals') ? 'bg-muted/50 rounded' : ''}`}
+            >
               <FolderIcon className="w-7 h-7 mr-2" />
               <span className="text-lg">Appraisals</span>
             </SidebarMenuButton>
