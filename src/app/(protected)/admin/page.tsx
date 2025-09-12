@@ -114,7 +114,7 @@ export default function AdminPage() {
         try {
           const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
           const v = params?.get('view');
-          if (v && ['home','files','documents','tags','teams','settings','renewals','accessibility','stats','workspaces','policies'].includes(v)) {
+          if (v && ['home','files','documents','tags','teams','settings','accessibility','stats','workspaces','policies'].includes(v)) {
             setAdminView(v as any);
           }
         } catch (e) {
@@ -174,7 +174,7 @@ export default function AdminPage() {
         try {
           const v = ev?.detail?.view;
           if (!v) return;
-          if (['home','files','documents','tags','teams','settings','renewals','accessibility','stats','workspaces','policies'].includes(v)) {
+          if (['home','files','documents','tags','teams','settings','accessibility','stats','workspaces','policies'].includes(v)) {
             setAdminView(v as any);
             // If navigating back to the top-level admin dashboard, clear the
             // selected workspace/document so AdminWorkspaceView closes.
@@ -201,7 +201,7 @@ export default function AdminPage() {
   const [selectedWorkspaceForTeams, setSelectedWorkspaceForTeams] = React.useState<any | null>(null);
   const [selectedDocument, setSelectedDocument] = React.useState<Document | null>(null);
   const [lastChatDetail, setLastChatDetail] = React.useState<{ text?: string; documents?: any[] } | undefined>(undefined);
-  type AdminViewType = 'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'stats' | 'workspaces' | 'policies';
+  type AdminViewType = 'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'accessibility' | 'stats' | 'workspaces' | 'policies';
   const [adminView, setAdminView] = React.useState<AdminViewType>('home');
   const [regionFilter, setRegionFilter] = React.useState<string[]>((['All']));
   // Workspace management moved to AdminWorkspacesView component

@@ -100,7 +100,7 @@ export function AdminSidebar({
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={() => handleNavigation(() => setView('renewals'))} className={`text-lg h-14 ${isActive('/admin/renewals') ? 'bg-muted/50 rounded' : ''}`}>
+            <SidebarMenuButton onClick={() => handleNavigation(() => setView('renewals'))} className={`text-lg h-14 ${isActive('/admin/supervision') ? 'bg-muted/50 rounded' : ''}`}>
               <FileText className="w-7 h-7 mr-2" />
               <span className="text-lg">Supervision</span>
             </SidebarMenuButton>

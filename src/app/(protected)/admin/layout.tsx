@@ -79,10 +79,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   case 'tags':
                   case 'settings':
                   case 'renewals':
-                  case 'accessibility':
-                  case 'policies':
-                    // These views are rendered inside the admin page via a `view` query param
-                    router.push(`/admin?view=${encodeURIComponent(view)}`);
+                    router.push('/admin/supervision');
                     break;
                   default:
                     // Unknown view: log to help debug and fall back to admin root
