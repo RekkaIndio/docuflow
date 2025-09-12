@@ -187,39 +187,34 @@ export default function Page() {
                   <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-pink-500/10 animate-pulse"></div>
 
                   {/* Complete Dashboard Interface */}
-                  <div className="relative h-full flex">
-                    {/* Sidebar */}
-                    <div className="w-16 md:w-20 bg-background/95 backdrop-blur-sm border-r border-border/20 flex flex-col items-center py-4 space-y-4">
-                      <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
-                        <Logo className="w-5 h-5 text-primary" />
-                      </div>
+                    <div className="relative h-full flex">
+                      {/* Sidebar */}
+                      <div className="w-16 md:w-20 bg-background/95 backdrop-blur-sm border-r border-border/20 flex flex-col items-center py-4 space-y-4">
+                        <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
+                          <Logo className="w-5 h-5 text-primary" />
+                        </div>
 
-                      <div className="flex flex-col space-y-3">
-                        <div className="w-8 h-8 bg-primary/20 rounded-lg flex items-center justify-center cursor-pointer hover:bg-primary/30 transition-colors" onClick={() => handleIconClick('documents')}>
-                          <FileText className="w-4 h-4 text-primary" />
-
-                        </div>
-                        <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-colors" onClick={() => handleIconClick('folders')}>
-                          <FolderSync className="w-4 h-4 text-muted-foreground" />
-                        </div>
-                        </div>
-                        <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-colors" onClick={() => handleIconClick('folders')}>
-                          <FolderSync className="w-4 h-4 text-muted-foreground" />
-                        </div>
-                        <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-colors" onClick={() => handleIconClick('staff')}>
-                          <Users className="w-4 h-4 text-muted-foreground" />
-                        </div>
-                        <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-colors" onClick={() => handleIconClick('analytics')}>
-                          <BarChart3 className="w-4 h-4 text-muted-foreground" />
-                        </div>
-                        <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-colors" onClick={() => handleIconClick('compliance')}>
-                          <Shield className="w-4 h-4 text-muted-foreground" />
-                        </div>
-                        <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-colors" onClick={() => handleIconClick('chat')}>
-                          <MessageSquare className="w-4 h-4 text-muted-foreground" />
+                        <div className="flex flex-col space-y-3">
+                          <div className="w-8 h-8 bg-primary/20 rounded-lg flex items-center justify-center cursor-pointer hover:bg-primary/30 transition-colors" onClick={() => handleIconClick('documents')}>
+                            <FileText className="w-4 h-4 text-primary" />
+                          </div>
+                          <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-colors" onClick={() => handleIconClick('folders')}>
+                            <FolderSync className="w-4 h-4 text-muted-foreground" />
+                          </div>
+                          <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-colors" onClick={() => handleIconClick('staff')}>
+                            <Users className="w-4 h-4 text-muted-foreground" />
+                          </div>
+                          <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-colors" onClick={() => handleIconClick('analytics')}>
+                            <BarChart3 className="w-4 h-4 text-muted-foreground" />
+                          </div>
+                          <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-colors" onClick={() => handleIconClick('compliance')}>
+                            <Shield className="w-4 h-4 text-muted-foreground" />
+                          </div>
+                          <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-colors" onClick={() => handleIconClick('chat')}>
+                            <MessageSquare className="w-4 h-4 text-muted-foreground" />
+                          </div>
                         </div>
                       </div>
-                    </div>
 
                     {/* Main Content */}
                     <div className="flex-1 p-6 md:p-8">
@@ -802,7 +797,9 @@ export default function Page() {
           </div>
         </section>
 
-        <TrustedByBar />
+  </main>
+
+  <TrustedByBar />
         <TestimonialCarousel />
         <DashboardPreview />
         <NewsletterSignup />
@@ -1368,94 +1365,6 @@ export default function Page() {
             </div>
           </DialogContent>
         </Dialog>
-      </main>
-
-
-      {/* Footer */}
-      <footer className="w-full bg-muted/50 border-t border-border/20">
-        <div className="container px-4 md:px-6 py-12 md:py-16">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {/* Company Info */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                  <FileText className="w-4 h-4 text-primary-foreground" />
-                </div>
-                <span className="text-xl font-bold font-headline">DocuFlow AI</span>
-              </div>
-              <p className="text-muted-foreground text-sm">
-                Revolutionizing care home compliance with AI-powered document management and automated compliance tracking.
-              </p>
-              <div className="flex gap-4">
-                <Button variant="ghost" size="sm" className="p-2">
-                  <Twitter className="w-4 h-4" />
-                </Button>
-                <Button variant="ghost" size="sm" className="p-2">
-                  <Linkedin className="w-4 h-4" />
-                </Button>
-                <Button variant="ghost" size="sm" className="p-2">
-                  <Mail className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-
-            {/* Product */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold">Product</h3>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><a href="#features" className="hover:text-primary transition-colors">Features</a></li>
-                <li><a href="#compliance" className="hover:text-primary transition-colors">Compliance</a></li>
-                <li><a href="#pricing" className="hover:text-primary transition-colors">Pricing</a></li>
-                <li><a href="#integrations" className="hover:text-primary transition-colors">Integrations</a></li>
-                <li><a href="#security" className="hover:text-primary transition-colors">Security</a></li>
-              </ul>
-            </div>
-
-            {/* Support */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold">Support</h3>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><a href="#help" className="hover:text-primary transition-colors">Help Center</a></li>
-                <li><a href="#docs" className="hover:text-primary transition-colors">Documentation</a></li>
-                <li><a href="#contact" className="hover:text-primary transition-colors">Contact Us</a></li>
-                <li><a href="#status" className="hover:text-primary transition-colors">System Status</a></li>
-                <li><a href="#feedback" className="hover:text-primary transition-colors">Feedback</a></li>
-              </ul>
-            </div>
-
-            {/* Company */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold">Company</h3>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><a href="#about" className="hover:text-primary transition-colors">About</a></li>
-                <li><a href="#blog" className="hover:text-primary transition-colors">Blog</a></li>
-                <li><a href="#careers" className="hover:text-primary transition-colors">Careers</a></li>
-                <li><a href="#press" className="hover:text-primary transition-colors">Press</a></li>
-                <li><a href="#partners" className="hover:text-primary transition-colors">Partners</a></li>
-              </ul>
-            </div>
-          </div>
-
-          {/* Bottom Section */}
-          <div className="border-t border-border/20 mt-8 pt-8">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-              <div className="flex flex-col md:flex-row items-center gap-4 text-sm text-muted-foreground">
-                <p>&copy; 2025 DocuFlow AI. All rights reserved.</p>
-                <div className="flex gap-4">
-                  <a href="#privacy" className="hover:text-primary transition-colors">Privacy Policy</a>
-                  <a href="#terms" className="hover:text-primary transition-colors">Terms of Service</a>
-                  <a href="#cookies" className="hover:text-primary transition-colors">Cookie Policy</a>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Shield className="w-4 h-4 text-primary" />
-                <span>ISO 27001 Certified</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </footer>
-
     </div>
   );
 }
