@@ -79,51 +79,26 @@
   }
 }
 
-@layer utilities {
-  .animate-on-scroll {
-    opacity: 0;
-    transform: translateY(30px);
-    transition: all 0.6s ease-out;
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-size: calc(1rem * var(--font-scale));
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-size: calc(1em * var(--font-scale));
+  }
+  p, span, div, li, td, th, button, input, textarea, label {
+    font-size: calc(1em * var(--font-scale));
   }
 
-  .animate-on-scroll.animate {
-    opacity: 1;
-    transform: translateY(0);
+  /* Accessibility color theme overrides */
+  body[data-accessibility-theme] {
+    background-color: var(--accessibility-background) !important;
+    color: var(--accessibility-foreground) !important;
   }
-
-  .animate-on-scroll-left {
-    opacity: 0;
-    transform: translateX(-30px);
-    transition: all 0.6s ease-out;
-  }
-
-  .animate-on-scroll-left.animate {
-    opacity: 1;
-    transform: translateX(0);
-  }
-
-  .animate-on-scroll-right {
-    opacity: 0;
-    transform: translateX(30px);
-    transition: all 0.6s ease-out;
-  }
-
-  .animate-on-scroll-right.animate {
-    opacity: 1;
-    transform: translateX(0);
-  }
-
-  .animate-on-scroll-scale {
-    opacity: 0;
-    transform: scale(0.9);
-    transition: all 0.6s ease-out;
-  }
-
-  .animate-on-scroll-scale.animate {
-    opacity: 1;
-    transform: scale(1);
-  }
-
 
   /* Override Tailwind background classes when accessibility theme is active */
   body[data-accessibility-theme] *:not(.accessibility-preserve),
@@ -222,53 +197,4 @@
     background-color: revert !important;
     color: revert !important;
   }
-}
-
-@layer utilities {
-
-@layer utilities {
-  .animate-on-scroll {
-    opacity: 0;
-    transform: translateY(30px);
-    transition: all 0.6s ease-out;
-  }
-
-  .animate-on-scroll.animate {
-    opacity: 1;
-    transform: translateY(0);
-  }
-
-  .animate-on-scroll-left {
-    opacity: 0;
-    transform: translateX(-30px);
-    transition: all 0.6s ease-out;
-  }
-
-  .animate-on-scroll-left.animate {
-    opacity: 1;
-    transform: translateX(0);
-  }
-
-  .animate-on-scroll-right {
-    opacity: 0;
-    transform: translateX(30px);
-    transition: all 0.6s ease-out;
-  }
-
-  .animate-on-scroll-right.animate {
-    opacity: 1;
-    transform: translateX(0);
-  }
-
-  .animate-on-scroll-scale {
-    opacity: 0;
-    transform: scale(0.9);
-    transition: all 0.6s ease-out;
-  }
-
-  .animate-on-scroll-scale.animate {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
 }
