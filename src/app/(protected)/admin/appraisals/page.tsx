@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { FileText, User, Calendar, Target, Award, TrendingUp, Heart, CheckCircle } from "lucide-react";
 import ManagerSearchSelect from "@/components/admin/manager-search-select";
+import Link from "next/link";
 
 interface Manager {
   id: string;
@@ -27,6 +28,117 @@ export default function AppraisalsPage() {
   const [appraiser, setAppraiser] = useState("");
   const [appraisalDate, setAppraisalDate] = useState("");
   const [periodCovered, setPeriodCovered] = useState("");
+  
+  // Previous objectives
+  const [previousObjectives, setPreviousObjectives] = useState([
+    { objective: "", status: "", comments: "" },
+    { objective: "", status: "", comments: "" },
+    { objective: "", status: "", comments: "" }
+  ]);
+  const [previousObjectivesOverallComments, setPreviousObjectivesOverallComments] = useState("");
+  
+  // Key performance areas
+  const [careQualityCompliance, setCareQualityCompliance] = useState("");
+  const [leadershipPeopleManagement, setLeadershipPeopleManagement] = useState("");
+  const [residentOutcomesEngagement, setResidentOutcomesEngagement] = useState("");
+  const [businessOperationalPerformance, setBusinessOperationalPerformance] = useState("");
+  
+  // Other sections
+  const [strengthsAchievements, setStrengthsAchievements] = useState("");
+  const [developmentNeeds, setDevelopmentNeeds] = useState("");
+  const [nextObjectives, setNextObjectives] = useState(["", "", ""]);
+  
+  // Career development
+  const [trainingCompleted, setTrainingCompleted] = useState("");
+  const [trainingRequired, setTrainingRequired] = useState("");
+  const [careerAspirations, setCareerAspirations] = useState("");
+  
+  // Wellbeing
+  const [managingDemands, setManagingDemands] = useState("");
+  const [seniorManagementSupport, setSeniorManagementSupport] = useState("");
+  const [reasonableAdjustments, setReasonableAdjustments] = useState("");
+  
+  // Overall outcome
+  const [overallRating, setOverallRating] = useState("");
+  const [summaryCommentsAppraiser, setSummaryCommentsAppraiser] = useState("");
+  const [summaryCommentsAppraisee, setSummaryCommentsAppraisee] = useState("");
+  
+  // Signatures
+  const [managerSignature, setManagerSignature] = useState("");
+  const [managerSignatureDate, setManagerSignatureDate] = useState("");
+  const [appraiserSignature, setAppraiserSignature] = useState("");
+  const [appraiserSignatureDate, setAppraiserSignatureDate] = useState("");
+  
+  // Loading state
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSaveAppraisal = async (status: 'draft' | 'completed') => {
+    if (!selectedManager) {
+      alert('Please select a manager');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const appraisalData = {
+        workspaceId: selectedManager.workspaceId,
+        managerId: selectedManager.id,
+        managerName: selectedManager.name,
+        role,
+        appraiser,
+        appraisalDate,
+        periodCovered,
+        previousObjectives,
+        previousObjectivesOverallComments,
+        careQualityCompliance,
+        leadershipPeopleManagement,
+        residentOutcomesEngagement,
+        businessOperationalPerformance,
+        strengthsAchievements,
+        developmentNeeds,
+        nextObjectives,
+        trainingCompleted,
+        trainingRequired,
+        careerAspirations,
+        managingDemands,
+        seniorManagementSupport,
+        reasonableAdjustments,
+        overallRating,
+        summaryCommentsAppraiser,
+        summaryCommentsAppraisee,
+        managerSignature,
+        managerSignatureDate,
+        appraiserSignature,
+        appraiserSignatureDate,
+        status,
+        createdBy: 'admin' // TODO: Get from auth context
+      };
+
+      const response = await fetch('/api/admin/appraisals', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(appraisalData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save appraisal');
+      }
+
+      const result = await response.json();
+      alert(`Appraisal ${status === 'completed' ? 'completed' : 'saved as draft'} successfully!`);
+      
+    } catch (error) {
+      console.error('Error saving appraisal:', error);
+      alert('Failed to save appraisal. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveDraft = () => handleSaveAppraisal('draft');
+  const handleCompleteAppraisal = () => handleSaveAppraisal('completed');
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/10">
       {/* Header */}
@@ -50,6 +162,12 @@ export default function AppraisalsPage() {
                 </div>
               </div>
               <div className="flex items-center gap-3">
+                <Link href="/admin/appraisals/history">
+                  <Button variant="secondary" className="bg-white/10 border-white/20 text-white hover:bg-white/20">
+                    <FileText className="w-4 h-4 mr-2" />
+                    View History
+                  </Button>
+                </Link>
                 <Button variant="secondary" className="bg-white/10 border-white/20 text-white hover:bg-white/20">
                   <FileText className="w-4 h-4 mr-2" />
                   New Appraisal
@@ -155,12 +273,28 @@ export default function AppraisalsPage() {
                   <div key={i} className="grid grid-cols-1 gap-2 p-3 bg-slate-50 rounded-lg">
                     <div className="space-y-1">
                       <Label className="text-sm">Objective {i}</Label>
-                      <Input placeholder={`Objective ${i}`} className="h-8" />
+                      <Input 
+                        placeholder={`Objective ${i}`} 
+                        className="h-8"
+                        value={previousObjectives[i-1].objective}
+                        onChange={(e) => {
+                          const newObjectives = [...previousObjectives];
+                          newObjectives[i-1].objective = e.target.value;
+                          setPreviousObjectives(newObjectives);
+                        }}
+                      />
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-1">
                         <Label className="text-sm">Status</Label>
-                        <Select>
+                        <Select
+                          value={previousObjectives[i-1].status}
+                          onValueChange={(value) => {
+                            const newObjectives = [...previousObjectives];
+                            newObjectives[i-1].status = value;
+                            setPreviousObjectives(newObjectives);
+                          }}
+                        >
                           <SelectTrigger className="h-8">
                             <SelectValue placeholder="Select" />
                           </SelectTrigger>
@@ -173,14 +307,28 @@ export default function AppraisalsPage() {
                       </div>
                       <div className="space-y-1">
                         <Label className="text-sm">Comments</Label>
-                        <Input placeholder="Comments" className="h-8" />
+                        <Input 
+                          placeholder="Comments" 
+                          className="h-8"
+                          value={previousObjectives[i-1].comments}
+                          onChange={(e) => {
+                            const newObjectives = [...previousObjectives];
+                            newObjectives[i-1].comments = e.target.value;
+                            setPreviousObjectives(newObjectives);
+                          }}
+                        />
                       </div>
                     </div>
                   </div>
                 ))}
                 <div className="space-y-2">
                   <Label className="text-sm">Overall Comments</Label>
-                  <Textarea placeholder="Comments on overall performance" className="min-h-[60px]" />
+                  <Textarea 
+                    placeholder="Comments on overall performance" 
+                    className="min-h-[60px]"
+                    value={previousObjectivesOverallComments}
+                    onChange={(e) => setPreviousObjectivesOverallComments(e.target.value)}
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -207,7 +355,12 @@ export default function AppraisalsPage() {
                     <li>Safeguarding management and incident reporting</li>
                     <li>Continuous improvement in care standards</li>
                   </ul>
-                  <Textarea placeholder="Comments" className="min-h-[40px]" />
+                  <Textarea 
+                    placeholder="Comments" 
+                    className="min-h-[40px]"
+                    value={careQualityCompliance}
+                    onChange={(e) => setCareQualityCompliance(e.target.value)}
+                  />
                 </div>
 
                 {/* b. Leadership & People Management */}
@@ -218,7 +371,12 @@ export default function AppraisalsPage() {
                     <li>Recruitment, retention, absence management</li>
                     <li>Positive team culture and staff wellbeing</li>
                   </ul>
-                  <Textarea placeholder="Comments" className="min-h-[40px]" />
+                  <Textarea 
+                    placeholder="Comments" 
+                    className="min-h-[40px]"
+                    value={leadershipPeopleManagement}
+                    onChange={(e) => setLeadershipPeopleManagement(e.target.value)}
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -236,7 +394,12 @@ export default function AppraisalsPage() {
                     <li>Resident involvement in care planning</li>
                     <li>Promoting dignity, independence, choice</li>
                   </ul>
-                  <Textarea placeholder="Comments" className="min-h-[40px]" />
+                  <Textarea 
+                    placeholder="Comments" 
+                    className="min-h-[40px]"
+                    value={residentOutcomesEngagement}
+                    onChange={(e) => setResidentOutcomesEngagement(e.target.value)}
+                  />
                 </div>
 
                 {/* d. Business & Operational Performance */}
@@ -247,7 +410,12 @@ export default function AppraisalsPage() {
                     <li>Budget control and resource use</li>
                     <li>Contribution to organisational goals</li>
                   </ul>
-                  <Textarea placeholder="Comments" className="min-h-[40px]" />
+                  <Textarea 
+                    placeholder="Comments" 
+                    className="min-h-[40px]"
+                    value={businessOperationalPerformance}
+                    onChange={(e) => setBusinessOperationalPerformance(e.target.value)}
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -269,6 +437,8 @@ export default function AppraisalsPage() {
                 <Textarea
                   placeholder="Comments for notable successes, e.g., inspection outcomes, team development, service improvements"
                   className="min-h-[120px]"
+                  value={strengthsAchievements}
+                  onChange={(e) => setStrengthsAchievements(e.target.value)}
                 />
               </CardContent>
             </Card>
@@ -293,6 +463,8 @@ export default function AppraisalsPage() {
                 <Textarea
                   placeholder="Comments areas requiring improvement, training needs, or further support"
                   className="min-h-[100px]"
+                  value={developmentNeeds}
+                  onChange={(e) => setDevelopmentNeeds(e.target.value)}
                 />
               </CardContent>
             </Card>
@@ -314,7 +486,16 @@ export default function AppraisalsPage() {
                 {[1, 2, 3].map(i => (
                   <div key={i} className="space-y-2">
                     <Label className="text-sm">Objective {i} (SMART)</Label>
-                    <Input placeholder="Specific, Measurable, Achievable, Relevant, Time-bound" className="h-8" />
+                    <Input 
+                      placeholder="Specific, Measurable, Achievable, Relevant, Time-bound" 
+                      className="h-8"
+                      value={nextObjectives[i-1]}
+                      onChange={(e) => {
+                        const newObjectives = [...nextObjectives];
+                        newObjectives[i-1] = e.target.value;
+                        setNextObjectives(newObjectives);
+                      }}
+                    />
                   </div>
                 ))}
               </CardContent>
@@ -339,15 +520,30 @@ export default function AppraisalsPage() {
               <CardContent className="p-4 space-y-3">
                 <div className="space-y-2">
                   <Label className="text-sm">Training completed last year</Label>
-                  <Textarea placeholder="Training completed" className="min-h-[40px]" />
+                  <Textarea 
+                    placeholder="Training completed" 
+                    className="min-h-[40px]"
+                    value={trainingCompleted}
+                    onChange={(e) => setTrainingCompleted(e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm">Training required next year</Label>
-                  <Textarea placeholder="Training required" className="min-h-[40px]" />
+                  <Textarea 
+                    placeholder="Training required" 
+                    className="min-h-[40px]"
+                    value={trainingRequired}
+                    onChange={(e) => setTrainingRequired(e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm">Career progression aspirations</Label>
-                  <Textarea placeholder="Career aspirations" className="min-h-[40px]" />
+                  <Textarea 
+                    placeholder="Career aspirations" 
+                    className="min-h-[40px]"
+                    value={careerAspirations}
+                    onChange={(e) => setCareerAspirations(e.target.value)}
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -368,15 +564,30 @@ export default function AppraisalsPage() {
               <CardContent className="p-4 space-y-3">
                 <div className="space-y-2">
                   <Label className="text-sm">Managing demands of the role</Label>
-                  <Textarea placeholder="How are you managing the demands?" className="min-h-[40px]" />
+                  <Textarea 
+                    placeholder="How are you managing the demands?" 
+                    className="min-h-[40px]"
+                    value={managingDemands}
+                    onChange={(e) => setManagingDemands(e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm">Support from senior management</Label>
-                  <Textarea placeholder="Support required" className="min-h-[40px]" />
+                  <Textarea 
+                    placeholder="Support required" 
+                    className="min-h-[40px]"
+                    value={seniorManagementSupport}
+                    onChange={(e) => setSeniorManagementSupport(e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm">Reasonable adjustments needed</Label>
-                  <Textarea placeholder="Any adjustments needed" className="min-h-[40px]" />
+                  <Textarea 
+                    placeholder="Any adjustments needed" 
+                    className="min-h-[40px]"
+                    value={reasonableAdjustments}
+                    onChange={(e) => setReasonableAdjustments(e.target.value)}
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -408,7 +619,17 @@ export default function AppraisalsPage() {
                       { label: "Unsatisfactory", value: "unsatisfactory" }
                     ].map((option) => (
                       <div key={option.value} className="flex items-center space-x-2">
-                        <Checkbox id={option.value} />
+                        <Checkbox 
+                          id={option.value}
+                          checked={overallRating === option.value}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setOverallRating(option.value);
+                            } else {
+                              setOverallRating("");
+                            }
+                          }}
+                        />
                         <Label htmlFor={option.value} className="text-xs">{option.label}</Label>
                       </div>
                     ))}
@@ -418,11 +639,21 @@ export default function AppraisalsPage() {
                 <div className="grid grid-cols-1 gap-3">
                   <div className="space-y-2">
                     <Label className="text-sm">Summary Comments (Appraiser)</Label>
-                    <Textarea placeholder="Appraiser comments" className="min-h-[60px]" />
+                    <Textarea 
+                      placeholder="Appraiser comments" 
+                      className="min-h-[60px]"
+                      value={summaryCommentsAppraiser}
+                      onChange={(e) => setSummaryCommentsAppraiser(e.target.value)}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm">Summary Comments (Appraisee)</Label>
-                    <Textarea placeholder="Appraisee comments" className="min-h-[60px]" />
+                    <Textarea 
+                      placeholder="Appraisee comments" 
+                      className="min-h-[60px]"
+                      value={summaryCommentsAppraisee}
+                      onChange={(e) => setSummaryCommentsAppraisee(e.target.value)}
+                    />
                   </div>
                 </div>
               </CardContent>
@@ -445,18 +676,38 @@ export default function AppraisalsPage() {
                 <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-3">
                     <Label className="text-base font-medium">Manager (Appraisee)</Label>
-                    <Input placeholder="Signature" className="h-8" />
+                    <Input 
+                      placeholder="Signature" 
+                      className="h-8"
+                      value={managerSignature}
+                      onChange={(e) => setManagerSignature(e.target.value)}
+                    />
                     <div className="space-y-2">
                       <Label className="text-sm">Date</Label>
-                      <Input type="date" className="h-8" />
+                      <Input 
+                        type="date" 
+                        className="h-8"
+                        value={managerSignatureDate}
+                        onChange={(e) => setManagerSignatureDate(e.target.value)}
+                      />
                     </div>
                   </div>
                   <div className="space-y-3">
                     <Label className="text-base font-medium">Regional Director (Appraiser)</Label>
-                    <Input placeholder="Signature" className="h-8" />
+                    <Input 
+                      placeholder="Signature" 
+                      className="h-8"
+                      value={appraiserSignature}
+                      onChange={(e) => setAppraiserSignature(e.target.value)}
+                    />
                     <div className="space-y-2">
                       <Label className="text-sm">Date</Label>
-                      <Input type="date" className="h-8" />
+                      <Input 
+                        type="date" 
+                        className="h-8"
+                        value={appraiserSignatureDate}
+                        onChange={(e) => setAppraiserSignatureDate(e.target.value)}
+                      />
                     </div>
                   </div>
                 </div>
@@ -466,8 +717,20 @@ export default function AppraisalsPage() {
 
           {/* Action Buttons */}
           <div className="flex justify-end gap-4 pt-4">
-            <Button variant="outline">Save Draft</Button>
-            <Button className="bg-blue-600 hover:bg-blue-700">Complete Appraisal</Button>
+            <Button 
+              variant="outline" 
+              onClick={handleSaveDraft}
+              disabled={isSaving}
+            >
+              {isSaving ? 'Saving...' : 'Save Draft'}
+            </Button>
+            <Button 
+              className="bg-blue-600 hover:bg-blue-700" 
+              onClick={handleCompleteAppraisal}
+              disabled={isSaving}
+            >
+              {isSaving ? 'Completing...' : 'Complete Appraisal'}
+            </Button>
           </div>
         </div>
       </div>

@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FileText, User, Calendar, Target, Award, TrendingUp, Heart, CheckCircle, Users } from "lucide-react";
 import ManagerSearchSelect from "@/components/admin/manager-search-select";
+import Link from "next/link";
 
 interface Manager {
   id: string;
@@ -50,6 +51,76 @@ export default function SupervisionPage() {
   const [supervisorSignature, setSupervisorSignature] = useState("");
   const [supervisorSignatureDate, setSupervisorSignatureDate] = useState("");
 
+  // Loading state
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSaveSupervision = async (status: 'draft' | 'completed') => {
+    if (!selectedManager) {
+      alert('Please select a supervisee');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const supervisionData = {
+        workspaceId: selectedManager.workspaceId,
+        managerId: selectedManager.id,
+        managerName: selectedManager.name,
+        role,
+        supervisor,
+        supervisionDate,
+        location: location as 'in-person' | 'virtual' | 'care-home-site',
+        nextSupervisionDue,
+        previousActions,
+        regulatoryCompliance,
+        careQuality,
+        auditResults,
+        staffingLevels,
+        occupancyPerformance,
+        leadershipSupport,
+        staffCulture,
+        positiveLeadership,
+        trainingCompleted,
+        learningNeeds,
+        careerAspirations,
+        workloadManagement,
+        additionalSupport,
+        wellbeingConcerns,
+        agreedActions,
+        superviseeSignature,
+        superviseeSignatureDate,
+        supervisorSignature,
+        supervisorSignatureDate,
+        status,
+        createdBy: 'admin' // TODO: Get from auth context
+      };
+
+      const response = await fetch('/api/admin/supervisions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(supervisionData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save supervision');
+      }
+
+      const result = await response.json();
+      alert(`Supervision ${status === 'completed' ? 'completed' : 'saved as draft'} successfully!`);
+
+    } catch (error) {
+      console.error('Error saving supervision:', error);
+      alert('Failed to save supervision. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveDraft = () => handleSaveSupervision('draft');
+  const handleCompleteSupervision = () => handleSaveSupervision('completed');
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/10">
       {/* Header */}
@@ -73,8 +144,14 @@ export default function SupervisionPage() {
                 </div>
               </div>
               <div className="flex items-center gap-3">
+                <Link href="/admin/supervision/history">
+                  <Button variant="secondary" className="bg-white/10 border-white/20 text-white hover:bg-white/20">
+                    <FileText className="w-4 h-4 mr-2" />
+                    View History
+                  </Button>
+                </Link>
                 <Button variant="secondary" className="bg-white/10 border-white/20 text-white hover:bg-white/20">
-                  <FileText className="w-4 h-4 mr-2" />
+                  <Users className="w-4 h-4 mr-2" />
                   New Supervision
                 </Button>
               </div>
@@ -464,8 +541,20 @@ export default function SupervisionPage() {
 
           {/* Action Buttons */}
           <div className="flex justify-end gap-4 pt-4">
-            <Button variant="outline">Save Draft</Button>
-            <Button className="bg-blue-600 hover:bg-blue-700">Complete Supervision</Button>
+            <Button 
+              variant="outline" 
+              onClick={handleSaveDraft}
+              disabled={isSaving}
+            >
+              {isSaving ? 'Saving...' : 'Save Draft'}
+            </Button>
+            <Button 
+              className="bg-blue-600 hover:bg-blue-700" 
+              onClick={handleCompleteSupervision}
+              disabled={isSaving}
+            >
+              {isSaving ? 'Completing...' : 'Complete Supervision'}
+            </Button>
           </div>
         </div>
       </div>

@@ -54,3 +54,112 @@ export type Team = {
   folderCount: number;
   accessibleFolderIds: string[];
 }
+
+export type Appraisal = {
+  id?: string;
+  workspaceId: string;
+  managerId: string;
+  managerName: string;
+  role: string;
+  appraiser: string;
+  appraisalDate: string;
+  periodCovered: string;
+  
+  // Previous objectives
+  previousObjectives: {
+    objective: string;
+    status: 'achieved' | 'partially' | 'not-achieved';
+    comments: string;
+  }[];
+  previousObjectivesOverallComments: string;
+  
+  // Key performance areas
+  careQualityCompliance: string;
+  leadershipPeopleManagement: string;
+  residentOutcomesEngagement: string;
+  businessOperationalPerformance: string;
+  
+  // Other sections
+  strengthsAchievements: string;
+  developmentNeeds: string;
+  nextObjectives: string[];
+  
+  // Career development
+  trainingCompleted: string;
+  trainingRequired: string;
+  careerAspirations: string;
+  
+  // Wellbeing
+  managingDemands: string;
+  seniorManagementSupport: string;
+  reasonableAdjustments: string;
+  
+  // Overall outcome
+  overallRating: 'exceeds' | 'meets' | 'requires-improvement' | 'unsatisfactory';
+  summaryCommentsAppraiser: string;
+  summaryCommentsAppraisee: string;
+  
+  // Signatures
+  managerSignature: string;
+  managerSignatureDate: string;
+  appraiserSignature: string;
+  appraiserSignatureDate: string;
+  
+  // Metadata
+  status: 'draft' | 'completed';
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+}
+
+export type Supervision = {
+  id?: string;
+  workspaceId: string;
+  managerId: string;
+  managerName: string;
+  role: string;
+  supervisor: string;
+  supervisionDate: string;
+  location: 'in-person' | 'virtual' | 'care-home-site';
+  nextSupervisionDue: string;
+  
+  // Review sections
+  previousActions: string;
+  
+  // Operational performance
+  regulatoryCompliance: string;
+  careQuality: string;
+  auditResults: string;
+  staffingLevels: string;
+  occupancyPerformance: string;
+  
+  // Leadership & management
+  leadershipSupport: string;
+  staffCulture: string;
+  positiveLeadership: string;
+  
+  // Professional development
+  trainingCompleted: string;
+  learningNeeds: string;
+  careerAspirations: string;
+  
+  // Reflection & wellbeing
+  workloadManagement: string;
+  additionalSupport: string;
+  wellbeingConcerns: string;
+  
+  // Agreed actions
+  agreedActions: string;
+  
+  // Signatures
+  superviseeSignature: string;
+  superviseeSignatureDate: string;
+  supervisorSignature: string;
+  supervisorSignatureDate: string;
+  
+  // Metadata
+  status: 'draft' | 'completed';
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+}

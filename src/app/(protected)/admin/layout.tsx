@@ -68,6 +68,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   case 'policies':
                     router.push('/admin/policies');
                     break;
+                  case 'appraisals':
+                    router.push('/admin/appraisals');
+                    break;
+                  case 'supervision':
+                    router.push('/admin/supervision');
+                    break;
                   case 'workspaces':
                     router.push('/admin?view=workspaces');
                     break;
@@ -75,9 +81,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     router.push('/admin/care-homes');
                     break;
                   case 'teams':
+                    router.push('/admin?view=teams');
+                    break;
                   case 'documents':
+                    router.push('/admin?view=documents');
+                    break;
                   case 'tags':
+                    router.push('/admin?view=tags');
+                    break;
                   case 'settings':
+                    router.push('/admin?view=settings');
+                    break;
                   case 'renewals':
                     router.push('/admin/supervision');
                     break;

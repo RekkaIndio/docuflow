@@ -33,7 +33,7 @@ interface AdminSidebarProps {
   workspaces: Workspace[];
   activeWorkspace: Workspace;
   onWorkspaceChange: (workspaceId: string) => void;
-  setView: (view: 'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'care-homes' | 'workspaces' | 'policies') => void;
+  setView: (view: 'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'care-homes' | 'workspaces' | 'policies' | 'appraisals' | 'supervision') => void;
   onGoToFiles: () => void;
 }
 
@@ -85,22 +85,13 @@ export function AdminSidebar({
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton
-              onClick={() => {
-                handleNavigation(() => {
-                  if (typeof window !== 'undefined') {
-                    window.location.href = '/admin/appraisals';
-                  }
-                });
-              }}
-              className={`text-lg h-14 ${isActive('/admin/appraisals') ? 'bg-muted/50 rounded' : ''}`}
-            >
+            <SidebarMenuButton onClick={() => handleNavigation(() => setView('appraisals'))} className={`text-lg h-14 ${isActive('/admin/appraisals') ? 'bg-muted/50 rounded' : ''}`}>
               <FolderIcon className="w-7 h-7 mr-2" />
               <span className="text-lg">Appraisals</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={() => handleNavigation(() => setView('renewals'))} className={`text-lg h-14 ${isActive('/admin/supervision') ? 'bg-muted/50 rounded' : ''}`}>
+            <SidebarMenuButton onClick={() => handleNavigation(() => setView('supervision'))} className={`text-lg h-14 ${isActive('/admin/supervision') ? 'bg-muted/50 rounded' : ''}`}>
               <FileText className="w-7 h-7 mr-2" />
               <span className="text-lg">Supervision</span>
             </SidebarMenuButton>
