@@ -197,6 +197,11 @@ export default function Page() {
                       <div className="flex flex-col space-y-3">
                         <div className="w-8 h-8 bg-primary/20 rounded-lg flex items-center justify-center cursor-pointer hover:bg-primary/30 transition-colors" onClick={() => handleIconClick('documents')}>
                           <FileText className="w-4 h-4 text-primary" />
+
+                        </div>
+                        <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-colors" onClick={() => handleIconClick('folders')}>
+                          <FolderSync className="w-4 h-4 text-muted-foreground" />
+                        </div>
                         </div>
                         <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-colors" onClick={() => handleIconClick('folders')}>
                           <FolderSync className="w-4 h-4 text-muted-foreground" />
@@ -1365,6 +1370,7 @@ export default function Page() {
         </Dialog>
       </main>
 
+
       {/* Footer */}
       <footer className="w-full bg-muted/50 border-t border-border/20">
         <div className="container px-4 md:px-6 py-12 md:py-16">
@@ -1449,6 +1455,7 @@ export default function Page() {
           </div>
         </div>
       </footer>
+
     </div>
   );
 }
