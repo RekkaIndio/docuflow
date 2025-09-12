@@ -3,14 +3,42 @@ import React, { useMemo, useEffect, useState } from 'react';
 import type { Workspace, Folder, Document } from '@/lib/types';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import AdminDependencyTable from './admin-dependency-table';
 import { TeamsView } from '@/components/dashboard/teams-view';
-import { collection, query as fsQuery, orderBy, limit, onSnapshot, where } from 'firebase/firestore';
+import { collection, query as fsQuery, orderBy, limit, onSnapshot, where, doc, updateDoc, arrayUnion, arrayRemove, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Folder as FolderIcon, FileText, FileSpreadsheet, FileX2, Home, ChevronRight, ArrowLeft, PlusSquare, Users, Tag, Clock, TrendingUp, Activity, Shield, CheckCircle, AlertTriangle, Calendar, Zap } from 'lucide-react';
+import { Folder as FolderIcon, FileText, FileSpreadsheet, FileX2, Home, ChevronRight, ArrowLeft, PlusSquare, Users, Tag, Clock, TrendingUp, Activity, Shield, CheckCircle, AlertTriangle, Calendar, Zap, UserCheck, Phone, Mail, Plus, Trash2, Edit, Save, X } from 'lucide-react';
 import OccupancyPie from '@/components/admin/occupancy-pie';
 import { useIsMobile } from '@/hooks/use-mobile';
+
+interface Manager {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface Nurse {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface CTM {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
 
 interface AdminWorkspaceViewProps {
   workspace: Workspace;
@@ -177,6 +205,27 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
   const [staffingTimeframe, setStaffingTimeframe] = useState<'day' | 'week' | 'month'>('week');
   const [staffingHistory, setStaffingHistory] = useState<Array<{ date: string; day: number; night: number; total: number }>>([]);
 
+  // Management data state
+  const [managers, setManagers] = useState<Manager[]>([]);
+  const [newManager, setNewManager] = useState({ name: '', email: '', phone: '' });
+  const [managersLoading, setManagersLoading] = useState(false);
+  const [managersError, setManagersError] = useState<string | null>(null);
+  const [editingManager, setEditingManager] = useState<string | null>(null);
+
+  // Nurses data state
+  const [nurses, setNurses] = useState<Nurse[]>([]);
+  const [newNurse, setNewNurse] = useState({ name: '', email: '', phone: '' });
+  const [nursesLoading, setNursesLoading] = useState(false);
+  const [nursesError, setNursesError] = useState<string | null>(null);
+  const [editingNurse, setEditingNurse] = useState<string | null>(null);
+
+  // CTM data state
+  const [ctms, setCTMs] = useState<CTM[]>([]);
+  const [newCTM, setNewCTM] = useState({ name: '', email: '', phone: '' });
+  const [ctmsLoading, setCTMsLoading] = useState(false);
+  const [ctmsError, setCTMsError] = useState<string | null>(null);
+  const [editingCTM, setEditingCTM] = useState<string | null>(null);
+
   // Fetch latest staffing data from daily check-ins
   useEffect(() => {
     if (!workspace?.id) return;
@@ -260,6 +309,318 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
       setStaffingLoading(false);
     }
   }, [workspace?.id, staffingTimeframe]);
+
+  // Load managers from Firebase
+  useEffect(() => {
+    const loadManagers = async () => {
+      if (!workspace?.id) return;
+      
+      setManagersLoading(true);
+      setManagersError(null);
+      
+      try {
+        const workspaceRef = doc(db, 'workspaces', workspace.id);
+        const workspaceSnap = await getDoc(workspaceRef);
+        
+        if (workspaceSnap.exists()) {
+          const data = workspaceSnap.data();
+          const managersData = data.managers || [];
+          setManagers(managersData);
+        }
+      } catch (error) {
+        console.error('Failed to load managers:', error);
+        setManagersError('Failed to load managers');
+      } finally {
+        setManagersLoading(false);
+      }
+    };
+    
+    loadManagers();
+  }, [workspace?.id]);
+
+  // Load nurses from Firebase
+  useEffect(() => {
+    const loadNurses = async () => {
+      if (!workspace?.id) return;
+      
+      setNursesLoading(true);
+      setNursesError(null);
+      
+      try {
+        const workspaceRef = doc(db, 'workspaces', workspace.id);
+        const workspaceSnap = await getDoc(workspaceRef);
+        
+        if (workspaceSnap.exists()) {
+          const data = workspaceSnap.data();
+          const nursesData = data.nurses || [];
+          setNurses(nursesData);
+        }
+      } catch (error) {
+        console.error('Failed to load nurses:', error);
+        setNursesError('Failed to load nurses');
+      } finally {
+        setNursesLoading(false);
+      }
+    };
+    
+    loadNurses();
+  }, [workspace?.id]);
+
+  // Load CTMs from Firebase
+  useEffect(() => {
+    const loadCTMs = async () => {
+      if (!workspace?.id) return;
+      
+      setCTMsLoading(true);
+      setCTMsError(null);
+      
+      try {
+        const workspaceRef = doc(db, 'workspaces', workspace.id);
+        const workspaceSnap = await getDoc(workspaceRef);
+        
+        if (workspaceSnap.exists()) {
+          const data = workspaceSnap.data();
+          const ctmsData = data.ctms || [];
+          setCTMs(ctmsData);
+        }
+      } catch (error) {
+        console.error('Failed to load CTMs:', error);
+        setCTMsError('Failed to load CTMs');
+      } finally {
+        setCTMsLoading(false);
+      }
+    };
+    
+    loadCTMs();
+  }, [workspace?.id]);
+
+  // Add manager to Firebase
+  const addManagerToFirebase = async (manager: Manager) => {
+    if (!workspace?.id) return false;
+    
+    try {
+      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      await updateDoc(workspaceRef, {
+        managers: arrayUnion(manager)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to add manager to Firebase:', error);
+      setManagersError('Failed to save manager');
+      return false;
+    }
+  };
+
+  // Remove manager from Firebase
+  const removeManagerFromFirebase = async (manager: Manager) => {
+    if (!workspace?.id) return false;
+    
+    try {
+      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      await updateDoc(workspaceRef, {
+        managers: arrayRemove(manager)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to remove manager from Firebase:', error);
+      setManagersError('Failed to remove manager');
+      return false;
+    }
+  };
+
+  // Update manager in Firebase
+  const updateManagerInFirebase = async (oldManager: Manager, newManager: Manager) => {
+    if (!workspace?.id) return false;
+    
+    try {
+      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      // Remove old and add new (atomic operation alternative)
+      await updateDoc(workspaceRef, {
+        managers: arrayRemove(oldManager)
+      });
+      await updateDoc(workspaceRef, {
+        managers: arrayUnion(newManager)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to update manager in Firebase:', error);
+      setManagersError('Failed to update manager');
+      return false;
+    }
+  };
+
+  // Add nurse to Firebase
+  const addNurseToFirebase = async (nurse: Nurse) => {
+    if (!workspace?.id) return false;
+    
+    try {
+      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      await updateDoc(workspaceRef, {
+        nurses: arrayUnion(nurse)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to add nurse to Firebase:', error);
+      return false;
+    }
+  };
+
+  // Remove nurse from Firebase
+  const removeNurseFromFirebase = async (nurse: Nurse) => {
+    if (!workspace?.id) return false;
+    
+    try {
+      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      await updateDoc(workspaceRef, {
+        nurses: arrayRemove(nurse)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to remove nurse from Firebase:', error);
+      return false;
+    }
+  };
+
+  // Update nurse in Firebase
+  const updateNurseInFirebase = async (oldNurse: Nurse, newNurse: Nurse) => {
+    if (!workspace?.id) return false;
+    
+    try {
+      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      // Remove old and add new (atomic operation alternative)
+      await updateDoc(workspaceRef, {
+        nurses: arrayRemove(oldNurse)
+      });
+      await updateDoc(workspaceRef, {
+        nurses: arrayUnion(newNurse)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to update nurse in Firebase:', error);
+      return false;
+    }
+  };
+
+  // Add CTM to Firebase
+  const addCTMToFirebase = async (ctm: CTM) => {
+    if (!workspace?.id) return false;
+    
+    try {
+      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      await updateDoc(workspaceRef, {
+        ctms: arrayUnion(ctm)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to add CTM to Firebase:', error);
+      return false;
+    }
+  };
+
+  // Remove CTM from Firebase
+  const removeCTMFromFirebase = async (ctm: CTM) => {
+    if (!workspace?.id) return false;
+    
+    try {
+      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      await updateDoc(workspaceRef, {
+        ctms: arrayRemove(ctm)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to remove CTM from Firebase:', error);
+      return false;
+    }
+  };
+
+  // Update CTM in Firebase
+  const updateCTMInFirebase = async (oldCTM: CTM, newCTM: CTM) => {
+    if (!workspace?.id) return false;
+    
+    try {
+      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      // Remove old and add new (atomic operation alternative)
+      await updateDoc(workspaceRef, {
+        ctms: arrayRemove(oldCTM)
+      });
+      await updateDoc(workspaceRef, {
+        ctms: arrayUnion(newCTM)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to update CTM in Firebase:', error);
+      return false;
+    }
+  };
+
+  const handleUpdateManager = async (managerId: string, updatedData: Partial<Manager>) => {
+    const originalManager = managers.find(m => m.id === managerId);
+    if (!originalManager) return;
+    
+    const updatedManager: Manager = {
+      ...originalManager,
+      ...updatedData,
+      updatedAt: new Date().toISOString()
+    };
+    
+    // Optimistically update UI
+    setManagers(prev => prev.map(m => m.id === managerId ? updatedManager : m));
+    setEditingManager(null);
+    setManagersError(null);
+    
+    // Update in Firebase
+    const success = await updateManagerInFirebase(originalManager, updatedManager);
+    if (!success) {
+      // Revert optimistic update on failure
+      setManagers(prev => prev.map(m => m.id === managerId ? originalManager : m));
+    }
+  };
+
+  const handleUpdateNurse = async (nurseId: string, updatedData: Partial<Nurse>) => {
+    const originalNurse = nurses.find(n => n.id === nurseId);
+    if (!originalNurse) return;
+    
+    const updatedNurse: Nurse = {
+      ...originalNurse,
+      ...updatedData,
+      updatedAt: new Date().toISOString()
+    };
+    
+    // Optimistically update UI
+    setNurses(prev => prev.map(n => n.id === nurseId ? updatedNurse : n));
+    setEditingNurse(null);
+    setNursesError(null);
+    
+    // Update in Firebase
+    const success = await updateNurseInFirebase(originalNurse, updatedNurse);
+    if (!success) {
+      // Revert optimistic update on failure
+      setNurses(prev => prev.map(n => n.id === nurseId ? originalNurse : n));
+    }
+  };
+
+  const handleUpdateCTM = async (ctmId: string, updatedData: Partial<CTM>) => {
+    const originalCTM = ctms.find(c => c.id === ctmId);
+    if (!originalCTM) return;
+    
+    const updatedCTM: CTM = {
+      ...originalCTM,
+      ...updatedData,
+      updatedAt: new Date().toISOString()
+    };
+    
+    // Optimistically update UI
+    setCTMs(prev => prev.map(c => c.id === ctmId ? updatedCTM : c));
+    setEditingCTM(null);
+    setCTMsError(null);
+    
+    // Update in Firebase
+    const success = await updateCTMInFirebase(originalCTM, updatedCTM);
+    if (!success) {
+      // Revert optimistic update on failure
+      setCTMs(prev => prev.map(c => c.id === ctmId ? originalCTM : c));
+    }
+  };
 
   return (
     <div className="flex flex-col h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
@@ -433,7 +794,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
         </div>
 
         <Tabs defaultValue="folders" className="w-full">
-          <TabsList className="grid w-[400px] grid-cols-2 bg-white border border-gray-200 rounded-lg">
+          <TabsList className="grid w-[800px] grid-cols-5 bg-white border border-gray-200 rounded-lg">
             <TabsTrigger value="folders" className="flex items-center gap-2">
               <FolderIcon className="w-4 h-4" />
               Folders
@@ -441,6 +802,18 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
             <TabsTrigger value="teams" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
               Teams
+            </TabsTrigger>
+            <TabsTrigger value="management" className="flex items-center gap-2">
+              <UserCheck className="w-4 h-4" />
+              Management
+            </TabsTrigger>
+            <TabsTrigger value="nurses" className="flex items-center gap-2">
+              <UserCheck className="w-4 h-4" />
+              Nurses
+            </TabsTrigger>
+            <TabsTrigger value="ctm" className="flex items-center gap-2">
+              <UserCheck className="w-4 h-4" />
+              CTM
             </TabsTrigger>
             { /* Dependency Calculator temporarily hidden until backend/frontend integration is fixed.
             <TabsTrigger value="dependency" className="flex items-center gap-2">
@@ -626,10 +999,842 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
           <TabsContent value="teams" className="mt-6">
             <TeamsView workspace={workspace} />
           </TabsContent>
+          
+          <TabsContent value="management" className="mt-6">
+            <div className="space-y-6">
+              {/* Error Display */}
+              {managersError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-red-600" />
+                    <p className="text-red-800 font-medium">Error</p>
+                  </div>
+                  <p className="text-red-700 text-sm mt-1">{managersError}</p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setManagersError(null)}
+                    className="mt-2 text-red-600 hover:text-red-700"
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              )}
+              {/* Add New Manager Form */}
+              <Card>
+                <CardHeader>
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <Plus className="w-5 h-5 text-blue-600" />
+                    Add New Manager
+                  </h3>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Name</label>
+                      <Input
+                        placeholder="Enter manager name"
+                        value={newManager.name}
+                        onChange={(e) => setNewManager(prev => ({ ...prev, name: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Email Address</label>
+                      <Input
+                        type="email"
+                        placeholder="manager@example.com"
+                        value={newManager.email}
+                        onChange={(e) => setNewManager(prev => ({ ...prev, email: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Phone Number</label>
+                      <Input
+                        type="tel"
+                        placeholder="+44 123 456 7890"
+                        value={newManager.phone}
+                        onChange={(e) => setNewManager(prev => ({ ...prev, phone: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <Button 
+                      onClick={async () => {
+                        if (newManager.name && newManager.email && newManager.phone) {
+                          const newManagerEntry: Manager = {
+                            id: Date.now().toString(),
+                            ...newManager,
+                            createdAt: new Date().toISOString(),
+                            updatedAt: new Date().toISOString()
+                          };
+                          
+                          // Optimistically update UI
+                          setManagers(prev => [...prev, newManagerEntry]);
+                          setNewManager({ name: '', email: '', phone: '' });
+                          setManagersError(null);
+                          
+                          // Save to Firebase
+                          const success = await addManagerToFirebase(newManagerEntry);
+                          if (!success) {
+                            // Revert optimistic update on failure
+                            setManagers(prev => prev.filter(m => m.id !== newManagerEntry.id));
+                          }
+                        }
+                      }}
+                      disabled={!newManager.name || !newManager.email || !newManager.phone || managersLoading}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      {managersLoading ? 'Adding...' : 'Add Manager'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Current Managers List */}
+              <Card>
+                <CardHeader>
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <UserCheck className="w-5 h-5 text-green-600" />
+                    Current Managers ({managers.length})
+                    {managersLoading && <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>}
+                  </h3>
+                </CardHeader>
+                <CardContent>
+                  {managers.length === 0 ? (
+                    <div className="text-center py-8">
+                      <UserCheck className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-500">No managers assigned yet</p>
+                      <p className="text-sm text-gray-400 mt-1">Add managers using the form above</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {managers.map((manager) => (
+                        <AdminManagerCard
+                          key={manager.id}
+                          manager={manager}
+                          isEditing={editingManager === manager.id}
+                          onEdit={() => setEditingManager(manager.id)}
+                          onCancelEdit={() => setEditingManager(null)}
+                          onSave={(updatedData) => handleUpdateManager(manager.id, updatedData)}
+                          onDelete={async () => {
+                            // Optimistically update UI
+                            setManagers(prev => prev.filter(m => m.id !== manager.id));
+                            setManagersError(null);
+                            
+                            // Remove from Firebase
+                            const success = await removeManagerFromFirebase(manager);
+                            if (!success) {
+                              // Revert optimistic update on failure
+                              setManagers(prev => [...prev, manager]);
+                            }
+                          }}
+                          disabled={managersLoading}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="nurses" className="mt-6">
+            <div className="space-y-6">
+              {/* Error Display */}
+              {nursesError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-red-600" />
+                    <p className="text-red-800 font-medium">Error</p>
+                  </div>
+                  <p className="text-red-700 text-sm mt-1">{nursesError}</p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setNursesError(null)}
+                    className="mt-2 text-red-600 hover:text-red-700"
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              )}
+              {/* Add New Nurse Form */}
+              <Card>
+                <CardHeader>
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <Plus className="w-5 h-5 text-blue-600" />
+                    Add New Nurse
+                  </h3>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Name</label>
+                      <Input
+                        placeholder="Enter nurse name"
+                        value={newNurse.name}
+                        onChange={(e) => setNewNurse(prev => ({ ...prev, name: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Email Address</label>
+                      <Input
+                        type="email"
+                        placeholder="nurse@example.com"
+                        value={newNurse.email}
+                        onChange={(e) => setNewNurse(prev => ({ ...prev, email: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Phone Number</label>
+                      <Input
+                        type="tel"
+                        placeholder="+44 123 456 7890"
+                        value={newNurse.phone}
+                        onChange={(e) => setNewNurse(prev => ({ ...prev, phone: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <Button 
+                      onClick={async () => {
+                        if (newNurse.name && newNurse.email && newNurse.phone) {
+                          const newNurseEntry: Nurse = {
+                            id: Date.now().toString(),
+                            ...newNurse,
+                            createdAt: new Date().toISOString(),
+                            updatedAt: new Date().toISOString()
+                          };
+                          
+                          // Optimistically update UI
+                          setNurses(prev => [...prev, newNurseEntry]);
+                          setNewNurse({ name: '', email: '', phone: '' });
+                          setNursesError(null);
+                          
+                          // Save to Firebase
+                          const success = await addNurseToFirebase(newNurseEntry);
+                          if (!success) {
+                            // Revert optimistic update on failure
+                            setNurses(prev => prev.filter(n => n.id !== newNurseEntry.id));
+                          }
+                        }
+                      }}
+                      disabled={!newNurse.name || !newNurse.email || !newNurse.phone || nursesLoading}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      {nursesLoading ? 'Adding...' : 'Add Nurse'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Current Nurses List */}
+              <Card>
+                <CardHeader>
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <UserCheck className="w-5 h-5 text-green-600" />
+                    Current Nurses ({nurses.length})
+                    {nursesLoading && <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>}
+                  </h3>
+                </CardHeader>
+                <CardContent>
+                  {nurses.length === 0 ? (
+                    <div className="text-center py-8">
+                      <UserCheck className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-500">No nurses assigned yet</p>
+                      <p className="text-sm text-gray-400 mt-1">Add nurses using the form above</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {nurses.map((nurse) => (
+                        <AdminNurseCard
+                          key={nurse.id}
+                          nurse={nurse}
+                          isEditing={editingNurse === nurse.id}
+                          onEdit={() => setEditingNurse(nurse.id)}
+                          onCancelEdit={() => setEditingNurse(null)}
+                          onSave={(updatedData) => handleUpdateNurse(nurse.id, updatedData)}
+                          onDelete={async () => {
+                            // Optimistically update UI
+                            setNurses(prev => prev.filter(n => n.id !== nurse.id));
+                            setNursesError(null);
+                            
+                            // Remove from Firebase
+                            const success = await removeNurseFromFirebase(nurse);
+                            if (!success) {
+                              // Revert optimistic update on failure
+                              setNurses(prev => [...prev, nurse]);
+                            }
+                          }}
+                          disabled={nursesLoading}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="ctm" className="mt-6">
+            <div className="space-y-6">
+              {/* Error Display */}
+              {ctmsError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-red-600" />
+                    <p className="text-red-800 font-medium">Error</p>
+                  </div>
+                  <p className="text-red-700 text-sm mt-1">{ctmsError}</p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setCTMsError(null)}
+                    className="mt-2 text-red-600 hover:text-red-700"
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              )}
+              {/* Add New CTM Form */}
+              <Card>
+                <CardHeader>
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <Plus className="w-5 h-5 text-blue-600" />
+                    Add New CTM
+                  </h3>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Name</label>
+                      <Input
+                        placeholder="Enter CTM name"
+                        value={newCTM.name}
+                        onChange={(e) => setNewCTM(prev => ({ ...prev, name: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Email Address</label>
+                      <Input
+                        type="email"
+                        placeholder="ctm@example.com"
+                        value={newCTM.email}
+                        onChange={(e) => setNewCTM(prev => ({ ...prev, email: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Phone Number</label>
+                      <Input
+                        type="tel"
+                        placeholder="+44 123 456 7890"
+                        value={newCTM.phone}
+                        onChange={(e) => setNewCTM(prev => ({ ...prev, phone: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <Button 
+                      onClick={async () => {
+                        if (newCTM.name && newCTM.email && newCTM.phone) {
+                          const newCTMEntry: CTM = {
+                            id: Date.now().toString(),
+                            ...newCTM,
+                            createdAt: new Date().toISOString(),
+                            updatedAt: new Date().toISOString()
+                          };
+                          
+                          // Optimistically update UI
+                          setCTMs(prev => [...prev, newCTMEntry]);
+                          setNewCTM({ name: '', email: '', phone: '' });
+                          setCTMsError(null);
+                          
+                          // Save to Firebase
+                          const success = await addCTMToFirebase(newCTMEntry);
+                          if (!success) {
+                            // Revert optimistic update on failure
+                            setCTMs(prev => prev.filter(c => c.id !== newCTMEntry.id));
+                          }
+                        }
+                      }}
+                      disabled={!newCTM.name || !newCTM.email || !newCTM.phone || ctmsLoading}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      {ctmsLoading ? 'Adding...' : 'Add CTM'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Current CTMs List */}
+              <Card>
+                <CardHeader>
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <UserCheck className="w-5 h-5 text-green-600" />
+                    Current CTMs ({ctms.length})
+                    {ctmsLoading && <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>}
+                  </h3>
+                </CardHeader>
+                <CardContent>
+                  {ctms.length === 0 ? (
+                    <div className="text-center py-8">
+                      <UserCheck className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-500">No CTMs assigned yet</p>
+                      <p className="text-sm text-gray-400 mt-1">Add CTMs using the form above</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {ctms.map((ctm) => (
+                        <AdminCTMCard
+                          key={ctm.id}
+                          ctm={ctm}
+                          isEditing={editingCTM === ctm.id}
+                          onEdit={() => setEditingCTM(ctm.id)}
+                          onCancelEdit={() => setEditingCTM(null)}
+                          onSave={(updatedData) => handleUpdateCTM(ctm.id, updatedData)}
+                          onDelete={async () => {
+                            // Optimistically update UI
+                            setCTMs(prev => prev.filter(c => c.id !== ctm.id));
+                            setCTMsError(null);
+                            
+                            // Remove from Firebase
+                            const success = await removeCTMFromFirebase(ctm);
+                            if (!success) {
+                              // Revert optimistic update on failure
+                              setCTMs(prev => [...prev, ctm]);
+                            }
+                          }}
+                          disabled={ctmsLoading}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
     </div>
   </main>
+    </div>
+  );
+}
+
+// Admin Manager Card Component with Edit Functionality
+interface AdminManagerCardProps {
+  manager: Manager;
+  isEditing: boolean;
+  onEdit: () => void;
+  onCancelEdit: () => void;
+  onSave: (updatedData: Partial<Manager>) => void;
+  onDelete: () => void;
+  disabled: boolean;
+}
+
+function AdminManagerCard({ manager, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: AdminManagerCardProps) {
+  const [editForm, setEditForm] = useState({
+    name: manager.name,
+    email: manager.email,
+    phone: manager.phone,
+  });
+
+  const handleSave = () => {
+    if (editForm.name && editForm.email && editForm.phone) {
+      onSave(editForm);
+    }
+  };
+
+  const handleCancel = () => {
+    setEditForm({
+      name: manager.name,
+      email: manager.email,
+      phone: manager.phone,
+    });
+    onCancelEdit();
+  };
+
+  if (isEditing) {
+    return (
+      <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">Name</label>
+            <Input
+              value={editForm.name}
+              onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+              placeholder="Enter manager name"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">Email</label>
+            <Input
+              type="email"
+              value={editForm.email}
+              onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
+              placeholder="manager@example.com"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">Phone</label>
+            <Input
+              type="tel"
+              value={editForm.phone}
+              onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
+              placeholder="+44 123 456 7890"
+            />
+          </div>
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleCancel}
+            disabled={disabled}
+          >
+            <X className="w-4 h-4 mr-2" />
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleSave}
+            disabled={!editForm.name || !editForm.email || !editForm.phone || disabled}
+            className="bg-green-600 hover:bg-green-700"
+          >
+            <Save className="w-4 h-4 mr-2" />
+            Save Changes
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border">
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-blue-100 rounded-full">
+            <UserCheck className="w-4 h-4 text-blue-600" />
+          </div>
+          <div>
+            <p className="font-medium text-gray-900">{manager.name}</p>
+            <p className="text-sm text-gray-500">Manager</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Mail className="w-4 h-4 text-gray-400" />
+          <span className="text-sm text-gray-700">{manager.email}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Phone className="w-4 h-4 text-gray-400" />
+          <span className="text-sm text-gray-700">{manager.phone}</span>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onEdit}
+          disabled={disabled}
+          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+        >
+          <Edit className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onDelete}
+          disabled={disabled}
+          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// Admin Nurse Card Component with Edit Functionality
+interface AdminNurseCardProps {
+  nurse: Nurse;
+  isEditing: boolean;
+  onEdit: () => void;
+  onCancelEdit: () => void;
+  onSave: (updatedData: Partial<Nurse>) => void;
+  onDelete: () => void;
+  disabled: boolean;
+}
+
+function AdminNurseCard({ nurse, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: AdminNurseCardProps) {
+  const [editForm, setEditForm] = useState({
+    name: nurse.name,
+    email: nurse.email,
+    phone: nurse.phone,
+  });
+
+  const handleSave = () => {
+    onSave(editForm);
+  };
+
+  const handleCancel = () => {
+    setEditForm({
+      name: nurse.name,
+      email: nurse.email,
+      phone: nurse.phone,
+    });
+    onCancelEdit();
+  };
+
+  if (isEditing) {
+    return (
+      <div className="border border-blue-200 rounded-lg p-4 bg-blue-50">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 mb-3">
+            <UserCheck className="w-4 h-4 text-blue-600" />
+            <span className="font-medium text-blue-900">Edit Nurse</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+              <label className="text-xs font-medium text-gray-700 block mb-1">Name</label>
+              <Input
+                value={editForm.name}
+                onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Nurse name"
+                className="text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-700 block mb-1">Email</label>
+              <Input
+                type="email"
+                value={editForm.email}
+                onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
+                placeholder="nurse@example.com"
+                className="text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-700 block mb-1">Phone</label>
+              <Input
+                type="tel"
+                value={editForm.phone}
+                onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
+                placeholder="+44 123 456 7890"
+                className="text-sm"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2 pt-2">
+            <Button
+              size="sm"
+              onClick={handleSave}
+              disabled={!editForm.name || !editForm.email || !editForm.phone || disabled}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              <Save className="w-3 h-3 mr-1" />
+              Save
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleCancel}
+              disabled={disabled}
+              className="text-gray-600 hover:text-gray-700"
+            >
+              <X className="w-3 h-3 mr-1" />
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-sm transition-shadow">
+      <div className="space-y-2">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+            <UserCheck className="w-4 h-4 text-blue-600" />
+          </div>
+          <div>
+            <p className="font-medium text-gray-900">{nurse.name}</p>
+            <p className="text-sm text-gray-500">Nurse</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Mail className="w-4 h-4 text-gray-400" />
+          <span className="text-sm text-gray-700">{nurse.email}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Phone className="w-4 h-4 text-gray-400" />
+          <span className="text-sm text-gray-700">{nurse.phone}</span>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onEdit}
+          disabled={disabled}
+          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+        >
+          <Edit className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onDelete}
+          disabled={disabled}
+          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// Admin CTM Card Component with Edit Functionality
+interface AdminCTMCardProps {
+  ctm: CTM;
+  isEditing: boolean;
+  onEdit: () => void;
+  onCancelEdit: () => void;
+  onSave: (updatedData: Partial<CTM>) => void;
+  onDelete: () => void;
+  disabled: boolean;
+}
+
+function AdminCTMCard({ ctm, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: AdminCTMCardProps) {
+  const [editForm, setEditForm] = useState({
+    name: ctm.name,
+    email: ctm.email,
+    phone: ctm.phone,
+  });
+
+  const handleSave = () => {
+    onSave(editForm);
+  };
+
+  const handleCancel = () => {
+    setEditForm({
+      name: ctm.name,
+      email: ctm.email,
+      phone: ctm.phone,
+    });
+    onCancelEdit();
+  };
+
+  if (isEditing) {
+    return (
+      <div className="border border-blue-200 rounded-lg p-4 bg-blue-50">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 mb-3">
+            <UserCheck className="w-4 h-4 text-blue-600" />
+            <span className="font-medium text-blue-900">Edit CTM</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+              <label className="text-xs font-medium text-gray-700 block mb-1">Name</label>
+              <Input
+                value={editForm.name}
+                onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="CTM name"
+                className="text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-700 block mb-1">Email</label>
+              <Input
+                type="email"
+                value={editForm.email}
+                onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
+                placeholder="ctm@example.com"
+                className="text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-700 block mb-1">Phone</label>
+              <Input
+                type="tel"
+                value={editForm.phone}
+                onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
+                placeholder="+44 123 456 7890"
+                className="text-sm"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2 pt-2">
+            <Button
+              size="sm"
+              onClick={handleSave}
+              disabled={!editForm.name || !editForm.email || !editForm.phone || disabled}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              <Save className="w-3 h-3 mr-1" />
+              Save
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleCancel}
+              disabled={disabled}
+              className="text-gray-600 hover:text-gray-700"
+            >
+              <X className="w-3 h-3 mr-1" />
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-sm transition-shadow">
+      <div className="space-y-2">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+            <UserCheck className="w-4 h-4 text-blue-600" />
+          </div>
+          <div>
+            <p className="font-medium text-gray-900">{ctm.name}</p>
+            <p className="text-sm text-gray-500">CTM</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Mail className="w-4 h-4 text-gray-400" />
+          <span className="text-sm text-gray-700">{ctm.email}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Phone className="w-4 h-4 text-gray-400" />
+          <span className="text-sm text-gray-700">{ctm.phone}</span>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onEdit}
+          disabled={disabled}
+          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+        >
+          <Edit className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onDelete}
+          disabled={disabled}
+          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      </div>
     </div>
   );
 }

@@ -2,7 +2,7 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Folder, Users, FileText, FileSpreadsheet, FileIcon, FileX2, Briefcase, Clock, User, TrendingUp, TrendingDown, Minus, Archive, Calendar, BarChart3, Edit3, FileCheck, CheckCircle, AlertCircle, ClipboardList, ChevronRight } from "lucide-react";
+import { Folder, Users, FileText, FileSpreadsheet, FileIcon, FileX2, Briefcase, Clock, User, TrendingUp, TrendingDown, Minus, Archive, Calendar, BarChart3, Edit3, FileCheck, CheckCircle, AlertCircle, ClipboardList, ChevronRight, Zap, Shield } from "lucide-react";
 import type { Workspace, Document, Folder as FolderType } from "@/lib/types";
 import { useMemo } from "react";
 import {
@@ -122,9 +122,14 @@ const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradi
     return (
         <div className="w-full space-y-8">
             {/* Section Header */}
-            <div className="text-center space-y-3">
-                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">Quick Actions</h2>
-                <p className="text-gray-600 max-w-2xl mx-auto">Access your most important tools and monitor key metrics at a glance</p>
+            <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg">
+                        <Zap className="h-5 w-5 text-white" />
+                    </div>
+                    <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">Quick Actions</h2>
+                </div>
+                <p className="text-gray-600 max-w-2xl">Access your most important tools and monitor key metrics at a glance</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 relative z-10">
@@ -252,9 +257,14 @@ const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradi
             
             {/* Enhanced Compliance Status Grid */}
             <div className="space-y-6">
-                <div className="text-center space-y-3">
-                    <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">Compliance Overview</h2>
-                    <p className="text-gray-600 max-w-2xl mx-auto">Monitor your audit progress and identify areas needing attention</p>
+                <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-lg">
+                            <Shield className="h-5 w-5 text-white" />
+                        </div>
+                        <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">Compliance Overview</h2>
+                    </div>
+                    <p className="text-gray-600 max-w-2xl">Monitor your audit progress and identify areas needing attention</p>
                 </div>
 
                 {/* Progress Summary Cards */}
@@ -1511,87 +1521,89 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
                     <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-gradient-to-br from-blue-300/10 to-transparent rounded-full -translate-x-1/2 -translate-y-1/2 animate-pulse delay-1000"></div>
                 </div>
 
-                <div className="relative z-10 p-6 sm:p-8 lg:p-10">
-                    <div className="max-w-7xl mx-auto">
-                        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8 lg:gap-12">
-                            {/* Main content - left side */}
-                            <div className="flex-1 space-y-4 lg:space-y-6">
-                                <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full border border-white/20">
+                <div className="relative z-10 p-8">
+                    <div className="w-full mx-auto flex items-start justify-between gap-8">
+                        <div className="flex items-start gap-6">
+                            <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg">
+                                <Users className="w-8 h-8 text-white" />
+                            </div>
+                            <div className="space-y-2">
+                                <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-sm rounded-full border border-white/20">
                                     <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                                     <span className="text-sm font-medium text-white/90">Welcome back</span>
                                 </div>
-                                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight tracking-tight bg-gradient-to-r from-white via-blue-100 to-purple-100 bg-clip-text text-transparent">
+                                <h1 className="text-3xl font-bold leading-tight tracking-tight text-white">
                                     {workspace.name}
                                 </h1>
                             </div>
+                        </div>
 
-                            {/* Key metrics cards - right side */}
-                            <div className="w-full lg:w-auto">
-                                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 lg:gap-4">
-                                    <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
-                                        <div className="flex items-center gap-2 lg:gap-3 h-full">
-                                            <div className="p-2 bg-blue-500/20 rounded-xl group-hover:bg-blue-500/30 transition-colors duration-300">
-                                                <FileText className="w-4 h-4 lg:w-5 lg:h-5 text-blue-300" />
-                                            </div>
-                                            <div>
-                                                <div className="text-xl lg:text-2xl font-bold text-white">{documents.length}</div>
-                                                <div className="text-xs text-blue-200 font-medium uppercase tracking-wide">Documents</div>
-                                            </div>
+                        {/* Key metrics cards - right side */}
+                        <div className="hidden xl:flex items-center gap-6">
+                            <div className="grid grid-cols-5 gap-4">
+                                <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
+                                    <div className="flex items-center gap-2 lg:gap-3 h-full">
+                                        <div className="p-2 bg-blue-500/20 rounded-xl group-hover:bg-blue-500/30 transition-colors duration-300">
+                                            <FileText className="w-4 h-4 lg:w-5 lg:h-5 text-blue-300" />
+                                        </div>
+                                        <div>
+                                            <div className="text-xl lg:text-2xl font-bold text-white">{documents.length}</div>
+                                            <div className="text-xs text-blue-200 font-medium uppercase tracking-wide">Documents</div>
                                         </div>
                                     </div>
-                                    <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
-                                        <div className="flex items-center gap-2 lg:gap-3 h-full">
-                                            <div className="p-2 bg-green-500/20 rounded-xl group-hover:bg-green-500/30 transition-colors duration-300">
-                                                <Folder className="w-4 h-4 lg:w-5 lg:h-5 text-green-300" />
-                                            </div>
-                                            <div>
-                                                <div className="text-xl lg:text-2xl font-bold text-white">{folders.length}</div>
-                                                <div className="text-xs text-green-200 font-medium uppercase tracking-wide">Folders</div>
-                                            </div>
+                                </div>
+                                <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
+                                    <div className="flex items-center gap-2 lg:gap-3 h-full">
+                                        <div className="p-2 bg-green-500/20 rounded-xl group-hover:bg-green-500/30 transition-colors duration-300">
+                                            <Folder className="w-4 h-4 lg:w-5 lg:h-5 text-green-300" />
+                                        </div>
+                                        <div>
+                                            <div className="text-xl lg:text-2xl font-bold text-white">{folders.length}</div>
+                                            <div className="text-xs text-green-200 font-medium uppercase tracking-wide">Folders</div>
                                         </div>
                                     </div>
-                                    <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
-                                        <div className="flex items-center gap-2 lg:gap-3 h-full">
-                                            <div className="p-2 bg-purple-500/20 rounded-xl group-hover:bg-purple-500/30 transition-colors duration-300">
-                                                <Clock className="w-4 h-4 lg:w-5 lg:h-5 text-purple-300" />
-                                            </div>
-                                            <div>
-                                                <div className="text-xl lg:text-2xl font-bold text-white">{recentDocuments.length}</div>
-                                                <div className="text-xs text-purple-200 font-medium uppercase tracking-wide">Recent</div>
-                                            </div>
+                                </div>
+                                <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
+                                    <div className="flex items-center gap-2 lg:gap-3 h-full">
+                                        <div className="p-2 bg-purple-500/20 rounded-xl group-hover:bg-purple-500/30 transition-colors duration-300">
+                                            <Clock className="w-4 h-4 lg:w-5 lg:h-5 text-purple-300" />
+                                        </div>
+                                        <div>
+                                            <div className="text-xl lg:text-2xl font-bold text-white">{recentDocuments.length}</div>
+                                            <div className="text-xs text-purple-200 font-medium uppercase tracking-wide">Recent</div>
                                         </div>
                                     </div>
-                                    <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
-                                        <div className="flex items-center gap-2 lg:gap-3 h-full">
-                                            <div className="p-2 bg-emerald-500/20 rounded-xl group-hover:bg-emerald-500/30 transition-colors duration-300">
-                                                <Users className="w-4 h-4 lg:w-5 lg:h-5 text-emerald-300" />
-                                            </div>
-                                            <div>
-                                                <div className="text-xl lg:text-2xl font-bold text-white">{overallStats.auditsCompleted}</div>
-                                                <div className="text-xs text-emerald-200 font-medium uppercase tracking-wide">Audits Done</div>
-                                            </div>
+                                </div>
+                                <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
+                                    <div className="flex items-center gap-2 lg:gap-3 h-full">
+                                        <div className="p-2 bg-emerald-500/20 rounded-xl group-hover:bg-emerald-500/30 transition-colors duration-300">
+                                            <Users className="w-4 h-4 lg:w-5 lg:h-5 text-emerald-300" />
+                                        </div>
+                                        <div>
+                                            <div className="text-xl lg:text-2xl font-bold text-white">{overallStats.auditsCompleted}</div>
+                                            <div className="text-xs text-emerald-200 font-medium uppercase tracking-wide">Audits Done</div>
                                         </div>
                                     </div>
+                                </div>
 
-                                    {/* Overall compliance card with pie chart on left */}
-                                    <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
-                                        <div className="flex items-center gap-2 lg:gap-3 h-full">
-                                            <div className="flex-shrink-0">
-                                                <OccupancyPie
-                                                    percent={overallStats.overallPercentage ?? 0}
-                                                    size={40}
-                                                    strokeWidth={5}
-                                                    centerFill="#ffffff"
-                                                    centerFontSize={10}
-                                                    centerClassName="font-bold text-slate-800"
-                                                />
+                                {/* Overall compliance card with pie chart on left */}
+                                <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
+                                    <div className="flex items-center gap-2 lg:gap-3 h-full">
+                                        <div className="flex-shrink-0">
+                                            <OccupancyPie
+                                                percent={overallStats.overallPercentage ?? 0}
+                                                size={40}
+                                                strokeWidth={5}
+                                                centerFill="#ffffff"
+                                                centerFontSize={10}
+                                                centerClassName="font-bold text-slate-800"
+                                            />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-xl lg:text-2xl font-bold text-white truncate">
+                                                {overallStats.overallPercentage !== null ? `${overallStats.overallPercentage}%` : '—'}
                                             </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="text-xl lg:text-2xl font-bold text-white truncate">
-                                                    {overallStats.overallPercentage !== null ? `${overallStats.overallPercentage}%` : '—'}
-                                                </div>
-                                                <div className="text-xs text-blue-200 font-medium uppercase tracking-wide">Compliance</div>
-                                            </div>
+                                            <div className="text-xs text-blue-200 font-medium uppercase tracking-wide">Compliance</div>
                                         </div>
                                     </div>
                                 </div>
@@ -1599,8 +1611,6 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
                         </div>
                     </div>
                 </div>
-
-
             </div>
             <main className="flex-1 overflow-y-auto">
                 <div className="min-h-full bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/10">

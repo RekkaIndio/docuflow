@@ -87,7 +87,13 @@ export function AdminSidebar({
           <SidebarMenuItem>
             <SidebarMenuButton onClick={() => handleNavigation(onGoToFiles)} className={`text-lg h-14 ${isActive('/files') ? 'bg-muted/50 rounded' : ''}`}>
               <FolderIcon className="w-7 h-7 mr-2" />
-              <span className="text-lg">Folders</span>
+              <span className="text-lg">Appraisals</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton onClick={() => handleNavigation(() => setView('renewals'))} className={`text-lg h-14 ${isActive('/admin/renewals') ? 'bg-muted/50 rounded' : ''}`}>
+              <FileText className="w-7 h-7 mr-2" />
+              <span className="text-lg">Supervision</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
@@ -100,12 +106,6 @@ export function AdminSidebar({
             <SidebarMenuButton onClick={() => handleNavigation(() => setView('care-homes'))} className={`text-lg h-14 ${isActive('/admin/care-homes') ? 'bg-muted/50 rounded' : ''}`}>
               <UsersRound className="w-7 h-7 mr-2" />
               <span className="text-lg">Occupancy</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton onClick={() => handleNavigation(() => setView('renewals'))} className={`text-lg h-14 ${isActive('/admin/renewals') ? 'bg-muted/50 rounded' : ''}`}>
-              <FileText className="w-7 h-7 mr-2" />
-              <span className="text-lg">Renewals</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>

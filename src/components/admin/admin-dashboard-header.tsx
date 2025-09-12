@@ -98,7 +98,7 @@ export default function AdminDashboardHeader({
               </div>
 
               {/* Total Beds */}
-              <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
+              {/* <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
                 <div className="flex items-center gap-2 lg:gap-3 h-full">
                   <div className="p-2 bg-rose-500/20 rounded-xl group-hover:bg-rose-500/30 transition-colors duration-300">
                     <Building2 className="w-4 h-4 lg:w-5 lg:h-5 text-rose-400" />
@@ -108,7 +108,7 @@ export default function AdminDashboardHeader({
                     <div className="text-xs text-rose-200 font-medium uppercase tracking-wide">Total Beds</div>
                   </div>
                 </div>
-              </div>
+              </div> */}
             </div>
           </div>
         </div>
