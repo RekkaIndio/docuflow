@@ -59,7 +59,7 @@ interface AppSidebarProps {
   workspaces: Workspace[];
   activeWorkspace: Workspace;
   onWorkspaceChange: (workspaceId: string) => void;
-  setView: React.Dispatch<React.SetStateAction<'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'dependency-calculator' | 'daily' | 'notifications' | 'audits' | 'policies' | 'stats' | 'action-plans'>>;
+  setView: React.Dispatch<React.SetStateAction<'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'dependency-calculator' | 'daily' | 'notifications' | 'audits' | 'policies' | 'stats' | 'action-plans' | 'appraisals'>>;
   onGoToFiles: () => void;
   onCreateWorkspace: (name: string) => void;
   dailyEntry?: any;
@@ -213,6 +213,12 @@ export function AppSidebar({
               <SidebarMenuButton onClick={() => handleNavigation(() => setView('policies'))} className="text-lg h-14">
                 <Tag className="w-7 h-7 mr-2" />
                 <span className="text-lg">Policies</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={() => handleNavigation(() => setView('appraisals'))} className="text-lg h-14">
+                <ClipboardList className="w-7 h-7 mr-2" />
+                <span className="text-lg">Appraisals</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
       <SidebarMenuItem>
