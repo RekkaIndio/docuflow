@@ -28,6 +28,11 @@ import OverviewCards from './overview-cards';
 // consolidated imports above
 import { Sun, Moon } from "lucide-react";
 import DailyCheckinModal from './daily-checkin-modal';
+import { StaffingTeamsModal } from './StaffingTeamsModal';
+import { StaffingTrendsModal } from './StaffingTrendsModal';
+import { OccupancyTrendsModal } from './OccupancyTrendsModal';
+import { AuditDetailModal } from './AuditDetailModal';
+import { ComplianceOverviewModal } from './ComplianceOverviewModal';
 import { openDocument } from '@/lib/document-utils';
 
 // Component to display trend indicators
@@ -79,7 +84,7 @@ const getFileIcon = (fileType: Document["fileType"]) => {
   }
 };
 
-const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradientColors, trends, dailyEntry, onDailyEntryUpdate, carePlanScore, hsScore, maintenanceScore, restrictiveScore, fireScore, infectionScore, mealtimeScore, nightScore, staffFileScore, kitchenScore, handleAuditCardClick }: { 
+const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradientColors, trends, dailyEntry, onDailyEntryUpdate, carePlanScore, hsScore, maintenanceScore, restrictiveScore, fireScore, infectionScore, mealtimeScore, nightScore, staffFileScore, kitchenScore, handleAuditCardClick, onStaffingTeamsClick, onStaffingTrendsClick, onOccupancyTrendsClick, onComplianceOverviewClick }: { 
     documents: Document[], 
     onSelect: (doc: Document) => void, 
     workspaceId?: string,
@@ -99,7 +104,11 @@ const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradi
     staffFileScore: number | null,
     kitchenScore: number | null,
 
-    handleAuditCardClick: (auditKey: string) => void
+    handleAuditCardClick: (auditKey: string) => void,
+    onStaffingTeamsClick?: () => void,
+    onStaffingTrendsClick?: () => void,
+    onOccupancyTrendsClick?: () => void,
+    onComplianceOverviewClick?: () => void
 }) => {
     const actionableItems = useMemo(() => {
         const today = new Date();
@@ -194,13 +203,13 @@ const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradi
                 </Card>
                 
                 {/* Occupancy Card */}
-                <OccupancyCard workspaceId={workspaceId} dailyEntry={dailyEntry} />
+                <OccupancyCard workspaceId={workspaceId} dailyEntry={dailyEntry} onTrendsClick={onOccupancyTrendsClick} />
                 
                 {/* Staffing Card */}
-                <StaffingCard workspaceId={workspaceId} dailyEntry={dailyEntry} />
+                <StaffingCard workspaceId={workspaceId} dailyEntry={dailyEntry} onTeamsClick={onStaffingTeamsClick} onTrendsClick={onStaffingTrendsClick} />
                 
                 {/* Overall Score Card */}
-                <Card className="group relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-emerald-500 to-green-600 hover:shadow-xl text-white transition-all duration-300">
+                <Card className="group relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-emerald-500 to-green-600 hover:shadow-xl text-white transition-all duration-300 cursor-pointer" onClick={onComplianceOverviewClick}>
                     <CardHeader className="pb-3">
                         <div className="flex items-center justify-between mb-3">
                             <div className="p-3 bg-white/15 backdrop-blur-sm rounded-2xl border border-white/20">
@@ -527,7 +536,7 @@ const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradi
 
 type OccupancyData = { totalBeds: number; occupiedBeds: number };
 
-function OccupancyCard({ workspaceId, dailyEntry }: { workspaceId?: string, dailyEntry?: any }) {
+function OccupancyCard({ workspaceId, dailyEntry, onTrendsClick }: { workspaceId?: string, dailyEntry?: any, onTrendsClick?: () => void }) {
     const [totalBeds, setTotalBeds] = useState<number | null>(null);
     const [occupiedBeds, setOccupiedBeds] = useState<number | null>(null);
     const [loading, setLoading] = useState(false);
@@ -648,6 +657,9 @@ function OccupancyCard({ workspaceId, dailyEntry }: { workspaceId?: string, dail
     if ((!displayOccupied || displayOccupied === null) && typeof occupiedBeds === 'number' && typeof totalBeds === 'number' && totalBeds > 0) {
         displayOccupied = Math.round(occupiedBeds);
         displayTotal = Math.round(totalBeds);
+        if (!percent || percent === 0) {
+            percent = Math.round((occupiedBeds / totalBeds) * 100);
+        }
     }
 
     const radius = 48;
@@ -695,7 +707,7 @@ function OccupancyCard({ workspaceId, dailyEntry }: { workspaceId?: string, dail
     };
 
     return (
-        <Card className="group relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-indigo-500 to-indigo-600 hover:shadow-xl text-white transition-all duration-300">
+        <Card className="group relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-indigo-500 to-indigo-600 hover:shadow-xl text-white transition-all duration-300 cursor-pointer" onClick={onTrendsClick}>
             <CardHeader className="pb-3 relative z-20">
                 <div className="flex items-center justify-between mb-3">
                     <div className="p-3 bg-white/15 backdrop-blur-sm rounded-2xl border border-white/20">
@@ -916,7 +928,7 @@ function ActionPlansCard({ workspaceId, documents, onSelect }: {
     );
 }
 
-function StaffingCard({ workspaceId, dailyEntry }: { workspaceId?: string, dailyEntry?: any }) {
+function StaffingCard({ workspaceId, dailyEntry, onTeamsClick, onTrendsClick }: { workspaceId?: string, dailyEntry?: any, onTeamsClick?: () => void, onTrendsClick?: () => void }) {
     const [staffingData, setStaffingData] = useState<{ day: string; night: string; lastUpdated?: string } | null>(null);
     const [loading, setLoading] = useState(false);
     const [editing, setEditing] = useState(false);
@@ -1014,25 +1026,43 @@ function StaffingCard({ workspaceId, dailyEntry }: { workspaceId?: string, daily
     };
 
     return (
-        <Card className="group relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-purple-500 to-purple-600 hover:shadow-xl text-white transition-all duration-300">
+        <Card className="group relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-purple-500 to-purple-600 hover:shadow-xl text-white transition-all duration-300 cursor-pointer" onClick={onTrendsClick}>
             <CardHeader className="pb-3 relative z-20">
                 <div className="flex items-center justify-between mb-3">
                     <div className="p-3 bg-white/15 backdrop-blur-sm rounded-2xl border border-white/20">
                         <Users className="h-6 w-6 text-white" />
                     </div>
-                    <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="relative z-30 text-white/80 hover:text-white hover:bg-white/10 transition-colors duration-200 pointer-events-auto" 
-                        onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setEditing(prev => !prev);
-                        }} 
-                        disabled={saving || loading}
-                    >
-                        <Edit3 className="w-4 h-4 mr-1" /> {editing ? 'Cancel' : 'Edit'}
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        {onTeamsClick && (
+                            <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="relative z-30 text-white/80 hover:text-white hover:bg-white/10 transition-colors duration-200 pointer-events-auto" 
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    onTeamsClick();
+                                }} 
+                                disabled={saving || loading}
+                            >
+                                <Users className="w-4 h-4 mr-1" />
+                                Teams
+                            </Button>
+                        )}
+                        <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="relative z-30 text-white/80 hover:text-white hover:bg-white/10 transition-colors duration-200 pointer-events-auto" 
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setEditing(prev => !prev);
+                            }} 
+                            disabled={saving || loading}
+                        >
+                            <Edit3 className="w-4 h-4 mr-1" /> {editing ? 'Cancel' : 'Edit'}
+                        </Button>
+                    </div>
                 </div>
                 <CardTitle className="text-lg font-bold text-white mb-2">Staffing</CardTitle>
                 <CardDescription className="text-purple-100">Latest staffing levels from check-ins</CardDescription>
@@ -1453,6 +1483,31 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
     // Latest daily checkin entry for the workspace (used to feed Occupancy/Staffing cards)
     const [dailyEntry, setDailyEntry] = useState<any | null>(null);
 
+    // Staffing teams modal state
+    const [isStaffingModalOpen, setIsStaffingModalOpen] = useState(false);
+
+    // Staffing trends modal state
+    const [isStaffingTrendsModalOpen, setIsStaffingTrendsModalOpen] = useState(false);
+
+    // Occupancy trends modal state
+    const [isOccupancyModalOpen, setIsOccupancyModalOpen] = useState(false);
+
+    // Compliance overview modal state
+    const [isComplianceModalOpen, setIsComplianceModalOpen] = useState(false);
+
+    // Audit detail modal state
+    const [auditDetailModal, setAuditDetailModal] = useState<{
+        isOpen: boolean;
+        auditType: string;
+        auditName: string;
+        currentScore: number | null;
+    }>({
+        isOpen: false,
+        auditType: '',
+        auditName: '',
+        currentScore: null
+    });
+
     useEffect(() => {
         if (!workspace?.id) return;
         try {
@@ -1487,10 +1542,31 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
         setDailyEntry(entry);
     };
 
-    // Function to navigate to audit forms
+    // Function to handle audit card clicks - now opens detail modal
     const handleAuditCardClick = (auditKey: string) => {
-        // Always navigate to audit form
-        navigateToAuditForm(auditKey);
+        // Find the audit data to pass to the modal
+        const auditMap: Record<string, { name: string; score: number | null }> = {
+            'care-plan': { name: 'Care Plan', score: carePlanScore },
+            'health-safety': { name: 'Health & Safety', score: hsScore },
+            'maintenance': { name: 'Maintenance', score: maintenanceScore },
+            'restrictive-practice': { name: 'Restrictive Practice', score: restrictiveScore },
+            'fire-safety': { name: 'Fire Safety', score: fireScore },
+            'infection-control': { name: 'Infection Control', score: infectionScore },
+            'mealtime': { name: 'Mealtime', score: mealtimeScore },
+            'night-visit': { name: 'Night Visit', score: nightScore },
+            'staff-file': { name: 'Staff File', score: staffFileScore },
+            'kitchen': { name: 'Kitchen', score: kitchenScore }
+        };
+
+        const auditData = auditMap[auditKey];
+        if (auditData) {
+            setAuditDetailModal({
+                isOpen: true,
+                auditType: auditKey,
+                auditName: auditData.name,
+                currentScore: auditData.score
+            });
+        }
     };
 
     // Function to navigate to audit forms by triggering view change to audits
@@ -1636,6 +1712,10 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
                             staffFileScore={staffFileScore}
                             kitchenScore={kitchenScore}
                             handleAuditCardClick={handleAuditCardClick}
+                            onStaffingTeamsClick={() => setIsStaffingModalOpen(true)}
+                            onStaffingTrendsClick={() => setIsStaffingTrendsModalOpen(true)}
+                            onOccupancyTrendsClick={() => setIsOccupancyModalOpen(true)}
+                            onComplianceOverviewClick={() => setIsComplianceModalOpen(true)}
                         />
 
                         {/* Recent Activity Timeline */}
@@ -1776,8 +1856,45 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
                     </div>
                 </div>
             </main>
+
+            {/* Staffing Teams Modal */}
+            <StaffingTeamsModal
+                isOpen={isStaffingModalOpen}
+                onClose={() => setIsStaffingModalOpen(false)}
+                workspaceId={workspace.id}
+            />
+
+            {/* Staffing Trends Modal */}
+            <StaffingTrendsModal
+                isOpen={isStaffingTrendsModalOpen}
+                onClose={() => setIsStaffingTrendsModalOpen(false)}
+                workspaceId={workspace.id}
+            />
+
+            {/* Audit Detail Modal */}
+            <AuditDetailModal
+                isOpen={auditDetailModal.isOpen}
+                onClose={() => setAuditDetailModal(prev => ({ ...prev, isOpen: false }))}
+                workspaceId={workspace.id}
+                auditType={auditDetailModal.auditType}
+                auditName={auditDetailModal.auditName}
+                currentScore={auditDetailModal.currentScore}
+            />
+
+            {/* Occupancy Trends Modal */}
+            <OccupancyTrendsModal
+                isOpen={isOccupancyModalOpen}
+                onClose={() => setIsOccupancyModalOpen(false)}
+                workspaceId={workspace.id}
+            />
+
+            {/* Compliance Overview Modal */}
+            <ComplianceOverviewModal
+                isOpen={isComplianceModalOpen}
+                onClose={() => setIsComplianceModalOpen(false)}
+                workspaceId={workspace.id}
+            />
         </div>
     );
 }
 
-// Care plan stats are now surfaced in the standalone StatsView component.

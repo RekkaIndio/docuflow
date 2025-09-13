@@ -231,26 +231,30 @@ export default function DailyCheckinModal({ workspaceId, open: controlledOpen, o
       <DialogTrigger asChild>
         {trigger || <span />}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[960px] p-0">
+      <DialogContent className="sm:max-w-[960px] p-0 max-h-[90vh] overflow-hidden">
         {/* Accessibility: ensure a DialogTitle exists for screen readers per radix requirements */}
         <DialogHeader className="sr-only">
           <DialogTitle>Daily Check-in — {todayKey}</DialogTitle>
         </DialogHeader>
         {/* Dark hero header to match dashboard style */}
-        <div className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white p-6 rounded-t-lg">
+        <div className="bg-gradient-to-br from-emerald-600 via-green-600 to-teal-600 text-white p-6 rounded-t-lg">
           <div className="flex items-start justify-between">
-            <h2 className="text-2xl font-bold">Daily Check-in — {todayKey}</h2>
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
+                <Clock className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <DialogTitle className="text-2xl font-bold">Daily Check-in — {todayKey}</DialogTitle>
+                <p className="text-slate-300 text-sm mt-1">Record daily occupancy, staffing, and health metrics</p>
+              </div>
+            </div>
           </div>
         </div>
 
-        <Card className="rounded-b-lg">
-          <CardHeader className="pt-4">
-            <CardTitle className="text-sm">Quick daily note</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="px-2">
+        <Card className="rounded-b-lg border-0 shadow-none max-h-[calc(90vh-120px)] overflow-y-auto">
+          <CardContent className="p-6">
+            <div className="space-y-6">
               <StepIndicator steps={steps} current={step} />
-            </div>
 
             {step === 0 && (
               <div className="space-y-3">
@@ -440,6 +444,7 @@ export default function DailyCheckinModal({ workspaceId, open: controlledOpen, o
                     {loading ? 'Saving...' : exists ? 'Save changes' : 'Save today'}
                   </Button>
                 )}
+              </div>
               </div>
             </div>
           </CardContent>
