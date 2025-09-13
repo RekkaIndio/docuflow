@@ -4,6 +4,8 @@ import React from 'react';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Users, TrendingUp, UserCheck, RefreshCw, Clock } from 'lucide-react';
+import AdminStaffingModal from './admin-staffing-modal';
+import { useState } from 'react';
 
 interface AdminStaffingChartProps {
   aggregateStaffingData: {
@@ -59,6 +61,7 @@ export default function AdminStaffingChart({
   };
 
   const weekData = generateWeekData();
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   return (
     <div className="mb-8">
@@ -76,19 +79,25 @@ export default function AdminStaffingChart({
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-4 py-2 bg-white/60 backdrop-blur-sm rounded-full border border-gray-200/50">
-            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-            <span className="text-sm text-gray-600 font-medium">Live Data</span>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="bg-white/60 backdrop-blur-sm border-gray-200/50 hover:bg-white/80 transition-all duration-300"
+              onClick={onRefresh}
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Refresh
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="bg-white/40 backdrop-blur-sm border-gray-200/30 hover:bg-white/70 transition-all duration-300"
+              onClick={() => setIsModalOpen(true)}
+            >
+              Details
+            </Button>
           </div>
-          <Button
-            size="sm"
-            variant="outline"
-            className="bg-white/60 backdrop-blur-sm border-gray-200/50 hover:bg-white/80 transition-all duration-300"
-            onClick={onRefresh}
-          >
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh
-          </Button>
         </div>
       </div>
 
@@ -110,7 +119,13 @@ export default function AdminStaffingChart({
             <div className="space-y-8">
               {/* Current Totals */}
               <div className="grid grid-cols-2 gap-6">
-                <div className="group/card relative overflow-hidden bg-gradient-to-br from-amber-50 via-amber-25 to-amber-50/50 p-6 rounded-2xl border border-amber-200/50 hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setIsModalOpen(true)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setIsModalOpen(true); }}
+                  className="group/card relative overflow-hidden bg-gradient-to-br from-amber-50 via-amber-25 to-amber-50/50 p-6 rounded-2xl border border-amber-200/50 hover:shadow-lg transition-all duration-300 hover:scale-[1.02] cursor-pointer"
+                >
                   <div className="absolute top-0 right-0 w-16 h-16 bg-amber-100/30 rounded-full -mr-8 -mt-8 group-hover/card:bg-amber-100/40 transition-colors duration-300"></div>
                   <div className="relative flex items-center gap-4">
                     <div className="p-3 bg-amber-500/10 rounded-xl group-hover/card:bg-amber-500/20 transition-colors duration-300">
@@ -124,7 +139,13 @@ export default function AdminStaffingChart({
                   </div>
                 </div>
 
-                <div className="group/card relative overflow-hidden bg-gradient-to-br from-blue-50 via-blue-25 to-blue-50/50 p-6 rounded-2xl border border-blue-200/50 hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setIsModalOpen(true)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setIsModalOpen(true); }}
+                  className="group/card relative overflow-hidden bg-gradient-to-br from-blue-50 via-blue-25 to-blue-50/50 p-6 rounded-2xl border border-blue-200/50 hover:shadow-lg transition-all duration-300 hover:scale-[1.02] cursor-pointer"
+                >
                   <div className="absolute top-0 right-0 w-16 h-16 bg-blue-100/30 rounded-full -mr-8 -mt-8 group-hover/card:bg-blue-100/40 transition-colors duration-300"></div>
                   <div className="relative flex items-center gap-4">
                     <div className="p-3 bg-blue-500/10 rounded-xl group-hover/card:bg-blue-500/20 transition-colors duration-300">
@@ -242,6 +263,13 @@ export default function AdminStaffingChart({
           )}
         </CardContent>
       </Card>
+      <AdminStaffingModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        aggregateStaffingData={aggregateStaffingData}
+        workspaces={[]}
+        occupancyBreakdown={weekData.map(d => ({ date: d.date, occupancy: Math.round((d.total / Math.max(1, aggregateStaffingData.totalDay + aggregateStaffingData.totalNight)) * 100) }))}
+      />
     </div>
   );
 }

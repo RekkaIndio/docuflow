@@ -1189,12 +1189,31 @@ export default function AdminPage() {
                       ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                           {filteredWorkspaces.map((ws: any) => (
-                            <Card key={ws.id} className={cn('hover:shadow-lg transition-shadow', ws.region ? '' : 'opacity-90') }>
-                              <CardHeader className="flex items-center justify-between w-full px-4 py-3 rounded-t-lg bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white">
-                                <div className="flex-1 min-w-0 text-lg font-semibold truncate text-left">{ws.name || ws.id}</div>
+                            <Card key={ws.id} className={cn('hover:shadow-lg transition-shadow overflow-hidden', ws.region ? '' : 'opacity-95')}>
+                              {/* Thin accent bar */}
+                              <div className={cn('h-1', ws.overallScore != null ? 'bg-gradient-to-r from-blue-500 to-indigo-600' : 'bg-slate-200')}></div>
+
+                              <CardHeader className="flex items-start justify-between w-full px-4 pt-3 pb-2 bg-white">
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <div className="flex-shrink-0 rounded-md p-2 bg-blue-50">
+                                    <Users className="w-5 h-5 text-blue-600" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <div className="text-sm font-semibold truncate text-left">{ws.name || ws.id}</div>
+                                    <div className="text-xs text-muted-foreground">{ws.region || 'Region unknown'}</div>
+                                  </div>
+                                </div>
+
                                 <div className="flex items-center gap-2 ml-4">
-                                  <Badge variant="secondary">{ws.folders?.length || 0} folders</Badge>
-                                  <Button onClick={() => setSelectedWorkspaceForTeams(ws)}>Manage Teams</Button>
+                                  <div className="flex flex-col items-end">
+                                    <div className="text-sm font-semibold">{ws.folders?.length || 0}</div>
+                                    <div className="text-xs text-muted-foreground">folders</div>
+                                  </div>
+                                  <Badge variant="secondary">{Math.round((ws.occupancy || 0) * 100)}%</Badge>
+                                  <Button onClick={() => setSelectedWorkspaceForTeams(ws)} variant="default" className="bg-blue-600 text-white hover:bg-blue-700">
+                                    Manage Teams
+                                  </Button>
+
                                   <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                       <Button variant="ghost" size="icon">
@@ -1217,15 +1236,30 @@ export default function AdminPage() {
                                   </DropdownMenu>
                                 </div>
                               </CardHeader>
-                              <CardContent>
-                                <div className="mt-2 text-sm text-muted-foreground space-y-2">
-                                  {(ws.folders || []).slice(0, 6).map((f: any) => (
-                                    <div key={f.id} className="flex items-center justify-between">
-                                      <div className="truncate">{f.name}</div>
-                                      <div className="text-xs text-muted-foreground">{(f.items || []).filter((it: any) => it.type === 'document').length} docs</div>
+
+                              <CardContent className="pt-2">
+                                <div className="flex items-center gap-4">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-12 h-12">
+                                      <OccupancyPie percent={Math.round((ws.occupancy || 0) * 100)} size={48} strokeWidth={6} />
                                     </div>
-                                  ))}
-                                  {(ws.folders || []).length > 6 && <div className="text-xs text-muted-foreground">And more...</div>}
+                                    <div className="text-sm">
+                                      <div className="font-medium">{ws.occupiedBeds ?? '—'} / {ws.totalBeds ?? '—'}</div>
+                                      <div className="text-xs text-muted-foreground">Occupied / Total Beds</div>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex-1 text-sm text-muted-foreground">
+                                    <div className="space-y-1">
+                                      {(ws.folders || []).slice(0, 4).map((f: any) => (
+                                        <div key={f.id} className="flex items-center justify-between">
+                                          <div className="truncate">{f.name}</div>
+                                          <div className="text-xs text-muted-foreground">{(f.items || []).filter((it: any) => it.type === 'document').length} docs</div>
+                                        </div>
+                                      ))}
+                                      {(ws.folders || []).length > 4 && <div className="text-xs text-muted-foreground">And more...</div>}
+                                    </div>
+                                  </div>
                                 </div>
                               </CardContent>
                             </Card>

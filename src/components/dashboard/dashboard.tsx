@@ -422,10 +422,50 @@ export function Dashboard() {
 
       window.addEventListener('navigate-to-audits', handleAuditsNavigation as EventListener);
 
+      // Listen for navigate-to-appraisals events from chat
+      const handleAppraisalsNavigation = (ev: CustomEvent) => {
+        setView('appraisals');
+      };
+
+      window.addEventListener('navigate-to-appraisals', handleAppraisalsNavigation as EventListener);
+
+      // Listen for navigate-to-action-plans events from chat
+      const handleActionPlansNavigation = (ev: CustomEvent) => {
+        setView('action-plans');
+      };
+
+      window.addEventListener('navigate-to-action-plans', handleActionPlansNavigation as EventListener);
+
+      // Listen for navigate-to-admin events from chat
+      const handleAdminNavigation = (ev: CustomEvent) => {
+        setView('settings'); // Admin functionality is under settings
+      };
+
+      window.addEventListener('navigate-to-admin', handleAdminNavigation as EventListener);
+
+      // Listen for navigate-to-dashboard events from chat
+      const handleDashboardNavigation = (ev: CustomEvent) => {
+        setView('home');
+      };
+
+      window.addEventListener('navigate-to-dashboard', handleDashboardNavigation as EventListener);
+
+      // Listen for navigate-to-policies events from chat
+      const handlePoliciesNavigation = (ev: CustomEvent) => {
+        setView('policies');
+      };
+
+      window.addEventListener('navigate-to-policies', handlePoliciesNavigation as EventListener);
+
       return () => {
         window.removeEventListener('navigate-to-document', handleDocumentNavigation as EventListener);
         window.removeEventListener('navigate-to-workspace', handleWorkspaceNavigation as EventListener);
         window.removeEventListener('navigate-to-audits', handleAuditsNavigation as EventListener);
+        window.removeEventListener('navigate-to-appraisals', handleAppraisalsNavigation as EventListener);
+        window.removeEventListener('navigate-to-action-plans', handleActionPlansNavigation as EventListener);
+        window.removeEventListener('navigate-to-admin', handleAdminNavigation as EventListener);
+        window.removeEventListener('navigate-to-dashboard', handleDashboardNavigation as EventListener);
+        window.removeEventListener('navigate-to-policies', handlePoliciesNavigation as EventListener);
       };
     }
   }, [activeWorkspace]);

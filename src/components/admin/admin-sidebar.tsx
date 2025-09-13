@@ -120,12 +120,12 @@ export function AdminSidebar({
               <span className="text-lg">Policies</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
-          <SidebarMenuItem>
+          {/* <SidebarMenuItem>
             <SidebarMenuButton onClick={() => handleNavigation(() => setView('teams'))} className="text-lg h-14">
               <UsersRound className="w-7 h-7 mr-2" />
               <span className="text-lg">Teams</span>
             </SidebarMenuButton>
-          </SidebarMenuItem>
+          </SidebarMenuItem> */}
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter>

@@ -22,6 +22,22 @@ export default function ActionPlansPage() {
     loadActionPlanData();
   }, [activeWorkspace?.id]);
 
+  // Add event listeners for chat commands
+  useEffect(() => {
+    const handleNavigateToActionPlans = (event: CustomEvent) => {
+      // Already on action plans page, could scroll to top or refresh data
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    // Add event listener
+    window.addEventListener('navigate-to-action-plans', handleNavigateToActionPlans as EventListener);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('navigate-to-action-plans', handleNavigateToActionPlans as EventListener);
+    };
+  }, []);
+
   const loadActionPlanData = async () => {
     if (!activeWorkspace?.id) return;
 

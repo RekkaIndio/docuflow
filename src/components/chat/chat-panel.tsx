@@ -14,6 +14,9 @@ import { chatWithDocuments } from "@/ai/flows/chat-with-documents";
 import { chatWithFolder } from "@/ai/flows/chat-with-folder";
 import { useToast } from "@/hooks/use-toast";
 import { DocumentCard } from "@/components/ui/document-card";
+import { UserCard } from "@/components/ui/user-card";
+import { TeamCard } from "@/components/ui/team-card";
+import { ActionCard } from "@/components/ui/action-card";
 import {
   Popover,
   PopoverContent,
@@ -35,7 +38,7 @@ interface ChatMessage {
   sender: 'user' | 'ai';
   text: string;
   documents?: Array<{
-    id: string;
+    id?: string;
     name: string;
     status?: 'current' | 'due-soon' | 'overdue' | 'updated';
     statusText?: string;
@@ -45,6 +48,28 @@ interface ChatMessage {
     nextReviewRequired?: string;
     summary?: string;
   }>;
+  users?: Array<{
+    id?: string;
+    name: string;
+    email?: string;
+    role?: string;
+    avatarUrl?: string;
+    createdAt?: string;
+  }>;
+  teams?: Array<{
+    id?: string;
+    name: string;
+    memberCount?: number;
+    description?: string;
+  }>;
+  actions?: Array<{
+    id?: string;
+    title: string;
+    description?: string;
+    status?: 'pending' | 'completed' | 'overdue';
+    dueDate?: string;
+    priority?: 'low' | 'medium' | 'high';
+  }>;
 }
 
 interface ChatPanelProps {
@@ -53,7 +78,7 @@ interface ChatPanelProps {
 }
 
 interface UserIntent {
-  type: 'document_search' | 'file_search' | 'folder_creation' | 'general_query' | 'multi_document_query' | 'audit_query' | 'send_email' | 'user_search' | 'create_audit' | 'document_connection' | 'dependency_query';
+  type: 'document_search' | 'file_search' | 'folder_creation' | 'general_query' | 'multi_document_query' | 'audit_query' | 'send_email' | 'user_search' | 'create_audit' | 'document_connection' | 'dependency_query' | 'user_profile' | 'team_info' | 'workspace_info' | 'open_modal' | 'navigate_page' | 'fetch_notifications' | 'create_document' | 'edit_document' | 'occupancy_data' | 'action_plans' | 'open_audit' | 'create_audit';
   openDocument?: boolean; // indicates intent to open/view the document
   searchTerm?: string;
   fileName?: string;
@@ -62,6 +87,12 @@ interface UserIntent {
   emailSubject?: string;
   emailBody?: string;
   userName?: string;
+  modalType?: string;
+  pagePath?: string;
+  documentType?: string;
+  specificAppraisal?: string; // specific appraisal name for opening
+  specificAudit?: string; // specific audit type for opening
+  createAudit?: boolean; // indicates intent to create a new audit
   originalInput: string;
 }
 
@@ -255,6 +286,102 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
       }
     }
 
+    // Open modal patterns - check these FIRST before document search
+    const openModalPatterns = [
+      // NEW: Direct appraisal name patterns without requiring appraisal words
+      /(show|open|launch|start|how)\s+me\s+(.+)/i,
+      /(show|open|launch|start|how)\s+(the\s+)?(.+)/i,
+      /(go\s+to|navigate\s+to)\s+(.+)/i,
+      /(i\s+want\s+to|let's)\s+(see|open|do)\s+(.+)/i,
+      // Existing patterns for backward compatibility
+      /(open|start|launch|show|how)\s+(the\s+)?(tracker|appraisal|audit)\s+(modal|window|form)/i,
+      /(open|start|launch|show|how)\s+(tracker|appraisal|audit)/i,
+      /(i\s+want\s+to|let's)\s+(track|appraise|audit)/i,
+      // Specific appraisal patterns
+      /(open|show|launch|start|how)\s+(the\s+)?(.+?)\s+(appraisal|evaluation|assessment)/i,
+      /(go\s+to|navigate\s+to)\s+(the\s+)?(.+?)\s+(appraisal|evaluation|assessment)/i,
+      /(open|show|how)\s+(the\s+)?(.+?)\s+(appraisal|evaluation|assessment)\s+(page|form)/i,
+      // Handle "show me" and "how me" patterns
+      /(show|how)\s+me\s+(.+?)\s+(appraisal|evaluation|assessment)/i,
+      /(show|how)\s+me\s+(the\s+)?(.+?)\s+(appraisal|evaluation|assessment)/i
+    ];
+
+    for (const pattern of openModalPatterns) {
+      const match = input.match(pattern);
+      if (match) {
+        // Extract modal type from different capture group positions
+        let modalType = '';
+        let specificAppraisal = '';
+
+        // Handle new direct appraisal patterns (patterns 1-4)
+        if (pattern.source.includes('me\\s+(.+)') && match[2]) {
+          // Pattern 1: /(show|open|launch|start|how)\s+me\s+(.+)/i
+          specificAppraisal = match[2].trim().toLowerCase();
+          specificAppraisal = specificAppraisal.replace(/\b(the|me|my|an|a)\b/g, '').trim();
+          modalType = 'specific-appraisal';
+        } else if (pattern.source.includes('the\\s+)?(.+)') && !pattern.source.includes('appraisal|evaluation|assessment') && match[3]) {
+          // Pattern 2: /(show|open|launch|start|how)\s+(the\s+)?(.+)/i
+          specificAppraisal = match[3].trim().toLowerCase();
+          specificAppraisal = specificAppraisal.replace(/\b(the|me|my|an|a)\b/g, '').trim();
+          modalType = 'specific-appraisal';
+        } else if (pattern.source.includes('go\\s+to|navigate\\s+to') && match[2]) {
+          // Pattern 3: /(go\s+to|navigate\s+to)\s+(.+)/i
+          specificAppraisal = match[2].trim().toLowerCase();
+          specificAppraisal = specificAppraisal.replace(/\b(the|me|my|an|a)\b/g, '').trim();
+          modalType = 'specific-appraisal';
+        } else if (pattern.source.includes('want\\s+to|let\'s') && match[3]) {
+          // Pattern 4: /(i\s+want\s+to|let's)\s+(see|open|do)\s+(.+)/i
+          specificAppraisal = match[3].trim().toLowerCase();
+          specificAppraisal = specificAppraisal.replace(/\b(the|me|my|an|a)\b/g, '').trim();
+          modalType = 'specific-appraisal';
+        }
+        // Handle existing patterns
+        else if (match[3] && ['tracker', 'appraisal', 'audit'].includes(match[3].toLowerCase())) {
+          modalType = match[3].toLowerCase(); // For pattern 5: tracker/appraisal/audit
+        } else if (match[2] && ['tracker', 'appraisal', 'audit'].includes(match[2].toLowerCase())) {
+          modalType = match[2].toLowerCase(); // For pattern 6: tracker/appraisal/audit
+        } else if (match[3] && ['track', 'appraise', 'audit'].includes(match[3].toLowerCase())) {
+          // Convert verb forms to modal types
+          const verbToModal = { 'track': 'tracker', 'appraise': 'appraisal', 'audit': 'audit' };
+          modalType = verbToModal[match[3].toLowerCase() as keyof typeof verbToModal] || '';
+        } else if (match[3] || match[4] || match[5] || match[6]) {
+          // Specific appraisal name detected - check multiple capture groups (patterns 7-11)
+          specificAppraisal = (match[3] || match[4] || match[5] || match[6] || '').trim().toLowerCase();
+          // Remove common words that aren't part of the appraisal name
+          specificAppraisal = specificAppraisal.replace(/\b(the|me|my|an|a)\b/g, '').trim();
+          modalType = 'specific-appraisal';
+        }
+
+        if (modalType) {
+          return {
+            type: 'open_modal',
+            modalType: modalType,
+            specificAppraisal: specificAppraisal,
+            originalInput: userInput
+          };
+        }
+      }
+    }
+
+    // Navigate page patterns - check these before document search
+    const navigatePagePatterns = [
+      /(go\s+to|navigate\s+to|open|show)\s+(the\s+)?(action\s+plans?|admin|dashboard|audits?|appraisals?|policies?)\s+(page|section)/i,
+      /(go\s+to|navigate\s+to|open)\s+(action\s+plans?|admin|dashboard|audits?|appraisals?|policies?)/i,
+      /(take\s+me\s+to|bring\s+me\s+to)\s+(action\s+plans?|admin|dashboard|audits?|appraisals?|policies?)/i
+    ];
+
+    for (const pattern of navigatePagePatterns) {
+      const match = input.match(pattern);
+      if (match) {
+        const pagePath = (match[2] || match[3] || '').toLowerCase().replace(/\s+/g, '-');
+        return {
+          type: 'navigate_page',
+          pagePath: pagePath,
+          originalInput: userInput
+        };
+      }
+    }
+
     // Document search patterns - much more flexible
     const searchPatterns = [
       // Direct requests
@@ -385,20 +512,257 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
       }
     }
 
+    // Audit opening patterns - handle various ways users ask to open audits
+    const auditOpeningPatterns = [
+      /(?:show|open|view|display|get|find|bring\s+up|pull\s+up)\s+(?:me\s+)?(?:the\s+)?(.+?)\s+audit/i,
+      /(?:show|open|view|display|get|find)\s+(?:me\s+)?(?:the\s+)?audit\s+(?:for|about|on)\s+(.+)/i,
+      /(?:let's|let\s+us)\s+(?:look\s+at|check\s+out|see)\s+(?:the\s+)?(.+?)\s+audit/i,
+      /(?:i\s+want\s+to|i\s+need\s+to)\s+(?:see|view|open)\s+(?:the\s+)?(.+?)\s+audit/i,
+      /(?:can\s+you\s+|could\s+you\s+|please\s+)?(?:show|open|display)\s+(?:me\s+)?(?:the\s+)?(.+?)\s+audit/i,
+      /(?:take\s+me\s+to|go\s+to|navigate\s+to)\s+(?:the\s+)?(.+?)\s+audit/i
+    ];
+
+    for (const pattern of auditOpeningPatterns) {
+      const match = input.match(pattern);
+      if (match) {
+        let auditName = (match[1] || match[2] || '').trim();
+
+        // Remove common words that aren't part of the audit name
+        auditName = auditName.replace(/\b(the|me|my|an|a|for|about|on|let's|let\s+us|can\s+you|could\s+you|please|take\s+me|go\s+to|navigate\s+to|i\s+want|i\s+need|to\s+see|to\s+view|to\s+open)\b/g, '').trim();
+
+        // Map common variations to standard audit names
+        const auditMappings: Record<string, string> = {
+          'hand hygiene': 'hand-hygiene',
+          'handhygiene': 'hand-hygiene',
+          'accident incident': 'accident-incident',
+          'accidentincident': 'accident-incident',
+          'accident and incident': 'accident-incident',
+          'call bell monitoring': 'call-bell-monitoring',
+          'callbellmonitoring': 'call-bell-monitoring',
+          'call bell': 'call-bell-monitoring',
+          'care plan': 'care-plan',
+          'careplan': 'care-plan',
+          'equipment': 'equipment',
+          'fire safety': 'fire-safety',
+          'firesafety': 'fire-safety',
+          'health safety': 'health-safety',
+          'healthsafety': 'health-safety',
+          'infection control': 'infection-control',
+          'infectioncontrol': 'infection-control',
+          'kitchen': 'kitchen',
+          'kitchen & kitchenettes': 'kitchen',
+          'maintenance': 'maintenance',
+          'managers weekly': 'managers-weekly',
+          'managersweekly': 'managers-weekly',
+          'weekly managers': 'managers-weekly',
+          'mealtime': 'mealtime',
+          'meal time': 'mealtime',
+          'night visit': 'night-visit',
+          'nightvisit': 'night-visit',
+          'restrictive practice': 'restrictive-practice',
+          'restrictivepractice': 'restrictive-practice',
+          'staff file': 'staff-file',
+          'stafffile': 'staff-file',
+          'weight monitoring': 'weight-monitoring',
+          'weightmonitoring': 'weight-monitoring',
+          'wound monitoring': 'wound-monitoring',
+          'woundmonitoring': 'wound-monitoring',
+          'risk register': 'risk-register',
+          'riskregister': 'risk-register'
+        };
+
+        // Try to find a matching audit type
+        let auditType = auditMappings[auditName.toLowerCase()] || auditName.toLowerCase().replace(/\s+/g, '-');
+
+        // If we still don't have a valid audit type, try fuzzy matching
+        if (!Object.values(auditMappings).includes(auditType)) {
+          const auditTypes = Object.values(auditMappings);
+          // Simple fuzzy match - find the closest match
+          for (const type of auditTypes) {
+            if (auditName.toLowerCase().includes(type.replace(/-/g, ' ')) ||
+                type.replace(/-/g, ' ').includes(auditName.toLowerCase())) {
+              auditType = type;
+              break;
+            }
+          }
+        }
+
+        return {
+          type: 'open_audit',
+          specificAudit: auditType,
+          originalInput: userInput
+        };
+      }
+    }
+
+    // Audit data querying patterns
+    const auditDataPatterns = [
+      /(?:show|tell|get|give)\s+(?:me\s+)?(?:the\s+)?(.+?)\s+audit\s+(?:data|results|information|details|trends|comments|scores)/i,
+      /(?:what\s+(?:are|is)\s+)?(?:the\s+)?(.+?)\s+audit\s+(?:results|data|comments|scores|trends)/i,
+      /(?:show|tell|get)\s+(?:me\s+)?(?:the\s+)?audit\s+(?:data|results|information)\s+(?:for|about|on)\s+(.+)/i,
+      /(?:what\s+(?:are|is)\s+)?(?:the\s+)?comments?\s+(?:in|for|from)\s+(?:the\s+)?(.+?)\s+audit/i,
+      /(?:how\s+did|what\s+were)\s+(?:the\s+)?(.+?)\s+audit\s+(?:results|scores|perform)/i,
+      /(?:audit\s+)?(?:data|results|information|trends)\s+(?:for|about|on)\s+(.+?)\s+audit/i
+    ];
+
+    for (const pattern of auditDataPatterns) {
+      const match = input.match(pattern);
+      if (match) {
+        let auditName = (match[1] || match[2] || '').trim();
+
+        // Remove common words that aren't part of the audit name
+        auditName = auditName.replace(/\b(the|me|my|an|a|for|about|on|in|from|are|is|what|show|tell|get|give|how|did|were|audit|data|results|information|details|trends|comments|scores|perform|latest|all|recent)\b/g, '').trim();
+
+        let auditType: string;
+
+        // Handle special cases for "latest" or "all" queries
+        if (input.toLowerCase().includes('latest') || input.toLowerCase().includes('all')) {
+          auditType = 'all';
+        } else {
+          // Map common variations to standard audit names (same mapping as above)
+          const auditMappings: Record<string, string> = {
+            'hand hygiene': 'hand-hygiene',
+            'handhygiene': 'hand-hygiene',
+            'accident incident': 'accident-incident',
+            'accidentincident': 'accident-incident',
+            'accident and incident': 'accident-incident',
+            'call bell monitoring': 'call-bell-monitoring',
+            'callbellmonitoring': 'call-bell-monitoring',
+            'call bell': 'call-bell-monitoring',
+            'care plan': 'care-plan',
+            'careplan': 'care-plan',
+            'equipment': 'equipment',
+            'fire safety': 'fire-safety',
+            'firesafety': 'fire-safety',
+            'health safety': 'health-safety',
+            'healthsafety': 'health-safety',
+            'infection control': 'infection-control',
+            'infectioncontrol': 'infection-control',
+            'kitchen': 'kitchen',
+            'kitchen & kitchenettes': 'kitchen',
+            'maintenance': 'maintenance',
+            'managers weekly': 'managers-weekly',
+            'managersweekly': 'managers-weekly',
+            'weekly managers': 'managers-weekly',
+            'mealtime': 'mealtime',
+            'meal time': 'mealtime',
+            'night visit': 'night-visit',
+            'nightvisit': 'night-visit',
+            'restrictive practice': 'restrictive-practice',
+            'restrictivepractice': 'restrictive-practice',
+            'staff file': 'staff-file',
+            'stafffile': 'staff-file',
+            'weight monitoring': 'weight-monitoring',
+            'weightmonitoring': 'weight-monitoring',
+            'wound monitoring': 'wound-monitoring',
+            'woundmonitoring': 'wound-monitoring',
+            'risk register': 'risk-register',
+            'riskregister': 'risk-register'
+          };
+
+          // Try to find a matching audit type
+          auditType = auditMappings[auditName.toLowerCase()] || auditName.toLowerCase().replace(/\s+/g, '-');
+
+          // If we still don't have a valid audit type, try fuzzy matching
+          if (!Object.values(auditMappings).includes(auditType)) {
+            const auditTypes = Object.values(auditMappings);
+            // Simple fuzzy match - find the closest match
+            for (const type of auditTypes) {
+              if (auditName.toLowerCase().includes(type.replace(/-/g, ' ')) ||
+                  type.replace(/-/g, ' ').includes(auditName.toLowerCase())) {
+                auditType = type;
+                break;
+              }
+            }
+          }
+        }
+
+        return {
+          type: 'audit_query',
+          auditType: auditType,
+          originalInput: userInput
+        };
+      }
+    }
+
     // Create audit patterns
     const createAuditPatterns = [
-      /(create|start|begin|make)\s+(a\s+|an\s+|new\s+)?audit(\s+for|\s+on|\s+about)?\s*(.+)?/i,
-      /(i\s+need|i\s+want)\s+(to\s+)?create\s+(a\s+|an\s+)?audit/i,
-      /(let's|let\s+us)\s+(do|perform|conduct)\s+(an?\s+)?audit/i
+      /(?:create|start|begin|make|do|perform|conduct)\s+(?:a\s+|an\s+|new\s+)?(.+?)\s+audit/i,
+      /(?:i\s+want\s+to|i\s+need\s+to|i\s+would\s+like\s+to)\s+(?:create|start|begin|make|do|perform|conduct)\s+(?:a\s+|an\s+)?(.+?)\s+audit/i,
+      /(?:let's|let\s+us)\s+(?:create|start|begin|make|do|perform|conduct)\s+(?:a\s+|an\s+)?(.+?)\s+audit/i,
+      /(?:can\s+you\s+|could\s+you\s+|please\s+)?(?:create|start|begin|make|do|perform|conduct)\s+(?:a\s+|an\s+)?(.+?)\s+audit/i,
+      /(?:new|create)\s+audit\s+(?:for|about|on)\s+(.+)/i
     ];
 
     for (const pattern of createAuditPatterns) {
       const match = input.match(pattern);
       if (match) {
-        const auditType = (match[4] || '').trim();
+        let auditName = (match[1] || match[2] || '').trim();
+
+        // Remove common words that aren't part of the audit name
+        auditName = auditName.replace(/\b(a|an|new|the|let's|let\s+us|can\s+you|could\s+you|please|i\s+want|i\s+need|i\s+would\s+like|to\s+create|to\s+start|to\s+begin|to\s+make|to\s+do|to\s+perform|to\s+conduct|for|about|on)\b/g, '').trim();
+
+        // Map common variations to standard audit names
+        const auditMappings: Record<string, string> = {
+          'hand hygiene': 'hand-hygiene',
+          'handhygiene': 'hand-hygiene',
+          'accident incident': 'accident-incident',
+          'accidentincident': 'accident-incident',
+          'accident and incident': 'accident-incident',
+          'call bell monitoring': 'call-bell-monitoring',
+          'callbellmonitoring': 'call-bell-monitoring',
+          'call bell': 'call-bell-monitoring',
+          'care plan': 'care-plan',
+          'careplan': 'care-plan',
+          'equipment': 'equipment',
+          'fire safety': 'fire-safety',
+          'firesafety': 'fire-safety',
+          'health safety': 'health-safety',
+          'healthsafety': 'health-safety',
+          'infection control': 'infection-control',
+          'infectioncontrol': 'infection-control',
+          'kitchen': 'kitchen',
+          'kitchen & kitchenettes': 'kitchen',
+          'maintenance': 'maintenance',
+          'managers weekly': 'managers-weekly',
+          'managersweekly': 'managers-weekly',
+          'weekly managers': 'managers-weekly',
+          'mealtime': 'mealtime',
+          'meal time': 'mealtime',
+          'night visit': 'night-visit',
+          'nightvisit': 'night-visit',
+          'restrictive practice': 'restrictive-practice',
+          'restrictivepractice': 'restrictive-practice',
+          'staff file': 'staff-file',
+          'stafffile': 'staff-file',
+          'weight monitoring': 'weight-monitoring',
+          'weightmonitoring': 'weight-monitoring',
+          'wound monitoring': 'wound-monitoring',
+          'woundmonitoring': 'wound-monitoring',
+          'risk register': 'risk-register',
+          'riskregister': 'risk-register'
+        };
+
+        // Try to find a matching audit type
+        let auditType = auditMappings[auditName.toLowerCase()] || auditName.toLowerCase().replace(/\s+/g, '-');
+
+        // If we still don't have a valid audit type, try fuzzy matching
+        if (!Object.values(auditMappings).includes(auditType)) {
+          const auditTypes = Object.values(auditMappings);
+          // Simple fuzzy match - find the closest match
+          for (const type of auditTypes) {
+            if (auditName.toLowerCase().includes(type.replace(/-/g, ' ')) ||
+                type.replace(/-/g, ' ').includes(auditName.toLowerCase())) {
+              auditType = type;
+              break;
+            }
+          }
+        }
+
         return {
           type: 'create_audit',
           auditType: auditType,
+          createAudit: true,
           originalInput: userInput
         };
       }
@@ -418,6 +782,145 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         return {
           type: 'document_connection',
           searchTerm: searchTerm,
+          originalInput: userInput
+        };
+      }
+    }
+
+    // User profile patterns
+    const userProfilePatterns = [
+      /(show|display|get|tell)\s+(me\s+)?(my\s+)?(user\s+)?profile/i,
+      /(what\s+is\s+my|what's\s+my)\s+(user\s+)?info(rmation)?/i,
+      /(user\s+)?details\s+(for\s+me|about\s+me)/i,
+      /(my\s+)?account\s+(info|details)/i
+    ];
+
+    for (const pattern of userProfilePatterns) {
+      if (pattern.test(input)) {
+        return {
+          type: 'user_profile',
+          originalInput: userInput
+        };
+      }
+    }
+
+    // Team info patterns
+    const teamInfoPatterns = [
+      /(show|list|display|get)\s+(me\s+)?(the\s+)?teams?/i,
+      /(what\s+)?team(s?)\s+(do\s+we\s+have|are\s+there|exist)/i,
+      /(team|teams)\s+(information|details|members)/i,
+      /(who\s+is\s+in|members\s+of)\s+(the\s+)?team/i
+    ];
+
+    for (const pattern of teamInfoPatterns) {
+      if (pattern.test(input)) {
+        return {
+          type: 'team_info',
+          originalInput: userInput
+        };
+      }
+    }
+
+    // Workspace info patterns
+    const workspaceInfoPatterns = [
+      /(show|display|get|tell)\s+(me\s+)?(the\s+)?workspace\s+(info|details|stats|information)/i,
+      /(workspace|care\s+home)\s+(details|information|stats)/i,
+      /(what\s+is\s+the|tell\s+me\s+about)\s+(workspace|care\s+home)/i
+    ];
+
+    for (const pattern of workspaceInfoPatterns) {
+      if (pattern.test(input)) {
+        return {
+          type: 'workspace_info',
+          originalInput: userInput
+        };
+      }
+    }
+
+
+
+    // Fetch notifications patterns
+    const fetchNotificationsPatterns = [
+      /(show|display|get|tell)\s+(me\s+)?(the\s+)?notifications?/i,
+      /(what\s+)?recent\s+(activity|notifications?|updates?)/i,
+      /(notifications?|activity|updates?)\s+(feed|list)/i,
+      /(what's\s+)?new/i
+    ];
+
+    for (const pattern of fetchNotificationsPatterns) {
+      if (pattern.test(input)) {
+        return {
+          type: 'fetch_notifications',
+          originalInput: userInput
+        };
+      }
+    }
+
+    // Create document patterns
+    const createDocumentPatterns = [
+      /(create|make|add|new)\s+(a\s+|an\s+|the\s+)?(document|policy|file)/i,
+      /(i\s+want\s+to|i\s+need\s+to)\s+(create|make|add)\s+(a\s+|an\s+)?(document|policy|file)/i,
+      /(new|create)\s+(document|policy|file)\s+(called|named|titled)?\s*(.+)?/i
+    ];
+
+    for (const pattern of createDocumentPatterns) {
+      const match = input.match(pattern);
+      if (match) {
+        const documentType = (match[2] || match[4] || '').trim();
+        return {
+          type: 'create_document',
+          documentType: documentType,
+          originalInput: userInput
+        };
+      }
+    }
+
+    // Edit document patterns
+    const editDocumentPatterns = [
+      /(edit|modify|update|change)\s+(the\s+)?(.+)/i,
+      /(i\s+want\s+to|i\s+need\s+to)\s+(edit|modify|update)\s+(the\s+)?(.+)/i
+    ];
+
+    for (const pattern of editDocumentPatterns) {
+      const match = input.match(pattern);
+      if (match) {
+        const searchTerm = (match[3] || match[4] || '').trim();
+        return {
+          type: 'edit_document',
+          searchTerm: searchTerm,
+          originalInput: userInput
+        };
+      }
+    }
+
+    // Occupancy data patterns
+    const occupancyPatterns = [
+      /(show|display|get|tell)\s+(me\s+)?(the\s+)?occupancy\s+(data|rates?|stats?|information)/i,
+      /(bed|occupancy)\s+(occupancy|rates?|stats?|data)/i,
+      /(how\s+many|what\s+is\s+the)\s+(beds?|occupancy)\s+(rate|level)/i,
+      /(occupancy|bed)\s+(information|details)/i
+    ];
+
+    for (const pattern of occupancyPatterns) {
+      if (pattern.test(input)) {
+        return {
+          type: 'occupancy_data',
+          originalInput: userInput
+        };
+      }
+    }
+
+    // Action plans patterns
+    const actionPlansPatterns = [
+      /(show|display|get|list)\s+(me\s+)?(the\s+)?action\s+plans?/i,
+      /(action\s+plans?|action\s+items?|pending\s+actions?)/i,
+      /(what\s+)?actions?\s+(do\s+we\s+have|are\s+pending|need\s+to\s+be\s+done)/i
+    ];
+
+    for (const pattern of actionPlansPatterns) {
+      if (pattern.test(input)) {
+        return {
+          type: 'action_plans',
           originalInput: userInput
         };
       }
@@ -530,38 +1033,129 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
           return;
         }
 
-        const { getMonthlyAuditCompletionStatus, getLatestAuditData } = await import('@/lib/firestore');
-        const completionStatus = await getMonthlyAuditCompletionStatus(workspaceId);
-        const auditTypes = Object.keys(completionStatus);
-        
-        let response = 'Here is the current audit status:\n\n';
-        const completed = auditTypes.filter(type => completionStatus[type]);
-        const pending = auditTypes.filter(type => !completionStatus[type]);
-        
-        if (completed.length > 0) {
-          response += `✅ Completed audits: ${completed.join(', ')}\n`;
-        }
-        if (pending.length > 0) {
-          response += `⏳ Pending audits: ${pending.join(', ')}\n`;
-        }
+        const originalInput = intent.originalInput?.toLowerCase() || '';
 
-        // Get latest scores if available
-        const latestScores: any[] = [];
-        for (const type of auditTypes) {
-          const latest = await getLatestAuditData(workspaceId, type);
-          if (latest && latest.scorePercent !== undefined) {
-            latestScores.push({ type, score: latest.scorePercent });
-          }
-        }
+        // Enhanced audit data querying based on user intent
+        if (originalInput.includes('trend') || originalInput.includes('performance')) {
+          // Get audit trends
+          const { getMonthlyAuditSnapshots } = await import('@/lib/firestore');
+          const snapshots = await getMonthlyAuditSnapshots(workspaceId);
+          let response = '📊 **Audit Trends**\n\n';
 
-        if (latestScores.length > 0) {
-          response += '\nLatest audit scores:\n';
-          latestScores.forEach(({ type, score }) => {
-            response += `${type}: ${score}%\n`;
+          Object.entries(snapshots).forEach(([auditType, auditData]) => {
+            if (auditData.length > 0) {
+              const latest = auditData[0]; // Already sorted by snapshotCreatedAt desc
+              response += `**${auditType.replace(/-/g, ' ')}**\n`;
+              response += `• Latest score: ${latest.scorePercent || 'N/A'}%\n`;
+              response += `• Completed: ${auditData.length} time(s) this month\n`;
+              if (latest.comments) {
+                response += `• Comments: ${latest.comments}\n`;
+              }
+              response += '\n';
+            }
           });
-        }
 
-        appendMessages({ sender: 'ai', text: response });
+          if (Object.keys(snapshots).length === 0) {
+            response = 'No audit data found for this month.';
+          }
+
+          appendMessages({ sender: 'ai', text: response });
+        } else if (originalInput.includes('comment')) {
+          // Get audit comments
+          const { getMonthlyAuditSnapshots } = await import('@/lib/firestore');
+          const snapshots = await getMonthlyAuditSnapshots(workspaceId);
+          let response = '💬 **Audit Comments**\n\n';
+
+          Object.entries(snapshots).forEach(([auditType, auditData]) => {
+            if (auditData.length > 0) {
+              const latest = auditData[0];
+              if (latest.comments || latest.areasForImprovement || latest.goodPractice || latest.actionRequired) {
+                response += `**${auditType.replace(/-/g, ' ')}**\n`;
+                if (latest.comments) response += `• Comments: ${latest.comments}\n`;
+                if (latest.areasForImprovement) response += `• Areas for improvement: ${latest.areasForImprovement}\n`;
+                if (latest.goodPractice) response += `• Good practice: ${latest.goodPractice}\n`;
+                if (latest.actionRequired) response += `• Action required: ${latest.actionRequired}\n`;
+                response += '\n';
+              }
+            }
+          });
+
+          if (response === '💬 **Audit Comments**\n\n') {
+            response = 'No audit comments found for this month.';
+          }
+
+          appendMessages({ sender: 'ai', text: response });
+        } else if (originalInput.includes('score') || originalInput.includes('result')) {
+          // Get audit scores/results
+          const { getLatestAuditData } = await import('@/lib/firestore');
+          const auditType = intent.auditType || 'all';
+
+          if (auditType === 'all') {
+            // Get all audit types and their latest scores
+            const { getMonthlyAuditCompletionStatus } = await import('@/lib/firestore');
+            const completionStatus = await getMonthlyAuditCompletionStatus(workspaceId);
+            const auditTypes = Object.keys(completionStatus);
+
+            let response = 'Latest audit scores:\n\n';
+            let hasData = false;
+
+            for (const type of auditTypes) {
+              const latest = await getLatestAuditData(workspaceId, type);
+              if (latest && latest.scorePercent !== undefined) {
+                response += `${type.replace(/-/g, ' ')}: ${latest.scorePercent}%\n`;
+                hasData = true;
+              }
+            }
+
+            if (!hasData) {
+              response = 'No audit scores found for this month.';
+            }
+
+            appendMessages({ sender: 'ai', text: response });
+          } else {
+            const latest = await getLatestAuditData(workspaceId, auditType);
+            if (latest && latest.scorePercent !== undefined) {
+              appendMessages({ sender: 'ai', text: `Latest score for ${auditType.replace(/-/g, ' ')} audit: ${latest.scorePercent}%` });
+            } else {
+              appendMessages({ sender: 'ai', text: `No recent scores found for ${auditType.replace(/-/g, ' ')} audit.` });
+            }
+          }
+        } else {
+          // General audit status query
+          const { getMonthlyAuditCompletionStatus } = await import('@/lib/firestore');
+          const completionStatus = await getMonthlyAuditCompletionStatus(workspaceId);
+          const auditTypes = Object.keys(completionStatus);
+
+          let response = 'Here is the current audit status:\n\n';
+          const completed = auditTypes.filter(type => completionStatus[type]);
+          const pending = auditTypes.filter(type => !completionStatus[type]);
+
+          if (completed.length > 0) {
+            response += `✅ Completed audits: ${completed.map(type => type.replace(/-/g, ' ')).join(', ')}\n`;
+          }
+          if (pending.length > 0) {
+            response += `⏳ Pending audits: ${pending.map(type => type.replace(/-/g, ' ')).join(', ')}\n`;
+          }
+
+          // Get latest scores if available
+          const { getLatestAuditData } = await import('@/lib/firestore');
+          const latestScores: any[] = [];
+          for (const type of auditTypes) {
+            const latest = await getLatestAuditData(workspaceId, type);
+            if (latest && latest.scorePercent !== undefined) {
+              latestScores.push({ type, score: latest.scorePercent });
+            }
+          }
+
+          if (latestScores.length > 0) {
+            response += '\nLatest audit scores:\n';
+            latestScores.forEach(({ type, score }) => {
+              response += `${type.replace(/-/g, ' ')}: ${score}%\n`;
+            });
+          }
+
+          appendMessages({ sender: 'ai', text: response });
+        }
       } catch (error) {
         console.error('Error fetching audit data:', error);
         appendMessages({ sender: 'ai', text: 'Sorry, I couldn\'t fetch the audit information. Please try again.' });
@@ -765,6 +1359,30 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
       return;
     }
 
+    // Handle open audit
+    if (intent.type === 'open_audit') {
+      appendMessages([{ sender: 'user', text: inputVal }, { sender: 'ai', text: 'Opening audit...' }]);
+      setInput('');
+      setIsTyping(true);
+      try {
+        // Navigate to audit page and open specific audit
+        if (typeof window !== 'undefined' && window.dispatchEvent) {
+          window.dispatchEvent(new CustomEvent('navigate-to-audits'));
+          // Small delay to ensure page loads, then open specific audit
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('open-specific-audit', { detail: { auditType: intent.specificAudit } }));
+          }, 500);
+        }
+        appendMessages({ sender: 'ai', text: `I've opened the audits page and navigated to the ${intent.specificAudit || 'requested'} audit.` });
+      } catch (error) {
+        console.error('Error opening audit:', error);
+        appendMessages({ sender: 'ai', text: 'Sorry, I couldn\'t open the audit. Please go to the Audits section manually.' });
+      } finally {
+        setIsTyping(false);
+      }
+      return;
+    }
+
     // Handle document connection
     if (intent.type === 'document_connection') {
       appendMessages([{ sender: 'user', text: inputVal }, { sender: 'ai', text: 'Finding related documents...' }]);
@@ -790,6 +1408,394 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
       } catch (error) {
         console.error('Error finding related documents:', error);
         appendMessages({ sender: 'ai', text: 'Sorry, I couldn\'t find related documents. Please try again.' });
+      } finally {
+        setIsTyping(false);
+      }
+      return;
+    }
+
+    // Handle user profile
+    if (intent.type === 'user_profile') {
+      appendMessages([{ sender: 'user', text: inputVal }, { sender: 'ai', text: 'Fetching your profile information...' }]);
+      setInput('');
+      setIsTyping(true);
+      try {
+        const userIdToUse = user?.id ?? mockUser.id;
+        if (!userIdToUse) {
+          appendMessages({ sender: 'ai', text: 'User authentication required to view profile.' });
+          setIsTyping(false);
+          return;
+        }
+
+        const { getUserById } = await import('@/lib/firestore');
+        const userData = await getUserById(userIdToUse);
+        
+        if (userData) {
+          const userCard = {
+            id: userData.id || userIdToUse,
+            name: userData.name || 'Unknown',
+            email: userData.email || 'No email',
+            role: 'User', // Default role since it's not in the User type
+            avatarUrl: userData.avatarUrl || user?.avatarUrl || undefined,
+            createdAt: 'Unknown' // Not available in User type
+          };
+          
+          appendMessages({ sender: 'ai', text: 'Here\'s your profile information:', users: [userCard] });
+        } else {
+          appendMessages({ sender: 'ai', text: 'Could not retrieve your profile information.' });
+        }
+      } catch (error) {
+        console.error('Error fetching user profile:', error);
+        appendMessages({ sender: 'ai', text: 'Sorry, I couldn\'t fetch your profile information. Please try again.' });
+      } finally {
+        setIsTyping(false);
+      }
+      return;
+    }
+
+    // Handle team info
+    if (intent.type === 'team_info') {
+      appendMessages([{ sender: 'user', text: inputVal }, { sender: 'ai', text: 'Fetching team information...' }]);
+      setInput('');
+      setIsTyping(true);
+      try {
+        const workspaceId = selectedItem.workspaceId;
+        if (!workspaceId) {
+          appendMessages({ sender: 'ai', text: 'No workspace selected for team information.' });
+          setIsTyping(false);
+          return;
+        }
+
+        const { collection, getDocs } = await import('firebase/firestore');
+        const teamsCol = collection(db, 'teams');
+        const snapshot = await getDocs(teamsCol);
+        const workspaceTeams = snapshot.docs
+          .filter(t => !t.data().workspaceId || t.data().workspaceId === workspaceId)
+          .map(d => ({
+            id: d.id,
+            name: d.data().name ?? 'Untitled Team',
+            memberCount: d.data().members?.length || 0,
+            description: d.data().description || 'No description available'
+          }));
+
+        if (workspaceTeams.length > 0) {
+          appendMessages({ sender: 'ai', text: `Found ${workspaceTeams.length} team(s) in this workspace:`, teams: workspaceTeams });
+        } else {
+          appendMessages({ sender: 'ai', text: 'No teams found in this workspace.' });
+        }
+      } catch (error) {
+        console.error('Error fetching team information:', error);
+        appendMessages({ sender: 'ai', text: 'Sorry, I couldn\'t fetch team information. Please try again.' });
+      } finally {
+        setIsTyping(false);
+      }
+      return;
+    }
+
+    // Handle workspace info
+    if (intent.type === 'workspace_info') {
+      appendMessages([{ sender: 'user', text: inputVal }, { sender: 'ai', text: 'Fetching workspace information...' }]);
+      setInput('');
+      setIsTyping(true);
+      try {
+        const workspaceId = selectedItem.workspaceId;
+        if (!workspaceId) {
+          appendMessages({ sender: 'ai', text: 'No workspace selected.' });
+          setIsTyping(false);
+          return;
+        }
+
+        const { getAllWorkspaces } = await import('@/lib/firestore');
+        const workspaces = await getAllWorkspaces();
+        const workspace = workspaces.find(w => w.id === workspaceId);
+
+        if (workspace) {
+          let response = `🏢 **Workspace Information**\n\n` +
+            `**Name:** ${workspace.name || 'Unnamed'}\n` +
+            `**Owner:** ${workspace.ownerId || 'Unknown'}\n` +
+            `**Members:** ${workspace.members?.length || 0}\n` +
+            `**Created:** Unknown\n`;
+
+          if (workspace.totalBeds && workspace.occupiedBeds !== undefined) {
+            const occupancyRate = workspace.totalBeds > 0 ? ((workspace.occupiedBeds / workspace.totalBeds) * 100).toFixed(1) : '0';
+            response += `**Bed Occupancy:** ${workspace.occupiedBeds}/${workspace.totalBeds} (${occupancyRate}%)\n`;
+          }
+
+          appendMessages({ sender: 'ai', text: response });
+        } else {
+          appendMessages({ sender: 'ai', text: 'Could not retrieve workspace information.' });
+        }
+      } catch (error) {
+        console.error('Error fetching workspace information:', error);
+        appendMessages({ sender: 'ai', text: 'Sorry, I couldn\'t fetch workspace information. Please try again.' });
+      } finally {
+        setIsTyping(false);
+      }
+      return;
+    }
+
+    // Handle open modal
+    if (intent.type === 'open_modal') {
+      appendMessages([{ sender: 'user', text: inputVal }, { sender: 'ai', text: 'Opening modal...' }]);
+      setInput('');
+      setIsTyping(true);
+      try {
+        if (typeof window !== 'undefined' && window.dispatchEvent) {
+          if (intent.modalType === 'specific-appraisal') {
+            // Handle specific appraisal opening
+            window.dispatchEvent(new CustomEvent('navigate-to-appraisals'));
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('open-specific-appraisal', { detail: { appraisalName: intent.specificAppraisal } }));
+            }, 500);
+            appendMessages({ sender: 'ai', text: `I've opened the appraisals page and navigated to "${intent.specificAppraisal}".` });
+          } else if (intent.modalType?.includes('tracker')) {
+            // Navigate to appraisals page and switch to tracker tab
+            window.dispatchEvent(new CustomEvent('navigate-to-appraisals'));
+            // Small delay to ensure page loads, then switch to tracker tab
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('open-tracker-tab'));
+            }, 500);
+            appendMessages({ sender: 'ai', text: 'I\'ve opened the Tracker tab for you.' });
+          } else if (intent.modalType?.includes('appraisal')) {
+            // First navigate to appraisals page, then open appraisal modal
+            window.dispatchEvent(new CustomEvent('navigate-to-appraisals'));
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('open-appraisal-modal'));
+            }, 500);
+            appendMessages({ sender: 'ai', text: 'I\'ve opened the Appraisal modal for you.' });
+          } else if (intent.modalType?.includes('audit')) {
+            window.dispatchEvent(new CustomEvent('open-audit-modal'));
+            appendMessages({ sender: 'ai', text: 'I\'ve opened the Audit modal for you.' });
+          } else {
+            appendMessages({ sender: 'ai', text: 'I\'m not sure which modal you want to open. Try "open tracker", "open appraisal", or "open audit".' });
+          }
+        } else {
+          appendMessages({ sender: 'ai', text: 'Unable to open modal in this context.' });
+        }
+      } catch (error) {
+        console.error('Error opening modal:', error);
+        appendMessages({ sender: 'ai', text: 'Sorry, I couldn\'t open the modal. Please try again.' });
+      } finally {
+        setIsTyping(false);
+      }
+      return;
+    }
+
+    // Handle navigate page
+    if (intent.type === 'navigate_page') {
+      appendMessages([{ sender: 'user', text: inputVal }, { sender: 'ai', text: 'Navigating to page...' }]);
+      setInput('');
+      setIsTyping(true);
+      try {
+        if (typeof window !== 'undefined' && window.dispatchEvent) {
+          if (intent.pagePath?.includes('action-plan')) {
+            window.dispatchEvent(new CustomEvent('navigate-to-action-plans'));
+            appendMessages({ sender: 'ai', text: 'I\'ve navigated you to the Action Plans page.' });
+          } else if (intent.pagePath?.includes('admin')) {
+            window.dispatchEvent(new CustomEvent('navigate-to-admin'));
+            appendMessages({ sender: 'ai', text: 'I\'ve navigated you to the Admin page.' });
+          } else if (intent.pagePath?.includes('dashboard')) {
+            window.dispatchEvent(new CustomEvent('navigate-to-dashboard'));
+            appendMessages({ sender: 'ai', text: 'I\'ve navigated you to the Dashboard.' });
+          } else if (intent.pagePath?.includes('audit')) {
+            window.dispatchEvent(new CustomEvent('navigate-to-audits'));
+            appendMessages({ sender: 'ai', text: 'I\'ve navigated you to the Audits page.' });
+          } else if (intent.pagePath?.includes('appraisal')) {
+            window.dispatchEvent(new CustomEvent('navigate-to-appraisals'));
+            appendMessages({ sender: 'ai', text: 'I\'ve navigated you to the Appraisals page.' });
+          } else if (intent.pagePath?.includes('polic')) {
+            window.dispatchEvent(new CustomEvent('navigate-to-policies'));
+            appendMessages({ sender: 'ai', text: 'I\'ve navigated you to the Policies page.' });
+          } else {
+            appendMessages({ sender: 'ai', text: 'I\'m not sure which page you want to navigate to.' });
+          }
+        } else {
+          appendMessages({ sender: 'ai', text: 'Unable to navigate in this context.' });
+        }
+      } catch (error) {
+        console.error('Error navigating to page:', error);
+        appendMessages({ sender: 'ai', text: 'Sorry, I couldn\'t navigate to that page. Please try again.' });
+      } finally {
+        setIsTyping(false);
+      }
+      return;
+    }
+
+    // Handle fetch notifications
+    if (intent.type === 'fetch_notifications') {
+      appendMessages([{ sender: 'user', text: inputVal }, { sender: 'ai', text: 'Fetching recent notifications...' }]);
+      setInput('');
+      setIsTyping(true);
+      try {
+        const workspaceId = selectedItem.workspaceId;
+        if (!workspaceId) {
+          appendMessages({ sender: 'ai', text: 'No workspace selected for notifications.' });
+          setIsTyping(false);
+          return;
+        }
+
+        const { collection, getDocs, query, orderBy, limit } = await import('firebase/firestore');
+        const notificationsCol = collection(db, `workspaces/${workspaceId}/notifications`);
+        const notificationsQuery = query(notificationsCol, orderBy('createdAt', 'desc'), limit(5));
+        const snapshot = await getDocs(notificationsQuery);
+
+        if (!snapshot.empty) {
+          let response = `🔔 **Recent Notifications**\n\n`;
+          snapshot.docs.forEach(doc => {
+            const data = doc.data();
+            const date = data.createdAt ? new Date(data.createdAt.toDate()).toLocaleDateString() : 'Unknown';
+            response += `• ${data.title || 'Untitled'} (${date})\n`;
+          });
+          appendMessages({ sender: 'ai', text: response });
+        } else {
+          appendMessages({ sender: 'ai', text: 'No recent notifications found.' });
+        }
+      } catch (error) {
+        console.error('Error fetching notifications:', error);
+        appendMessages({ sender: 'ai', text: 'Sorry, I couldn\'t fetch notifications. Please try again.' });
+      } finally {
+        setIsTyping(false);
+      }
+      return;
+    }
+
+    // Handle create document
+    if (intent.type === 'create_document') {
+      appendMessages([{ sender: 'user', text: inputVal }, { sender: 'ai', text: 'Preparing to create document...' }]);
+      setInput('');
+      setIsTyping(true);
+      try {
+        if (typeof window !== 'undefined' && window.dispatchEvent) {
+          window.dispatchEvent(new CustomEvent('create-new-document', { detail: { type: intent.documentType } }));
+          appendMessages({ sender: 'ai', text: `I've opened the document creation interface${intent.documentType ? ` for a ${intent.documentType}` : ''}. You can create your document there.` });
+        } else {
+          appendMessages({ sender: 'ai', text: 'Unable to create document in this context.' });
+        }
+      } catch (error) {
+        console.error('Error creating document:', error);
+        appendMessages({ sender: 'ai', text: 'Sorry, I couldn\'t create the document. Please try again.' });
+      } finally {
+        setIsTyping(false);
+      }
+      return;
+    }
+
+    // Handle edit document
+    if (intent.type === 'edit_document') {
+      appendMessages([{ sender: 'user', text: inputVal }, { sender: 'ai', text: 'Finding document to edit...' }]);
+      setInput('');
+      setIsTyping(true);
+      try {
+        const workspaceId = selectedItem.workspaceId;
+        if (!workspaceId) {
+          appendMessages({ sender: 'ai', text: 'No workspace selected for document editing.' });
+          setIsTyping(false);
+          return;
+        }
+
+        const { searchDocumentsInWorkspace } = await import('@/lib/firestore');
+        const docs = await searchDocumentsInWorkspace(workspaceId, intent.searchTerm || '');
+
+        if (docs.length > 0) {
+          const doc = docs[0];
+          if (typeof window !== 'undefined' && window.dispatchEvent) {
+            window.dispatchEvent(new CustomEvent('edit-document', { detail: { documentId: doc.id, documentName: doc.name } }));
+            appendMessages({ sender: 'ai', text: `I've opened "${doc.name}" for editing.` });
+          } else {
+            appendMessages({ sender: 'ai', text: `Found document "${doc.name}" but unable to open editor in this context.` });
+          }
+        } else {
+          appendMessages({ sender: 'ai', text: `Could not find a document matching "${intent.searchTerm}".` });
+        }
+      } catch (error) {
+        console.error('Error editing document:', error);
+        appendMessages({ sender: 'ai', text: 'Sorry, I couldn\'t edit the document. Please try again.' });
+      } finally {
+        setIsTyping(false);
+      }
+      return;
+    }
+
+    // Handle occupancy data
+    if (intent.type === 'occupancy_data') {
+      appendMessages([{ sender: 'user', text: inputVal }, { sender: 'ai', text: 'Fetching occupancy data...' }]);
+      setInput('');
+      setIsTyping(true);
+      try {
+        const workspaceId = selectedItem.workspaceId;
+        if (!workspaceId) {
+          appendMessages({ sender: 'ai', text: 'No workspace selected for occupancy data.' });
+          setIsTyping(false);
+          return;
+        }
+
+        const { getAllWorkspaces } = await import('@/lib/firestore');
+        const workspaces = await getAllWorkspaces();
+        const workspace = workspaces.find(w => w.id === workspaceId);
+
+        if (workspace && workspace.totalBeds && workspace.occupiedBeds !== undefined) {
+          const occupancyRate = workspace.totalBeds > 0 ? ((workspace.occupiedBeds / workspace.totalBeds) * 100).toFixed(1) : '0';
+          const availableBeds = workspace.totalBeds - workspace.occupiedBeds;
+          
+          const response = `🏥 **Bed Occupancy Information**\n\n` +
+            `**Total Beds:** ${workspace.totalBeds}\n` +
+            `**Occupied Beds:** ${workspace.occupiedBeds}\n` +
+            `**Available Beds:** ${availableBeds}\n` +
+            `**Occupancy Rate:** ${occupancyRate}%\n` +
+            `**Status:** ${parseFloat(occupancyRate) > 90 ? 'High' : parseFloat(occupancyRate) > 70 ? 'Moderate' : 'Low'} occupancy`;
+          
+          appendMessages({ sender: 'ai', text: response });
+        } else {
+          appendMessages({ sender: 'ai', text: 'No occupancy data available for this workspace.' });
+        }
+      } catch (error) {
+        console.error('Error fetching occupancy data:', error);
+        appendMessages({ sender: 'ai', text: 'Sorry, I couldn\'t fetch occupancy data. Please try again.' });
+      } finally {
+        setIsTyping(false);
+      }
+      return;
+    }
+
+    // Handle action plans
+    if (intent.type === 'action_plans') {
+      appendMessages([{ sender: 'user', text: inputVal }, { sender: 'ai', text: 'Fetching action plans...' }]);
+      setInput('');
+      setIsTyping(true);
+      try {
+        const workspaceId = selectedItem.workspaceId;
+        if (!workspaceId) {
+          appendMessages({ sender: 'ai', text: 'No workspace selected for action plans.' });
+          setIsTyping(false);
+          return;
+        }
+
+        // Try to fetch action plans from Firestore
+        const { collection, getDocs, query, orderBy, limit } = await import('firebase/firestore');
+        const actionPlansCol = collection(db, `workspaces/${workspaceId}/action-plans`);
+        const actionPlansQuery = query(actionPlansCol, orderBy('createdAt', 'desc'), limit(10));
+        const snapshot = await getDocs(actionPlansQuery);
+
+        if (!snapshot.empty) {
+          const actionCards = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              title: data.title || 'Untitled Action',
+              description: data.description || 'No description available',
+              status: data.status || 'pending',
+              dueDate: data.dueDate ? new Date(data.dueDate.toDate()).toLocaleDateString() : undefined,
+              priority: data.priority || 'medium'
+            };
+          });
+
+          appendMessages({ sender: 'ai', text: `Found ${actionCards.length} action plan(s):`, actions: actionCards });
+        } else {
+          appendMessages({ sender: 'ai', text: 'No action plans found. Navigate to the Action Plans page to create some.' });
+        }
+      } catch (error) {
+        console.error('Error fetching action plans:', error);
+        appendMessages({ sender: 'ai', text: 'Sorry, I couldn\'t fetch action plans. Please try again.' });
       } finally {
         setIsTyping(false);
       }
@@ -1136,6 +2142,8 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
     return (
       <div>
         <p className="whitespace-pre-wrap leading-relaxed">{message.text}</p>
+        
+        {/* Document cards */}
         {message.documents && message.documents.length > 0 && (
           <div className="mt-3 space-y-2">
             {message.documents.map((doc) => (
@@ -1186,6 +2194,58 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
             ))}
           </div>
         )}
+
+        {/* User cards */}
+        {message.users && message.users.length > 0 && (
+          <div className="mt-3 space-y-2">
+            {message.users.map((user) => (
+              <UserCard
+                key={user.id}
+                id={user.id}
+                name={user.name}
+                email={user.email}
+                role={user.role}
+                avatarUrl={user.avatarUrl}
+                createdAt={user.createdAt}
+                onClick={() => handleUserCardClick(user)}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Team cards */}
+        {message.teams && message.teams.length > 0 && (
+          <div className="mt-3 space-y-2">
+            {message.teams.map((team) => (
+              <TeamCard
+                key={team.id}
+                id={team.id}
+                name={team.name}
+                memberCount={team.memberCount}
+                description={team.description}
+                onClick={() => handleTeamCardClick(team)}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Action cards */}
+        {message.actions && message.actions.length > 0 && (
+          <div className="mt-3 space-y-2">
+            {message.actions.map((action) => (
+              <ActionCard
+                key={action.id}
+                id={action.id}
+                title={action.title}
+                description={action.description}
+                status={action.status}
+                dueDate={action.dueDate}
+                priority={action.priority}
+                onClick={() => handleActionCardClick(action)}
+              />
+            ))}
+          </div>
+        )}
       </div>
     );
   };
@@ -1208,6 +2268,14 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
   // Teams state for sharing
   const [teams, setTeams] = useState<Array<{ id: string; name: string }>>([]);
   const [teamFilter, setTeamFilter] = useState('');
+
+  // Users state for user cards
+  const [users, setUsers] = useState<Array<{ id: string; name: string; email?: string; role?: string; avatarUrl?: string; createdAt?: string }>>([]);
+  const [userFilter, setUserFilter] = useState('');
+
+  // Actions state for action cards
+  const [actions, setActions] = useState<Array<{ id: string; title: string; description?: string; status?: 'pending' | 'completed' | 'overdue'; dueDate?: string; priority?: 'low' | 'medium' | 'high' }>>([]);
+  const [actionFilter, setActionFilter] = useState('');
 
   useEffect(() => {
     // Fetch teams from Firestore for the current workspace
@@ -1266,6 +2334,36 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
     }
   };
 
+  const handleUserCardClick = (user: { id?: string; name?: string; email?: string }) => {
+    if (user.id) {
+      // Navigate to user profile or open user modal
+      if (typeof window !== 'undefined' && window.dispatchEvent) {
+        window.dispatchEvent(new CustomEvent('open-user-profile', { detail: { userId: user.id, userName: user.name } }));
+      }
+      toast({ title: 'User Profile', description: `Opening profile for ${user.name || user.email || 'user'}` });
+    }
+  };
+
+  const handleTeamCardClick = (team: { id?: string; name?: string }) => {
+    if (team.id) {
+      // Navigate to team page or open team modal
+      if (typeof window !== 'undefined' && window.dispatchEvent) {
+        window.dispatchEvent(new CustomEvent('open-team-details', { detail: { teamId: team.id, teamName: team.name } }));
+      }
+      toast({ title: 'Team Details', description: `Opening details for ${team.name || 'team'}` });
+    }
+  };
+
+  const handleActionCardClick = (action: { id?: string; title?: string }) => {
+    if (action.id) {
+      // Navigate to action plans page or open action modal
+      if (typeof window !== 'undefined' && window.dispatchEvent) {
+        window.dispatchEvent(new CustomEvent('open-action-details', { detail: { actionId: action.id, actionTitle: action.title } }));
+      }
+      toast({ title: 'Action Details', description: `Opening details for ${action.title || 'action'}` });
+    }
+  };
+
   const onShareDocument = (doc: { id?: string; name?: string; url?: string }) => {
     // This function is intentionally left to be used as a trigger that opens the Popover.
     // Actual share occurs when selecting a team in the Popover.
@@ -1311,6 +2409,24 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
               </Button>
               <Button size="sm" variant="ghost" onClick={() => { setInput('Send email to team about updates'); setTimeout(() => handleSend(), 60); }}>
                 Send email to team
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => { setInput('Show my profile'); setTimeout(() => handleSend(), 60); }}>
+                Show my profile
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => { setInput('Open domestic staff supervision'); setTimeout(() => handleSend(), 60); }}>
+                Open domestic staff supervision
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => { setInput('Show me carers supervision'); setTimeout(() => handleSend(), 60); }}>
+                Show me carers supervision
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => { setInput('Show teams'); setTimeout(() => handleSend(), 60); }}>
+                Show teams
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => { setInput('Show occupancy data'); setTimeout(() => handleSend(), 60); }}>
+                Show occupancy data
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => { setInput('Create new audit'); setTimeout(() => handleSend(), 60); }}>
+                Create new audit
               </Button>
             </div>
           </div>
@@ -1363,7 +2479,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
       <div className="p-4 border-t bg-white shrink-0">
         <div className="relative">
           <Textarea
-            placeholder="Ask me anything... 'Show me audit results', 'Show dependency data', 'Send email to team', 'Find user John', 'Create new audit'..."
+            placeholder="Ask me anything... 'Show me audit results', 'Show dependency data', 'Send email to team', 'Find user John', 'Create new audit', 'Show my profile', 'Open tracker', 'Go to action plans', 'Show teams', 'Show occupancy data'..."
             className="w-full resize-none pr-12 min-h-[48px] border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:border-blue-300 transition-colors"
             value={input}
             onChange={(e) => setInput(e.target.value)}

@@ -1700,7 +1700,7 @@ export default function DependencyCalculatorPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       {/* Header Section */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 border-b border-blue-500 shadow-lg rounded-b-2xl relative overflow-hidden">
+      <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-blue-600 to-purple-700 text-white rounded-b-3xl">
         {/* Subtle background pattern with circular details */}
         <div className="absolute inset-0 opacity-5">
           <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full -translate-y-48 translate-x-48"></div>
@@ -1710,13 +1710,13 @@ export default function DependencyCalculatorPage() {
         <div className="max-w-7xl mx-auto p-8 relative z-10">
           <div className="flex items-center justify-between">
             <div className="-ml-40 flex items-center gap-4">
-              <div className="p-3 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg">
+              <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg">
                 <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-white">Dependency Calculator</h1>
+                <h1 className="text-4xl font-bold text-white">Dependency Calculator</h1>
               </div>
             </div>
             <div className="ml-auto hidden md:flex items-center">

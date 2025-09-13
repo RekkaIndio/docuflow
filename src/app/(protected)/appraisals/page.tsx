@@ -97,6 +97,68 @@ export default function AppraisalsPage() {
     loadData();
   }, [user?.id, workspace?.id]);
 
+  // Add event listeners for chat commands
+  useEffect(() => {
+    const handleOpenTrackerModal = (event: CustomEvent) => {
+      // Open the tracker tab and show the modal for current month
+      setTab('tracker');
+      const currentMonth = new Date().getMonth();
+      // For now, open tracker for the first role and current month
+      const firstRole = 'Deputy/ies';
+      setTrackerModal({ role: firstRole, month: currentMonth });
+    };
+
+    const handleOpenTrackerTab = (event: CustomEvent) => {
+      // Just switch to the tracker tab without opening any modal
+      setTab('tracker');
+    };
+
+    const handleOpenAppraisalModal = (event: CustomEvent) => {
+      // Navigate to appraisals tab
+      setTab('appraisals');
+    };
+
+    const handleOpenAuditModal = (event: CustomEvent) => {
+      // Navigate to audits page (this would need routing)
+      window.dispatchEvent(new CustomEvent('navigate-to-audits'));
+    };
+
+    const handleOpenSpecificAppraisal = (event: CustomEvent) => {
+      const appraisalName = event.detail?.appraisalName?.toLowerCase();
+      if (appraisalName) {
+        // Find the matching appraisal card
+        const matchingCard = appraisalCards.find(card =>
+          card.title.toLowerCase().includes(appraisalName) ||
+          card.slug.toLowerCase().includes(appraisalName) ||
+          appraisalName.includes(card.title.toLowerCase()) ||
+          appraisalName.includes(card.slug.toLowerCase())
+        );
+
+        if (matchingCard) {
+          setCurrentView(matchingCard.slug);
+          setTab('appraisals');
+          setCurrentMonth(new Date().getMonth());
+        }
+      }
+    };
+
+    // Add event listeners
+    window.addEventListener('open-tracker-modal', handleOpenTrackerModal as EventListener);
+    window.addEventListener('open-tracker-tab', handleOpenTrackerTab as EventListener);
+    window.addEventListener('open-appraisal-modal', handleOpenAppraisalModal as EventListener);
+    window.addEventListener('open-audit-modal', handleOpenAuditModal as EventListener);
+    window.addEventListener('open-specific-appraisal', handleOpenSpecificAppraisal as EventListener);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('open-tracker-modal', handleOpenTrackerModal as EventListener);
+      window.removeEventListener('open-tracker-tab', handleOpenTrackerTab as EventListener);
+      window.removeEventListener('open-appraisal-modal', handleOpenAppraisalModal as EventListener);
+      window.removeEventListener('open-audit-modal', handleOpenAuditModal as EventListener);
+      window.removeEventListener('open-specific-appraisal', handleOpenSpecificAppraisal as EventListener);
+    };
+  }, []);
+
   // Check for month changes and reset completion status for previous months
   useEffect(() => {
     const checkMonthTransition = () => {
@@ -176,13 +238,13 @@ export default function AppraisalsPage() {
     });
   };
 
-  const handleOpenTrackerModal = (role: string, month: number) => {
-    setTrackerModal({ role, month });
-  };
+    const handleOpenTrackerModal = (role: string, month: number) => {
+      setTrackerModal({ role, month });
+    };
 
-  const handleCloseTrackerModal = () => {
-    setTrackerModal(null);
-  };
+    const handleCloseTrackerModal = () => {
+      setTrackerModal(null);
+    };
 
   const handleSelectAppraisal = (appraisal: string) => {
     setCurrentView(appraisal);
