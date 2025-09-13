@@ -2,9 +2,13 @@
 
 "use client";
 import React, { useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { useAuth } from '@/hooks/use-auth';
 import { saveAudit, updateAudit, markAuditCompleted, markAuditCompletedWithSnapshot } from '@/lib/firestore';
 import { useWorkspace } from '@/context/workspace';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 export default function AccidentIncidentAuditPage() {
   const [currentReportIndex, setCurrentReportIndex] = useState(0);
@@ -162,6 +166,46 @@ export default function AccidentIncidentAuditPage() {
   const [savedAuditId, setSavedAuditId] = useState<string | null>(null);
   const [finalComments, setFinalComments] = useState('');
 
+  // Collapsible state for each section
+  const [openSections, setOpenSections] = useState(() => Array(4).fill(true));
+
+  const toggleSection = (idx: number) => {
+    setOpenSections((prev: boolean[]) => prev.map((open, i) => (i === idx ? !open : open)));
+  };
+
+  // Section definitions for collapsible form
+  const sections = [
+    {
+      label: "1. Incident Details",
+      name: "incidentDetails",
+      guidance: ["Provide detailed information about the incident or accident."]
+    },
+    {
+      label: "2. Response & Actions",
+      name: "responseActions",
+      guidance: [
+        "Document immediate actions taken in response to the incident.",
+        "Include any medical attention provided and communication with relevant parties."
+      ]
+    },
+    {
+      label: "3. Preventative Measures",
+      name: "preventativeMeasures",
+      guidance: [
+        "Identify measures to prevent similar incidents in the future.",
+        "Consider environmental factors, staff training, and procedural changes."
+      ]
+    },
+    {
+      label: "4. Notifications & Compliance",
+      name: "notificationsCompliance",
+      guidance: [
+        "Document all required notifications to regulatory bodies and safeguarding teams.",
+        "Ensure compliance with CQC and local authority requirements."
+      ]
+    }
+  ];
+
   // Helper function to check if field has error
   const hasError = (fieldName: string) => validationErrors.includes(fieldName);
   
@@ -173,141 +217,124 @@ export default function AccidentIncidentAuditPage() {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-white overflow-hidden">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 shadow-md flex-shrink-0">
-        <div className="w-full">
-          <div>
-            <h1 className="text-2xl font-bold mb-1">Accident and Incident Audit</h1>
-            <p className="text-blue-100 text-sm">Complete this form to document and audit accidents or incidents</p>
+    <div className="max-w-7xl mx-auto p-10 bg-gradient-to-br from-slate-50 to-white rounded-3xl shadow-2xl mt-10 border border-slate-200">
+      <div className="flex flex-col lg:flex-row gap-10">
+        {/* Left panel for details, sticky and NOT part of the form */}
+        <div className="w-full lg:w-[480px] flex-shrink-0 bg-white rounded-2xl p-10 border border-slate-200 shadow-xl mb-8 lg:mb-0 lg:sticky lg:top-10 self-start h-fit">
+          <h1 className="text-3xl font-extrabold mb-2 text-blue-900 tracking-tight">Accident and Incident Audit</h1>
+          <p className="mb-4 text-slate-500">Complete this form to document and audit accidents or incidents. All fields are required.</p>
+          <div className="space-y-4 mt-4">
+            <div>
+              <label className="block font-semibold mb-1 text-slate-700">Home/Care Facility</label>
+              <Input
+                type="text"
+                className={getFieldClassName('home', "w-full")}
+                name="home"
+                value={currentReport.home}
+                onChange={handleChange}
+                placeholder="Enter care home name"
+                required
+              />
+              {hasError('home') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+            </div>
+            <div>
+              <label className="block font-semibold mb-1 text-slate-700">Audit Date</label>
+              <Input
+                type="date"
+                className={getFieldClassName('auditDate', "w-full")}
+                name="auditDate"
+                value={currentReport.auditDate}
+                onChange={handleChange}
+                required
+              />
+              {hasError('auditDate') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+            </div>
+            <div>
+              <label className="block font-semibold mb-1 text-slate-700">Person Completing Audit</label>
+              <Input
+                type="text"
+                className={getFieldClassName('completedBy', "w-full")}
+                name="completedBy"
+                value={currentReport.completedBy}
+                onChange={handleChange}
+                placeholder="Full name and position"
+                required
+              />
+              {hasError('completedBy') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+            </div>
+            <div>
+              <label className="block font-semibold mb-1 text-slate-700">Incident Date</label>
+              <Input
+                type="date"
+                className={getFieldClassName('incidentDate', "w-full")}
+                name="incidentDate"
+                value={currentReport.incidentDate}
+                onChange={handleChange}
+                required
+              />
+              {hasError('incidentDate') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+            </div>
+            <div>
+              <label className="block font-semibold mb-1 text-slate-700">Incident Time</label>
+              <Input
+                type="time"
+                className={getFieldClassName('incidentTime', "w-full")}
+                name="incidentTime"
+                value={currentReport.incidentTime}
+                onChange={handleChange}
+                required
+              />
+              {hasError('incidentTime') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+            </div>
+            <div>
+              <label className="block font-semibold mb-1 text-slate-700">Resident Name</label>
+              <Input
+                type="text"
+                className={getFieldClassName('residentName', "w-full")}
+                name="residentName"
+                value={currentReport.residentName}
+                onChange={handleChange}
+                placeholder="Full name"
+                required
+              />
+              {hasError('residentName') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+            </div>
           </div>
         </div>
-      </div>
-
-      {/* Main Content - Scrollable */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="w-full p-4">
-          <div className="flex gap-4">
-            {/* Main Form */}
-            <div className="bg-white rounded-lg shadow-lg border border-gray-200 flex-1">
-              <div className="p-6">
-                <form className="space-y-6" onSubmit={handleSubmit}>
-                  {/* Three Column Layout: left (audit+incident), middle (response+notifications), right (final comments + submit) */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                  
-                  {/* Left Column: Audit Information + Incident Information */}
-                  <div className="space-y-6">
-                    {/* Audit Information Section */}
-                    <div className="border-l-4 border-blue-500 pl-4">
-                      <h2 className="text-lg font-semibold text-gray-800 mb-4">Audit Information</h2>
+        {/* Main form right column, scrollable */}
+        <div className="flex-1 min-w-0 max-h-[calc(100vh-6rem)] overflow-y-auto pr-2">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-8">
+            {sections.map((section, idx) => (
+              <div key={section.name} className="bg-white rounded-2xl border border-slate-200 shadow-md transition-shadow hover:shadow-lg">
+                <button
+                  type="button"
+                  className="w-full flex items-center justify-between px-8 py-5 text-left font-semibold text-blue-900 text-lg focus:outline-none hover:bg-slate-50 rounded-t-2xl transition-colors"
+                  onClick={() => toggleSection(idx)}
+                >
+                  <span>{section.label}</span>
+                  {openSections[idx] ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                </button>
+                {openSections[idx] && (
+                  <div className="px-8 pb-8">
+                    {section.guidance && (
+                      <ul className="mb-2 ml-4 list-disc text-sm text-slate-500 space-y-1">
+                        {section.guidance.map((g, i) => (
+                          <li key={i}>{g}</li>
+                        ))}
+                      </ul>
+                    )}
+                    {/* Section content based on index */}
+                    {idx === 0 && (
                       <div className="space-y-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Home/Care Facility {hasError('home') && <span className="text-red-500">*</span>}
-                          </label>
-                          <input 
-                            type="text" 
-                            className={getFieldClassName('home', "w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm")}
-                            name="home" 
-                            value={currentReport.home} 
-                            onChange={handleChange}
-                            placeholder="Enter care home name"
-                            required
-                          />
-                          {hasError('home') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Audit Date {hasError('auditDate') && <span className="text-red-500">*</span>}
-                            </label>
-                            <input 
-                              type="date" 
-                              className={getFieldClassName('auditDate', "w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm")}
-                              name="auditDate" 
-                              value={currentReport.auditDate} 
-                              onChange={handleChange}
-                              required
-                            />
-                            {hasError('auditDate') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Time {hasError('incidentTime') && <span className="text-red-500">*</span>}
-                            </label>
-                            <input 
-                              type="time" 
-                              className={getFieldClassName('incidentTime', "w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm")}
-                              name="incidentTime" 
-                              value={currentReport.incidentTime} 
-                              onChange={handleChange}
-                              required
-                            />
-                            {hasError('incidentTime') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
-                          </div>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Person Completing Audit {hasError('completedBy') && <span className="text-red-500">*</span>}
-                          </label>
-                          <input 
-                            type="text" 
-                            className={getFieldClassName('completedBy', "w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm")}
-                            name="completedBy" 
-                            value={currentReport.completedBy} 
-                            onChange={handleChange}
-                            placeholder="Full name and position"
-                            required
-                          />
-                          {hasError('completedBy') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Incident Details Section */}
-                    <div className="border-l-4 border-red-500 pl-4">
-                      <h2 className="text-lg font-semibold text-gray-800 mb-4">Incident Information</h2>
-                      <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Incident Date {hasError('incidentDate') && <span className="text-red-500">*</span>}
-                            </label>
-                            <input 
-                              type="date" 
-                              className={getFieldClassName('incidentDate', "w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm")}
-                              name="incidentDate" 
-                              value={currentReport.incidentDate} 
-                              onChange={handleChange}
-                              required
-                            />
-                            {hasError('incidentDate') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Resident Name {hasError('residentName') && <span className="text-red-500">*</span>}
-                            </label>
-                            <input 
-                              type="text" 
-                              className={getFieldClassName('residentName', "w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm")}
-                              name="residentName" 
-                              value={currentReport.residentName} 
-                              onChange={handleChange}
-                              placeholder="Full name"
-                              required
-                            />
-                            {hasError('residentName') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
-                          </div>
-                        </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             Type of Occurrence {hasError('accidentOrIncident') && <span className="text-red-500">*</span>}
                           </label>
-                          <input 
-                            type="text" 
-                            className={getFieldClassName('accidentOrIncident', "w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm")}
-                            name="accidentOrIncident" 
-                            value={currentReport.accidentOrIncident} 
+                          <Input
+                            type="text"
+                            className={getFieldClassName('accidentOrIncident', "w-full bg-slate-50 border border-slate-200 rounded-lg")}
+                            name="accidentOrIncident"
+                            value={currentReport.accidentOrIncident}
                             onChange={handleChange}
                             placeholder="e.g., Fall, Medication error"
                             required
@@ -318,10 +345,10 @@ export default function AccidentIncidentAuditPage() {
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             Details of Incident {hasError('details') && <span className="text-red-500">*</span>}
                           </label>
-                          <textarea 
-                            className={getFieldClassName('details', "w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm h-20 resize-none")}
-                            name="details" 
-                            value={currentReport.details} 
+                          <Textarea
+                            className={getFieldClassName('details', "w-full bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-200")}
+                            name="details"
+                            value={currentReport.details}
                             onChange={handleChange}
                             placeholder="Describe what occurred..."
                             required
@@ -329,37 +356,35 @@ export default function AccidentIncidentAuditPage() {
                           {hasError('details') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
                         </div>
                       </div>
-                    </div>
-                  </div>
-
-                  {/* Middle Column: Response & Actions + Notifications & Compliance */}
-                  <div className="space-y-6">
-                    {/* Response & Actions Section */}
-                    <div className="border-l-4 border-green-500 pl-4">
-                      <h2 className="text-lg font-semibold text-gray-800 mb-4">Response & Actions</h2>
+                    )}
+                    {idx === 1 && (
                       <div className="space-y-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             Actions Taken {hasError('actionsTaken') && <span className="text-red-500">*</span>}
                           </label>
-                          <textarea 
-                            className={getFieldClassName('actionsTaken', "w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm h-20 resize-none")}
-                            name="actionsTaken" 
-                            value={currentReport.actionsTaken} 
+                          <Textarea
+                            className={getFieldClassName('actionsTaken', "w-full bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-200")}
+                            name="actionsTaken"
+                            value={currentReport.actionsTaken}
                             onChange={handleChange}
                             placeholder="Immediate actions taken..."
                             required
                           />
                           {hasError('actionsTaken') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
                         </div>
+                      </div>
+                    )}
+                    {idx === 2 && (
+                      <div className="space-y-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             Preventative Measures {hasError('preventative') && <span className="text-red-500">*</span>}
                           </label>
-                          <textarea 
-                            className={getFieldClassName('preventative', "w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm h-20 resize-none")}
-                            name="preventative" 
-                            value={currentReport.preventative} 
+                          <Textarea
+                            className={getFieldClassName('preventative', "w-full bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-200")}
+                            name="preventative"
+                            value={currentReport.preventative}
                             onChange={handleChange}
                             placeholder="Prevention measures..."
                             required
@@ -367,141 +392,92 @@ export default function AccidentIncidentAuditPage() {
                           {hasError('preventative') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
                         </div>
                       </div>
-                    </div>
-
-                    {/* Notifications & Compliance Section */}
-                    <div className="border-l-4 border-yellow-500 pl-4">
-                      <h2 className="text-lg font-semibold text-gray-800 mb-4">Notifications & Compliance</h2>
+                    )}
+                    {idx === 3 && (
                       <div className="space-y-4">
-                        <div className={hasError('cqcNotification') ? "bg-red-50 p-3 rounded-lg border border-red-200" : "bg-gray-50 p-3 rounded-lg"}>
+                        <div className={hasError('cqcNotification') ? "bg-red-50 p-4 rounded-lg border border-red-200" : "bg-slate-50 p-4 rounded-lg"}>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
                             CQC Notification Required {hasError('cqcNotification') && <span className="text-red-500">*</span>}
                           </label>
                           <div className="flex gap-4">
                             <label className="flex items-center">
-                              <input 
-                                type="radio" 
-                                name="cqcNotification" 
-                                value="yes" 
-                                checked={currentReport.cqcNotification === "yes"} 
+                              <input
+                                type="radio"
+                                name="cqcNotification"
+                                value="yes"
+                                checked={currentReport.cqcNotification === "yes"}
                                 onChange={handleChange}
                                 className="mr-2 text-blue-600"
-                              /> 
+                              />
                               <span className="text-sm">Yes</span>
                             </label>
                             <label className="flex items-center">
-                              <input 
-                                type="radio" 
-                                name="cqcNotification" 
-                                value="no" 
-                                checked={currentReport.cqcNotification === "no"} 
+                              <input
+                                type="radio"
+                                name="cqcNotification"
+                                value="no"
+                                checked={currentReport.cqcNotification === "no"}
                                 onChange={handleChange}
                                 className="mr-2 text-blue-600"
-                              /> 
+                              />
                               <span className="text-sm">No</span>
                             </label>
                           </div>
                           {hasError('cqcNotification') && <p className="text-red-500 text-xs mt-1">Please select an option</p>}
                         </div>
-                        <div className={hasError('safeguardNotification') ? "bg-red-50 p-3 rounded-lg border border-red-200" : "bg-gray-50 p-3 rounded-lg"}>
+                        <div className={hasError('safeguardNotification') ? "bg-red-50 p-4 rounded-lg border border-red-200" : "bg-slate-50 p-4 rounded-lg"}>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
                             Safeguarding Notification {hasError('safeguardNotification') && <span className="text-red-500">*</span>}
                           </label>
                           <div className="flex gap-4">
                             <label className="flex items-center">
-                              <input 
-                                type="radio" 
-                                name="safeguardNotification" 
-                                value="yes" 
-                                checked={currentReport.safeguardNotification === "yes"} 
+                              <input
+                                type="radio"
+                                name="safeguardNotification"
+                                value="yes"
+                                checked={currentReport.safeguardNotification === "yes"}
                                 onChange={handleChange}
                                 className="mr-2 text-blue-600"
-                              /> 
+                              />
                               <span className="text-sm">Yes</span>
                             </label>
                             <label className="flex items-center">
-                              <input 
-                                type="radio" 
-                                name="safeguardNotification" 
-                                value="no" 
-                                checked={currentReport.safeguardNotification === "no"} 
+                              <input
+                                type="radio"
+                                name="safeguardNotification"
+                                value="no"
+                                checked={currentReport.safeguardNotification === "no"}
                                 onChange={handleChange}
                                 className="mr-2 text-blue-600"
-                              /> 
+                              />
                               <span className="text-sm">No</span>
                             </label>
                           </div>
                           {hasError('safeguardNotification') && <p className="text-red-500 text-xs mt-1">Please select an option</p>}
                         </div>
                       </div>
-                    </div>
+                    )}
                   </div>
-
-                  {/* Right Column: Final Comments + Submit */}
-                  <div className="space-y-6">
-                    <div className="border-l-4 border-gray-300 pl-4">
-                      <h3 className="text-md font-medium text-gray-800 mb-2">Final Comments</h3>
-                      <textarea
-                        name="finalComments"
-                        value={finalComments}
-                        onChange={(e) => setFinalComments(e.target.value)}
-                        placeholder="Any final comments or observations about this audit..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm h-64 resize-none"
-                      />
-                    </div>
-
-                    {/* Submit Button placed in right column to align with final comments */}
-                    <div className="flex justify-end pt-4">
-                      <button 
-                        type="submit" 
-                        className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-6 rounded-md transition-colors duration-200 shadow-md hover:shadow-lg"
-                      >
-                        Complete Audit
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </form>
-            </div>
-          </div>
-
-          {/* Navigation and Add Report Buttons - positioned to the right side */}
-          <div className="flex flex-col justify-center gap-4">
-            {/* Navigation */}
-            {reports.length > 1 && (
-              <div className="flex flex-col items-center gap-2 text-sm">
-                <button
-                  onClick={() => setCurrentReportIndex(Math.max(0, currentReportIndex - 1))}
-                  disabled={currentReportIndex === 0}
-                  className="w-8 h-8 bg-gray-600 text-white rounded-full hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                >
-                  ←
-                </button>
-                <span className="text-gray-600 text-xs font-medium">
-                  {currentReportIndex + 1} of {reports.length}
-                </span>
-                <button
-                  onClick={() => setCurrentReportIndex(Math.min(reports.length - 1, currentReportIndex + 1))}
-                  disabled={currentReportIndex === reports.length - 1}
-                  className="w-8 h-8 bg-gray-600 text-white rounded-full hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                >
-                  →
-                </button>
+                )}
               </div>
-            )}
-            
-            {/* Add Report Button */}
-            <button
-              onClick={addNewReport}
-              className="w-12 h-12 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors flex items-center justify-center text-2xl font-bold shadow-lg"
-              title="Add new report"
-            >
-              +
-            </button>
-          </div>
+            ))}
+            {/* Final Comments section */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-md p-8">
+              <h3 className="text-lg font-semibold text-blue-900 mb-4">Final Comments</h3>
+              <Textarea
+                name="finalComments"
+                value={finalComments}
+                onChange={(e) => setFinalComments(e.target.value)}
+                placeholder="Any final comments or observations about this audit..."
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-200 h-32"
+              />
+            </div>
+            <Button type="submit" className="w-full h-14 text-lg font-bold mt-4 bg-blue-800 hover:bg-blue-900 text-white rounded-xl shadow transition-all duration-150 disabled:opacity-60" disabled={saving}>
+              {saving ? "Saving..." : "Complete Audit"}
+            </Button>
+          </form>
         </div>
       </div>
-    </div>
 
       {/* Modal */}
       {showModal && (

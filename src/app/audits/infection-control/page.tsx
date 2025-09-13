@@ -1,9 +1,10 @@
 "use client";
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { useWorkspace } from '@/context/workspace';
-
-// Force dynamic rendering
-export const dynamic = 'force-dynamic';
 import { useAuth } from '@/hooks/use-auth';
 import { saveAudit, markAuditCompletedWithSnapshot, getLatestAuditData } from '@/lib/firestore';
 
@@ -96,6 +97,78 @@ export default function InfectionControlAuditPage() {
   const [errors, setErrors] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [finalComments, setFinalComments] = useState('');
+  const [openSections, setOpenSections] = useState<string[]>(['audit-details']);
+
+  const sections = [
+    {
+      name: 'audit-details',
+      label: 'Audit Details',
+      guidance: 'Enter the basic information for this infection control audit including the care home name, audit date, and person completing the audit.'
+    },
+    {
+      name: 'hand-hygiene',
+      label: 'Hand Hygiene',
+      guidance: 'Assess the availability and effectiveness of hand hygiene facilities, audits, alcohol-based hand rubs, staff compliance, promotional materials, and resident support for hand hygiene practices.'
+    },
+    {
+      name: 'ppe',
+      label: 'Personal Protective Equipment (PPE)',
+      guidance: 'Evaluate the availability, storage, staff training, correct usage, and disposal procedures for personal protective equipment including gloves, aprons, masks, and eye protection.'
+    },
+    {
+      name: 'environmental-cleanliness',
+      label: 'Environmental Cleanliness',
+      guidance: 'Review cleaning schedules, communal area cleanliness, frequently touched surface cleaning, cleaning equipment storage, and laundry procedures to prevent cross-contamination.'
+    },
+    {
+      name: 'waste-management',
+      label: 'Waste Management',
+      guidance: 'Check clinical waste disposal procedures, bin maintenance and cleaning schedules, and waste storage area cleanliness and security measures.'
+    },
+    {
+      name: 'resident-care',
+      label: 'Resident Care & Infection Control',
+      guidance: 'Assess isolation procedures for infected residents, care plan updates, staff training on infection identification, and alignment of visiting policies with infection control guidance.'
+    },
+    {
+      name: 'staff-training',
+      label: 'Staff Training & Compliance',
+      guidance: 'Review staff training on infection prevention, regular audits and spot checks, and procedures for addressing poor infection control practices through supervision or retraining.'
+    },
+    {
+      name: 'outbreak-management',
+      label: 'Outbreak Management',
+      guidance: 'Evaluate outbreak policy availability, incident reporting procedures to appropriate authorities, and maintenance of outbreak records and logs.'
+    },
+    {
+      name: 'documentation',
+      label: 'Documentation & Records',
+      guidance: 'Check that infection control policies are current, cleaning records are maintained and signed, and incident reports linked to infection risks are properly documented.'
+    },
+    {
+      name: 'final-comments',
+      label: 'Final Comments & Recommendations',
+      guidance: 'Provide any additional comments or recommendations based on the infection control audit findings.'
+    }
+  ];
+
+  const toggleSection = (sectionName: string) => {
+    setOpenSections(prev =>
+      prev.includes(sectionName)
+        ? prev.filter(name => name !== sectionName)
+        : [...prev, sectionName]
+    );
+  };
+
+  const getFieldClassName = (fieldName: string, baseClass: string = "") => {
+    return errors.includes(fieldName)
+      ? `${baseClass} border-red-500 bg-red-50`
+      : baseClass;
+  };
+
+  const getFieldError = (fieldName: string) => {
+    return errors.includes(fieldName);
+  };
 
   const [data, setData] = useState<InfectionControlData>({
     home: '',
@@ -204,7 +277,7 @@ export default function InfectionControlAuditPage() {
     loadExistingAuditData();
   }, [activeWorkspace?.id]);
 
-  const handleChange = (field: keyof InfectionControlData, value: string) => {
+  const handleInputChange = (field: keyof InfectionControlData, value: string) => {
     setData(prev => ({ ...prev, [field]: value }));
     if (value.trim() !== '' && errors.includes(field)) {
       setErrors(prev => prev.filter(e => e !== field));
@@ -228,20 +301,33 @@ export default function InfectionControlAuditPage() {
     onYesNoChange: (v: string) => void;
     onCommentChange: (v: string) => void;
   }) => (
-    <div className="space-y-2">
-      <label className="block text-sm font-medium text-gray-700">{label}</label>
-      <div className="flex gap-4 items-center" data-field={yesNoField}>
-        <label className="flex items-center">
-          <input type="radio" name={yesNoField} value="Yes" checked={yesNoValue === 'Yes'} onChange={(e) => onYesNoChange(e.target.value)} className="mr-2" />
-          Yes
+    <div className="space-y-3 p-4 bg-white rounded-lg border border-slate-200 shadow-sm">
+      <label className="block text-sm font-semibold text-slate-800">{label}</label>
+      <div className="flex gap-6 items-center" data-field={yesNoField}>
+        <label className="flex items-center cursor-pointer">
+          <input
+            type="radio"
+            name={yesNoField}
+            value="Yes"
+            checked={yesNoValue === 'Yes'}
+            onChange={(e) => onYesNoChange(e.target.value)}
+            className="mr-2 w-4 h-4 text-blue-600 focus:ring-blue-500"
+          />
+          <span className="text-sm font-medium text-slate-700">Yes</span>
         </label>
-        <label className="flex items-center">
-          <input type="radio" name={yesNoField} value="No" checked={yesNoValue === 'No'} onChange={(e) => onYesNoChange(e.target.value)} className="mr-2" />
-          No
+        <label className="flex items-center cursor-pointer">
+          <input
+            type="radio"
+            name={yesNoField}
+            value="No"
+            checked={yesNoValue === 'No'}
+            onChange={(e) => onYesNoChange(e.target.value)}
+            className="mr-2 w-4 h-4 text-blue-600 focus:ring-blue-500"
+          />
+          <span className="text-sm font-medium text-slate-700">No</span>
         </label>
       </div>
-      {errors.includes(yesNoField) && <p className="text-red-500 text-sm">This field is required</p>}
-      {/* per-question comment removed; use final comments below */}
+      {errors.includes(yesNoField) && <p className="text-red-600 text-sm font-medium">This field is required</p>}
     </div>
   );
 
@@ -326,134 +412,468 @@ export default function InfectionControlAuditPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white">
-      <div className="mb-6">
-        <div className="flex justify-between items-center mb-4">
-          <h1 className="text-2xl font-bold text-gray-900">Infection Control Audit</h1>
+    <div className="max-w-7xl mx-auto p-10 bg-gradient-to-br from-slate-50 to-white rounded-3xl shadow-2xl mt-10 border border-slate-200">
+      <div className="flex flex-col lg:flex-row gap-10">
+        {/* Left panel for details, sticky and NOT part of the form */}
+        <div className="w-full lg:w-[480px] flex-shrink-0 bg-white rounded-2xl p-10 border border-slate-200 shadow-xl mb-8 lg:mb-0 lg:sticky lg:top-10 self-start h-fit">
+          <h1 className="text-3xl font-extrabold mb-2 text-blue-900 tracking-tight">Infection Control Audit</h1>
+          <p className="mb-4 text-slate-500">Complete this comprehensive infection control audit covering all aspects of infection prevention and control. All required fields must be filled.</p>
+          <div className="space-y-4 mt-4">
+            <div>
+              <label className="block font-semibold mb-1 text-slate-700">Home/Care Facility</label>
+              <Input
+                type="text"
+                className={getFieldClassName('home', "w-full")}
+                data-field="home"
+                value={data.home}
+                onChange={(e) => handleInputChange('home', e.target.value)}
+                placeholder="Enter care home name"
+                required
+              />
+              {getFieldError('home') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+            </div>
+            <div>
+              <label className="block font-semibold mb-1 text-slate-700">Audit Date</label>
+              <Input
+                type="date"
+                className={getFieldClassName('date', "w-full")}
+                data-field="date"
+                value={data.date}
+                onChange={(e) => handleInputChange('date', e.target.value)}
+                required
+              />
+              {getFieldError('date') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+            </div>
+            <div>
+              <label className="block font-semibold mb-1 text-slate-700">Person Completing Audit</label>
+              <Input
+                type="text"
+                className={getFieldClassName('personCompletingAudit', "w-full")}
+                data-field="personCompletingAudit"
+                value={data.personCompletingAudit}
+                onChange={(e) => handleInputChange('personCompletingAudit', e.target.value)}
+                placeholder="Full name and position"
+                required
+              />
+              {getFieldError('personCompletingAudit') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+            </div>
+          </div>
         </div>
 
-        <div className="bg-blue-50 p-4 rounded-lg mb-6">
-          <h2 className="text-lg font-semibold text-blue-900 mb-4">Audit Information</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Home</label>
-              <input value={data.home} data-field="home" onChange={(e) => handleChange('home', e.target.value)} className={`w-full p-2 border rounded ${errors.includes('home') ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="Enter home name" />
-              {errors.includes('home') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
-              <input type="date" value={data.date} data-field="date" onChange={(e) => handleChange('date', e.target.value)} className={`w-full p-2 border rounded ${errors.includes('date') ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} />
-              {errors.includes('date') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Person Completing the Audit</label>
-              <input value={data.personCompletingAudit} data-field="personCompletingAudit" onChange={(e) => handleChange('personCompletingAudit', e.target.value)} className={`w-full p-2 border rounded ${errors.includes('personCompletingAudit') ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="Enter auditor name" />
-              {errors.includes('personCompletingAudit') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
-            </div>
-          </div>
-        </div>
+        {/* Main form right column, scrollable */}
+        <div className="flex-1 min-w-0 max-h-[calc(100vh-6rem)] overflow-y-auto pr-2">
+          <form onSubmit={(e) => { e.preventDefault(); handleComplete(); }} className="flex flex-col gap-8">
+            {sections.map((section, idx) => (
+              <div key={section.name} className="bg-white rounded-2xl border border-slate-200 shadow-md transition-shadow hover:shadow-lg">
+                <button
+                  type="button"
+                  className="w-full flex items-center justify-between px-8 py-5 text-left font-semibold text-blue-900 text-lg focus:outline-none hover:bg-slate-50 rounded-t-2xl transition-colors"
+                  onClick={() => toggleSection(section.name)}
+                >
+                  <span>{section.label}</span>
+                  {openSections.includes(section.name) ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                </button>
+                {openSections.includes(section.name) && (
+                  <div className="px-8 pb-8">
+                    <p className="mb-6 text-sm text-slate-600 bg-slate-50 p-4 rounded-lg border-l-4 border-blue-500">
+                      {section.guidance}
+                    </p>
 
-          <div className="space-y-6">
-          <div className="bg-green-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-green-900 mb-3">1. Hand Hygiene</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Are hand hygiene facilities (sinks, soap, paper towels) available and accessible in all key areas?" yesNoField="hh_facilities_available" commentField="hh_facilities_available_comment" yesNoValue={data.hh_facilities_available} commentValue={data.hh_facilities_available_comment} onYesNoChange={(v) => handleChange('hh_facilities_available', v)} onCommentChange={(v) => handleChange('hh_facilities_available_comment', v)} />
-              <YesNoQuestion label="Are hand hygiene audits completed with staff?" yesNoField="hh_audits_completed" commentField="hh_audits_completed_comment" yesNoValue={data.hh_audits_completed} commentValue={data.hh_audits_completed_comment} onYesNoChange={(v) => handleChange('hh_audits_completed', v)} onCommentChange={(v) => handleChange('hh_audits_completed_comment', v)} />
-              <YesNoQuestion label="Are alcohol-based hand rubs available at points of care and communal areas?" yesNoField="hh_alcohol_available" commentField="hh_alcohol_available_comment" yesNoValue={data.hh_alcohol_available} commentValue={data.hh_alcohol_available_comment} onYesNoChange={(v) => handleChange('hh_alcohol_available', v)} onCommentChange={(v) => handleChange('hh_alcohol_available_comment', v)} />
-              <YesNoQuestion label="Are staff observed performing hand hygiene at appropriate times (e.g. before/after resident contact)?" yesNoField="hh_staff_observed" commentField="hh_staff_observed_comment" yesNoValue={data.hh_staff_observed} commentValue={data.hh_staff_observed_comment} onYesNoChange={(v) => handleChange('hh_staff_observed', v)} onCommentChange={(v) => handleChange('hh_staff_observed_comment', v)} />
-              <YesNoQuestion label="Are posters promoting hand hygiene displayed appropriately?" yesNoField="hh_posters_displayed" commentField="hh_posters_displayed_comment" yesNoValue={data.hh_posters_displayed} commentValue={data.hh_posters_displayed_comment} onYesNoChange={(v) => handleChange('hh_posters_displayed', v)} onCommentChange={(v) => handleChange('hh_posters_displayed_comment', v)} />
-              <YesNoQuestion label="Are residents supported or encouraged to perform hand hygiene, especially before meals?" yesNoField="hh_residents_supported" commentField="hh_residents_supported_comment" yesNoValue={data.hh_residents_supported} commentValue={data.hh_residents_supported_comment} onYesNoChange={(v) => handleChange('hh_residents_supported', v)} onCommentChange={(v) => handleChange('hh_residents_supported_comment', v)} />
-            </div>
-          </div>
+                    {/* Section content based on name */}
+                    {section.name === 'audit-details' && (
+                      <div className="text-center py-8 text-slate-500">
+                        <p>Audit details are shown in the left panel</p>
+                      </div>
+                    )}
 
-          <div className="bg-yellow-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-yellow-900 mb-3">2. Personal Protective Equipment (PPE)</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Is PPE (gloves, aprons, masks, eye protection) available and stored correctly?" yesNoField="ppe_available_stored" commentField="ppe_available_stored_comment" yesNoValue={data.ppe_available_stored} commentValue={data.ppe_available_stored_comment} onYesNoChange={(v) => handleChange('ppe_available_stored', v)} onCommentChange={(v) => handleChange('ppe_available_stored_comment', v)} />
-              <YesNoQuestion label="Are staff trained in the correct use of PPE?" yesNoField="ppe_staff_trained" commentField="ppe_staff_trained_comment" yesNoValue={data.ppe_staff_trained} commentValue={data.ppe_staff_trained_comment} onYesNoChange={(v) => handleChange('ppe_staff_trained', v)} onCommentChange={(v) => handleChange('ppe_staff_trained_comment', v)} />
-              <YesNoQuestion label="Are staff wearing PPE correctly and changing it between tasks/residents?" yesNoField="ppe_staff_wearing_correctly" commentField="ppe_staff_wearing_correctly_comment" yesNoValue={data.ppe_staff_wearing_correctly} commentValue={data.ppe_staff_wearing_correctly_comment} onYesNoChange={(v) => handleChange('ppe_staff_wearing_correctly', v)} onCommentChange={(v) => handleChange('ppe_staff_wearing_correctly_comment', v)} />
-              <YesNoQuestion label="Are appropriate PPE disposal bins available and used correctly?" yesNoField="ppe_disposal_bins" commentField="ppe_disposal_bins_comment" yesNoValue={data.ppe_disposal_bins} commentValue={data.ppe_disposal_bins_comment} onYesNoChange={(v) => handleChange('ppe_disposal_bins', v)} onCommentChange={(v) => handleChange('ppe_disposal_bins_comment', v)} />
-            </div>
-          </div>
+                    {section.name === 'hand-hygiene' && (
+                      <div className="bg-green-50 p-6 rounded-lg">
+                        <h4 className="text-lg font-semibold text-green-900 mb-4">Hand Hygiene</h4>
+                        <div className="space-y-4">
+                          <YesNoQuestion
+                            label="Are hand hygiene facilities (sinks, soap, paper towels) available and accessible in all key areas?"
+                            yesNoField="hh_facilities_available"
+                            commentField="hh_facilities_available_comment"
+                            yesNoValue={data.hh_facilities_available}
+                            commentValue={data.hh_facilities_available_comment}
+                            onYesNoChange={(v) => handleInputChange('hh_facilities_available', v)}
+                            onCommentChange={(v) => handleInputChange('hh_facilities_available_comment', v)}
+                          />
+                          <YesNoQuestion
+                            label="Are hand hygiene audits completed with staff?"
+                            yesNoField="hh_audits_completed"
+                            commentField="hh_audits_completed_comment"
+                            yesNoValue={data.hh_audits_completed}
+                            commentValue={data.hh_audits_completed_comment}
+                            onYesNoChange={(v) => handleInputChange('hh_audits_completed', v)}
+                            onCommentChange={(v) => handleInputChange('hh_audits_completed_comment', v)}
+                          />
+                          <YesNoQuestion
+                            label="Are alcohol-based hand rubs available at points of care and communal areas?"
+                            yesNoField="hh_alcohol_available"
+                            commentField="hh_alcohol_available_comment"
+                            yesNoValue={data.hh_alcohol_available}
+                            commentValue={data.hh_alcohol_available_comment}
+                            onYesNoChange={(v) => handleInputChange('hh_alcohol_available', v)}
+                            onCommentChange={(v) => handleInputChange('hh_alcohol_available_comment', v)}
+                          />
+                          <YesNoQuestion
+                            label="Are staff observed performing hand hygiene at appropriate times (e.g. before/after resident contact)?"
+                            yesNoField="hh_staff_observed"
+                            commentField="hh_staff_observed_comment"
+                            yesNoValue={data.hh_staff_observed}
+                            commentValue={data.hh_staff_observed_comment}
+                            onYesNoChange={(v) => handleInputChange('hh_staff_observed', v)}
+                            onCommentChange={(v) => handleInputChange('hh_staff_observed_comment', v)}
+                          />
+                          <YesNoQuestion
+                            label="Are posters promoting hand hygiene displayed appropriately?"
+                            yesNoField="hh_posters_displayed"
+                            commentField="hh_posters_displayed_comment"
+                            yesNoValue={data.hh_posters_displayed}
+                            commentValue={data.hh_posters_displayed_comment}
+                            onYesNoChange={(v) => handleInputChange('hh_posters_displayed', v)}
+                            onCommentChange={(v) => handleInputChange('hh_posters_displayed_comment', v)}
+                          />
+                          <YesNoQuestion
+                            label="Are residents supported or encouraged to perform hand hygiene, especially before meals?"
+                            yesNoField="hh_residents_supported"
+                            commentField="hh_residents_supported_comment"
+                            yesNoValue={data.hh_residents_supported}
+                            commentValue={data.hh_residents_supported_comment}
+                            onYesNoChange={(v) => handleInputChange('hh_residents_supported', v)}
+                            onCommentChange={(v) => handleInputChange('hh_residents_supported_comment', v)}
+                          />
+                        </div>
+                      </div>
+                    )}
 
-          <div className="bg-pink-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-pink-900 mb-3">3. Environmental Cleanliness</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Are cleaning schedules in place and up to date for all areas?" yesNoField="cleaning_schedules" commentField="cleaning_schedules_comment" yesNoValue={data.cleaning_schedules} commentValue={data.cleaning_schedules_comment} onYesNoChange={(v) => handleChange('cleaning_schedules', v)} onCommentChange={(v) => handleChange('cleaning_schedules_comment', v)} />
-              <YesNoQuestion label="Are communal areas visibly clean and free from clutter?" yesNoField="communal_areas_clean" commentField="communal_areas_clean_comment" yesNoValue={data.communal_areas_clean} commentValue={data.communal_areas_clean_comment} onYesNoChange={(v) => handleChange('communal_areas_clean', v)} onCommentChange={(v) => handleChange('communal_areas_clean_comment', v)} />
-              <YesNoQuestion label="Are frequently touched surfaces (e.g. door handles, handrails) cleaned regularly?" yesNoField="frequently_touched_cleaned" commentField="frequently_touched_cleaned_comment" yesNoValue={data.frequently_touched_cleaned} commentValue={data.frequently_touched_cleaned_comment} onYesNoChange={(v) => handleChange('frequently_touched_cleaned', v)} onCommentChange={(v) => handleChange('frequently_touched_cleaned_comment', v)} />
-              <YesNoQuestion label="Is cleaning equipment stored appropriately and colour-coded to avoid cross-contamination?" yesNoField="cleaning_equipment_stored" commentField="cleaning_equipment_stored_comment" yesNoValue={data.cleaning_equipment_stored} commentValue={data.cleaning_equipment_stored_comment} onYesNoChange={(v) => handleChange('cleaning_equipment_stored', v)} onCommentChange={(v) => handleChange('cleaning_equipment_stored_comment', v)} />
-              <YesNoQuestion label="Are laundry procedures being followed correctly (e.g. separate storage, in and out signs,use of PPE)?" yesNoField="laundry_procedures" commentField="laundry_procedures_comment" yesNoValue={data.laundry_procedures} commentValue={data.laundry_procedures_comment} onYesNoChange={(v) => handleChange('laundry_procedures', v)} onCommentChange={(v) => handleChange('laundry_procedures_comment', v)} />
-            </div>
-          </div>
+                    {section.name === 'ppe' && (
+                      <div className="bg-yellow-50 p-6 rounded-lg">
+                        <h4 className="text-lg font-semibold text-yellow-900 mb-4">Personal Protective Equipment (PPE)</h4>
+                        <div className="space-y-4">
+                          <YesNoQuestion
+                            label="Is PPE (gloves, aprons, masks, eye protection) available and stored correctly?"
+                            yesNoField="ppe_available_stored"
+                            commentField="ppe_available_stored_comment"
+                            yesNoValue={data.ppe_available_stored}
+                            commentValue={data.ppe_available_stored_comment}
+                            onYesNoChange={(v) => handleInputChange('ppe_available_stored', v)}
+                            onCommentChange={(v) => handleInputChange('ppe_available_stored_comment', v)}
+                          />
+                          <YesNoQuestion
+                            label="Are staff trained in the correct use of PPE?"
+                            yesNoField="ppe_staff_trained"
+                            commentField="ppe_staff_trained_comment"
+                            yesNoValue={data.ppe_staff_trained}
+                            commentValue={data.ppe_staff_trained_comment}
+                            onYesNoChange={(v) => handleInputChange('ppe_staff_trained', v)}
+                            onCommentChange={(v) => handleInputChange('ppe_staff_trained_comment', v)}
+                          />
+                          <YesNoQuestion
+                            label="Are staff wearing PPE correctly and changing it between tasks/residents?"
+                            yesNoField="ppe_staff_wearing_correctly"
+                            commentField="ppe_staff_wearing_correctly_comment"
+                            yesNoValue={data.ppe_staff_wearing_correctly}
+                            commentValue={data.ppe_staff_wearing_correctly_comment}
+                            onYesNoChange={(v) => handleInputChange('ppe_staff_wearing_correctly', v)}
+                            onCommentChange={(v) => handleInputChange('ppe_staff_wearing_correctly_comment', v)}
+                          />
+                          <YesNoQuestion
+                            label="Are appropriate PPE disposal bins available and used correctly?"
+                            yesNoField="ppe_disposal_bins"
+                            commentField="ppe_disposal_bins_comment"
+                            yesNoValue={data.ppe_disposal_bins}
+                            commentValue={data.ppe_disposal_bins_comment}
+                            onYesNoChange={(v) => handleInputChange('ppe_disposal_bins', v)}
+                            onCommentChange={(v) => handleInputChange('ppe_disposal_bins_comment', v)}
+                          />
+                        </div>
+                      </div>
+                    )}
 
-          <div className="bg-amber-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-amber-900 mb-3">4. Waste Management</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Is clinical waste disposed of in the correct bins (e.g. yellow/orange)?" yesNoField="clinical_waste_correct_bins" commentField="clinical_waste_correct_bins_comment" yesNoValue={data.clinical_waste_correct_bins} commentValue={data.clinical_waste_correct_bins_comment} onYesNoChange={(v) => handleChange('clinical_waste_correct_bins', v)} onCommentChange={(v) => handleChange('clinical_waste_correct_bins_comment', v)} />
-              <YesNoQuestion label="Are bins emptied regularly and cleaned?" yesNoField="bins_emptied_cleaned" commentField="bins_emptied_cleaned_comment" yesNoValue={data.bins_emptied_cleaned} commentValue={data.bins_emptied_cleaned_comment} onYesNoChange={(v) => handleChange('bins_emptied_cleaned', v)} onCommentChange={(v) => handleChange('bins_emptied_cleaned_comment', v)} />
-              <YesNoQuestion label="Are waste storage areas clean and secure?" yesNoField="waste_storage_clean_secure" commentField="waste_storage_clean_secure_comment" yesNoValue={data.waste_storage_clean_secure} commentValue={data.waste_storage_clean_secure_comment} onYesNoChange={(v) => handleChange('waste_storage_clean_secure', v)} onCommentChange={(v) => handleChange('waste_storage_clean_secure_comment', v)} />
-            </div>
-          </div>
+                    {section.name === 'environmental-cleanliness' && (
+                      <div className="bg-pink-50 p-6 rounded-lg">
+                        <h4 className="text-lg font-semibold text-pink-900 mb-4">Environmental Cleanliness</h4>
+                        <div className="space-y-4">
+                          <YesNoQuestion
+                            label="Are cleaning schedules in place and up to date for all areas?"
+                            yesNoField="cleaning_schedules"
+                            commentField="cleaning_schedules_comment"
+                            yesNoValue={data.cleaning_schedules}
+                            commentValue={data.cleaning_schedules_comment}
+                            onYesNoChange={(v) => handleInputChange('cleaning_schedules', v)}
+                            onCommentChange={(v) => handleInputChange('cleaning_schedules_comment', v)}
+                          />
+                          <YesNoQuestion
+                            label="Are communal areas visibly clean and free from clutter?"
+                            yesNoField="communal_areas_clean"
+                            commentField="communal_areas_clean_comment"
+                            yesNoValue={data.communal_areas_clean}
+                            commentValue={data.communal_areas_clean_comment}
+                            onYesNoChange={(v) => handleInputChange('communal_areas_clean', v)}
+                            onCommentChange={(v) => handleInputChange('communal_areas_clean_comment', v)}
+                          />
+                          <YesNoQuestion
+                            label="Are frequently touched surfaces (e.g. door handles, handrails) cleaned regularly?"
+                            yesNoField="frequently_touched_cleaned"
+                            commentField="frequently_touched_cleaned_comment"
+                            yesNoValue={data.frequently_touched_cleaned}
+                            commentValue={data.frequently_touched_cleaned_comment}
+                            onYesNoChange={(v) => handleInputChange('frequently_touched_cleaned', v)}
+                            onCommentChange={(v) => handleInputChange('frequently_touched_cleaned_comment', v)}
+                          />
+                          <YesNoQuestion
+                            label="Is cleaning equipment stored appropriately and colour-coded to avoid cross-contamination?"
+                            yesNoField="cleaning_equipment_stored"
+                            commentField="cleaning_equipment_stored_comment"
+                            yesNoValue={data.cleaning_equipment_stored}
+                            commentValue={data.cleaning_equipment_stored_comment}
+                            onYesNoChange={(v) => handleInputChange('cleaning_equipment_stored', v)}
+                            onCommentChange={(v) => handleInputChange('cleaning_equipment_stored_comment', v)}
+                          />
+                          <YesNoQuestion
+                            label="Are laundry procedures being followed correctly (e.g. separate storage, in and out signs,use of PPE)?"
+                            yesNoField="laundry_procedures"
+                            commentField="laundry_procedures_comment"
+                            yesNoValue={data.laundry_procedures}
+                            commentValue={data.laundry_procedures_comment}
+                            onYesNoChange={(v) => handleInputChange('laundry_procedures', v)}
+                            onCommentChange={(v) => handleInputChange('laundry_procedures_comment', v)}
+                          />
+                        </div>
+                      </div>
+                    )}
 
-          <div className="bg-indigo-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-indigo-900 mb-3">5. Resident Care & Infection Control</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Are isolation procedures in place for residents with suspected or confirmed infection?" yesNoField="isolation_procedures" commentField="isolation_procedures_comment" yesNoValue={data.isolation_procedures} commentValue={data.isolation_procedures_comment} onYesNoChange={(v) => handleChange('isolation_procedures', v)} onCommentChange={(v) => handleChange('isolation_procedures_comment', v)} />
-              <YesNoQuestion label="Are care plans updated to reflect infection risk or outbreaks?" yesNoField="care_plans_updated" commentField="care_plans_updated_comment" yesNoValue={data.care_plans_updated} commentValue={data.care_plans_updated_comment} onYesNoChange={(v) => handleChange('care_plans_updated', v)} onCommentChange={(v) => handleChange('care_plans_updated_comment', v)} />
-              <YesNoQuestion label="Are staff trained on identifying and reporting signs of infection?" yesNoField="staff_trained_identify_report" commentField="staff_trained_identify_report_comment" yesNoValue={data.staff_trained_identify_report} commentValue={data.staff_trained_identify_report_comment} onYesNoChange={(v) => handleChange('staff_trained_identify_report', v)} onCommentChange={(v) => handleChange('staff_trained_identify_report_comment', v)} />
-              <YesNoQuestion label="Are visiting policies in line with current infection control guidance?" yesNoField="visiting_policies_aligned" commentField="visiting_policies_aligned_comment" yesNoValue={data.visiting_policies_aligned} commentValue={data.visiting_policies_aligned_comment} onYesNoChange={(v) => handleChange('visiting_policies_aligned', v)} onCommentChange={(v) => handleChange('visiting_policies_aligned_comment', v)} />
-            </div>
-          </div>
+                    {section.name === 'waste-management' && (
+                      <div className="bg-amber-50 p-6 rounded-lg">
+                        <h4 className="text-lg font-semibold text-amber-900 mb-4">Waste Management</h4>
+                        <div className="space-y-4">
+                          <YesNoQuestion
+                            label="Is clinical waste disposed of in the correct bins (e.g. yellow/orange)?"
+                            yesNoField="clinical_waste_correct_bins"
+                            commentField="clinical_waste_correct_bins_comment"
+                            yesNoValue={data.clinical_waste_correct_bins}
+                            commentValue={data.clinical_waste_correct_bins_comment}
+                            onYesNoChange={(v) => handleInputChange('clinical_waste_correct_bins', v)}
+                            onCommentChange={(v) => handleInputChange('clinical_waste_correct_bins_comment', v)}
+                          />
+                          <YesNoQuestion
+                            label="Are bins emptied regularly and cleaned?"
+                            yesNoField="bins_emptied_cleaned"
+                            commentField="bins_emptied_cleaned_comment"
+                            yesNoValue={data.bins_emptied_cleaned}
+                            commentValue={data.bins_emptied_cleaned_comment}
+                            onYesNoChange={(v) => handleInputChange('bins_emptied_cleaned', v)}
+                            onCommentChange={(v) => handleInputChange('bins_emptied_cleaned_comment', v)}
+                          />
+                          <YesNoQuestion
+                            label="Are waste storage areas clean and secure?"
+                            yesNoField="waste_storage_clean_secure"
+                            commentField="waste_storage_clean_secure_comment"
+                            yesNoValue={data.waste_storage_clean_secure}
+                            commentValue={data.waste_storage_clean_secure_comment}
+                            onYesNoChange={(v) => handleInputChange('waste_storage_clean_secure', v)}
+                            onCommentChange={(v) => handleInputChange('waste_storage_clean_secure_comment', v)}
+                          />
+                        </div>
+                      </div>
+                    )}
 
-          <div className="bg-teal-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-teal-900 mb-3">6. Staff Training & Compliance</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Have staff received up-to-date training on infection prevention and control?" yesNoField="staff_ipc_training" commentField="staff_ipc_training_comment" yesNoValue={data.staff_ipc_training} commentValue={data.staff_ipc_training_comment} onYesNoChange={(v) => handleChange('staff_ipc_training', v)} onCommentChange={(v) => handleChange('staff_ipc_training_comment', v)} />
-              <YesNoQuestion label="Are infection control audits or spot checks conducted regularly?" yesNoField="audits_spot_checks" commentField="audits_spot_checks_comment" yesNoValue={data.audits_spot_checks} commentValue={data.audits_spot_checks_comment} onYesNoChange={(v) => handleChange('audits_spot_checks', v)} onCommentChange={(v) => handleChange('audits_spot_checks_comment', v)} />
-              <YesNoQuestion label="Are poor practices addressed through supervision or retraining?" yesNoField="poor_practices_addressed" commentField="poor_practices_addressed_comment" yesNoValue={data.poor_practices_addressed} commentValue={data.poor_practices_addressed_comment} onYesNoChange={(v) => handleChange('poor_practices_addressed', v)} onCommentChange={(v) => handleChange('poor_practices_addressed_comment', v)} />
-            </div>
-          </div>
+                    {section.name === 'resident-care' && (
+                      <div className="bg-indigo-50 p-6 rounded-lg">
+                        <h4 className="text-lg font-semibold text-indigo-900 mb-4">Resident Care & Infection Control</h4>
+                        <div className="space-y-4">
+                          <YesNoQuestion
+                            label="Are isolation procedures in place for residents with suspected or confirmed infection?"
+                            yesNoField="isolation_procedures"
+                            commentField="isolation_procedures_comment"
+                            yesNoValue={data.isolation_procedures}
+                            commentValue={data.isolation_procedures_comment}
+                            onYesNoChange={(v) => handleInputChange('isolation_procedures', v)}
+                            onCommentChange={(v) => handleInputChange('isolation_procedures_comment', v)}
+                          />
+                          <YesNoQuestion
+                            label="Are care plans updated to reflect infection risk or outbreaks?"
+                            yesNoField="care_plans_updated"
+                            commentField="care_plans_updated_comment"
+                            yesNoValue={data.care_plans_updated}
+                            commentValue={data.care_plans_updated_comment}
+                            onYesNoChange={(v) => handleInputChange('care_plans_updated', v)}
+                            onCommentChange={(v) => handleInputChange('care_plans_updated_comment', v)}
+                          />
+                          <YesNoQuestion
+                            label="Are staff trained on identifying and reporting signs of infection?"
+                            yesNoField="staff_trained_identify_report"
+                            commentField="staff_trained_identify_report_comment"
+                            yesNoValue={data.staff_trained_identify_report}
+                            commentValue={data.staff_trained_identify_report_comment}
+                            onYesNoChange={(v) => handleInputChange('staff_trained_identify_report', v)}
+                            onCommentChange={(v) => handleInputChange('staff_trained_identify_report_comment', v)}
+                          />
+                          <YesNoQuestion
+                            label="Are visiting policies in line with current infection control guidance?"
+                            yesNoField="visiting_policies_aligned"
+                            commentField="visiting_policies_aligned_comment"
+                            yesNoValue={data.visiting_policies_aligned}
+                            commentValue={data.visiting_policies_aligned_comment}
+                            onYesNoChange={(v) => handleInputChange('visiting_policies_aligned', v)}
+                            onCommentChange={(v) => handleInputChange('visiting_policies_aligned_comment', v)}
+                          />
+                        </div>
+                      </div>
+                    )}
 
-          <div className="bg-pink-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-pink-900 mb-3">7. Outbreak Management (If Applicable)</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Is there an outbreak policy in place and known to staff?" yesNoField="outbreak_policy" commentField="outbreak_policy_comment" yesNoValue={data.outbreak_policy} commentValue={data.outbreak_policy_comment} onYesNoChange={(v) => handleChange('outbreak_policy', v)} onCommentChange={(v) => handleChange('outbreak_policy_comment', v)} />
-              <YesNoQuestion label="Are incidents/outbreaks reported to appropriate authorities (UKHSA, CQC)?" yesNoField="outbreaks_reported" commentField="outbreaks_reported_comment" yesNoValue={data.outbreaks_reported} commentValue={data.outbreaks_reported_comment} onYesNoChange={(v) => handleChange('outbreaks_reported', v)} onCommentChange={(v) => handleChange('outbreaks_reported_comment', v)} />
-              <YesNoQuestion label="Are outbreak records and logs maintained?" yesNoField="outbreak_records_kept" commentField="outbreak_records_kept_comment" yesNoValue={data.outbreak_records_kept} commentValue={data.outbreak_records_kept_comment} onYesNoChange={(v) => handleChange('outbreak_records_kept', v)} onCommentChange={(v) => handleChange('outbreak_records_kept_comment', v)} />
-            </div>
-          </div>
+                    {section.name === 'staff-training' && (
+                      <div className="bg-teal-50 p-6 rounded-lg">
+                        <h4 className="text-lg font-semibold text-teal-900 mb-4">Staff Training & Compliance</h4>
+                        <div className="space-y-4">
+                          <YesNoQuestion
+                            label="Have staff received up-to-date training on infection prevention and control?"
+                            yesNoField="staff_ipc_training"
+                            commentField="staff_ipc_training_comment"
+                            yesNoValue={data.staff_ipc_training}
+                            commentValue={data.staff_ipc_training_comment}
+                            onYesNoChange={(v) => handleInputChange('staff_ipc_training', v)}
+                            onCommentChange={(v) => handleInputChange('staff_ipc_training_comment', v)}
+                          />
+                          <YesNoQuestion
+                            label="Are infection control audits or spot checks conducted regularly?"
+                            yesNoField="audits_spot_checks"
+                            commentField="audits_spot_checks_comment"
+                            yesNoValue={data.audits_spot_checks}
+                            commentValue={data.audits_spot_checks_comment}
+                            onYesNoChange={(v) => handleInputChange('audits_spot_checks', v)}
+                            onCommentChange={(v) => handleInputChange('audits_spot_checks_comment', v)}
+                          />
+                          <YesNoQuestion
+                            label="Are poor practices addressed through supervision or retraining?"
+                            yesNoField="poor_practices_addressed"
+                            commentField="poor_practices_addressed_comment"
+                            yesNoValue={data.poor_practices_addressed}
+                            commentValue={data.poor_practices_addressed_comment}
+                            onYesNoChange={(v) => handleInputChange('poor_practices_addressed', v)}
+                            onCommentChange={(v) => handleInputChange('poor_practices_addressed_comment', v)}
+                          />
+                        </div>
+                      </div>
+                    )}
 
-          <div className="bg-emerald-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-emerald-900 mb-3">8. Documentation & Records</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Are infection control policies up to date and reviewed regularly?" yesNoField="ipc_policies_up_to_date" commentField="ipc_policies_up_to_date_comment" yesNoValue={data.ipc_policies_up_to_date} commentValue={data.ipc_policies_up_to_date_comment} onYesNoChange={(v) => handleChange('ipc_policies_up_to_date', v)} onCommentChange={(v) => handleChange('ipc_policies_up_to_date_comment', v)} />
-              <YesNoQuestion label="Are cleaning records maintained and signed?" yesNoField="cleaning_records_maintained" commentField="cleaning_records_maintained_comment" yesNoValue={data.cleaning_records_maintained} commentValue={data.cleaning_records_maintained_comment} onYesNoChange={(v) => handleChange('cleaning_records_maintained', v)} onCommentChange={(v) => handleChange('cleaning_records_maintained_comment', v)} />
-              <YesNoQuestion label="Are incident and accident reports linked to infection risks recorded properly?" yesNoField="incidents_linked_to_infection" commentField="incidents_linked_to_infection_comment" yesNoValue={data.incidents_linked_to_infection} commentValue={data.incidents_linked_to_infection_comment} onYesNoChange={(v) => handleChange('incidents_linked_to_infection', v)} onCommentChange={(v) => handleChange('incidents_linked_to_infection_comment', v)} />
-            </div>
-          </div>
+                    {section.name === 'outbreak-management' && (
+                      <div className="bg-pink-50 p-6 rounded-lg">
+                        <h4 className="text-lg font-semibold text-pink-900 mb-4">Outbreak Management (If Applicable)</h4>
+                        <div className="space-y-4">
+                          <YesNoQuestion
+                            label="Is there an outbreak policy in place and known to staff?"
+                            yesNoField="outbreak_policy"
+                            commentField="outbreak_policy_comment"
+                            yesNoValue={data.outbreak_policy}
+                            commentValue={data.outbreak_policy_comment}
+                            onYesNoChange={(v) => handleInputChange('outbreak_policy', v)}
+                            onCommentChange={(v) => handleInputChange('outbreak_policy_comment', v)}
+                          />
+                          <YesNoQuestion
+                            label="Are incidents/outbreaks reported to appropriate authorities (UKHSA, CQC)?"
+                            yesNoField="outbreaks_reported"
+                            commentField="outbreaks_reported_comment"
+                            yesNoValue={data.outbreaks_reported}
+                            commentValue={data.outbreaks_reported_comment}
+                            onYesNoChange={(v) => handleInputChange('outbreaks_reported', v)}
+                            onCommentChange={(v) => handleInputChange('outbreaks_reported_comment', v)}
+                          />
+                          <YesNoQuestion
+                            label="Are outbreak records and logs maintained?"
+                            yesNoField="outbreak_records_kept"
+                            commentField="outbreak_records_kept_comment"
+                            yesNoValue={data.outbreak_records_kept}
+                            commentValue={data.outbreak_records_kept_comment}
+                            onYesNoChange={(v) => handleInputChange('outbreak_records_kept', v)}
+                            onCommentChange={(v) => handleInputChange('outbreak_records_kept_comment', v)}
+                          />
+                        </div>
+                      </div>
+                    )}
 
-          <div className="mt-6">
-            <label className="block text-sm font-medium">Final comments</label>
-            <textarea value={finalComments} onChange={(e) => setFinalComments(e.target.value)} className="w-full p-2 border rounded" rows={4} />
-          </div>
-          <div className="flex justify-center mt-8">
-            <button onClick={handleComplete} className="bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors">Complete Audit</button>
-          </div>
+                    {section.name === 'documentation' && (
+                      <div className="bg-emerald-50 p-6 rounded-lg">
+                        <h4 className="text-lg font-semibold text-emerald-900 mb-4">Documentation & Records</h4>
+                        <div className="space-y-4">
+                          <YesNoQuestion
+                            label="Are infection control policies up to date and reviewed regularly?"
+                            yesNoField="ipc_policies_up_to_date"
+                            commentField="ipc_policies_up_to_date_comment"
+                            yesNoValue={data.ipc_policies_up_to_date}
+                            commentValue={data.ipc_policies_up_to_date_comment}
+                            onYesNoChange={(v) => handleInputChange('ipc_policies_up_to_date', v)}
+                            onCommentChange={(v) => handleInputChange('ipc_policies_up_to_date_comment', v)}
+                          />
+                          <YesNoQuestion
+                            label="Are cleaning records maintained and signed?"
+                            yesNoField="cleaning_records_maintained"
+                            commentField="cleaning_records_maintained_comment"
+                            yesNoValue={data.cleaning_records_maintained}
+                            commentValue={data.cleaning_records_maintained_comment}
+                            onYesNoChange={(v) => handleInputChange('cleaning_records_maintained', v)}
+                            onCommentChange={(v) => handleInputChange('cleaning_records_maintained_comment', v)}
+                          />
+                          <YesNoQuestion
+                            label="Are incident and accident reports linked to infection risks recorded properly?"
+                            yesNoField="incidents_linked_to_infection"
+                            commentField="incidents_linked_to_infection_comment"
+                            yesNoValue={data.incidents_linked_to_infection}
+                            commentValue={data.incidents_linked_to_infection_comment}
+                            onYesNoChange={(v) => handleInputChange('incidents_linked_to_infection', v)}
+                            onCommentChange={(v) => handleInputChange('incidents_linked_to_infection_comment', v)}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {section.name === 'final-comments' && (
+                      <div className="bg-slate-50 p-6 rounded-lg">
+                        <h4 className="text-lg font-semibold text-slate-900 mb-4">Final Comments & Recommendations</h4>
+                        <Textarea
+                          value={finalComments}
+                          onChange={(e) => setFinalComments(e.target.value)}
+                          className="w-full p-3 border border-slate-300 rounded-md resize-none"
+                          rows={6}
+                          placeholder="Enter any additional comments or recommendations based on the infection control audit findings..."
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {/* Complete Audit Button */}
+            <Button type="submit" className="w-full h-14 text-lg font-bold mt-4 bg-blue-800 hover:bg-blue-900 text-white rounded-xl shadow transition-all duration-150 disabled:opacity-60" disabled={saving}>
+              {saving ? "Saving..." : "Complete Audit"}
+            </Button>
+          </form>
         </div>
       </div>
 
+      {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4">Complete Audit</h3>
-            <p className="text-gray-600 mb-6">Your audit will be completed and saved for this month. Would you like to create an action plan based on this audit?</p>
+          <div className="bg-white rounded-lg p-6 max-w-md mx-4">
+            <h3 className="text-lg font-semibold mb-4">Audit Complete</h3>
+            <p className="text-gray-600 mb-6">Would you like to create an action plan for this audit?</p>
             <div className="flex gap-3 justify-end">
-              <button onClick={() => handleModalCreate(false)} disabled={saving} className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">
-                {saving ? 'Saving...' : 'Complete Without Action Plan'}
+              <button
+                onClick={() => handleModalCreate(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                disabled={saving}
+              >
+                {saving ? 'Saving...' : 'No'}
               </button>
-              <button onClick={() => handleModalCreate(true)} disabled={saving} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-                {saving ? 'Saving...' : 'Complete With Action Plan'}
+              <button
+                onClick={() => handleModalCreate(true)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                disabled={saving}
+              >
+                {saving ? 'Saving...' : 'Save and Create Action Plan'}
               </button>
             </div>
           </div>

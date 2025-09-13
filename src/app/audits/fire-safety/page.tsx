@@ -1,6 +1,10 @@
 'use client';
 import React, { useState, useEffect } from "react";
 import { useWorkspace } from '@/context/workspace';
+import { ChevronDown, ChevronUp } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -118,6 +122,107 @@ export default function FireSafetyAuditPage() {
   const [finalComments, setFinalComments] = useState('');
   const activeWorkspace = useWorkspace();
   const { user } = useAuth();
+  
+  // Collapsible state for each section
+  const [openSections, setOpenSections] = useState(() => Array(10).fill(true));
+
+  const toggleSection = (idx: number) => {
+    setOpenSections((prev: boolean[]) => prev.map((open, i) => (i === idx ? !open : open)));
+  };
+
+  // Section definitions for collapsible form
+  const sections = [
+    {
+      label: "1. Fire Risk Assessment",
+      name: "fireRiskAssessment",
+      guidance: [
+        "Review fire risk assessment completion and currency.",
+        "Verify significant findings are addressed and documented."
+      ]
+    },
+    {
+      label: "2. Fire Detection and Alarm Systems",
+      name: "fireDetection",
+      guidance: [
+        "Check fire alarm functionality and testing procedures.",
+        "Verify staff familiarity with alarm systems."
+      ]
+    },
+    {
+      label: "3. Emergency Lighting",
+      name: "emergencyLighting",
+      guidance: [
+        "Inspect emergency lighting installation and maintenance.",
+        "Review testing records and procedures."
+      ]
+    },
+    {
+      label: "4. Fire Fighting Equipment",
+      name: "fireFighting",
+      guidance: [
+        "Check availability and servicing of fire extinguishers.",
+        "Verify staff training on equipment usage."
+      ]
+    },
+    {
+      label: "5. Means of Escape",
+      name: "escapeRoutes",
+      guidance: [
+        "Inspect fire exits, escape routes, and fire doors.",
+        "Ensure routes are clear and properly marked."
+      ]
+    },
+    {
+      label: "6. Fire Drills and Evacuation",
+      name: "fireDrills",
+      guidance: [
+        "Review evacuation plans and drill procedures.",
+        "Check PEEP plans for residents requiring assistance."
+      ]
+    },
+    {
+      label: "7. Staff Training and Competency",
+      name: "staffTraining",
+      guidance: [
+        "Verify fire safety training completion for all staff.",
+        "Check fire warden appointments and training."
+      ]
+    },
+    {
+      label: "8. Signage and Information",
+      name: "signage",
+      guidance: [
+        "Inspect fire action notices and exit signage.",
+        "Review fire logbook maintenance."
+      ]
+    },
+    {
+      label: "9. Electrical and Equipment Safety",
+      name: "electricalSafety",
+      guidance: [
+        "Check PAT testing and electrical inspections.",
+        "Verify procedures for faulty equipment reporting."
+      ]
+    },
+    {
+      label: "10. Housekeeping and Fire Prevention",
+      name: "housekeeping",
+      guidance: [
+        "Inspect storage of flammable materials.",
+        "Review smoking policies and hazard reporting procedures."
+      ]
+    }
+  ];
+
+  // Helper function to check if field has error
+  const hasError = (fieldName: string) => errors.includes(fieldName);
+  
+  // Helper function to get error styling
+  const getFieldClassName = (fieldName: string, baseClassName: string) => {
+    return hasError(fieldName) 
+      ? `${baseClassName} border-red-500 bg-red-50 focus:ring-red-500 focus:border-red-500` 
+      : baseClassName;
+  };
   
   const [auditData, setAuditData] = useState<FireSafetyAuditData>({
     home: '',
@@ -358,540 +463,575 @@ export default function FireSafetyAuditPage() {
     onYesNoChange: (value: string) => void;
     onCommentChange: (value: string) => void;
   }) => (
-    <div className="space-y-3">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
-        <div className="flex gap-4" data-field={yesNoField}>
-          <label className="flex items-center">
-            <input
-              type="radio"
-              name={yesNoField}
-              value="Yes"
-              checked={yesNoValue === 'Yes'}
-              onChange={(e) => onYesNoChange(e.target.value)}
-              className="mr-2"
-            />
-            Yes
-          </label>
-          <label className="flex items-center">
-            <input
-              type="radio"
-              name={yesNoField}
-              value="No"
-              checked={yesNoValue === 'No'}
-              onChange={(e) => onYesNoChange(e.target.value)}
-              className="mr-2"
-            />
-            No
-          </label>
+    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:border-gray-300 transition-colors">
+      <div className="space-y-3">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+          <div className="flex gap-4" data-field={yesNoField}>
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="radio"
+                name={yesNoField}
+                value="Yes"
+                checked={yesNoValue === 'Yes'}
+                onChange={(e) => onYesNoChange(e.target.value)}
+                className="mr-2 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-700">Yes</span>
+            </label>
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="radio"
+                name={yesNoField}
+                value="No"
+                checked={yesNoValue === 'No'}
+                onChange={(e) => onYesNoChange(e.target.value)}
+                className="mr-2 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-700">No</span>
+            </label>
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="radio"
+                name={yesNoField}
+                value="N/A"
+                checked={yesNoValue === 'N/A'}
+                onChange={(e) => onYesNoChange(e.target.value)}
+                className="mr-2 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-700">N/A</span>
+            </label>
+          </div>
+          {errors.includes(yesNoField) && (
+            <p className="text-red-500 text-sm mt-1">This field is required</p>
+          )}
         </div>
-        {errors.includes(yesNoField) && (
-          <p className="text-red-500 text-sm mt-1">This field is required</p>
-        )}
-      </div>
-      <div>
-        {/* per-question comment UI removed — use final comments at the end of the page */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Comments</label>
+          <Textarea
+            value={commentValue}
+            onChange={(e) => onCommentChange(e.target.value)}
+            className="w-full bg-white border border-gray-300 rounded-lg resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+            rows={2}
+            placeholder="Add any comments or observations..."
+          />
+        </div>
       </div>
     </div>
   );
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white">
-      {/* Header */}
-      <div className="mb-6">
-        <div className="flex justify-between items-center mb-4">
-          <h1 className="text-2xl font-bold text-gray-900">Fire Safety Audit</h1>
-        </div>
-        
-        {/* Basic Information */}
-        <div className="bg-red-50 p-4 rounded-lg mb-6">
-          <h2 className="text-lg font-semibold text-red-900 mb-4">Audit Information</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div className="max-w-7xl mx-auto p-10 bg-gradient-to-br from-slate-50 to-white rounded-3xl shadow-2xl mt-10 border border-slate-200">
+      <div className="flex flex-col lg:flex-row gap-10">
+        {/* Left panel for details, sticky and NOT part of the form */}
+        <div className="w-full lg:w-[480px] flex-shrink-0 bg-white rounded-2xl p-10 border border-slate-200 shadow-xl mb-8 lg:mb-0 lg:sticky lg:top-10 self-start h-fit">
+          <h1 className="text-3xl font-extrabold mb-2 text-blue-900 tracking-tight">Fire Safety Audit</h1>
+          <p className="mb-4 text-slate-500">Complete this comprehensive audit to check fire safety compliance and emergency preparedness. All fields are required.</p>
+          <div className="space-y-4 mt-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Home</label>
-              <input
+              <label className="block font-semibold mb-1 text-slate-700">Home/Care Facility</label>
+              <Input
                 type="text"
-                data-field="home"
+                className={getFieldClassName('home', "w-full")}
+                name="home"
                 value={auditData.home}
                 onChange={(e) => handleInputChange('home', e.target.value)}
-                className={`w-full p-2 border rounded-md ${errors.includes('home') ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
-                placeholder="Enter home name"
+                placeholder="Enter care home name"
+                required
               />
-              {errors.includes('home') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
+              {hasError('home') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
-              <input
+              <label className="block font-semibold mb-1 text-slate-700">Audit Date</label>
+              <Input
                 type="date"
-                data-field="date"
+                className={getFieldClassName('date', "w-full")}
+                name="date"
                 value={auditData.date}
                 onChange={(e) => handleInputChange('date', e.target.value)}
-                className={`w-full p-2 border rounded-md ${errors.includes('date') ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                required
               />
-              {errors.includes('date') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
+              {hasError('date') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Person Completing the Audit</label>
-              <input
+              <label className="block font-semibold mb-1 text-slate-700">Person Completing Audit</label>
+              <Input
                 type="text"
-                data-field="personCompletingAudit"
+                className={getFieldClassName('personCompletingAudit', "w-full")}
+                name="personCompletingAudit"
                 value={auditData.personCompletingAudit}
                 onChange={(e) => handleInputChange('personCompletingAudit', e.target.value)}
-                className={`w-full p-2 border rounded-md ${errors.includes('personCompletingAudit') ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
-                placeholder="Enter auditor name"
+                placeholder="Full name and position"
+                required
               />
-              {errors.includes('personCompletingAudit') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
+              {hasError('personCompletingAudit') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
             </div>
           </div>
         </div>
-
-        {/* Section 1: Fire Risk Assessment */}
-  <div className="bg-orange-50 p-4 rounded-lg mb-6">
-          <h2 className="text-lg font-semibold text-orange-900 mb-4">1. Fire Risk Assessment</h2>
-          <div className="space-y-6">
-            <YesNoQuestion
-              label="Has a fire risk assessment been completed within the last 12 months?"
-              yesNoField="fireRiskAssessmentCompleted"
-              commentField="fireRiskAssessmentCompletedComment"
-              yesNoValue={auditData.fireRiskAssessmentCompleted}
-              commentValue={auditData.fireRiskAssessmentCompletedComment}
-              onYesNoChange={(value) => handleInputChange('fireRiskAssessmentCompleted', value)}
-              onCommentChange={(value) => handleInputChange('fireRiskAssessmentCompletedComment', value)}
-            />
-            <YesNoQuestion
-              label="Is the fire risk assessment reviewed regularly or following any significant changes?"
-              yesNoField="fireRiskAssessmentReviewed"
-              commentField="fireRiskAssessmentReviewedComment"
-              yesNoValue={auditData.fireRiskAssessmentReviewed}
-              commentValue={auditData.fireRiskAssessmentReviewedComment}
-              onYesNoChange={(value) => handleInputChange('fireRiskAssessmentReviewed', value)}
-              onCommentChange={(value) => handleInputChange('fireRiskAssessmentReviewedComment', value)}
-            />
-            <YesNoQuestion
-              label="Are all significant findings from the fire risk assessment acted upon and documented?"
-              yesNoField="significantFindingsActioned"
-              commentField="significantFindingsActionedComment"
-              yesNoValue={auditData.significantFindingsActioned}
-              commentValue={auditData.significantFindingsActionedComment}
-              onYesNoChange={(value) => handleInputChange('significantFindingsActioned', value)}
-              onCommentChange={(value) => handleInputChange('significantFindingsActionedComment', value)}
-            />
-            <YesNoQuestion
-              label="Is the fire risk assessment accessible to staff and relevant authorities?"
-              yesNoField="fireRiskAssessmentAccessible"
-              commentField="fireRiskAssessmentAccessibleComment"
-              yesNoValue={auditData.fireRiskAssessmentAccessible}
-              commentValue={auditData.fireRiskAssessmentAccessibleComment}
-              onYesNoChange={(value) => handleInputChange('fireRiskAssessmentAccessible', value)}
-              onCommentChange={(value) => handleInputChange('fireRiskAssessmentAccessibleComment', value)}
-            />
-          </div>
-        </div>
-
-        {/* Section 2: Fire Detection and Alarm Systems */}
-        <div className="bg-yellow-50 p-4 rounded-lg mb-6">
-          <h2 className="text-lg font-semibold text-yellow-900 mb-4">2. Fire Detection and Alarm Systems</h2>
-          <div className="space-y-6">
-            <YesNoQuestion
-              label="Is there a functioning fire alarm system in place?"
-              yesNoField="functioningFireAlarm"
-              commentField="functioningFireAlarmComment"
-              yesNoValue={auditData.functioningFireAlarm}
-              commentValue={auditData.functioningFireAlarmComment}
-              onYesNoChange={(value) => handleInputChange('functioningFireAlarm', value)}
-              onCommentChange={(value) => handleInputChange('functioningFireAlarmComment', value)}
-            />
-            <YesNoQuestion
-              label="Are fire alarms tested weekly and records kept?"
-              yesNoField="fireAlarmsTestedWeekly"
-              commentField="fireAlarmsTestedWeeklyComment"
-              yesNoValue={auditData.fireAlarmsTestedWeekly}
-              commentValue={auditData.fireAlarmsTestedWeeklyComment}
-              onYesNoChange={(value) => handleInputChange('fireAlarmsTestedWeekly', value)}
-              onCommentChange={(value) => handleInputChange('fireAlarmsTestedWeeklyComment', value)}
-            />
-            <YesNoQuestion
-              label="Are all staff familiar with the sound of the fire alarm?"
-              yesNoField="staffFamiliarAlarmSound"
-              commentField="staffFamiliarAlarmSoundComment"
-              yesNoValue={auditData.staffFamiliarAlarmSound}
-              commentValue={auditData.staffFamiliarAlarmSoundComment}
-              onYesNoChange={(value) => handleInputChange('staffFamiliarAlarmSound', value)}
-              onCommentChange={(value) => handleInputChange('staffFamiliarAlarmSoundComment', value)}
-            />
-            <YesNoQuestion
-              label="Are visual alarms in place where needed (e.g. for residents with hearing impairments)?"
-              yesNoField="visualAlarmsInPlace"
-              commentField="visualAlarmsInPlaceComment"
-              yesNoValue={auditData.visualAlarmsInPlace}
-              commentValue={auditData.visualAlarmsInPlaceComment}
-              onYesNoChange={(value) => handleInputChange('visualAlarmsInPlace', value)}
-              onCommentChange={(value) => handleInputChange('visualAlarmsInPlaceComment', value)}
-            />
-          </div>
-        </div>
-
-        {/* Section 3: Emergency Lighting */}
-        <div className="bg-green-50 p-4 rounded-lg mb-6">
-          <h2 className="text-lg font-semibold text-green-900 mb-4">3. Emergency Lighting</h2>
-          <div className="space-y-6">
-            <YesNoQuestion
-              label="Is emergency lighting installed throughout all escape routes?"
-              yesNoField="emergencyLightingInstalled"
-              commentField="emergencyLightingInstalledComment"
-              yesNoValue={auditData.emergencyLightingInstalled}
-              commentValue={auditData.emergencyLightingInstalledComment}
-              onYesNoChange={(value) => handleInputChange('emergencyLightingInstalled', value)}
-              onCommentChange={(value) => handleInputChange('emergencyLightingInstalledComment', value)}
-            />
-            <YesNoQuestion
-              label="Is emergency lighting tested monthly and records maintained?"
-              yesNoField="emergencyLightingTestedMonthly"
-              commentField="emergencyLightingTestedMonthlyComment"
-              yesNoValue={auditData.emergencyLightingTestedMonthly}
-              commentValue={auditData.emergencyLightingTestedMonthlyComment}
-              onYesNoChange={(value) => handleInputChange('emergencyLightingTestedMonthly', value)}
-              onCommentChange={(value) => handleInputChange('emergencyLightingTestedMonthlyComment', value)}
-            />
-            <YesNoQuestion
-              label="Has a full emergency lighting test been completed within the last year?"
-              yesNoField="fullEmergencyLightingTest"
-              commentField="fullEmergencyLightingTestComment"
-              yesNoValue={auditData.fullEmergencyLightingTest}
-              commentValue={auditData.fullEmergencyLightingTestComment}
-              onYesNoChange={(value) => handleInputChange('fullEmergencyLightingTest', value)}
-              onCommentChange={(value) => handleInputChange('fullEmergencyLightingTestComment', value)}
-            />
-          </div>
-        </div>
-
-        {/* Section 4: Fire Fighting Equipment */}
-        <div className="bg-blue-50 p-4 rounded-lg mb-6">
-          <h2 className="text-lg font-semibold text-blue-900 mb-4">4. Fire Fighting Equipment</h2>
-          <div className="space-y-6">
-            <YesNoQuestion
-              label="Are appropriate fire extinguishers available in key locations?"
-              yesNoField="fireExtinguishersAvailable"
-              commentField="fireExtinguishersAvailableComment"
-              yesNoValue={auditData.fireExtinguishersAvailable}
-              commentValue={auditData.fireExtinguishersAvailableComment}
-              onYesNoChange={(value) => handleInputChange('fireExtinguishersAvailable', value)}
-              onCommentChange={(value) => handleInputChange('fireExtinguishersAvailableComment', value)}
-            />
-            <YesNoQuestion
-              label="Are all fire extinguishers serviced annually?"
-              yesNoField="fireExtinguishersServiced"
-              commentField="fireExtinguishersServicedComment"
-              yesNoValue={auditData.fireExtinguishersServiced}
-              commentValue={auditData.fireExtinguishersServicedComment}
-              onYesNoChange={(value) => handleInputChange('fireExtinguishersServiced', value)}
-              onCommentChange={(value) => handleInputChange('fireExtinguishersServicedComment', value)}
-            />
-            <YesNoQuestion
-              label="Are fire blankets provided in kitchen areas?"
-              yesNoField="fireBlankets"
-              commentField="fireBlanketsComment"
-              yesNoValue={auditData.fireBlankets}
-              commentValue={auditData.fireBlanketsComment}
-              onYesNoChange={(value) => handleInputChange('fireBlankets', value)}
-              onCommentChange={(value) => handleInputChange('fireBlanketsComment', value)}
-            />
-            <YesNoQuestion
-              label="Do staff know how to use fire extinguishers safely?"
-              yesNoField="staffKnowExtinguisherUse"
-              commentField="staffKnowExtinguisherUseComment"
-              yesNoValue={auditData.staffKnowExtinguisherUse}
-              commentValue={auditData.staffKnowExtinguisherUseComment}
-              onYesNoChange={(value) => handleInputChange('staffKnowExtinguisherUse', value)}
-              onCommentChange={(value) => handleInputChange('staffKnowExtinguisherUseComment', value)}
-            />
-          </div>
-        </div>
-
-        {/* Section 5: Means of Escape */}
-        <div className="bg-indigo-50 p-4 rounded-lg mb-6">
-          <h2 className="text-lg font-semibold text-indigo-900 mb-4">5. Means of Escape</h2>
-          <div className="space-y-6">
-            <YesNoQuestion
-              label="Are all fire exits clearly marked and unobstructed?"
-              yesNoField="fireExitsMarked"
-              commentField="fireExitsMarkedComment"
-              yesNoValue={auditData.fireExitsMarked}
-              commentValue={auditData.fireExitsMarkedComment}
-              onYesNoChange={(value) => handleInputChange('fireExitsMarked', value)}
-              onCommentChange={(value) => handleInputChange('fireExitsMarkedComment', value)}
-            />
-            <YesNoQuestion
-              label="Are escape routes kept clear at all times?"
-              yesNoField="escapeRoutesClear"
-              commentField="escapeRoutesClearComment"
-              yesNoValue={auditData.escapeRoutesClear}
-              commentValue={auditData.escapeRoutesClearComment}
-              onYesNoChange={(value) => handleInputChange('escapeRoutesClear', value)}
-              onCommentChange={(value) => handleInputChange('escapeRoutesClearComment', value)}
-            />
-            <YesNoQuestion
-              label="Are fire doors kept closed (not wedged open) and functioning properly?"
-              yesNoField="fireDoorsProper"
-              commentField="fireDoorsProperComment"
-              yesNoValue={auditData.fireDoorsProper}
-              commentValue={auditData.fireDoorsProperComment}
-              onYesNoChange={(value) => handleInputChange('fireDoorsProper', value)}
-              onCommentChange={(value) => handleInputChange('fireDoorsProperComment', value)}
-            />
-            <YesNoQuestion
-              label="Are escape route floor surfaces free from trip hazards?"
-              yesNoField="escapeRouteSurfaces"
-              commentField="escapeRouteSurfacesComment"
-              yesNoValue={auditData.escapeRouteSurfaces}
-              commentValue={auditData.escapeRouteSurfacesComment}
-              onYesNoChange={(value) => handleInputChange('escapeRouteSurfaces', value)}
-              onCommentChange={(value) => handleInputChange('escapeRouteSurfacesComment', value)}
-            />
-          </div>
-        </div>
-
-        {/* Section 6: Fire Drills and Evacuation Procedures */}
-        <div className="bg-purple-50 p-4 rounded-lg mb-6">
-          <h2 className="text-lg font-semibold text-purple-900 mb-4">6. Fire Drills and Evacuation Procedures</h2>
-          <div className="space-y-6">
-            <YesNoQuestion
-              label="Is there a documented fire evacuation plan specific to the building layout and resident needs?"
-              yesNoField="evacuationPlanDocumented"
-              commentField="evacuationPlanDocumentedComment"
-              yesNoValue={auditData.evacuationPlanDocumented}
-              commentValue={auditData.evacuationPlanDocumentedComment}
-              onYesNoChange={(value) => handleInputChange('evacuationPlanDocumented', value)}
-              onCommentChange={(value) => handleInputChange('evacuationPlanDocumentedComment', value)}
-            />
-            <YesNoQuestion
-              label="Have fire drills been conducted at least twice per year?"
-              yesNoField="fireDrillsConducted"
-              commentField="fireDrillsConductedComment"
-              yesNoValue={auditData.fireDrillsConducted}
-              commentValue={auditData.fireDrillsConductedComment}
-              onYesNoChange={(value) => handleInputChange('fireDrillsConducted', value)}
-              onCommentChange={(value) => handleInputChange('fireDrillsConductedComment', value)}
-            />
-            <YesNoQuestion
-              label="Are all staff trained in evacuation procedures, including use of evacuation equipment?"
-              yesNoField="staffTrainedEvacuation"
-              commentField="staffTrainedEvacuationComment"
-              yesNoValue={auditData.staffTrainedEvacuation}
-              commentValue={auditData.staffTrainedEvacuationComment}
-              onYesNoChange={(value) => handleInputChange('staffTrainedEvacuation', value)}
-              onCommentChange={(value) => handleInputChange('staffTrainedEvacuationComment', value)}
-            />
-            <YesNoQuestion
-              label="Are Personal Emergency Evacuation Plans (PEEPs) in place for all residents who need them?"
-              yesNoField="peepsInPlace"
-              commentField="peepsInPlaceComment"
-              yesNoValue={auditData.peepsInPlace}
-              commentValue={auditData.peepsInPlaceComment}
-              onYesNoChange={(value) => handleInputChange('peepsInPlace', value)}
-              onCommentChange={(value) => handleInputChange('peepsInPlaceComment', value)}
-            />
-          </div>
-        </div>
-
-        {/* Section 7: Staff Training and Competency */}
-        <div className="bg-pink-50 p-4 rounded-lg mb-6">
-          <h2 className="text-lg font-semibold text-pink-900 mb-4">7. Staff Training and Competency</h2>
-          <div className="space-y-6">
-            <YesNoQuestion
-              label="Have all staff received fire safety training within the last 12 months?"
-              yesNoField="staffFireSafetyTraining"
-              commentField="staffFireSafetyTrainingComment"
-              yesNoValue={auditData.staffFireSafetyTraining}
-              commentValue={auditData.staffFireSafetyTrainingComment}
-              onYesNoChange={(value) => handleInputChange('staffFireSafetyTraining', value)}
-              onCommentChange={(value) => handleInputChange('staffFireSafetyTrainingComment', value)}
-            />
-            <YesNoQuestion
-              label="Do staff understand their roles in the event of a fire?"
-              yesNoField="staffUnderstandRoles"
-              commentField="staffUnderstandRolesComment"
-              yesNoValue={auditData.staffUnderstandRoles}
-              commentValue={auditData.staffUnderstandRolesComment}
-              onYesNoChange={(value) => handleInputChange('staffUnderstandRoles', value)}
-              onCommentChange={(value) => handleInputChange('staffUnderstandRolesComment', value)}
-            />
-            <YesNoQuestion
-              label="Are new staff trained in fire safety during their induction?"
-              yesNoField="newStaffTrained"
-              commentField="newStaffTrainedComment"
-              yesNoValue={auditData.newStaffTrained}
-              commentValue={auditData.newStaffTrainedComment}
-              onYesNoChange={(value) => handleInputChange('newStaffTrained', value)}
-              onCommentChange={(value) => handleInputChange('newStaffTrainedComment', value)}
-            />
-            <YesNoQuestion
-              label="Are fire wardens/marshals appointed and trained?"
-              yesNoField="fireWardensAppointed"
-              commentField="fireWardensAppointedComment"
-              yesNoValue={auditData.fireWardensAppointed}
-              commentValue={auditData.fireWardensAppointedComment}
-              onYesNoChange={(value) => handleInputChange('fireWardensAppointed', value)}
-              onCommentChange={(value) => handleInputChange('fireWardensAppointedComment', value)}
-            />
-          </div>
-        </div>
-
-        {/* Section 8: Signage and Information */}
-        <div className="bg-teal-50 p-4 rounded-lg mb-6">
-          <h2 className="text-lg font-semibold text-teal-900 mb-4">8. Signage and Information</h2>
-          <div className="space-y-6">
-            <YesNoQuestion
-              label="Are fire action notices displayed in key areas?"
-              yesNoField="fireActionNotices"
-              commentField="fireActionNoticesComment"
-              yesNoValue={auditData.fireActionNotices}
-              commentValue={auditData.fireActionNoticesComment}
-              onYesNoChange={(value) => handleInputChange('fireActionNotices', value)}
-              onCommentChange={(value) => handleInputChange('fireActionNoticesComment', value)}
-            />
-            <YesNoQuestion
-              label="Are fire exit signs illuminated and clearly visible?"
-              yesNoField="fireExitSigns"
-              commentField="fireExitSignsComment"
-              yesNoValue={auditData.fireExitSigns}
-              commentValue={auditData.fireExitSignsComment}
-              onYesNoChange={(value) => handleInputChange('fireExitSigns', value)}
-              onCommentChange={(value) => handleInputChange('fireExitSignsComment', value)}
-            />
-            <YesNoQuestion
-              label="Is a fire assembly point clearly marked and known by staff?"
-              yesNoField="assemblyPointMarked"
-              commentField="assemblyPointMarkedComment"
-              yesNoValue={auditData.assemblyPointMarked}
-              commentValue={auditData.assemblyPointMarkedComment}
-              onYesNoChange={(value) => handleInputChange('assemblyPointMarked', value)}
-              onCommentChange={(value) => handleInputChange('assemblyPointMarkedComment', value)}
-            />
-            <YesNoQuestion
-              label="Is the fire logbook up to date and available for inspection?"
-              yesNoField="fireLogbookUpToDate"
-              commentField="fireLogbookUpToDateComment"
-              yesNoValue={auditData.fireLogbookUpToDate}
-              commentValue={auditData.fireLogbookUpToDateComment}
-              onYesNoChange={(value) => handleInputChange('fireLogbookUpToDate', value)}
-              onCommentChange={(value) => handleInputChange('fireLogbookUpToDateComment', value)}
-            />
-          </div>
-        </div>
-
-        {/* Section 9: Electrical and Equipment Safety */}
-        <div className="bg-cyan-50 p-4 rounded-lg mb-6">
-          <h2 className="text-lg font-semibold text-cyan-900 mb-4">9. Electrical and Equipment Safety</h2>
-          <div className="space-y-6">
-            <YesNoQuestion
-              label="Has portable appliance testing (PAT) been carried out on all electrical equipment?"
-              yesNoField="patTestingCompleted"
-              commentField="patTestingCompletedComment"
-              yesNoValue={auditData.patTestingCompleted}
-              commentValue={auditData.patTestingCompletedComment}
-              onYesNoChange={(value) => handleInputChange('patTestingCompleted', value)}
-              onCommentChange={(value) => handleInputChange('patTestingCompletedComment', value)}
-            />
-            <YesNoQuestion
-              label="Are fixed wiring installations inspected and tested at least every 5 years?"
-              yesNoField="fixedWiringInspected"
-              commentField="fixedWiringInspectedComment"
-              yesNoValue={auditData.fixedWiringInspected}
-              commentValue={auditData.fixedWiringInspectedComment}
-              onYesNoChange={(value) => handleInputChange('fixedWiringInspected', value)}
-              onCommentChange={(value) => handleInputChange('fixedWiringInspectedComment', value)}
-            />
-            <YesNoQuestion
-              label="Are electrical panels and equipment kept secure and unobstructed?"
-              yesNoField="electricalPanelsSecure"
-              commentField="electricalPanelsSecureComment"
-              yesNoValue={auditData.electricalPanelsSecure}
-              commentValue={auditData.electricalPanelsSecureComment}
-              onYesNoChange={(value) => handleInputChange('electricalPanelsSecure', value)}
-              onCommentChange={(value) => handleInputChange('electricalPanelsSecureComment', value)}
-            />
-            <YesNoQuestion
-              label="Are staff instructed to report and remove faulty electrical equipment?"
-              yesNoField="staffInstructedFaultyEquipment"
-              commentField="staffInstructedFaultyEquipmentComment"
-              yesNoValue={auditData.staffInstructedFaultyEquipment}
-              commentValue={auditData.staffInstructedFaultyEquipmentComment}
-              onYesNoChange={(value) => handleInputChange('staffInstructedFaultyEquipment', value)}
-              onCommentChange={(value) => handleInputChange('staffInstructedFaultyEquipmentComment', value)}
-            />
-          </div>
-        </div>
-
-        {/* Section 10: Housekeeping and Fire Prevention */}
-        <div className="bg-lime-50 p-4 rounded-lg mb-6">
-          <h2 className="text-lg font-semibold text-lime-900 mb-4">10. Housekeeping and Fire Prevention</h2>
-          <div className="space-y-6">
-            <YesNoQuestion
-              label="Are flammable materials stored safely and away from heat sources?"
-              yesNoField="flammableMaterialsStored"
-              commentField="flammableMaterialsStoredComment"
-              yesNoValue={auditData.flammableMaterialsStored}
-              commentValue={auditData.flammableMaterialsStoredComment}
-              onYesNoChange={(value) => handleInputChange('flammableMaterialsStored', value)}
-              onCommentChange={(value) => handleInputChange('flammableMaterialsStoredComment', value)}
-            />
-            <YesNoQuestion
-              label="Are smoking policies clearly enforced and smoking areas controlled?"
-              yesNoField="smokingPoliciesEnforced"
-              commentField="smokingPoliciesEnforcedComment"
-              yesNoValue={auditData.smokingPoliciesEnforced}
-              commentValue={auditData.smokingPoliciesEnforcedComment}
-              onYesNoChange={(value) => handleInputChange('smokingPoliciesEnforced', value)}
-              onCommentChange={(value) => handleInputChange('smokingPoliciesEnforcedComment', value)}
-            />
-            <YesNoQuestion
-              label="Are linen and waste storage areas regularly cleared and well-maintained?"
-              yesNoField="linenWasteStorage"
-              commentField="linenWasteStorageComment"
-              yesNoValue={auditData.linenWasteStorage}
-              commentValue={auditData.linenWasteStorageComment}
-              onYesNoChange={(value) => handleInputChange('linenWasteStorage', value)}
-              onCommentChange={(value) => handleInputChange('linenWasteStorageComment', value)}
-            />
-            <YesNoQuestion
-              label="Are staff aware of procedures for reporting fire hazards?"
-              yesNoField="staffAwareReportingHazards"
-              commentField="staffAwareReportingHazardsComment"
-              yesNoValue={auditData.staffAwareReportingHazards}
-              commentValue={auditData.staffAwareReportingHazardsComment}
-              onYesNoChange={(value) => handleInputChange('staffAwareReportingHazards', value)}
-              onCommentChange={(value) => handleInputChange('staffAwareReportingHazardsComment', value)}
-            />
-          </div>
-        </div>
-
-        <div className="mt-6">
-          <label className="block text-sm font-medium">Final comments</label>
-          <textarea value={finalComments} onChange={(e) => setFinalComments(e.target.value)} className="w-full p-2 border rounded" rows={4} />
-        </div>
-
-        {/* Complete Audit Button */}
-        <div className="flex justify-center mt-8">
-          <button
-            onClick={handleCompleteAudit}
-            className="bg-red-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-red-700 transition-colors"
-          >
-            Complete Audit
-          </button>
+        {/* Main form right column, scrollable */}
+        <div className="flex-1 min-w-0 max-h-[calc(100vh-6rem)] overflow-y-auto pr-2">
+          <form onSubmit={(e) => { e.preventDefault(); handleCompleteAudit(); }} className="flex flex-col gap-8">
+            {sections.map((section, idx) => (
+              <div key={section.name} className="bg-white rounded-2xl border border-slate-200 shadow-md transition-shadow hover:shadow-lg">
+                <button
+                  type="button"
+                  className="w-full flex items-center justify-between px-8 py-5 text-left font-semibold text-blue-900 text-lg focus:outline-none hover:bg-slate-50 rounded-t-2xl transition-colors"
+                  onClick={() => toggleSection(idx)}
+                >
+                  <span>{section.label}</span>
+                  {openSections[idx] ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                </button>
+                {openSections[idx] && (
+                  <div className="px-8 pb-8">
+                    {section.guidance && (
+                      <ul className="mb-2 ml-4 list-disc text-sm text-slate-500 space-y-1">
+                        {section.guidance.map((g, i) => (
+                          <li key={i}>{g}</li>
+                        ))}
+                      </ul>
+                    )}
+                    {/* Section content based on index */}
+                    {idx === 0 && (
+                      <div className="space-y-4">
+                        <YesNoQuestion
+                          label="Has a fire risk assessment been completed within the last 12 months?"
+                          yesNoField="fireRiskAssessmentCompleted"
+                          commentField="fireRiskAssessmentCompletedComment"
+                          yesNoValue={auditData.fireRiskAssessmentCompleted}
+                          commentValue={auditData.fireRiskAssessmentCompletedComment}
+                          onYesNoChange={(value) => handleInputChange('fireRiskAssessmentCompleted', value)}
+                          onCommentChange={(value) => handleInputChange('fireRiskAssessmentCompletedComment', value)}
+                        />
+                        <YesNoQuestion
+                          label="Is the fire risk assessment reviewed regularly or following any significant changes?"
+                          yesNoField="fireRiskAssessmentReviewed"
+                          commentField="fireRiskAssessmentReviewedComment"
+                          yesNoValue={auditData.fireRiskAssessmentReviewed}
+                          commentValue={auditData.fireRiskAssessmentReviewedComment}
+                          onYesNoChange={(value) => handleInputChange('fireRiskAssessmentReviewed', value)}
+                          onCommentChange={(value) => handleInputChange('fireRiskAssessmentReviewedComment', value)}
+                        />
+                        <YesNoQuestion
+                          label="Are all significant findings from the fire risk assessment acted upon and documented?"
+                          yesNoField="significantFindingsActioned"
+                          commentField="significantFindingsActionedComment"
+                          yesNoValue={auditData.significantFindingsActioned}
+                          commentValue={auditData.significantFindingsActionedComment}
+                          onYesNoChange={(value) => handleInputChange('significantFindingsActioned', value)}
+                          onCommentChange={(value) => handleInputChange('significantFindingsActionedComment', value)}
+                        />
+                        <YesNoQuestion
+                          label="Is the fire risk assessment accessible to staff and relevant authorities?"
+                          yesNoField="fireRiskAssessmentAccessible"
+                          commentField="fireRiskAssessmentAccessibleComment"
+                          yesNoValue={auditData.fireRiskAssessmentAccessible}
+                          commentValue={auditData.fireRiskAssessmentAccessibleComment}
+                          onYesNoChange={(value) => handleInputChange('fireRiskAssessmentAccessible', value)}
+                          onCommentChange={(value) => handleInputChange('fireRiskAssessmentAccessibleComment', value)}
+                        />
+                      </div>
+                    )}
+                    {idx === 1 && (
+                      <div className="space-y-4">
+                        <YesNoQuestion
+                          label="Is there a functioning fire alarm system in place?"
+                          yesNoField="functioningFireAlarm"
+                          commentField="functioningFireAlarmComment"
+                          yesNoValue={auditData.functioningFireAlarm}
+                          commentValue={auditData.functioningFireAlarmComment}
+                          onYesNoChange={(value) => handleInputChange('functioningFireAlarm', value)}
+                          onCommentChange={(value) => handleInputChange('functioningFireAlarmComment', value)}
+                        />
+                        <YesNoQuestion
+                          label="Are fire alarms tested weekly and records kept?"
+                          yesNoField="fireAlarmsTestedWeekly"
+                          commentField="fireAlarmsTestedWeeklyComment"
+                          yesNoValue={auditData.fireAlarmsTestedWeekly}
+                          commentValue={auditData.fireAlarmsTestedWeeklyComment}
+                          onYesNoChange={(value) => handleInputChange('fireAlarmsTestedWeekly', value)}
+                          onCommentChange={(value) => handleInputChange('fireAlarmsTestedWeeklyComment', value)}
+                        />
+                        <YesNoQuestion
+                          label="Are all staff familiar with the sound of the fire alarm?"
+                          yesNoField="staffFamiliarAlarmSound"
+                          commentField="staffFamiliarAlarmSoundComment"
+                          yesNoValue={auditData.staffFamiliarAlarmSound}
+                          commentValue={auditData.staffFamiliarAlarmSoundComment}
+                          onYesNoChange={(value) => handleInputChange('staffFamiliarAlarmSound', value)}
+                          onCommentChange={(value) => handleInputChange('staffFamiliarAlarmSoundComment', value)}
+                        />
+                        <YesNoQuestion
+                          label="Are visual alarms in place where needed (e.g. for residents with hearing impairments)?"
+                          yesNoField="visualAlarmsInPlace"
+                          commentField="visualAlarmsInPlaceComment"
+                          yesNoValue={auditData.visualAlarmsInPlace}
+                          commentValue={auditData.visualAlarmsInPlaceComment}
+                          onYesNoChange={(value) => handleInputChange('visualAlarmsInPlace', value)}
+                          onCommentChange={(value) => handleInputChange('visualAlarmsInPlaceComment', value)}
+                        />
+                      </div>
+                    )}
+                    {idx === 2 && (
+                      <div className="space-y-4">
+                        <YesNoQuestion
+                          label="Is emergency lighting installed throughout all escape routes?"
+                          yesNoField="emergencyLightingInstalled"
+                          commentField="emergencyLightingInstalledComment"
+                          yesNoValue={auditData.emergencyLightingInstalled}
+                          commentValue={auditData.emergencyLightingInstalledComment}
+                          onYesNoChange={(value) => handleInputChange('emergencyLightingInstalled', value)}
+                          onCommentChange={(value) => handleInputChange('emergencyLightingInstalledComment', value)}
+                        />
+                        <YesNoQuestion
+                          label="Is emergency lighting tested monthly and records maintained?"
+                          yesNoField="emergencyLightingTestedMonthly"
+                          commentField="emergencyLightingTestedMonthlyComment"
+                          yesNoValue={auditData.emergencyLightingTestedMonthly}
+                          commentValue={auditData.emergencyLightingTestedMonthlyComment}
+                          onYesNoChange={(value) => handleInputChange('emergencyLightingTestedMonthly', value)}
+                          onCommentChange={(value) => handleInputChange('emergencyLightingTestedMonthlyComment', value)}
+                        />
+                        <YesNoQuestion
+                          label="Has a full emergency lighting test been completed within the last year?"
+                          yesNoField="fullEmergencyLightingTest"
+                          commentField="fullEmergencyLightingTestComment"
+                          yesNoValue={auditData.fullEmergencyLightingTest}
+                          commentValue={auditData.fullEmergencyLightingTestComment}
+                          onYesNoChange={(value) => handleInputChange('fullEmergencyLightingTest', value)}
+                          onCommentChange={(value) => handleInputChange('fullEmergencyLightingTestComment', value)}
+                        />
+                      </div>
+                    )}
+                    {idx === 3 && (
+                      <div className="space-y-4">
+                        <YesNoQuestion
+                          label="Are appropriate fire extinguishers available in key locations?"
+                          yesNoField="fireExtinguishersAvailable"
+                          commentField="fireExtinguishersAvailableComment"
+                          yesNoValue={auditData.fireExtinguishersAvailable}
+                          commentValue={auditData.fireExtinguishersAvailableComment}
+                          onYesNoChange={(value) => handleInputChange('fireExtinguishersAvailable', value)}
+                          onCommentChange={(value) => handleInputChange('fireExtinguishersAvailableComment', value)}
+                        />
+                        <YesNoQuestion
+                          label="Are all fire extinguishers serviced annually?"
+                          yesNoField="fireExtinguishersServiced"
+                          commentField="fireExtinguishersServicedComment"
+                          yesNoValue={auditData.fireExtinguishersServiced}
+                          commentValue={auditData.fireExtinguishersServicedComment}
+                          onYesNoChange={(value) => handleInputChange('fireExtinguishersServiced', value)}
+                          onCommentChange={(value) => handleInputChange('fireExtinguishersServicedComment', value)}
+                        />
+                        <YesNoQuestion
+                          label="Are fire blankets provided in kitchen areas?"
+                          yesNoField="fireBlankets"
+                          commentField="fireBlanketsComment"
+                          yesNoValue={auditData.fireBlankets}
+                          commentValue={auditData.fireBlanketsComment}
+                          onYesNoChange={(value) => handleInputChange('fireBlankets', value)}
+                          onCommentChange={(value) => handleInputChange('fireBlanketsComment', value)}
+                        />
+                        <YesNoQuestion
+                          label="Do staff know how to use fire extinguishers safely?"
+                          yesNoField="staffKnowExtinguisherUse"
+                          commentField="staffKnowExtinguisherUseComment"
+                          yesNoValue={auditData.staffKnowExtinguisherUse}
+                          commentValue={auditData.staffKnowExtinguisherUseComment}
+                          onYesNoChange={(value) => handleInputChange('staffKnowExtinguisherUse', value)}
+                          onCommentChange={(value) => handleInputChange('staffKnowExtinguisherUseComment', value)}
+                        />
+                      </div>
+                    )}
+                    {idx === 4 && (
+                      <div className="space-y-4">
+                        <YesNoQuestion
+                          label="Are all fire exits clearly marked and unobstructed?"
+                          yesNoField="fireExitsMarked"
+                          commentField="fireExitsMarkedComment"
+                          yesNoValue={auditData.fireExitsMarked}
+                          commentValue={auditData.fireExitsMarkedComment}
+                          onYesNoChange={(value) => handleInputChange('fireExitsMarked', value)}
+                          onCommentChange={(value) => handleInputChange('fireExitsMarkedComment', value)}
+                        />
+                        <YesNoQuestion
+                          label="Are escape routes kept clear at all times?"
+                          yesNoField="escapeRoutesClear"
+                          commentField="escapeRoutesClearComment"
+                          yesNoValue={auditData.escapeRoutesClear}
+                          commentValue={auditData.escapeRoutesClearComment}
+                          onYesNoChange={(value) => handleInputChange('escapeRoutesClear', value)}
+                          onCommentChange={(value) => handleInputChange('escapeRoutesClearComment', value)}
+                        />
+                        <YesNoQuestion
+                          label="Are fire doors kept closed (not wedged open) and functioning properly?"
+                          yesNoField="fireDoorsProper"
+                          commentField="fireDoorsProperComment"
+                          yesNoValue={auditData.fireDoorsProper}
+                          commentValue={auditData.fireDoorsProperComment}
+                          onYesNoChange={(value) => handleInputChange('fireDoorsProper', value)}
+                          onCommentChange={(value) => handleInputChange('fireDoorsProperComment', value)}
+                        />
+                        <YesNoQuestion
+                          label="Are escape route floor surfaces free from trip hazards?"
+                          yesNoField="escapeRouteSurfaces"
+                          commentField="escapeRouteSurfacesComment"
+                          yesNoValue={auditData.escapeRouteSurfaces}
+                          commentValue={auditData.escapeRouteSurfacesComment}
+                          onYesNoChange={(value) => handleInputChange('escapeRouteSurfaces', value)}
+                          onCommentChange={(value) => handleInputChange('escapeRouteSurfacesComment', value)}
+                        />
+                      </div>
+                    )}
+                    {idx === 5 && (
+                      <div className="space-y-4">
+                        <YesNoQuestion
+                          label="Is there a documented fire evacuation plan specific to the building layout and resident needs?"
+                          yesNoField="evacuationPlanDocumented"
+                          commentField="evacuationPlanDocumentedComment"
+                          yesNoValue={auditData.evacuationPlanDocumented}
+                          commentValue={auditData.evacuationPlanDocumentedComment}
+                          onYesNoChange={(value) => handleInputChange('evacuationPlanDocumented', value)}
+                          onCommentChange={(value) => handleInputChange('evacuationPlanDocumentedComment', value)}
+                        />
+                        <YesNoQuestion
+                          label="Have fire drills been conducted at least twice per year?"
+                          yesNoField="fireDrillsConducted"
+                          commentField="fireDrillsConductedComment"
+                          yesNoValue={auditData.fireDrillsConducted}
+                          commentValue={auditData.fireDrillsConductedComment}
+                          onYesNoChange={(value) => handleInputChange('fireDrillsConducted', value)}
+                          onCommentChange={(value) => handleInputChange('fireDrillsConductedComment', value)}
+                        />
+                        <YesNoQuestion
+                          label="Are all staff trained in evacuation procedures, including use of evacuation equipment?"
+                          yesNoField="staffTrainedEvacuation"
+                          commentField="staffTrainedEvacuationComment"
+                          yesNoValue={auditData.staffTrainedEvacuation}
+                          commentValue={auditData.staffTrainedEvacuationComment}
+                          onYesNoChange={(value) => handleInputChange('staffTrainedEvacuation', value)}
+                          onCommentChange={(value) => handleInputChange('staffTrainedEvacuationComment', value)}
+                        />
+                        <YesNoQuestion
+                          label="Are Personal Emergency Evacuation Plans (PEEPs) in place for all residents who need them?"
+                          yesNoField="peepsInPlace"
+                          commentField="peepsInPlaceComment"
+                          yesNoValue={auditData.peepsInPlace}
+                          commentValue={auditData.peepsInPlaceComment}
+                          onYesNoChange={(value) => handleInputChange('peepsInPlace', value)}
+                          onCommentChange={(value) => handleInputChange('peepsInPlaceComment', value)}
+                        />
+                      </div>
+                    )}
+                    {idx === 6 && (
+                      <div className="space-y-4">
+                        <YesNoQuestion
+                          label="Have all staff received fire safety training within the last 12 months?"
+                          yesNoField="staffFireSafetyTraining"
+                          commentField="staffFireSafetyTrainingComment"
+                          yesNoValue={auditData.staffFireSafetyTraining}
+                          commentValue={auditData.staffFireSafetyTrainingComment}
+                          onYesNoChange={(value) => handleInputChange('staffFireSafetyTraining', value)}
+                          onCommentChange={(value) => handleInputChange('staffFireSafetyTrainingComment', value)}
+                        />
+                        <YesNoQuestion
+                          label="Do staff understand their roles in the event of a fire?"
+                          yesNoField="staffUnderstandRoles"
+                          commentField="staffUnderstandRolesComment"
+                          yesNoValue={auditData.staffUnderstandRoles}
+                          commentValue={auditData.staffUnderstandRolesComment}
+                          onYesNoChange={(value) => handleInputChange('staffUnderstandRoles', value)}
+                          onCommentChange={(value) => handleInputChange('staffUnderstandRolesComment', value)}
+                        />
+                        <YesNoQuestion
+                          label="Are new staff trained in fire safety during their induction?"
+                          yesNoField="newStaffTrained"
+                          commentField="newStaffTrainedComment"
+                          yesNoValue={auditData.newStaffTrained}
+                          commentValue={auditData.newStaffTrainedComment}
+                          onYesNoChange={(value) => handleInputChange('newStaffTrained', value)}
+                          onCommentChange={(value) => handleInputChange('newStaffTrainedComment', value)}
+                        />
+                        <YesNoQuestion
+                          label="Are fire wardens/marshals appointed and trained?"
+                          yesNoField="fireWardensAppointed"
+                          commentField="fireWardensAppointedComment"
+                          yesNoValue={auditData.fireWardensAppointed}
+                          commentValue={auditData.fireWardensAppointedComment}
+                          onYesNoChange={(value) => handleInputChange('fireWardensAppointed', value)}
+                          onCommentChange={(value) => handleInputChange('fireWardensAppointedComment', value)}
+                        />
+                      </div>
+                    )}
+                    {idx === 7 && (
+                      <div className="space-y-4">
+                        <YesNoQuestion
+                          label="Are fire action notices displayed in key areas?"
+                          yesNoField="fireActionNotices"
+                          commentField="fireActionNoticesComment"
+                          yesNoValue={auditData.fireActionNotices}
+                          commentValue={auditData.fireActionNoticesComment}
+                          onYesNoChange={(value) => handleInputChange('fireActionNotices', value)}
+                          onCommentChange={(value) => handleInputChange('fireActionNoticesComment', value)}
+                        />
+                        <YesNoQuestion
+                          label="Are fire exit signs illuminated and clearly visible?"
+                          yesNoField="fireExitSigns"
+                          commentField="fireExitSignsComment"
+                          yesNoValue={auditData.fireExitSigns}
+                          commentValue={auditData.fireExitSignsComment}
+                          onYesNoChange={(value) => handleInputChange('fireExitSigns', value)}
+                          onCommentChange={(value) => handleInputChange('fireExitSignsComment', value)}
+                        />
+                        <YesNoQuestion
+                          label="Is a fire assembly point clearly marked and known by staff?"
+                          yesNoField="assemblyPointMarked"
+                          commentField="assemblyPointMarkedComment"
+                          yesNoValue={auditData.assemblyPointMarked}
+                          commentValue={auditData.assemblyPointMarkedComment}
+                          onYesNoChange={(value) => handleInputChange('assemblyPointMarked', value)}
+                          onCommentChange={(value) => handleInputChange('assemblyPointMarkedComment', value)}
+                        />
+                        <YesNoQuestion
+                          label="Is the fire logbook up to date and available for inspection?"
+                          yesNoField="fireLogbookUpToDate"
+                          commentField="fireLogbookUpToDateComment"
+                          yesNoValue={auditData.fireLogbookUpToDate}
+                          commentValue={auditData.fireLogbookUpToDateComment}
+                          onYesNoChange={(value) => handleInputChange('fireLogbookUpToDate', value)}
+                          onCommentChange={(value) => handleInputChange('fireLogbookUpToDateComment', value)}
+                        />
+                      </div>
+                    )}
+                    {idx === 8 && (
+                      <div className="space-y-4">
+                        <YesNoQuestion
+                          label="Has portable appliance testing (PAT) been carried out on all electrical equipment?"
+                          yesNoField="patTestingCompleted"
+                          commentField="patTestingCompletedComment"
+                          yesNoValue={auditData.patTestingCompleted}
+                          commentValue={auditData.patTestingCompletedComment}
+                          onYesNoChange={(value) => handleInputChange('patTestingCompleted', value)}
+                          onCommentChange={(value) => handleInputChange('patTestingCompletedComment', value)}
+                        />
+                        <YesNoQuestion
+                          label="Are fixed wiring installations inspected and tested at least every 5 years?"
+                          yesNoField="fixedWiringInspected"
+                          commentField="fixedWiringInspectedComment"
+                          yesNoValue={auditData.fixedWiringInspected}
+                          commentValue={auditData.fixedWiringInspectedComment}
+                          onYesNoChange={(value) => handleInputChange('fixedWiringInspected', value)}
+                          onCommentChange={(value) => handleInputChange('fixedWiringInspectedComment', value)}
+                        />
+                        <YesNoQuestion
+                          label="Are electrical panels and equipment kept secure and unobstructed?"
+                          yesNoField="electricalPanelsSecure"
+                          commentField="electricalPanelsSecureComment"
+                          yesNoValue={auditData.electricalPanelsSecure}
+                          commentValue={auditData.electricalPanelsSecureComment}
+                          onYesNoChange={(value) => handleInputChange('electricalPanelsSecure', value)}
+                          onCommentChange={(value) => handleInputChange('electricalPanelsSecureComment', value)}
+                        />
+                        <YesNoQuestion
+                          label="Are staff instructed to report and remove faulty electrical equipment?"
+                          yesNoField="staffInstructedFaultyEquipment"
+                          commentField="staffInstructedFaultyEquipmentComment"
+                          yesNoValue={auditData.staffInstructedFaultyEquipment}
+                          commentValue={auditData.staffInstructedFaultyEquipmentComment}
+                          onYesNoChange={(value) => handleInputChange('staffInstructedFaultyEquipment', value)}
+                          onCommentChange={(value) => handleInputChange('staffInstructedFaultyEquipmentComment', value)}
+                        />
+                      </div>
+                    )}
+                    {idx === 9 && (
+                      <div className="space-y-4">
+                        <YesNoQuestion
+                          label="Are flammable materials stored safely and away from heat sources?"
+                          yesNoField="flammableMaterialsStored"
+                          commentField="flammableMaterialsStoredComment"
+                          yesNoValue={auditData.flammableMaterialsStored}
+                          commentValue={auditData.flammableMaterialsStoredComment}
+                          onYesNoChange={(value) => handleInputChange('flammableMaterialsStored', value)}
+                          onCommentChange={(value) => handleInputChange('flammableMaterialsStoredComment', value)}
+                        />
+                        <YesNoQuestion
+                          label="Are smoking policies clearly enforced and smoking areas controlled?"
+                          yesNoField="smokingPoliciesEnforced"
+                          commentField="smokingPoliciesEnforcedComment"
+                          yesNoValue={auditData.smokingPoliciesEnforced}
+                          commentValue={auditData.smokingPoliciesEnforcedComment}
+                          onYesNoChange={(value) => handleInputChange('smokingPoliciesEnforced', value)}
+                          onCommentChange={(value) => handleInputChange('smokingPoliciesEnforcedComment', value)}
+                        />
+                        <YesNoQuestion
+                          label="Are linen and waste storage areas regularly cleared and well-maintained?"
+                          yesNoField="linenWasteStorage"
+                          commentField="linenWasteStorageComment"
+                          yesNoValue={auditData.linenWasteStorage}
+                          commentValue={auditData.linenWasteStorageComment}
+                          onYesNoChange={(value) => handleInputChange('linenWasteStorage', value)}
+                          onCommentChange={(value) => handleInputChange('linenWasteStorageComment', value)}
+                        />
+                        <YesNoQuestion
+                          label="Are staff aware of procedures for reporting fire hazards?"
+                          yesNoField="staffAwareReportingHazards"
+                          commentField="staffAwareReportingHazardsComment"
+                          yesNoValue={auditData.staffAwareReportingHazards}
+                          commentValue={auditData.staffAwareReportingHazardsComment}
+                          onYesNoChange={(value) => handleInputChange('staffAwareReportingHazards', value)}
+                          onCommentChange={(value) => handleInputChange('staffAwareReportingHazardsComment', value)}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+            {/* Final Comments section */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-md p-8">
+              <h3 className="text-lg font-semibold text-blue-900 mb-4">Final Comments</h3>
+              <Textarea
+                name="finalComments"
+                value={finalComments}
+                onChange={(e) => setFinalComments(e.target.value)}
+                placeholder="Any final comments or observations about this audit..."
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-200 h-32"
+              />
+            </div>
+            <Button type="submit" className="w-full h-14 text-lg font-bold mt-4 bg-blue-800 hover:bg-blue-900 text-white rounded-xl shadow transition-all duration-150 disabled:opacity-60" disabled={saving}>
+              {saving ? "Saving..." : "Complete Audit"}
+            </Button>
+          </form>
         </div>
       </div>
 
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4">Audit Completed</h3>
-            <p className="text-gray-600 mb-6">Would you like to create an action plan based on this audit?</p>
+          <div className="bg-white rounded-lg p-6 max-w-md mx-4">
+            <h3 className="text-lg font-semibold mb-4">Audit Complete</h3>
+            <p className="text-gray-600 mb-6">Would you like to create an action plan for this audit?</p>
             <div className="flex gap-3 justify-end">
-              <button onClick={() => setShowModal(false)} className="px-4 py-2 text-gray-600 hover:text-gray-800">No, thanks</button>
-              <button onClick={() => handleModalCreate(false)} disabled={saving} className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Save Audit</button>
-              <button onClick={() => handleModalCreate(true)} disabled={saving} className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Save & Create Action Plan</button>
+              <button
+                onClick={() => handleModalClose()}
+                className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                disabled={saving}
+              >
+                {saving ? 'Saving...' : 'No'}
+              </button>
+              <button
+                onClick={() => handleModalCreate(true)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                disabled={saving}
+              >
+                {saving ? 'Saving...' : 'Yes, Create Action Plan'}
+              </button>
+              <button
+                onClick={() => handleModalCreate(false)}
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                disabled={saving}
+              >
+                {saving ? 'Saving...' : 'Save and Close'}
+              </button>
             </div>
           </div>
         </div>

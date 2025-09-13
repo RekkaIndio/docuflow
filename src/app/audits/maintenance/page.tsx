@@ -1,5 +1,9 @@
 'use client';
 import React, { useState } from 'react';
+import { ChevronDown, ChevronUp, FileText } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { useWorkspace } from '@/context/workspace';
 import { saveAudit, updateAudit, markAuditCompletedWithSnapshot } from '@/lib/firestore';
 import { useAuth } from '@/hooks/use-auth';
@@ -118,6 +122,119 @@ export default function MaintenanceAuditPage() {
   const [showModal, setShowModal] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
 
+  // Collapsible sections state
+  const [openSections, setOpenSections] = useState<boolean[]>(Array(10).fill(false));
+
+  const toggleSection = (index: number) => {
+    setOpenSections(prev => prev.map((open, i) => i === index ? !open : open));
+  };
+
+  // Section definitions with guidance text
+  const sections = [
+    {
+      title: "1. General Building Condition",
+      guidance: "Assess the overall structural integrity and maintenance of the building, including walls, ceilings, floors, lighting, doors, and general room condition.",
+      questions: [
+        { label: "Are internal walls, ceilings, and floors in good condition and free from damage?", yesNoField: "internal_walls_ceiling_floor_ok", commentField: "internal_walls_ceiling_floor_ok_comment" },
+        { label: "Are external walls, roofs, gutters, and windows in good repair?", yesNoField: "external_walls_roof_windows_ok", commentField: "external_walls_roof_windows_ok_comment" },
+        { label: "Are lighting fixtures working and adequate in all areas (indoor and outdoor)?", yesNoField: "lighting_fixtures_ok", commentField: "lighting_fixtures_ok_comment" },
+        { label: "Are doors, locks, and handles functioning properly throughout the home?", yesNoField: "doors_locks_handles_ok", commentField: "doors_locks_handles_ok_comment" },
+        { label: "Are all resident bedrooms, bathrooms, and communal areas well maintained?", yesNoField: "rooms_well_maintained", commentField: "rooms_well_maintained_comment" }
+      ]
+    },
+    {
+      title: "2. Heating, Ventilation and Water Systems",
+      guidance: "Check heating systems, ventilation, water temperatures, and flushing procedures to ensure safe and efficient operation.",
+      questions: [
+        { label: "Are all radiators and heating systems working effectively?", yesNoField: "radiators_heating_ok", commentField: "radiators_heating_ok_comment" },
+        { label: "Are thermostats and heating controls functioning correctly?", yesNoField: "thermostats_controls_ok", commentField: "thermostats_controls_ok_comment" },
+        { label: "Are extractor fans and ventilation systems clean and operational?", yesNoField: "extractor_ventilation_ok", commentField: "extractor_ventilation_ok_comment" },
+        { label: "Are hot and cold water temperatures within safe limits (legionella control)?", yesNoField: "water_temps_safe", commentField: "water_temps_safe_comment" },
+        { label: "Are water outlets flushed regularly and recorded (for infrequently used taps/showers)?", yesNoField: "water_outlets_flushed_recorded", commentField: "water_outlets_flushed_recorded_comment" }
+      ]
+    },
+    {
+      title: "3. Electrical Safety",
+      guidance: "Verify electrical safety measures including PAT testing, socket condition, wiring inspections, and staff awareness of electrical faults.",
+      questions: [
+        { label: "Are all portable appliances PAT tested and labelled?", yesNoField: "pat_testing_current", commentField: "pat_testing_current_comment" },
+        { label: "Are electrical sockets and plugs in safe, working condition?", yesNoField: "sockets_plugs_safe", commentField: "sockets_plugs_safe_comment" },
+        { label: "Is there a current fixed wiring inspection (every 5 years)?", yesNoField: "fixed_wiring_inspection_current", commentField: "fixed_wiring_inspection_current_comment" },
+        { label: "Are staff aware of how to report electrical faults?", yesNoField: "staff_report_faults_aware", commentField: "staff_report_faults_aware_comment" }
+      ]
+    },
+    {
+      title: "4. Fire Safety and Emergency Systems",
+      guidance: "Inspect fire safety equipment, emergency lighting, alarm systems, and evacuation procedures to ensure comprehensive fire protection.",
+      questions: [
+        { label: "Are all fire doors in good working order and not wedged open?", yesNoField: "fire_doors_ok", commentField: "fire_doors_ok_comment" },
+        { label: "Are fire extinguishers present, serviced, and located correctly?", yesNoField: "extinguishers_serviced", commentField: "extinguishers_serviced_comment" },
+        { label: "Are emergency lighting systems tested and functional?", yesNoField: "emergency_lighting_ok", commentField: "emergency_lighting_ok_comment" },
+        { label: "Are weekly fire alarm tests carried out and recorded?", yesNoField: "weekly_alarm_tests", commentField: "weekly_alarm_tests_comment" },
+        { label: "Are evacuation routes clear and signage in place?", yesNoField: "evacuation_routes_clear", commentField: "evacuation_routes_clear_comment" }
+      ]
+    },
+    {
+      title: "5. Lifts and Hoists",
+      guidance: "Check the maintenance and safety of lifts, ceiling track hoists, mobile hoists, and all lifting equipment according to LOLER regulations.",
+      questions: [
+        { label: "Are passenger lifts serviced and inspected in line with LOLER regulations?", yesNoField: "lifts_serviced_loler", commentField: "lifts_serviced_loler_comment" },
+        { label: "Are ceiling track hoists and mobile hoists maintained and logged?", yesNoField: "hoists_serviced_logged", commentField: "hoists_serviced_logged_comment" },
+        { label: "Are slings and lifting equipment checked for wear and tear?", yesNoField: "slings_checked", commentField: "slings_checked_comment" },
+        { label: "Are maintenance records for all lifting equipment up to date?", yesNoField: "lifting_records_up_to_date", commentField: "lifting_records_up_to_date_comment" }
+      ]
+    },
+    {
+      title: "6. Garden and Outdoor Areas",
+      guidance: "Assess outdoor spaces for safety, maintenance, and security including paths, handrails, garden areas, and waste storage.",
+      questions: [
+        { label: "Are paths, walkways, and ramps clear, well-lit, and in safe condition?", yesNoField: "paths_walkways_safe", commentField: "paths_walkways_safe_comment" },
+        { label: "Are handrails and fences secure and stable?", yesNoField: "handrails_fences_secure", commentField: "handrails_fences_secure_comment" },
+        { label: "Is the garden area tidy and free from hazardous equipment or waste?", yesNoField: "garden_tidy_hazard_free", commentField: "garden_tidy_hazard_free_comment" },
+        { label: "Are external bins stored securely and away from access points?", yesNoField: "external_bins_stored_secure", commentField: "external_bins_stored_secure_comment" }
+      ]
+    },
+    {
+      title: "7. Housekeeping and Equipment",
+      guidance: "Verify the condition and maintenance of cleaning equipment, domestic supplies, laundry facilities, and furniture.",
+      questions: [
+        { label: "Are cleaning machines (vacuum, floor cleaners) in good working order?", yesNoField: "cleaning_machines_ok", commentField: "cleaning_machines_ok_comment" },
+        { label: "Are domestic trolleys and bins clean and stored correctly?", yesNoField: "domestic_trolleys_bins_ok", commentField: "domestic_trolleys_bins_ok_comment" },
+        { label: "Are laundry machines serviced and maintained regularly?", yesNoField: "laundry_machines_serviced", commentField: "laundry_machines_serviced_comment" },
+        { label: "Is furniture in good condition and free from damage?", yesNoField: "furniture_good_condition", commentField: "furniture_good_condition_comment" }
+      ]
+    },
+    {
+      title: "8. Toilets and Bathrooms",
+      guidance: "Check the condition and functionality of all toilet and bathroom facilities, including fixtures, grab rails, and hygiene equipment.",
+      questions: [
+        { label: "Are all toilets, sinks, and baths in good working condition?", yesNoField: "toilets_sinks_baths_ok", commentField: "toilets_sinks_baths_ok_comment" },
+        { label: "Are grab rails and support bars secure and rust-free?", yesNoField: "grabrails_secure", commentField: "grabrails_secure_comment" },
+        { label: "Are waste bins, toilet seats, and dispensers working and hygienic?", yesNoField: "waste_bins_seats_dispensers_ok", commentField: "waste_bins_seats_dispensers_ok_comment" }
+      ]
+    },
+    {
+      title: "9. Storage and Hazardous Materials",
+      guidance: "Assess storage areas for organization, security of hazardous materials, and safe storage of maintenance tools and equipment.",
+      questions: [
+        { label: "Are all storage areas neat, accessible, and well organised?", yesNoField: "storage_areas_neat", commentField: "storage_areas_neat_comment" },
+        { label: "Are COSHH items stored securely and labelled properly?", yesNoField: "coshh_items_stored_secure", commentField: "coshh_items_stored_secure_comment" },
+        { label: "Are maintenance tools and ladders stored safely and used appropriately?", yesNoField: "tools_ladders_stored_safe", commentField: "tools_ladders_stored_safe_comment" }
+      ]
+    },
+    {
+      title: "10. Reporting and Record-Keeping",
+      guidance: "Review maintenance reporting processes, repair logs, outstanding work tracking, scheduled servicing, and contractor qualifications.",
+      questions: [
+        { label: "Are all maintenance issues reported via a clear process?", yesNoField: "issues_reported_process", commentField: "issues_reported_process_comment" },
+        { label: "Are repair logs maintained and up to date?", yesNoField: "repair_logs_maintained", commentField: "repair_logs_maintained_comment" },
+        { label: "Are outstanding repairs tracked with priority levels?", yesNoField: "outstanding_repairs_tracked", commentField: "outstanding_repairs_tracked_comment" },
+        { label: "Is there a record of scheduled servicing (e.g. boilers, alarms, equipment)?", yesNoField: "scheduled_servicing_record", commentField: "scheduled_servicing_record_comment" },
+        { label: "Are contractors appropriately qualified and records retained?", yesNoField: "contractors_qualified_records", commentField: "contractors_qualified_records_comment" }
+      ]
+    }
+  ];
+
   const [data, setData] = useState<MaintenanceAuditData>({
     home: '',
     date: '',
@@ -218,25 +335,71 @@ export default function MaintenanceAuditPage() {
     contractors_qualified_records_comment: '',
   });
 
+  // Helper functions
+  const getFieldErrorStyle = (fieldName: string) => {
+    return errors.includes(fieldName) ? 'border-red-500 bg-red-50' : 'border-gray-300';
+  };
+
+  const handleInputChange = (field: keyof MaintenanceAuditData, value: string) => {
+    setData(prev => ({ ...prev, [field]: value }));
+    if (value.trim() !== '' && errors.includes(field)) {
+      setErrors(prev => prev.filter(e => e !== field));
+    }
+  };
+
   const activeWorkspace = useWorkspace();
   const { user: authUser } = useAuth();
   const [saving, setSaving] = useState(false);
   const [savedAuditId, setSavedAuditId] = useState<string | null>(null);
 
   const handleChange = (field: keyof MaintenanceAuditData, value: string) => {
-    setData(prev => ({ ...prev, [field]: value }));
-    if (value.trim() !== '' && errors.includes(field)) setErrors(prev => prev.filter(e => e !== field));
+    handleInputChange(field, value);
   };
 
   const YesNoQuestion = ({ label, yesNoField, commentField, yesNoValue, commentValue, onYesNoChange, onCommentChange }: { label: string; yesNoField: string; commentField: string; yesNoValue: string; commentValue: string; onYesNoChange: (v: string) => void; onCommentChange: (v: string) => void; }) => (
-    <div className="space-y-2">
-      <label className="block text-sm font-medium text-gray-700">{label}</label>
-      <div className="flex gap-4 items-center" data-field={yesNoField}>
-        <label className="flex items-center"><input type="radio" name={yesNoField} value="Yes" checked={yesNoValue === 'Yes'} onChange={(e) => onYesNoChange(e.target.value)} className="mr-2" />Yes</label>
-        <label className="flex items-center"><input type="radio" name={yesNoField} value="No" checked={yesNoValue === 'No'} onChange={(e) => onYesNoChange(e.target.value)} className="mr-2" />No</label>
+    <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+      <div className="space-y-3">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+          <div className="flex gap-4" data-field={yesNoField}>
+            <label className="flex items-center">
+              <input
+                type="radio"
+                name={yesNoField}
+                value="Yes"
+                checked={yesNoValue === 'Yes'}
+                onChange={(e) => onYesNoChange(e.target.value)}
+                className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+              />
+              <span className="text-sm text-gray-700">Yes</span>
+            </label>
+            <label className="flex items-center">
+              <input
+                type="radio"
+                name={yesNoField}
+                value="No"
+                checked={yesNoValue === 'No'}
+                onChange={(e) => onYesNoChange(e.target.value)}
+                className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+              />
+              <span className="text-sm text-gray-700">No</span>
+            </label>
+          </div>
+          {errors.includes(yesNoField) && (
+            <p className="text-red-600 text-sm font-medium">This field is required</p>
+          )}
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Comments</label>
+          <Textarea
+            value={commentValue}
+            onChange={(e) => onCommentChange(e.target.value)}
+            className="w-full p-3 border border-slate-200 rounded-lg resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-slate-50"
+            rows={2}
+            placeholder="Add any comments or observations..."
+          />
+        </div>
       </div>
-      {errors.includes(yesNoField) && <p className="text-red-500 text-sm">This field is required</p>}
-      <textarea value={commentValue} onChange={(e) => onCommentChange(e.target.value)} rows={2} placeholder="Comments" className="w-full p-2 border rounded resize-none mt-2" />
     </div>
   );
 
@@ -328,154 +491,132 @@ export default function MaintenanceAuditPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white">
-      <div className="mb-6">
-        <div className="flex justify-between items-center mb-4">
-          <h1 className="text-2xl font-bold text-gray-900">Maintenance Audit</h1>
-        </div>
-
-        <div className="bg-blue-50 p-4 rounded-lg mb-6">
-          <h2 className="text-lg font-semibold text-blue-900 mb-4">Audit Information</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div className="max-w-7xl mx-auto p-10 bg-white rounded-3xl shadow-2xl mt-10 border border-slate-200">
+      <div className="flex flex-col lg:flex-row gap-10">
+        {/* Left panel for details, sticky and NOT part of the form */}
+        <div className="w-full lg:w-[480px] flex-shrink-0 bg-white rounded-2xl p-10 border border-slate-200 shadow-xl mb-8 lg:mb-0 lg:sticky lg:top-10 self-start h-fit">
+          <h1 className="text-3xl font-extrabold mb-2 text-blue-900 tracking-tight">Maintenance Audit</h1>
+          <p className="mb-4 text-slate-500">Comprehensive assessment of building maintenance, safety systems, and equipment. All fields are required.</p>
+          <div className="space-y-4 mt-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Home</label>
-              <input value={data.home} data-field="home" onChange={(e) => handleChange('home', e.target.value)} className={`w-full p-2 border rounded ${errors.includes('home') ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="Enter home name" />
-              {errors.includes('home') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
+              <Input
+                value={data.home}
+                onChange={(e) => handleInputChange('home', e.target.value)}
+                className={getFieldErrorStyle('home')}
+                placeholder="Enter home name"
+              />
+              {errors.includes('home') && (
+                <p className="text-red-600 text-sm font-medium mt-1">This field is required</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
-              <input type="date" value={data.date} data-field="date" onChange={(e) => handleChange('date', e.target.value)} className={`w-full p-2 border rounded ${errors.includes('date') ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} />
-              {errors.includes('date') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
+              <Input
+                type="date"
+                value={data.date}
+                onChange={(e) => handleInputChange('date', e.target.value)}
+                className={getFieldErrorStyle('date')}
+              />
+              {errors.includes('date') && (
+                <p className="text-red-600 text-sm font-medium mt-1">This field is required</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Person Completing the Audit</label>
-              <input value={data.personCompletingAudit} data-field="personCompletingAudit" onChange={(e) => handleChange('personCompletingAudit', e.target.value)} className={`w-full p-2 border rounded ${errors.includes('personCompletingAudit') ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="Enter auditor name" />
-              {errors.includes('personCompletingAudit') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
+              <Input
+                value={data.personCompletingAudit}
+                onChange={(e) => handleInputChange('personCompletingAudit', e.target.value)}
+                className={getFieldErrorStyle('personCompletingAudit')}
+                placeholder="Enter auditor name"
+              />
+              {errors.includes('personCompletingAudit') && (
+                <p className="text-red-600 text-sm font-medium mt-1">This field is required</p>
+              )}
             </div>
           </div>
         </div>
 
-        <div className="space-y-6">
-          <div className="bg-green-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-green-900 mb-3">1. General Building Condition</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Are internal walls, ceilings, and floors in good condition and free from damage?" yesNoField="internal_walls_ceiling_floor_ok" commentField="internal_walls_ceiling_floor_ok_comment" yesNoValue={data.internal_walls_ceiling_floor_ok} commentValue={data.internal_walls_ceiling_floor_ok_comment} onYesNoChange={(v) => handleChange('internal_walls_ceiling_floor_ok', v)} onCommentChange={(v) => handleChange('internal_walls_ceiling_floor_ok_comment', v)} />
-              <YesNoQuestion label="Are external walls, roofs, gutters, and windows in good repair?" yesNoField="external_walls_roof_windows_ok" commentField="external_walls_roof_windows_ok_comment" yesNoValue={data.external_walls_roof_windows_ok} commentValue={data.external_walls_roof_windows_ok_comment} onYesNoChange={(v) => handleChange('external_walls_roof_windows_ok', v)} onCommentChange={(v) => handleChange('external_walls_roof_windows_ok_comment', v)} />
-              <YesNoQuestion label="Are lighting fixtures working and adequate in all areas (indoor and outdoor)?" yesNoField="lighting_fixtures_ok" commentField="lighting_fixtures_ok_comment" yesNoValue={data.lighting_fixtures_ok} commentValue={data.lighting_fixtures_ok_comment} onYesNoChange={(v) => handleChange('lighting_fixtures_ok', v)} onCommentChange={(v) => handleChange('lighting_fixtures_ok_comment', v)} />
-              <YesNoQuestion label="Are doors, locks, and handles functioning properly throughout the home?" yesNoField="doors_locks_handles_ok" commentField="doors_locks_handles_ok_comment" yesNoValue={data.doors_locks_handles_ok} commentValue={data.doors_locks_handles_ok_comment} onYesNoChange={(v) => handleChange('doors_locks_handles_ok', v)} onCommentChange={(v) => handleChange('doors_locks_handles_ok_comment', v)} />
-              <YesNoQuestion label="Are all resident bedrooms, bathrooms, and communal areas well maintained?" yesNoField="rooms_well_maintained" commentField="rooms_well_maintained_comment" yesNoValue={data.rooms_well_maintained} commentValue={data.rooms_well_maintained_comment} onYesNoChange={(v) => handleChange('rooms_well_maintained', v)} onCommentChange={(v) => handleChange('rooms_well_maintained_comment', v)} />
-            </div>
-          </div>
+        {/* Main form right column, scrollable */}
+        <div className="flex-1 min-w-0 pr-2">
+          <div className="space-y-4">
+              {/* Collapsible Sections */}
+              {sections.map((section, index) => (
+                <div key={index} className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+                  <button
+                    onClick={() => toggleSection(index)}
+                    className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-slate-50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <FileText className="h-5 w-5 text-blue-600" />
+                      <h3 className="text-lg font-semibold text-gray-900">{section.title}</h3>
+                    </div>
+                    {openSections[index] ? (
+                      <ChevronUp className="h-5 w-5 text-gray-500" />
+                    ) : (
+                      <ChevronDown className="h-5 w-5 text-gray-500" />
+                    )}
+                  </button>
+                  {openSections[index] && (
+                    <div className="px-6 pb-6">
+                      <p className="text-slate-600 mb-6 text-sm leading-relaxed">{section.guidance}</p>
+                      <div className="space-y-4">
+                        {section.questions.map((question, qIndex) => (
+                          <YesNoQuestion
+                            key={qIndex}
+                            label={question.label}
+                            yesNoField={question.yesNoField}
+                            commentField={question.commentField}
+                            yesNoValue={data[question.yesNoField as keyof MaintenanceAuditData]}
+                            commentValue={data[question.commentField as keyof MaintenanceAuditData]}
+                            onYesNoChange={(v) => handleChange(question.yesNoField as keyof MaintenanceAuditData, v)}
+                            onCommentChange={(v) => handleChange(question.commentField as keyof MaintenanceAuditData, v)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
 
-          <div className="bg-yellow-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-yellow-900 mb-3">2. Heating, Ventilation and Water Systems</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Are all radiators and heating systems working effectively?" yesNoField="radiators_heating_ok" commentField="radiators_heating_ok_comment" yesNoValue={data.radiators_heating_ok} commentValue={data.radiators_heating_ok_comment} onYesNoChange={(v) => handleChange('radiators_heating_ok', v)} onCommentChange={(v) => handleChange('radiators_heating_ok_comment', v)} />
-              <YesNoQuestion label="Are thermostats and heating controls functioning correctly?" yesNoField="thermostats_controls_ok" commentField="thermostats_controls_ok_comment" yesNoValue={data.thermostats_controls_ok} commentValue={data.thermostats_controls_ok_comment} onYesNoChange={(v) => handleChange('thermostats_controls_ok', v)} onCommentChange={(v) => handleChange('thermostats_controls_ok_comment', v)} />
-              <YesNoQuestion label="Are extractor fans and ventilation systems clean and operational?" yesNoField="extractor_ventilation_ok" commentField="extractor_ventilation_ok_comment" yesNoValue={data.extractor_ventilation_ok} commentValue={data.extractor_ventilation_ok_comment} onYesNoChange={(v) => handleChange('extractor_ventilation_ok', v)} onCommentChange={(v) => handleChange('extractor_ventilation_ok_comment', v)} />
-              <YesNoQuestion label="Are hot and cold water temperatures within safe limits (legionella control)?" yesNoField="water_temps_safe" commentField="water_temps_safe_comment" yesNoValue={data.water_temps_safe} commentValue={data.water_temps_safe_comment} onYesNoChange={(v) => handleChange('water_temps_safe', v)} onCommentChange={(v) => handleChange('water_temps_safe_comment', v)} />
-              <YesNoQuestion label="Are water outlets flushed regularly and recorded (for infrequently used taps/showers)?" yesNoField="water_outlets_flushed_recorded" commentField="water_outlets_flushed_recorded_comment" yesNoValue={data.water_outlets_flushed_recorded} commentValue={data.water_outlets_flushed_recorded_comment} onYesNoChange={(v) => handleChange('water_outlets_flushed_recorded', v)} onCommentChange={(v) => handleChange('water_outlets_flushed_recorded_comment', v)} />
-            </div>
-          </div>
-
-          <div className="bg-pink-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-pink-900 mb-3">3. Electrical Safety</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Are all portable appliances PAT tested and labelled?" yesNoField="pat_testing_current" commentField="pat_testing_current_comment" yesNoValue={data.pat_testing_current} commentValue={data.pat_testing_current_comment} onYesNoChange={(v) => handleChange('pat_testing_current', v)} onCommentChange={(v) => handleChange('pat_testing_current_comment', v)} />
-              <YesNoQuestion label="Are electrical sockets and plugs in safe, working condition?" yesNoField="sockets_plugs_safe" commentField="sockets_plugs_safe_comment" yesNoValue={data.sockets_plugs_safe} commentValue={data.sockets_plugs_safe_comment} onYesNoChange={(v) => handleChange('sockets_plugs_safe', v)} onCommentChange={(v) => handleChange('sockets_plugs_safe_comment', v)} />
-              <YesNoQuestion label="Is there a current fixed wiring inspection (every 5 years)?" yesNoField="fixed_wiring_inspection_current" commentField="fixed_wiring_inspection_current_comment" yesNoValue={data.fixed_wiring_inspection_current} commentValue={data.fixed_wiring_inspection_current_comment} onYesNoChange={(v) => handleChange('fixed_wiring_inspection_current', v)} onCommentChange={(v) => handleChange('fixed_wiring_inspection_current_comment', v)} />
-              <YesNoQuestion label="Are staff aware of how to report electrical faults?" yesNoField="staff_report_faults_aware" commentField="staff_report_faults_aware_comment" yesNoValue={data.staff_report_faults_aware} commentValue={data.staff_report_faults_aware_comment} onYesNoChange={(v) => handleChange('staff_report_faults_aware', v)} onCommentChange={(v) => handleChange('staff_report_faults_aware_comment', v)} />
-            </div>
-          </div>
-
-          <div className="bg-indigo-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-indigo-900 mb-3">4. Fire Safety and Emergency Systems</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Are all fire doors in good working order and not wedged open?" yesNoField="fire_doors_ok" commentField="fire_doors_ok_comment" yesNoValue={data.fire_doors_ok} commentValue={data.fire_doors_ok_comment} onYesNoChange={(v) => handleChange('fire_doors_ok', v)} onCommentChange={(v) => handleChange('fire_doors_ok_comment', v)} />
-              <YesNoQuestion label="Are fire extinguishers present, serviced, and located correctly?" yesNoField="extinguishers_serviced" commentField="extinguishers_serviced_comment" yesNoValue={data.extinguishers_serviced} commentValue={data.extinguishers_serviced_comment} onYesNoChange={(v) => handleChange('extinguishers_serviced', v)} onCommentChange={(v) => handleChange('extinguishers_serviced_comment', v)} />
-              <YesNoQuestion label="Are emergency lighting systems tested and functional?" yesNoField="emergency_lighting_ok" commentField="emergency_lighting_ok_comment" yesNoValue={data.emergency_lighting_ok} commentValue={data.emergency_lighting_ok_comment} onYesNoChange={(v) => handleChange('emergency_lighting_ok', v)} onCommentChange={(v) => handleChange('emergency_lighting_ok_comment', v)} />
-              <YesNoQuestion label="Are weekly fire alarm tests carried out and recorded?" yesNoField="weekly_alarm_tests" commentField="weekly_alarm_tests_comment" yesNoValue={data.weekly_alarm_tests} commentValue={data.weekly_alarm_tests_comment} onYesNoChange={(v) => handleChange('weekly_alarm_tests', v)} onCommentChange={(v) => handleChange('weekly_alarm_tests_comment', v)} />
-              <YesNoQuestion label="Are evacuation routes clear and signage in place?" yesNoField="evacuation_routes_clear" commentField="evacuation_routes_clear_comment" yesNoValue={data.evacuation_routes_clear} commentValue={data.evacuation_routes_clear_comment} onYesNoChange={(v) => handleChange('evacuation_routes_clear', v)} onCommentChange={(v) => handleChange('evacuation_routes_clear_comment', v)} />
-            </div>
-          </div>
-
-          <div className="bg-pink-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-pink-900 mb-3">5. Lifts and Hoists</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Are passenger lifts serviced and inspected in line with LOLER regulations?" yesNoField="lifts_serviced_loler" commentField="lifts_serviced_loler_comment" yesNoValue={data.lifts_serviced_loler} commentValue={data.lifts_serviced_loler_comment} onYesNoChange={(v) => handleChange('lifts_serviced_loler', v)} onCommentChange={(v) => handleChange('lifts_serviced_loler_comment', v)} />
-              <YesNoQuestion label="Are ceiling track hoists and mobile hoists maintained and logged?" yesNoField="hoists_serviced_logged" commentField="hoists_serviced_logged_comment" yesNoValue={data.hoists_serviced_logged} commentValue={data.hoists_serviced_logged_comment} onYesNoChange={(v) => handleChange('hoists_serviced_logged', v)} onCommentChange={(v) => handleChange('hoists_serviced_logged_comment', v)} />
-              <YesNoQuestion label="Are slings and lifting equipment checked for wear and tear?" yesNoField="slings_checked" commentField="slings_checked_comment" yesNoValue={data.slings_checked} commentValue={data.slings_checked_comment} onYesNoChange={(v) => handleChange('slings_checked', v)} onCommentChange={(v) => handleChange('slings_checked_comment', v)} />
-              <YesNoQuestion label="Are maintenance records for all lifting equipment up to date?" yesNoField="lifting_records_up_to_date" commentField="lifting_records_up_to_date_comment" yesNoValue={data.lifting_records_up_to_date} commentValue={data.lifting_records_up_to_date_comment} onYesNoChange={(v) => handleChange('lifting_records_up_to_date', v)} onCommentChange={(v) => handleChange('lifting_records_up_to_date_comment', v)} />
-            </div>
-          </div>
-
-          <div className="bg-amber-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-amber-900 mb-3">6. Garden and Outdoor Areas</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Are paths, walkways, and ramps clear, well-lit, and in safe condition?" yesNoField="paths_walkways_safe" commentField="paths_walkways_safe_comment" yesNoValue={data.paths_walkways_safe} commentValue={data.paths_walkways_safe_comment} onYesNoChange={(v) => handleChange('paths_walkways_safe', v)} onCommentChange={(v) => handleChange('paths_walkways_safe_comment', v)} />
-              <YesNoQuestion label="Are handrails and fences secure and stable?" yesNoField="handrails_fences_secure" commentField="handrails_fences_secure_comment" yesNoValue={data.handrails_fences_secure} commentValue={data.handrails_fences_secure_comment} onYesNoChange={(v) => handleChange('handrails_fences_secure', v)} onCommentChange={(v) => handleChange('handrails_fences_secure_comment', v)} />
-              <YesNoQuestion label="Is the garden area tidy and free from hazardous equipment or waste?" yesNoField="garden_tidy_hazard_free" commentField="garden_tidy_hazard_free_comment" yesNoValue={data.garden_tidy_hazard_free} commentValue={data.garden_tidy_hazard_free_comment} onYesNoChange={(v) => handleChange('garden_tidy_hazard_free', v)} onCommentChange={(v) => handleChange('garden_tidy_hazard_free_comment', v)} />
-              <YesNoQuestion label="Are external bins stored securely and away from access points?" yesNoField="external_bins_stored_secure" commentField="external_bins_stored_secure_comment" yesNoValue={data.external_bins_stored_secure} commentValue={data.external_bins_stored_secure_comment} onYesNoChange={(v) => handleChange('external_bins_stored_secure', v)} onCommentChange={(v) => handleChange('external_bins_stored_secure_comment', v)} />
-            </div>
-          </div>
-
-          <div className="bg-green-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-green-900 mb-3">7. Housekeeping and Equipment</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Are cleaning machines (vacuum, floor cleaners) in good working order?" yesNoField="cleaning_machines_ok" commentField="cleaning_machines_ok_comment" yesNoValue={data.cleaning_machines_ok} commentValue={data.cleaning_machines_ok_comment} onYesNoChange={(v) => handleChange('cleaning_machines_ok', v)} onCommentChange={(v) => handleChange('cleaning_machines_ok_comment', v)} />
-              <YesNoQuestion label="Are domestic trolleys and bins clean and stored correctly?" yesNoField="domestic_trolleys_bins_ok" commentField="domestic_trolleys_bins_ok_comment" yesNoValue={data.domestic_trolleys_bins_ok} commentValue={data.domestic_trolleys_bins_ok_comment} onYesNoChange={(v) => handleChange('domestic_trolleys_bins_ok', v)} onCommentChange={(v) => handleChange('domestic_trolleys_bins_ok_comment', v)} />
-              <YesNoQuestion label="Are laundry machines serviced and maintained regularly?" yesNoField="laundry_machines_serviced" commentField="laundry_machines_serviced_comment" yesNoValue={data.laundry_machines_serviced} commentValue={data.laundry_machines_serviced_comment} onYesNoChange={(v) => handleChange('laundry_machines_serviced', v)} onCommentChange={(v) => handleChange('laundry_machines_serviced_comment', v)} />
-              <YesNoQuestion label="Is furniture in good condition and free from damage?" yesNoField="furniture_good_condition" commentField="furniture_good_condition_comment" yesNoValue={data.furniture_good_condition} commentValue={data.furniture_good_condition_comment} onYesNoChange={(v) => handleChange('furniture_good_condition', v)} onCommentChange={(v) => handleChange('furniture_good_condition_comment', v)} />
-            </div>
-          </div>
-
-          <div className="bg-pink-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-pink-900 mb-3">8. Toilets and Bathrooms</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Are all toilets, sinks, and baths in good working condition?" yesNoField="toilets_sinks_baths_ok" commentField="toilets_sinks_baths_ok_comment" yesNoValue={data.toilets_sinks_baths_ok} commentValue={data.toilets_sinks_baths_ok_comment} onYesNoChange={(v) => handleChange('toilets_sinks_baths_ok', v)} onCommentChange={(v) => handleChange('toilets_sinks_baths_ok_comment', v)} />
-              <YesNoQuestion label="Are grab rails and support bars secure and rust-free?" yesNoField="grabrails_secure" commentField="grabrails_secure_comment" yesNoValue={data.grabrails_secure} commentValue={data.grabrails_secure_comment} onYesNoChange={(v) => handleChange('grabrails_secure', v)} onCommentChange={(v) => handleChange('grabrails_secure_comment', v)} />
-              <YesNoQuestion label="Are waste bins, toilet seats, and dispensers working and hygienic?" yesNoField="waste_bins_seats_dispensers_ok" commentField="waste_bins_seats_dispensers_ok_comment" yesNoValue={data.waste_bins_seats_dispensers_ok} commentValue={data.waste_bins_seats_dispensers_ok_comment} onYesNoChange={(v) => handleChange('waste_bins_seats_dispensers_ok', v)} onCommentChange={(v) => handleChange('waste_bins_seats_dispensers_ok_comment', v)} />
-            </div>
-          </div>
-
-          <div className="bg-amber-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-amber-900 mb-3">9. Storage and Hazardous Materials</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Are all storage areas neat, accessible, and well organised?" yesNoField="storage_areas_neat" commentField="storage_areas_neat_comment" yesNoValue={data.storage_areas_neat} commentValue={data.storage_areas_neat_comment} onYesNoChange={(v) => handleChange('storage_areas_neat', v)} onCommentChange={(v) => handleChange('storage_areas_neat_comment', v)} />
-              <YesNoQuestion label="Are COSHH items stored securely and labelled properly?" yesNoField="coshh_items_stored_secure" commentField="coshh_items_stored_secure_comment" yesNoValue={data.coshh_items_stored_secure} commentValue={data.coshh_items_stored_secure_comment} onYesNoChange={(v) => handleChange('coshh_items_stored_secure', v)} onCommentChange={(v) => handleChange('coshh_items_stored_secure_comment', v)} />
-              <YesNoQuestion label="Are maintenance tools and ladders stored safely and used appropriately?" yesNoField="tools_ladders_stored_safe" commentField="tools_ladders_stored_safe_comment" yesNoValue={data.tools_ladders_stored_safe} commentValue={data.tools_ladders_stored_safe_comment} onYesNoChange={(v) => handleChange('tools_ladders_stored_safe', v)} onCommentChange={(v) => handleChange('tools_ladders_stored_safe_comment', v)} />
-            </div>
-          </div>
-
-          <div className="bg-sky-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-sky-900 mb-3">10. Reporting and Record-Keeping</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Are all maintenance issues reported via a clear process?" yesNoField="issues_reported_process" commentField="issues_reported_process_comment" yesNoValue={data.issues_reported_process} commentValue={data.issues_reported_process_comment} onYesNoChange={(v) => handleChange('issues_reported_process', v)} onCommentChange={(v) => handleChange('issues_reported_process_comment', v)} />
-              <YesNoQuestion label="Are repair logs maintained and up to date?" yesNoField="repair_logs_maintained" commentField="repair_logs_maintained_comment" yesNoValue={data.repair_logs_maintained} commentValue={data.repair_logs_maintained_comment} onYesNoChange={(v) => handleChange('repair_logs_maintained', v)} onCommentChange={(v) => handleChange('repair_logs_maintained_comment', v)} />
-              <YesNoQuestion label="Are outstanding repairs tracked with priority levels?" yesNoField="outstanding_repairs_tracked" commentField="outstanding_repairs_tracked_comment" yesNoValue={data.outstanding_repairs_tracked} commentValue={data.outstanding_repairs_tracked_comment} onYesNoChange={(v) => handleChange('outstanding_repairs_tracked', v)} onCommentChange={(v) => handleChange('outstanding_repairs_tracked_comment', v)} />
-              <YesNoQuestion label="Is there a record of scheduled servicing (e.g. boilers, alarms, equipment)?" yesNoField="scheduled_servicing_record" commentField="scheduled_servicing_record_comment" yesNoValue={data.scheduled_servicing_record} commentValue={data.scheduled_servicing_record_comment} onYesNoChange={(v) => handleChange('scheduled_servicing_record', v)} onCommentChange={(v) => handleChange('scheduled_servicing_record_comment', v)} />
-              <YesNoQuestion label="Are contractors appropriately qualified and records retained?" yesNoField="contractors_qualified_records" commentField="contractors_qualified_records_comment" yesNoValue={data.contractors_qualified_records} commentValue={data.contractors_qualified_records_comment} onYesNoChange={(v) => handleChange('contractors_qualified_records', v)} onCommentChange={(v) => handleChange('contractors_qualified_records_comment', v)} />
-            </div>
-          </div>
-
-          <div className="flex justify-center mt-8">
-            <button onClick={handleComplete} className="bg-green-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors">Complete Audit</button>
+              {/* Complete Audit Button */}
+              <Button
+                type="button"
+                onClick={handleComplete}
+                className="w-full h-14 text-lg font-bold mt-6 bg-blue-800 hover:bg-blue-900 text-white rounded-xl shadow transition-all duration-150 disabled:opacity-60"
+                disabled={saving}
+              >
+                {saving ? "Saving..." : "Complete Audit"}
+              </Button>
           </div>
         </div>
+
+        {/* Modal */}
+        {showModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md mx-4">
+              <h3 className="text-lg font-semibold mb-4">Audit Complete</h3>
+              <p className="text-gray-600 mb-6">Would you like to create an action plan for this audit?</p>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => handleModalCreate(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                  disabled={saving}
+                >
+                  {saving ? 'Saving...' : 'No'}
+                </button>
+                <button
+                  onClick={() => handleModalCreate(true)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  disabled={saving}
+                >
+                  {saving ? 'Saving...' : 'Save and Create Action Plan'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4">Audit Completed</h3>
-            <p className="text-gray-600 mb-6">Would you like to create an action plan based on this audit?</p>
-            <div className="flex gap-3 justify-end">
-              <button onClick={() => handleModalCreate(false)} className="px-4 py-2 text-gray-600 hover:text-gray-800" disabled={saving}>{saving ? 'Saving...' : 'No, thanks'}</button>
-              <button onClick={() => handleModalCreate(true)} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700" disabled={saving}>{saving ? 'Saving...' : 'Create Action Plan'}</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

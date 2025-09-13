@@ -6,6 +6,7 @@ import { useWorkspace } from '@/context/workspace';
 export const dynamic = 'force-dynamic';
 import { useAuth } from '@/hooks/use-auth';
 import { saveAudit, markAuditCompleted } from '@/lib/firestore';
+import { ChevronDown, ChevronUp, FileText } from 'lucide-react';
 
 interface WeightRow {
   room: string;
@@ -44,7 +45,58 @@ export default function WeightMonitoringAuditPage() {
   const [currentRowIndex, setCurrentRowIndex] = useState<number>(0);
   const [currentFieldIndex, setCurrentFieldIndex] = useState<number>(0);
 
+  // Collapsible sections state
+  const [openSections, setOpenSections] = useState<{ [key: string]: boolean }>({
+    'resident-tracking': true,
+    'summary-statistics': false,
+    'final-comments': false,
+  });
+
+  // Section definitions with guidance text
+  const sections = [
+    {
+      id: 'resident-tracking',
+      title: 'Resident Weight Tracking',
+      color: 'green',
+      guidance: 'Track individual resident weight monitoring data including room, initials, dates, and weight loss percentages.',
+      content: 'stepper'
+    },
+    {
+      id: 'summary-statistics',
+      title: 'Summary Statistics & Analysis',
+      color: 'blue',
+      guidance: 'Provide summary information about residents on palliative care, weight trends, and action plan requirements.',
+      content: 'summary'
+    },
+    {
+      id: 'final-comments',
+      title: 'Final Comments',
+      color: 'gray',
+      guidance: 'Add any additional comments or observations from the weight monitoring audit.',
+      content: 'comments'
+    },
+  ];
+
   const emptyRow = (): WeightRow => ({ room: '', initials: '', date: '', three_months_tracking: '', weight_loss_percent: '', bmi_must_notes: '', actions_taken: '', last_month_action_plan_work: '' });
+
+  // Helper functions
+  const toggleSection = (sectionId: string) => {
+    setOpenSections(prev => ({
+      ...prev,
+      [sectionId]: !prev[sectionId]
+    }));
+  };
+
+  const getFieldError = (fieldName: string) => {
+    return errors.includes(fieldName);
+  };
+
+  const getFieldClassName = (fieldName: string) => {
+    const baseClasses = "w-full p-2 border rounded";
+    return getFieldError(fieldName)
+      ? `${baseClasses} border-red-500 bg-red-50`
+      : `${baseClasses} border-gray-300`;
+  };
 
   const [data, setData] = useState<WeightMonitoringData>({
     home: '',
@@ -247,106 +299,225 @@ export default function WeightMonitoringAuditPage() {
   };
 
   return (
-    <div className="w-full px-4 py-6 bg-white">
+    <div className="max-w-7xl mx-auto p-6 bg-white">
       <div className="mb-6">
         <div className="flex justify-between items-center mb-4">
-          <h1 className="text-2xl font-bold">Weight monitoring audit</h1>
-          <div className="text-sm text-gray-600">Complete 5 per month</div>
-        </div>
-
-        <div className="bg-blue-50 p-4 rounded mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium">Home</label>
-              <input data-field="home" value={data.home} onChange={(e) => setData({ ...data, home: e.target.value })} className={`w-full p-2 border rounded ${errors.includes('home') ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} />
-            </div>
-            <div>
-              <label className="block text-sm font-medium">Date</label>
-              <input data-field="date" type="date" value={data.date} onChange={(e) => setData({ ...data, date: e.target.value })} className={`w-full p-2 border rounded ${errors.includes('date') ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} />
-            </div>
-            <div>
-              <label className="block text-sm font-medium">Person completing the audit</label>
-              <input data-field="personCompletingAudit" value={data.personCompletingAudit} onChange={(e) => setData({ ...data, personCompletingAudit: e.target.value })} className={`w-full p-2 border rounded ${errors.includes('personCompletingAudit') ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} />
+          <h1 className="text-2xl font-bold text-gray-900">Weight Monitoring Audit</h1>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600">Report {currentReport} of {totalReports} — Complete 5 per month</span>
             </div>
           </div>
         </div>
 
-        {/* Stepper: show one row at a time for easier data entry */}
-        <div className="border rounded w-full p-4">
-          <Stepper
-            rows={data.rows}
-            currentRowIndex={currentRowIndex}
-            onUpdateRow={(idx, field, value) => updateRow(idx, field as any, value)}
-            onAddRow={() => {
-              addRow();
-              // move to the new row after adding
-              setCurrentRowIndex(data.rows.length);
-            }}
-            onRemoveRow={(idx) => {
-              removeRow(idx);
-              // ensure current index is in range
-              setCurrentRowIndex(prev => Math.max(0, Math.min(prev, data.rows.length - 2)));
-            }}
-          />
-        </div>
-
-        <div className="mt-3 flex gap-3">
-          <button onClick={addRow} className="px-3 py-1 bg-red-500 text-white rounded">+ Add Row</button>
-        </div>
-
-        <div className="mt-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium">Residents who are actively on palliative or end of life care and losing weight</label>
-            <textarea value={data.residents_palliative} onChange={(e) => setData({ ...data, residents_palliative: e.target.value })} className="w-full p-2 border rounded" rows={2} />
-          </div>
-          <div>
-            <label className="block text-sm font-medium">Residents who are currently obese or overweight and are losing weight towards being healthy (BMI 25 to 33)</label>
-            <textarea value={data.residents_obese_losing_towards_healthy} onChange={(e) => setData({ ...data, residents_obese_losing_towards_healthy: e.target.value })} className="w-full p-2 border rounded" rows={2} />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium">No. of Resident with weight loss</label>
-              <input value={data.num_resident_weight_loss} onChange={(e) => setData({ ...data, num_resident_weight_loss: e.target.value })} className="w-full p-2 border rounded" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium">No. of Resident with weight gain</label>
-              <input value={data.num_resident_weight_gain} onChange={(e) => setData({ ...data, num_resident_weight_gain: e.target.value })} className="w-full p-2 border rounded" />
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium">Any themes/trends in weight loss</label>
-            <textarea value={data.themes_trends} onChange={(e) => setData({ ...data, themes_trends: e.target.value })} className="w-full p-2 border rounded" rows={3} />
-          </div>
-          <div>
-            <label className="block text-sm font-medium">Action plan required y/n</label>
-            <input value={data.action_plan_required} onChange={(e) => setData({ ...data, action_plan_required: e.target.value })} className="w-full p-2 border rounded" />
-          </div>
-        </div>
-
-        <div className="mt-6">
-          <label className="block text-sm font-medium">Final comments</label>
-          <textarea value={finalComments} onChange={(e) => setFinalComments(e.target.value)} className="w-full p-2 border rounded" rows={4} />
-        </div>
-
-        <div className="flex justify-end mt-6">
-          <button onClick={handleComplete} className="px-4 py-2 bg-blue-600 text-white rounded">Complete Audit</button>
-        </div>
-
-        {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
-              <h3 className="text-lg font-semibold mb-4">Audit Completed</h3>
-              <p className="text-gray-600 mb-6">Would you like to create an action plan based on this audit?</p>
-              <div className="flex gap-3 justify-end">
-                <button onClick={() => setShowModal(false)} className="px-4 py-2 text-gray-600 hover:text-gray-800">No, thanks</button>
-                <button onClick={() => handleModalCreate(false)} disabled={saving} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Save Audit</button>
-                <button onClick={() => handleModalCreate(true)} disabled={saving} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Save & Create Action Plan</button>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Panel - Audit Information */}
+          <div className="lg:col-span-1">
+            <div className="bg-blue-50 p-6 rounded-lg">
+              <div className="flex items-center gap-2 mb-4">
+                <FileText className="h-5 w-5 text-blue-600" />
+                <h2 className="text-lg font-semibold text-blue-900">Audit Information</h2>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Home</label>
+                  <input
+                    value={data.home}
+                    data-field="home"
+                    onChange={(e) => setData({ ...data, home: e.target.value })}
+                    className={getFieldClassName('home')}
+                    placeholder="Enter home name"
+                  />
+                  {getFieldError('home') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Date of audit</label>
+                  <input
+                    type="date"
+                    value={data.date}
+                    data-field="date"
+                    onChange={(e) => setData({ ...data, date: e.target.value })}
+                    className={getFieldClassName('date')}
+                  />
+                  {getFieldError('date') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Person completing the audit</label>
+                  <input
+                    value={data.personCompletingAudit}
+                    data-field="personCompletingAudit"
+                    onChange={(e) => setData({ ...data, personCompletingAudit: e.target.value })}
+                    className={getFieldClassName('personCompletingAudit')}
+                    placeholder="Enter auditor name"
+                  />
+                  {getFieldError('personCompletingAudit') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
+                </div>
               </div>
             </div>
           </div>
-        )}
 
+          {/* Right Panel - Collapsible Sections */}
+          <div className="lg:col-span-2 space-y-4">
+            {sections.map((section, index) => (
+              <div key={index} className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                <button
+                  onClick={() => toggleSection(section.id)}
+                  className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <FileText className="h-5 w-5 text-gray-600" />
+                    <h3 className="text-lg font-semibold text-gray-900">{section.title}</h3>
+                  </div>
+                  {openSections[section.id] ? (
+                    <ChevronUp className="h-5 w-5 text-gray-500" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5 text-gray-500" />
+                  )}
+                </button>
+
+                {openSections[section.id] && (
+                  <div className="px-4 pb-4">
+                    <p className="text-sm text-gray-600 mb-4">{section.guidance}</p>
+                    <div className="space-y-4">
+                      {section.content === 'stepper' && (
+                        <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                          <Stepper
+                            rows={data.rows}
+                            currentRowIndex={currentRowIndex}
+                            onUpdateRow={(idx, field, value) => updateRow(idx, field as any, value)}
+                            onAddRow={() => {
+                              addRow();
+                              setCurrentRowIndex(data.rows.length);
+                            }}
+                            onRemoveRow={(idx) => {
+                              removeRow(idx);
+                              setCurrentRowIndex(prev => Math.max(0, Math.min(prev, data.rows.length - 2)));
+                            }}
+                          />
+                          <div className="mt-4 flex justify-center">
+                            <button
+                              onClick={addRow}
+                              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                            >
+                              + Add Resident Entry
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {section.content === 'summary' && (
+                        <div className="space-y-6">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Residents who are actively on palliative or end of life care and losing weight
+                            </label>
+                            <textarea
+                              value={data.residents_palliative}
+                              onChange={(e) => setData({ ...data, residents_palliative: e.target.value })}
+                              rows={3}
+                              className="w-full p-3 border border-gray-300 rounded resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              placeholder="List residents on palliative care..."
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Residents who are currently obese or overweight and are losing weight towards being healthy (BMI 25 to 33)
+                            </label>
+                            <textarea
+                              value={data.residents_obese_losing_towards_healthy}
+                              onChange={(e) => setData({ ...data, residents_obese_losing_towards_healthy: e.target.value })}
+                              rows={3}
+                              className="w-full p-3 border border-gray-300 rounded resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              placeholder="List residents losing weight towards healthy BMI..."
+                            />
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Number of residents with weight loss</label>
+                              <input
+                                type="number"
+                                value={data.num_resident_weight_loss}
+                                onChange={(e) => setData({ ...data, num_resident_weight_loss: e.target.value })}
+                                className="w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                placeholder="0"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Number of residents with weight gain</label>
+                              <input
+                                type="number"
+                                value={data.num_resident_weight_gain}
+                                onChange={(e) => setData({ ...data, num_resident_weight_gain: e.target.value })}
+                                className="w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                placeholder="0"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Any themes/trends in weight loss</label>
+                            <textarea
+                              value={data.themes_trends}
+                              onChange={(e) => setData({ ...data, themes_trends: e.target.value })}
+                              rows={4}
+                              className="w-full p-3 border border-gray-300 rounded resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              placeholder="Describe any patterns or trends observed..."
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Action plan required (Yes/No)</label>
+                            <input
+                              value={data.action_plan_required}
+                              onChange={(e) => setData({ ...data, action_plan_required: e.target.value })}
+                              className="w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              placeholder="Yes/No"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {section.content === 'comments' && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Final Comments</label>
+                          <textarea
+                            value={finalComments}
+                            onChange={(e) => setFinalComments(e.target.value)}
+                            rows={6}
+                            className="w-full p-3 border border-gray-300 rounded resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="Enter any additional comments or observations..."
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {/* Complete Audit Button */}
+            <div className="flex justify-end">
+              <button
+                onClick={handleComplete}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+              >
+                Complete Audit
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
+
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md mx-4">
+            <h3 className="text-lg font-semibold mb-4">Audit Complete</h3>
+            <p className="text-gray-600 mb-6">Would you like to create an action plan for this audit?</p>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => handleModalCreate(false)} className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50" disabled={saving}>{saving ? 'Saving...' : 'No'}</button>
+              <button onClick={() => handleModalCreate(true)} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700" disabled={saving}>{saving ? 'Saving...' : 'Yes, Create Action Plan'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

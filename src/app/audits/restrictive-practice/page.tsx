@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { saveAudit, updateAudit, markAuditCompleted } from '@/lib/firestore';
 import { useWorkspace } from '@/context/workspace';
+import { ChevronDown, ChevronUp, FileText } from 'lucide-react';
 
 interface RestrictivePracticeData {
   home: string;
@@ -98,6 +99,118 @@ export default function RestrictivePracticeAuditPage() {
   const [saving, setSaving] = useState(false);
   const [savedAuditId, setSavedAuditId] = useState<string | null>(null);
 
+  // Collapsible sections state
+  const [openSections, setOpenSections] = useState<{ [key: string]: boolean }>({
+    'policy-awareness': true,
+    'resident-choice': false,
+    'documentation-consent': false,
+    'physical-environmental': false,
+    'psychological-social': false,
+    'food-medication': false,
+    'monitoring-review': false,
+    'staff-practice': false,
+  });
+
+  // Section definitions with guidance text
+  const sections = [
+    {
+      id: 'policy-awareness',
+      title: 'Policy and Awareness',
+      color: 'green',
+      guidance: 'Review the existence and accessibility of restrictive practice policies, staff training on recognition of restrictive practices, and understanding of legal/ethical principles.',
+      questions: [
+        { field: 'policy_in_place_accessible', label: 'Is there a restrictive practice policy in place and accessible to staff?' },
+        { field: 'staff_recognise_restrictive_practice', label: 'Are staff trained to recognise what constitutes a restrictive practice (including less obvious forms)?' },
+        { field: 'staff_aware_legal_ethical', label: 'Are staff aware of the legal and ethical principles related to least restrictive care?' },
+        { field: 'recording_review_process', label: 'Is there a clear process for recording and reviewing any restrictive practice in use?' },
+      ]
+    },
+    {
+      id: 'resident-choice',
+      title: 'Resident Choice and Autonomy',
+      color: 'yellow',
+      guidance: 'Assess how residents are supported to make choices and whether any restrictions are based on proper risk assessments.',
+      questions: [
+        { field: 'residents_supported_choice', label: 'Are residents supported to make everyday choices (e.g. meals, clothes, routine)?' },
+        { field: 'restrictions_based_on_risk_assessment', label: 'Are restrictions (e.g. locked doors, alarms, limited access) based on individual risk assessments?' },
+        { field: 'residents_express_preferences', label: 'Are residents given the opportunity to express their preferences and views?' },
+        { field: 'residents_enabled_access_all_parts', label: 'Are residents encouraged and enabled to access all parts of the home safely?' },
+      ]
+    },
+    {
+      id: 'documentation-consent',
+      title: 'Documentation and Consent',
+      color: 'pink',
+      guidance: 'Check that all restrictive practices are properly documented, mental capacity assessments are completed, and appropriate consent processes are followed.',
+      questions: [
+        { field: 'restrictive_practices_in_care_plan', label: 'Are all restrictive practices documented in the care plan?' },
+        { field: 'mental_capacity_assessment_completed', label: 'Has a mental capacity assessment been completed where relevant?' },
+        { field: 'best_interest_recorded', label: 'If the resident lacks capacity, has a best interest decision been recorded?' },
+        { field: 'family_advocate_lpa_involved', label: 'Is there evidence of family, advocate, or LPA involvement in the decision-making process?' },
+      ]
+    },
+    {
+      id: 'physical-environmental',
+      title: 'Physical and Environmental Restrictions',
+      color: 'emerald',
+      guidance: 'Evaluate the use of physical restraints and environmental controls to ensure they are risk-assessed, consented to, and used proportionately.',
+      questions: [
+        { field: 'bedrails_risk_assessed_and_consented', label: 'Are bedrails used only following a risk assessment and with consent or best interest decisions?' },
+        { field: 'sensor_mats_alarms_proportionate', label: 'Are sensor mats, door alarms, or movement alerts used appropriately and proportionately?' },
+        { field: 'locked_doors_risk_assessed', label: 'Are locked doors or exits risk-assessed and used only to keep individuals or others safe?' },
+        { field: 'mobility_aids_restricted_justified', label: 'Are any mobility aids or walking equipment removed or restricted without proper justification?' },
+      ]
+    },
+    {
+      id: 'psychological-social',
+      title: 'Psychological or Social Restrictions',
+      color: 'rose',
+      guidance: 'Assess psychological and social restrictions including supervision levels, communication styles, and resident-led routines.',
+      questions: [
+        { field: 'free_to_associate_without_pressure', label: 'Are residents free to associate, engage, or withdraw without pressure?' },
+        { field: 'one_to_one_supervision_documented', label: 'Is 1:1 supervision used appropriately and documented?' },
+        { field: 'staff_avoiding_overly_controlling_language', label: 'Are staff avoiding language or behaviour that is overly controlling or directive?' },
+        { field: 'routines_led_by_preference', label: 'Are residents\' routines led by personal preference rather than staff convenience?' },
+      ]
+    },
+    {
+      id: 'food-medication',
+      title: 'Food, Drink, and Medication',
+      color: 'sky',
+      guidance: 'Review restrictions on food/drink choices and medication administration to ensure they are clinically justified and properly documented.',
+      questions: [
+        { field: 'food_drink_choices_unrestricted', label: 'Are food and drink choices unrestricted unless clinically indicated?' },
+        { field: 'diet_restrictions_documented', label: 'Are decisions to restrict diet (e.g. choking risks, diabetes) documented and agreed upon?' },
+        { field: 'covert_medication_legal_safeguards', label: 'Are covert medication or controlled access to medication only used with proper legal safeguards?' },
+        { field: 'residents_supported_self_admin_med', label: 'Are residents supported to self-administer medication where safe and appropriate?' },
+      ]
+    },
+    {
+      id: 'monitoring-review',
+      title: 'Monitoring and Review',
+      color: 'lime',
+      guidance: 'Check that restrictive practices are regularly reviewed, efforts are made to reduce restrictions, and legal safeguards are in place.',
+      questions: [
+        { field: 'restrictive_practices_reviewed_regularly', label: 'Is each restrictive practice reviewed regularly for ongoing need?' },
+        { field: 'records_show_reduction_efforts', label: 'Are there clear records showing efforts to reduce or remove restrictions?' },
+        { field: 'dols_applications_where_required', label: 'Are Deprivation of Liberty Safeguards (DoLS) applications in place where required?' },
+        { field: 'least_restrictive_option_evidence', label: 'Is there evidence that restrictive practices are the least restrictive option available?' },
+      ]
+    },
+    {
+      id: 'staff-practice',
+      title: 'Staff Practice and Culture',
+      color: 'violet',
+      guidance: 'Evaluate staff understanding of restrictive practices, promotion of independence, and ability to challenge unnecessary restrictions.',
+      questions: [
+        { field: 'staff_promote_independence', label: 'Do staff promote independence and autonomy in daily care?' },
+        { field: 'staff_understand_safety_freedom_balance', label: 'Do staff understand the balance between safety and freedom?' },
+        { field: 'restrictions_challenged_escalated', label: 'Are restrictions challenged or escalated when no longer needed?' },
+        { field: 'staff_reflect_on_control_use', label: 'Are staff able to reflect on their own use of control or limitation?' },
+      ]
+    },
+  ];
+
   const [data, setData] = useState<RestrictivePracticeData>({
     home: '',
     date: '',
@@ -176,22 +289,73 @@ export default function RestrictivePracticeAuditPage() {
     staff_reflect_on_control_use_comment: '',
   });
 
+  // Helper functions
+  const toggleSection = (sectionId: string) => {
+    setOpenSections(prev => ({
+      ...prev,
+      [sectionId]: !prev[sectionId]
+    }));
+  };
+
+  const getFieldError = (fieldName: string) => {
+    return errors.includes(fieldName);
+  };
+
+  const getFieldClassName = (fieldName: string) => {
+    const baseClasses = "w-full p-2 border rounded";
+    return getFieldError(fieldName)
+      ? `${baseClasses} border-red-500 bg-red-50`
+      : `${baseClasses} border-gray-300`;
+  };
+
   const handleChange = (field: keyof RestrictivePracticeData, value: string) => {
     setData(prev => ({ ...prev, [field]: value }));
     if (value.trim() !== '' && errors.includes(field)) setErrors(prev => prev.filter(e => e !== field));
   };
 
-  const YesNoQuestion = ({ label, yesNoField, commentField, yesNoValue, commentValue, onYesNoChange, onCommentChange }: { label: string; yesNoField: string; commentField: string; yesNoValue: string; commentValue: string; onYesNoChange: (v: string) => void; onCommentChange: (v: string) => void; }) => (
-    <div className="space-y-2">
-      <label className="block text-sm font-medium text-gray-700">{label}</label>
-      <div className="flex gap-4 items-center" data-field={yesNoField}>
-        <label className="flex items-center"><input type="radio" name={yesNoField} value="Yes" checked={yesNoValue === 'Yes'} onChange={(e) => onYesNoChange(e.target.value)} className="mr-2" />Yes</label>
-        <label className="flex items-center"><input type="radio" name={yesNoField} value="No" checked={yesNoValue === 'No'} onChange={(e) => onYesNoChange(e.target.value)} className="mr-2" />No</label>
+  const YesNoQuestion = ({ field, label }: { field: string; label: string }) => {
+    const yesNoField = field as keyof RestrictivePracticeData;
+    const commentField = `${field}_comment` as keyof RestrictivePracticeData;
+    const hasError = getFieldError(field);
+
+    return (
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">{label}</label>
+        <div className="flex gap-4 items-center" data-field={field}>
+          <label className="flex items-center">
+            <input
+              type="radio"
+              name={field}
+              value="Yes"
+              checked={data[yesNoField] === 'Yes'}
+              onChange={(e) => handleChange(yesNoField, e.target.value)}
+              className="mr-2"
+            />
+            Yes
+          </label>
+          <label className="flex items-center">
+            <input
+              type="radio"
+              name={field}
+              value="No"
+              checked={data[yesNoField] === 'No'}
+              onChange={(e) => handleChange(yesNoField, e.target.value)}
+              className="mr-2"
+            />
+            No
+          </label>
+        </div>
+        {hasError && <p className="text-red-500 text-sm">This field is required</p>}
+        <textarea
+          value={data[commentField]}
+          onChange={(e) => handleChange(commentField, e.target.value)}
+          rows={2}
+          placeholder="Comments"
+          className="w-full p-2 border border-gray-300 rounded resize-none mt-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        />
       </div>
-      {errors.includes(yesNoField) && <p className="text-red-500 text-sm">This field is required</p>}
-      <textarea value={commentValue} onChange={(e) => onCommentChange(e.target.value)} rows={2} placeholder="Comments" className="w-full p-2 border rounded resize-none mt-2" />
-    </div>
-  );
+    );
+  };
 
   const validateForm = () => {
     const required: (keyof RestrictivePracticeData)[] = [
@@ -273,132 +437,164 @@ export default function RestrictivePracticeAuditPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white">
-      <div className="mb-6">
-        <div className="flex justify-between items-center mb-4">
-          <h1 className="text-2xl font-bold text-gray-900">Restrictive Practice Audit</h1>
+    <div className="min-h-screen bg-white">
+      <div className="max-w-7xl mx-auto p-6">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-4">
+            <FileText className="h-8 w-8 text-blue-600" />
+            <h1 className="text-3xl font-bold text-gray-900">Restrictive Practice Audit</h1>
+          </div>
+          <p className="text-gray-600 text-lg">
+            Comprehensive assessment of restrictive practices, ensuring they are used appropriately, legally, and only as a last resort to protect resident safety and dignity.
+          </p>
         </div>
 
-        <div className="bg-blue-50 p-4 rounded-lg mb-6">
-          <h2 className="text-lg font-semibold text-blue-900 mb-4">Audit Information</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Home</label>
-              <input value={data.home} data-field="home" onChange={(e) => handleChange('home', e.target.value)} className={`w-full p-2 border rounded ${errors.includes('home') ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="Enter home name" />
-              {errors.includes('home') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left Panel - Audit Information */}
+          <div className="lg:col-span-1">
+            <div className="bg-gray-50 rounded-lg p-6 sticky top-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Audit Information
+              </h2>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Home</label>
+                  <input
+                    value={data.home}
+                    data-field="home"
+                    onChange={(e) => handleChange('home', e.target.value)}
+                    className={getFieldClassName('home')}
+                    placeholder="Enter home name"
+                  />
+                  {getFieldError('home') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
+                  <input
+                    type="date"
+                    value={data.date}
+                    data-field="date"
+                    onChange={(e) => handleChange('date', e.target.value)}
+                    className={getFieldClassName('date')}
+                  />
+                  {getFieldError('date') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Person completing the audit</label>
+                  <input
+                    value={data.personCompletingAudit}
+                    data-field="personCompletingAudit"
+                    onChange={(e) => handleChange('personCompletingAudit', e.target.value)}
+                    className={getFieldClassName('personCompletingAudit')}
+                    placeholder="Enter auditor name"
+                  />
+                  {getFieldError('personCompletingAudit') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
+                </div>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
-              <input type="date" value={data.date} data-field="date" onChange={(e) => handleChange('date', e.target.value)} className={`w-full p-2 border rounded ${errors.includes('date') ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} />
-              {errors.includes('date') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Person completing the audit</label>
-              <input value={data.personCompletingAudit} data-field="personCompletingAudit" onChange={(e) => handleChange('personCompletingAudit', e.target.value)} className={`w-full p-2 border rounded ${errors.includes('personCompletingAudit') ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="Enter auditor name" />
-              {errors.includes('personCompletingAudit') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
+          </div>
+
+          {/* Right Panel - Audit Sections */}
+          <div className="lg:col-span-2">
+            <div className="space-y-6">
+              {sections.map((section) => (
+                <div key={section.id} className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                  <button
+                    onClick={() => toggleSection(section.id)}
+                    className={`w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 transition-colors ${
+                      section.color === 'green' ? 'border-l-4 border-green-500' :
+                      section.color === 'yellow' ? 'border-l-4 border-yellow-500' :
+                      section.color === 'pink' ? 'border-l-4 border-pink-500' :
+                      section.color === 'emerald' ? 'border-l-4 border-emerald-500' :
+                      section.color === 'rose' ? 'border-l-4 border-rose-500' :
+                      section.color === 'sky' ? 'border-l-4 border-sky-500' :
+                      section.color === 'lime' ? 'border-l-4 border-lime-500' :
+                      'border-l-4 border-violet-500'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-3 h-3 rounded-full ${
+                        section.color === 'green' ? 'bg-green-500' :
+                        section.color === 'yellow' ? 'bg-yellow-500' :
+                        section.color === 'pink' ? 'bg-pink-500' :
+                        section.color === 'emerald' ? 'bg-emerald-500' :
+                        section.color === 'rose' ? 'bg-rose-500' :
+                        section.color === 'sky' ? 'bg-sky-500' :
+                        section.color === 'lime' ? 'bg-lime-500' :
+                        'bg-violet-500'
+                      }`} />
+                      <h3 className="text-lg font-semibold text-gray-900">{section.title}</h3>
+                    </div>
+                    {openSections[section.id] ? (
+                      <ChevronUp className="h-5 w-5 text-gray-500" />
+                    ) : (
+                      <ChevronDown className="h-5 w-5 text-gray-500" />
+                    )}
+                  </button>
+
+                  {openSections[section.id] && (
+                    <div className="px-6 pb-6">
+                      <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+                        <p className="text-sm text-gray-600">{section.guidance}</p>
+                      </div>
+
+                      <div className="space-y-6">
+                        {section.questions.map((question) => (
+                          <YesNoQuestion
+                            key={question.field}
+                            field={question.field}
+                            label={question.label}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {/* Complete Audit Button */}
+              <div className="flex justify-center pt-6">
+                <button
+                  onClick={handleComplete}
+                  className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-semibold transition-colors shadow-sm"
+                >
+                  Complete Audit
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="space-y-6">
-          <div className="bg-green-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-green-900 mb-3">1. Policy and Awareness</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Is there a restrictive practice policy in place and accessible to staff?" yesNoField="policy_in_place_accessible" commentField="policy_in_place_accessible_comment" yesNoValue={data.policy_in_place_accessible} commentValue={data.policy_in_place_accessible_comment} onYesNoChange={(v) => handleChange('policy_in_place_accessible', v)} onCommentChange={(v) => handleChange('policy_in_place_accessible_comment', v)} />
-              <YesNoQuestion label="Are staff trained to recognise what constitutes a restrictive practice (including less obvious forms)?" yesNoField="staff_recognise_restrictive_practice" commentField="staff_recognise_restrictive_practice_comment" yesNoValue={data.staff_recognise_restrictive_practice} commentValue={data.staff_recognise_restrictive_practice_comment} onYesNoChange={(v) => handleChange('staff_recognise_restrictive_practice', v)} onCommentChange={(v) => handleChange('staff_recognise_restrictive_practice_comment', v)} />
-              <YesNoQuestion label="Are staff aware of the legal and ethical principles related to least restrictive care?" yesNoField="staff_aware_legal_ethical" commentField="staff_aware_legal_ethical_comment" yesNoValue={data.staff_aware_legal_ethical} commentValue={data.staff_aware_legal_ethical_comment} onYesNoChange={(v) => handleChange('staff_aware_legal_ethical', v)} onCommentChange={(v) => handleChange('staff_aware_legal_ethical_comment', v)} />
-              <YesNoQuestion label="Is there a clear process for recording and reviewing any restrictive practice in use?" yesNoField="recording_review_process" commentField="recording_review_process_comment" yesNoValue={data.recording_review_process} commentValue={data.recording_review_process_comment} onYesNoChange={(v) => handleChange('recording_review_process', v)} onCommentChange={(v) => handleChange('recording_review_process_comment', v)} />
+        {/* Completion Modal */}
+        {showModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
+              <h3 className="text-lg font-semibold mb-4">Audit Complete</h3>
+              <p className="text-gray-600 mb-6">Would you like to create an action plan for this audit?</p>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => handleModalCreate(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                  disabled={saving}
+                >
+                  {saving ? 'Saving...' : 'No'}
+                </button>
+                <button
+                  onClick={() => handleModalCreate(true)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  disabled={saving}
+                >
+                  {saving ? 'Saving...' : 'Yes, Create Action Plan'}
+                </button>
+              </div>
             </div>
           </div>
-
-          <div className="bg-yellow-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-yellow-900 mb-3">2. Resident Choice and Autonomy</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Are residents supported to make everyday choices (e.g. meals, clothes, routine)?" yesNoField="residents_supported_choice" commentField="residents_supported_choice_comment" yesNoValue={data.residents_supported_choice} commentValue={data.residents_supported_choice_comment} onYesNoChange={(v) => handleChange('residents_supported_choice', v)} onCommentChange={(v) => handleChange('residents_supported_choice_comment', v)} />
-              <YesNoQuestion label="Are restrictions (e.g. locked doors, alarms, limited access) based on individual risk assessments?" yesNoField="restrictions_based_on_risk_assessment" commentField="restrictions_based_on_risk_assessment_comment" yesNoValue={data.restrictions_based_on_risk_assessment} commentValue={data.restrictions_based_on_risk_assessment_comment} onYesNoChange={(v) => handleChange('restrictions_based_on_risk_assessment', v)} onCommentChange={(v) => handleChange('restrictions_based_on_risk_assessment_comment', v)} />
-              <YesNoQuestion label="Are residents given the opportunity to express their preferences and views?" yesNoField="residents_express_preferences" commentField="residents_express_preferences_comment" yesNoValue={data.residents_express_preferences} commentValue={data.residents_express_preferences_comment} onYesNoChange={(v) => handleChange('residents_express_preferences', v)} onCommentChange={(v) => handleChange('residents_express_preferences_comment', v)} />
-              <YesNoQuestion label="Are residents encouraged and enabled to access all parts of the home safely?" yesNoField="residents_enabled_access_all_parts" commentField="residents_enabled_access_all_parts_comment" yesNoValue={data.residents_enabled_access_all_parts} commentValue={data.residents_enabled_access_all_parts_comment} onYesNoChange={(v) => handleChange('residents_enabled_access_all_parts', v)} onCommentChange={(v) => handleChange('residents_enabled_access_all_parts_comment', v)} />
-            </div>
-          </div>
-
-          <div className="bg-pink-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-pink-900 mb-3">3. Documentation and Consent</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Are all restrictive practices documented in the care plan?" yesNoField="restrictive_practices_in_care_plan" commentField="restrictive_practices_in_care_plan_comment" yesNoValue={data.restrictive_practices_in_care_plan} commentValue={data.restrictive_practices_in_care_plan_comment} onYesNoChange={(v) => handleChange('restrictive_practices_in_care_plan', v)} onCommentChange={(v) => handleChange('restrictive_practices_in_care_plan_comment', v)} />
-              <YesNoQuestion label="Has a mental capacity assessment been completed where relevant?" yesNoField="mental_capacity_assessment_completed" commentField="mental_capacity_assessment_completed_comment" yesNoValue={data.mental_capacity_assessment_completed} commentValue={data.mental_capacity_assessment_completed_comment} onYesNoChange={(v) => handleChange('mental_capacity_assessment_completed', v)} onCommentChange={(v) => handleChange('mental_capacity_assessment_completed_comment', v)} />
-              <YesNoQuestion label="If the resident lacks capacity, has a best interest decision been recorded?" yesNoField="best_interest_recorded" commentField="best_interest_recorded_comment" yesNoValue={data.best_interest_recorded} commentValue={data.best_interest_recorded_comment} onYesNoChange={(v) => handleChange('best_interest_recorded', v)} onCommentChange={(v) => handleChange('best_interest_recorded_comment', v)} />
-              <YesNoQuestion label="Is there evidence of family, advocate, or LPA involvement in the decision-making process?" yesNoField="family_advocate_lpa_involved" commentField="family_advocate_lpa_involved_comment" yesNoValue={data.family_advocate_lpa_involved} commentValue={data.family_advocate_lpa_involved_comment} onYesNoChange={(v) => handleChange('family_advocate_lpa_involved', v)} onCommentChange={(v) => handleChange('family_advocate_lpa_involved_comment', v)} />
-            </div>
-          </div>
-
-          <div className="bg-emerald-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-emerald-900 mb-3">4. Physical and Environmental Restrictions</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Are bedrails used only following a risk assessment and with consent or best interest decisions?" yesNoField="bedrails_risk_assessed_and_consented" commentField="bedrails_risk_assessed_and_consented_comment" yesNoValue={data.bedrails_risk_assessed_and_consented} commentValue={data.bedrails_risk_assessed_and_consented_comment} onYesNoChange={(v) => handleChange('bedrails_risk_assessed_and_consented', v)} onCommentChange={(v) => handleChange('bedrails_risk_assessed_and_consented_comment', v)} />
-              <YesNoQuestion label="Are sensor mats, door alarms, or movement alerts used appropriately and proportionately?" yesNoField="sensor_mats_alarms_proportionate" commentField="sensor_mats_alarms_proportionate_comment" yesNoValue={data.sensor_mats_alarms_proportionate} commentValue={data.sensor_mats_alarms_proportionate_comment} onYesNoChange={(v) => handleChange('sensor_mats_alarms_proportionate', v)} onCommentChange={(v) => handleChange('sensor_mats_alarms_proportionate_comment', v)} />
-              <YesNoQuestion label="Are locked doors or exits risk-assessed and used only to keep individuals or others safe?" yesNoField="locked_doors_risk_assessed" commentField="locked_doors_risk_assessed_comment" yesNoValue={data.locked_doors_risk_assessed} commentValue={data.locked_doors_risk_assessed_comment} onYesNoChange={(v) => handleChange('locked_doors_risk_assessed', v)} onCommentChange={(v) => handleChange('locked_doors_risk_assessed_comment', v)} />
-              <YesNoQuestion label="Are any mobility aids or walking equipment removed or restricted without proper justification?" yesNoField="mobility_aids_restricted_justified" commentField="mobility_aids_restricted_justified_comment" yesNoValue={data.mobility_aids_restricted_justified} commentValue={data.mobility_aids_restricted_justified_comment} onYesNoChange={(v) => handleChange('mobility_aids_restricted_justified', v)} onCommentChange={(v) => handleChange('mobility_aids_restricted_justified_comment', v)} />
-            </div>
-          </div>
-
-          <div className="bg-rose-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-rose-900 mb-3">5. Psychological or Social Restrictions</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Are residents free to associate, engage, or withdraw without pressure?" yesNoField="free_to_associate_without_pressure" commentField="free_to_associate_without_pressure_comment" yesNoValue={data.free_to_associate_without_pressure} commentValue={data.free_to_associate_without_pressure_comment} onYesNoChange={(v) => handleChange('free_to_associate_without_pressure', v)} onCommentChange={(v) => handleChange('free_to_associate_without_pressure_comment', v)} />
-              <YesNoQuestion label="Is 1:1 supervision used appropriately and documented?" yesNoField="one_to_one_supervision_documented" commentField="one_to_one_supervision_documented_comment" yesNoValue={data.one_to_one_supervision_documented} commentValue={data.one_to_one_supervision_documented_comment} onYesNoChange={(v) => handleChange('one_to_one_supervision_documented', v)} onCommentChange={(v) => handleChange('one_to_one_supervision_documented_comment', v)} />
-              <YesNoQuestion label="Are staff avoiding language or behaviour that is overly controlling or directive?" yesNoField="staff_avoiding_overly_controlling_language" commentField="staff_avoiding_overly_controlling_language_comment" yesNoValue={data.staff_avoiding_overly_controlling_language} commentValue={data.staff_avoiding_overly_controlling_language_comment} onYesNoChange={(v) => handleChange('staff_avoiding_overly_controlling_language', v)} onCommentChange={(v) => handleChange('staff_avoiding_overly_controlling_language_comment', v)} />
-              <YesNoQuestion label="Are residents' routines led by personal preference rather than staff convenience?" yesNoField="routines_led_by_preference" commentField="routines_led_by_preference_comment" yesNoValue={data.routines_led_by_preference} commentValue={data.routines_led_by_preference_comment} onYesNoChange={(v) => handleChange('routines_led_by_preference', v)} onCommentChange={(v) => handleChange('routines_led_by_preference_comment', v)} />
-            </div>
-          </div>
-
-          <div className="bg-sky-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-sky-900 mb-3">6. Food, Drink, and Medication</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Are food and drink choices unrestricted unless clinically indicated?" yesNoField="food_drink_choices_unrestricted" commentField="food_drink_choices_unrestricted_comment" yesNoValue={data.food_drink_choices_unrestricted} commentValue={data.food_drink_choices_unrestricted_comment} onYesNoChange={(v) => handleChange('food_drink_choices_unrestricted', v)} onCommentChange={(v) => handleChange('food_drink_choices_unrestricted_comment', v)} />
-              <YesNoQuestion label="Are decisions to restrict diet (e.g. choking risks, diabetes) documented and agreed upon?" yesNoField="diet_restrictions_documented" commentField="diet_restrictions_documented_comment" yesNoValue={data.diet_restrictions_documented} commentValue={data.diet_restrictions_documented_comment} onYesNoChange={(v) => handleChange('diet_restrictions_documented', v)} onCommentChange={(v) => handleChange('diet_restrictions_documented_comment', v)} />
-              <YesNoQuestion label="Are covert medication or controlled access to medication only used with proper legal safeguards?" yesNoField="covert_medication_legal_safeguards" commentField="covert_medication_legal_safeguards_comment" yesNoValue={data.covert_medication_legal_safeguards} commentValue={data.covert_medication_legal_safeguards_comment} onYesNoChange={(v) => handleChange('covert_medication_legal_safeguards', v)} onCommentChange={(v) => handleChange('covert_medication_legal_safeguards_comment', v)} />
-              <YesNoQuestion label="Are residents supported to self-administer medication where safe and appropriate?" yesNoField="residents_supported_self_admin_med" commentField="residents_supported_self_admin_med_comment" yesNoValue={data.residents_supported_self_admin_med} commentValue={data.residents_supported_self_admin_med_comment} onYesNoChange={(v) => handleChange('residents_supported_self_admin_med', v)} onCommentChange={(v) => handleChange('residents_supported_self_admin_med_comment', v)} />
-            </div>
-          </div>
-
-          <div className="bg-lime-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-lime-900 mb-3">7. Monitoring and Review</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Is each restrictive practice reviewed regularly for ongoing need?" yesNoField="restrictive_practices_reviewed_regularly" commentField="restrictive_practices_reviewed_regularly_comment" yesNoValue={data.restrictive_practices_reviewed_regularly} commentValue={data.restrictive_practices_reviewed_regularly_comment} onYesNoChange={(v) => handleChange('restrictive_practices_reviewed_regularly', v)} onCommentChange={(v) => handleChange('restrictive_practices_reviewed_regularly_comment', v)} />
-              <YesNoQuestion label="Are there clear records showing efforts to reduce or remove restrictions?" yesNoField="records_show_reduction_efforts" commentField="records_show_reduction_efforts_comment" yesNoValue={data.records_show_reduction_efforts} commentValue={data.records_show_reduction_efforts_comment} onYesNoChange={(v) => handleChange('records_show_reduction_efforts', v)} onCommentChange={(v) => handleChange('records_show_reduction_efforts_comment', v)} />
-              <YesNoQuestion label="Are Deprivation of Liberty Safeguards (DoLS) applications in place where required?" yesNoField="dols_applications_where_required" commentField="dols_applications_where_required_comment" yesNoValue={data.dols_applications_where_required} commentValue={data.dols_applications_where_required_comment} onYesNoChange={(v) => handleChange('dols_applications_where_required', v)} onCommentChange={(v) => handleChange('dols_applications_where_required_comment', v)} />
-              <YesNoQuestion label="Is there evidence that restrictive practices are the least restrictive option available?" yesNoField="least_restrictive_option_evidence" commentField="least_restrictive_option_evidence_comment" yesNoValue={data.least_restrictive_option_evidence} commentValue={data.least_restrictive_option_evidence_comment} onYesNoChange={(v) => handleChange('least_restrictive_option_evidence', v)} onCommentChange={(v) => handleChange('least_restrictive_option_evidence_comment', v)} />
-            </div>
-          </div>
-
-          <div className="bg-violet-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-violet-900 mb-3">8. Staff Practice and Culture</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Do staff promote independence and autonomy in daily care?" yesNoField="staff_promote_independence" commentField="staff_promote_independence_comment" yesNoValue={data.staff_promote_independence} commentValue={data.staff_promote_independence_comment} onYesNoChange={(v) => handleChange('staff_promote_independence', v)} onCommentChange={(v) => handleChange('staff_promote_independence_comment', v)} />
-              <YesNoQuestion label="Do staff understand the balance between safety and freedom?" yesNoField="staff_understand_safety_freedom_balance" commentField="staff_understand_safety_freedom_balance_comment" yesNoValue={data.staff_understand_safety_freedom_balance} commentValue={data.staff_understand_safety_freedom_balance_comment} onYesNoChange={(v) => handleChange('staff_understand_safety_freedom_balance', v)} onCommentChange={(v) => handleChange('staff_understand_safety_freedom_balance_comment', v)} />
-              <YesNoQuestion label="Are restrictions challenged or escalated when no longer needed?" yesNoField="restrictions_challenged_escalated" commentField="restrictions_challenged_escalated_comment" yesNoValue={data.restrictions_challenged_escalated} commentValue={data.restrictions_challenged_escalated_comment} onYesNoChange={(v) => handleChange('restrictions_challenged_escalated', v)} onCommentChange={(v) => handleChange('restrictions_challenged_escalated_comment', v)} />
-              <YesNoQuestion label="Are staff able to reflect on their own use of control or limitation?" yesNoField="staff_reflect_on_control_use" commentField="staff_reflect_on_control_use_comment" yesNoValue={data.staff_reflect_on_control_use} commentValue={data.staff_reflect_on_control_use_comment} onYesNoChange={(v) => handleChange('staff_reflect_on_control_use', v)} onCommentChange={(v) => handleChange('staff_reflect_on_control_use_comment', v)} />
-            </div>
-          </div>
-
-          <div className="flex justify-end mt-6">
-            <button onClick={handleComplete} className="px-4 py-2 bg-blue-600 text-white rounded">Complete Audit</button>
-          </div>
-        </div>
-
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md mx-4">
-            <h3 className="text-lg font-semibold mb-4">Audit Complete</h3>
-            <p className="text-gray-600 mb-6">Would you like to create an action plan for this audit?</p>
-            <div className="flex gap-3 justify-end">
-              <button onClick={() => handleModalCreate(false)} className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50" disabled={saving}>{saving ? 'Saving...' : 'No'}</button>
-              <button onClick={() => handleModalCreate(true)} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700" disabled={saving}>{saving ? 'Saving...' : 'Yes, Create Action Plan'}</button>
-            </div>
-          </div>
-        </div>
-      )}
-
+        )}
       </div>
     </div>
   );

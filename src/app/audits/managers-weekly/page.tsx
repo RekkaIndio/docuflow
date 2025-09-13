@@ -6,6 +6,7 @@ import { useWorkspace } from '@/context/workspace';
 export const dynamic = 'force-dynamic';
 import { useAuth } from '@/hooks/use-auth';
 import { saveAudit, markAuditCompleted } from '@/lib/firestore';
+import { ChevronDown, ChevronUp, FileText } from 'lucide-react';
 
 interface ManagersWeeklyData {
   home: string;
@@ -129,6 +130,149 @@ export default function ManagersWeeklyAuditPage() {
   const [showModal, setShowModal] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
 
+  // Collapsible sections state
+  const [openSections, setOpenSections] = useState<{ [key: string]: boolean }>({
+    'environment-cleanliness': true,
+    'ipc': false,
+    'health-safety': false,
+    'resident-experience': false,
+    'staff-practice': false,
+    'medication': false,
+    'kitchen-dining': false,
+    'laundry': false,
+    'documentation-records': false,
+    'repairs-maintenance': false,
+  });
+
+  // Section definitions with guidance text
+  const sections = [
+    {
+      id: 'environment-cleanliness',
+      title: 'Environment & Cleanliness',
+      color: 'green',
+      guidance: 'Assess the overall cleanliness and maintenance of communal areas, bedrooms, bathrooms, and general facilities. Check for odours, clutter, and proper storage of cleaning equipment.',
+      questions: [
+        { field: 'communal_areas_clean', label: 'Are all communal areas clean, tidy, and free from odours?' },
+        { field: 'bedrooms_clean', label: 'Are bedrooms visibly clean, with fresh linen and tidy surfaces?' },
+        { field: 'toilets_bathrooms_clean', label: 'Are toilets and bathrooms clean, stocked with soap and paper towels?' },
+        { field: 'floors_furniture_good', label: 'Are floors, carpets, and furniture in good condition and free from clutter?' },
+        { field: 'cleaning_trolleys_stored', label: 'Are cleaning trolleys stored safely and not left unattended?' },
+      ]
+    },
+    {
+      id: 'ipc',
+      title: 'Infection Prevention & Control (IPC)',
+      color: 'yellow',
+      guidance: 'Evaluate infection control measures including hand hygiene stations, PPE usage, waste management, and cleaning protocols.',
+      questions: [
+        { field: 'sanitisers_working', label: 'Are hand sanitiser stations full and working?' },
+        { field: 'staff_using_ppe', label: 'Are staff using correct PPE for the task?' },
+        { field: 'gloves_aprons_available', label: 'Are gloves and aprons available and used appropriately?' },
+        { field: 'waste_bins_ok', label: 'Are clinical and domestic waste bins not overflowing and correctly labelled?' },
+        { field: 'cleaning_schedules_visible', label: 'Are cleaning schedules visible and up to date?' },
+      ]
+    },
+    {
+      id: 'health-safety',
+      title: 'Health & Safety',
+      color: 'pink',
+      guidance: 'Check for safety hazards, emergency equipment functionality, and proper storage of mobility aids and equipment.',
+      questions: [
+        { field: 'fire_exits_clear', label: 'Are fire exits unobstructed and clearly marked?' },
+        { field: 'corridors_free_of_trip_hazards', label: 'Are corridors and walkways free from trip hazards?' },
+        { field: 'mobility_aids_stored', label: 'Are wheelchairs, hoists, and mobility aids stored safely?' },
+        { field: 'call_bells_working', label: 'Are nurse call bells within reach of residents and working?' },
+        { field: 'broken_items_hazards', label: 'Are there any broken items or hazards requiring repair?' },
+      ]
+    },
+    {
+      id: 'resident-experience',
+      title: 'Resident Experience',
+      color: 'amber',
+      guidance: 'Observe resident engagement, staff interactions, mealtime support, and activity provision to ensure person-centred care.',
+      questions: [
+        { field: 'residents_engaged_dressed', label: 'Are residents engaged and appropriately dressed for the time of day?' },
+        { field: 'staff_respectful_interactions', label: 'Are interactions between staff and residents respectful and person-centred?' },
+        { field: 'residents_offered_fluids', label: 'Are residents offered fluids/snacks regularly?' },
+        { field: 'mealtimes_well_supported', label: 'Are mealtimes calm, dignified, and well-supported (if observed)?' },
+        { field: 'activities_visible', label: 'Are activity schedules visible and up to date?' },
+      ]
+    },
+    {
+      id: 'staff-practice',
+      title: 'Staff Practice',
+      color: 'indigo',
+      guidance: 'Assess staff presentation, communication standards, leadership awareness, break management, and handover procedures.',
+      questions: [
+        { field: 'staff_uniforms_id', label: 'Are staff wearing correct uniforms and ID badges?' },
+        { field: 'staff_communicate_professionally', label: 'Are staff communicating professionally and kindly?' },
+        { field: 'shift_leaders_aware', label: 'Are shift leaders aware of any key changes/risks for the day?' },
+        { field: 'staff_breaks_appropriate', label: 'Are staff breaks being taken appropriately (not leaving units short)?' },
+        { field: 'handovers_private_structured', label: 'Are handovers taking place in a private and structured manner?' },
+      ]
+    },
+    {
+      id: 'medication',
+      title: 'Medication',
+      color: 'pink',
+      guidance: 'Verify medication storage security, temperature control, record keeping, and safe administration practices.',
+      questions: [
+        { field: 'med_trolleys_locked', label: 'Are medication trolleys locked and stored securely?' },
+        { field: 'med_room_tidy_locked', label: 'Is the medication room tidy, locked, and within temperature range?' },
+        { field: 'fridge_temps_recorded', label: 'Are fridge temperatures recorded daily and in range?' },
+        { field: 'mar_charts_up_to_date', label: 'Are MAR charts correctly stored and up to date?' },
+        { field: 'staff_administering_safely', label: 'Are staff administering medication safely and respectfully (if observed)?' },
+      ]
+    },
+    {
+      id: 'kitchen-dining',
+      title: 'Kitchen / Dining Areas',
+      color: 'amber',
+      guidance: 'Check kitchen cleanliness, food storage practices, temperature control, and dining area presentation.',
+      questions: [
+        { field: 'dining_area_clean', label: 'Is the dining area clean, with tables set appropriately?' },
+        { field: 'kitchenettes_clean', label: 'Are kitchenettes clean and food safely stored?' },
+        { field: 'fridges_freezers_safe', label: 'Are fridges/freezers in kitchenettes within safe temperature range?' },
+        { field: 'food_items_dated', label: 'Are food items dated and labelled properly?' },
+      ]
+    },
+    {
+      id: 'laundry',
+      title: 'Laundry',
+      color: 'pink',
+      guidance: 'Inspect laundry area cleanliness, equipment functionality, and separation of clean/dirty items.',
+      questions: [
+        { field: 'laundry_area_clean', label: 'Is the laundry area clean, organised, and equipment functioning?' },
+        { field: 'clean_dirty_separated', label: 'Are clean and dirty items clearly separated?' },
+        { field: 'trolleys_labelled', label: 'Are trolleys and baskets labelled and used correctly?' },
+      ]
+    },
+    {
+      id: 'documentation-records',
+      title: 'Documentation & Records',
+      color: 'green',
+      guidance: 'Review care documentation, fluid/food charts, repositioning records, and maintenance logs for completeness and accuracy.',
+      questions: [
+        { field: 'daily_notes_up_to_date', label: 'Are daily notes up to date and person-centred?' },
+        { field: 'fluid_food_charts_completed', label: 'Are fluid and food charts completed properly?' },
+        { field: 'repositioning_charts_filled', label: 'Are repositioning/turn charts filled in as per plan?' },
+        { field: 'cleaning_maintenance_logs_updated', label: 'Are cleaning and maintenance logs updated?' },
+      ]
+    },
+    {
+      id: 'repairs-maintenance',
+      title: 'Repairs & Maintenance',
+      color: 'yellow',
+      guidance: 'Identify any maintenance issues, check safety features, and verify resolution of previous maintenance concerns.',
+      questions: [
+        { field: 'visible_repairs_needed', label: 'Are there any visible repairs needed (lights, doors, fixtures)?' },
+        { field: 'window_restrictors_ok', label: 'Are window restrictors and safety features in place?' },
+        { field: 'previous_issues_resolved', label: 'Have any maintenance issues from previous audits been resolved?' },
+        { field: 'communal_outdoor_safe', label: 'Are communal and outdoor areas safe and tidy?' },
+      ]
+    },
+  ];
+
   const [data, setData] = useState<ManagersWeeklyData>({
     home: '',
     date: '',
@@ -241,22 +385,65 @@ export default function ManagersWeeklyAuditPage() {
   const [savedAuditId, setSavedAuditId] = useState<string | null>(null);
   const [finalComments, setFinalComments] = useState('');
 
+  // Helper functions
+  const toggleSection = (sectionId: string) => {
+    setOpenSections(prev => ({
+      ...prev,
+      [sectionId]: !prev[sectionId]
+    }));
+  };
+
+  const getFieldError = (fieldName: string) => {
+    return errors.includes(fieldName);
+  };
+
+  const getFieldClassName = (fieldName: string) => {
+    const baseClasses = "w-full p-2 border rounded";
+    return getFieldError(fieldName)
+      ? `${baseClasses} border-red-500 bg-red-50`
+      : `${baseClasses} border-gray-300`;
+  };
+
   const handleChange = (field: keyof ManagersWeeklyData, value: string) => {
     setData(prev => ({ ...prev, [field]: value }));
     if (value.trim() !== '' && errors.includes(field)) setErrors(prev => prev.filter(e => e !== field));
   };
 
-  const YesNoQuestion = ({ label, yesNoField, commentField, yesNoValue, commentValue, onYesNoChange, onCommentChange }: { label: string; yesNoField: string; commentField: string; yesNoValue: string; commentValue: string; onYesNoChange: (v: string) => void; onCommentChange: (v: string) => void; }) => (
-    <div className="space-y-2">
-      <label className="block text-sm font-medium text-gray-700">{label}</label>
-      <div className="flex gap-4 items-center" data-field={yesNoField}>
-        <label className="flex items-center"><input type="radio" name={yesNoField} value="Yes" checked={yesNoValue === 'Yes'} onChange={(e) => onYesNoChange(e.target.value)} className="mr-2" />Yes</label>
-        <label className="flex items-center"><input type="radio" name={yesNoField} value="No" checked={yesNoValue === 'No'} onChange={(e) => onYesNoChange(e.target.value)} className="mr-2" />No</label>
+  const YesNoQuestion = ({ field, label }: { field: string; label: string }) => {
+    const yesNoField = field as keyof ManagersWeeklyData;
+    const hasError = getFieldError(field);
+
+    return (
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">{label}</label>
+        <div className="flex gap-4 items-center" data-field={field}>
+          <label className="flex items-center">
+            <input
+              type="radio"
+              name={field}
+              value="Yes"
+              checked={data[yesNoField] === 'Yes'}
+              onChange={(e) => handleChange(yesNoField, e.target.value)}
+              className="mr-2"
+            />
+            Yes
+          </label>
+          <label className="flex items-center">
+            <input
+              type="radio"
+              name={field}
+              value="No"
+              checked={data[yesNoField] === 'No'}
+              onChange={(e) => handleChange(yesNoField, e.target.value)}
+              className="mr-2"
+            />
+            No
+          </label>
+        </div>
+        {hasError && <p className="text-red-500 text-sm">This field is required</p>}
       </div>
-      {errors.includes(yesNoField) && <p className="text-red-500 text-sm">This field is required</p>}
-      {/* per-question comments removed — single final comments box is provided at the end of the page */}
-    </div>
-  );
+    );
+  };
 
   const validateForm = () => {
     const required: (keyof ManagersWeeklyData)[] = [
@@ -426,171 +613,206 @@ export default function ManagersWeeklyAuditPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white">
-      <div className="mb-6">
-        <div className="flex justify-between items-center mb-4">
-          <h1 className="text-2xl font-bold text-gray-900">Weekly Managers Walkaround Audit</h1>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <button onClick={() => setCurrentReport(Math.max(1, currentReport - 1))} className="p-1 hover:bg-gray-100 rounded" disabled={currentReport === 1}>←</button>
-              <span className="text-sm text-gray-600">Report {currentReport} of {totalReports}</span>
-              <button onClick={() => setCurrentReport(Math.min(totalReports, currentReport + 1))} className="p-1 hover:bg-gray-100 rounded" disabled={currentReport === totalReports}>→</button>
+    <div className="min-h-screen bg-white">
+      <div className="max-w-7xl mx-auto p-6">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-4">
+            <FileText className="h-8 w-8 text-blue-600" />
+            <h1 className="text-3xl font-bold text-gray-900">Weekly Managers Walkaround Audit</h1>
+          </div>
+          <p className="text-gray-600 text-lg">
+            Comprehensive weekly assessment of care home operations, covering environment, safety, resident experience, and staff practices.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left Panel - Audit Information */}
+          <div className="lg:col-span-1">
+            <div className="bg-gray-50 rounded-lg p-6 sticky top-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Audit Information
+              </h2>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Home</label>
+                  <input
+                    value={data.home}
+                    data-field="home"
+                    onChange={(e) => handleChange('home', e.target.value)}
+                    className={getFieldClassName('home')}
+                    placeholder="Enter home name"
+                  />
+                  {getFieldError('home') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
+                  <input
+                    type="date"
+                    value={data.date}
+                    data-field="date"
+                    onChange={(e) => handleChange('date', e.target.value)}
+                    className={getFieldClassName('date')}
+                  />
+                  {getFieldError('date') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Person Completing the Audit</label>
+                  <input
+                    value={data.personCompletingAudit}
+                    data-field="personCompletingAudit"
+                    onChange={(e) => handleChange('personCompletingAudit', e.target.value)}
+                    className={getFieldClassName('personCompletingAudit')}
+                    placeholder="Enter auditor name"
+                  />
+                  {getFieldError('personCompletingAudit') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
+                </div>
+              </div>
+
+              {/* Report Navigation */}
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCurrentReport(Math.max(1, currentReport - 1))}
+                      className="p-1 hover:bg-gray-100 rounded"
+                      disabled={currentReport === 1}
+                    >
+                      ←
+                    </button>
+                    <span className="text-sm text-gray-600">Report {currentReport} of {totalReports}</span>
+                    <button
+                      onClick={() => setCurrentReport(Math.min(totalReports, currentReport + 1))}
+                      className="p-1 hover:bg-gray-100 rounded"
+                      disabled={currentReport === totalReports}
+                    >
+                      →
+                    </button>
+                  </div>
+                  <button
+                    onClick={addNewReport}
+                    className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
             </div>
-            <div className="bg-red-500 p-2 rounded"><button onClick={addNewReport} className="text-white">+</button></div>
+          </div>
+
+          {/* Right Panel - Audit Sections */}
+          <div className="lg:col-span-2">
+            <div className="space-y-6">
+              {sections.map((section) => (
+                <div key={section.id} className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                  <button
+                    onClick={() => toggleSection(section.id)}
+                    className={`w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 transition-colors ${
+                      section.color === 'green' ? 'border-l-4 border-green-500' :
+                      section.color === 'yellow' ? 'border-l-4 border-yellow-500' :
+                      section.color === 'pink' ? 'border-l-4 border-pink-500' :
+                      section.color === 'amber' ? 'border-l-4 border-amber-500' :
+                      'border-l-4 border-indigo-500'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-3 h-3 rounded-full ${
+                        section.color === 'green' ? 'bg-green-500' :
+                        section.color === 'yellow' ? 'bg-yellow-500' :
+                        section.color === 'pink' ? 'bg-pink-500' :
+                        section.color === 'amber' ? 'bg-amber-500' :
+                        'bg-indigo-500'
+                      }`} />
+                      <h3 className="text-lg font-semibold text-gray-900">{section.title}</h3>
+                    </div>
+                    {openSections[section.id] ? (
+                      <ChevronUp className="h-5 w-5 text-gray-500" />
+                    ) : (
+                      <ChevronDown className="h-5 w-5 text-gray-500" />
+                    )}
+                  </button>
+
+                  {openSections[section.id] && (
+                    <div className="px-6 pb-6">
+                      <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+                        <p className="text-sm text-gray-600">{section.guidance}</p>
+                      </div>
+
+                      <div className="space-y-6">
+                        {section.questions.map((question) => (
+                          <YesNoQuestion
+                            key={question.field}
+                            field={question.field}
+                            label={question.label}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {/* Final Comments */}
+              <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Final Comments</h3>
+                <textarea
+                  value={finalComments}
+                  onChange={(e) => setFinalComments(e.target.value)}
+                  rows={4}
+                  placeholder="Add any final comments or observations for this audit"
+                  className="w-full p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              {/* Complete Audit Button */}
+              <div className="flex justify-center pt-6">
+                <button
+                  onClick={handleComplete}
+                  className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-semibold transition-colors shadow-sm"
+                >
+                  Complete Audit
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="bg-blue-50 p-4 rounded-lg mb-6">
-          <h2 className="text-lg font-semibold text-blue-900 mb-4">Audit Information</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Home</label>
-              <input value={data.home} data-field="home" onChange={(e) => handleChange('home', e.target.value)} className={`w-full p-2 border rounded ${errors.includes('home') ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="Enter home name" />
-              {errors.includes('home') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
-              <input type="date" value={data.date} data-field="date" onChange={(e) => handleChange('date', e.target.value)} className={`w-full p-2 border rounded ${errors.includes('date') ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} />
-              {errors.includes('date') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Person Completing the Audit</label>
-              <input value={data.personCompletingAudit} data-field="personCompletingAudit" onChange={(e) => handleChange('personCompletingAudit', e.target.value)} className={`w-full p-2 border rounded ${errors.includes('personCompletingAudit') ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="Enter auditor name" />
-              {errors.includes('personCompletingAudit') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          <div className="bg-green-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-green-900 mb-3">1. Environment & Cleanliness</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Are all communal areas clean, tidy, and free from odours?" yesNoField="communal_areas_clean" commentField="communal_areas_clean_comment" yesNoValue={data.communal_areas_clean} commentValue={data.communal_areas_clean_comment} onYesNoChange={(v) => handleChange('communal_areas_clean', v)} onCommentChange={(v) => handleChange('communal_areas_clean_comment', v)} />
-              <YesNoQuestion label="Are bedrooms visibly clean, with fresh linen and tidy surfaces?" yesNoField="bedrooms_clean" commentField="bedrooms_clean_comment" yesNoValue={data.bedrooms_clean} commentValue={data.bedrooms_clean_comment} onYesNoChange={(v) => handleChange('bedrooms_clean', v)} onCommentChange={(v) => handleChange('bedrooms_clean_comment', v)} />
-              <YesNoQuestion label="Are toilets and bathrooms clean, stocked with soap and paper towels?" yesNoField="toilets_bathrooms_clean" commentField="toilets_bathrooms_clean_comment" yesNoValue={data.toilets_bathrooms_clean} commentValue={data.toilets_bathrooms_clean_comment} onYesNoChange={(v) => handleChange('toilets_bathrooms_clean', v)} onCommentChange={(v) => handleChange('toilets_bathrooms_clean_comment', v)} />
-              <YesNoQuestion label="Are floors, carpets, and furniture in good condition and free from clutter?" yesNoField="floors_furniture_good" commentField="floors_furniture_good_comment" yesNoValue={data.floors_furniture_good} commentValue={data.floors_furniture_good_comment} onYesNoChange={(v) => handleChange('floors_furniture_good', v)} onCommentChange={(v) => handleChange('floors_furniture_good_comment', v)} />
-              <YesNoQuestion label="Are cleaning trolleys stored safely and not left unattended?" yesNoField="cleaning_trolleys_stored" commentField="cleaning_trolleys_stored_comment" yesNoValue={data.cleaning_trolleys_stored} commentValue={data.cleaning_trolleys_stored_comment} onYesNoChange={(v) => handleChange('cleaning_trolleys_stored', v)} onCommentChange={(v) => handleChange('cleaning_trolleys_stored_comment', v)} />
+        {/* Completion Modal */}
+        {showModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
+              <h3 className="text-lg font-semibold mb-4">Audit Completed</h3>
+              <p className="text-gray-600 mb-6">Would you like to create an action plan based on this audit?</p>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                >
+                  No, thanks
+                </button>
+                <button
+                  onClick={() => handleModalCreate(false)}
+                  disabled={saving}
+                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                >
+                  {saving ? 'Saving...' : 'Save Audit'}
+                </button>
+                <button
+                  onClick={() => handleModalCreate(true)}
+                  disabled={saving}
+                  className="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700"
+                >
+                  {saving ? 'Saving...' : 'Save & Create Action Plan'}
+                </button>
+              </div>
             </div>
           </div>
-
-          <div className="bg-yellow-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-yellow-900 mb-3">2. Infection Prevention & Control (IPC)</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Are hand sanitiser stations full and working?" yesNoField="sanitisers_working" commentField="sanitisers_working_comment" yesNoValue={data.sanitisers_working} commentValue={data.sanitisers_working_comment} onYesNoChange={(v) => handleChange('sanitisers_working', v)} onCommentChange={(v) => handleChange('sanitisers_working_comment', v)} />
-              <YesNoQuestion label="Are staff using correct PPE for the task?" yesNoField="staff_using_ppe" commentField="staff_using_ppe_comment" yesNoValue={data.staff_using_ppe} commentValue={data.staff_using_ppe_comment} onYesNoChange={(v) => handleChange('staff_using_ppe', v)} onCommentChange={(v) => handleChange('staff_using_ppe_comment', v)} />
-              <YesNoQuestion label="Are gloves and aprons available and used appropriately?" yesNoField="gloves_aprons_available" commentField="gloves_aprons_available_comment" yesNoValue={data.gloves_aprons_available} commentValue={data.gloves_aprons_available_comment} onYesNoChange={(v) => handleChange('gloves_aprons_available', v)} onCommentChange={(v) => handleChange('gloves_aprons_available_comment', v)} />
-              <YesNoQuestion label="Are clinical and domestic waste bins not overflowing and correctly labelled?" yesNoField="waste_bins_ok" commentField="waste_bins_ok_comment" yesNoValue={data.waste_bins_ok} commentValue={data.waste_bins_ok_comment} onYesNoChange={(v) => handleChange('waste_bins_ok', v)} onCommentChange={(v) => handleChange('waste_bins_ok_comment', v)} />
-              <YesNoQuestion label="Are cleaning schedules visible and up to date?" yesNoField="cleaning_schedules_visible" commentField="cleaning_schedules_visible_comment" yesNoValue={data.cleaning_schedules_visible} commentValue={data.cleaning_schedules_visible_comment} onYesNoChange={(v) => handleChange('cleaning_schedules_visible', v)} onCommentChange={(v) => handleChange('cleaning_schedules_visible_comment', v)} />
-            </div>
-          </div>
-
-          <div className="bg-pink-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-pink-900 mb-3">3. Health & Safety</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Are fire exits unobstructed and clearly marked?" yesNoField="fire_exits_clear" commentField="fire_exits_clear_comment" yesNoValue={data.fire_exits_clear} commentValue={data.fire_exits_clear_comment} onYesNoChange={(v) => handleChange('fire_exits_clear', v)} onCommentChange={(v) => handleChange('fire_exits_clear_comment', v)} />
-              <YesNoQuestion label="Are corridors and walkways free from trip hazards?" yesNoField="corridors_free_of_trip_hazards" commentField="corridors_free_of_trip_hazards_comment" yesNoValue={data.corridors_free_of_trip_hazards} commentValue={data.corridors_free_of_trip_hazards_comment} onYesNoChange={(v) => handleChange('corridors_free_of_trip_hazards', v)} onCommentChange={(v) => handleChange('corridors_free_of_trip_hazards_comment', v)} />
-              <YesNoQuestion label="Are wheelchairs, hoists, and mobility aids stored safely?" yesNoField="mobility_aids_stored" commentField="mobility_aids_stored_comment" yesNoValue={data.mobility_aids_stored} commentValue={data.mobility_aids_stored_comment} onYesNoChange={(v) => handleChange('mobility_aids_stored', v)} onCommentChange={(v) => handleChange('mobility_aids_stored_comment', v)} />
-              <YesNoQuestion label="Are nurse call bells within reach of residents and working?" yesNoField="call_bells_working" commentField="call_bells_working_comment" yesNoValue={data.call_bells_working} commentValue={data.call_bells_working_comment} onYesNoChange={(v) => handleChange('call_bells_working', v)} onCommentChange={(v) => handleChange('call_bells_working_comment', v)} />
-              <YesNoQuestion label="Are there any broken items or hazards requiring repair?" yesNoField="broken_items_hazards" commentField="broken_items_hazards_comment" yesNoValue={data.broken_items_hazards} commentValue={data.broken_items_hazards_comment} onYesNoChange={(v) => handleChange('broken_items_hazards', v)} onCommentChange={(v) => handleChange('broken_items_hazards_comment', v)} />
-            </div>
-          </div>
-
-          <div className="bg-amber-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-amber-900 mb-3">4. Resident Experience</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Are residents engaged and appropriately dressed for the time of day?" yesNoField="residents_engaged_dressed" commentField="residents_engaged_dressed_comment" yesNoValue={data.residents_engaged_dressed} commentValue={data.residents_engaged_dressed_comment} onYesNoChange={(v) => handleChange('residents_engaged_dressed', v)} onCommentChange={(v) => handleChange('residents_engaged_dressed_comment', v)} />
-              <YesNoQuestion label="Are interactions between staff and residents respectful and person-centred?" yesNoField="staff_respectful_interactions" commentField="staff_respectful_interactions_comment" yesNoValue={data.staff_respectful_interactions} commentValue={data.staff_respectful_interactions_comment} onYesNoChange={(v) => handleChange('staff_respectful_interactions', v)} onCommentChange={(v) => handleChange('staff_respectful_interactions_comment', v)} />
-              <YesNoQuestion label="Are residents offered fluids/snacks regularly?" yesNoField="residents_offered_fluids" commentField="residents_offered_fluids_comment" yesNoValue={data.residents_offered_fluids} commentValue={data.residents_offered_fluids_comment} onYesNoChange={(v) => handleChange('residents_offered_fluids', v)} onCommentChange={(v) => handleChange('residents_offered_fluids_comment', v)} />
-              <YesNoQuestion label="Are mealtimes calm, dignified, and well-supported (if observed)?" yesNoField="mealtimes_well_supported" commentField="mealtimes_well_supported_comment" yesNoValue={data.mealtimes_well_supported} commentValue={data.mealtimes_well_supported_comment} onYesNoChange={(v) => handleChange('mealtimes_well_supported', v)} onCommentChange={(v) => handleChange('mealtimes_well_supported_comment', v)} />
-              <YesNoQuestion label="Are activity schedules visible and up to date?" yesNoField="activities_visible" commentField="activities_visible_comment" yesNoValue={data.activities_visible} commentValue={data.activities_visible_comment} onYesNoChange={(v) => handleChange('activities_visible', v)} onCommentChange={(v) => handleChange('activities_visible_comment', v)} />
-            </div>
-          </div>
-
-          <div className="bg-indigo-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-indigo-900 mb-3">5. Staff Practice</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Are staff wearing correct uniforms and ID badges?" yesNoField="staff_uniforms_id" commentField="staff_uniforms_id_comment" yesNoValue={data.staff_uniforms_id} commentValue={data.staff_uniforms_id_comment} onYesNoChange={(v) => handleChange('staff_uniforms_id', v)} onCommentChange={(v) => handleChange('staff_uniforms_id_comment', v)} />
-              <YesNoQuestion label="Are staff communicating professionally and kindly?" yesNoField="staff_communicate_professionally" commentField="staff_communicate_professionally_comment" yesNoValue={data.staff_communicate_professionally} commentValue={data.staff_communicate_professionally_comment} onYesNoChange={(v) => handleChange('staff_communicate_professionally', v)} onCommentChange={(v) => handleChange('staff_communicate_professionally_comment', v)} />
-              <YesNoQuestion label="Are shift leaders aware of any key changes/risks for the day?" yesNoField="shift_leaders_aware" commentField="shift_leaders_aware_comment" yesNoValue={data.shift_leaders_aware} commentValue={data.shift_leaders_aware_comment} onYesNoChange={(v) => handleChange('shift_leaders_aware', v)} onCommentChange={(v) => handleChange('shift_leaders_aware_comment', v)} />
-              <YesNoQuestion label="Are staff breaks being taken appropriately (not leaving units short)?" yesNoField="staff_breaks_appropriate" commentField="staff_breaks_appropriate_comment" yesNoValue={data.staff_breaks_appropriate} commentValue={data.staff_breaks_appropriate_comment} onYesNoChange={(v) => handleChange('staff_breaks_appropriate', v)} onCommentChange={(v) => handleChange('staff_breaks_appropriate_comment', v)} />
-              <YesNoQuestion label="Are handovers taking place in a private and structured manner?" yesNoField="handovers_private_structured" commentField="handovers_private_structured_comment" yesNoValue={data.handovers_private_structured} commentValue={data.handovers_private_structured_comment} onYesNoChange={(v) => handleChange('handovers_private_structured', v)} onCommentChange={(v) => handleChange('handovers_private_structured_comment', v)} />
-            </div>
-          </div>
-
-          <div className="bg-pink-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-pink-900 mb-3">6. Medication</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Are medication trolleys locked and stored securely?" yesNoField="med_trolleys_locked" commentField="med_trolleys_locked_comment" yesNoValue={data.med_trolleys_locked} commentValue={data.med_trolleys_locked_comment} onYesNoChange={(v) => handleChange('med_trolleys_locked', v)} onCommentChange={(v) => handleChange('med_trolleys_locked_comment', v)} />
-              <YesNoQuestion label="Is the medication room tidy, locked, and within temperature range?" yesNoField="med_room_tidy_locked" commentField="med_room_tidy_locked_comment" yesNoValue={data.med_room_tidy_locked} commentValue={data.med_room_tidy_locked_comment} onYesNoChange={(v) => handleChange('med_room_tidy_locked', v)} onCommentChange={(v) => handleChange('med_room_tidy_locked_comment', v)} />
-              <YesNoQuestion label="Are fridge temperatures recorded daily and in range?" yesNoField="fridge_temps_recorded" commentField="fridge_temps_recorded_comment" yesNoValue={data.fridge_temps_recorded} commentValue={data.fridge_temps_recorded_comment} onYesNoChange={(v) => handleChange('fridge_temps_recorded', v)} onCommentChange={(v) => handleChange('fridge_temps_recorded_comment', v)} />
-              <YesNoQuestion label="Are MAR charts correctly stored and up to date?" yesNoField="mar_charts_up_to_date" commentField="mar_charts_up_to_date_comment" yesNoValue={data.mar_charts_up_to_date} commentValue={data.mar_charts_up_to_date_comment} onYesNoChange={(v) => handleChange('mar_charts_up_to_date', v)} onCommentChange={(v) => handleChange('mar_charts_up_to_date_comment', v)} />
-              <YesNoQuestion label="Are staff administering medication safely and respectfully (if observed)?" yesNoField="staff_administering_safely" commentField="staff_administering_safely_comment" yesNoValue={data.staff_administering_safely} commentValue={data.staff_administering_safely_comment} onYesNoChange={(v) => handleChange('staff_administering_safely', v)} onCommentChange={(v) => handleChange('staff_administering_safely_comment', v)} />
-            </div>
-          </div>
-
-          <div className="bg-amber-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-amber-900 mb-3">7. Kitchen / Dining Areas</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Is the dining area clean, with tables set appropriately?" yesNoField="dining_area_clean" commentField="dining_area_clean_comment" yesNoValue={data.dining_area_clean} commentValue={data.dining_area_clean_comment} onYesNoChange={(v) => handleChange('dining_area_clean', v)} onCommentChange={(v) => handleChange('dining_area_clean_comment', v)} />
-              <YesNoQuestion label="Are kitchenettes clean and food safely stored?" yesNoField="kitchenettes_clean" commentField="kitchenettes_clean_comment" yesNoValue={data.kitchenettes_clean} commentValue={data.kitchenettes_clean_comment} onYesNoChange={(v) => handleChange('kitchenettes_clean', v)} onCommentChange={(v) => handleChange('kitchenettes_clean_comment', v)} />
-              <YesNoQuestion label="Are fridges/freezers in kitchenettes within safe temperature range?" yesNoField="fridges_freezers_safe" commentField="fridges_freezers_safe_comment" yesNoValue={data.fridges_freezers_safe} commentValue={data.fridges_freezers_safe_comment} onYesNoChange={(v) => handleChange('fridges_freezers_safe', v)} onCommentChange={(v) => handleChange('fridges_freezers_safe_comment', v)} />
-              <YesNoQuestion label="Are food items dated and labelled properly?" yesNoField="food_items_dated" commentField="food_items_dated_comment" yesNoValue={data.food_items_dated} commentValue={data.food_items_dated_comment} onYesNoChange={(v) => handleChange('food_items_dated', v)} onCommentChange={(v) => handleChange('food_items_dated_comment', v)} />
-            </div>
-          </div>
-
-          <div className="bg-pink-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-pink-900 mb-3">8. Laundry</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Is the laundry area clean, organised, and equipment functioning?" yesNoField="laundry_area_clean" commentField="laundry_area_clean_comment" yesNoValue={data.laundry_area_clean} commentValue={data.laundry_area_clean_comment} onYesNoChange={(v) => handleChange('laundry_area_clean', v)} onCommentChange={(v) => handleChange('laundry_area_clean_comment', v)} />
-              <YesNoQuestion label="Are clean and dirty items clearly separated?" yesNoField="clean_dirty_separated" commentField="clean_dirty_separated_comment" yesNoValue={data.clean_dirty_separated} commentValue={data.clean_dirty_separated_comment} onYesNoChange={(v) => handleChange('clean_dirty_separated', v)} onCommentChange={(v) => handleChange('clean_dirty_separated_comment', v)} />
-              <YesNoQuestion label="Are trolleys and baskets labelled and used correctly?" yesNoField="trolleys_labelled" commentField="trolleys_labelled_comment" yesNoValue={data.trolleys_labelled} commentValue={data.trolleys_labelled_comment} onYesNoChange={(v) => handleChange('trolleys_labelled', v)} onCommentChange={(v) => handleChange('trolleys_labelled_comment', v)} />
-            </div>
-          </div>
-
-          <div className="bg-green-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-green-900 mb-3">9. Documentation & Records</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Are daily notes up to date and person-centred?" yesNoField="daily_notes_up_to_date" commentField="daily_notes_up_to_date_comment" yesNoValue={data.daily_notes_up_to_date} commentValue={data.daily_notes_up_to_date_comment} onYesNoChange={(v) => handleChange('daily_notes_up_to_date', v)} onCommentChange={(v) => handleChange('daily_notes_up_to_date_comment', v)} />
-              <YesNoQuestion label="Are fluid and food charts completed properly?" yesNoField="fluid_food_charts_completed" commentField="fluid_food_charts_completed_comment" yesNoValue={data.fluid_food_charts_completed} commentValue={data.fluid_food_charts_completed_comment} onYesNoChange={(v) => handleChange('fluid_food_charts_completed', v)} onCommentChange={(v) => handleChange('fluid_food_charts_completed_comment', v)} />
-              <YesNoQuestion label="Are repositioning/turn charts filled in as per plan?" yesNoField="repositioning_charts_filled" commentField="repositioning_charts_filled_comment" yesNoValue={data.repositioning_charts_filled} commentValue={data.repositioning_charts_filled_comment} onYesNoChange={(v) => handleChange('repositioning_charts_filled', v)} onCommentChange={(v) => handleChange('repositioning_charts_filled_comment', v)} />
-              <YesNoQuestion label="Are cleaning and maintenance logs updated?" yesNoField="cleaning_maintenance_logs_updated" commentField="cleaning_maintenance_logs_updated_comment" yesNoValue={data.cleaning_maintenance_logs_updated} commentValue={data.cleaning_maintenance_logs_updated_comment} onYesNoChange={(v) => handleChange('cleaning_maintenance_logs_updated', v)} onCommentChange={(v) => handleChange('cleaning_maintenance_logs_updated_comment', v)} />
-            </div>
-          </div>
-
-          <div className="bg-yellow-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-yellow-900 mb-3">10. Repairs & Maintenance</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Are there any visible repairs needed (lights, doors, fixtures)?" yesNoField="visible_repairs_needed" commentField="visible_repairs_needed_comment" yesNoValue={data.visible_repairs_needed} commentValue={data.visible_repairs_needed_comment} onYesNoChange={(v) => handleChange('visible_repairs_needed', v)} onCommentChange={(v) => handleChange('visible_repairs_needed_comment', v)} />
-              <YesNoQuestion label="Are window restrictors and safety features in place?" yesNoField="window_restrictors_ok" commentField="window_restrictors_ok_comment" yesNoValue={data.window_restrictors_ok} commentValue={data.window_restrictors_ok_comment} onYesNoChange={(v) => handleChange('window_restrictors_ok', v)} onCommentChange={(v) => handleChange('window_restrictors_ok_comment', v)} />
-              <YesNoQuestion label="Have any maintenance issues from previous audits been resolved?" yesNoField="previous_issues_resolved" commentField="previous_issues_resolved_comment" yesNoValue={data.previous_issues_resolved} commentValue={data.previous_issues_resolved_comment} onYesNoChange={(v) => handleChange('previous_issues_resolved', v)} onCommentChange={(v) => handleChange('previous_issues_resolved_comment', v)} />
-              <YesNoQuestion label="Are communal and outdoor areas safe and tidy?" yesNoField="communal_outdoor_safe" commentField="communal_outdoor_safe_comment" yesNoValue={data.communal_outdoor_safe} commentValue={data.communal_outdoor_safe_comment} onYesNoChange={(v) => handleChange('communal_outdoor_safe', v)} onCommentChange={(v) => handleChange('communal_outdoor_safe_comment', v)} />
-            </div>
-          </div>
-
-          <div className="mt-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Comments</label>
-            <textarea value={finalComments} onChange={(e) => setFinalComments(e.target.value)} rows={4} placeholder="Final comments for this audit" className="w-full p-2 border rounded resize-none mt-2" />
-          </div>
-
-          <div className="flex justify-center mt-8">
-            <button onClick={handleComplete} className="bg-green-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors">Complete Audit</button>
-          </div>
-        </div>
+        )}
       </div>
-
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4">Audit Completed</h3>
-            <p className="text-gray-600 mb-6">Would you like to create an action plan based on this audit?</p>
-            <div className="flex gap-3 justify-end">
-              <button onClick={() => setShowModal(false)} className="px-4 py-2 text-gray-600 hover:text-gray-800">No, thanks</button>
-              <button onClick={() => handleModalCreate(false)} disabled={saving} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">{saving ? 'Saving...' : 'Save Audit'}</button>
-              <button onClick={() => handleModalCreate(true)} disabled={saving} className="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700">{saving ? 'Saving...' : 'Save & Create Action Plan'}</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
