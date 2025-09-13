@@ -1269,13 +1269,11 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
           return;
         }
 
-        // Get teams for the workspace
-        const { collection, getDocs, doc: docRef } = await import('firebase/firestore');
-        const teamsCol = collection(db, 'teams');
+        // Get teams for the workspace from workspace subcollection
+        const { collection, getDocs } = await import('firebase/firestore');
+        const teamsCol = collection(db, `workspaces/${workspaceId}/teams`);
         const snapshot = await getDocs(teamsCol);
-        const teams = snapshot.docs
-          .filter(t => !t.data().workspaceId || t.data().workspaceId === workspaceId)
-          .map(d => ({ id: d.id, name: d.data().name ?? 'Untitled Team' }));
+        const teams = snapshot.docs.map(d => ({ id: d.id, name: d.data().name ?? 'Untitled Team' }));
 
         if (teams.length === 0) {
           appendMessages({ sender: 'ai', text: 'No teams found in this workspace to send email to.' });
@@ -1467,16 +1465,14 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         }
 
         const { collection, getDocs } = await import('firebase/firestore');
-        const teamsCol = collection(db, 'teams');
+        const teamsCol = collection(db, `workspaces/${workspaceId}/teams`);
         const snapshot = await getDocs(teamsCol);
-        const workspaceTeams = snapshot.docs
-          .filter(t => !t.data().workspaceId || t.data().workspaceId === workspaceId)
-          .map(d => ({
+        const workspaceTeams = snapshot.docs.map(d => ({
             id: d.id,
             name: d.data().name ?? 'Untitled Team',
             memberCount: d.data().members?.length || 0,
             description: d.data().description || 'No description available'
-          }));
+        }));
 
         if (workspaceTeams.length > 0) {
           appendMessages({ sender: 'ai', text: `Found ${workspaceTeams.length} team(s) in this workspace:`, teams: workspaceTeams });

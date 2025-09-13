@@ -22,11 +22,12 @@ import { doc, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase"; // Ensure this is the correct path to your Firebase config
 
 interface NewTeamDialogProps {
-    children: React.ReactNode;
-    onTeamCreated: (team: Team) => void;
+  children: React.ReactNode;
+  onTeamCreated: (team: Team) => void;
+  workspaceId?: string;
 }
 
-export function NewTeamDialog({ children, onTeamCreated }: NewTeamDialogProps) {
+export function NewTeamDialog({ children, onTeamCreated, workspaceId }: NewTeamDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [teamName, setTeamName] = useState("");
@@ -54,12 +55,17 @@ export function NewTeamDialog({ children, onTeamCreated }: NewTeamDialogProps) {
         folderCount: 0,
         accessibleFolderIds: [],
         emails: emails,
-        workspaceId: user.id ?? '',
+        workspaceId: workspaceId ?? user.id ?? '',
       };
 
-      // Save the team to Firestore
-      const teamRef = doc(db, "teams", newTeam.id);
-      await setDoc(teamRef, newTeam);
+      // Save the team to Firestore under workspace subcollection if workspaceId available
+      if (workspaceId) {
+        const teamRef = doc(db, `workspaces/${workspaceId}/teams`, newTeam.id);
+        await setDoc(teamRef, newTeam);
+      } else {
+        const teamRef = doc(db, "teams", newTeam.id);
+        await setDoc(teamRef, newTeam);
+      }
 
       onTeamCreated(newTeam);
       toast({ title: "Success!", description: `Team "${teamName}" has been created.` });

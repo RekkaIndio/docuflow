@@ -218,7 +218,7 @@ export function AppSidebar({
             <SidebarMenuItem>
               <SidebarMenuButton onClick={() => handleNavigation(() => setView('appraisals'))} className="text-lg h-14">
                 <ClipboardList className="w-7 h-7 mr-2" />
-                <span className="text-lg">Appraisals</span>
+                <span className="text-lg">Supervisions</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
       <SidebarMenuItem>

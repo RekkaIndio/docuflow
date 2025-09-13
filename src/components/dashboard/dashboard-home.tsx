@@ -2,9 +2,10 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Folder, Users, FileText, FileSpreadsheet, FileIcon, FileX2, Briefcase, Clock, User, TrendingUp, TrendingDown, Minus, Archive, Calendar, BarChart3, Edit3, FileCheck, CheckCircle, AlertCircle, ClipboardList, ChevronRight, Zap, Shield } from "lucide-react";
+import { Folder, Users, FileText, FileSpreadsheet, FileIcon, FileX2, Briefcase, Clock, User, TrendingUp, TrendingDown, Minus, Archive, Calendar, BarChart3, Edit3, FileCheck, CheckCircle, AlertCircle, ClipboardList, ChevronRight, Zap, Shield, Heart } from "lucide-react";
 import type { Workspace, Document, Folder as FolderType } from "@/lib/types";
 import { useMemo } from "react";
+import { useAuth } from '@/hooks/use-auth';
 import {
   Table,
   TableBody,
@@ -84,7 +85,7 @@ const getFileIcon = (fileType: Document["fileType"]) => {
   }
 };
 
-const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradientColors, trends, dailyEntry, onDailyEntryUpdate, carePlanScore, hsScore, maintenanceScore, restrictiveScore, fireScore, infectionScore, mealtimeScore, nightScore, staffFileScore, kitchenScore, handleAuditCardClick, onStaffingTeamsClick, onStaffingTrendsClick, onOccupancyTrendsClick, onComplianceOverviewClick }: { 
+const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradientColors, trends, dailyEntry, onDailyEntryUpdate, carePlanScore, hsScore, maintenanceScore, restrictiveScore, fireScore, infectionScore, mealtimeScore, nightScore, staffFileScore, kitchenScore, handleAuditCardClick, onStaffingTeamsClick, onStaffingTrendsClick, onOccupancyTrendsClick, onComplianceOverviewClick, navigateToAuditForm }: { 
     documents: Document[], 
     onSelect: (doc: Document) => void, 
     workspaceId?: string,
@@ -108,7 +109,8 @@ const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradi
     onStaffingTeamsClick?: () => void,
     onStaffingTrendsClick?: () => void,
     onOccupancyTrendsClick?: () => void,
-    onComplianceOverviewClick?: () => void
+    onComplianceOverviewClick?: () => void,
+    navigateToAuditForm: (auditKey: string) => void
 }) => {
     const actionableItems = useMemo(() => {
         const today = new Date();
@@ -141,7 +143,7 @@ const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradi
                 <p className="text-gray-600 max-w-2xl">Access your most important tools and monitor key metrics at a glance</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 relative z-10">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 relative z-10 pointer-events-auto">
                 {/* Daily Check-in Card */}
                 <Card className="group relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-blue-500 to-blue-600 hover:shadow-xl text-white transition-all duration-300">
                     <CardHeader className="pb-3">
@@ -264,207 +266,20 @@ const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradi
                 </Card>
             </div>
             
-            {/* Enhanced Compliance Status Grid */}
+            {/* Compliance Status Grid removed. Placeholder for future dashboard widgets. */}
             <div className="space-y-6">
-                <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-lg">
-                            <Shield className="h-5 w-5 text-white" />
-                        </div>
-                        <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">Compliance Overview</h2>
-                    </div>
-                    <p className="text-gray-600 max-w-2xl">Monitor your audit progress and identify areas needing attention</p>
-                </div>
-
-                {/* Progress Summary Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                    <Card className="p-4 bg-gradient-to-br from-blue-50 to-blue-100/50 border border-blue-200/50 hover:shadow-lg transition-all duration-300">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-blue-500 rounded-xl">
-                                <FileCheck className="h-6 w-6 text-white" />
-                            </div>
-                            <div>
-                                <div className="text-2xl font-bold text-blue-900">{overallStats.auditsCompleted}</div>
-                                <div className="text-sm text-blue-700 font-medium">Completed Audits</div>
-                            </div>
-                        </div>
-                    </Card>
-                    <Card className="p-4 bg-gradient-to-br from-amber-50 to-amber-100/50 border border-amber-200/50 hover:shadow-lg transition-all duration-300">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-amber-500 rounded-xl">
-                                <AlertCircle className="h-6 w-6 text-white" />
-                            </div>
-                            <div>
-                                <div className="text-2xl font-bold text-amber-900">{overallStats.totalAudits - overallStats.auditsCompleted}</div>
-                                <div className="text-sm text-amber-700 font-medium">Pending Audits</div>
-                            </div>
-                        </div>
-                    </Card>
-                    <Card className="p-4 bg-gradient-to-br from-emerald-50 to-emerald-100/50 border border-emerald-200/50 hover:shadow-lg transition-all duration-300">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-emerald-500 rounded-xl">
-                                <TrendingUp className="h-6 w-6 text-white" />
-                            </div>
-                            <div>
-                                <div className="text-2xl font-bold text-emerald-900">{overallStats.overallPercentage !== null ? `${overallStats.overallPercentage}%` : '—'}</div>
-                                <div className="text-sm text-emerald-700 font-medium">Overall Score</div>
-                            </div>
-                        </div>
-                    </Card>
-                </div>
-
-                {/* Audit Status Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 relative z-10">
-                    {(() => {
-                        // Complete audit list matching audits page and firestore function
-                        const allAudits = [
-                            { key: 'accident-incident', name: 'Accident & Incident', score: null, icon: '🚨', color: 'from-red-500 to-red-600' },
-                            { key: 'call-bell-monitoring', name: 'Call Bell Monitoring', score: null, icon: '🔔', color: 'from-blue-500 to-blue-600' },
-                            { key: 'care-plan', name: 'Care Plan', score: carePlanScore, icon: '📋', color: 'from-green-500 to-green-600' },
-                            { key: 'equipment', name: 'Equipment', score: null, icon: '🔧', color: 'from-gray-500 to-gray-600' },
-                            { key: 'fire-safety', name: 'Fire Safety', score: fireScore, icon: '🔥', color: 'from-orange-500 to-red-600' },
-                            { key: 'hand-hygiene', name: 'Hand Hygiene', score: null, icon: '🧼', color: 'from-cyan-500 to-blue-600' },
-                            { key: 'health-safety', name: 'Health & Safety', score: hsScore, icon: '⚕️', color: 'from-emerald-500 to-green-600' },
-                            { key: 'infection-control', name: 'Infection Control', score: infectionScore, icon: '🦠', color: 'from-purple-500 to-purple-600' },
-                            { key: 'kitchen', name: 'Kitchen', score: kitchenScore, icon: '👨‍🍳', color: 'from-yellow-500 to-orange-600' },
-                            { key: 'maintenance', name: 'Maintenance', score: maintenanceScore, icon: '�', color: 'from-slate-500 to-slate-600' },
-                            { key: 'managers-weekly', name: 'Managers Weekly', score: null, icon: '📊', color: 'from-indigo-500 to-indigo-600' },
-                            { key: 'mealtime', name: 'Mealtime', score: mealtimeScore, icon: '🍽️', color: 'from-pink-500 to-rose-600' },
-                            { key: 'night-visit', name: 'Night Visit', score: nightScore, icon: '🌙', color: 'from-indigo-500 to-purple-600' },
-                            { key: 'restrictive-practice', name: 'Restrictive Practice', score: restrictiveScore, icon: '🔒', color: 'from-amber-500 to-orange-600' },
-                            { key: 'staff-file', name: 'Staff File', score: staffFileScore, icon: '📁', color: 'from-teal-500 to-cyan-600' },
-                            { key: 'weight-monitoring', name: 'Weight Monitoring', score: null, icon: '⚖️', color: 'from-lime-500 to-green-600' },
-                            { key: 'wound-monitoring', name: 'Wound Monitoring', score: null, icon: '🩹', color: 'from-rose-500 to-pink-600' },
-                            { key: 'risk-register', name: 'Risk Register', score: null, icon: '�', color: 'from-violet-500 to-purple-600' }
-                        ];
-
-                        // Filter to show only pending audits (those without scores or with scores < 100%)
-                        const pendingAudits = allAudits.filter(audit => 
-                            audit.score === null || audit.score < 100
-                        );
-
-                        return pendingAudits.map(audit => {
-                            const isCompleted = audit.score !== null && audit.score >= 100;
-                            const statusColor = isCompleted 
-                                ? 'bg-gradient-to-br from-green-100 to-green-200 border-green-300 text-green-800' 
-                                : 'bg-gradient-to-br from-gray-100 to-gray-200 border-gray-300 text-gray-700 hover:from-gray-200 hover:to-gray-300';
-                            const iconBg = isCompleted 
-                                ? 'bg-green-500' 
-                                : `bg-gradient-to-br ${audit.color}`;
-
-                            return (
-                                <Card 
-                                    key={audit.key} 
-                                    className={`group relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-xl border-2 pointer-events-auto z-10 ${statusColor}`}
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        handleAuditCardClick(audit.key);
-                                    }}
-                                    role="button"
-                                    tabIndex={0}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter' || e.key === ' ') {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            handleAuditCardClick(audit.key);
-                                        }
-                                    }}
-                                >
-                                    <CardContent className="p-4 text-center space-y-3">
-                                        <div className={`w-12 h-12 mx-auto rounded-xl flex items-center justify-center text-white text-xl shadow-lg ${iconBg}`}>
-                                            {audit.icon}
-                                        </div>
-                                        <div>
-                                            <div className="text-sm font-bold leading-tight mb-1">{audit.name}</div>
-                                            <div className="text-lg font-bold">
-                                                {audit.score !== null ? `${audit.score}%` : 'Pending'}
-                                            </div>
-                                            <div className="text-xs opacity-75 mt-1">
-                                                {isCompleted ? 'Completed ✓' : 'Click to Complete'}
-                                            </div>
-                                        </div>
-                                        {audit.score !== null && audit.score < 100 && (
-                                            <div className="w-full bg-gray-300 rounded-full h-1">
-                                                <div 
-                                                    className="bg-current h-1 rounded-full transition-all duration-500" 
-                                                    style={{ width: `${audit.score}%` }}
-                                                ></div>
-                                            </div>
-                                        )}
-                                    </CardContent>
-                                </Card>
-                            );
-                        });
-                    })()}
-                </div>
-
-                {/* Completed Audits Summary */}
-                {(() => {
-                    // Complete audit list matching audits page and firestore function
-                    const allAudits = [
-                        { key: 'accident-incident', name: 'Accident & Incident', score: null, icon: '🚨' },
-                        { key: 'call-bell-monitoring', name: 'Call Bell Monitoring', score: null, icon: '🔔' },
-                        { key: 'care-plan', name: 'Care Plan', score: carePlanScore, icon: '📋' },
-                        { key: 'equipment', name: 'Equipment', score: null, icon: '🔧' },
-                        { key: 'fire-safety', name: 'Fire Safety', score: fireScore, icon: '🔥' },
-                        { key: 'hand-hygiene', name: 'Hand Hygiene', score: null, icon: '🧼' },
-                        { key: 'health-safety', name: 'Health & Safety', score: hsScore, icon: '⚕️' },
-                        { key: 'infection-control', name: 'Infection Control', score: infectionScore, icon: '🦠' },
-                        { key: 'kitchen', name: 'Kitchen', score: kitchenScore, icon: '👨‍🍳' },
-                        { key: 'maintenance', name: 'Maintenance', score: maintenanceScore, icon: '�' },
-                        { key: 'managers-weekly', name: 'Managers Weekly', score: null, icon: '📊' },
-                        { key: 'mealtime', name: 'Mealtime', score: mealtimeScore, icon: '🍽️' },
-                        { key: 'night-visit', name: 'Night Visit', score: nightScore, icon: '🌙' },
-                        { key: 'restrictive-practice', name: 'Restrictive Practice', score: restrictiveScore, icon: '🔒' },
-                        { key: 'staff-file', name: 'Staff File', score: staffFileScore, icon: '📁' },
-                        { key: 'weight-monitoring', name: 'Weight Monitoring', score: null, icon: '⚖️' },
-                        { key: 'wound-monitoring', name: 'Wound Monitoring', score: null, icon: '🩹' },
-                        { key: 'risk-register', name: 'Risk Register', score: null, icon: '📋' }
-                    ];
-
-                    // Show completed audits (those with scores >= 100%)
-                    const completedAudits = allAudits.filter(audit => 
-                        audit.score !== null && audit.score >= 100
-                    );
-
-                    if (completedAudits.length > 0) {
-                        return (
-                            <div className="mt-8">
-                                <div className="flex items-center gap-3 mb-6">
-                                    <div className="p-2 bg-green-500 rounded-lg">
-                                        <CheckCircle className="h-5 w-5 text-white" />
-                                    </div>
-                                    <h3 className="text-xl font-bold text-gray-800">Completed This Month</h3>
-                                </div>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                                    {completedAudits.map(audit => (
-                                        <Card key={audit.key} className="p-4 bg-gradient-to-br from-green-50 to-green-100 border border-green-200 hover:shadow-lg transition-all duration-300 hover:scale-105">
-                                            <div className="text-center space-y-2">
-                                                <div className="text-2xl">{audit.icon}</div>
-                                                <div className="text-sm font-bold text-green-800">{audit.name}</div>
-                                                <div className="text-lg font-bold text-green-700">
-                                                    {audit.score}% ✓
-                                                </div>
-                                                <div className="text-xs text-green-600">
-                                                    Completed
-                                                </div>
-                                            </div>
-                                        </Card>
-                                    ))}
-                                </div>
-                            </div>
-                        );
-                    }
-                    return null;
-                })()}
+                {/* TODO: Add new dashboard widgets here. */}
             </div>
             
-            {/* Audits and Action Plans Section */}
-            <div className="mt-8">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 max-w-6xl">
+            {/* Audits and Action Plans Section - two-column grid, left, same width as above */}
+            <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6 pointer-events-auto relative z-10">
+                <div className="flex flex-col gap-6 pointer-events-auto relative z-10">
                     {/* Audits Card */}
-                    <Card className="group hover:shadow-xl transition-all duration-300 border border-blue-200/60 bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-blue-100/50">
+                    <Card className="hover:shadow-xl transition-all duration-300 border border-blue-200/60 bg-white rounded-2xl shadow-lg hover:shadow-blue-100/50 pointer-events-auto relative z-[100] cursor-pointer" onClick={() => {
+                        if (typeof window !== 'undefined') {
+                            window.dispatchEvent(new CustomEvent('navigate-to-audits'));
+                        }
+                    }}>
                         <CardHeader className="pb-3 border-b border-blue-100/80 bg-gradient-to-r from-blue-50/40 to-transparent rounded-t-2xl">
                             <CardTitle className="text-sm font-semibold flex items-center gap-2 text-blue-900">
                                 <FileCheck className="h-4 w-4 text-blue-500" />
@@ -501,9 +316,9 @@ const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradi
                                     }
 
                                     return (
-                                        <div className="space-y-3 max-h-40 overflow-y-auto">
+                                        <div className="space-y-3 max-h-60 overflow-y-auto pointer-events-auto">
                                             {incompleteAudits.slice(0, 4).map(audit => (
-                                                <div key={audit.key} className="flex items-center justify-between p-3 bg-red-50/60 rounded-xl border border-red-200/40 hover:bg-red-50/80 transition-colors duration-200">
+                                                <div key={audit.key} className="flex items-center justify-between p-3 bg-red-50/60 rounded-xl border border-red-200/40 hover:bg-red-50/80 transition-colors duration-200 pointer-events-auto cursor-pointer" onClick={() => navigateToAuditForm(audit.key)}>
                                                     <div className="flex items-center gap-3 min-w-0">
                                                         <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
                                                         <span className="text-sm font-medium truncate text-gray-700">{audit.name}</span>
@@ -525,10 +340,11 @@ const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradi
                             </div>
                         </CardContent>
                     </Card>
-                    
                     {/* Action Plans Card */}
                     <ActionPlansCard workspaceId={workspaceId} documents={documents} onSelect={onSelect} />
                 </div>
+                {/* Placeholder for new card to the right */}
+                <ResidentCareCard workspaceId={workspaceId} />
             </div>
         </div>
     );
@@ -928,6 +744,307 @@ function ActionPlansCard({ workspaceId, documents, onSelect }: {
     );
 }
 
+function ResidentCareCard({ workspaceId }: { workspaceId?: string }) {
+    const [dependencyData, setDependencyData] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
+    
+    useEffect(() => {
+        if (!workspaceId) return;
+        setLoading(true);
+        
+        // Listen to dependency calculator data collection
+        try {
+            const depRef = doc(db, `workspaces/${workspaceId}/dependency_calculator`, 'default');
+            const unsub = onSnapshot(depRef, (snap) => {
+                if (snap.exists()) {
+                    const data = snap.data();
+                    const residents = data.residents || [];
+                    setDependencyData(residents);
+                } else {
+                    setDependencyData([]);
+                }
+                setLoading(false);
+            }, (err) => {
+                console.error('Failed to listen to dependency calculator data', err);
+                setLoading(false);
+            });
+            return () => unsub();
+        } catch (e) {
+            console.error('Failed to set up dependency calculator data listener', e);
+            setLoading(false);
+        }
+    }, [workspaceId]);
+
+    // Calculate dependency statistics using the same functions as the dependency calculator
+    const calculateNDPSScore = (resident: any) => {
+        const scores = [
+            resident.personalCare === "None" ? 0 : resident.personalCare === "Low" ? 1 : resident.personalCare === "Medium" ? 2 : resident.personalCare === "High" ? 3 : 0,
+            resident.mobility === "None" ? 0 : resident.mobility === "Low" ? 1 : resident.mobility === "Medium" ? 2 : resident.mobility === "High" ? 3 : 0,
+            resident.continence === "None" ? 0 : resident.continence === "Low" ? 1 : resident.continence === "Medium" ? 2 : resident.continence === "High" ? 3 : 0,
+            resident.eatingDrinking === "None" ? 0 : resident.eatingDrinking === "Low" ? 1 : resident.eatingDrinking === "Medium" ? 2 : resident.eatingDrinking === "High" ? 3 : 0,
+            resident.skinIntegrity === "None" ? 0 : resident.skinIntegrity === "Low" ? 1 : resident.skinIntegrity === "Medium" ? 2 : resident.skinIntegrity === "High" ? 3 : 0,
+            resident.medication === "None" ? 0 : resident.medication === "Low" ? 1 : resident.medication === "Medium" ? 2 : resident.medication === "High" ? 3 : 0,
+            resident.medical === "None" ? 0 : resident.medical === "Low" ? 1 : resident.medical === "Medium" ? 2 : resident.medical === "High" ? 3 : 0,
+            resident.breathing === "None" ? 0 : resident.breathing === "Low" ? 1 : resident.breathing === "Medium" ? 2 : resident.breathing === "High" ? 3 : 0,
+            resident.emotionalSupport === "None" ? 0 : resident.emotionalSupport === "Low" ? 1 : resident.emotionalSupport === "Medium" ? 2 : resident.emotionalSupport === "High" ? 3 : 0,
+            resident.behaviours === "None" ? 0 : resident.behaviours === "Low" ? 1 : resident.behaviours === "Medium" ? 2 : resident.behaviours === "High" ? 3 : 0,
+            resident.additionalNeeds === "None" ? 0 : resident.additionalNeeds === "Low" ? 1 : resident.additionalNeeds === "Medium" ? 2 : resident.additionalNeeds === "High" ? 3 : 0,
+            resident.cognition === "None" ? 0 : resident.cognition === "Low" ? 1 : resident.cognition === "Medium" ? 2 : resident.cognition === "High" ? 3 : 0,
+            resident.nightNeeds === "None" ? 0 : resident.nightNeeds === "Low" ? 1 : resident.nightNeeds === "Medium" ? 2 : resident.nightNeeds === "High" ? 3 : 0
+        ];
+        return scores.reduce((sum, score) => sum + score, 0);
+    };
+
+    const getNDPSBand = (score: number) => {
+        if (score <= 5) return { band: 1, name: "Independent" };
+        if (score <= 10) return { band: 2, name: "Low Dependency" };
+        if (score <= 15) return { band: 3, name: "Medium Dependency" };
+        if (score <= 20) return { band: 4, name: "High Dependency" };
+        return { band: 5, name: "Very High Dependency" };
+    };
+
+    const calculateResidentCareMinutes = (resident: any) => {
+        const score = calculateNDPSScore(resident);
+        let dayMinutes = 0;
+        let nightMinutes = 0;
+
+        // Day care time based on NDPS score
+        if (score <= 5) dayMinutes = 30; // Independent
+        else if (score <= 10) dayMinutes = 60; // Low dependency
+        else if (score <= 15) dayMinutes = 120; // Medium dependency
+        else if (score <= 20) dayMinutes = 180; // High dependency
+        else dayMinutes = 240; // Very high dependency
+
+        // Night care time (typically less than day)
+        if (score <= 5) nightMinutes = 15;
+        else if (score <= 10) nightMinutes = 30;
+        else if (score <= 15) nightMinutes = 60;
+        else if (score <= 20) nightMinutes = 90;
+        else nightMinutes = 120;
+
+        return { Day: dayMinutes, Night: nightMinutes };
+    };
+
+    const calculateNDPSStaffing = (residents: any[]) => {
+        let totalDayStaff = 0;
+        let totalNightStaff = 0;
+
+        residents.forEach(resident => {
+            const care = calculateResidentCareMinutes(resident);
+            // Convert minutes to 12-hour equivalent and calculate staff needed
+            const dayStaff = (care.Day / 60) / 12; // staff needed for 12-hour shift
+            const nightStaff = (care.Night / 60) / 12;
+            totalDayStaff += dayStaff;
+            totalNightStaff += nightStaff;
+        });
+
+        return { Day: Math.ceil(totalDayStaff * 4) / 4, Night: Math.ceil(totalNightStaff * 4) / 4 }; // Round to nearest quarter
+    };
+
+    const calculateStaffBreakdown = (residents: any[]) => {
+        const totalStaffing = calculateNDPSStaffing(residents);
+        
+        // Fixed CTMs: 1 per shift
+        const dayCTMs = 1;
+        const nightCTMs = 1;
+        
+        // Calculate remaining staff after CTMs
+        const dayRemainingStaff = Math.max(0, totalStaffing.Day - dayCTMs);
+        const nightRemainingStaff = Math.max(0, totalStaffing.Night - nightCTMs);
+        
+        // Analyze resident dependency profile to determine nurse/carer split
+        let highDependencyCount = 0; // Band 4-5
+        let mediumDependencyCount = 0; // Band 3
+        let lowDependencyCount = 0; // Band 1-2
+        
+        residents.forEach(resident => {
+            const score = calculateNDPSScore(resident);
+            const band = getNDPSBand(score).band;
+            if (band >= 4) highDependencyCount++;
+            else if (band === 3) mediumDependencyCount++;
+            else lowDependencyCount++;
+        });
+        
+        // Calculate nurse percentage based on dependency profile
+        const totalResidents = residents.length;
+        let dayNurses = 0;
+        let nightNurses = 0;
+        
+        if (totalResidents > 0) {
+            // More direct approach: ensure nurses for high dependency residents
+            if (highDependencyCount > 0) {
+                // Minimum 1 nurse per shift if any high dependency residents
+                // Plus additional nurses for multiple high dependency residents
+                dayNurses = Math.max(1, Math.ceil(highDependencyCount * 0.5));
+                nightNurses = Math.max(1, Math.ceil(highDependencyCount * 0.3));
+            } else if (mediumDependencyCount >= 3) {
+                // If 3+ medium dependency residents, consider 1 nurse for day shift
+                dayNurses = 1;
+                nightNurses = 0;
+            }
+            
+            // Ensure we don't exceed remaining staff
+            dayNurses = Math.min(dayNurses, dayRemainingStaff);
+            nightNurses = Math.min(nightNurses, nightRemainingStaff);
+        }
+        
+        // Remaining staff are carers
+        const dayCarers = dayRemainingStaff - dayNurses;
+        const nightCarers = nightRemainingStaff - nightNurses;
+        
+        return {
+            Day: {
+                nurses: dayNurses,
+                ctms: dayCTMs,
+                carers: dayCarers,
+                total: dayNurses + dayCTMs + dayCarers
+            },
+            Night: {
+                nurses: nightNurses,
+                ctms: nightCTMs,
+                carers: nightCarers,
+                total: nightNurses + nightCTMs + nightCarers
+            }
+        };
+    };
+
+    const totalResidents = dependencyData.length;
+    const highDependency = dependencyData.filter(r => {
+        const score = calculateNDPSScore(r);
+        const band = getNDPSBand(score).band;
+        return band >= 4;
+    }).length;
+    const mediumDependency = dependencyData.filter(r => {
+        const score = calculateNDPSScore(r);
+        const band = getNDPSBand(score).band;
+        return band === 3;
+    }).length;
+    const lowDependency = dependencyData.filter(r => {
+        const score = calculateNDPSScore(r);
+        const band = getNDPSBand(score).band;
+        return band <= 2;
+    }).length;
+
+    // Average dependency score
+    const avgScore = totalResidents > 0 ? 
+        Math.round(dependencyData.reduce((sum, r) => sum + calculateNDPSScore(r), 0) / totalResidents * 10) / 10 : 0;
+
+    // Care intensity percentage (higher score = more care needed)
+    const careIntensityPercent = Math.min(100, Math.round((avgScore / 10) * 100));
+
+    // Choose gradient colors based on care intensity
+    let gradientColors = { start: '#34d399', end: '#059669' };
+    if (careIntensityPercent > 70) gradientColors = { start: '#f87171', end: '#dc2626' };
+    else if (careIntensityPercent > 40) gradientColors = { start: '#fbbf24', end: '#d97706' };
+
+    // Calculate staffing information
+    const staffingBreakdown = calculateStaffBreakdown(dependencyData);
+    const dayRatio = totalResidents > 0 && staffingBreakdown.Day.total > 0 ? 
+        (Math.round((totalResidents / staffingBreakdown.Day.total) * 100) / 100) : 0;
+    const nightRatio = totalResidents > 0 && staffingBreakdown.Night.total > 0 ? 
+        (Math.round((totalResidents / staffingBreakdown.Night.total) * 100) / 100) : 0;
+
+    return (
+        <Card className="group hover:shadow-xl transition-all duration-300 border border-teal-200/60 bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-teal-100/50">
+            <CardHeader className="pb-3 border-b border-teal-100/80 bg-gradient-to-r from-teal-50/40 to-transparent rounded-t-2xl">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2 text-gray-900">
+                    <Heart className="h-4 w-4 text-teal-600" />
+                    Resident Care
+                </CardTitle>
+                <CardDescription className="text-xs text-gray-600 font-medium">
+                    Dependency levels and staffing requirements
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-4">
+                {loading ? (
+                    <div className="text-sm text-gray-600">Loading resident data...</div>
+                ) : totalResidents > 0 ? (
+                    <div className="space-y-4">
+                        {/* Dependency Overview */}
+                        <div className="flex items-center gap-4 min-h-[80px]">
+                            <div className="flex-shrink-0 w-16 h-16 flex items-center justify-center">
+                                <OccupancyPie 
+                                    percent={careIntensityPercent} 
+                                    size={64} 
+                                    strokeWidth={6} 
+                                    gradientColors={gradientColors} 
+                                    centerFontSize={14} 
+                                    centerClassName="font-bold text-gray-800" 
+                                    centerFill="transparent" 
+                                />
+                            </div>
+                            <div className="flex-1 space-y-3">
+                                <div className="grid grid-cols-3 gap-2">
+                                    <div className="text-center p-2 bg-red-50 rounded-lg border border-red-200/40">
+                                        <div className="text-lg font-bold text-gray-800">{highDependency}</div>
+                                        <div className="text-xs text-red-700 font-medium">High</div>
+                                    </div>
+                                    <div className="text-center p-2 bg-yellow-50 rounded-lg border border-yellow-200/40">
+                                        <div className="text-lg font-bold text-gray-800">{mediumDependency}</div>
+                                        <div className="text-xs text-yellow-700 font-medium">Medium</div>
+                                    </div>
+                                    <div className="text-center p-2 bg-green-50 rounded-lg border border-green-200/40">
+                                        <div className="text-lg font-bold text-gray-800">{lowDependency}</div>
+                                        <div className="text-xs text-green-700 font-medium">Low</div>
+                                    </div>
+                                </div>
+                                <div className="text-center">
+                                    <div className="text-sm font-semibold text-gray-700">
+                                        Average dependency: {avgScore}/10
+                                    </div>
+                                    <div className="text-xs text-gray-500 mt-1">
+                                        {totalResidents} resident{totalResidents !== 1 ? 's' : ''} assessed
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Staffing Information */}
+                        <div className="border-t border-gray-100 pt-4">
+                            <div className="text-sm font-semibold text-gray-800 mb-3">Staffing Requirements</div>
+                            
+                            {/* Staff Ratios */}
+                            <div className="grid grid-cols-2 gap-3 mb-3">
+                                <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-200/40">
+                                    <div className="text-lg font-bold text-blue-800">{dayRatio}:1</div>
+                                    <div className="text-xs text-blue-700 font-medium">Day Ratio</div>
+                                </div>
+                                <div className="text-center p-3 bg-indigo-50 rounded-lg border border-indigo-200/40">
+                                    <div className="text-lg font-bold text-indigo-800">{nightRatio}:1</div>
+                                    <div className="text-xs text-indigo-700 font-medium">Night Ratio</div>
+                                </div>
+                            </div>
+
+                            {/* Staff Breakdown */}
+                            <div className="space-y-2">
+                                <div className="text-xs font-medium text-gray-600 mb-2">Required Staff (24h total)</div>
+                                <div className="grid grid-cols-2 gap-2 text-center">
+                                    <div className="p-2 bg-green-50 rounded border border-green-200/40">
+                                        <div className="text-sm font-bold text-green-800">{staffingBreakdown.Day.total + staffingBreakdown.Night.total}</div>
+                                        <div className="text-xs text-green-700">Total Staff</div>
+                                    </div>
+                                    <div className="p-2 bg-purple-50 rounded border border-purple-200/40">
+                                        <div className="text-sm font-bold text-purple-800">
+                                            {staffingBreakdown.Day.nurses + staffingBreakdown.Night.nurses}
+                                        </div>
+                                        <div className="text-xs text-purple-700">Nurses</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="text-center py-6">
+                        <Heart className="h-10 w-10 text-gray-400 mx-auto mb-3" />
+                        <p className="text-sm text-gray-600 font-medium">No resident data available</p>
+                        <p className="text-xs text-gray-500 mt-1">Complete dependency assessments to see care metrics</p>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
 function StaffingCard({ workspaceId, dailyEntry, onTeamsClick, onTrendsClick }: { workspaceId?: string, dailyEntry?: any, onTeamsClick?: () => void, onTrendsClick?: () => void }) {
     const [staffingData, setStaffingData] = useState<{ day: string; night: string; lastUpdated?: string } | null>(null);
     const [loading, setLoading] = useState(false);
@@ -1187,6 +1304,10 @@ interface DashboardHomeProps {
 
 export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd }: DashboardHomeProps) {
     const isMobile = useIsMobile();
+    const { user } = useAuth();
+
+    // Header logo (follows same logic as TopNav: prefer user's profilePicture, then uploadedLogo, with workspace fallback)
+    const [headerLogo, setHeaderLogo] = useState<string | null>(null);
     
     const { documents, folders } = useMemo(() => getAllItems(workspace.folders), [workspace.folders]);
 
@@ -1247,8 +1368,46 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
 
     useEffect(() => {
         if (!workspace?.id) return;
+        let unsubscribeFromUser: (() => void) | undefined;
+
+        (async () => {
+            try {
+                // If workspace.id refers to another user/doc, try to read any previously-saved image there
+                if (workspace.id && workspace.id !== user?.id) {
+                    const wsDocRef = doc(db, 'users', workspace.id);
+                    const wsSnap = await getDoc(wsDocRef);
+                    if (wsSnap.exists()) {
+                        const data = wsSnap.data();
+                        if (data?.profilePicture) {
+                            setHeaderLogo(data.profilePicture);
+                            return; // prefer workspace-saved image until user doc subscription overrides it
+                        } else if (data?.uploadedLogo) {
+                            setHeaderLogo(data.uploadedLogo);
+                            return;
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('workspace fallback header logo fetch failed', err);
+            }
+        })();
+
+        // Live subscribe to the authenticated user's doc (this should be the source of truth)
+        if (user?.id) {
+            const userDocRef = doc(db, 'users', user.id);
+            unsubscribeFromUser = onSnapshot(userDocRef, (d) => {
+                const data = d.data();
+                if (data?.profilePicture) {
+                    setHeaderLogo(data.profilePicture);
+                } else if (data?.uploadedLogo) {
+                    setHeaderLogo(data.uploadedLogo);
+                }
+            });
+        }
+
+        // Subscribe to audit latest scores
         const ref = doc(db, `workspaces/${workspace.id}/settings`, 'audit_latest_scores');
-        const unsub = onSnapshot(ref, (snap) => {
+        const unsubAudit = onSnapshot(ref, (snap) => {
             if (snap.exists()) {
                 const data = snap.data() as any;
                 const cp = data?.['care-plan'];
@@ -1356,7 +1515,11 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
         }, (err) => {
             console.warn('Failed to listen to audit_latest_scores', err);
         });
-        return () => unsub();
+
+        return () => {
+            if (unsubscribeFromUser) unsubscribeFromUser();
+            if (unsubAudit) unsubAudit();
+        };
     }, [workspace?.id]);
 
 
@@ -1508,6 +1671,15 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
         currentScore: null
     });
 
+    // Ensure all modals are closed on mount
+    useEffect(() => {
+        setIsStaffingModalOpen(false);
+        setIsStaffingTrendsModalOpen(false);
+        setIsOccupancyModalOpen(false);
+        setIsComplianceModalOpen(false);
+        setAuditDetailModal(prev => ({ ...prev, isOpen: false }));
+    }, []);
+
     useEffect(() => {
         if (!workspace?.id) return;
         try {
@@ -1569,25 +1741,21 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
         }
     };
 
-    // Function to navigate to audit forms by triggering view change to audits
-    const navigateToAuditForm = (auditKey: string) => {
-        // Use the same navigation pattern as the sidebar - trigger a view change event
-        if (typeof window !== 'undefined') {
-            // Store the specific audit type in localStorage so the audits page can open it
-            localStorage.setItem('openAuditType', auditKey);
-            // Dispatch event to change view to audits
-            window.dispatchEvent(new CustomEvent('navigate-to-audits', { 
-                detail: { auditType: auditKey } 
-            }));
-        }
-    };
-
-
+// Function to navigate to audit forms by triggering view change to audits
+const navigateToAuditForm = (auditKey: string) => {
+    // Dispatch event to switch dashboard view to audits and set the audit type
+    if (typeof window !== 'undefined') {
+        localStorage.setItem('openAuditType', auditKey);
+        window.dispatchEvent(new CustomEvent('navigate-to-audits', { 
+            detail: { auditType: auditKey } 
+        }));
+    }
+};
 
 
 
     return (
-    <div className="flex flex-col h-full min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
+    <div className="flex flex-col h-full min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 pointer-events-auto">
         {/* Enhanced hero header with modern design */}
         <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-blue-600 to-purple-700 text-white rounded-b-3xl">
                 {/* Animated background elements */}
@@ -1600,8 +1768,14 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
                 <div className="relative z-10 p-8">
                     <div className="w-full mx-auto flex items-start justify-between gap-8">
                         <div className="flex items-start gap-6">
-                            <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg">
-                                <Users className="w-8 h-8 text-white" />
+                            <div className="p-1 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg">
+                                {/* Header logo precedence: headerLogo (from user doc) -> workspace.profilePicture -> workspace.settings.uploadedLogo -> fallback icon */}
+                                <Avatar className="w-10 h-10 bg-white/5">
+                                    <AvatarImage src={headerLogo ?? workspace.profilePicture ?? workspace.settings?.uploadedLogo ?? undefined} alt={workspace.name} />
+                                    <AvatarFallback>
+                                        <Users className="w-6 h-6 text-white" />
+                                    </AvatarFallback>
+                                </Avatar>
                             </div>
                             <div className="space-y-2">
                                 <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-sm rounded-full border border-white/20">
@@ -1688,9 +1862,9 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
                     </div>
                 </div>
             </div>
-            <main className="flex-1 overflow-y-auto">
+            <main className="flex-1">
                 <div className="min-h-full bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/10">
-                    <div className="w-full p-4 sm:p-6 lg:p-8 space-y-8 lg:space-y-12">
+                    <div className="w-full p-4 sm:p-6 lg:p-8 space-y-8 lg:space-y-12 pointer-events-auto">
                         {/* Quick Actions Section */}
                         <QuickActions
                             documents={documents}
@@ -1716,6 +1890,7 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
                             onStaffingTrendsClick={() => setIsStaffingTrendsModalOpen(true)}
                             onOccupancyTrendsClick={() => setIsOccupancyModalOpen(true)}
                             onComplianceOverviewClick={() => setIsComplianceModalOpen(true)}
+                            navigateToAuditForm={navigateToAuditForm}
                         />
 
                         {/* Recent Activity Timeline */}

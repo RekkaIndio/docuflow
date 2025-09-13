@@ -118,7 +118,14 @@ export function SettingsView({ workspace }: SettingsViewProps) {
         reader.readAsDataURL(file);
         try {
             if (!user?.id) throw new Error('No user id available to save profile picture');
-            const downloadUrl = await uploadProfilePicture(file, user.id);
+
+            // Read existing user doc to obtain previous profile picture URL (if any)
+            const userDocRef = doc(db, 'users', user.id);
+            const userSnap = await getDoc(userDocRef);
+            const prevUrl = userSnap.exists() ? (userSnap.data() as any).profilePicture : undefined;
+
+            // uploadProfilePicture will delete previous file if prevUrl is provided
+            const downloadUrl = await uploadProfilePicture(file, user.id, prevUrl);
             await saveProfilePictureUrl(user.id, downloadUrl);
             setProfilePicture(downloadUrl);
         } catch (error) {

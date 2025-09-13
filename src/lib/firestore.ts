@@ -450,7 +450,16 @@ export async function saveAudit(data: any, workspaceId?: string): Promise<string
             try {
                 if (data && typeof data.scorePercent === 'number' && typeof data.auditType === 'string') {
                     const latestRef = doc(db, `workspaces/${workspaceId}/settings`, 'audit_latest_scores');
-                    await setDoc(latestRef, { [data.auditType]: { scorePercent: data.scorePercent, yesCount: data.yesCount ?? null, totalCount: data.totalCount ?? null, updatedAt: new Date().toISOString() } }, { merge: true });
+                    const updateData = {
+                        [data.auditType]: {
+                            scorePercent: data.scorePercent,
+                            yesCount: data.yesCount ?? null,
+                            totalCount: data.totalCount ?? null,
+                            updatedAt: new Date().toISOString()
+                        }
+                    };
+                    await setDoc(latestRef, updateData, { merge: true });
+                    console.log('Mirrored audit score to dashboard:', data.auditType, data.scorePercent);
                 }
             } catch (mirrorErr) {
                 console.warn('Failed to mirror latest audit score to workspace settings', mirrorErr);
@@ -668,6 +677,25 @@ export async function markAuditCompletedWithSnapshot(workspaceId: string, auditT
             console.error('[markAuditCompletedWithSnapshot] Failed to generate action plan items:', actionPlanError);
         }
 
+        // Mirror the audit score to workspace settings for dashboard display
+        try {
+            if (auditData && typeof auditData.scorePercent === 'number' && typeof auditType === 'string') {
+                const latestRef = doc(db, `workspaces/${workspaceId}/settings`, 'audit_latest_scores');
+                const updateData = {
+                    [auditType]: {
+                        scorePercent: auditData.scorePercent,
+                        yesCount: auditData.yesCount ?? null,
+                        totalCount: auditData.totalCount ?? null,
+                        updatedAt: new Date().toISOString()
+                    }
+                };
+                await setDoc(latestRef, updateData, { merge: true });
+                console.log('Mirrored audit score to dashboard from completion:', auditType, auditData.scorePercent);
+            }
+        } catch (mirrorErr) {
+            console.warn('Failed to mirror latest audit score to workspace settings', mirrorErr);
+        }
+
         // Then mark as completed in the status map
         await markAuditCompleted(workspaceId, auditType, completedAtIso);
 
@@ -723,52 +751,26 @@ async function generateAndSaveAuditPDF(workspaceId: string, auditType: string, a
 export async function getMonthlyAuditCompletionStatus(workspaceId: string): Promise<Record<string, boolean>> {
     try {
         const auditTypes = [
-            'accident-incident', 'call-bell-monitoring', 'care-plan', 'equipment', 
-            'fire-safety', 'hand-hygiene', 'health-safety', 'infection-control', 
-            'kitchen', 'maintenance', 'managers-weekly', 'mealtime', 'night-visit', 
-            'restrictive-practice', 'staff-file', 'weight-monitoring', 'wound-monitoring', 
+            'accident-incident', 'call-bell-monitoring', 'care-plan', 'equipment',
+            'fire-safety', 'hand-hygiene', 'health-safety', 'infection-control',
+            'kitchen', 'maintenance', 'managers-weekly', 'mealtime', 'night-visit',
+            'restrictive-practice', 'staff-file', 'weight-monitoring', 'wound-monitoring',
             'risk-register'
         ];
-        
-        const result: Record<string, boolean> = {};
 
-        // Read audit_status once to avoid repeated reads per-audit
-        let statusMap: Record<string, string> = {};
-        try {
-            const statusRef = doc(db, `workspaces/${workspaceId}/settings`, 'audit_status');
-            const statusSnap = await getDoc(statusRef);
-            if (statusSnap.exists()) {
-                statusMap = statusSnap.data() as Record<string, string>;
-            }
-        } catch (e) {
-            // non-fatal: proceed with snapshot checks only
-        }
+        const result: Record<string, boolean> = {};
 
         const date = new Date();
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 
-        // Parallelize snapshot checks, but consult the statusMap as a fallback
+        // Check for snapshots in the current month for each audit type
         await Promise.all(auditTypes.map(async (auditType) => {
             try {
                 const snapshotQuery = query(
                     collection(db, `workspaces/${workspaceId}/audit-snapshots/${monthKey}/${auditType}`)
                 );
                 const snapshot = await getDocs(snapshotQuery);
-                if (!snapshot.empty) {
-                    result[auditType] = true;
-                    return;
-                }
-
-                // fallback to statusMap timestamp check
-                const ts = statusMap[auditType];
-                if (ts) {
-                    const completedDate = new Date(ts);
-                    const completedMonthKey = `${completedDate.getFullYear()}-${String(completedDate.getMonth() + 1).padStart(2, '0')}`;
-                    result[auditType] = completedMonthKey === monthKey;
-                    // no debug logging
-                } else {
-                    result[auditType] = false;
-                }
+                result[auditType] = !snapshot.empty;
             } catch (err) {
                 // If snapshot check fails for a specific audit type, treat as not completed
                 result[auditType] = false;

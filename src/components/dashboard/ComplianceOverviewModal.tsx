@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { TrendingUp, TrendingDown, Minus, BarChart3, Calendar, CheckCircle, AlertCircle, Target, Award } from 'lucide-react';
-import { collection, query, orderBy, limit, onSnapshot, where } from 'firebase/firestore';
+import { collection, query, orderBy, limit, onSnapshot, where, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import OccupancyPie from '@/components/admin/occupancy-pie';
 
@@ -46,11 +46,10 @@ export function ComplianceOverviewModal({ isOpen, onClose, workspaceId }: Compli
     setLoading(true);
 
     // Listen to audit latest scores
-    const ref = collection(db, `workspaces/${workspaceId}/settings`);
-    const q = query(ref, where('__name__', '==', 'audit_latest_scores'));
-    const unsub = onSnapshot(q, (snap) => {
-      if (!snap.empty) {
-        const data = snap.docs[0].data() as any;
+    const ref = doc(db, `workspaces/${workspaceId}/settings`, 'audit_latest_scores');
+    const unsub = onSnapshot(ref, (snap) => {
+      if (snap.exists()) {
+        const data = snap.data() as any;
         const processedData: Record<string, AuditData> = {};
 
         const auditTypes = [

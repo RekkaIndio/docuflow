@@ -185,14 +185,16 @@ export function UploadButton({ onDocumentAdd, workspaceId, folderId, size = "def
           let emails: string[] = [];
           let adminTeamName = 'Admin';
 
-          // 1) Workspace-scoped Admin team
+          // 1) Workspace-scoped Admin team (subcollection)
           try {
-            const teamsQuery = query(collection(db, "teams"), where("name", "==", "Admin"), where("workspaceId", "==", workspaceId));
-            const teamsSnap = await getDocs(teamsQuery);
-            if (!teamsSnap.empty) {
-              const adminTeam = teamsSnap.docs[0].data();
-              emails = Array.isArray(adminTeam.emails) ? adminTeam.emails : [];
-              adminTeamName = adminTeam.name || adminTeamName;
+            if (workspaceId) {
+              const teamsQuery = query(collection(db, `workspaces/${workspaceId}/teams`), where("name", "==", "Admin"));
+              const teamsSnap = await getDocs(teamsQuery);
+              if (!teamsSnap.empty) {
+                const adminTeam = teamsSnap.docs[0].data();
+                emails = Array.isArray(adminTeam.emails) ? adminTeam.emails : [];
+                adminTeamName = adminTeam.name || adminTeamName;
+              }
             }
           } catch (e) {
             console.error('Error querying workspace-scoped Admin team', e);
@@ -201,14 +203,15 @@ export function UploadButton({ onDocumentAdd, workspaceId, folderId, size = "def
           // 2) Fallback: name-only Admin team anywhere
           if (emails.length === 0) {
             try {
+              // Fallback to any Admin team in top-level collection (legacy)
               const teamsQuery2 = query(collection(db, "teams"), where("name", "==", "Admin"));
               const teamsSnap2 = await getDocs(teamsQuery2);
               if (!teamsSnap2.empty) {
                 const adminTeam = teamsSnap2.docs[0].data();
                 emails = Array.isArray(adminTeam.emails) ? adminTeam.emails : [];
                 adminTeamName = adminTeam.name || adminTeamName;
-                // If team is missing workspaceId, patch it
-                if (!adminTeam.workspaceId) {
+                // If team is missing workspaceId, patch it to the current workspace
+                if (!adminTeam.workspaceId && workspaceId) {
                   const teamRef = doc(db, 'teams', teamsSnap2.docs[0].id);
                   await setDoc(teamRef, { ...adminTeam, workspaceId }, { merge: true });
                 }
@@ -221,12 +224,25 @@ export function UploadButton({ onDocumentAdd, workspaceId, folderId, size = "def
           // 3) Final fallback: default hardcoded Admin id for protected folders
           if (emails.length === 0) {
             try {
-              const adminDocRef = doc(db, 'teams', `admin-${workspaceId}`);
-              const adminSnap = await getDoc(adminDocRef);
-              if (adminSnap.exists()) {
-                const adminTeam = adminSnap.data() as any;
-                emails = Array.isArray(adminTeam.emails) ? adminTeam.emails : [];
-                adminTeamName = adminTeam.name || adminTeamName;
+              // Try workspace subcollection fixed id
+              if (workspaceId) {
+                const adminDocRef = doc(db, `workspaces/${workspaceId}/teams`, `admin-${workspaceId}`);
+                const adminSnap = await getDoc(adminDocRef);
+                if (adminSnap.exists()) {
+                  const adminTeam = adminSnap.data() as any;
+                  emails = Array.isArray(adminTeam.emails) ? adminTeam.emails : [];
+                  adminTeamName = adminTeam.name || adminTeamName;
+                }
+              }
+              // Legacy fallback: top-level by id
+              if (emails.length === 0) {
+                const adminDocRef2 = doc(db, 'teams', `admin-${workspaceId}`);
+                const adminSnap2 = await getDoc(adminDocRef2);
+                if (adminSnap2.exists()) {
+                  const adminTeam = adminSnap2.data() as any;
+                  emails = Array.isArray(adminTeam.emails) ? adminTeam.emails : [];
+                  adminTeamName = adminTeam.name || adminTeamName;
+                }
               }
             } catch (e) {
               console.error('Error fetching admin by fixed id', e);
