@@ -16,6 +16,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 interface Manager {
   id: string;
   name: string;
+  roles: string;
   email: string;
   phone: string;
   createdAt?: string;
@@ -25,6 +26,7 @@ interface Manager {
 interface Nurse {
   id: string;
   name: string;
+  roles: string;
   email: string;
   phone: string;
   createdAt?: string;
@@ -34,6 +36,47 @@ interface Nurse {
 interface CTM {
   id: string;
   name: string;
+  roles: string;
+  email: string;
+  phone: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface Domestic {
+  id: string;
+  name: string;
+  roles: string;
+  email: string;
+  phone: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface Maintenance {
+  id: string;
+  name: string;
+  roles: string;
+  email: string;
+  phone: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface Kitchen {
+  id: string;
+  name: string;
+  roles: string;
+  email: string;
+  phone: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface Activities {
+  id: string;
+  name: string;
+  roles: string;
   email: string;
   phone: string;
   createdAt?: string;
@@ -207,24 +250,52 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
 
   // Management data state
   const [managers, setManagers] = useState<Manager[]>([]);
-  const [newManager, setNewManager] = useState({ name: '', email: '', phone: '' });
+  const [newManager, setNewManager] = useState({ name: '', roles: '', email: '', phone: '' });
   const [managersLoading, setManagersLoading] = useState(false);
   const [managersError, setManagersError] = useState<string | null>(null);
   const [editingManager, setEditingManager] = useState<string | null>(null);
 
   // Nurses data state
   const [nurses, setNurses] = useState<Nurse[]>([]);
-  const [newNurse, setNewNurse] = useState({ name: '', email: '', phone: '' });
+  const [newNurse, setNewNurse] = useState({ name: '', roles: '', email: '', phone: '' });
   const [nursesLoading, setNursesLoading] = useState(false);
   const [nursesError, setNursesError] = useState<string | null>(null);
   const [editingNurse, setEditingNurse] = useState<string | null>(null);
 
   // CTM data state
   const [ctms, setCTMs] = useState<CTM[]>([]);
-  const [newCTM, setNewCTM] = useState({ name: '', email: '', phone: '' });
+  const [newCTM, setNewCTM] = useState({ name: '', roles: '', email: '', phone: '' });
   const [ctmsLoading, setCTMsLoading] = useState(false);
   const [ctmsError, setCTMsError] = useState<string | null>(null);
   const [editingCTM, setEditingCTM] = useState<string | null>(null);
+
+  // Domestic data state
+  const [domestics, setDomestics] = useState<Domestic[]>([]);
+  const [newDomestic, setNewDomestic] = useState({ name: '', roles: '', email: '', phone: '' });
+  const [domesticsLoading, setDomesticsLoading] = useState(false);
+  const [domesticsError, setDomesticsError] = useState<string | null>(null);
+  const [editingDomestic, setEditingDomestic] = useState<string | null>(null);
+
+  // Maintenance data state
+  const [maintenances, setMaintenances] = useState<Maintenance[]>([]);
+  const [newMaintenance, setNewMaintenance] = useState({ name: '', roles: '', email: '', phone: '' });
+  const [maintenancesLoading, setMaintenancesLoading] = useState(false);
+  const [maintenancesError, setMaintenancesError] = useState<string | null>(null);
+  const [editingMaintenance, setEditingMaintenance] = useState<string | null>(null);
+
+  // Kitchen data state
+  const [kitchens, setKitchens] = useState<Kitchen[]>([]);
+  const [newKitchen, setNewKitchen] = useState({ name: '', roles: '', email: '', phone: '' });
+  const [kitchensLoading, setKitchensLoading] = useState(false);
+  const [kitchensError, setKitchensError] = useState<string | null>(null);
+  const [editingKitchen, setEditingKitchen] = useState<string | null>(null);
+
+  // Activities data state
+  const [activities, setActivities] = useState<Activities[]>([]);
+  const [newActivity, setNewActivity] = useState({ name: '', roles: '', email: '', phone: '' });
+  const [activitiesLoading, setActivitiesLoading] = useState(false);
+  const [activitiesError, setActivitiesError] = useState<string | null>(null);
+  const [editingActivity, setEditingActivity] = useState<string | null>(null);
 
   // Fetch latest staffing data from daily check-ins
   useEffect(() => {
@@ -394,6 +465,118 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
     loadCTMs();
   }, [workspace?.id]);
 
+  // Load Domestics from Firebase
+  useEffect(() => {
+    const loadDomestics = async () => {
+      if (!workspace?.id) return;
+      
+      setDomesticsLoading(true);
+      setDomesticsError(null);
+      
+      try {
+        const workspaceRef = doc(db, 'workspaces', workspace.id);
+        const workspaceSnap = await getDoc(workspaceRef);
+        
+        if (workspaceSnap.exists()) {
+          const data = workspaceSnap.data();
+          const domesticsData = data.domestics || [];
+          setDomestics(domesticsData);
+        }
+      } catch (error) {
+        console.error('Failed to load Domestics:', error);
+        setDomesticsError('Failed to load Domestics');
+      } finally {
+        setDomesticsLoading(false);
+      }
+    };
+    
+    loadDomestics();
+  }, [workspace?.id]);
+
+  // Load Maintenances from Firebase
+  useEffect(() => {
+    const loadMaintenances = async () => {
+      if (!workspace?.id) return;
+      
+      setMaintenancesLoading(true);
+      setMaintenancesError(null);
+      
+      try {
+        const workspaceRef = doc(db, 'workspaces', workspace.id);
+        const workspaceSnap = await getDoc(workspaceRef);
+        
+        if (workspaceSnap.exists()) {
+          const data = workspaceSnap.data();
+          const maintenancesData = data.maintenances || [];
+          setMaintenances(maintenancesData);
+        }
+      } catch (error) {
+        console.error('Failed to load Maintenances:', error);
+        setMaintenancesError('Failed to load Maintenances');
+      } finally {
+        setMaintenancesLoading(false);
+      }
+    };
+    
+    loadMaintenances();
+  }, [workspace?.id]);
+
+  // Load Kitchens from Firebase
+  useEffect(() => {
+    const loadKitchens = async () => {
+      if (!workspace?.id) return;
+      
+      setKitchensLoading(true);
+      setKitchensError(null);
+      
+      try {
+        const workspaceRef = doc(db, 'workspaces', workspace.id);
+        const workspaceSnap = await getDoc(workspaceRef);
+        
+        if (workspaceSnap.exists()) {
+          const data = workspaceSnap.data();
+          const kitchensData = data.kitchens || [];
+          setKitchens(kitchensData);
+        }
+      } catch (error) {
+        console.error('Failed to load Kitchens:', error);
+        setKitchensError('Failed to load Kitchens');
+      } finally {
+        setKitchensLoading(false);
+      }
+    };
+    
+    loadKitchens();
+  }, [workspace?.id]);
+
+  // Load Activities from Firebase
+  useEffect(() => {
+    const loadActivities = async () => {
+      if (!workspace?.id) return;
+      
+      setActivitiesLoading(true);
+      setActivitiesError(null);
+      
+      try {
+        const workspaceRef = doc(db, 'workspaces', workspace.id);
+        const workspaceSnap = await getDoc(workspaceRef);
+        
+        if (workspaceSnap.exists()) {
+          const data = workspaceSnap.data();
+          const activitiesData = data.activities || [];
+          setActivities(activitiesData);
+        }
+      } catch (error) {
+        console.error('Failed to load Activities:', error);
+        setActivitiesError('Failed to load Activities');
+      } finally {
+        setActivitiesLoading(false);
+      }
+    };
+    
+    loadActivities();
+  }, [workspace?.id]);
+
   // Add manager to Firebase
   const addManagerToFirebase = async (manager: Manager) => {
     if (!workspace?.id) return false;
@@ -553,6 +736,210 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
     }
   };
 
+  // Add Domestic to Firebase
+  const addDomesticToFirebase = async (domestic: Domestic) => {
+    if (!workspace?.id) return false;
+    
+    try {
+      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      await updateDoc(workspaceRef, {
+        domestics: arrayUnion(domestic)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to add Domestic to Firebase:', error);
+      return false;
+    }
+  };
+
+  // Remove Domestic from Firebase
+  const removeDomesticFromFirebase = async (domestic: Domestic) => {
+    if (!workspace?.id) return false;
+    
+    try {
+      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      await updateDoc(workspaceRef, {
+        domestics: arrayRemove(domestic)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to remove Domestic from Firebase:', error);
+      return false;
+    }
+  };
+
+  // Update Domestic in Firebase
+  const updateDomesticInFirebase = async (oldDomestic: Domestic, newDomestic: Domestic) => {
+    if (!workspace?.id) return false;
+    
+    try {
+      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      await updateDoc(workspaceRef, {
+        domestics: arrayRemove(oldDomestic)
+      });
+      await updateDoc(workspaceRef, {
+        domestics: arrayUnion(newDomestic)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to update Domestic in Firebase:', error);
+      return false;
+    }
+  };
+
+  // Add Maintenance to Firebase
+  const addMaintenanceToFirebase = async (maintenance: Maintenance) => {
+    if (!workspace?.id) return false;
+    
+    try {
+      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      await updateDoc(workspaceRef, {
+        maintenances: arrayUnion(maintenance)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to add Maintenance to Firebase:', error);
+      return false;
+    }
+  };
+
+  // Remove Maintenance from Firebase
+  const removeMaintenanceFromFirebase = async (maintenance: Maintenance) => {
+    if (!workspace?.id) return false;
+    
+    try {
+      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      await updateDoc(workspaceRef, {
+        maintenances: arrayRemove(maintenance)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to remove Maintenance from Firebase:', error);
+      return false;
+    }
+  };
+
+  // Update Maintenance in Firebase
+  const updateMaintenanceInFirebase = async (oldMaintenance: Maintenance, newMaintenance: Maintenance) => {
+    if (!workspace?.id) return false;
+    
+    try {
+      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      await updateDoc(workspaceRef, {
+        maintenances: arrayRemove(oldMaintenance)
+      });
+      await updateDoc(workspaceRef, {
+        maintenances: arrayUnion(newMaintenance)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to update Maintenance in Firebase:', error);
+      return false;
+    }
+  };
+
+  // Add Kitchen to Firebase
+  const addKitchenToFirebase = async (kitchen: Kitchen) => {
+    if (!workspace?.id) return false;
+    
+    try {
+      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      await updateDoc(workspaceRef, {
+        kitchens: arrayUnion(kitchen)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to add Kitchen to Firebase:', error);
+      return false;
+    }
+  };
+
+  // Remove Kitchen from Firebase
+  const removeKitchenFromFirebase = async (kitchen: Kitchen) => {
+    if (!workspace?.id) return false;
+    
+    try {
+      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      await updateDoc(workspaceRef, {
+        kitchens: arrayRemove(kitchen)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to remove Kitchen from Firebase:', error);
+      return false;
+    }
+  };
+
+  // Update Kitchen in Firebase
+  const updateKitchenInFirebase = async (oldKitchen: Kitchen, newKitchen: Kitchen) => {
+    if (!workspace?.id) return false;
+    
+    try {
+      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      await updateDoc(workspaceRef, {
+        kitchens: arrayRemove(oldKitchen)
+      });
+      await updateDoc(workspaceRef, {
+        kitchens: arrayUnion(newKitchen)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to update Kitchen in Firebase:', error);
+      return false;
+    }
+  };
+
+  // Add Activity to Firebase
+  const addActivityToFirebase = async (activity: Activities) => {
+    if (!workspace?.id) return false;
+    
+    try {
+      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      await updateDoc(workspaceRef, {
+        activities: arrayUnion(activity)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to add Activity to Firebase:', error);
+      return false;
+    }
+  };
+
+  // Remove Activity from Firebase
+  const removeActivityFromFirebase = async (activity: Activities) => {
+    if (!workspace?.id) return false;
+    
+    try {
+      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      await updateDoc(workspaceRef, {
+        activities: arrayRemove(activity)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to remove Activity from Firebase:', error);
+      return false;
+    }
+  };
+
+  // Update Activity in Firebase
+  const updateActivityInFirebase = async (oldActivity: Activities, newActivity: Activities) => {
+    if (!workspace?.id) return false;
+    
+    try {
+      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      await updateDoc(workspaceRef, {
+        activities: arrayRemove(oldActivity)
+      });
+      await updateDoc(workspaceRef, {
+        activities: arrayUnion(newActivity)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to update Activity in Firebase:', error);
+      return false;
+    }
+  };
+
   const handleUpdateManager = async (managerId: string, updatedData: Partial<Manager>) => {
     const originalManager = managers.find(m => m.id === managerId);
     if (!originalManager) return;
@@ -619,6 +1006,98 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
     if (!success) {
       // Revert optimistic update on failure
       setCTMs(prev => prev.map(c => c.id === ctmId ? originalCTM : c));
+    }
+  };
+
+  const handleUpdateDomestic = async (domesticId: string, updatedData: Partial<Domestic>) => {
+    const originalDomestic = domestics.find(d => d.id === domesticId);
+    if (!originalDomestic) return;
+    
+    const updatedDomestic: Domestic = {
+      ...originalDomestic,
+      ...updatedData,
+      updatedAt: new Date().toISOString()
+    };
+    
+    // Optimistically update UI
+    setDomestics(prev => prev.map(d => d.id === domesticId ? updatedDomestic : d));
+    setEditingDomestic(null);
+    setDomesticsError(null);
+    
+    // Update in Firebase
+    const success = await updateDomesticInFirebase(originalDomestic, updatedDomestic);
+    if (!success) {
+      // Revert optimistic update on failure
+      setDomestics(prev => prev.map(d => d.id === domesticId ? originalDomestic : d));
+    }
+  };
+
+  const handleUpdateMaintenance = async (maintenanceId: string, updatedData: Partial<Maintenance>) => {
+    const originalMaintenance = maintenances.find(m => m.id === maintenanceId);
+    if (!originalMaintenance) return;
+    
+    const updatedMaintenance: Maintenance = {
+      ...originalMaintenance,
+      ...updatedData,
+      updatedAt: new Date().toISOString()
+    };
+    
+    // Optimistically update UI
+    setMaintenances(prev => prev.map(m => m.id === maintenanceId ? updatedMaintenance : m));
+    setEditingMaintenance(null);
+    setMaintenancesError(null);
+    
+    // Update in Firebase
+    const success = await updateMaintenanceInFirebase(originalMaintenance, updatedMaintenance);
+    if (!success) {
+      // Revert optimistic update on failure
+      setMaintenances(prev => prev.map(m => m.id === maintenanceId ? originalMaintenance : m));
+    }
+  };
+
+  const handleUpdateKitchen = async (kitchenId: string, updatedData: Partial<Kitchen>) => {
+    const originalKitchen = kitchens.find(k => k.id === kitchenId);
+    if (!originalKitchen) return;
+    
+    const updatedKitchen: Kitchen = {
+      ...originalKitchen,
+      ...updatedData,
+      updatedAt: new Date().toISOString()
+    };
+    
+    // Optimistically update UI
+    setKitchens(prev => prev.map(k => k.id === kitchenId ? updatedKitchen : k));
+    setEditingKitchen(null);
+    setKitchensError(null);
+    
+    // Update in Firebase
+    const success = await updateKitchenInFirebase(originalKitchen, updatedKitchen);
+    if (!success) {
+      // Revert optimistic update on failure
+      setKitchens(prev => prev.map(k => k.id === kitchenId ? originalKitchen : k));
+    }
+  };
+
+  const handleUpdateActivity = async (activityId: string, updatedData: Partial<Activities>) => {
+    const originalActivity = activities.find(a => a.id === activityId);
+    if (!originalActivity) return;
+    
+    const updatedActivity: Activities = {
+      ...originalActivity,
+      ...updatedData,
+      updatedAt: new Date().toISOString()
+    };
+    
+    // Optimistically update UI
+    setActivities(prev => prev.map(a => a.id === activityId ? updatedActivity : a));
+    setEditingActivity(null);
+    setActivitiesError(null);
+    
+    // Update in Firebase
+    const success = await updateActivityInFirebase(originalActivity, updatedActivity);
+    if (!success) {
+      // Revert optimistic update on failure
+      setActivities(prev => prev.map(a => a.id === activityId ? originalActivity : a));
     }
   };
 
@@ -719,108 +1198,45 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
   <main className="flex-1 overflow-y-auto">
     <div className="min-h-full bg-gray-50">
       <div className="w-full p-6 space-y-6">
-        {/* Workspace Analytics */}
-        <div>
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg">
-              <Users className="h-5 w-5 text-white" />
-            </div>
-            <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Workspace Analytics</h2>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            {/* Workspace Health */}
-            <Card className="hover:shadow-lg transition-all duration-300 border border-gray-200">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <div className="text-sm font-medium text-gray-700">Workspace Health</div>
-                <Zap className="h-4 w-4 text-green-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-gray-900">Excellent</div>
-                <div className="flex items-center gap-1 text-xs text-gray-600 mt-1">
-                  <CheckCircle className="w-3 h-3 text-green-500" />
-                  <span>All systems operational</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Document Compliance */}
-            <Card className="hover:shadow-lg transition-all duration-300 border border-gray-200">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <div className="text-sm font-medium text-gray-700">Document Compliance</div>
-                <Shield className={`h-4 w-4 ${totalDocuments > 10 ? 'text-green-500' : totalDocuments > 5 ? 'text-yellow-500' : 'text-red-500'}`} />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-gray-900">
-                  {totalDocuments > 10 ? '95%' : totalDocuments > 5 ? '78%' : '45%'}
-                </div>
-                <div className="flex items-center gap-1 text-xs text-gray-600 mt-1">
-                  <div className={`w-2 h-2 rounded-full ${totalDocuments > 10 ? 'bg-green-500' : totalDocuments > 5 ? 'bg-yellow-500' : 'bg-red-500'}`}></div>
-                  <span>{totalDocuments} documents tracked</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Recent Activity */}
-            <Card className="hover:shadow-lg transition-all duration-300 border border-gray-200">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <div className="text-sm font-medium text-gray-700">Recent Activity</div>
-                <Activity className="h-4 w-4 text-blue-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-gray-900">{recentUploads.length}</div>
-                <div className="flex items-center gap-1 text-xs text-gray-600 mt-1">
-                  <TrendingUp className="w-3 h-3 text-blue-500" />
-                  <span>uploads this week</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Last Updated */}
-            <Card className="hover:shadow-lg transition-all duration-300 border border-gray-200">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <div className="text-sm font-medium text-gray-700">Last Updated</div>
-                <Calendar className="h-4 w-4 text-purple-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-gray-900">Today</div>
-                <div className="flex items-center gap-1 text-xs text-gray-600 mt-1">
-                  <Clock className="w-3 h-3 text-purple-500" />
-                  <span>{new Date().toLocaleTimeString()}</span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
 
         <Tabs defaultValue="folders" className="w-full">
-          <TabsList className="grid w-[600px] grid-cols-3 bg-white border border-gray-200 rounded-lg">
-            <TabsTrigger value="folders" className="flex items-center gap-2">
+          <TabsList className="flex flex-row flex-nowrap items-start justify-start overflow-x-auto bg-white border border-gray-200 rounded-lg gap-2 p-1 w-auto">
+            <TabsTrigger value="folders" className="flex items-center gap-2 whitespace-nowrap">
               <FolderIcon className="w-4 h-4" />
               Folders
             </TabsTrigger>
-            <TabsTrigger value="teams" className="flex items-center gap-2">
+            <TabsTrigger value="teams" className="flex items-center gap-2 whitespace-nowrap">
               <Users className="w-4 h-4" />
               Teams
             </TabsTrigger>
-            <TabsTrigger value="management" className="flex items-center gap-2">
+            <TabsTrigger value="management" className="flex items-center gap-2 whitespace-nowrap">
               <UserCheck className="w-4 h-4" />
               Management
             </TabsTrigger>
-            <TabsTrigger value="nurses" className="flex items-center gap-2">
+            <TabsTrigger value="nurses" className="flex items-center gap-2 whitespace-nowrap">
               <UserCheck className="w-4 h-4" />
               Nurses
             </TabsTrigger>
-            <TabsTrigger value="ctm" className="flex items-center gap-2">
+            <TabsTrigger value="ctm" className="flex items-center gap-2 whitespace-nowrap">
               <UserCheck className="w-4 h-4" />
               CTM
             </TabsTrigger>
-            { /* Dependency Calculator temporarily hidden until backend/frontend integration is fixed.
-            <TabsTrigger value="dependency" className="flex items-center gap-2">
-              <Clock className="w-4 h-4" />
-              Dependency Calculator
+            <TabsTrigger value="domestic" className="flex items-center gap-2 whitespace-nowrap">
+              <UserCheck className="w-4 h-4" />
+              Domestic
             </TabsTrigger>
-            */ }
+            <TabsTrigger value="maintenance" className="flex items-center gap-2 whitespace-nowrap">
+              <UserCheck className="w-4 h-4" />
+              Maintenance
+            </TabsTrigger>
+            <TabsTrigger value="kitchen" className="flex items-center gap-2 whitespace-nowrap">
+              <UserCheck className="w-4 h-4" />
+              Kitchen
+            </TabsTrigger>
+            <TabsTrigger value="activities" className="flex items-center gap-2 whitespace-nowrap">
+              <UserCheck className="w-4 h-4" />
+              Activities
+            </TabsTrigger>
           </TabsList>
           { /* Dependency tab disabled for now */ }
           
@@ -1029,13 +1445,21 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                   </h3>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">Name</label>
                       <Input
                         placeholder="Enter manager name"
                         value={newManager.name}
                         onChange={(e) => setNewManager(prev => ({ ...prev, name: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Roles</label>
+                      <Input
+                        placeholder="e.g. Senior Manager, Team Lead"
+                        value={newManager.roles}
+                        onChange={(e) => setNewManager(prev => ({ ...prev, roles: e.target.value }))}
                       />
                     </div>
                     <div className="space-y-2">
@@ -1070,7 +1494,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                           
                           // Optimistically update UI
                           setManagers(prev => [...prev, newManagerEntry]);
-                          setNewManager({ name: '', email: '', phone: '' });
+                          setNewManager({ name: '', roles: '', email: '', phone: '' });
                           setManagersError(null);
                           
                           // Save to Firebase
@@ -1081,7 +1505,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                           }
                         }
                       }}
-                      disabled={!newManager.name || !newManager.email || !newManager.phone || managersLoading}
+                      disabled={!newManager.name || !newManager.roles || !newManager.email || !newManager.phone || managersLoading}
                       className="bg-blue-600 hover:bg-blue-700"
                     >
                       <Plus className="w-4 h-4 mr-2" />
@@ -1168,13 +1592,21 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                   </h3>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">Name</label>
                       <Input
                         placeholder="Enter nurse name"
                         value={newNurse.name}
                         onChange={(e) => setNewNurse(prev => ({ ...prev, name: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Roles</label>
+                      <Input
+                        placeholder="e.g. Registered Nurse, HCA"
+                        value={newNurse.roles}
+                        onChange={(e) => setNewNurse(prev => ({ ...prev, roles: e.target.value }))}
                       />
                     </div>
                     <div className="space-y-2">
@@ -1209,7 +1641,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                           
                           // Optimistically update UI
                           setNurses(prev => [...prev, newNurseEntry]);
-                          setNewNurse({ name: '', email: '', phone: '' });
+                          setNewNurse({ name: '', roles: '', email: '', phone: '' });
                           setNursesError(null);
                           
                           // Save to Firebase
@@ -1220,7 +1652,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                           }
                         }
                       }}
-                      disabled={!newNurse.name || !newNurse.email || !newNurse.phone || nursesLoading}
+                      disabled={!newNurse.name || !newNurse.roles || !newNurse.email || !newNurse.phone || nursesLoading}
                       className="bg-blue-600 hover:bg-blue-700"
                     >
                       <Plus className="w-4 h-4 mr-2" />
@@ -1307,13 +1739,21 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                   </h3>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">Name</label>
                       <Input
                         placeholder="Enter CTM name"
                         value={newCTM.name}
                         onChange={(e) => setNewCTM(prev => ({ ...prev, name: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Roles</label>
+                      <Input
+                        placeholder="e.g. Care Team Manager, Senior CTM"
+                        value={newCTM.roles}
+                        onChange={(e) => setNewCTM(prev => ({ ...prev, roles: e.target.value }))}
                       />
                     </div>
                     <div className="space-y-2">
@@ -1348,7 +1788,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                           
                           // Optimistically update UI
                           setCTMs(prev => [...prev, newCTMEntry]);
-                          setNewCTM({ name: '', email: '', phone: '' });
+                          setNewCTM({ name: '', roles: '', email: '', phone: '' });
                           setCTMsError(null);
                           
                           // Save to Firebase
@@ -1359,7 +1799,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                           }
                         }
                       }}
-                      disabled={!newCTM.name || !newCTM.email || !newCTM.phone || ctmsLoading}
+                      disabled={!newCTM.name || !newCTM.roles || !newCTM.email || !newCTM.phone || ctmsLoading}
                       className="bg-blue-600 hover:bg-blue-700"
                     >
                       <Plus className="w-4 h-4 mr-2" />
@@ -1416,6 +1856,594 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
               </Card>
             </div>
           </TabsContent>
+
+          <TabsContent value="domestic" className="mt-6">
+            <div className="space-y-6">
+              {/* Error Display */}
+              {domesticsError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-red-600" />
+                    <p className="text-red-800 font-medium">Error</p>
+                  </div>
+                  <p className="text-red-700 text-sm mt-1">{domesticsError}</p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setDomesticsError(null)}
+                    className="mt-2 text-red-600 hover:text-red-700"
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              )}
+              {/* Add New Domestic Form */}
+              <Card>
+                <CardHeader>
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <Plus className="w-5 h-5 text-orange-600" />
+                    Add New Domestic
+                  </h3>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Name</label>
+                      <Input
+                        placeholder="Enter domestic name"
+                        value={newDomestic.name}
+                        onChange={(e) => setNewDomestic(prev => ({ ...prev, name: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Roles</label>
+                      <Input
+                        placeholder="e.g. Housekeeper, Cleaner"
+                        value={newDomestic.roles}
+                        onChange={(e) => setNewDomestic(prev => ({ ...prev, roles: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Email Address</label>
+                      <Input
+                        type="email"
+                        placeholder="domestic@example.com"
+                        value={newDomestic.email}
+                        onChange={(e) => setNewDomestic(prev => ({ ...prev, email: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Phone Number</label>
+                      <Input
+                        type="tel"
+                        placeholder="+44 123 456 7890"
+                        value={newDomestic.phone}
+                        onChange={(e) => setNewDomestic(prev => ({ ...prev, phone: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <Button 
+                      onClick={async () => {
+                        if (newDomestic.name && newDomestic.email && newDomestic.phone) {
+                          const newDomesticEntry: Domestic = {
+                            id: Date.now().toString(),
+                            ...newDomestic,
+                            createdAt: new Date().toISOString(),
+                            updatedAt: new Date().toISOString()
+                          };
+                          
+                          // Optimistically update UI
+                          setDomestics(prev => [...prev, newDomesticEntry]);
+                          setNewDomestic({ name: '', roles: '', email: '', phone: '' });
+                          setDomesticsError(null);
+                          
+                          // Save to Firebase
+                          const success = await addDomesticToFirebase(newDomesticEntry);
+                          if (!success) {
+                            // Revert optimistic update on failure
+                            setDomestics(prev => prev.filter(d => d.id !== newDomesticEntry.id));
+                          }
+                        }
+                      }}
+                      disabled={!newDomestic.name || !newDomestic.roles || !newDomestic.email || !newDomestic.phone || domesticsLoading}
+                      className="bg-orange-600 hover:bg-orange-700"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      {domesticsLoading ? 'Adding...' : 'Add Domestic'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Current Domestics List */}
+              <Card>
+                <CardHeader>
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <UserCheck className="w-5 h-5 text-green-600" />
+                    Current Domestics ({domestics.length})
+                    {domesticsLoading && <div className="w-4 h-4 border-2 border-orange-600 border-t-transparent rounded-full animate-spin"></div>}
+                  </h3>
+                </CardHeader>
+                <CardContent>
+                  {domestics.length === 0 ? (
+                    <div className="text-center py-8">
+                      <UserCheck className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-500">No domestics assigned yet</p>
+                      <p className="text-sm text-gray-400 mt-1">Add domestics using the form above</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {domestics.map((domestic) => (
+                        <AdminDomesticCard
+                          key={domestic.id}
+                          domestic={domestic}
+                          isEditing={editingDomestic === domestic.id}
+                          onEdit={() => setEditingDomestic(domestic.id)}
+                          onCancelEdit={() => setEditingDomestic(null)}
+                          onSave={(updatedData) => handleUpdateDomestic(domestic.id, updatedData)}
+                          onDelete={async () => {
+                            // Optimistically update UI
+                            setDomestics(prev => prev.filter(d => d.id !== domestic.id));
+                            setDomesticsError(null);
+                            
+                            // Remove from Firebase
+                            const success = await removeDomesticFromFirebase(domestic);
+                            if (!success) {
+                              // Revert optimistic update on failure
+                              setDomestics(prev => [...prev, domestic]);
+                            }
+                          }}
+                          disabled={domesticsLoading}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="maintenance" className="mt-6">
+            <div className="space-y-6">
+              {/* Error Display */}
+              {maintenancesError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-red-600" />
+                    <p className="text-red-800 font-medium">Error</p>
+                  </div>
+                  <p className="text-red-700 text-sm mt-1">{maintenancesError}</p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setMaintenancesError(null)}
+                    className="mt-2 text-red-600 hover:text-red-700"
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              )}
+              {/* Add New Maintenance Form */}
+              <Card>
+                <CardHeader>
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <Plus className="w-5 h-5 text-gray-600" />
+                    Add New Maintenance
+                  </h3>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Name</label>
+                      <Input
+                        placeholder="Enter maintenance name"
+                        value={newMaintenance.name}
+                        onChange={(e) => setNewMaintenance(prev => ({ ...prev, name: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Roles</label>
+                      <Input
+                        placeholder="e.g. Electrician, Plumber, Handyman"
+                        value={newMaintenance.roles}
+                        onChange={(e) => setNewMaintenance(prev => ({ ...prev, roles: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Email Address</label>
+                      <Input
+                        type="email"
+                        placeholder="maintenance@example.com"
+                        value={newMaintenance.email}
+                        onChange={(e) => setNewMaintenance(prev => ({ ...prev, email: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Phone Number</label>
+                      <Input
+                        type="tel"
+                        placeholder="+44 123 456 7890"
+                        value={newMaintenance.phone}
+                        onChange={(e) => setNewMaintenance(prev => ({ ...prev, phone: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <Button 
+                      onClick={async () => {
+                        if (newMaintenance.name && newMaintenance.email && newMaintenance.phone) {
+                          const newMaintenanceEntry: Maintenance = {
+                            id: Date.now().toString(),
+                            ...newMaintenance,
+                            createdAt: new Date().toISOString(),
+                            updatedAt: new Date().toISOString()
+                          };
+                          
+                          // Optimistically update UI
+                          setMaintenances(prev => [...prev, newMaintenanceEntry]);
+                          setNewMaintenance({ name: '', roles: '', email: '', phone: '' });
+                          setMaintenancesError(null);
+                          
+                          // Save to Firebase
+                          const success = await addMaintenanceToFirebase(newMaintenanceEntry);
+                          if (!success) {
+                            // Revert optimistic update on failure
+                            setMaintenances(prev => prev.filter(m => m.id !== newMaintenanceEntry.id));
+                          }
+                        }
+                      }}
+                      disabled={!newMaintenance.name || !newMaintenance.roles || !newMaintenance.email || !newMaintenance.phone || maintenancesLoading}
+                      className="bg-gray-600 hover:bg-gray-700"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      {maintenancesLoading ? 'Adding...' : 'Add Maintenance'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Current Maintenances List */}
+              <Card>
+                <CardHeader>
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <UserCheck className="w-5 h-5 text-green-600" />
+                    Current Maintenance ({maintenances.length})
+                    {maintenancesLoading && <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin"></div>}
+                  </h3>
+                </CardHeader>
+                <CardContent>
+                  {maintenances.length === 0 ? (
+                    <div className="text-center py-8">
+                      <UserCheck className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-500">No maintenance staff assigned yet</p>
+                      <p className="text-sm text-gray-400 mt-1">Add maintenance staff using the form above</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {maintenances.map((maintenance) => (
+                        <AdminMaintenanceCard
+                          key={maintenance.id}
+                          maintenance={maintenance}
+                          isEditing={editingMaintenance === maintenance.id}
+                          onEdit={() => setEditingMaintenance(maintenance.id)}
+                          onCancelEdit={() => setEditingMaintenance(null)}
+                          onSave={(updatedData) => handleUpdateMaintenance(maintenance.id, updatedData)}
+                          onDelete={async () => {
+                            // Optimistically update UI
+                            setMaintenances(prev => prev.filter(m => m.id !== maintenance.id));
+                            setMaintenancesError(null);
+                            
+                            // Remove from Firebase
+                            const success = await removeMaintenanceFromFirebase(maintenance);
+                            if (!success) {
+                              // Revert optimistic update on failure
+                              setMaintenances(prev => [...prev, maintenance]);
+                            }
+                          }}
+                          disabled={maintenancesLoading}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="kitchen" className="mt-6">
+            <div className="space-y-6">
+              {/* Error Display */}
+              {kitchensError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-red-600" />
+                    <p className="text-red-800 font-medium">Error</p>
+                  </div>
+                  <p className="text-red-700 text-sm mt-1">{kitchensError}</p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setKitchensError(null)}
+                    className="mt-2 text-red-600 hover:text-red-700"
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              )}
+              {/* Add New Kitchen Form */}
+              <Card>
+                <CardHeader>
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <Plus className="w-5 h-5 text-red-600" />
+                    Add New Kitchen
+                  </h3>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Name</label>
+                      <Input
+                        placeholder="Enter kitchen name"
+                        value={newKitchen.name}
+                        onChange={(e) => setNewKitchen(prev => ({ ...prev, name: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Roles</label>
+                      <Input
+                        placeholder="e.g. Chef, Cook, Kitchen Assistant"
+                        value={newKitchen.roles}
+                        onChange={(e) => setNewKitchen(prev => ({ ...prev, roles: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Email Address</label>
+                      <Input
+                        type="email"
+                        placeholder="kitchen@example.com"
+                        value={newKitchen.email}
+                        onChange={(e) => setNewKitchen(prev => ({ ...prev, email: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Phone Number</label>
+                      <Input
+                        type="tel"
+                        placeholder="+44 123 456 7890"
+                        value={newKitchen.phone}
+                        onChange={(e) => setNewKitchen(prev => ({ ...prev, phone: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <Button 
+                      onClick={async () => {
+                        if (newKitchen.name && newKitchen.email && newKitchen.phone) {
+                          const newKitchenEntry: Kitchen = {
+                            id: Date.now().toString(),
+                            ...newKitchen,
+                            createdAt: new Date().toISOString(),
+                            updatedAt: new Date().toISOString()
+                          };
+                          
+                          // Optimistically update UI
+                          setKitchens(prev => [...prev, newKitchenEntry]);
+                          setNewKitchen({ name: '', roles: '', email: '', phone: '' });
+                          setKitchensError(null);
+                          
+                          // Save to Firebase
+                          const success = await addKitchenToFirebase(newKitchenEntry);
+                          if (!success) {
+                            // Revert optimistic update on failure
+                            setKitchens(prev => prev.filter(k => k.id !== newKitchenEntry.id));
+                          }
+                        }
+                      }}
+                      disabled={!newKitchen.name || !newKitchen.roles || !newKitchen.email || !newKitchen.phone || kitchensLoading}
+                      className="bg-red-600 hover:bg-red-700"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      {kitchensLoading ? 'Adding...' : 'Add Kitchen'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Current Kitchens List */}
+              <Card>
+                <CardHeader>
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <UserCheck className="w-5 h-5 text-green-600" />
+                    Current Kitchen ({kitchens.length})
+                    {kitchensLoading && <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>}
+                  </h3>
+                </CardHeader>
+                <CardContent>
+                  {kitchens.length === 0 ? (
+                    <div className="text-center py-8">
+                      <UserCheck className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-500">No kitchen staff assigned yet</p>
+                      <p className="text-sm text-gray-400 mt-1">Add kitchen staff using the form above</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {kitchens.map((kitchen) => (
+                        <AdminKitchenCard
+                          key={kitchen.id}
+                          kitchen={kitchen}
+                          isEditing={editingKitchen === kitchen.id}
+                          onEdit={() => setEditingKitchen(kitchen.id)}
+                          onCancelEdit={() => setEditingKitchen(null)}
+                          onSave={(updatedData) => handleUpdateKitchen(kitchen.id, updatedData)}
+                          onDelete={async () => {
+                            // Optimistically update UI
+                            setKitchens(prev => prev.filter(k => k.id !== kitchen.id));
+                            setKitchensError(null);
+                            
+                            // Remove from Firebase
+                            const success = await removeKitchenFromFirebase(kitchen);
+                            if (!success) {
+                              // Revert optimistic update on failure
+                              setKitchens(prev => [...prev, kitchen]);
+                            }
+                          }}
+                          disabled={kitchensLoading}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="activities" className="mt-6">
+            <div className="space-y-6">
+              {/* Error Display */}
+              {activitiesError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-red-600" />
+                    <p className="text-red-800 font-medium">Error</p>
+                  </div>
+                  <p className="text-red-700 text-sm mt-1">{activitiesError}</p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setActivitiesError(null)}
+                    className="mt-2 text-red-600 hover:text-red-700"
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              )}
+              {/* Add New Activity Form */}
+              <Card>
+                <CardHeader>
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <Plus className="w-5 h-5 text-pink-600" />
+                    Add New Activity
+                  </h3>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Name</label>
+                      <Input
+                        placeholder="Enter activity name"
+                        value={newActivity.name}
+                        onChange={(e) => setNewActivity(prev => ({ ...prev, name: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Roles</label>
+                      <Input
+                        placeholder="e.g. Activities Coordinator, Entertainment"
+                        value={newActivity.roles}
+                        onChange={(e) => setNewActivity(prev => ({ ...prev, roles: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Email Address</label>
+                      <Input
+                        type="email"
+                        placeholder="activity@example.com"
+                        value={newActivity.email}
+                        onChange={(e) => setNewActivity(prev => ({ ...prev, email: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Phone Number</label>
+                      <Input
+                        type="tel"
+                        placeholder="+44 123 456 7890"
+                        value={newActivity.phone}
+                        onChange={(e) => setNewActivity(prev => ({ ...prev, phone: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <Button 
+                      onClick={async () => {
+                        if (newActivity.name && newActivity.email && newActivity.phone) {
+                          const newActivityEntry: Activities = {
+                            id: Date.now().toString(),
+                            ...newActivity,
+                            createdAt: new Date().toISOString(),
+                            updatedAt: new Date().toISOString()
+                          };
+                          
+                          // Optimistically update UI
+                          setActivities(prev => [...prev, newActivityEntry]);
+                          setNewActivity({ name: '', roles: '', email: '', phone: '' });
+                          setActivitiesError(null);
+                          
+                          // Save to Firebase
+                          const success = await addActivityToFirebase(newActivityEntry);
+                          if (!success) {
+                            // Revert optimistic update on failure
+                            setActivities(prev => prev.filter(a => a.id !== newActivityEntry.id));
+                          }
+                        }
+                      }}
+                      disabled={!newActivity.name || !newActivity.roles || !newActivity.email || !newActivity.phone || activitiesLoading}
+                      className="bg-pink-600 hover:bg-pink-700"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      {activitiesLoading ? 'Adding...' : 'Add Activity'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Current Activities List */}
+              <Card>
+                <CardHeader>
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <UserCheck className="w-5 h-5 text-green-600" />
+                    Current Activities ({activities.length})
+                    {activitiesLoading && <div className="w-4 h-4 border-2 border-pink-600 border-t-transparent rounded-full animate-spin"></div>}
+                  </h3>
+                </CardHeader>
+                <CardContent>
+                  {activities.length === 0 ? (
+                    <div className="text-center py-8">
+                      <UserCheck className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-500">No activities staff assigned yet</p>
+                      <p className="text-sm text-gray-400 mt-1">Add activities staff using the form above</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {activities.map((activity) => (
+                        <AdminActivityCard
+                          key={activity.id}
+                          activity={activity}
+                          isEditing={editingActivity === activity.id}
+                          onEdit={() => setEditingActivity(activity.id)}
+                          onCancelEdit={() => setEditingActivity(null)}
+                          onSave={(updatedData) => handleUpdateActivity(activity.id, updatedData)}
+                          onDelete={async () => {
+                            // Optimistically update UI
+                            setActivities(prev => prev.filter(a => a.id !== activity.id));
+                            setActivitiesError(null);
+                            
+                            // Remove from Firebase
+                            const success = await removeActivityFromFirebase(activity);
+                            if (!success) {
+                              // Revert optimistic update on failure
+                              setActivities(prev => [...prev, activity]);
+                            }
+                          }}
+                          disabled={activitiesLoading}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
     </div>
@@ -1438,6 +2466,7 @@ interface AdminManagerCardProps {
 function AdminManagerCard({ manager, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: AdminManagerCardProps) {
   const [editForm, setEditForm] = useState({
     name: manager.name,
+    roles: manager.roles,
     email: manager.email,
     phone: manager.phone,
   });
@@ -1451,6 +2480,7 @@ function AdminManagerCard({ manager, isEditing, onEdit, onCancelEdit, onSave, on
   const handleCancel = () => {
     setEditForm({
       name: manager.name,
+      roles: manager.roles,
       email: manager.email,
       phone: manager.phone,
     });
@@ -1460,13 +2490,21 @@ function AdminManagerCard({ manager, isEditing, onEdit, onCancelEdit, onSave, on
   if (isEditing) {
     return (
       <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">Name</label>
             <Input
               value={editForm.name}
               onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
               placeholder="Enter manager name"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">Roles</label>
+            <Input
+              value={editForm.roles}
+              onChange={(e) => setEditForm(prev => ({ ...prev, roles: e.target.value }))}
+              placeholder="e.g. Senior Manager, Team Lead"
             />
           </div>
           <div className="space-y-2">
@@ -1501,7 +2539,7 @@ function AdminManagerCard({ manager, isEditing, onEdit, onCancelEdit, onSave, on
           <Button
             size="sm"
             onClick={handleSave}
-            disabled={!editForm.name || !editForm.email || !editForm.phone || disabled}
+            disabled={!editForm.name || !editForm.roles || !editForm.email || !editForm.phone || disabled}
             className="bg-green-600 hover:bg-green-700"
           >
             <Save className="w-4 h-4 mr-2" />
@@ -1514,7 +2552,7 @@ function AdminManagerCard({ manager, isEditing, onEdit, onCancelEdit, onSave, on
 
   return (
     <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border">
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-blue-100 rounded-full">
             <UserCheck className="w-4 h-4 text-blue-600" />
@@ -1522,6 +2560,15 @@ function AdminManagerCard({ manager, isEditing, onEdit, onCancelEdit, onSave, on
           <div>
             <p className="font-medium text-gray-900">{manager.name}</p>
             <p className="text-sm text-gray-500">Manager</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <UserCheck className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{manager.roles}</p>
+            <p className="text-xs text-gray-500">Roles</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -1571,6 +2618,7 @@ interface AdminNurseCardProps {
 function AdminNurseCard({ nurse, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: AdminNurseCardProps) {
   const [editForm, setEditForm] = useState({
     name: nurse.name,
+    roles: nurse.roles,
     email: nurse.email,
     phone: nurse.phone,
   });
@@ -1582,6 +2630,7 @@ function AdminNurseCard({ nurse, isEditing, onEdit, onCancelEdit, onSave, onDele
   const handleCancel = () => {
     setEditForm({
       name: nurse.name,
+      roles: nurse.roles,
       email: nurse.email,
       phone: nurse.phone,
     });
@@ -1603,6 +2652,15 @@ function AdminNurseCard({ nurse, isEditing, onEdit, onCancelEdit, onSave, onDele
                 value={editForm.name}
                 onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
                 placeholder="Nurse name"
+                className="text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-700 block mb-1">Roles</label>
+              <Input
+                value={editForm.roles}
+                onChange={(e) => setEditForm(prev => ({ ...prev, roles: e.target.value }))}
+                placeholder="e.g. Registered Nurse, HCA"
                 className="text-sm"
               />
             </div>
@@ -1712,6 +2770,7 @@ interface AdminCTMCardProps {
 function AdminCTMCard({ ctm, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: AdminCTMCardProps) {
   const [editForm, setEditForm] = useState({
     name: ctm.name,
+    roles: ctm.roles,
     email: ctm.email,
     phone: ctm.phone,
   });
@@ -1723,6 +2782,7 @@ function AdminCTMCard({ ctm, isEditing, onEdit, onCancelEdit, onSave, onDelete, 
   const handleCancel = () => {
     setEditForm({
       name: ctm.name,
+      roles: ctm.roles,
       email: ctm.email,
       phone: ctm.phone,
     });
@@ -1744,6 +2804,15 @@ function AdminCTMCard({ ctm, isEditing, onEdit, onCancelEdit, onSave, onDelete, 
                 value={editForm.name}
                 onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
                 placeholder="CTM name"
+                className="text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-700 block mb-1">Roles</label>
+              <Input
+                value={editForm.roles}
+                onChange={(e) => setEditForm(prev => ({ ...prev, roles: e.target.value }))}
+                placeholder="e.g. Care Team Manager, Senior CTM"
                 className="text-sm"
               />
             </div>
@@ -1806,6 +2875,15 @@ function AdminCTMCard({ ctm, isEditing, onEdit, onCancelEdit, onSave, onDelete, 
             <p className="text-sm text-gray-500">CTM</p>
           </div>
         </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <UserCheck className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{ctm.roles}</p>
+            <p className="text-xs text-gray-500">Roles</p>
+          </div>
+        </div>
         <div className="flex items-center gap-2">
           <Mail className="w-4 h-4 text-gray-400" />
           <span className="text-sm text-gray-700">{ctm.email}</span>
@@ -1822,6 +2900,650 @@ function AdminCTMCard({ ctm, isEditing, onEdit, onCancelEdit, onSave, onDelete, 
           onClick={onEdit}
           disabled={disabled}
           className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+        >
+          <Edit className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onDelete}
+          disabled={disabled}
+          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// Admin Domestic Card Component with Edit Functionality
+interface AdminDomesticCardProps {
+  domestic: Domestic;
+  isEditing: boolean;
+  onEdit: () => void;
+  onCancelEdit: () => void;
+  onSave: (updatedData: Partial<Domestic>) => void;
+  onDelete: () => void;
+  disabled: boolean;
+}
+
+function AdminDomesticCard({ domestic, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: AdminDomesticCardProps) {
+  const [editForm, setEditForm] = useState({
+    name: domestic.name,
+    roles: domestic.roles,
+    email: domestic.email,
+    phone: domestic.phone,
+  });
+
+  const handleSave = () => {
+    onSave(editForm);
+  };
+
+  const handleCancel = () => {
+    setEditForm({
+      name: domestic.name,
+      roles: domestic.roles,
+      email: domestic.email,
+      phone: domestic.phone,
+    });
+    onCancelEdit();
+  };
+
+  if (isEditing) {
+    return (
+      <div className="border border-orange-200 rounded-lg p-4 bg-orange-50">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 mb-3">
+            <UserCheck className="w-4 h-4 text-orange-600" />
+            <span className="font-medium text-orange-900">Edit Domestic</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div>
+              <label className="text-xs font-medium text-gray-700 block mb-1">Name</label>
+              <Input
+                value={editForm.name}
+                onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Domestic name"
+                className="text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-700 block mb-1">Roles</label>
+              <Input
+                value={editForm.roles}
+                onChange={(e) => setEditForm(prev => ({ ...prev, roles: e.target.value }))}
+                placeholder="e.g. Housekeeper, Cleaner"
+                className="text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-700 block mb-1">Email</label>
+              <Input
+                type="email"
+                value={editForm.email}
+                onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
+                placeholder="domestic@example.com"
+                className="text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-700 block mb-1">Phone</label>
+              <Input
+                type="tel"
+                value={editForm.phone}
+                onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
+                placeholder="+44 123 456 7890"
+                className="text-sm"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2 pt-2">
+            <Button
+              size="sm"
+              onClick={handleSave}
+              disabled={!editForm.name || !editForm.roles || !editForm.email || !editForm.phone || disabled}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              <Save className="w-3 h-3 mr-1" />
+              Save
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleCancel}
+              disabled={disabled}
+              className="text-gray-600 hover:text-gray-700"
+            >
+              <X className="w-3 h-3 mr-1" />
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-sm transition-shadow">
+      <div className="space-y-2">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+            <UserCheck className="w-4 h-4 text-orange-600" />
+          </div>
+          <div>
+            <p className="font-medium text-gray-900">{domestic.name}</p>
+            <p className="text-sm text-gray-500">Domestic</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <UserCheck className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{domestic.roles}</p>
+            <p className="text-xs text-gray-500">Roles</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Mail className="w-4 h-4 text-gray-400" />
+          <span className="text-sm text-gray-700">{domestic.email}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Phone className="w-4 h-4 text-gray-400" />
+          <span className="text-sm text-gray-700">{domestic.phone}</span>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onEdit}
+          disabled={disabled}
+          className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+        >
+          <Edit className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onDelete}
+          disabled={disabled}
+          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// Admin Maintenance Card Component with Edit Functionality
+interface AdminMaintenanceCardProps {
+  maintenance: Maintenance;
+  isEditing: boolean;
+  onEdit: () => void;
+  onCancelEdit: () => void;
+  onSave: (updatedData: Partial<Maintenance>) => void;
+  onDelete: () => void;
+  disabled: boolean;
+}
+
+function AdminMaintenanceCard({ maintenance, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: AdminMaintenanceCardProps) {
+  const [editForm, setEditForm] = useState({
+    name: maintenance.name,
+    roles: maintenance.roles,
+    email: maintenance.email,
+    phone: maintenance.phone,
+  });
+
+  const handleSave = () => {
+    onSave(editForm);
+  };
+
+  const handleCancel = () => {
+    setEditForm({
+      name: maintenance.name,
+      roles: maintenance.roles,
+      email: maintenance.email,
+      phone: maintenance.phone,
+    });
+    onCancelEdit();
+  };
+
+  if (isEditing) {
+    return (
+      <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 mb-3">
+            <UserCheck className="w-4 h-4 text-gray-600" />
+            <span className="font-medium text-gray-900">Edit Maintenance</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div>
+              <label className="text-xs font-medium text-gray-700 block mb-1">Name</label>
+              <Input
+                value={editForm.name}
+                onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Maintenance name"
+                className="text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-700 block mb-1">Roles</label>
+              <Input
+                value={editForm.roles}
+                onChange={(e) => setEditForm(prev => ({ ...prev, roles: e.target.value }))}
+                placeholder="e.g. Electrician, Plumber, Handyman"
+                className="text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-700 block mb-1">Email</label>
+              <Input
+                type="email"
+                value={editForm.email}
+                onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
+                placeholder="maintenance@example.com"
+                className="text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-700 block mb-1">Phone</label>
+              <Input
+                type="tel"
+                value={editForm.phone}
+                onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
+                placeholder="+44 123 456 7890"
+                className="text-sm"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2 pt-2">
+            <Button
+              size="sm"
+              onClick={handleSave}
+              disabled={!editForm.name || !editForm.roles || !editForm.email || !editForm.phone || disabled}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              <Save className="w-3 h-3 mr-1" />
+              Save
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleCancel}
+              disabled={disabled}
+              className="text-gray-600 hover:text-gray-700"
+            >
+              <X className="w-3 h-3 mr-1" />
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-sm transition-shadow">
+      <div className="space-y-2">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+            <UserCheck className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="font-medium text-gray-900">{maintenance.name}</p>
+            <p className="text-sm text-gray-500">Maintenance</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <UserCheck className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{maintenance.roles}</p>
+            <p className="text-xs text-gray-500">Roles</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Mail className="w-4 h-4 text-gray-400" />
+          <span className="text-sm text-gray-700">{maintenance.email}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Phone className="w-4 h-4 text-gray-400" />
+          <span className="text-sm text-gray-700">{maintenance.phone}</span>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onEdit}
+          disabled={disabled}
+          className="text-gray-600 hover:text-gray-700 hover:bg-gray-50"
+        >
+          <Edit className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onDelete}
+          disabled={disabled}
+          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// Admin Kitchen Card Component with Edit Functionality
+interface AdminKitchenCardProps {
+  kitchen: Kitchen;
+  isEditing: boolean;
+  onEdit: () => void;
+  onCancelEdit: () => void;
+  onSave: (updatedData: Partial<Kitchen>) => void;
+  onDelete: () => void;
+  disabled: boolean;
+}
+
+function AdminKitchenCard({ kitchen, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: AdminKitchenCardProps) {
+  const [editForm, setEditForm] = useState({
+    name: kitchen.name,
+    roles: kitchen.roles,
+    email: kitchen.email,
+    phone: kitchen.phone,
+  });
+
+  const handleSave = () => {
+    onSave(editForm);
+  };
+
+  const handleCancel = () => {
+    setEditForm({
+      name: kitchen.name,
+      roles: kitchen.roles,
+      email: kitchen.email,
+      phone: kitchen.phone,
+    });
+    onCancelEdit();
+  };
+
+  if (isEditing) {
+    return (
+      <div className="border border-red-200 rounded-lg p-4 bg-red-50">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 mb-3">
+            <UserCheck className="w-4 h-4 text-red-600" />
+            <span className="font-medium text-red-900">Edit Kitchen</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div>
+              <label className="text-xs font-medium text-gray-700 block mb-1">Name</label>
+              <Input
+                value={editForm.name}
+                onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Kitchen name"
+                className="text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-700 block mb-1">Roles</label>
+              <Input
+                value={editForm.roles}
+                onChange={(e) => setEditForm(prev => ({ ...prev, roles: e.target.value }))}
+                placeholder="e.g. Chef, Cook, Kitchen Assistant"
+                className="text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-700 block mb-1">Email</label>
+              <Input
+                type="email"
+                value={editForm.email}
+                onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
+                placeholder="kitchen@example.com"
+                className="text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-700 block mb-1">Phone</label>
+              <Input
+                type="tel"
+                value={editForm.phone}
+                onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
+                placeholder="+44 123 456 7890"
+                className="text-sm"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2 pt-2">
+            <Button
+              size="sm"
+              onClick={handleSave}
+              disabled={!editForm.name || !editForm.roles || !editForm.email || !editForm.phone || disabled}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              <Save className="w-3 h-3 mr-1" />
+              Save
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleCancel}
+              disabled={disabled}
+              className="text-gray-600 hover:text-gray-700"
+            >
+              <X className="w-3 h-3 mr-1" />
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-sm transition-shadow">
+      <div className="space-y-2">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+            <UserCheck className="w-4 h-4 text-red-600" />
+          </div>
+          <div>
+            <p className="font-medium text-gray-900">{kitchen.name}</p>
+            <p className="text-sm text-gray-500">Kitchen</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <UserCheck className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{kitchen.roles}</p>
+            <p className="text-xs text-gray-500">Roles</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Mail className="w-4 h-4 text-gray-400" />
+          <span className="text-sm text-gray-700">{kitchen.email}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Phone className="w-4 h-4 text-gray-400" />
+          <span className="text-sm text-gray-700">{kitchen.phone}</span>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onEdit}
+          disabled={disabled}
+          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+        >
+          <Edit className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onDelete}
+          disabled={disabled}
+          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// Admin Activity Card Component with Edit Functionality
+interface AdminActivityCardProps {
+  activity: Activities;
+  isEditing: boolean;
+  onEdit: () => void;
+  onCancelEdit: () => void;
+  onSave: (updatedData: Partial<Activities>) => void;
+  onDelete: () => void;
+  disabled: boolean;
+}
+
+function AdminActivityCard({ activity, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: AdminActivityCardProps) {
+  const [editForm, setEditForm] = useState({
+    name: activity.name,
+    roles: activity.roles,
+    email: activity.email,
+    phone: activity.phone,
+  });
+
+  const handleSave = () => {
+    onSave(editForm);
+  };
+
+  const handleCancel = () => {
+    setEditForm({
+      name: activity.name,
+      roles: activity.roles,
+      email: activity.email,
+      phone: activity.phone,
+    });
+    onCancelEdit();
+  };
+
+  if (isEditing) {
+    return (
+      <div className="border border-pink-200 rounded-lg p-4 bg-pink-50">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 mb-3">
+            <UserCheck className="w-4 h-4 text-pink-600" />
+            <span className="font-medium text-pink-900">Edit Activity</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div>
+              <label className="text-xs font-medium text-gray-700 block mb-1">Name</label>
+              <Input
+                value={editForm.name}
+                onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Activity name"
+                className="text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-700 block mb-1">Roles</label>
+              <Input
+                value={editForm.roles}
+                onChange={(e) => setEditForm(prev => ({ ...prev, roles: e.target.value }))}
+                placeholder="e.g. Activities Coordinator, Entertainment"
+                className="text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-700 block mb-1">Email</label>
+              <Input
+                type="email"
+                value={editForm.email}
+                onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
+                placeholder="activity@example.com"
+                className="text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-700 block mb-1">Phone</label>
+              <Input
+                type="tel"
+                value={editForm.phone}
+                onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
+                placeholder="+44 123 456 7890"
+                className="text-sm"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2 pt-2">
+            <Button
+              size="sm"
+              onClick={handleSave}
+              disabled={!editForm.name || !editForm.roles || !editForm.email || !editForm.phone || disabled}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              <Save className="w-3 h-3 mr-1" />
+              Save
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleCancel}
+              disabled={disabled}
+              className="text-gray-600 hover:text-gray-700"
+            >
+              <X className="w-3 h-3 mr-1" />
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-sm transition-shadow">
+      <div className="space-y-2">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-pink-100 rounded-full flex items-center justify-center">
+            <UserCheck className="w-4 h-4 text-pink-600" />
+          </div>
+          <div>
+            <p className="font-medium text-gray-900">{activity.name}</p>
+            <p className="text-sm text-gray-500">Activities</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <UserCheck className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{activity.roles}</p>
+            <p className="text-xs text-gray-500">Roles</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Mail className="w-4 h-4 text-gray-400" />
+          <span className="text-sm text-gray-700">{activity.email}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Phone className="w-4 h-4 text-gray-400" />
+          <span className="text-sm text-gray-700">{activity.phone}</span>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onEdit}
+          disabled={disabled}
+          className="text-pink-600 hover:text-pink-700 hover:bg-pink-50"
         >
           <Edit className="w-4 h-4" />
         </Button>

@@ -50,6 +50,7 @@ interface TeamsViewProps {
 interface Manager {
   id: string;
   name: string;
+  roles: string;
   email: string;
   phone: string;
   createdAt?: string;
@@ -59,6 +60,7 @@ interface Manager {
 interface Nurse {
   id: string;
   name: string;
+  roles: string;
   email: string;
   phone: string;
   createdAt?: string;
@@ -68,6 +70,47 @@ interface Nurse {
 interface CTM {
   id: string;
   name: string;
+  roles: string;
+  email: string;
+  phone: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface Domestic {
+  id: string;
+  name: string;
+  roles: string;
+  email: string;
+  phone: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface Maintenance {
+  id: string;
+  name: string;
+  roles: string;
+  email: string;
+  phone: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface Kitchen {
+  id: string;
+  name: string;
+  roles: string;
+  email: string;
+  phone: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface Activities {
+  id: string;
+  name: string;
+  roles: string;
   email: string;
   phone: string;
   createdAt?: string;
@@ -107,22 +150,50 @@ export function TeamsView({ workspace }: TeamsViewProps) {
   const [managers, setManagers] = useState<Manager[]>([]);
   const [managersLoading, setManagersLoading] = useState(false);
   const [editingManager, setEditingManager] = useState<string | null>(null);
-  const [newManager, setNewManager] = useState({ name: '', email: '', phone: '' });
+  const [newManager, setNewManager] = useState({ name: '', roles: '', email: '', phone: '' });
   const [managersError, setManagersError] = useState<string | null>(null);
 
   // Nurses state
   const [nurses, setNurses] = useState<Nurse[]>([]);
   const [nursesLoading, setNursesLoading] = useState(false);
   const [editingNurse, setEditingNurse] = useState<string | null>(null);
-  const [newNurse, setNewNurse] = useState({ name: '', email: '', phone: '' });
+  const [newNurse, setNewNurse] = useState({ name: '', roles: '', email: '', phone: '' });
   const [nursesError, setNursesError] = useState<string | null>(null);
 
   // CTMs state
   const [ctms, setCTMs] = useState<CTM[]>([]);
   const [ctmsLoading, setCTMsLoading] = useState(false);
   const [editingCTM, setEditingCTM] = useState<string | null>(null);
-  const [newCTM, setNewCTM] = useState({ name: '', email: '', phone: '' });
+  const [newCTM, setNewCTM] = useState({ name: '', roles: '', email: '', phone: '' });
   const [ctmsError, setCTMsError] = useState<string | null>(null);
+
+  // Domestic state
+  const [domestics, setDomestics] = useState<Domestic[]>([]);
+  const [domesticsLoading, setDomesticsLoading] = useState(false);
+  const [editingDomestic, setEditingDomestic] = useState<string | null>(null);
+  const [newDomestic, setNewDomestic] = useState({ name: '', roles: '', email: '', phone: '' });
+  const [domesticsError, setDomesticsError] = useState<string | null>(null);
+
+  // Maintenance state
+  const [maintenances, setMaintenances] = useState<Maintenance[]>([]);
+  const [maintenancesLoading, setMaintenancesLoading] = useState(false);
+  const [editingMaintenance, setEditingMaintenance] = useState<string | null>(null);
+  const [newMaintenance, setNewMaintenance] = useState({ name: '', roles: '', email: '', phone: '' });
+  const [maintenancesError, setMaintenancesError] = useState<string | null>(null);
+
+  // Kitchen state
+  const [kitchens, setKitchens] = useState<Kitchen[]>([]);
+  const [kitchensLoading, setKitchensLoading] = useState(false);
+  const [editingKitchen, setEditingKitchen] = useState<string | null>(null);
+  const [newKitchen, setNewKitchen] = useState({ name: '', roles: '', email: '', phone: '' });
+  const [kitchensError, setKitchensError] = useState<string | null>(null);
+
+  // Activities state
+  const [activities, setActivities] = useState<Activities[]>([]);
+  const [activitiesLoading, setActivitiesLoading] = useState(false);
+  const [editingActivity, setEditingActivity] = useState<string | null>(null);
+  const [newActivity, setNewActivity] = useState({ name: '', roles: '', email: '', phone: '' });
+  const [activitiesError, setActivitiesError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchTeams = async () => {
@@ -260,6 +331,110 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     };
     
     loadCTMs();
+  }, [workspace.id]);
+
+  // Load domestics from workspace
+  useEffect(() => {
+    const loadDomestics = async () => {
+      if (!workspace?.id) return;
+      
+      setDomesticsLoading(true);
+      
+      try {
+        const workspaceRef = doc(db, 'workspaces', workspace.id);
+        const workspaceSnap = await getDoc(workspaceRef);
+        
+        if (workspaceSnap.exists()) {
+          const data = workspaceSnap.data();
+          const domesticsData = data.domestics || [];
+          setDomestics(domesticsData);
+        }
+      } catch (error) {
+        console.error('Failed to load domestics:', error);
+      } finally {
+        setDomesticsLoading(false);
+      }
+    };
+    
+    loadDomestics();
+  }, [workspace.id]);
+
+  // Load maintenances from workspace
+  useEffect(() => {
+    const loadMaintenances = async () => {
+      if (!workspace?.id) return;
+      
+      setMaintenancesLoading(true);
+      
+      try {
+        const workspaceRef = doc(db, 'workspaces', workspace.id);
+        const workspaceSnap = await getDoc(workspaceRef);
+        
+        if (workspaceSnap.exists()) {
+          const data = workspaceSnap.data();
+          const maintenancesData = data.maintenances || [];
+          setMaintenances(maintenancesData);
+        }
+      } catch (error) {
+        console.error('Failed to load maintenances:', error);
+      } finally {
+        setMaintenancesLoading(false);
+      }
+    };
+    
+    loadMaintenances();
+  }, [workspace.id]);
+
+  // Load kitchens from workspace
+  useEffect(() => {
+    const loadKitchens = async () => {
+      if (!workspace?.id) return;
+      
+      setKitchensLoading(true);
+      
+      try {
+        const workspaceRef = doc(db, 'workspaces', workspace.id);
+        const workspaceSnap = await getDoc(workspaceRef);
+        
+        if (workspaceSnap.exists()) {
+          const data = workspaceSnap.data();
+          const kitchensData = data.kitchens || [];
+          setKitchens(kitchensData);
+        }
+      } catch (error) {
+        console.error('Failed to load kitchens:', error);
+      } finally {
+        setKitchensLoading(false);
+      }
+    };
+    
+    loadKitchens();
+  }, [workspace.id]);
+
+  // Load activities from workspace
+  useEffect(() => {
+    const loadActivities = async () => {
+      if (!workspace?.id) return;
+      
+      setActivitiesLoading(true);
+      
+      try {
+        const workspaceRef = doc(db, 'workspaces', workspace.id);
+        const workspaceSnap = await getDoc(workspaceRef);
+        
+        if (workspaceSnap.exists()) {
+          const data = workspaceSnap.data();
+          const activitiesData = data.activities || [];
+          setActivities(activitiesData);
+        }
+      } catch (error) {
+        console.error('Failed to load activities:', error);
+      } finally {
+        setActivitiesLoading(false);
+      }
+    };
+    
+    loadActivities();
   }, [workspace.id]);
 
   // Add manager to Firebase
@@ -427,6 +602,222 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     }
   };
 
+  // Add domestic to Firebase
+  const addDomesticToFirebase = async (domestic: Domestic) => {
+    if (!workspace?.id) return false;
+    
+    try {
+      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      await updateDoc(workspaceRef, {
+        domestics: arrayUnion(domestic)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to add domestic to Firebase:', error);
+      setDomesticsError('Failed to save domestic');
+      return false;
+    }
+  };
+
+  // Update domestic in Firebase
+  const updateDomesticInFirebase = async (oldDomestic: Domestic, newDomestic: Domestic) => {
+    if (!workspace?.id) return false;
+    
+    try {
+      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      await updateDoc(workspaceRef, {
+        domestics: arrayRemove(oldDomestic)
+      });
+      await updateDoc(workspaceRef, {
+        domestics: arrayUnion(newDomestic)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to update domestic in Firebase:', error);
+      setDomesticsError('Failed to update domestic');
+      return false;
+    }
+  };
+
+  // Remove domestic from Firebase
+  const removeDomesticFromFirebase = async (domestic: Domestic) => {
+    if (!workspace?.id) return false;
+    
+    try {
+      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      await updateDoc(workspaceRef, {
+        domestics: arrayRemove(domestic)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to remove domestic from Firebase:', error);
+      setDomesticsError('Failed to remove domestic');
+      return false;
+    }
+  };
+
+  // Add maintenance to Firebase
+  const addMaintenanceToFirebase = async (maintenance: Maintenance) => {
+    if (!workspace?.id) return false;
+    
+    try {
+      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      await updateDoc(workspaceRef, {
+        maintenances: arrayUnion(maintenance)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to add maintenance to Firebase:', error);
+      setMaintenancesError('Failed to save maintenance');
+      return false;
+    }
+  };
+
+  // Update maintenance in Firebase
+  const updateMaintenanceInFirebase = async (oldMaintenance: Maintenance, newMaintenance: Maintenance) => {
+    if (!workspace?.id) return false;
+    
+    try {
+      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      await updateDoc(workspaceRef, {
+        maintenances: arrayRemove(oldMaintenance)
+      });
+      await updateDoc(workspaceRef, {
+        maintenances: arrayUnion(newMaintenance)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to update maintenance in Firebase:', error);
+      setMaintenancesError('Failed to update maintenance');
+      return false;
+    }
+  };
+
+  // Remove maintenance from Firebase
+  const removeMaintenanceFromFirebase = async (maintenance: Maintenance) => {
+    if (!workspace?.id) return false;
+    
+    try {
+      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      await updateDoc(workspaceRef, {
+        maintenances: arrayRemove(maintenance)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to remove maintenance from Firebase:', error);
+      setMaintenancesError('Failed to remove maintenance');
+      return false;
+    }
+  };
+
+  // Add kitchen to Firebase
+  const addKitchenToFirebase = async (kitchen: Kitchen) => {
+    if (!workspace?.id) return false;
+    
+    try {
+      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      await updateDoc(workspaceRef, {
+        kitchens: arrayUnion(kitchen)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to add kitchen to Firebase:', error);
+      setKitchensError('Failed to save kitchen');
+      return false;
+    }
+  };
+
+  // Update kitchen in Firebase
+  const updateKitchenInFirebase = async (oldKitchen: Kitchen, newKitchen: Kitchen) => {
+    if (!workspace?.id) return false;
+    
+    try {
+      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      await updateDoc(workspaceRef, {
+        kitchens: arrayRemove(oldKitchen)
+      });
+      await updateDoc(workspaceRef, {
+        kitchens: arrayUnion(newKitchen)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to update kitchen in Firebase:', error);
+      setKitchensError('Failed to update kitchen');
+      return false;
+    }
+  };
+
+  // Remove kitchen from Firebase
+  const removeKitchenFromFirebase = async (kitchen: Kitchen) => {
+    if (!workspace?.id) return false;
+    
+    try {
+      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      await updateDoc(workspaceRef, {
+        kitchens: arrayRemove(kitchen)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to remove kitchen from Firebase:', error);
+      setKitchensError('Failed to remove kitchen');
+      return false;
+    }
+  };
+
+  // Add activity to Firebase
+  const addActivityToFirebase = async (activity: Activities) => {
+    if (!workspace?.id) return false;
+    
+    try {
+      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      await updateDoc(workspaceRef, {
+        activities: arrayUnion(activity)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to add activity to Firebase:', error);
+      setActivitiesError('Failed to save activity');
+      return false;
+    }
+  };
+
+  // Update activity in Firebase
+  const updateActivityInFirebase = async (oldActivity: Activities, newActivity: Activities) => {
+    if (!workspace?.id) return false;
+    
+    try {
+      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      await updateDoc(workspaceRef, {
+        activities: arrayRemove(oldActivity)
+      });
+      await updateDoc(workspaceRef, {
+        activities: arrayUnion(newActivity)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to update activity in Firebase:', error);
+      setActivitiesError('Failed to update activity');
+      return false;
+    }
+  };
+
+  // Remove activity from Firebase
+  const removeActivityFromFirebase = async (activity: Activities) => {
+    if (!workspace?.id) return false;
+    
+    try {
+      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      await updateDoc(workspaceRef, {
+        activities: arrayRemove(activity)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to remove activity from Firebase:', error);
+      setActivitiesError('Failed to remove activity');
+      return false;
+    }
+  };
+
   const handleAddManager = async () => {
     if (!newManager.name || !newManager.email || !newManager.phone) return;
     
@@ -439,7 +830,7 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     
     // Optimistically update UI
     setManagers(prev => [...prev, managerToAdd]);
-    setNewManager({ name: '', email: '', phone: '' });
+    setNewManager({ name: '', roles: '', email: '', phone: '' });
     setManagersError(null);
     
     // Save to Firebase
@@ -599,7 +990,7 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     
     // Optimistically update UI
     setNurses(prev => [...prev, nurseToAdd]);
-    setNewNurse({ name: '', email: '', phone: '' });
+    setNewNurse({ name: '', roles: '', email: '', phone: '' });
     setNursesError(null);
     
     const success = await addNurseToFirebase(nurseToAdd);
@@ -644,7 +1035,7 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     
     // Optimistically update UI
     setCTMs(prev => [...prev, ctmToAdd]);
-    setNewCTM({ name: '', email: '', phone: '' });
+    setNewCTM({ name: '', roles: '', email: '', phone: '' });
     setCTMsError(null);
     
     const success = await addCTMToFirebase(ctmToAdd);
@@ -677,57 +1068,185 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     }
   };
 
-  // Load nurses from workspace
-  useEffect(() => {
-    const loadNurses = async () => {
-      if (!workspace?.id) return;
-      
-      setNursesLoading(true);
-      
-      try {
-        const workspaceRef = doc(db, 'workspaces', workspace.id);
-        const workspaceSnap = await getDoc(workspaceRef);
-        
-        if (workspaceSnap.exists()) {
-          const data = workspaceSnap.data();
-          const nursesData = data.nurses || [];
-          setNurses(nursesData);
-        }
-      } catch (error) {
-        console.error('Failed to load nurses:', error);
-      } finally {
-        setNursesLoading(false);
-      }
+  const handleAddDomestic = async () => {
+    if (!newDomestic.name || !newDomestic.email || !newDomestic.phone) return;
+    
+    const domesticToAdd: Domestic = {
+      id: Date.now().toString(),
+      ...newDomestic,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
     
-    loadNurses();
-  }, [workspace.id]);
+    // Optimistically update UI
+    setDomestics(prev => [...prev, domesticToAdd]);
+    setNewDomestic({ name: '', roles: '', email: '', phone: '' });
+    setDomesticsError(null);
+    
+    const success = await addDomesticToFirebase(domesticToAdd);
+    if (!success) {
+      // Revert optimistic update
+      setDomestics(prev => prev.filter(d => d.id !== domesticToAdd.id));
+    }
+  };
 
-  // Load CTMs from workspace
-  useEffect(() => {
-    const loadCTMs = async () => {
-      if (!workspace?.id) return;
-      
-      setCTMsLoading(true);
-      
-      try {
-        const workspaceRef = doc(db, 'workspaces', workspace.id);
-        const workspaceSnap = await getDoc(workspaceRef);
-        
-        if (workspaceSnap.exists()) {
-          const data = workspaceSnap.data();
-          const ctmsData = data.ctms || [];
-          setCTMs(ctmsData);
-        }
-      } catch (error) {
-        console.error('Failed to load CTMs:', error);
-      } finally {
-        setCTMsLoading(false);
-      }
+  const handleUpdateDomestic = async (domesticId: string, updatedData: Partial<Domestic>) => {
+    const originalDomestic = domestics.find(d => d.id === domesticId);
+    if (!originalDomestic) return;
+    
+    const updatedDomestic: Domestic = {
+      ...originalDomestic,
+      ...updatedData,
+      updatedAt: new Date().toISOString()
     };
     
-    loadCTMs();
-  }, [workspace.id]);
+    // Optimistically update UI
+    setDomestics(prev => prev.map(d => d.id === domesticId ? updatedDomestic : d));
+    setEditingDomestic(null);
+    setDomesticsError(null);
+    
+    // Update in Firebase
+    const success = await updateDomesticInFirebase(originalDomestic, updatedDomestic);
+    if (!success) {
+      // Revert optimistic update on failure
+      setDomestics(prev => prev.map(d => d.id === domesticId ? originalDomestic : d));
+    }
+  };
+
+  const handleAddMaintenance = async () => {
+    if (!newMaintenance.name || !newMaintenance.email || !newMaintenance.phone) return;
+    
+    const maintenanceToAdd: Maintenance = {
+      id: Date.now().toString(),
+      ...newMaintenance,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    // Optimistically update UI
+    setMaintenances(prev => [...prev, maintenanceToAdd]);
+    setNewMaintenance({ name: '', roles: '', email: '', phone: '' });
+    setMaintenancesError(null);
+    
+    const success = await addMaintenanceToFirebase(maintenanceToAdd);
+    if (!success) {
+      // Revert optimistic update
+      setMaintenances(prev => prev.filter(m => m.id !== maintenanceToAdd.id));
+    }
+  };
+
+  const handleUpdateMaintenance = async (maintenanceId: string, updatedData: Partial<Maintenance>) => {
+    const originalMaintenance = maintenances.find(m => m.id === maintenanceId);
+    if (!originalMaintenance) return;
+    
+    const updatedMaintenance: Maintenance = {
+      ...originalMaintenance,
+      ...updatedData,
+      updatedAt: new Date().toISOString()
+    };
+    
+    // Optimistically update UI
+    setMaintenances(prev => prev.map(m => m.id === maintenanceId ? updatedMaintenance : m));
+    setEditingMaintenance(null);
+    setMaintenancesError(null);
+    
+    // Update in Firebase
+    const success = await updateMaintenanceInFirebase(originalMaintenance, updatedMaintenance);
+    if (!success) {
+      // Revert optimistic update on failure
+      setMaintenances(prev => prev.map(m => m.id === maintenanceId ? originalMaintenance : m));
+    }
+  };
+
+  const handleAddKitchen = async () => {
+    if (!newKitchen.name || !newKitchen.email || !newKitchen.phone) return;
+    
+    const kitchenToAdd: Kitchen = {
+      id: Date.now().toString(),
+      ...newKitchen,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    // Optimistically update UI
+    setKitchens(prev => [...prev, kitchenToAdd]);
+    setNewKitchen({ name: '', roles: '', email: '', phone: '' });
+    setKitchensError(null);
+    
+    const success = await addKitchenToFirebase(kitchenToAdd);
+    if (!success) {
+      // Revert optimistic update
+      setKitchens(prev => prev.filter(k => k.id !== kitchenToAdd.id));
+    }
+  };
+
+  const handleUpdateKitchen = async (kitchenId: string, updatedData: Partial<Kitchen>) => {
+    const originalKitchen = kitchens.find(k => k.id === kitchenId);
+    if (!originalKitchen) return;
+    
+    const updatedKitchen: Kitchen = {
+      ...originalKitchen,
+      ...updatedData,
+      updatedAt: new Date().toISOString()
+    };
+    
+    // Optimistically update UI
+    setKitchens(prev => prev.map(k => k.id === kitchenId ? updatedKitchen : k));
+    setEditingKitchen(null);
+    setKitchensError(null);
+    
+    // Update in Firebase
+    const success = await updateKitchenInFirebase(originalKitchen, updatedKitchen);
+    if (!success) {
+      // Revert optimistic update on failure
+      setKitchens(prev => prev.map(k => k.id === kitchenId ? originalKitchen : k));
+    }
+  };
+
+  const handleAddActivity = async () => {
+    if (!newActivity.name || !newActivity.email || !newActivity.phone) return;
+    
+    const activityToAdd: Activities = {
+      id: Date.now().toString(),
+      ...newActivity,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    // Optimistically update UI
+    setActivities(prev => [...prev, activityToAdd]);
+    setNewActivity({ name: '', roles: '', email: '', phone: '' });
+    setActivitiesError(null);
+    
+    const success = await addActivityToFirebase(activityToAdd);
+    if (!success) {
+      // Revert optimistic update
+      setActivities(prev => prev.filter(a => a.id !== activityToAdd.id));
+    }
+  };
+
+  const handleUpdateActivity = async (activityId: string, updatedData: Partial<Activities>) => {
+    const originalActivity = activities.find(a => a.id === activityId);
+    if (!originalActivity) return;
+    
+    const updatedActivity: Activities = {
+      ...originalActivity,
+      ...updatedData,
+      updatedAt: new Date().toISOString()
+    };
+    
+    // Optimistically update UI
+    setActivities(prev => prev.map(a => a.id === activityId ? updatedActivity : a));
+    setEditingActivity(null);
+    setActivitiesError(null);
+    
+    // Update in Firebase
+    const success = await updateActivityInFirebase(originalActivity, updatedActivity);
+    if (!success) {
+      // Revert optimistic update on failure
+      setActivities(prev => prev.map(a => a.id === activityId ? originalActivity : a));
+    }
+  };
 
   return (
     <div className="flex flex-col h-full bg-muted/20">
@@ -762,7 +1281,7 @@ export function TeamsView({ workspace }: TeamsViewProps) {
 
       <main className="flex-1 p-6 overflow-y-auto">
         <Tabs defaultValue="teams" className="w-full">
-          <TabsList className="grid w-[600px] grid-cols-4 bg-white border border-gray-200 rounded-lg mb-6">
+          <TabsList className="grid w-[1200px] grid-cols-8 bg-white border border-gray-200 rounded-lg mb-6">
             <TabsTrigger value="teams" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
               Teams
@@ -778,6 +1297,22 @@ export function TeamsView({ workspace }: TeamsViewProps) {
             <TabsTrigger value="ctm" className="flex items-center gap-2">
               <UserCheck className="w-4 h-4" />
               CTM
+            </TabsTrigger>
+            <TabsTrigger value="domestic" className="flex items-center gap-2">
+              <UserCheck className="w-4 h-4" />
+              Domestic
+            </TabsTrigger>
+            <TabsTrigger value="maintenance" className="flex items-center gap-2">
+              <UserCheck className="w-4 h-4" />
+              Maintenance
+            </TabsTrigger>
+            <TabsTrigger value="kitchen" className="flex items-center gap-2">
+              <UserCheck className="w-4 h-4" />
+              Kitchen
+            </TabsTrigger>
+            <TabsTrigger value="activities" className="flex items-center gap-2">
+              <UserCheck className="w-4 h-4" />
+              Activities
             </TabsTrigger>
           </TabsList>
           
@@ -903,13 +1438,21 @@ export function TeamsView({ workspace }: TeamsViewProps) {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">Name</label>
                       <Input
                         placeholder="Enter manager name"
                         value={newManager.name}
                         onChange={(e) => setNewManager(prev => ({ ...prev, name: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Roles</label>
+                      <Input
+                        placeholder="e.g. Senior Manager, Team Lead"
+                        value={newManager.roles}
+                        onChange={(e) => setNewManager(prev => ({ ...prev, roles: e.target.value }))}
                       />
                     </div>
                     <div className="space-y-2">
@@ -934,7 +1477,7 @@ export function TeamsView({ workspace }: TeamsViewProps) {
                   <div className="mt-4">
                     <Button 
                       onClick={handleAddManager}
-                      disabled={!newManager.name || !newManager.email || !newManager.phone || managersLoading}
+                      disabled={!newManager.name || !newManager.roles || !newManager.email || !newManager.phone || managersLoading}
                       className="bg-blue-600 hover:bg-blue-700"
                     >
                       <Plus className="w-4 h-4 mr-2" />
@@ -1023,13 +1566,21 @@ export function TeamsView({ workspace }: TeamsViewProps) {
                   </h3>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">Name</label>
                       <Input
                         placeholder="Enter nurse name"
                         value={newNurse.name}
                         onChange={(e) => setNewNurse(prev => ({ ...prev, name: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Roles</label>
+                      <Input
+                        placeholder="e.g. Registered Nurse, HCA"
+                        value={newNurse.roles}
+                        onChange={(e) => setNewNurse(prev => ({ ...prev, roles: e.target.value }))}
                       />
                     </div>
                     <div className="space-y-2">
@@ -1054,7 +1605,7 @@ export function TeamsView({ workspace }: TeamsViewProps) {
                   <div className="mt-4">
                     <Button 
                       onClick={handleAddNurse}
-                      disabled={!newNurse.name || !newNurse.email || !newNurse.phone || nursesLoading}
+                      disabled={!newNurse.name || !newNurse.roles || !newNurse.email || !newNurse.phone || nursesLoading}
                       className="bg-blue-600 hover:bg-blue-700"
                     >
                       <Plus className="w-4 h-4 mr-2" />
@@ -1142,13 +1693,21 @@ export function TeamsView({ workspace }: TeamsViewProps) {
                   </h3>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">Name</label>
                       <Input
                         placeholder="Enter CTM name"
                         value={newCTM.name}
                         onChange={(e) => setNewCTM(prev => ({ ...prev, name: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Roles</label>
+                      <Input
+                        placeholder="e.g. Care Team Manager, Senior CTM"
+                        value={newCTM.roles}
+                        onChange={(e) => setNewCTM(prev => ({ ...prev, roles: e.target.value }))}
                       />
                     </div>
                     <div className="space-y-2">
@@ -1173,7 +1732,7 @@ export function TeamsView({ workspace }: TeamsViewProps) {
                   <div className="mt-4">
                     <Button 
                       onClick={handleAddCTM}
-                      disabled={!newCTM.name || !newCTM.email || !newCTM.phone || ctmsLoading}
+                      disabled={!newCTM.name || !newCTM.roles || !newCTM.email || !newCTM.phone || ctmsLoading}
                       className="bg-blue-600 hover:bg-blue-700"
                     >
                       <Plus className="w-4 h-4 mr-2" />
@@ -1230,6 +1789,514 @@ export function TeamsView({ workspace }: TeamsViewProps) {
               </Card>
             </div>
           </TabsContent>
+
+          <TabsContent value="domestic" className="mt-6">
+            <div className="space-y-6">
+              {/* Error Display */}
+              {domesticsError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-red-600" />
+                    <p className="text-red-800 font-medium">Error</p>
+                  </div>
+                  <p className="text-red-700 text-sm mt-1">{domesticsError}</p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setDomesticsError(null)}
+                    className="mt-2 text-red-600 hover:text-red-700"
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              )}
+
+              {/* Add New Domestic Form */}
+              <Card>
+                <CardHeader>
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <Plus className="w-5 h-5 text-blue-600" />
+                    Add New Domestic
+                  </h3>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Name</label>
+                      <Input
+                        placeholder="Enter domestic name"
+                        value={newDomestic.name}
+                        onChange={(e) => setNewDomestic(prev => ({ ...prev, name: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Roles</label>
+                      <Input
+                        placeholder="e.g. Housekeeper, Cleaner"
+                        value={newDomestic.roles}
+                        onChange={(e) => setNewDomestic(prev => ({ ...prev, roles: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Email Address</label>
+                      <Input
+                        type="email"
+                        placeholder="domestic@example.com"
+                        value={newDomestic.email}
+                        onChange={(e) => setNewDomestic(prev => ({ ...prev, email: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Phone Number</label>
+                      <Input
+                        type="tel"
+                        placeholder="+44 123 456 7890"
+                        value={newDomestic.phone}
+                        onChange={(e) => setNewDomestic(prev => ({ ...prev, phone: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <Button 
+                      onClick={handleAddDomestic}
+                      disabled={!newDomestic.name || !newDomestic.roles || !newDomestic.email || !newDomestic.phone || domesticsLoading}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      {domesticsLoading ? 'Adding...' : 'Add Domestic'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Current Domestics List */}
+              <Card>
+                <CardHeader>
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <UserCheck className="w-5 h-5 text-green-600" />
+                    Current Domestics ({domestics.length})
+                    {domesticsLoading && <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>}
+                  </h3>
+                </CardHeader>
+                <CardContent>
+                  {domestics.length === 0 ? (
+                    <div className="text-center py-8">
+                      <UserCheck className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-500">No domestics assigned yet</p>
+                      <p className="text-sm text-gray-400 mt-1">Add domestics using the form above</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {domestics.map((domestic) => (
+                        <DomesticCard
+                          key={domestic.id}
+                          domestic={domestic}
+                          isEditing={editingDomestic === domestic.id}
+                          onEdit={() => setEditingDomestic(domestic.id)}
+                          onCancelEdit={() => setEditingDomestic(null)}
+                          onSave={(updatedData) => handleUpdateDomestic(domestic.id, updatedData)}
+                          onDelete={async () => {
+                            // Optimistically update UI
+                            setDomestics(prev => prev.filter(d => d.id !== domestic.id));
+                            setDomesticsError(null);
+                            
+                            // Remove from Firebase
+                            const success = await removeDomesticFromFirebase(domestic);
+                            if (!success) {
+                              // Revert optimistic update on failure
+                              setDomestics(prev => [...prev, domestic]);
+                            }
+                          }}
+                          disabled={domesticsLoading}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="maintenance" className="mt-6">
+            <div className="space-y-6">
+              {/* Error Display */}
+              {maintenancesError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-red-600" />
+                    <p className="text-red-800 font-medium">Error</p>
+                  </div>
+                  <p className="text-red-700 text-sm mt-1">{maintenancesError}</p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setMaintenancesError(null)}
+                    className="mt-2 text-red-600 hover:text-red-700"
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              )}
+
+              {/* Add New Maintenance Form */}
+              <Card>
+                <CardHeader>
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <Plus className="w-5 h-5 text-blue-600" />
+                    Add New Maintenance
+                  </h3>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Name</label>
+                      <Input
+                        placeholder="Enter maintenance name"
+                        value={newMaintenance.name}
+                        onChange={(e) => setNewMaintenance(prev => ({ ...prev, name: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Roles</label>
+                      <Input
+                        placeholder="e.g. Electrician, Plumber, Handyman"
+                        value={newMaintenance.roles}
+                        onChange={(e) => setNewMaintenance(prev => ({ ...prev, roles: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Email Address</label>
+                      <Input
+                        type="email"
+                        placeholder="maintenance@example.com"
+                        value={newMaintenance.email}
+                        onChange={(e) => setNewMaintenance(prev => ({ ...prev, email: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Phone Number</label>
+                      <Input
+                        type="tel"
+                        placeholder="+44 123 456 7890"
+                        value={newMaintenance.phone}
+                        onChange={(e) => setNewMaintenance(prev => ({ ...prev, phone: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <Button 
+                      onClick={handleAddMaintenance}
+                      disabled={!newMaintenance.name || !newMaintenance.roles || !newMaintenance.email || !newMaintenance.phone || maintenancesLoading}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      {maintenancesLoading ? 'Adding...' : 'Add Maintenance'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Current Maintenances List */}
+              <Card>
+                <CardHeader>
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <UserCheck className="w-5 h-5 text-green-600" />
+                    Current Maintenances ({maintenances.length})
+                    {maintenancesLoading && <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>}
+                  </h3>
+                </CardHeader>
+                <CardContent>
+                  {maintenances.length === 0 ? (
+                    <div className="text-center py-8">
+                      <UserCheck className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-500">No maintenances assigned yet</p>
+                      <p className="text-sm text-gray-400 mt-1">Add maintenances using the form above</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {maintenances.map((maintenance) => (
+                        <MaintenanceCard
+                          key={maintenance.id}
+                          maintenance={maintenance}
+                          isEditing={editingMaintenance === maintenance.id}
+                          onEdit={() => setEditingMaintenance(maintenance.id)}
+                          onCancelEdit={() => setEditingMaintenance(null)}
+                          onSave={(updatedData) => handleUpdateMaintenance(maintenance.id, updatedData)}
+                          onDelete={async () => {
+                            // Optimistically update UI
+                            setMaintenances(prev => prev.filter(m => m.id !== maintenance.id));
+                            setMaintenancesError(null);
+                            
+                            // Remove from Firebase
+                            const success = await removeMaintenanceFromFirebase(maintenance);
+                            if (!success) {
+                              // Revert optimistic update on failure
+                              setMaintenances(prev => [...prev, maintenance]);
+                            }
+                          }}
+                          disabled={maintenancesLoading}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="kitchen" className="mt-6">
+            <div className="space-y-6">
+              {/* Error Display */}
+              {kitchensError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-red-600" />
+                    <p className="text-red-800 font-medium">Error</p>
+                  </div>
+                  <p className="text-red-700 text-sm mt-1">{kitchensError}</p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setKitchensError(null)}
+                    className="mt-2 text-red-600 hover:text-red-700"
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              )}
+
+              {/* Add New Kitchen Form */}
+              <Card>
+                <CardHeader>
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <Plus className="w-5 h-5 text-blue-600" />
+                    Add New Kitchen
+                  </h3>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Name</label>
+                      <Input
+                        placeholder="Enter kitchen name"
+                        value={newKitchen.name}
+                        onChange={(e) => setNewKitchen(prev => ({ ...prev, name: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Roles</label>
+                      <Input
+                        placeholder="e.g. Chef, Cook, Kitchen Assistant"
+                        value={newKitchen.roles}
+                        onChange={(e) => setNewKitchen(prev => ({ ...prev, roles: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Email Address</label>
+                      <Input
+                        type="email"
+                        placeholder="kitchen@example.com"
+                        value={newKitchen.email}
+                        onChange={(e) => setNewKitchen(prev => ({ ...prev, email: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Phone Number</label>
+                      <Input
+                        type="tel"
+                        placeholder="+44 123 456 7890"
+                        value={newKitchen.phone}
+                        onChange={(e) => setNewKitchen(prev => ({ ...prev, phone: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <Button 
+                      onClick={handleAddKitchen}
+                      disabled={!newKitchen.name || !newKitchen.roles || !newKitchen.email || !newKitchen.phone || kitchensLoading}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      {kitchensLoading ? 'Adding...' : 'Add Kitchen'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Current Kitchens List */}
+              <Card>
+                <CardHeader>
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <UserCheck className="w-5 h-5 text-green-600" />
+                    Current Kitchens ({kitchens.length})
+                    {kitchensLoading && <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>}
+                  </h3>
+                </CardHeader>
+                <CardContent>
+                  {kitchens.length === 0 ? (
+                    <div className="text-center py-8">
+                      <UserCheck className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-500">No kitchens assigned yet</p>
+                      <p className="text-sm text-gray-400 mt-1">Add kitchens using the form above</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {kitchens.map((kitchen) => (
+                        <KitchenCard
+                          key={kitchen.id}
+                          kitchen={kitchen}
+                          isEditing={editingKitchen === kitchen.id}
+                          onEdit={() => setEditingKitchen(kitchen.id)}
+                          onCancelEdit={() => setEditingKitchen(null)}
+                          onSave={(updatedData) => handleUpdateKitchen(kitchen.id, updatedData)}
+                          onDelete={async () => {
+                            // Optimistically update UI
+                            setKitchens(prev => prev.filter(k => k.id !== kitchen.id));
+                            setKitchensError(null);
+                            
+                            // Remove from Firebase
+                            const success = await removeKitchenFromFirebase(kitchen);
+                            if (!success) {
+                              // Revert optimistic update on failure
+                              setKitchens(prev => [...prev, kitchen]);
+                            }
+                          }}
+                          disabled={kitchensLoading}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="activities" className="mt-6">
+            <div className="space-y-6">
+              {/* Error Display */}
+              {activitiesError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-red-600" />
+                    <p className="text-red-800 font-medium">Error</p>
+                  </div>
+                  <p className="text-red-700 text-sm mt-1">{activitiesError}</p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setActivitiesError(null)}
+                    className="mt-2 text-red-600 hover:text-red-700"
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              )}
+
+              {/* Add New Activity Form */}
+              <Card>
+                <CardHeader>
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <Plus className="w-5 h-5 text-blue-600" />
+                    Add New Activity
+                  </h3>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Name</label>
+                      <Input
+                        placeholder="Enter activity name"
+                        value={newActivity.name}
+                        onChange={(e) => setNewActivity(prev => ({ ...prev, name: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Roles</label>
+                      <Input
+                        placeholder="e.g. Activities Coordinator, Entertainment"
+                        value={newActivity.roles}
+                        onChange={(e) => setNewActivity(prev => ({ ...prev, roles: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Email Address</label>
+                      <Input
+                        type="email"
+                        placeholder="activity@example.com"
+                        value={newActivity.email}
+                        onChange={(e) => setNewActivity(prev => ({ ...prev, email: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Phone Number</label>
+                      <Input
+                        type="tel"
+                        placeholder="+44 123 456 7890"
+                        value={newActivity.phone}
+                        onChange={(e) => setNewActivity(prev => ({ ...prev, phone: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <Button 
+                      onClick={handleAddActivity}
+                      disabled={!newActivity.name || !newActivity.roles || !newActivity.email || !newActivity.phone || activitiesLoading}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      {activitiesLoading ? 'Adding...' : 'Add Activity'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Current Activities List */}
+              <Card>
+                <CardHeader>
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <UserCheck className="w-5 h-5 text-green-600" />
+                    Current Activities ({activities.length})
+                    {activitiesLoading && <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>}
+                  </h3>
+                </CardHeader>
+                <CardContent>
+                  {activities.length === 0 ? (
+                    <div className="text-center py-8">
+                      <UserCheck className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-500">No activities assigned yet</p>
+                      <p className="text-sm text-gray-400 mt-1">Add activities using the form above</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {activities.map((activity) => (
+                        <ActivityCard
+                          key={activity.id}
+                          activity={activity}
+                          isEditing={editingActivity === activity.id}
+                          onEdit={() => setEditingActivity(activity.id)}
+                          onCancelEdit={() => setEditingActivity(null)}
+                          onSave={(updatedData) => handleUpdateActivity(activity.id, updatedData)}
+                          onDelete={async () => {
+                            // Optimistically update UI
+                            setActivities(prev => prev.filter(a => a.id !== activity.id));
+                            setActivitiesError(null);
+                            
+                            // Remove from Firebase
+                            const success = await removeActivityFromFirebase(activity);
+                            if (!success) {
+                              // Revert optimistic update on failure
+                              setActivities(prev => [...prev, activity]);
+                            }
+                          }}
+                          disabled={activitiesLoading}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
         </Tabs>
       </main>
     </div>
@@ -1251,6 +2318,7 @@ interface ManagerCardProps {
 function ManagerCard({ manager, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: ManagerCardProps) {
   const [editForm, setEditForm] = useState({
     name: manager.name,
+    roles: manager.roles,
     email: manager.email,
     phone: manager.phone,
   });
@@ -1264,6 +2332,7 @@ function ManagerCard({ manager, isEditing, onEdit, onCancelEdit, onSave, onDelet
   const handleCancel = () => {
     setEditForm({
       name: manager.name,
+      roles: manager.roles,
       email: manager.email,
       phone: manager.phone,
     });
@@ -1273,13 +2342,21 @@ function ManagerCard({ manager, isEditing, onEdit, onCancelEdit, onSave, onDelet
   if (isEditing) {
     return (
       <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">Name</label>
             <Input
               value={editForm.name}
               onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
               placeholder="Enter manager name"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">Roles</label>
+            <Input
+              value={editForm.roles}
+              onChange={(e) => setEditForm(prev => ({ ...prev, roles: e.target.value }))}
+              placeholder="e.g. Senior Manager, Team Lead"
             />
           </div>
           <div className="space-y-2">
@@ -1314,7 +2391,7 @@ function ManagerCard({ manager, isEditing, onEdit, onCancelEdit, onSave, onDelet
           <Button
             size="sm"
             onClick={handleSave}
-            disabled={!editForm.name || !editForm.email || !editForm.phone || disabled}
+            disabled={!editForm.name || !editForm.roles || !editForm.email || !editForm.phone || disabled}
             className="bg-green-600 hover:bg-green-700"
           >
             <Save className="w-4 h-4 mr-2" />
@@ -1327,7 +2404,7 @@ function ManagerCard({ manager, isEditing, onEdit, onCancelEdit, onSave, onDelet
 
   return (
     <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-blue-100 rounded-full">
             <UserCheck className="w-5 h-5 text-blue-600" />
@@ -1335,6 +2412,15 @@ function ManagerCard({ manager, isEditing, onEdit, onCancelEdit, onSave, onDelet
           <div>
             <p className="font-semibold text-gray-900">{manager.name}</p>
             <p className="text-sm text-blue-600 font-medium">Workspace Manager</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <UserCheck className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{manager.roles}</p>
+            <p className="text-xs text-gray-500">Roles</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -1394,6 +2480,7 @@ interface NurseCardProps {
 function NurseCard({ nurse, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: NurseCardProps) {
   const [editForm, setEditForm] = useState({
     name: nurse.name,
+    roles: nurse.roles,
     email: nurse.email,
     phone: nurse.phone,
   });
@@ -1405,6 +2492,7 @@ function NurseCard({ nurse, isEditing, onEdit, onCancelEdit, onSave, onDelete, d
   const handleCancel = () => {
     setEditForm({
       name: nurse.name,
+      roles: nurse.roles,
       email: nurse.email,
       phone: nurse.phone,
     });
@@ -1414,13 +2502,21 @@ function NurseCard({ nurse, isEditing, onEdit, onCancelEdit, onSave, onDelete, d
   if (isEditing) {
     return (
       <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
             <Input
               value={editForm.name}
               onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
               placeholder="Nurse name"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Roles</label>
+            <Input
+              value={editForm.roles}
+              onChange={(e) => setEditForm(prev => ({ ...prev, roles: e.target.value }))}
+              placeholder="e.g. Registered Nurse, HCA"
             />
           </div>
           <div>
@@ -1445,7 +2541,7 @@ function NurseCard({ nurse, isEditing, onEdit, onCancelEdit, onSave, onDelete, d
         <div className="flex gap-2">
           <Button
             onClick={handleSave}
-            disabled={!editForm.name || !editForm.email || !editForm.phone || disabled}
+            disabled={!editForm.name || !editForm.roles || !editForm.email || !editForm.phone || disabled}
             className="bg-green-600 hover:bg-green-700"
             size="sm"
           >
@@ -1468,7 +2564,7 @@ function NurseCard({ nurse, isEditing, onEdit, onCancelEdit, onSave, onDelete, d
 
   return (
     <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-100">
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-green-100 rounded-full">
             <UserCheck className="w-5 h-5 text-green-600" />
@@ -1476,6 +2572,15 @@ function NurseCard({ nurse, isEditing, onEdit, onCancelEdit, onSave, onDelete, d
           <div>
             <p className="font-semibold text-gray-900">{nurse.name}</p>
             <p className="text-sm text-green-600 font-medium">Nurse</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <UserCheck className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{nurse.roles}</p>
+            <p className="text-xs text-gray-500">Roles</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -1535,6 +2640,7 @@ interface CTMCardProps {
 function CTMCard({ ctm, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: CTMCardProps) {
   const [editForm, setEditForm] = useState({
     name: ctm.name,
+    roles: ctm.roles,
     email: ctm.email,
     phone: ctm.phone,
   });
@@ -1546,6 +2652,7 @@ function CTMCard({ ctm, isEditing, onEdit, onCancelEdit, onSave, onDelete, disab
   const handleCancel = () => {
     setEditForm({
       name: ctm.name,
+      roles: ctm.roles,
       email: ctm.email,
       phone: ctm.phone,
     });
@@ -1555,13 +2662,21 @@ function CTMCard({ ctm, isEditing, onEdit, onCancelEdit, onSave, onDelete, disab
   if (isEditing) {
     return (
       <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
             <Input
               value={editForm.name}
               onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
               placeholder="CTM name"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Roles</label>
+            <Input
+              value={editForm.roles}
+              onChange={(e) => setEditForm(prev => ({ ...prev, roles: e.target.value }))}
+              placeholder="e.g. Care Team Manager, Senior CTM"
             />
           </div>
           <div>
@@ -1586,7 +2701,7 @@ function CTMCard({ ctm, isEditing, onEdit, onCancelEdit, onSave, onDelete, disab
         <div className="flex gap-2">
           <Button
             onClick={handleSave}
-            disabled={!editForm.name || !editForm.email || !editForm.phone || disabled}
+            disabled={!editForm.name || !editForm.roles || !editForm.email || !editForm.phone || disabled}
             className="bg-green-600 hover:bg-green-700"
             size="sm"
           >
@@ -1609,7 +2724,7 @@ function CTMCard({ ctm, isEditing, onEdit, onCancelEdit, onSave, onDelete, disab
 
   return (
     <div className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-50 to-violet-50 rounded-lg border border-purple-100">
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-purple-100 rounded-full">
             <UserCheck className="w-5 h-5 text-purple-600" />
@@ -1617,6 +2732,15 @@ function CTMCard({ ctm, isEditing, onEdit, onCancelEdit, onSave, onDelete, disab
           <div>
             <p className="font-semibold text-gray-900">{ctm.name}</p>
             <p className="text-sm text-purple-600 font-medium">CTM</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <UserCheck className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{ctm.roles}</p>
+            <p className="text-xs text-gray-500">Roles</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -1645,6 +2769,647 @@ function CTMCard({ ctm, isEditing, onEdit, onCancelEdit, onSave, onDelete, disab
           onClick={onEdit}
           disabled={disabled}
           className="text-purple-600 hover:text-purple-700 hover:bg-purple-100"
+        >
+          <Edit className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onDelete}
+          disabled={disabled}
+          className="text-red-600 hover:text-red-700 hover:bg-red-100"
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+
+// Domestic Card Component with Edit Functionality
+interface DomesticCardProps {
+  domestic: Domestic;
+  isEditing: boolean;
+  onEdit: () => void;
+  onCancelEdit: () => void;
+  onSave: (updatedData: Partial<Domestic>) => void;
+  onDelete: () => void;
+  disabled: boolean;
+}
+
+function DomesticCard({ domestic, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: DomesticCardProps) {
+  const [editForm, setEditForm] = useState({
+    name: domestic.name,
+    roles: domestic.roles,
+    email: domestic.email,
+    phone: domestic.phone,
+  });
+
+  const handleSave = () => {
+    onSave(editForm);
+  };
+
+  const handleCancel = () => {
+    setEditForm({
+      name: domestic.name,
+      roles: domestic.roles,
+      email: domestic.email,
+      phone: domestic.phone,
+    });
+    onCancelEdit();
+  };
+
+  if (isEditing) {
+    return (
+      <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
+            <Input
+              value={editForm.name}
+              onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+              placeholder="Domestic name"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Roles</label>
+            <Input
+              value={editForm.roles}
+              onChange={(e) => setEditForm(prev => ({ ...prev, roles: e.target.value }))}
+              placeholder="e.g. Housekeeper, Cleaner"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+            <Input
+              type="email"
+              value={editForm.email}
+              onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
+              placeholder="domestic@example.com"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+            <Input
+              type="tel"
+              value={editForm.phone}
+              onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
+              placeholder="+44 123 456 7890"
+            />
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            onClick={handleSave}
+            disabled={!editForm.name || !editForm.roles || !editForm.email || !editForm.phone || disabled}
+            className="bg-green-600 hover:bg-green-700"
+            size="sm"
+          >
+            <Save className="w-4 h-4 mr-2" />
+            Save Changes
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={handleCancel}
+            disabled={disabled}
+            size="sm"
+          >
+            <X className="w-4 h-4 mr-2" />
+            Cancel
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg border border-orange-100">
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-3 bg-orange-100 rounded-full">
+            <UserCheck className="w-5 h-5 text-orange-600" />
+          </div>
+          <div>
+            <p className="font-semibold text-gray-900">{domestic.name}</p>
+            <p className="text-sm text-orange-600 font-medium">Domestic</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <UserCheck className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{domestic.roles}</p>
+            <p className="text-xs text-gray-500">Roles</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <Mail className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{domestic.email}</p>
+            <p className="text-xs text-gray-500">Email address</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <Phone className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{domestic.phone}</p>
+            <p className="text-xs text-gray-500">Phone number</p>
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 ml-4">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onEdit}
+          disabled={disabled}
+          className="text-orange-600 hover:text-orange-700 hover:bg-orange-100"
+        >
+          <Edit className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onDelete}
+          disabled={disabled}
+          className="text-red-600 hover:text-red-700 hover:bg-red-100"
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// Maintenance Card Component with Edit Functionality
+interface MaintenanceCardProps {
+  maintenance: Maintenance;
+  isEditing: boolean;
+  onEdit: () => void;
+  onCancelEdit: () => void;
+  onSave: (updatedData: Partial<Maintenance>) => void;
+  onDelete: () => void;
+  disabled: boolean;
+}
+
+function MaintenanceCard({ maintenance, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: MaintenanceCardProps) {
+  const [editForm, setEditForm] = useState({
+    name: maintenance.name,
+    roles: maintenance.roles,
+    email: maintenance.email,
+    phone: maintenance.phone,
+  });
+
+  const handleSave = () => {
+    onSave(editForm);
+  };
+
+  const handleCancel = () => {
+    setEditForm({
+      name: maintenance.name,
+      roles: maintenance.roles,
+      email: maintenance.email,
+      phone: maintenance.phone,
+    });
+    onCancelEdit();
+  };
+
+  if (isEditing) {
+    return (
+      <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
+            <Input
+              value={editForm.name}
+              onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+              placeholder="Maintenance name"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Roles</label>
+            <Input
+              value={editForm.roles}
+              onChange={(e) => setEditForm(prev => ({ ...prev, roles: e.target.value }))}
+              placeholder="e.g. Electrician, Plumber, Handyman"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+            <Input
+              type="email"
+              value={editForm.email}
+              onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
+              placeholder="maintenance@example.com"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+            <Input
+              type="tel"
+              value={editForm.phone}
+              onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
+              placeholder="+44 123 456 7890"
+            />
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            onClick={handleSave}
+            disabled={!editForm.name || !editForm.roles || !editForm.email || !editForm.phone || disabled}
+            className="bg-green-600 hover:bg-green-700"
+            size="sm"
+          >
+            <Save className="w-4 h-4 mr-2" />
+            Save Changes
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={handleCancel}
+            disabled={disabled}
+            size="sm"
+          >
+            <X className="w-4 h-4 mr-2" />
+            Cancel
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-slate-50 rounded-lg border border-gray-100">
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-3 bg-gray-100 rounded-full">
+            <UserCheck className="w-5 h-5 text-gray-600" />
+          </div>
+          <div>
+            <p className="font-semibold text-gray-900">{maintenance.name}</p>
+            <p className="text-sm text-gray-600 font-medium">Maintenance</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <UserCheck className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{maintenance.roles}</p>
+            <p className="text-xs text-gray-500">Roles</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <Mail className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{maintenance.email}</p>
+            <p className="text-xs text-gray-500">Email address</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <Phone className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{maintenance.phone}</p>
+            <p className="text-xs text-gray-500">Phone number</p>
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 ml-4">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onEdit}
+          disabled={disabled}
+          className="text-gray-600 hover:text-gray-700 hover:bg-gray-100"
+        >
+          <Edit className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onDelete}
+          disabled={disabled}
+          className="text-red-600 hover:text-red-700 hover:bg-red-100"
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// Kitchen Card Component with Edit Functionality
+interface KitchenCardProps {
+  kitchen: Kitchen;
+  isEditing: boolean;
+  onEdit: () => void;
+  onCancelEdit: () => void;
+  onSave: (updatedData: Partial<Kitchen>) => void;
+  onDelete: () => void;
+  disabled: boolean;
+}
+
+function KitchenCard({ kitchen, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: KitchenCardProps) {
+  const [editForm, setEditForm] = useState({
+    name: kitchen.name,
+    roles: kitchen.roles,
+    email: kitchen.email,
+    phone: kitchen.phone,
+  });
+
+  const handleSave = () => {
+    onSave(editForm);
+  };
+
+  const handleCancel = () => {
+    setEditForm({
+      name: kitchen.name,
+      roles: kitchen.roles,
+      email: kitchen.email,
+      phone: kitchen.phone,
+    });
+    onCancelEdit();
+  };
+
+  if (isEditing) {
+    return (
+      <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
+            <Input
+              value={editForm.name}
+              onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+              placeholder="Kitchen name"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Roles</label>
+            <Input
+              value={editForm.roles}
+              onChange={(e) => setEditForm(prev => ({ ...prev, roles: e.target.value }))}
+              placeholder="e.g. Chef, Cook, Kitchen Assistant"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+            <Input
+              type="email"
+              value={editForm.email}
+              onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
+              placeholder="kitchen@example.com"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+            <Input
+              type="tel"
+              value={editForm.phone}
+              onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
+              placeholder="+44 123 456 7890"
+            />
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            onClick={handleSave}
+            disabled={!editForm.name || !editForm.roles || !editForm.email || !editForm.phone || disabled}
+            className="bg-green-600 hover:bg-green-700"
+            size="sm"
+          >
+            <Save className="w-4 h-4 mr-2" />
+            Save Changes
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={handleCancel}
+            disabled={disabled}
+            size="sm"
+          >
+            <X className="w-4 h-4 mr-2" />
+            Cancel
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-red-50 to-rose-50 rounded-lg border border-red-100">
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-3 bg-red-100 rounded-full">
+            <UserCheck className="w-5 h-5 text-red-600" />
+          </div>
+          <div>
+            <p className="font-semibold text-gray-900">{kitchen.name}</p>
+            <p className="text-sm text-red-600 font-medium">Kitchen</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <UserCheck className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{kitchen.roles}</p>
+            <p className="text-xs text-gray-500">Roles</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <Mail className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{kitchen.email}</p>
+            <p className="text-xs text-gray-500">Email address</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <Phone className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{kitchen.phone}</p>
+            <p className="text-xs text-gray-500">Phone number</p>
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 ml-4">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onEdit}
+          disabled={disabled}
+          className="text-red-600 hover:text-red-700 hover:bg-red-100"
+        >
+          <Edit className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onDelete}
+          disabled={disabled}
+          className="text-red-600 hover:text-red-700 hover:bg-red-100"
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// Activity Card Component with Edit Functionality
+interface ActivityCardProps {
+  activity: Activities;
+  isEditing: boolean;
+  onEdit: () => void;
+  onCancelEdit: () => void;
+  onSave: (updatedData: Partial<Activities>) => void;
+  onDelete: () => void;
+  disabled: boolean;
+}
+
+function ActivityCard({ activity, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: ActivityCardProps) {
+  const [editForm, setEditForm] = useState({
+    name: activity.name,
+    roles: activity.roles,
+    email: activity.email,
+    phone: activity.phone,
+  });
+
+  const handleSave = () => {
+    onSave(editForm);
+  };
+
+  const handleCancel = () => {
+    setEditForm({
+      name: activity.name,
+      roles: activity.roles,
+      email: activity.email,
+      phone: activity.phone,
+    });
+    onCancelEdit();
+  };
+
+  if (isEditing) {
+    return (
+      <div className="p-4 bg-pink-50 rounded-lg border border-pink-200">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
+            <Input
+              value={editForm.name}
+              onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+              placeholder="Activity name"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Roles</label>
+            <Input
+              value={editForm.roles}
+              onChange={(e) => setEditForm(prev => ({ ...prev, roles: e.target.value }))}
+              placeholder="e.g. Activities Coordinator, Entertainment"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+            <Input
+              type="email"
+              value={editForm.email}
+              onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
+              placeholder="activity@example.com"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+            <Input
+              type="tel"
+              value={editForm.phone}
+              onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
+              placeholder="+44 123 456 7890"
+            />
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            onClick={handleSave}
+            disabled={!editForm.name || !editForm.roles || !editForm.email || !editForm.phone || disabled}
+            className="bg-green-600 hover:bg-green-700"
+            size="sm"
+          >
+            <Save className="w-4 h-4 mr-2" />
+            Save Changes
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={handleCancel}
+            disabled={disabled}
+            size="sm"
+          >
+            <X className="w-4 h-4 mr-2" />
+            Cancel
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-pink-50 to-rose-50 rounded-lg border border-pink-100">
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-3 bg-pink-100 rounded-full">
+            <UserCheck className="w-5 h-5 text-pink-600" />
+          </div>
+          <div>
+            <p className="font-semibold text-gray-900">{activity.name}</p>
+            <p className="text-sm text-pink-600 font-medium">Activities</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <UserCheck className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{activity.roles}</p>
+            <p className="text-xs text-gray-500">Roles</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <Mail className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{activity.email}</p>
+            <p className="text-xs text-gray-500">Email address</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <Phone className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{activity.phone}</p>
+            <p className="text-xs text-gray-500">Phone number</p>
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 ml-4">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onEdit}
+          disabled={disabled}
+          className="text-pink-600 hover:text-pink-700 hover:bg-pink-100"
         >
           <Edit className="w-4 h-4" />
         </Button>

@@ -346,90 +346,99 @@ export default function AdminWorkspacesView() {
               (ws.occupancy ? Math.round(ws.occupancy * 100) : null);
             
             return (
-              <Card key={ws.id} className="hover:shadow-lg transition-all duration-300 border border-gray-200 hover:border-gray-300 bg-white">
-                <CardHeader className="flex items-center justify-between w-full px-4 py-4 rounded-t-lg bg-gradient-to-br from-indigo-600 via-blue-600 to-purple-700 text-white">
+              <Card key={ws.id} className="relative hover:shadow-xl transition-all duration-300 border border-blue-100 bg-white rounded-2xl">
+                {/* top accent */}
+                <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl bg-gradient-to-r from-blue-500 via-purple-500 to-indigo-500" aria-hidden />
+                <CardHeader className="flex flex-row items-center justify-between w-full px-5 py-4 border-b border-blue-50 bg-white rounded-t-2xl">
                   <div className="flex-1 min-w-0">
-                    <div className="text-lg font-semibold truncate text-left">{ws.name || ws.id}</div>
-                    <div className="text-xs text-blue-100 mt-1 font-medium">
+                    <div className="flex items-center gap-2">
+                      <Folder className="w-5 h-5 text-blue-500" />
+                      <span className="text-lg font-semibold truncate text-blue-900">{ws.name || ws.id}</span>
+                    </div>
+                    <div className="text-xs text-blue-400 mt-1 font-medium">
                       {ws.folders?.length || 0} folders • {totalDocs} documents
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 ml-4">
+                  <div className="flex items-center gap-3 ml-4">
                     {occupancyPercent && (
-                      <div className="text-center">
-                        <div className={`text-sm font-bold ${
-                          occupancyPercent > 80 ? 'text-red-200' :
-                          occupancyPercent > 60 ? 'text-yellow-200' :
-                          'text-green-200'
-                        }`}>
-                          {occupancyPercent}%
+                      <div className="flex items-center gap-3 mr-2">
+                        <OccupancyPie percent={occupancyPercent} size={34} strokeWidth={4} />
+                        <div className="text-sm">
+                          <div className={`font-semibold ${
+                              occupancyPercent > 80 ? 'text-red-600' : occupancyPercent > 60 ? 'text-yellow-600' : 'text-green-600'
+                            }`}>{occupancyPercent}%</div>
+                          <div className="text-[10px] text-gray-400">occupancy</div>
                         </div>
-                        <div className="text-xs text-blue-100">occupancy</div>
                       </div>
                     )}
                     <Button 
                       size="sm" 
-                      variant="secondary" 
+                      variant="default" 
                       onClick={() => window.dispatchEvent(new CustomEvent('navigate-to-workspace', { detail: { workspaceId: ws.id, workspaceName: ws.name } }))}
-                      className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+                      className="bg-blue-600 hover:bg-blue-700 text-white border-none font-medium shadow-sm"
                     >
                       Open
                     </Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="text-white hover:bg-white/10">
+                        <Button variant="ghost" size="icon" className="text-blue-400 hover:bg-blue-50">
                           <MoreVertical className="w-4 h-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => openRenameDialog(ws)}>
-                          <Edit className="w-4 h-4 mr-2" />
+                          <Edit className="w-4 h-4 mr-2 text-blue-500" />
                           Rename
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => openDeleteDialog(ws)} className="text-red-600 focus:text-red-600">
-                          <Trash2 className="w-4 h-4 mr-2" />
+                          <Trash2 className="w-4 h-4 mr-2 text-red-500" />
                           Delete
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
                 </CardHeader>
-                <CardContent className="p-4">
+                <CardContent className="p-5">
                   {/* Workspace Metrics */}
                   <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-100">
-                      <div className="text-lg font-bold text-blue-600">{ws.folders?.length || 0}</div>
+                    <div className="flex flex-col items-center justify-center p-3 rounded-xl bg-blue-50 border border-blue-100">
+                      <div className="p-2 bg-white rounded-full shadow-sm mb-2">
+                        <Folder className="w-4 h-4 text-blue-500" />
+                      </div>
+                      <div className="text-lg font-bold text-blue-700">{ws.folders?.length || 0}</div>
                       <div className="text-xs text-blue-600 font-medium">Folders</div>
                     </div>
-                    <div className="text-center p-3 bg-green-50 rounded-lg border border-green-100">
-                      <div className="text-lg font-bold text-green-600">{totalDocs}</div>
+                    <div className="flex flex-col items-center justify-center p-3 rounded-xl bg-green-50 border border-green-100">
+                      <div className="p-2 bg-white rounded-full shadow-sm mb-2">
+                        <FileText className="w-4 h-4 text-green-500" />
+                      </div>
+                      <div className="text-lg font-bold text-green-700">{totalDocs}</div>
                       <div className="text-xs text-green-600 font-medium">Documents</div>
                     </div>
                   </div>
-                  
                   {/* Folder Preview */}
                   <div className="space-y-2">
-                    <div className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <div className="text-sm font-medium text-blue-900 flex items-center gap-2">
                       <Folder className="w-4 h-4 text-yellow-500" />
                       Folders Preview
                     </div>
                     {(ws.folders || []).length === 0 ? (
-                      <div className="text-xs text-gray-500 text-center py-3 bg-gray-50 rounded-lg">No folders created</div>
+                      <div className="text-xs text-blue-400 text-center py-3 bg-blue-50 rounded-lg">No folders created</div>
                     ) : (
                       <div className="space-y-1">
                         {(ws.folders || []).slice(0, 4).map((f: any) => (
-                          <div key={f.id} className="flex items-center justify-between p-2 bg-gray-50 rounded text-xs border border-gray-100">
+                          <div key={f.id} className="flex items-center justify-between p-2 bg-blue-50 rounded text-xs border border-blue-100">
                             <div className="flex items-center gap-2 truncate flex-1">
                               <Folder className="w-3 h-3 text-yellow-500 flex-shrink-0" />
                               <span className="truncate">{f.name}</span>
                             </div>
-                            <Badge variant="outline" className="text-xs">
+                            <Badge variant="outline" className="text-xs border-blue-200 text-blue-700">
                               {(f.items || []).filter((it: any) => it.type === 'document').length}
                             </Badge>
                           </div>
                         ))}
                         {(ws.folders || []).length > 4 && (
-                          <div className="text-xs text-gray-500 text-center py-1">
+                          <div className="text-xs text-blue-400 text-center py-1">
                             +{(ws.folders || []).length - 4} more folders...
                           </div>
                         )}

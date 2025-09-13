@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useAdminWorkspaces } from '@/context/admin-workspaces';
 import { FileText, User, Calendar, Target, Award, TrendingUp, Heart, CheckCircle, Users } from "lucide-react";
 import ManagerSearchSelect from "@/components/admin/manager-search-select";
 import Link from "next/link";
@@ -22,6 +23,7 @@ interface Manager {
 }
 
 export default function SupervisionPage() {
+  const adminWorkspaces = useAdminWorkspaces();
   const [selectedManager, setSelectedManager] = useState<Manager | null>(null);
   const [role, setRole] = useState("");
   const [supervisor, setSupervisor] = useState("");
@@ -229,9 +231,9 @@ export default function SupervisionPage() {
                       <SelectValue placeholder="Select location" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="in-person">In person</SelectItem>
-                      <SelectItem value="virtual">Virtual</SelectItem>
-                      <SelectItem value="care-home-site">Care home site</SelectItem>
+                      {adminWorkspaces.map((ws) => (
+                        <SelectItem key={ws.id} value={ws.name}>{ws.name}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

@@ -89,7 +89,7 @@ export function TopNav({ onSettingsClick, onNotificationsClick, unreadCount = 0,
   }, [user?.id, workspaceId]);
 
   return (
-    <header className="flex h-16 items-center justify-between gap-4 border-b bg-background px-4 md:px-6">
+    <header className="flex h-16 items-center justify-between gap-4 border-b bg-background px-4 md:px-6 rounded-bl-lg rounded-br-lg">
       {/* Mobile hamburger menu */}
       {isMobile && (
         <div className="flex items-center">
