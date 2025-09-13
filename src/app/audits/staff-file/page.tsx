@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { saveAudit, updateAudit, markAuditCompleted } from '@/lib/firestore';
 import { useWorkspace } from '@/context/workspace';
+import { ChevronDown, ChevronUp, FileText } from 'lucide-react';
 
 type YesNoNA = 'Yes' | 'No' | 'N/A' | '';
 
@@ -60,6 +61,76 @@ export default function StaffFileAuditPage() {
   const [saving, setSaving] = useState(false);
   const [savedAuditId, setSavedAuditId] = useState<string | null>(null);
 
+  // Collapsible sections state
+  const [openSections, setOpenSections] = useState<{ [key: string]: boolean }>({
+    'personal-info': true,
+    'recruitment-docs': false,
+    'identification': false,
+    'employment-docs': false,
+    'ongoing-records': false,
+  });
+
+  // Section definitions with guidance text
+  const sections = [
+    {
+      id: 'personal-info',
+      title: 'Personal Information',
+      color: 'green',
+      guidance: 'Verify basic staff identification and personal documentation required for employment records.',
+      questions: [
+        { field: 'photo', label: 'Photo' },
+        { field: 'cv_explained_gaps', label: 'CV (any gaps from school/leave explained)' },
+        { field: 'application_form', label: 'Application form' },
+        { field: 'interview', label: 'Interview' },
+      ]
+    },
+    {
+      id: 'recruitment-docs',
+      title: 'Recruitment Documentation',
+      color: 'yellow',
+      guidance: 'Check all required documentation obtained during the recruitment and pre-employment process.',
+      questions: [
+        { field: 'medical_questionnaire', label: 'Medical questionnaire' },
+        { field: 'references_x2', label: 'References x2 (professional and character)' },
+        { field: 'dbs', label: 'DBS' },
+      ]
+    },
+    {
+      id: 'identification',
+      title: 'Identification & Right to Work',
+      color: 'pink',
+      guidance: 'Verify all identification documents and right to work checks are present and up to date.',
+      questions: [
+        { field: 'right_to_work', label: 'Right to work' },
+        { field: 'visa_docs', label: 'Visa documentation and check' },
+        { field: 'id_passport_driving', label: 'ID (passport/driving licence)' },
+        { field: 'id_proof_address', label: 'ID proof of address' },
+      ]
+    },
+    {
+      id: 'employment-docs',
+      title: 'Employment Documentation',
+      color: 'emerald',
+      guidance: 'Ensure all employment-related documents are present and signed by the employee.',
+      questions: [
+        { field: 'offer_letter', label: 'Offer letter' },
+        { field: 'contract', label: 'Contract' },
+        { field: 'employee_handbook', label: 'Employee handbook' },
+        { field: 'job_description', label: 'Job description' },
+      ]
+    },
+    {
+      id: 'ongoing-records',
+      title: 'Ongoing Records & Development',
+      color: 'violet',
+      guidance: 'Check that ongoing staff development and performance records are maintained.',
+      questions: [
+        { field: 'supervisions', label: 'Supervisions' },
+        { field: 'appraisal', label: 'Appraisal' },
+      ]
+    },
+  ];
+
   const [data, setData] = useState<StaffFileData>({
     home: '',
     date: '',
@@ -104,23 +175,84 @@ export default function StaffFileAuditPage() {
     comments: '',
   });
 
+  // Helper functions
+  const toggleSection = (sectionId: string) => {
+    setOpenSections(prev => ({
+      ...prev,
+      [sectionId]: !prev[sectionId]
+    }));
+  };
+
+  const getFieldError = (fieldName: string) => {
+    return errors.includes(fieldName);
+  };
+
+  const getFieldClassName = (fieldName: string) => {
+    const baseClasses = "w-full p-2 border rounded";
+    return getFieldError(fieldName)
+      ? `${baseClasses} border-red-500 bg-red-50`
+      : `${baseClasses} border-gray-300`;
+  };
+
   const handleChange = (field: keyof StaffFileData, value: any) => {
     setData(prev => ({ ...prev, [field]: value }));
     if (value && errors.includes(field)) setErrors(prev => prev.filter(e => e !== field));
   };
 
-  const OptionQuestion = ({ label, field, value, commentField, commentValue }: { label: string; field: keyof StaffFileData; value: YesNoNA; commentField: keyof StaffFileData; commentValue: string; }) => (
-    <div className="space-y-2">
-      <label className="block text-sm font-medium text-gray-700">{label}</label>
-      <div className="flex gap-4 items-center" data-field={String(field)}>
-        <label className="flex items-center"><input type="radio" name={String(field)} value="Yes" checked={data[field] === 'Yes'} onChange={(e) => handleChange(field, 'Yes')} className="mr-2" />Yes</label>
-        <label className="flex items-center"><input type="radio" name={String(field)} value="No" checked={data[field] === 'No'} onChange={(e) => handleChange(field, 'No')} className="mr-2" />No</label>
-        <label className="flex items-center"><input type="radio" name={String(field)} value="N/A" checked={data[field] === 'N/A'} onChange={(e) => handleChange(field, 'N/A')} className="mr-2" />N/A</label>
+  const OptionQuestion = ({ field, label }: { field: string; label: string }) => {
+    const yesNoField = field as keyof StaffFileData;
+    const commentField = `${field}_comment` as keyof StaffFileData;
+    const hasError = getFieldError(field);
+
+    return (
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">{label}</label>
+        <div className="flex gap-4 items-center" data-field={field}>
+          <label className="flex items-center">
+            <input
+              type="radio"
+              name={field}
+              value="Yes"
+              checked={data[yesNoField] === 'Yes'}
+              onChange={(e) => handleChange(yesNoField, 'Yes')}
+              className="mr-2"
+            />
+            Yes
+          </label>
+          <label className="flex items-center">
+            <input
+              type="radio"
+              name={field}
+              value="No"
+              checked={data[yesNoField] === 'No'}
+              onChange={(e) => handleChange(yesNoField, 'No')}
+              className="mr-2"
+            />
+            No
+          </label>
+          <label className="flex items-center">
+            <input
+              type="radio"
+              name={field}
+              value="N/A"
+              checked={data[yesNoField] === 'N/A'}
+              onChange={(e) => handleChange(yesNoField, 'N/A')}
+              className="mr-2"
+            />
+            N/A
+          </label>
+        </div>
+        {hasError && <p className="text-red-500 text-sm">This field is required</p>}
+        <textarea
+          value={data[commentField] as string}
+          onChange={(e) => handleChange(commentField, e.target.value)}
+          rows={2}
+          placeholder="Comments"
+          className="w-full p-2 border border-gray-300 rounded resize-none mt-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        />
       </div>
-      {errors.includes(String(field)) && <p className="text-red-500 text-sm">This field is required</p>}
-      <textarea value={data[commentField] as string} onChange={(e) => handleChange(commentField, e.target.value)} rows={2} placeholder="Comments" className="w-full p-2 border rounded resize-none mt-2" />
-    </div>
-  );
+    );
+  };
 
   const validateForm = () => {
     const required: (keyof StaffFileData)[] = ['home','date','personCompletingAudit','staff_full_name'];
@@ -229,7 +361,7 @@ export default function StaffFileAuditPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white">
+    <div className="max-w-7xl mx-auto p-6 bg-white">
       <div className="mb-6">
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-2xl font-bold text-gray-900">Staff File Audit</h1>
@@ -243,66 +375,123 @@ export default function StaffFileAuditPage() {
           </div>
         </div>
 
-        <div className="bg-blue-50 p-4 rounded-lg mb-6">
-          <h2 className="text-lg font-semibold text-blue-900 mb-4">Audit Information</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Home</label>
-              <input value={data.home} data-field="home" onChange={(e) => handleChange('home', e.target.value)} className={`w-full p-2 border rounded ${errors.includes('home') ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="Enter home name" />
-              {errors.includes('home') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Date of audit</label>
-              <input type="date" value={data.date} data-field="date" onChange={(e) => handleChange('date', e.target.value)} className={`w-full p-2 border rounded ${errors.includes('date') ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} />
-              {errors.includes('date') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Person completing the audit</label>
-              <input value={data.personCompletingAudit} data-field="personCompletingAudit" onChange={(e) => handleChange('personCompletingAudit', e.target.value)} className={`w-full p-2 border rounded ${errors.includes('personCompletingAudit') ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="Enter auditor name" />
-              {errors.includes('personCompletingAudit') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          <div className="bg-green-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-green-900 mb-3">Staff File Checklist</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Staff full name</label>
-                <input value={data.staff_full_name} data-field="staff_full_name" onChange={(e) => handleChange('staff_full_name', e.target.value)} className={`w-full p-2 border rounded ${errors.includes('staff_full_name') ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="Full name" />
-                {errors.includes('staff_full_name') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Panel - Audit Information */}
+          <div className="lg:col-span-1">
+            <div className="bg-blue-50 p-6 rounded-lg">
+              <div className="flex items-center gap-2 mb-4">
+                <FileText className="h-5 w-5 text-blue-600" />
+                <h2 className="text-lg font-semibold text-blue-900">Audit Information</h2>
               </div>
-
-              <OptionQuestion label="Photo" field="photo" value={data.photo} commentField="photo_comment" commentValue={data.photo_comment} />
-              <OptionQuestion label="CV (any gaps from school/leave explained)" field="cv_explained_gaps" value={data.cv_explained_gaps} commentField="cv_explained_gaps_comment" commentValue={data.cv_explained_gaps_comment} />
-              <OptionQuestion label="Application form" field="application_form" value={data.application_form} commentField="application_form_comment" commentValue={data.application_form_comment} />
-              <OptionQuestion label="Interview" field="interview" value={data.interview} commentField="interview_comment" commentValue={data.interview_comment} />
-              <OptionQuestion label="Right to work" field="right_to_work" value={data.right_to_work} commentField="right_to_work_comment" commentValue={data.right_to_work_comment} />
-              <OptionQuestion label="Visa documentation and check" field="visa_docs" value={data.visa_docs} commentField="visa_docs_comment" commentValue={data.visa_docs_comment} />
-              <OptionQuestion label="ID (passport/driving licence)" field="id_passport_driving" value={data.id_passport_driving} commentField="id_passport_driving_comment" commentValue={data.id_passport_driving_comment} />
-              <OptionQuestion label="ID proof of address" field="id_proof_address" value={data.id_proof_address} commentField="id_proof_address_comment" commentValue={data.id_proof_address_comment} />
-              <OptionQuestion label="Medical questionnaire" field="medical_questionnaire" value={data.medical_questionnaire} commentField="medical_questionnaire_comment" commentValue={data.medical_questionnaire_comment} />
-              <OptionQuestion label="References x2 (professional and character)" field="references_x2" value={data.references_x2} commentField="references_x2_comment" commentValue={data.references_x2_comment} />
-              <OptionQuestion label="DBS" field="dbs" value={data.dbs} commentField="dbs_comment" commentValue={data.dbs_comment} />
-              <OptionQuestion label="Offer letter" field="offer_letter" value={data.offer_letter} commentField="offer_letter_comment" commentValue={data.offer_letter_comment} />
-              <OptionQuestion label="Contract" field="contract" value={data.contract} commentField="contract_comment" commentValue={data.contract_comment} />
-              <OptionQuestion label="Employee handbook" field="employee_handbook" value={data.employee_handbook} commentField="employee_handbook_comment" commentValue={data.employee_handbook_comment} />
-              <OptionQuestion label="Job description" field="job_description" value={data.job_description} commentField="job_description_comment" commentValue={data.job_description_comment} />
-              <OptionQuestion label="Supervisions" field="supervisions" value={data.supervisions} commentField="supervisions_comment" commentValue={data.supervisions_comment} />
-              <OptionQuestion label="Appraisal" field="appraisal" value={data.appraisal} commentField="appraisal_comment" commentValue={data.appraisal_comment} />
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Home</label>
+                  <input
+                    value={data.home}
+                    data-field="home"
+                    onChange={(e) => handleChange('home', e.target.value)}
+                    className={getFieldClassName('home')}
+                    placeholder="Enter home name"
+                  />
+                  {getFieldError('home') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Date of audit</label>
+                  <input
+                    type="date"
+                    value={data.date}
+                    data-field="date"
+                    onChange={(e) => handleChange('date', e.target.value)}
+                    className={getFieldClassName('date')}
+                  />
+                  {getFieldError('date') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Person completing the audit</label>
+                  <input
+                    value={data.personCompletingAudit}
+                    data-field="personCompletingAudit"
+                    onChange={(e) => handleChange('personCompletingAudit', e.target.value)}
+                    className={getFieldClassName('personCompletingAudit')}
+                    placeholder="Enter auditor name"
+                  />
+                  {getFieldError('personCompletingAudit') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Staff full name</label>
+                  <input
+                    value={data.staff_full_name}
+                    data-field="staff_full_name"
+                    onChange={(e) => handleChange('staff_full_name', e.target.value)}
+                    className={getFieldClassName('staff_full_name')}
+                    placeholder="Full name"
+                  />
+                  {getFieldError('staff_full_name') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
+                </div>
+              </div>
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Comments</label>
-            <textarea value={data.comments} onChange={(e) => handleChange('comments', e.target.value)} rows={4} className="w-full p-2 border rounded resize-none" />
-          </div>
+          {/* Right Panel - Collapsible Sections */}
+          <div className="lg:col-span-2 space-y-4">
+            {sections.map((section, index) => (
+              <div key={index} className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                <button
+                  onClick={() => toggleSection(section.id)}
+                  className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <FileText className="h-5 w-5 text-gray-600" />
+                    <h3 className="text-lg font-semibold text-gray-900">{section.title}</h3>
+                  </div>
+                  {openSections[section.id] ? (
+                    <ChevronUp className="h-5 w-5 text-gray-500" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5 text-gray-500" />
+                  )}
+                </button>
 
-          <div className="flex justify-end mt-6">
-            <button onClick={handleComplete} className="px-4 py-2 bg-blue-600 text-white rounded">Complete Audit</button>
+                {openSections[section.id] && (
+                  <div className="px-4 pb-4">
+                    <p className="text-sm text-gray-600 mb-4">{section.guidance}</p>
+                    <div className="space-y-4">
+                      {section.questions.map((question, qIndex) => (
+                        <div key={qIndex}>
+                          <OptionQuestion label={question.label} field={question.field} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {/* Comments Section */}
+            <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+              <div className="p-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Additional Comments</label>
+                <textarea
+                  value={data.comments}
+                  onChange={(e) => handleChange('comments', e.target.value)}
+                  rows={4}
+                  className="w-full p-3 border border-gray-300 rounded resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Enter any additional comments..."
+                />
+              </div>
+            </div>
+
+            {/* Complete Audit Button */}
+            <div className="flex justify-end">
+              <button
+                onClick={handleComplete}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+              >
+                Complete Audit
+              </button>
+            </div>
           </div>
         </div>
+      </div>
 
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -316,8 +505,6 @@ export default function StaffFileAuditPage() {
           </div>
         </div>
       )}
-
-      </div>
     </div>
   );
 }

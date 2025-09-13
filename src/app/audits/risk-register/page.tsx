@@ -3,6 +3,7 @@ import React, { useMemo, useState } from "react";
 import { useAuth } from '@/hooks/use-auth';
 import { useWorkspace } from '@/context/workspace';
 import { markAuditCompletedWithSnapshot } from '@/lib/firestore';
+import { ChevronDown, ChevronUp, FileText } from 'lucide-react';
 
 type RiskRow = {
   rm: string;
@@ -51,6 +52,57 @@ export default function RiskRegisterAuditPage() {
   const [finalComments, setFinalComments] = useState('');
   const { user } = useAuth();
   const activeWorkspace = useWorkspace();
+
+  // Collapsible sections state
+  const [openSections, setOpenSections] = useState<{ [key: string]: boolean }>({
+    'resident-overview': true,
+    'risk-management': false,
+    'final-comments': false,
+  });
+
+  // Section definitions with guidance text
+  const sections = [
+    {
+      id: 'resident-overview',
+      title: 'Resident Risk Overview',
+      color: 'green',
+      guidance: 'View and manage resident risk information organized by room. Add new residents and track their risk factors.',
+      content: 'overview'
+    },
+    {
+      id: 'risk-management',
+      title: 'Risk Management Details',
+      color: 'blue',
+      guidance: 'Detailed risk assessment and management information for individual residents.',
+      content: 'details'
+    },
+    {
+      id: 'final-comments',
+      title: 'Final Comments',
+      color: 'gray',
+      guidance: 'Add any final comments or observations from the risk register audit.',
+      content: 'comments'
+    },
+  ];
+
+  // Helper functions
+  const toggleSection = (sectionId: string) => {
+    setOpenSections(prev => ({
+      ...prev,
+      [sectionId]: !prev[sectionId]
+    }));
+  };
+
+  const getFieldError = (fieldName: string) => {
+    return false; // No validation errors for this audit
+  };
+
+  const getFieldClassName = (fieldName: string) => {
+    const baseClasses = "w-full p-2 border rounded";
+    return getFieldError(fieldName)
+      ? `${baseClasses} border-red-500 bg-red-50`
+      : `${baseClasses} border-gray-300`;
+  };
 
   function createNewRoom(): RiskRow {
     const nextRoomNumber = rows.length + 1;
@@ -135,88 +187,163 @@ export default function RiskRegisterAuditPage() {
   }
 
   return (
-    <div className="p-6">
-      {/* Complete Audit Button */}
-      <div className="flex justify-end mb-4">
-        <button
-          onClick={() => setShowCompleteModal(true)}
-          disabled={rows.length === 0 || saving}
-          className="bg-green-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors disabled:opacity-50"
-        >
-          {saving ? 'Saving...' : 'Complete Audit'}
-        </button>
-      </div>
-      
-      <h1 className="text-2xl font-semibold mb-4">Risk Register</h1>
-
-      <p className="text-sm text-muted-foreground mb-6">
-        Manage resident risk information by room. Click "Add New Resident" to start tracking risks for a resident.
-      </p>
-
+    <div className="max-w-7xl mx-auto p-6 bg-white">
       <div className="mb-6">
-        <button
-          onClick={addNewRoom}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-        >
-          <span>+</span>
-          Add New Resident
-        </button>
-      </div>
-
-      {rows.length === 0 ? (
-        <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-          <div className="text-gray-500 mb-4">
-            <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-            </svg>
-          </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No rooms added yet</h3>
-          <p className="text-gray-500 mb-4">Get started by adding your first room to track resident risks.</p>
-          <button
-            onClick={addNewRoom}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Add First Resident
-          </button>
+        <div className="flex justify-between items-center mb-4">
+          <h1 className="text-2xl font-bold text-gray-900">Risk Register Audit</h1>
         </div>
-      ) : (
-        <div className="grid gap-3">
-          {summary.map((s, i) => (
-            <div key={s.rm} className="flex items-center justify-between p-4 bg-white border rounded-lg shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex-1">
-                <div className="text-lg font-medium mb-1">Room {s.rm} — {s.name || 'Unnamed'}</div>
-                <div className="flex flex-wrap gap-2">
-                  {s.flags.length === 0 ? (
-                    <span className="text-sm text-gray-500">No major flags</span>
-                  ) : (
-                    s.flags.map((f) => (
-                      <span key={f} className="text-xs px-3 py-1 bg-amber-100 text-amber-800 rounded-full font-medium">{f}</span>
-                    ))
-                  )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Panel - Audit Information */}
+          <div className="lg:col-span-1">
+            <div className="bg-blue-50 p-6 rounded-lg">
+              <div className="flex items-center gap-2 mb-4">
+                <FileText className="h-5 w-5 text-blue-600" />
+                <h2 className="text-lg font-semibold text-blue-900">Audit Information</h2>
+              </div>
+              <div className="space-y-4">
+                <div className="text-sm text-gray-600">
+                  <p>Manage resident risk information by room. Track medical conditions, equipment needs, and care requirements for each resident.</p>
+                </div>
+                <div className="pt-4">
+                  <div className="text-sm font-medium text-gray-700 mb-2">Total Residents: {rows.length}</div>
+                  <div className="text-sm text-gray-600">
+                    {rows.filter(r => r.dementia || r.diabetic || r.epilepsy || r.parkinsons).length} residents with major risk flags
+                  </div>
                 </div>
               </div>
-
-              <div className="flex items-center gap-2 ml-4">
-                <button
-                  onClick={() => setSelectedIndex(i)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Details
-                </button>
-                <button
-                  onClick={() => deleteRoom(i)}
-                  className="px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
-                >
-                  Delete
-                </button>
-              </div>
             </div>
-          ))}
-        </div>
-      )}
+          </div>
 
-  {/* Resident Details Modal */}
-  {selectedIndex !== null && (
+          {/* Right Panel - Collapsible Sections */}
+          <div className="lg:col-span-2 space-y-4">
+            {sections.map((section, index) => (
+              <div key={index} className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                <button
+                  onClick={() => toggleSection(section.id)}
+                  className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <FileText className="h-5 w-5 text-gray-600" />
+                    <h3 className="text-lg font-semibold text-gray-900">{section.title}</h3>
+                  </div>
+                  {openSections[section.id] ? (
+                    <ChevronUp className="h-5 w-5 text-gray-500" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5 text-gray-500" />
+                  )}
+                </button>
+
+                {openSections[section.id] && (
+                  <div className="px-4 pb-4">
+                    <p className="text-sm text-gray-600 mb-4">{section.guidance}</p>
+                    <div className="space-y-4">
+                      {section.content === 'overview' && (
+                        <div className="space-y-4">
+                          <div className="flex justify-between items-center">
+                            <button
+                              onClick={addNewRoom}
+                              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                            >
+                              <span>+</span>
+                              Add New Resident
+                            </button>
+                          </div>
+
+                          {rows.length === 0 ? (
+                            <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                              <div className="text-gray-500 mb-4">
+                                <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                </svg>
+                              </div>
+                              <h3 className="text-lg font-medium text-gray-900 mb-2">No residents added yet</h3>
+                              <p className="text-gray-500 mb-4">Get started by adding your first resident to track their risks.</p>
+                              <button
+                                onClick={addNewRoom}
+                                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                              >
+                                Add First Resident
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="grid gap-3">
+                              {summary.map((s, i) => (
+                                <div key={s.rm} className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+                                  <div className="flex-1">
+                                    <div className="text-lg font-medium mb-1">Room {s.rm} — {s.name || 'Unnamed'}</div>
+                                    <div className="flex flex-wrap gap-2">
+                                      {s.flags.length === 0 ? (
+                                        <span className="text-sm text-gray-500">No major flags</span>
+                                      ) : (
+                                        s.flags.map((f) => (
+                                          <span key={f} className="text-xs px-3 py-1 bg-amber-100 text-amber-800 rounded-full font-medium">{f}</span>
+                                        ))
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-2 ml-4">
+                                    <button
+                                      onClick={() => setSelectedIndex(i)}
+                                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                                    >
+                                      Details
+                                    </button>
+                                    <button
+                                      onClick={() => deleteRoom(i)}
+                                      className="px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
+                                    >
+                                      Delete
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {section.content === 'details' && (
+                        <div className="text-center py-8 text-gray-500">
+                          <p>Select a resident from the overview section above to view and edit their detailed risk information.</p>
+                        </div>
+                      )}
+
+                      {section.content === 'comments' && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Final Comments</label>
+                          <textarea
+                            value={finalComments}
+                            onChange={(e) => setFinalComments(e.target.value)}
+                            rows={6}
+                            className="w-full p-3 border border-gray-300 rounded resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="Enter any final comments or observations from the risk register audit..."
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {/* Complete Audit Button */}
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowCompleteModal(true)}
+                disabled={rows.length === 0 || saving}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50"
+              >
+                {saving ? 'Saving...' : 'Complete Audit'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Resident Details Modal */}
+      {selectedIndex !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-5xl bg-white rounded-xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
             {/* Header */}
@@ -365,7 +492,7 @@ export default function RiskRegisterAuditPage() {
                         placeholder="Enter allergy information and medication notes"
                       />
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Pressure Sore / Leg Ulcer Notes</label>
                       <input
@@ -412,10 +539,11 @@ export default function RiskRegisterAuditPage() {
           </div>
         </div>
       )}
+
       {/* Complete Audit Modal */}
       {showCompleteModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
+          <div className="bg-white p-6 rounded-lg max-w-md mx-4">
             <h3 className="text-lg font-semibold mb-4">Complete Risk Register Audit</h3>
             <p className="text-gray-600 mb-4">Would you like to add any final comments before completing this audit? A PDF snapshot will be saved.</p>
             <textarea

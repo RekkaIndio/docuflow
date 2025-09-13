@@ -1,5 +1,9 @@
 'use client';
 import React, { useState } from 'react';
+import { ChevronDown, ChevronUp, FileText } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { useWorkspace } from '@/context/workspace';
 
 // Force dynamic rendering
@@ -106,6 +110,94 @@ export default function MealtimeAuditPage() {
   const [finalComments, setFinalComments] = useState('');
   const [errors, setErrors] = useState<string[]>([]);
 
+  // Collapsible sections state
+  const [openSections, setOpenSections] = useState<boolean[]>(Array(7).fill(false));
+
+  const toggleSection = (index: number) => {
+    setOpenSections(prev => prev.map((open, i) => i === index ? !open : open));
+  };
+
+  // Section definitions with guidance text
+  const sections = [
+    {
+      title: "1. Preparation and Environment",
+      guidance: "Assess the setup and atmosphere of the dining area before mealtime begins, ensuring a comfortable and welcoming environment for residents.",
+      questions: [
+        { label: "Is the dining area clean, tidy, and set up appropriately before mealtime?", yesNoField: "dining_area_set" },
+        { label: "Is the environment calm, relaxed, and free from unnecessary noise?", yesNoField: "environment_calm" },
+        { label: "Is there adequate seating for all residents who wish to eat in the dining room?", yesNoField: "adequate_seating" },
+        { label: "Are tables clean, well presented, and appropriately laid (e.g. cutlery, napkins)?", yesNoField: "tables_well_presented" },
+        { label: "Is the room well lit and at a comfortable temperature?", yesNoField: "room_well_lit" }
+      ]
+    },
+    {
+      title: "2. Resident Choice and Dignity",
+      guidance: "Evaluate how well residents are offered choices and how their dignity is maintained throughout the mealtime process.",
+      questions: [
+        { label: "Are residents offered to wash their hands?", yesNoField: "residents_offered_handwash" },
+        { label: "Are residents offered a clear choice of meals, including alternatives?", yesNoField: "residents_offered_choice" },
+        { label: "Are menus available in an accessible format (e.g. large print, pictorial)?", yesNoField: "menus_accessible" },
+        { label: "Are individual dietary needs/preferences/allergies clearly identified and catered for?", yesNoField: "dietary_needs_identified" },
+        { label: "Are residents encouraged to make independent choices where possible?", yesNoField: "residents_encouraged_choice" },
+        { label: "Is dignity maintained throughout the mealtime (e.g. no plastic aprons unless requested)?", yesNoField: "dignity_maintained" }
+      ]
+    },
+    {
+      title: "3. Staff Interaction and Support",
+      guidance: "Observe staff interactions with residents during mealtime, focusing on attentiveness, sensitivity, and appropriate assistance.",
+      questions: [
+        { label: "Are staff available and attentive during the meal?", yesNoField: "staff_available_attentive" },
+        { label: "Do staff support residents with sensitivity and respect (e.g. not rushing)?", yesNoField: "staff_support_sensitivity" },
+        { label: "Are residents offered assistance discreetly if needed (e.g. cutting food, feeding)?", yesNoField: "assistance_discreet" },
+        { label: "Are staff sitting at eye level and engaging positively with residents during assistance?", yesNoField: "staff_eye_level_engagement" },
+        { label: "Are IDDSI levels known by staff and checked thoroughly before serving food/drink?", yesNoField: "iddsi_checked" }
+      ]
+    },
+    {
+      title: "4. Nutrition and Hydration",
+      guidance: "Check that residents receive adequate nutrition and hydration, with appropriate monitoring and encouragement.",
+      questions: [
+        { label: "Are residents offered adequate portions that meet their needs?", yesNoField: "adequate_portions" },
+        { label: "Are drinks (water/juice/tea etc.) offered before, during, and after the meal?", yesNoField: "drinks_offered" },
+        { label: "Are residents encouraged to drink and eat sufficiently?", yesNoField: "residents_encouraged_eat_drink" },
+        { label: "Are any fortified meals, supplements or texture-modified diets delivered correctly?", yesNoField: "fortified_correct" },
+        { label: "Are residents monitored for food/fluid intake where necessary (e.g. fluid/food charts)?", yesNoField: "intake_monitored" }
+      ]
+    },
+    {
+      title: "5. Mealtime Experience",
+      guidance: "Assess the overall mealtime experience, including enjoyment, social interaction, timing, and food quality.",
+      questions: [
+        { label: "Are residents enjoying their meals and the overall experience?", yesNoField: "residents_enjoying" },
+        { label: "Is there social interaction among residents and staff during meals?", yesNoField: "social_interaction" },
+        { label: "Are residents given enough time to eat at their own pace?", yesNoField: "time_to_eat" },
+        { label: "Are meals served at the correct temperature?", yesNoField: "meals_served_correct_temp" },
+        { label: "Are second helpings or alternative meals offered if a resident dislikes the first option?", yesNoField: "second_helpings_offered" }
+      ]
+    },
+    {
+      title: "6. Cleanliness, Hygiene and Safety",
+      guidance: "Verify hygiene standards, PPE usage, food safety practices, and general cleanliness during mealtime.",
+      questions: [
+        { label: "Are staff wearing correct PPE if required (e.g. aprons, gloves where appropriate)?", yesNoField: "staff_ppe_if_required" },
+        { label: "Is food served in a hygienic manner with appropriate utensils?", yesNoField: "hygienic_serving" },
+        { label: "Are spills cleaned promptly and safely?", yesNoField: "spills_cleaned" },
+        { label: "Are food safety and hygiene standards visibly followed?", yesNoField: "food_hygiene_followed" },
+        { label: "Is the kitchen clean, and staff compliant with infection control?", yesNoField: "kitchen_clean" }
+      ]
+    },
+    {
+      title: "7. After the Meal",
+      guidance: "Check post-meal care, cleanup procedures, resident choices for next activities, and feedback collection.",
+      questions: [
+        { label: "Are residents supported with mouth care if required?", yesNoField: "mouth_care_supported" },
+        { label: "Are dining areas cleaned promptly and returned to a tidy state?", yesNoField: "areas_cleaned_promptly" },
+        { label: "Are residents given choices about what to do next (e.g. return to lounge, rest)?", yesNoField: "residents_choices_next" },
+        { label: "Is feedback on the meal (likes/dislikes) gathered and acted upon?", yesNoField: "feedback_gathered" }
+      ]
+    }
+  ];
+
   const [data, setData] = useState<MealtimeData>({
     home: '',
     date: '',
@@ -189,20 +281,66 @@ export default function MealtimeAuditPage() {
     feedback_gathered_comment: '',
   });
 
+  // Helper functions
+  const getFieldError = (fieldName: string) => {
+    return errors.find(error => error.includes(fieldName));
+  };
+
+  const getFieldClassName = (fieldName: string) => {
+    const hasError = getFieldError(fieldName);
+    return hasError
+      ? "border-red-500 bg-red-50 focus:border-red-500 focus:ring-red-500"
+      : "border-gray-300 focus:border-blue-500 focus:ring-blue-500";
+  };
+
+  const handleYesNoChange = (fieldName: string, value: string) => {
+    setData(prev => ({
+      ...prev,
+      [fieldName]: value
+    }));
+    // Clear any errors for this field
+    setErrors(prev => prev.filter(error => !error.includes(fieldName)));
+  };
+
   const handleChange = (field: keyof MealtimeData, value: string) => {
     setData(prev => ({ ...prev, [field]: value }));
     if (value.trim() !== '' && errors.includes(field)) setErrors(prev => prev.filter(e => e !== field));
   };
 
-  const YesNoQuestion = ({ label, yesNoField, commentField, yesNoValue, commentValue, onYesNoChange, onCommentChange }: { label: string; yesNoField: string; commentField: string; yesNoValue: string; commentValue: string; onYesNoChange: (v: string) => void; onCommentChange: (v: string) => void; }) => (
-    <div className="space-y-2">
-      <label className="block text-sm font-medium text-gray-700">{label}</label>
-      <div className="flex gap-4 items-center" data-field={yesNoField}>
-        <label className="flex items-center"><input type="radio" name={yesNoField} value="Yes" checked={yesNoValue === 'Yes'} onChange={(e) => onYesNoChange(e.target.value)} className="mr-2" />Yes</label>
-        <label className="flex items-center"><input type="radio" name={yesNoField} value="No" checked={yesNoValue === 'No'} onChange={(e) => onYesNoChange(e.target.value)} className="mr-2" />No</label>
+  const YesNoQuestion = ({ label, yesNoField }: { label: string; yesNoField: string; }) => (
+    <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+      <div className="space-y-3">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+          <div className="flex gap-4" data-field={yesNoField}>
+            <label className="flex items-center">
+              <input
+                type="radio"
+                name={yesNoField}
+                value="Yes"
+                checked={data[yesNoField as keyof MealtimeData] === 'Yes'}
+                onChange={(e) => handleYesNoChange(yesNoField, e.target.value)}
+                className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+              />
+              <span className="text-sm text-gray-700">Yes</span>
+            </label>
+            <label className="flex items-center">
+              <input
+                type="radio"
+                name={yesNoField}
+                value="No"
+                checked={data[yesNoField as keyof MealtimeData] === 'No'}
+                onChange={(e) => handleYesNoChange(yesNoField, e.target.value)}
+                className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+              />
+              <span className="text-sm text-gray-700">No</span>
+            </label>
+          </div>
+          {getFieldError(yesNoField) && (
+            <p className="text-red-600 text-sm font-medium">This field is required</p>
+          )}
+        </div>
       </div>
-      {errors.includes(yesNoField) && <p className="text-red-500 text-sm">This field is required</p>}
-      {/* per-question comments removed; use final comments textarea */}
     </div>
   );
 
@@ -282,135 +420,126 @@ export default function MealtimeAuditPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white">
-      <div className="mb-6">
-        <div className="flex justify-between items-center mb-4">
-          <h1 className="text-2xl font-bold text-gray-900">Meal Time Audit</h1>
-        </div>
-
-        <div className="bg-blue-50 p-4 rounded-lg mb-6">
-          <h2 className="text-lg font-semibold text-blue-900 mb-4">Audit Information</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div className="max-w-7xl mx-auto p-10 bg-white rounded-3xl shadow-2xl mt-10 border border-slate-200">
+      <div className="flex flex-col lg:flex-row gap-10">
+        {/* Left panel for details, sticky and NOT part of the form */}
+        <div className="w-full lg:w-[480px] flex-shrink-0 bg-white rounded-2xl p-10 border border-slate-200 shadow-xl mb-8 lg:mb-0 lg:sticky lg:top-10 self-start h-fit">
+          <h1 className="text-3xl font-extrabold mb-2 text-blue-900 tracking-tight">Mealtime Audit</h1>
+          <p className="mb-4 text-slate-500">Comprehensive assessment of mealtime processes and resident experience. All fields are required.</p>
+          <div className="space-y-4 mt-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Home</label>
-              <input value={data.home} data-field="home" onChange={(e) => handleChange('home', e.target.value)} className={`w-full p-2 border rounded ${errors.includes('home') ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="Enter home name" />
-              {errors.includes('home') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
+              <Input
+                value={data.home}
+                onChange={(e) => handleChange('home', e.target.value)}
+                className={getFieldClassName('home')}
+                placeholder="Enter home name"
+              />
+              {getFieldError('home') && (
+                <p className="text-red-600 text-sm font-medium mt-1">This field is required</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
-              <input type="date" value={data.date} data-field="date" onChange={(e) => handleChange('date', e.target.value)} className={`w-full p-2 border rounded ${errors.includes('date') ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} />
-              {errors.includes('date') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
+              <Input
+                type="date"
+                value={data.date}
+                onChange={(e) => handleChange('date', e.target.value)}
+                className={getFieldClassName('date')}
+              />
+              {getFieldError('date') && (
+                <p className="text-red-600 text-sm font-medium mt-1">This field is required</p>
+              )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Name of person completing audit</label>
-              <input value={data.personCompletingAudit} data-field="personCompletingAudit" onChange={(e) => handleChange('personCompletingAudit', e.target.value)} className={`w-full p-2 border rounded ${errors.includes('personCompletingAudit') ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="Enter auditor name" />
-              {errors.includes('personCompletingAudit') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
+              <label className="block text-sm font-medium text-gray-700 mb-2">Person Completing the Audit</label>
+              <Input
+                value={data.personCompletingAudit}
+                onChange={(e) => handleChange('personCompletingAudit', e.target.value)}
+                className={getFieldClassName('personCompletingAudit')}
+                placeholder="Enter auditor name"
+              />
+              {getFieldError('personCompletingAudit') && (
+                <p className="text-red-600 text-sm font-medium mt-1">This field is required</p>
+              )}
             </div>
           </div>
         </div>
 
-        <div className="space-y-6">
-          <div className="bg-green-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-green-900 mb-3">1. Preparation and Environment</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Is the dining area clean, tidy, and set up appropriately before mealtime?" yesNoField="dining_area_set" commentField="dining_area_set_comment" yesNoValue={data.dining_area_set} commentValue={data.dining_area_set_comment} onYesNoChange={(v) => handleChange('dining_area_set', v)} onCommentChange={(v) => handleChange('dining_area_set_comment', v)} />
-              <YesNoQuestion label="Is the environment calm, relaxed, and free from unnecessary noise?" yesNoField="environment_calm" commentField="environment_calm_comment" yesNoValue={data.environment_calm} commentValue={data.environment_calm_comment} onYesNoChange={(v) => handleChange('environment_calm', v)} onCommentChange={(v) => handleChange('environment_calm_comment', v)} />
-              <YesNoQuestion label="Is there adequate seating for all residents who wish to eat in the dining room?" yesNoField="adequate_seating" commentField="adequate_seating_comment" yesNoValue={data.adequate_seating} commentValue={data.adequate_seating_comment} onYesNoChange={(v) => handleChange('adequate_seating', v)} onCommentChange={(v) => handleChange('adequate_seating_comment', v)} />
-              <YesNoQuestion label="Are tables clean, well presented, and appropriately laid (e.g. cutlery, napkins)?" yesNoField="tables_well_presented" commentField="tables_well_presented_comment" yesNoValue={data.tables_well_presented} commentValue={data.tables_well_presented_comment} onYesNoChange={(v) => handleChange('tables_well_presented', v)} onCommentChange={(v) => handleChange('tables_well_presented_comment', v)} />
-              <YesNoQuestion label="Is the room well lit and at a comfortable temperature?" yesNoField="room_well_lit" commentField="room_well_lit_comment" yesNoValue={data.room_well_lit} commentValue={data.room_well_lit_comment} onYesNoChange={(v) => handleChange('room_well_lit', v)} onCommentChange={(v) => handleChange('room_well_lit_comment', v)} />
-            </div>
-          </div>
+        {/* Main form right column, scrollable */}
+        <div className="flex-1 min-w-0 pr-2">
+          <div className="space-y-4">
+              {sections.map((section, index) => (
+                <div key={index} className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+                  <button
+                    onClick={() => toggleSection(index)}
+                    className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-slate-50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <FileText className="h-5 w-5 text-blue-600" />
+                      <h3 className="text-lg font-semibold text-gray-900">{section.title}</h3>
+                    </div>
+                    {openSections[index] ? (
+                      <ChevronUp className="h-5 w-5 text-gray-500" />
+                    ) : (
+                      <ChevronDown className="h-5 w-5 text-gray-500" />
+                    )}
+                  </button>
+                  {openSections[index] && (
+                    <div className="px-6 pb-6">
+                      <p className="text-slate-600 mb-6 text-sm leading-relaxed">{section.guidance}</p>
+                      <div className="space-y-4">
+                        {section.questions.map((question, qIndex) => (
+                          <YesNoQuestion
+                            key={qIndex}
+                            label={question.label}
+                            yesNoField={question.yesNoField}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
 
-          <div className="bg-yellow-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-yellow-900 mb-3">2. Resident Choice and Dignity</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Are residents offered to wash their hands?" yesNoField="residents_offered_handwash" commentField="residents_offered_handwash_comment" yesNoValue={data.residents_offered_handwash} commentValue={data.residents_offered_handwash_comment} onYesNoChange={(v) => handleChange('residents_offered_handwash', v)} onCommentChange={(v) => handleChange('residents_offered_handwash_comment', v)} />
-              <YesNoQuestion label="Are residents offered a clear choice of meals, including alternatives?" yesNoField="residents_offered_choice" commentField="residents_offered_choice_comment" yesNoValue={data.residents_offered_choice} commentValue={data.residents_offered_choice_comment} onYesNoChange={(v) => handleChange('residents_offered_choice', v)} onCommentChange={(v) => handleChange('residents_offered_choice_comment', v)} />
-              <YesNoQuestion label="Are menus available in an accessible format (e.g. large print, pictorial)?" yesNoField="menus_accessible" commentField="menus_accessible_comment" yesNoValue={data.menus_accessible} commentValue={data.menus_accessible_comment} onYesNoChange={(v) => handleChange('menus_accessible', v)} onCommentChange={(v) => handleChange('menus_accessible_comment', v)} />
-              <YesNoQuestion label="Are individual dietary needs/preferences/allergies clearly identified and catered for?" yesNoField="dietary_needs_identified" commentField="dietary_needs_identified_comment" yesNoValue={data.dietary_needs_identified} commentValue={data.dietary_needs_identified_comment} onYesNoChange={(v) => handleChange('dietary_needs_identified', v)} onCommentChange={(v) => handleChange('dietary_needs_identified_comment', v)} />
-              <YesNoQuestion label="Are residents encouraged to make independent choices where possible?" yesNoField="residents_encouraged_choice" commentField="residents_encouraged_choice_comment" yesNoValue={data.residents_encouraged_choice} commentValue={data.residents_encouraged_choice_comment} onYesNoChange={(v) => handleChange('residents_encouraged_choice', v)} onCommentChange={(v) => handleChange('residents_encouraged_choice_comment', v)} />
-              <YesNoQuestion label="Is dignity maintained throughout the mealtime (e.g. no plastic aprons unless requested)?" yesNoField="dignity_maintained" commentField="dignity_maintained_comment" yesNoValue={data.dignity_maintained} commentValue={data.dignity_maintained_comment} onYesNoChange={(v) => handleChange('dignity_maintained', v)} onCommentChange={(v) => handleChange('dignity_maintained_comment', v)} />
-            </div>
-          </div>
-
-          <div className="bg-pink-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-pink-900 mb-3">3. Staff Interaction and Support</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Are staff available and attentive during the meal?" yesNoField="staff_available_attentive" commentField="staff_available_attentive_comment" yesNoValue={data.staff_available_attentive} commentValue={data.staff_available_attentive_comment} onYesNoChange={(v) => handleChange('staff_available_attentive', v)} onCommentChange={(v) => handleChange('staff_available_attentive_comment', v)} />
-              <YesNoQuestion label="Do staff support residents with sensitivity and respect (e.g. not rushing)?" yesNoField="staff_support_sensitivity" commentField="staff_support_sensitivity_comment" yesNoValue={data.staff_support_sensitivity} commentValue={data.staff_support_sensitivity_comment} onYesNoChange={(v) => handleChange('staff_support_sensitivity', v)} onCommentChange={(v) => handleChange('staff_support_sensitivity_comment', v)} />
-              <YesNoQuestion label="Are residents offered assistance discreetly if needed (e.g. cutting food, feeding)?" yesNoField="assistance_discreet" commentField="assistance_discreet_comment" yesNoValue={data.assistance_discreet} commentValue={data.assistance_discreet_comment} onYesNoChange={(v) => handleChange('assistance_discreet', v)} onCommentChange={(v) => handleChange('assistance_discreet_comment', v)} />
-              <YesNoQuestion label="Are staff sitting at eye level and engaging positively with residents during assistance?" yesNoField="staff_eye_level_engagement" commentField="staff_eye_level_engagement_comment" yesNoValue={data.staff_eye_level_engagement} commentValue={data.staff_eye_level_engagement_comment} onYesNoChange={(v) => handleChange('staff_eye_level_engagement', v)} onCommentChange={(v) => handleChange('staff_eye_level_engagement_comment', v)} />
-              <YesNoQuestion label="Are IDDSI levels known by staff and checked thoroughly before serving food/drink?" yesNoField="iddsi_checked" commentField="iddsi_checked_comment" yesNoValue={data.iddsi_checked} commentValue={data.iddsi_checked_comment} onYesNoChange={(v) => handleChange('iddsi_checked', v)} onCommentChange={(v) => handleChange('iddsi_checked_comment', v)} />
-            </div>
-          </div>
-
-          <div className="bg-amber-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-amber-900 mb-3">4. Nutrition and Hydration</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Are residents offered adequate portions that meet their needs?" yesNoField="adequate_portions" commentField="adequate_portions_comment" yesNoValue={data.adequate_portions} commentValue={data.adequate_portions_comment} onYesNoChange={(v) => handleChange('adequate_portions', v)} onCommentChange={(v) => handleChange('adequate_portions_comment', v)} />
-              <YesNoQuestion label="Are drinks (water/juice/tea etc.) offered before, during, and after the meal?" yesNoField="drinks_offered" commentField="drinks_offered_comment" yesNoValue={data.drinks_offered} commentValue={data.drinks_offered_comment} onYesNoChange={(v) => handleChange('drinks_offered', v)} onCommentChange={(v) => handleChange('drinks_offered_comment', v)} />
-              <YesNoQuestion label="Are residents encouraged to drink and eat sufficiently?" yesNoField="residents_encouraged_eat_drink" commentField="residents_encouraged_eat_drink_comment" yesNoValue={data.residents_encouraged_eat_drink} commentValue={data.residents_encouraged_eat_drink_comment} onYesNoChange={(v) => handleChange('residents_encouraged_eat_drink', v)} onCommentChange={(v) => handleChange('residents_encouraged_eat_drink_comment', v)} />
-              <YesNoQuestion label="Are any fortified meals, supplements or texture-modified diets delivered correctly?" yesNoField="fortified_correct" commentField="fortified_correct_comment" yesNoValue={data.fortified_correct} commentValue={data.fortified_correct_comment} onYesNoChange={(v) => handleChange('fortified_correct', v)} onCommentChange={(v) => handleChange('fortified_correct_comment', v)} />
-              <YesNoQuestion label="Are residents monitored for food/fluid intake where necessary (e.g. fluid/food charts)?" yesNoField="intake_monitored" commentField="intake_monitored_comment" yesNoValue={data.intake_monitored} commentValue={data.intake_monitored_comment} onYesNoChange={(v) => handleChange('intake_monitored', v)} onCommentChange={(v) => handleChange('intake_monitored_comment', v)} />
-            </div>
-          </div>
-
-          <div className="bg-green-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-green-900 mb-3">5. Mealtime Experience</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Are residents enjoying their meals and the overall experience?" yesNoField="residents_enjoying" commentField="residents_enjoying_comment" yesNoValue={data.residents_enjoying} commentValue={data.residents_enjoying_comment} onYesNoChange={(v) => handleChange('residents_enjoying', v)} onCommentChange={(v) => handleChange('residents_enjoying_comment', v)} />
-              <YesNoQuestion label="Is there social interaction among residents and staff during meals?" yesNoField="social_interaction" commentField="social_interaction_comment" yesNoValue={data.social_interaction} commentValue={data.social_interaction_comment} onYesNoChange={(v) => handleChange('social_interaction', v)} onCommentChange={(v) => handleChange('social_interaction_comment', v)} />
-              <YesNoQuestion label="Are residents given enough time to eat at their own pace?" yesNoField="time_to_eat" commentField="time_to_eat_comment" yesNoValue={data.time_to_eat} commentValue={data.time_to_eat_comment} onYesNoChange={(v) => handleChange('time_to_eat', v)} onCommentChange={(v) => handleChange('time_to_eat_comment', v)} />
-              <YesNoQuestion label="Are meals served at the correct temperature?" yesNoField="meals_served_correct_temp" commentField="meals_served_correct_temp_comment" yesNoValue={data.meals_served_correct_temp} commentValue={data.meals_served_correct_temp_comment} onYesNoChange={(v) => handleChange('meals_served_correct_temp', v)} onCommentChange={(v) => handleChange('meals_served_correct_temp_comment', v)} />
-              <YesNoQuestion label="Are second helpings or alternative meals offered if a resident dislikes the first option?" yesNoField="second_helpings_offered" commentField="second_helpings_offered_comment" yesNoValue={data.second_helpings_offered} commentValue={data.second_helpings_offered_comment} onYesNoChange={(v) => handleChange('second_helpings_offered', v)} onCommentChange={(v) => handleChange('second_helpings_offered_comment', v)} />
-            </div>
-          </div>
-
-          <div className="bg-pink-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-pink-900 mb-3">6. Cleanliness, Hygiene and Safety</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Are staff wearing correct PPE if required (e.g. aprons, gloves where appropriate)?" yesNoField="staff_ppe_if_required" commentField="staff_ppe_if_required_comment" yesNoValue={data.staff_ppe_if_required} commentValue={data.staff_ppe_if_required_comment} onYesNoChange={(v) => handleChange('staff_ppe_if_required', v)} onCommentChange={(v) => handleChange('staff_ppe_if_required_comment', v)} />
-              <YesNoQuestion label="Is food served in a hygienic manner with appropriate utensils?" yesNoField="hygienic_serving" commentField="hygienic_serving_comment" yesNoValue={data.hygienic_serving} commentValue={data.hygienic_serving_comment} onYesNoChange={(v) => handleChange('hygienic_serving', v)} onCommentChange={(v) => handleChange('hygienic_serving_comment', v)} />
-              <YesNoQuestion label="Are spills cleaned promptly and safely?" yesNoField="spills_cleaned" commentField="spills_cleaned_comment" yesNoValue={data.spills_cleaned} commentValue={data.spills_cleaned_comment} onYesNoChange={(v) => handleChange('spills_cleaned', v)} onCommentChange={(v) => handleChange('spills_cleaned_comment', v)} />
-              <YesNoQuestion label="Are food safety and hygiene standards visibly followed?" yesNoField="food_hygiene_followed" commentField="food_hygiene_followed_comment" yesNoValue={data.food_hygiene_followed} commentValue={data.food_hygiene_followed_comment} onYesNoChange={(v) => handleChange('food_hygiene_followed', v)} onCommentChange={(v) => handleChange('food_hygiene_followed_comment', v)} />
-              <YesNoQuestion label="Is the kitchen clean, and staff compliant with infection control?" yesNoField="kitchen_clean" commentField="kitchen_clean_comment" yesNoValue={data.kitchen_clean} commentValue={data.kitchen_clean_comment} onYesNoChange={(v) => handleChange('kitchen_clean', v)} onCommentChange={(v) => handleChange('kitchen_clean_comment', v)} />
-            </div>
-          </div>
-
-          <div className="bg-amber-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-amber-900 mb-3">7. After the Meal</h3>
-            <div className="space-y-4">
-              <YesNoQuestion label="Are residents supported with mouth care if required?" yesNoField="mouth_care_supported" commentField="mouth_care_supported_comment" yesNoValue={data.mouth_care_supported} commentValue={data.mouth_care_supported_comment} onYesNoChange={(v) => handleChange('mouth_care_supported', v)} onCommentChange={(v) => handleChange('mouth_care_supported_comment', v)} />
-              <YesNoQuestion label="Are dining areas cleaned promptly and returned to a tidy state?" yesNoField="areas_cleaned_promptly" commentField="areas_cleaned_promptly_comment" yesNoValue={data.areas_cleaned_promptly} commentValue={data.areas_cleaned_promptly_comment} onYesNoChange={(v) => handleChange('areas_cleaned_promptly', v)} onCommentChange={(v) => handleChange('areas_cleaned_promptly_comment', v)} />
-              <YesNoQuestion label="Are residents given choices about what to do next (e.g. return to lounge, rest)?" yesNoField="residents_choices_next" commentField="residents_choices_next_comment" yesNoValue={data.residents_choices_next} commentValue={data.residents_choices_next_comment} onYesNoChange={(v) => handleChange('residents_choices_next', v)} onCommentChange={(v) => handleChange('residents_choices_next_comment', v)} />
-              <YesNoQuestion label="Is feedback on the meal (likes/dislikes) gathered and acted upon?" yesNoField="feedback_gathered" commentField="feedback_gathered_comment" yesNoValue={data.feedback_gathered} commentValue={data.feedback_gathered_comment} onYesNoChange={(v) => handleChange('feedback_gathered', v)} onCommentChange={(v) => handleChange('feedback_gathered_comment', v)} />
-            </div>
-          </div>
-
-          <div className="mt-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Comments</label>
-            <textarea value={finalComments} onChange={(e) => setFinalComments(e.target.value)} rows={4} placeholder="Final comments for this audit" className="w-full p-2 border rounded resize-none mt-2" />
-          </div>
-
-          <div className="flex justify-center mt-8">
-            <button onClick={handleComplete} className="bg-green-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors">Complete Audit</button>
+              {/* Complete Audit Button */}
+              <Button
+                type="button"
+                onClick={handleComplete}
+                className="w-full h-14 text-lg font-bold mt-6 bg-blue-800 hover:bg-blue-900 text-white rounded-xl shadow transition-all duration-150 disabled:opacity-60"
+                disabled={saving}
+              >
+                {saving ? "Saving..." : "Complete Audit"}
+              </Button>
           </div>
         </div>
+
+        {/* Modal */}
+        {showModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md mx-4">
+              <h3 className="text-lg font-semibold mb-4">Audit Complete</h3>
+              <p className="text-gray-600 mb-6">Would you like to create an action plan for this audit?</p>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => handleModalCreate(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                  disabled={saving}
+                >
+                  {saving ? 'Saving...' : 'No'}
+                </button>
+                <button
+                  onClick={() => handleModalCreate(true)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  disabled={saving}
+                >
+                  {saving ? 'Saving...' : 'Save and Create Action Plan'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4">Audit Completed</h3>
-            <p className="text-gray-600 mb-6">Would you like to create an action plan based on this audit?</p>
-            <div className="flex gap-3 justify-end">
-              <button onClick={() => setShowModal(false)} className="px-4 py-2 text-gray-600 hover:text-gray-800">No, thanks</button>
-              <button onClick={() => handleModalCreate(false)} disabled={saving} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">{saving ? 'Saving...' : 'Save Audit'}</button>
-              <button onClick={() => handleModalCreate(true)} disabled={saving} className="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700">{saving ? 'Saving...' : 'Save & Create Action Plan'}</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
