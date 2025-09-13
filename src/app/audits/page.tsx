@@ -139,42 +139,67 @@ export default function AuditsPage() {
     const isUrgent = !isCompleted && typeof daysRemaining === 'number' && daysRemaining < 5;
 
     return (
-      <div className={`w-full p-4 border border-border shadow-sm text-left flex items-start gap-4 bg-card rounded-lg hover:shadow-md cursor-pointer transition-shadow`}>
-        {/* Left accent: slightly larger when urgent */}
-        <div className={`w-3 h-14 rounded ${isCompleted ? 'bg-green-600' : isUrgent ? 'bg-destructive' : colorClass}`} />
-        <div className="flex-1">
-          {/* Keep title/description in neutral/black text even when urgent; use accent color only on left bar and border */}
-          <div className={`text-lg font-medium text-foreground ${isCompleted ? 'text-green-700' : ''}`}>
-            {title}
-          </div>
-          <div className={`text-sm mt-1 text-muted-foreground ${isCompleted ? 'text-green-600' : ''}`}>
-            {description}
-          </div>
+      <div className={`group relative overflow-hidden rounded-xl bg-gradient-to-br from-white to-gray-50/50 border border-gray-200/60 shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer ${isCompleted ? 'ring-2 ring-green-200' : isUrgent ? 'ring-2 ring-red-200' : ''}`}>
+        {/* Background pattern */}
+        <div className="absolute inset-0 opacity-[0.02]">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-gray-900 to-transparent rounded-full -translate-y-16 translate-x-16"></div>
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-gray-900 to-transparent rounded-full translate-y-12 -translate-x-12"></div>
         </div>
-        <div className="flex flex-col gap-2">
-          {isCompleted ? (
-            <div className="flex items-center gap-2">
-              <span className="text-sm bg-green-700 text-white px-2 py-1 rounded-full">
-                ✓ Completed
-              </span>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleEditAudit(auditType);
-                }}
-                className="px-3 py-1 text-sm bg-secondary text-secondary-foreground rounded hover:bg-secondary/80"
-              >
-                Edit
-              </button>
+
+        {/* Top accent bar */}
+        <div className={`h-1 w-full bg-gradient-to-r ${isCompleted ? 'from-green-500 to-green-600' : isUrgent ? 'from-red-500 to-red-600' : 'from-blue-500 to-blue-600'}`}></div>
+
+        <div className="p-6 relative z-10">
+          <div className="flex items-start gap-4">
+            {/* Icon */}
+            <div className={`p-3 rounded-xl bg-gradient-to-br ${isCompleted ? 'from-green-100 to-green-200' : isUrgent ? 'from-red-100 to-red-200' : 'from-blue-100 to-blue-200'} shadow-sm`}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={`${isCompleted ? 'text-green-600' : isUrgent ? 'text-red-600' : 'text-blue-600'}`}>
+                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
             </div>
-          ) : (
-            <button
-              onClick={onClick}
-              className={`px-3 py-1 text-sm rounded text-primary-foreground ${isUrgent ? 'bg-destructive hover:bg-destructive/90' : 'bg-primary hover:bg-primary/90'}`}
-            >
-              Start
-            </button>
-          )}
+
+            <div className="flex-1 min-w-0">
+              <h3 className={`text-lg font-semibold text-gray-900 ${isCompleted ? 'text-green-800' : ''} group-hover:text-gray-800 transition-colors`}>
+                {title}
+              </h3>
+              <p className={`text-sm text-gray-600 mt-1 ${isCompleted ? 'text-green-700' : ''} group-hover:text-gray-700 transition-colors`}>
+                {description}
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              {isCompleted ? (
+                <div className="flex flex-col gap-2">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
+                    <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    Completed
+                  </span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleEditAudit(auditType);
+                    }}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 shadow-sm"
+                  >
+                    Edit
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={onClick}
+                  className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-all duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-0.5 ${
+                    isUrgent 
+                      ? 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700' 
+                      : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700'
+                  }`}
+                >
+                  Start Audit
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     );

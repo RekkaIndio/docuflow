@@ -16,8 +16,11 @@ interface PolicyMeta {
 interface PolicyEditorProps {
   policyContent: string;
   policyMeta: PolicyMeta;
-  onSave?: (filledPolicy: string, filledMeta: PolicyMeta) => void;
+  onSave?: (filledPolicy: string, filledMeta: PolicyMeta, assignedTeams?: string[]) => void;
   onGeneratePDF?: (filledPolicy: string, filledMeta: PolicyMeta) => void;
+  teams?: { id: string; name: string }[];
+  teamsLoading?: boolean;
+  teamsError?: string | null;
 }
 
 interface PlaceholderField {
@@ -28,7 +31,9 @@ interface PlaceholderField {
   type: 'text' | 'date' | 'textarea';
 }
 
-export default function PolicyEditor({ policyContent, policyMeta, onSave, onGeneratePDF }: PolicyEditorProps) {
+export default function PolicyEditor({ policyContent, policyMeta, onSave, onGeneratePDF, teams = [], teamsLoading = false, teamsError = null }: PolicyEditorProps) {
+  // State for assigned teams
+  const [assignedTeams, setAssignedTeams] = useState<string[]>([]);
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [isGenerating, setIsGenerating] = useState(false);
@@ -197,7 +202,7 @@ export default function PolicyEditor({ policyContent, policyMeta, onSave, onGene
 
   const handleSave = () => {
     if (validateForm()) {
-      onSave?.(filledContent, filledMeta);
+      onSave?.(filledContent, filledMeta, assignedTeams);
     }
   };
 
@@ -287,23 +292,14 @@ export default function PolicyEditor({ policyContent, policyMeta, onSave, onGene
   }, [filledContent, formData, placeholderFields]);
 
   return (
-    <div className="max-w-full mx-auto p-6">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white p-6 rounded-lg shadow-sm mb-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">{policyMeta.title || 'Policy Editor'}</h1>
-            <p className="text-slate-200 mt-1">Fill in the required information below to customize this policy</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
+    <div className="w-full px-0 py-0">
+      <div className="grid grid-cols-1 xl:grid-cols-5 gap-6 px-6 py-6">
         {/* Form Section */}
         <div className="xl:col-span-2 space-y-6">
+
           <div className="bg-white rounded-lg shadow-sm border p-6">
+            {/* Team Assignment UI removed from here; only present in the main form below */}
             <h2 className="text-lg font-semibold mb-4">Required Information</h2>
-            
             {placeholderFields.length === 0 ? (
               <p className="text-gray-500">No editable fields found in this policy.</p>
             ) : (
@@ -327,12 +323,50 @@ export default function PolicyEditor({ policyContent, policyMeta, onSave, onGene
                 </div>
                 
                 <div className="space-y-4">
-                {placeholderFields.map((field) => {
+                {/* Teams checkboxes for intuitive multi-selection, styled as a card */}
+                <div className="mb-4 p-4 bg-slate-50 border border-slate-200 rounded-lg shadow-sm">
+                  <label className="block text-sm font-semibold text-gray-700 mb-3">Assign to Teams</label>
+                  <div className="flex flex-wrap gap-3">
+                    {(teams && teams.length > 0 ? teams : [
+                      { id: 'management', name: 'Management' },
+                      { id: 'nurses', name: 'Nurses' },
+                      { id: 'ctm', name: 'CTM' },
+                      { id: 'domestic', name: 'Domestic' },
+                      { id: 'maintenance', name: 'Maintenance' },
+                      { id: 'kitchen', name: 'Kitchen' },
+                      { id: 'activities', name: 'Activities' },
+                    ]).map((team: any) => (
+                      <label
+                        key={team.id}
+                        className={
+                          `flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-md shadow-sm transition-colors cursor-pointer hover:border-blue-400 ${assignedTeams.includes(team.id) ? 'ring-2 ring-blue-200 border-blue-400' : ''}`
+                        }
+                        style={{ minWidth: 120 }}
+                      >
+                        <input
+                          type="checkbox"
+                          value={team.id}
+                          checked={assignedTeams.includes(team.id)}
+                          onChange={e => {
+                            if (e.target.checked) {
+                              setAssignedTeams(prev => [...prev, team.id]);
+                            } else {
+                              setAssignedTeams(prev => prev.filter(t => t !== team.id));
+                            }
+                          }}
+                          className="accent-blue-600 w-4 h-4 rounded border-gray-300"
+                        />
+                        <span className="text-gray-700 font-medium">{team.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">Select one or more teams to assign this policy to.</p>
+                </div>
+                {placeholderFields.filter(field => field.label !== 'e.g., 3 or 6 months' && field.placeholder !== 'e.g., 3 or 6 months').map((field) => {
                   const hasError = validationErrors[field.placeholder];
                   const isRequired = field.placeholder.toLowerCase().includes('date') || 
                                    field.placeholder.toLowerCase().includes('care home') ||
                                    field.placeholder.toLowerCase().includes('data');
-                  
                   return (
                     <div key={field.id}>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -516,8 +550,18 @@ export default function PolicyEditor({ policyContent, policyMeta, onSave, onGene
                   </div>
                 </div>
                 
-                <div 
-                  className="policy-preview"
+                <div
+                  className="policy-preview border border-blue-200 rounded p-2 min-h-[300px] focus:outline-none"
+                  contentEditable
+                  suppressContentEditableWarning
+                  spellCheck={true}
+                  onInput={e => {
+                    // Update the policy content state with the edited HTML/markdown
+                    // You may want to convert HTML back to markdown if needed
+                    // For now, just update the raw HTML as the new policy content
+                    // @ts-ignore
+                    if (typeof setPolicyContent === 'function') setPolicyContent(e.currentTarget.innerText);
+                  }}
                   dangerouslySetInnerHTML={{ __html: previewHtml }}
                 />
               </div>

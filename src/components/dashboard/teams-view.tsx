@@ -197,22 +197,17 @@ export function TeamsView({ workspace }: TeamsViewProps) {
 
   useEffect(() => {
     const fetchTeams = async () => {
+      if (!workspace?.id) return;
       try {
-        const teamsCollection = collection(db, "teams");
+        // Read from workspace subcollection: workspaces/{workspaceId}/teams
+        const teamsCollection = collection(db, `workspaces/${workspace.id}/teams`);
         const teamsSnapshot = await getDocs(teamsCollection);
-        // map docs to include id from Firestore doc id
-        let fetchedTeams = teamsSnapshot.docs.map((d) => {
+        const fetchedTeams = teamsSnapshot.docs.map((d) => {
           const data = d.data() as any;
           const accessibleFolderIds = Array.isArray(data.accessibleFolderIds) ? data.accessibleFolderIds : [];
           const emails = Array.isArray(data.emails) ? data.emails : [];
           const members = Array.isArray(data.members) ? data.members : [];
           const folderCount = typeof data.folderCount === "number" ? data.folderCount : accessibleFolderIds.length || 0;
-          // Patch: always set workspaceId
-          if (!data.workspaceId || data.workspaceId !== workspace.id) {
-            // Patch Firestore to set workspaceId if missing or incorrect
-            const teamRef = doc(db, "teams", data.id ?? d.id);
-            setDoc(teamRef, { ...data, workspaceId: workspace.id }, { merge: true });
-          }
           return {
             id: data.id ?? d.id,
             name: data.name ?? "Untitled Team",
@@ -241,8 +236,8 @@ export function TeamsView({ workspace }: TeamsViewProps) {
             emails: [],
             workspaceId: workspace.id,
           };
-          // Add to Firestore
-          const teamRef = doc(db, "teams", newTeam.id);
+          // Add to Firestore under workspace teams subcollection
+          const teamRef = doc(db, `workspaces/${workspace.id}/teams`, newTeam.id);
           await setDoc(teamRef, newTeam);
           fetchedTeams.push(newTeam);
         }
@@ -882,17 +877,19 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     setTeams((prevTeams) => prevTeams.filter((team) => team.id !== teamId));
     (async () => {
       try {
-        const teamRef = doc(db, "teams", teamId);
+        if (!workspace?.id) throw new Error('Missing workspace id');
+        const teamRef = doc(db, `workspaces/${workspace.id}/teams`, teamId);
         await deleteDoc(teamRef);
       } catch (error) {
         console.error("Error deleting team:", error);
         // Could refetch or revert optimistic change; for now refetch all teams
         try {
-          const teamsCollection = collection(db, "teams");
+          if (!workspace?.id) return;
+          const teamsCollection = collection(db, `workspaces/${workspace.id}/teams`);
           const teamsSnapshot = await getDocs(teamsCollection);
           const fetchedTeams = teamsSnapshot.docs.map((d) => {
             const data = d.data() as Team;
-            return { ...data, id: data.id ?? d.id } as Team;
+            return { ...data, id: data.id ?? d.id, workspaceId: workspace.id } as Team;
           });
           setTeams(fetchedTeams);
         } catch (e) {
@@ -914,7 +911,8 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     // persist to Firestore
     (async () => {
       try {
-        const teamRef = doc(db, "teams", teamId);
+        if (!workspace?.id) throw new Error('Missing workspace id');
+        const teamRef = doc(db, `workspaces/${workspace.id}/teams`, teamId);
         await updateDoc(teamRef, {
           accessibleFolderIds,
           folderCount: accessibleFolderIds.length,
@@ -932,7 +930,8 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     setTeams((prevTeams) => [...prevTeams, teamToAdd]);
     (async () => {
       try {
-        const teamRef = doc(db, "teams", teamToAdd.id);
+        if (!workspace?.id) throw new Error('Missing workspace id');
+        const teamRef = doc(db, `workspaces/${workspace.id}/teams`, teamToAdd.id);
         await setDoc(teamRef, teamToAdd);
       } catch (error) {
         console.error("Error creating team in Firestore:", error);
@@ -952,7 +951,8 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     // use atomic arrayUnion to avoid race conditions
     (async () => {
       try {
-        const teamRef = doc(db, "teams", teamId);
+        if (!workspace?.id) throw new Error('Missing workspace id');
+        const teamRef = doc(db, `workspaces/${workspace.id}/teams`, teamId);
         await updateDoc(teamRef, { emails: arrayUnion(email) });
       } catch (error) {
         console.error("Error adding email to team in Firestore:", error);
@@ -970,7 +970,8 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     );
     (async () => {
       try {
-        const teamRef = doc(db, "teams", teamId);
+        if (!workspace?.id) throw new Error('Missing workspace id');
+        const teamRef = doc(db, `workspaces/${workspace.id}/teams`, teamId);
         await updateDoc(teamRef, { emails: arrayRemove(email) });
       } catch (error) {
         console.error("Error removing email from team in Firestore:", error);
@@ -1269,7 +1270,7 @@ export function TeamsView({ workspace }: TeamsViewProps) {
           </div>
           {/* Action buttons */}
           <div className="flex items-center gap-3">
-            <NewTeamDialog onTeamCreated={handleTeamCreated}>
+            <NewTeamDialog onTeamCreated={handleTeamCreated} workspaceId={workspace.id}>
               <Button className="bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur-sm">
                 <Plus className="mr-2 h-4 w-4" />
                 Create New Team

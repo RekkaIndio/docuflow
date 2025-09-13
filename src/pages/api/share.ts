@@ -26,12 +26,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     // Lookup team in Firestore to get emails
-    const teamRef = doc(db, 'teams', teamId);
-    const teamSnap = await getDoc(teamRef);
-    if (!teamSnap.exists()) {
+    let teamData: any = null;
+    // Try workspace subcollection lookup if teamId encodes workspace (pattern admin-{workspaceId} etc.)
+    try {
+      const topRef = doc(db, 'teams', teamId);
+      const topSnap = await getDoc(topRef);
+      if (topSnap.exists()) {
+        teamData = topSnap.data();
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    // If not found at top-level, try collectionGroup search or workspace subcollections
+    if (!teamData) {
+      // Try collectionGroup search for teamId
+      try {
+        const cg = await import('firebase/firestore').then(m => m);
+        const q = cg.query(cg.collectionGroup(db, 'teams'), cg.where('id', '==', teamId));
+        const snap = await cg.getDocs(q);
+        if (!snap.empty) {
+          teamData = snap.docs[0].data();
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    if (!teamData) {
       return res.status(404).json({ ok: false, error: 'Team not found.' });
     }
-    const teamData = teamSnap.data() as any;
     const recipients: string[] = Array.isArray(teamData.emails) ? teamData.emails : [];
 
     if (!recipients || recipients.length === 0) {

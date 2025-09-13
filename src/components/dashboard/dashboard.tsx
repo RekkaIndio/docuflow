@@ -928,10 +928,10 @@ export function Dashboard() {
            />
         </Sidebar>
 
-        <SidebarInset className="flex flex-col min-h-screen w-full overflow-hidden">
+        <SidebarInset className="flex flex-col min-h-screen w-full">
                 <TopNav onSettingsClick={() => setView('settings')} onNotificationsClick={() => setView('notifications')} unreadCount={unreadNotifications} workspaceId={activeWorkspace?.id} />
             <div className={cn(
-              "flex-1 overflow-y-auto overflow-x-hidden w-full",
+              "flex-1 w-full",
               // Add bottom padding on mobile when chat is closed to ensure content isn't hidden behind chat button
               isMobile && !isChatOpen && "pb-20"
             )}>
