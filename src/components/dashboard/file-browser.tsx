@@ -179,7 +179,7 @@ export function FileBrowser({
             </div>
             <div className="space-y-2">
               <h2 className="text-3xl font-bold leading-tight tracking-tight">Files & Folders</h2>
-              <div className="text-slate-200 text-base leading-relaxed">Browse and organize your documents and folders</div>
+              <div className="text-slate-200 text-base leading-relaxed">Browse and organise your documents and folders</div>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -326,16 +326,32 @@ const ItemMenu = ({ item, onFolderDelete, onDocumentDelete, updateItem }: { item
   // Controlled state for delete confirmation dialog (required to type folder name)
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteInput, setDeleteInput] = useState("");
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const isDeleteMatch = deleteInput === item.name;
 
   // All folders are now editable and deletable
   const protectedFolderIds = false;
 
-  const handleDelete = () => {
-    if (item.type === 'folder') {
-      onFolderDelete(item);
-    } else if (item.type === 'document') {
-      onDocumentDelete(item);
+  const handleDelete = async () => {
+    setDeleteLoading(true);
+    try {
+      if (item.type === 'folder') {
+        await onFolderDelete(item);
+        toast({ title: "Folder deleted", description: `Successfully deleted "${item.name}"` });
+      } else if (item.type === 'document') {
+        await onDocumentDelete(item);
+        toast({ title: "Document deleted", description: `Successfully deleted "${item.name}"` });
+      }
+    } catch (error) {
+      console.error("Failed to delete item:", error);
+      toast({ 
+        title: "Delete failed", 
+        description: `Could not delete "${item.name}". Please try again.`, 
+        variant: "destructive" 
+      });
+      throw error; // Re-throw to prevent dialog from closing
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -428,22 +444,27 @@ const ItemMenu = ({ item, onFolderDelete, onDocumentDelete, updateItem }: { item
           value={deleteInput}
           onChange={(e) => setDeleteInput(e.target.value)}
           className="mt-4"
+          disabled={deleteLoading}
         />
         <DialogFooter>
           <DialogClose asChild>
             <Button variant="outline">Cancel</Button>
           </DialogClose>
           <Button
-            onClick={() => {
-              if (!isDeleteMatch) return;
-              handleDelete();
-              setDeleteOpen(false);
-              setDeleteInput("");
+            onClick={async () => {
+              if (!isDeleteMatch || deleteLoading) return;
+              try {
+                await handleDelete();
+                setDeleteOpen(false);
+                setDeleteInput("");
+              } catch (error) {
+                // Error already handled in handleDelete, don't close dialog
+              }
             }}
-            disabled={!isDeleteMatch}
+            disabled={!isDeleteMatch || deleteLoading}
             className={isDeleteMatch ? "bg-primary hover:bg-primary/90" : "bg-muted cursor-not-allowed"}
           >
-            Delete
+            {deleteLoading ? 'Deleting...' : 'Delete'}
           </Button>
         </DialogFooter>
       </DialogContent>

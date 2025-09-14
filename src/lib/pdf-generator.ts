@@ -42,7 +42,7 @@ export function generateAuditPDF(auditData: AuditPDFData): Uint8Array {
     // Ensure text is a string
     const safeText = (typeof text === 'string') ? text : (text == null ? '' : String(text));
     const words = safeText.split(' ');
-    let lines: string[] = [];
+    const lines: string[] = [];
     let currentLine = '';
     words.forEach(word => {
       const testLine = currentLine ? currentLine + ' ' + word : word;

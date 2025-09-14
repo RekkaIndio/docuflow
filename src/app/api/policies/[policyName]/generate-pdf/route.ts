@@ -8,7 +8,7 @@ export async function POST(
   { params }: { params: Promise<{ policyName: string }> }
 ) {
   try {
-    const { content, meta } = await request.json();
+  const { content, meta, workspaceId } = await request.json();
     const resolvedParams = await params;
     const policyName = resolvedParams.policyName;
     
@@ -99,62 +99,102 @@ export async function POST(
         pdfPath: `/policies/${sanitizedName}.pdf`
       };
 
+      // Workspace-scoped published document shape including extractedJson
+      const workspacePublishedDocument = {
+        id: documentId,
+        policyName: sanitizedName,
+        originalPolicyName: policyName,
+        content: content,
+        meta: meta || {},
+        extractedJson: {
+          content: content || '',
+          title: meta?.title || sanitizedName.replace(/[-_]/g, ' '),
+          effectiveDate: meta?.effectiveDate || null,
+          reviewDate: meta?.reviewDate || null,
+          version: meta?.version || '1.0',
+          appliesTo: meta?.appliesTo || null,
+          type: 'policy'
+        },
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        status: 'published',
+        version: meta?.version || '1.0',
+        pdfPath: `/policies/${sanitizedName}.pdf`
+      };
+
       try {
         await adminDb.collection('published_policies').doc(documentId).set(publishedPolicyDocument);
         console.log('Policy saved to Firebase as published');
       } catch (firebaseError) {
-        console.error('Failed to save to Firebase:', firebaseError);
-        // Continue with local saving even if Firebase fails
+        console.error('Failed to save to published_policies (legacy):', firebaseError);
       }
 
-      // Also save the filled policy markdown for future reference
-      const filledPoliciesDir = path.join(process.cwd(), 'src', 'policies', 'filled');
-      await fs.promises.mkdir(filledPoliciesDir, { recursive: true });
-      
-      const localTimestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const filledMdPath = path.join(filledPoliciesDir, `${sanitizedName}-${localTimestamp}.md`);
-      
-      // Reconstruct the markdown with filled frontmatter
-      let fullContent = '';
-      if (meta && Object.keys(meta).length > 0) {
-        fullContent += '---\n';
-        Object.entries(meta).forEach(([key, value]) => {
-          fullContent += `${key}: "${value}"\n`;
-        });
-        fullContent += '---\n\n';
-      }
-      fullContent += content;
-      
-      await fs.promises.writeFile(filledMdPath, fullContent, 'utf8');
-
-      // Update the original policy template with filled metadata
-      const originalMdPath = path.join(process.cwd(), 'src', 'policies', `${sanitizedName}.md`);
-      if (fs.existsSync(originalMdPath)) {
+      if (workspaceId) {
         try {
-          // Read the original file
-          const originalContent = fs.readFileSync(originalMdPath, 'utf8');
-          
-          // Parse and update frontmatter
-          let matter: any = null;
-          try {
-            matter = (await import('gray-matter')).default;
-          } catch (e) {
-            // If gray-matter is not available, do manual frontmatter replacement
-            matter = null;
-          }
-
-          if (matter) {
-            const parsed = matter(originalContent);
-            // Update metadata with filled values
-            Object.assign(parsed.data, meta);
-            
-            // Reconstruct the file with updated frontmatter
-            const updatedContent = matter.stringify(parsed.content, parsed.data);
-            fs.writeFileSync(originalMdPath, updatedContent, 'utf8');
-          }
+          await adminDb.collection('workspaces').doc(workspaceId).collection('policies').doc(documentId).set(workspacePublishedDocument);
+          console.log(`Saved published policy to workspaces/${workspaceId}/policies/${documentId}`);
         } catch (e) {
-          console.warn('Failed to update original policy metadata:', e);
+          console.error('Failed to write published workspace-scoped policy document:', e);
         }
+      }
+
+      // Optionally save the filled policy markdown for future reference and update local template.
+      // In production environments where policies are stored in Firebase, we generally don't want to
+      // persist local copies (which may end up in git). Control this behavior with an env flag
+      // SAVE_POLICIES_LOCALLY. Set to 'true' to keep existing behavior.
+      const saveLocally = String(process.env.SAVE_POLICIES_LOCALLY || 'false').toLowerCase() === 'true';
+
+      if (saveLocally) {
+        const filledPoliciesDir = path.join(process.cwd(), 'src', 'policies', 'filled');
+        await fs.promises.mkdir(filledPoliciesDir, { recursive: true });
+        
+        const localTimestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const filledMdPath = path.join(filledPoliciesDir, `${sanitizedName}-${localTimestamp}.md`);
+        
+        // Reconstruct the markdown with filled frontmatter
+        let fullContent = '';
+        if (meta && Object.keys(meta).length > 0) {
+          fullContent += '---\n';
+          Object.entries(meta).forEach(([key, value]) => {
+            fullContent += `${key}: "${value}"\n`;
+          });
+          fullContent += '---\n\n';
+        }
+        fullContent += content;
+        
+        await fs.promises.writeFile(filledMdPath, fullContent, 'utf8');
+
+        // Update the original policy template with filled metadata if present
+        const originalMdPath = path.join(process.cwd(), 'src', 'policies', `${sanitizedName}.md`);
+        if (fs.existsSync(originalMdPath)) {
+          try {
+            // Read the original file
+            const originalContent = fs.readFileSync(originalMdPath, 'utf8');
+            
+            // Parse and update frontmatter
+            let matter: any = null;
+            try {
+              matter = (await import('gray-matter')).default;
+            } catch (e) {
+              // If gray-matter is not available, do manual frontmatter replacement
+              matter = null;
+            }
+
+            if (matter) {
+              const parsed = matter(originalContent);
+              // Update metadata with filled values
+              Object.assign(parsed.data, meta);
+              
+              // Reconstruct the file with updated frontmatter
+              const updatedContent = matter.stringify(parsed.content, parsed.data);
+              fs.writeFileSync(originalMdPath, updatedContent, 'utf8');
+            }
+          } catch (e) {
+            console.warn('Failed to update original policy metadata:', e);
+          }
+        }
+      } else {
+        console.log('Skipping local policy markdown save (SAVE_POLICIES_LOCALLY != true)');
       }
 
       // Refresh the policies cache so updated metadata appears immediately

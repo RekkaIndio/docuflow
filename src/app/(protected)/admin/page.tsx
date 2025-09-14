@@ -430,7 +430,7 @@ export default function AdminPage() {
       const allStaffingHistory: Array<{ date: string; day: number; night: number; total: number; workspaceId: string }> = [];
 
       // Calculate date range based on timeframe
-      let startDate = new Date();
+      const startDate = new Date();
       switch (staffingTimeframe) {
         case 'day':
           startDate.setHours(0, 0, 0, 0);

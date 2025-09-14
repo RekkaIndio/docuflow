@@ -57,21 +57,75 @@ export default function AdminPoliciesPage() {
 
   useEffect(() => {
     let mounted = true;
-    fetch('/api/policies')
-      .then((r) => r.json())
-      .then((data) => {
+    (async () => {
+      try {
+        const [localRes, firebaseRes] = await Promise.all([
+          fetch('/api/policies'),
+          fetch('/api/policies/firebase')
+        ]);
+
+        const localData = localRes.ok ? await localRes.json() : { files: [] };
+        const firebaseData = firebaseRes.ok ? await firebaseRes.json() : { drafts: [], published: [] };
+
         if (!mounted) return;
-        // API may return { files: [...] } or directly an array
-        const payload = data && typeof data === 'object' && 'files' in data ? (data.files as any[]) : (data as any[]);
-        setFiles(payload || []);
-      })
-      .catch((err) => {
+
+        const localFiles = localData && typeof localData === 'object' && 'files' in localData ? (localData.files as any[]) : (localData as any[]);
+
+        const published = (firebaseData.published || []) as any[];
+        const publishedFiles = published.map(p => ({
+          file: p.pdfPath ? p.pdfPath.split('/').pop() : `${p.policyName}.pdf`,
+          url: p.pdfPath || `/policies/${encodeURIComponent(p.policyName)}.pdf`,
+          title: p.meta?.title || p.policyName.replace(/[-_]/g, ' '),
+          version: p.meta?.version || p.version || null,
+          effectiveDate: p.meta?.effectiveDate || null,
+          reviewDate: p.meta?.reviewDate || null,
+          appliesTo: p.meta?.appliesTo || null,
+          isCompleted: true,
+          lastCustomized: p.updatedAt || p.createdAt || null
+        }));
+
+        const combinedMap = new Map<string, any>();
+        (Array.isArray(localFiles) ? localFiles : []).forEach((f: any) => {
+          const key = typeof f === 'string' ? f : f.file;
+          combinedMap.set(key, f);
+        });
+        publishedFiles.forEach((pf) => combinedMap.set(pf.file, pf));
+
+        const combined = Array.from(combinedMap.values());
+        setFiles(combined || []);
+      } catch (err) {
         console.error('Error fetching policies', err);
         if (mounted) setFiles([]);
-      });
+      }
+    })();
 
     return () => { mounted = false; };
   }, []);
+
+  // Handle opening specific policy from chat
+  useEffect(() => {
+    const handleOpenSpecificPolicy = (event: CustomEvent) => {
+      const { policyName } = event.detail;
+      if (!policyName || !sortedItems.length) return;
+
+      // Find the policy that matches the requested name
+      const matchingPolicy = sortedItems.find(item =>
+        item.title.toLowerCase().includes(policyName.toLowerCase()) ||
+        item.fileName.toLowerCase().includes(policyName.toLowerCase())
+      );
+
+      if (matchingPolicy) {
+        // Navigate to the policy edit page
+        router.push(`/admin/policies/${encodeURIComponent(matchingPolicy.fileName.replace(/\.pdf$/i, ''))}/edit`);
+      }
+    };
+
+    // Listen for the custom event
+    if (typeof window !== 'undefined') {
+      window.addEventListener('open-specific-policy', handleOpenSpecificPolicy as EventListener);
+      return () => window.removeEventListener('open-specific-policy', handleOpenSpecificPolicy as EventListener);
+    }
+  }, [router]);
 
   const sortedItems = useMemo(() => {
     if (!files || files.length === 0) return [];
@@ -239,11 +293,12 @@ export default function AdminPoliciesPage() {
             return (
               <div
                 key={fileName}
-                className={`group relative overflow-hidden rounded-2xl shadow-lg border transition-all duration-300 hover:shadow-xl hover:-translate-y-1 min-h-[200px] flex flex-col ${
+                className={`group relative overflow-hidden rounded-2xl shadow-lg border transition-all duration-300 hover:shadow-xl hover:-translate-y-1 min-h-[200px] flex flex-col cursor-pointer ${
                   isCompleted 
                     ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200 hover:border-green-300' 
                     : 'bg-white/90 border-blue-100 hover:border-blue-200'
                 }`}
+                onClick={() => router.push(`/admin/policies/${encodeURIComponent(fileName.replace(/\.pdf$/i, ''))}/edit`)}
               >
                 {/* Subtle background pattern for completed policies */}
                 {isCompleted && (

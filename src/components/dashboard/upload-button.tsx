@@ -144,7 +144,7 @@ export function UploadButton({ onDocumentAdd, workspaceId, folderId, size = "def
       }
 
       // Ensure tags are always present and valid
-      let tags = ["document"];
+      const tags = ["document"];
 
       // Use renamed name if provided, else original file name
       const docName = (upload.renamedName && upload.renamedName.trim().length > 0)

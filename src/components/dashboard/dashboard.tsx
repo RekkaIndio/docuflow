@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   SidebarProvider,
   Sidebar,
@@ -161,6 +161,11 @@ export function Dashboard() {
   const [breadcrumb, setBreadcrumb] = useState<(Folder | { id: 'root', name: string, type: 'folder' })[]>([]);
   const [lastChatDetail, setLastChatDetail] = useState<{ text?: string; documents?: any[] } | undefined>(undefined);
   const [dailyEntry, setDailyEntry] = useState<any | null>(null);
+  // Ref used to store a short-lived hash marker when opening synthetic policy docs.
+  const docHashRef = useRef<string | null>(null);
+  // Remember the previous view when we open a synthetic policy document so the
+  // in-app back arrow can return exactly where the user came from.
+  const prevViewRef = useRef<string | null>(null);
 
 
   useEffect(() => {
@@ -323,6 +328,29 @@ export function Dashboard() {
 
   // Add event listener for document navigation from chat
   useEffect(() => {
+    // Listen for hash changes so we can restore state when user presses back
+    const handleHashChange = () => {
+      try {
+        const currentHash = window.location.hash ? window.location.hash.replace(/^#/, '') : '';
+        const known = docHashRef.current || (typeof window !== 'undefined' ? (window as any).__docuflow_doc_hash : null);
+        if (known && currentHash !== known) {
+          // Clear stored markers
+          docHashRef.current = null;
+          try { if (typeof window !== 'undefined') { (window as any).__docuflow_doc_hash = null; } } catch (e) {}
+          // Only switch back to policies if we're currently showing files
+          // (i.e., the document view). This avoids surprising behaviour.
+          setSelected(null);
+          setView('policies');
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+
+  if (typeof window !== 'undefined') {
+      window.addEventListener('hashchange', handleHashChange);
+    }
+
     const handleDocumentNavigation = (event: CustomEvent) => {
       const { documentId, documentName, policyFile } = event.detail || {};
 
@@ -342,9 +370,28 @@ export function Dashboard() {
           downloadUrl: `/policies/${policyFile}`,
         } as Document;
 
-        setLastChatDetail(undefined);
-        setSelected(doc as Document);
-        setView('files');
+  setLastChatDetail(undefined);
+  // store where we came from so the back button returns there
+  prevViewRef.current = view || 'home';
+  setSelected(doc as Document);
+  setView('files');
+
+        // Add a small hash marker so the browser back button can return
+        // to the policies view. We use a predictable prefix so it's easy
+        // to recognise in hashchange handler. We don't want to interfere
+        // with Next.js router history entries.
+        try {
+          if (typeof window !== 'undefined') {
+            const marker = `docuflow:policy:${policyFile}`;
+            // set hash so back button will change it
+            window.location.hash = marker;
+            // remember marker locally so handler can compare
+            docHashRef.current = marker;
+            try { (window as any).__docuflow_doc_hash = marker; } catch (e) {}
+          }
+        } catch (e) {
+          // ignore
+        }
 
         // dispatch highlight so file browser (if visible) can react
         if (typeof window !== 'undefined' && window.dispatchEvent) {
@@ -466,9 +513,14 @@ export function Dashboard() {
         window.removeEventListener('navigate-to-admin', handleAdminNavigation as EventListener);
         window.removeEventListener('navigate-to-dashboard', handleDashboardNavigation as EventListener);
         window.removeEventListener('navigate-to-policies', handlePoliciesNavigation as EventListener);
+        try { window.removeEventListener('hashchange', handleHashChange); } catch (e) {}
+        try { delete (window as any).__docuflow_set_doc_hash; } catch (e) {}
+        try { delete (window as any).__docuflow_doc_hash; } catch (e) {}
       };
     }
-  }, [activeWorkspace]);
+  // Include view/user/workspaces so handlers capture the latest state (avoid stale closures)
+  // Use stable primitive dependencies so the dependency array length stays constant
+  }, [activeWorkspace?.id, view, user?.id, workspaces.length]);
 
   const handleCreateWorkspace = async (name: string): Promise<Workspace> => {
     if (!user) throw new Error("User not authenticated");
@@ -642,6 +694,7 @@ export function Dashboard() {
       });
     } catch (error) {
       console.error("Failed to delete document:", error);
+      throw error;
     }
   };
 
@@ -714,6 +767,8 @@ export function Dashboard() {
 
     } catch (error) {
         console.error("Failed to delete folder:", error);
+        // Re-throw the error so the UI can handle it
+        throw error;
     }
   };
 
@@ -837,8 +892,19 @@ export function Dashboard() {
       return activeWorkspace ? <RenewalsView workspaceId={activeWorkspace.id} onSelectDocument={handleSelect} /> : null;
   /* Outstanding Evidence removed; evidence folders are part of main folders */
     case 'files':
-            if (selected?.type === "document") {
-                return <DocumentView document={selected} onBack={handleBackToFileBrowser} responseDetail={lastChatDetail} isChatOpen={isChatOpen} />;
+                if (selected?.type === "document") {
+                // Use a custom onBack that prefers prevViewRef (if set) to return
+                // the user to the Policies page when they opened a policy from there.
+                const onDocBack = () => {
+                  if (prevViewRef.current === 'policies') {
+                    setSelected(null);
+                    setView('policies');
+                    prevViewRef.current = null;
+                  } else {
+                    handleBackToFileBrowser();
+                  }
+                };
+                return <DocumentView document={selected} onBack={onDocBack} responseDetail={lastChatDetail} isChatOpen={isChatOpen} />;
             }
       return (
         <FileBrowser

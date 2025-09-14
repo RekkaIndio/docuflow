@@ -29,9 +29,9 @@ async function extractAllDataWithOpenAI(text: string, filename: string, mimetype
   // Split by page using form feed '\f' (common PDF page delimiter)
   const pages = text.split('\f');
   console.log('Extracted text length:', text.length, 'Total pages:', pages.length);
-  let structuredPages: any[] = [];
-  let openaiStructuredPages: any[] = [];
-  let openaiRawPages: any[] = [];
+  const structuredPages: any[] = [];
+  const openaiStructuredPages: any[] = [];
+  const openaiRawPages: any[] = [];
   for (let i = 0; i < pages.length; i++) {
     const pageText = pages[i].trim();
     if (!pageText) continue;

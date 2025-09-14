@@ -33,7 +33,7 @@ const getFileIcon = (fileType: Document["fileType"]) => {
 };
 
 function getAllDocuments(items: (Document | Folder)[]): Document[] {
-    let documents: Document[] = [];
+    const documents: Document[] = [];
     for (const item of items) {
       if (item.type === 'document') {
         documents.push(item);

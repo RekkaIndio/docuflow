@@ -78,7 +78,7 @@ interface ChatPanelProps {
 }
 
 interface UserIntent {
-  type: 'document_search' | 'file_search' | 'folder_creation' | 'general_query' | 'multi_document_query' | 'audit_query' | 'send_email' | 'user_search' | 'create_audit' | 'document_connection' | 'dependency_query' | 'user_profile' | 'team_info' | 'workspace_info' | 'open_modal' | 'navigate_page' | 'fetch_notifications' | 'create_document' | 'edit_document' | 'occupancy_data' | 'action_plans' | 'open_audit' | 'advanced_analytics' | 'agentic_workflow';
+  type: 'document_search' | 'file_search' | 'folder_creation' | 'general_query' | 'multi_document_query' | 'audit_query' | 'send_email' | 'user_search' | 'create_audit' | 'document_connection' | 'dependency_query' | 'user_profile' | 'team_info' | 'workspace_info' | 'open_modal' | 'navigate_page' | 'fetch_notifications' | 'create_document' | 'edit_document' | 'occupancy_data' | 'action_plans' | 'open_audit' | 'advanced_analytics' | 'agentic_workflow' | 'open_policy';
   openDocument?: boolean; // indicates intent to open/view the document
   searchTerm?: string;
   fileName?: string;
@@ -93,6 +93,7 @@ interface UserIntent {
   specificAppraisal?: string; // specific appraisal name for opening
   specificAudit?: string; // specific audit type for opening
   createAudit?: boolean; // indicates intent to create a new audit
+  specificPolicy?: string; // specific policy name for opening
   originalInput: string;
 }
 
@@ -286,24 +287,47 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
       }
     }
 
-    // Open modal patterns - check these FIRST before document search
+    // Policy opening patterns - check these before open modal patterns
+    const policyOpeningPatterns = [
+      /(?:show|open|view|display|get|find|bring\s+up|pull\s+up)\s+(?:me\s+)?(?:the\s+)?(.+?)\s+policy/i,
+      /(?:show|open|view|display|get|find)\s+(?:me\s+)?(?:the\s+)?policy\s+(?:for|about|on)\s+(.+)/i,
+      /(?:let's|let\s+us)\s+(?:look\s+at|check\s+out|see)\s+(?:the\s+)?(.+?)\s+policy/i,
+      /(?:i\s+want\s+to|i\s+need\s+to)\s+(?:see|view|open)\s+(?:the\s+)?(.+?)\s+policy/i,
+      /(?:can\s+you\s+|could\s+you\s+|please\s+)?(?:show|open|display)\s+(?:me\s+)?(?:the\s+)?(.+?)\s+policy/i,
+      /(?:take\s+me\s+to|go\s+to|navigate\s+to)\s+(?:the\s+)?(.+?)\s+policy/i
+    ];
+
+    for (const pattern of policyOpeningPatterns) {
+      const match = input.match(pattern);
+      if (match) {
+        let policyName = (match[1] || match[2] || '').trim();
+
+        // Remove common words that aren't part of the policy name
+        policyName = policyName.replace(/\b(the|me|my|an|a|for|about|on|let's|let\s+us|can\s+you|could\s+you|please|take\s+me|go\s+to|navigate\s+to|i\s+want|i\s+need|to\s+see|to\s+view|to\s+open|policy)\b/g, '').trim();
+
+        return {
+          type: 'open_policy',
+          specificPolicy: policyName,
+          originalInput: userInput
+        };
+      }
+    }
+
+    // Open modal patterns - check these AFTER policy patterns
     const openModalPatterns = [
-      // NEW: Direct appraisal name patterns without requiring appraisal words
-      /(show|open|launch|start|how)\s+me\s+(.+)/i,
-      /(show|open|launch|start|how)\s+(the\s+)?(.+)/i,
-      /(go\s+to|navigate\s+to)\s+(.+)/i,
-      /(i\s+want\s+to|let's)\s+(see|open|do)\s+(.+)/i,
-      // Existing patterns for backward compatibility
-      /(open|start|launch|show|how)\s+(the\s+)?(tracker|appraisal|audit)\s+(modal|window|form)/i,
-      /(open|start|launch|show|how)\s+(tracker|appraisal|audit)/i,
-      /(i\s+want\s+to|let's)\s+(track|appraise|audit)/i,
-      // Specific appraisal patterns
+      // Specific appraisal patterns - must contain appraisal-related keywords
       /(open|show|launch|start|how)\s+(the\s+)?(.+?)\s+(appraisal|evaluation|assessment)/i,
       /(go\s+to|navigate\s+to)\s+(the\s+)?(.+?)\s+(appraisal|evaluation|assessment)/i,
       /(open|show|how)\s+(the\s+)?(.+?)\s+(appraisal|evaluation|assessment)\s+(page|form)/i,
-      // Handle "show me" and "how me" patterns
+      // Handle "show me" and "how me" patterns with appraisal keywords
       /(show|how)\s+me\s+(.+?)\s+(appraisal|evaluation|assessment)/i,
-      /(show|how)\s+me\s+(the\s+)?(.+?)\s+(appraisal|evaluation|assessment)/i
+      /(show|how)\s+me\s+(the\s+)?(.+?)\s+(appraisal|evaluation|assessment)/i,
+      // Existing patterns for backward compatibility - specific modal types
+      /(open|start|launch|show|how)\s+(the\s+)?(tracker|appraisal|audit)\s+(modal|window|form)/i,
+      /(open|start|launch|show|how)\s+(tracker|appraisal|audit)/i,
+      /(i\s+want\s+to|let's)\s+(track|appraise|audit)/i,
+      // Direct appraisal name patterns - must have appraisal context
+      /(i\s+want\s+to|let's)\s+(see|open|do)\s+(.+?)\s+(appraisal|evaluation|assessment)/i
     ];
 
     for (const pattern of openModalPatterns) {
@@ -377,6 +401,22 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         return {
           type: 'navigate_page',
           pagePath: pagePath,
+          originalInput: userInput
+        };
+      }
+    }
+
+    // Special case: Handle "summarise this" and similar phrases that should use active document
+    const summariseThisPatterns = [
+      /\b(summaris|summarize|summarise)\s+(this|it|the\s+document|the\s+policy|the\s+file)\b/i,
+      /\b(tell\s+me\s+about|what\s+is|explain)\s+(this|it|the\s+document|the\s+policy|the\s+file)\b/i,
+      /\b(give\s+me\s+a\s+summary|provide\s+a\s+summary)\s+(of\s+)?(?:this|it|the\s+document|the\s+policy|the\s+file)\b/i
+    ];
+
+    for (const pattern of summariseThisPatterns) {
+      if (pattern.test(input)) {
+        return {
+          type: 'general_query',
           originalInput: userInput
         };
       }
@@ -928,6 +968,8 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         };
       }
     }
+
+
     // default fallback - treat as a general query when nothing else matches
     return {
       type: 'general_query',
@@ -2045,6 +2087,31 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
       return;
     }
 
+    // Handle open policy
+    if (intent.type === 'open_policy') {
+      appendMessages([{ sender: 'user', text: inputVal }, { sender: 'ai', text: 'Opening policy...' }]);
+      setInput('');
+      setIsTyping(true);
+      try {
+        // Navigate to policies page and open specific policy
+        if (typeof window !== 'undefined' && window.dispatchEvent) {
+          // First navigate to policies page
+          window.dispatchEvent(new CustomEvent('navigate-to-policies'));
+          // Small delay to ensure page loads, then open specific policy
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('open-specific-policy', { detail: { policyName: intent.specificPolicy } }));
+          }, 500);
+        }
+        appendMessages({ sender: 'ai', text: `I've opened the policies page and navigated to the "${intent.specificPolicy || 'requested'}" policy.` });
+      } catch (error) {
+        console.error('Error opening policy:', error);
+        appendMessages({ sender: 'ai', text: 'Sorry, I couldn\'t open the policy. Please go to the Policies section manually.' });
+      } finally {
+        setIsTyping(false);
+      }
+      return;
+    }
+
     // Handle folder creation (existing)
     if (intent.type === 'folder_creation') {
   appendMessages({ sender: 'user', text: input });
@@ -2244,9 +2311,8 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         return;
       }
 
-      // Fall back to server search
-      
-      const searchRes = await fetch('/api/search-documents', {
+      // Fall back to server search for policies
+      const searchRes = await fetch('/api/policies/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ workspaceId, query: searchQuery }),
@@ -2271,21 +2337,21 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         return;
       }
 
-  const bestDoc = results[0];
+  const bestDoc = bestMatch;
   setActiveDoc(bestDoc);
   setLastContext({ doc: bestDoc });
 
       // If the user asked to open/view the document, navigate/open the best match and return
       if (intent.openDocument) {
         if (typeof window !== 'undefined' && window.dispatchEvent) {
-          try { window.dispatchEvent(new CustomEvent('navigate-to-document', { detail: { documentId: bestMatch.documentId, documentName: bestMatch.name } })); } catch (e) {}
-          try { localStorage.setItem('lastHighlightedDocumentId', bestMatch.documentId); localStorage.setItem('lastHighlightedDocumentName', bestMatch.name); } catch (e) {}
+          try { window.dispatchEvent(new CustomEvent('navigate-to-document', { detail: { documentId: bestMatch.id, documentName: bestMatch.name } })); } catch (e) {}
+          try { localStorage.setItem('lastHighlightedDocumentId', bestMatch.id); localStorage.setItem('lastHighlightedDocumentName', bestMatch.name); } catch (e) {}
           setTimeout(() => {
-            try { window.dispatchEvent(new CustomEvent('highlight-document', { detail: { documentId: bestMatch.documentId } })); } catch (e) {}
+            try { window.dispatchEvent(new CustomEvent('highlight-document', { detail: { documentId: bestMatch.id } })); } catch (e) {}
           }, 150);
         }
 
-        setMessages(prev => [...prev, { sender: 'ai', text: `Opening "${bestMatch.name}" for you.`, documents: [{ id: bestMatch.documentId, name: bestMatch.name, url: `/documents/${bestMatch.documentId}` }] }]);
+        setMessages(prev => [...prev, { sender: 'ai', text: `Opening "${bestMatch.name}" for you.`, documents: [{ id: bestMatch.id, name: bestMatch.name, url: `/documents/${bestMatch.id}` }] }]);
         setIsTyping(false);
         return;
       }
@@ -2294,12 +2360,12 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
 
       // If the user explicitly asked to open the document we navigate; otherwise only highlight
       if (typeof window !== 'undefined' && window.dispatchEvent) {
-        try { localStorage.setItem('lastHighlightedDocumentId', bestMatch.documentId); localStorage.setItem('lastHighlightedDocumentName', bestMatch.name); } catch (e) {}
+        try { localStorage.setItem('lastHighlightedDocumentId', bestMatch.id); localStorage.setItem('lastHighlightedDocumentName', bestMatch.name); } catch (e) {}
         if (intent.openDocument) {
-          try { window.dispatchEvent(new CustomEvent('navigate-to-document', { detail: { documentId: bestMatch.documentId, documentName: bestMatch.name } })); } catch (e) {}
+          try { window.dispatchEvent(new CustomEvent('navigate-to-document', { detail: { documentId: bestMatch.id, documentName: bestMatch.name } })); } catch (e) {}
         }
         setTimeout(() => {
-          try { window.dispatchEvent(new CustomEvent('highlight-document', { detail: { documentId: bestMatch.documentId } })); } catch (e) {}
+          try { window.dispatchEvent(new CustomEvent('highlight-document', { detail: { documentId: bestMatch.id } })); } catch (e) {}
         }, 150);
       }
 
@@ -2546,6 +2612,57 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
     })();
     return () => { cancelled = true; };
   }, [selectedItem?.workspaceId]);
+
+  // Listen for policy opening events to set active document context
+  useEffect(() => {
+    // On mount, try to restore active document persisted in sessionStorage
+    try {
+      if (typeof window !== 'undefined' && window.sessionStorage) {
+        const stored = window.sessionStorage.getItem('docuflow.activeDocument');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed && parsed.extractedJson) {
+            try {
+              const len = parsed.extractedJson.content ? parsed.extractedJson.content.length : 0;
+              console.debug('[ChatPanel] Restored active document from sessionStorage', { id: parsed.id, name: parsed.name, extractedLength: len });
+            } catch (e) {}
+            setActiveDoc(parsed);
+            setLastContext({ doc: parsed });
+          }
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    const handleSetActiveDocument = (event: CustomEvent) => {
+      const { documentId, documentName, documentData } = event.detail;
+      try {
+        if (documentData) {
+          // Debug: log presence and size of extractedJson so we can detect empty-content issues
+          try {
+            const len = documentData?.extractedJson?.content ? documentData.extractedJson.content.length : 0;
+            console.debug('[ChatPanel] set-active-document received', { documentId, documentName, extractedLength: len, preview: (documentData?.extractedJson?.content || '').slice(0, 200) });
+          } catch (e) {
+            console.debug('[ChatPanel] set-active-document received', { documentId, documentName });
+          }
+
+          // Set the active document for chat interactions
+          setActiveDoc(documentData);
+          setLastContext({ doc: documentData });
+        } else {
+          console.debug('[ChatPanel] set-active-document received with empty documentData', { documentId, documentName });
+        }
+      } catch (e) {
+        console.error('[ChatPanel] Error handling set-active-document', e);
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('set-active-document', handleSetActiveDocument as EventListener);
+      return () => window.removeEventListener('set-active-document', handleSetActiveDocument as EventListener);
+    }
+  }, []);
 
   const handleShareToTeam = async (teamId: string, doc: { id?: string; name?: string; url?: string }) => {
     const documentUrl = doc.url || (doc.id ? `${typeof window !== 'undefined' ? window.location.origin : ''}/documents/${doc.id}` : window.location.href);

@@ -45,6 +45,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return () => { mounted = false };
   }, []);
 
+  // Handle navigation events from chat
+  React.useEffect(() => {
+    const handleNavigateToPolicies = () => {
+      router.push('/admin/policies');
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('navigate-to-policies', handleNavigateToPolicies);
+      return () => window.removeEventListener('navigate-to-policies', handleNavigateToPolicies);
+    }
+  }, [router]);
+
   return (
     <SidebarProvider defaultOpen>
       <TooltipProvider>

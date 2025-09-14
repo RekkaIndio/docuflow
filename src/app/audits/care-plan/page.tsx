@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useEffect } from "react";
 import { ChevronDown, ChevronUp, FileText } from "lucide-react";
 import { useAuth } from '@/hooks/use-auth';

@@ -36,7 +36,7 @@ const getFileIcon = (fileType: Document["fileType"]) => {
 };
 
 function getAllDocuments(items: (Document | Folder)[]): Document[] {
-  let documents: Document[] = [];
+  const documents: Document[] = [];
   for (const item of items) {
     if (item.type === 'document') {
       documents.push(item);
@@ -52,7 +52,7 @@ const useSortableData = (items: Document[], initialSortKey: SortKey = 'createdAt
     const [sortDirection, setSortDirection] = useState<SortDirection>(initialSortDirection);
 
     const sortedItems = useMemo(() => {
-        let sortableItems = [...items];
+        const sortableItems = [...items];
         sortableItems.sort((a, b) => {
             const getNestedValue = (obj: any, path: string) => path.split('.').reduce((o, k) => (o || {})[k], obj);
             

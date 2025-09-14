@@ -13,6 +13,8 @@ export interface ActionPlanItem {
   createdAt: string;
   completedAt?: string;
   assignedTo?: string;
+  assignedTeam?: string;
+  ragRating?: 'red' | 'amber' | 'green';
   dueDate?: string;
 }
 
@@ -1273,7 +1275,9 @@ export async function updateActionPlanItemStatus(
   itemId: string,
   status: 'pending' | 'in-progress' | 'completed',
   assignedTo?: string,
-  dueDate?: string
+  dueDate?: string,
+  ragRating?: 'red' | 'amber' | 'green',
+  assignedTeam?: string
 ): Promise<void> {
   try {
     const actionPlanRef = doc(db, `workspaces/${workspaceId}/action-plans`, monthKey);
@@ -1286,13 +1290,44 @@ export async function updateActionPlanItemStatus(
     const actionPlan = actionPlanSnap.data() as MonthlyActionPlan;
     const updatedItems = actionPlan.items.map(item => {
       if (item.id === itemId) {
-        return {
-          ...item,
+        // Create a completely clean object without using spread operator
+        const updatedItem: ActionPlanItem = {
+          id: item.id,
+          auditType: item.auditType,
+          auditId: item.auditId,
+          question: item.question,
+          issue: item.issue,
+          comment: item.comment,
+          priority: item.priority,
           status,
-          assignedTo: assignedTo || item.assignedTo,
-          dueDate: dueDate || item.dueDate,
-          completedAt: status === 'completed' ? new Date().toISOString() : item.completedAt
+          createdAt: item.createdAt
         };
+
+        // Only add completedAt if status is completed
+        if (status === 'completed') {
+          updatedItem.completedAt = new Date().toISOString();
+        } else if (item.completedAt) {
+          updatedItem.completedAt = item.completedAt;
+        }
+
+        // Only add optional fields if they have defined values
+        if (assignedTo !== undefined) {
+          updatedItem.assignedTo = assignedTo;
+        }
+
+        if (dueDate !== undefined) {
+          updatedItem.dueDate = dueDate;
+        }
+
+        if (ragRating !== undefined) {
+          updatedItem.ragRating = ragRating;
+        }
+
+        if (assignedTeam !== undefined) {
+          updatedItem.assignedTeam = assignedTeam;
+        }
+
+        return updatedItem;
       }
       return item;
     });

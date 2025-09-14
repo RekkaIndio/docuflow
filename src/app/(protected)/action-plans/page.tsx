@@ -4,7 +4,10 @@ import { useWorkspace } from '@/context/workspace';
 import { getMonthlyActionPlan, updateActionPlanItemStatus, areAllAuditsCompleted, getCurrentMonthKey, MonthlyActionPlan, ActionPlanItem } from '@/lib/action-plans';
 import { getMonthlyAuditCompletionStatus } from '@/lib/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle, AlertCircle, Clock, FileCheck, ChevronDown, ChevronRight } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CheckCircle, AlertCircle, Clock, FileCheck, ChevronDown, ChevronRight, Users, Timer } from "lucide-react";
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 export default function ActionPlansPage() {
   const activeWorkspace = useWorkspace();
@@ -14,12 +17,18 @@ export default function ActionPlansPage() {
   const [loading, setLoading] = useState(true);
   const [updatingItem, setUpdatingItem] = useState<string | null>(null);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+  
+  // Teams and staff data
+  const [teams, setTeams] = useState<any[]>([]);
+  const [staffData, setStaffData] = useState<any>({});
+  const [loadingTeams, setLoadingTeams] = useState(false);
 
   const currentMonthKey = getCurrentMonthKey();
   const currentMonthName = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
   useEffect(() => {
     loadActionPlanData();
+    loadTeamsAndStaffData();
   }, [activeWorkspace?.id]);
 
   // Add event listeners for chat commands
@@ -79,13 +88,76 @@ export default function ActionPlansPage() {
     }
   };
 
-  const handleItemStatusUpdate = async (itemId: string, status: 'pending' | 'in-progress' | 'completed') => {
+  const loadTeamsAndStaffData = async () => {
+    if (!activeWorkspace?.id) return;
+
+    setLoadingTeams(true);
+    try {
+      // Load teams
+      const teamsCollection = collection(db, `workspaces/${activeWorkspace.id}/teams`);
+      const teamsSnapshot = await getDocs(teamsCollection);
+      const teamsData = teamsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        type: 'team'
+      }));
+      setTeams(teamsData);
+
+      // Load staff data from workspace
+      const workspaceRef = doc(db, 'workspaces', activeWorkspace.id);
+      const workspaceSnap = await getDoc(workspaceRef);
+      
+      if (workspaceSnap.exists()) {
+        const data = workspaceSnap.data();
+        const staff = {
+          managers: data.managers || [],
+          nurses: data.nurses || [],
+          ctms: data.ctms || [],
+          domestics: data.domestics || [],
+          maintenances: data.maintenances || [],
+          kitchens: data.kitchens || [],
+          activities: data.activities || []
+        };
+        setStaffData(staff);
+      }
+    } catch (error) {
+      console.error('Failed to load teams and staff data:', error);
+    } finally {
+      setLoadingTeams(false);
+    }
+  };  const handleItemStatusUpdate = async (itemId: string, status: 'pending' | 'in-progress' | 'completed') => {
     if (!activeWorkspace?.id || !actionPlan) return;
 
     setUpdatingItem(itemId);
     try {
       await updateActionPlanItemStatus(activeWorkspace.id, currentMonthKey, itemId, status);
-      await loadActionPlanData(); // Reload to get updated data
+
+      // Update local state optimistically
+      setActionPlan(prev => {
+        if (!prev) return prev;
+
+        const updatedItems = prev.items.map(item => {
+          if (item.id === itemId) {
+            return {
+              ...item,
+              status,
+              completedAt: status === 'completed' ? new Date().toISOString() : item.completedAt
+            };
+          }
+          return item;
+        });
+
+        const completedItems = updatedItems.filter(item => item.status === 'completed').length;
+        const progressPercent = prev.totalItems > 0 ? Math.round((completedItems / prev.totalItems) * 100) : 0;
+
+        return {
+          ...prev,
+          items: updatedItems,
+          completedItems,
+          progressPercent,
+          updatedAt: new Date().toISOString()
+        };
+      });
     } catch (error) {
       console.error('Failed to update item status:', error);
     } finally {
@@ -93,13 +165,146 @@ export default function ActionPlansPage() {
     }
   };
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high': return 'bg-red-100 text-red-800 border-red-200';
-      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'low': return 'bg-green-100 text-green-800 border-green-200';
+  const handleRAGRatingUpdate = async (itemId: string, ragRating: 'red' | 'amber' | 'green') => {
+    if (!activeWorkspace?.id || !actionPlan) return;
+
+    setUpdatingItem(itemId);
+    try {
+      const item = actionPlan.items.find(item => item.id === itemId);
+      if (item) {
+        await updateActionPlanItemStatus(
+          activeWorkspace.id,
+          currentMonthKey,
+          itemId,
+          item.status,
+          item.assignedTo,
+          item.dueDate,
+          ragRating,
+          item.assignedTeam
+        );
+
+        // Update local state optimistically
+        setActionPlan(prev => {
+          if (!prev) return prev;
+
+          const updatedItems = prev.items.map(item => {
+            if (item.id === itemId) {
+              return {
+                ...item,
+                ragRating
+              };
+            }
+            return item;
+          });
+
+          return {
+            ...prev,
+            items: updatedItems,
+            updatedAt: new Date().toISOString()
+          };
+        });
+      }
+    } catch (error) {
+      console.error('Failed to update RAG rating:', error);
+    } finally {
+      setUpdatingItem(null);
+    }
+  };
+
+  const handleTeamAssignmentUpdate = async (itemId: string, assignedTeam: string) => {
+    if (!activeWorkspace?.id || !actionPlan) return;
+
+    setUpdatingItem(itemId);
+    try {
+      const item = actionPlan.items.find(item => item.id === itemId);
+      if (item) {
+        await updateActionPlanItemStatus(
+          activeWorkspace.id,
+          currentMonthKey,
+          itemId,
+          item.status,
+          item.assignedTo,
+          item.dueDate,
+          item.ragRating,
+          assignedTeam
+        );
+
+        // Update local state optimistically
+        setActionPlan(prev => {
+          if (!prev) return prev;
+
+          const updatedItems = prev.items.map(item => {
+            if (item.id === itemId) {
+              return {
+                ...item,
+                assignedTeam
+              };
+            }
+            return item;
+          });
+
+          return {
+            ...prev,
+            items: updatedItems,
+            updatedAt: new Date().toISOString()
+          };
+        });
+      }
+    } catch (error) {
+      console.error('Failed to update team assignment:', error);
+    } finally {
+      setUpdatingItem(null);
+    }
+  };
+
+  const getRAGColor = (rating?: string) => {
+    switch (rating) {
+      case 'red': return 'bg-red-100 text-red-800 border-red-200';
+      case 'amber': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'green': return 'bg-green-100 text-green-800 border-green-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
+  };
+
+  const getRAGDays = (rating?: string) => {
+    switch (rating) {
+      case 'red': return 7;
+      case 'amber': return 14;
+      case 'green': return 30;
+      default: return null;
+    }
+  };
+
+  const getAvailableTeamsAndStaff = () => {
+    const options: Array<{value: string, label: string, type: string}> = [];
+
+    // Add teams
+    teams.forEach(team => {
+      if (team.name) {
+        options.push({
+          value: `team-${team.id}`,
+          label: `${team.name} (Team)`,
+          type: 'team'
+        });
+      }
+    });
+
+    // Add staff from different categories
+    Object.entries(staffData).forEach(([category, staffList]) => {
+      if (Array.isArray(staffList)) {
+        staffList.forEach((staff: any) => {
+          if (staff.name) {
+            options.push({
+              value: `${category}-${staff.id}`,
+              label: `${staff.name} (${category.charAt(0).toUpperCase() + category.slice(1)})`,
+              type: category
+            });
+          }
+        });
+      }
+    });
+
+    return options;
   };
 
   const toggleSection = (auditType: string) => {
@@ -465,7 +670,141 @@ export default function ActionPlansPage() {
                                             <p className="text-sm italic font-medium">"{item.comment}"</p>
                                           </div>
                                         </div>
-                                      )}                                      <div className="bg-white/70 backdrop-blur-sm rounded-xl p-4 border border-gray-200/50">
+                                      )}
+
+                                      {/* RAG Rating and Team Assignment */}
+                                      <div className="bg-white/70 backdrop-blur-sm rounded-xl p-4 border border-orange-200/50">
+                                        <h4 className="font-semibold text-gray-900 mb-3 text-sm flex items-center gap-2">
+                                          <div className="w-6 h-6 bg-gradient-to-r from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
+                                            <Timer className="h-3 w-3 text-white" />
+                                          </div>
+                                          Assignment & Timeline
+                                        </h4>
+                                        <div className="space-y-3">
+                                          {/* RAG Rating Selector */}
+                                          <div className="flex items-center gap-3">
+                                            <label className="text-sm font-medium text-gray-700 min-w-fit">Priority Level:</label>
+                                            <div className="flex gap-4">
+                                              <label className="flex items-center cursor-pointer">
+                                                <input
+                                                  type="radio"
+                                                  aria-label="Red priority"
+                                                  name={`rag-${item.id}`}
+                                                  value="red"
+                                                  checked={item.ragRating === 'red'}
+                                                  onChange={() => handleRAGRatingUpdate(item.id, 'red')}
+                                                  disabled={updatingItem === item.id}
+                                                  className="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 focus:ring-red-500"
+                                                />
+                                                <span className="sr-only">Red - 7 days</span>
+                                                <span className="ml-2 w-3 h-3 bg-red-500 rounded-full" aria-hidden="true"></span>
+                                              </label>
+
+                                              <label className="flex items-center cursor-pointer">
+                                                <input
+                                                  type="radio"
+                                                  aria-label="Amber priority"
+                                                  name={`rag-${item.id}`}
+                                                  value="amber"
+                                                  checked={item.ragRating === 'amber'}
+                                                  onChange={() => handleRAGRatingUpdate(item.id, 'amber')}
+                                                  disabled={updatingItem === item.id}
+                                                  className="w-4 h-4 text-yellow-600 bg-gray-100 border-gray-300 focus:ring-yellow-500"
+                                                />
+                                                <span className="sr-only">Amber - 14 days</span>
+                                                <span className="ml-2 w-3 h-3 bg-yellow-500 rounded-full" aria-hidden="true"></span>
+                                              </label>
+
+                                              <label className="flex items-center cursor-pointer">
+                                                <input
+                                                  type="radio"
+                                                  aria-label="Green priority"
+                                                  name={`rag-${item.id}`}
+                                                  value="green"
+                                                  checked={item.ragRating === 'green'}
+                                                  onChange={() => handleRAGRatingUpdate(item.id, 'green')}
+                                                  disabled={updatingItem === item.id}
+                                                  className="w-4 h-4 text-green-600 bg-gray-100 border-gray-300 focus:ring-green-500"
+                                                />
+                                                <span className="sr-only">Green - 30 days</span>
+                                                <span className="ml-2 w-3 h-3 bg-green-500 rounded-full" aria-hidden="true"></span>
+                                              </label>
+                                            </div>
+                                          </div>
+
+                                          {/* Team/Person Assignment */}
+                                          <div className="flex items-center gap-3">
+                                            <label className="text-sm font-medium text-gray-700 min-w-fit">Assign to:</label>
+                                            <div className="flex items-center gap-2 flex-1">
+                                              <Select
+                                                value={item.assignedTeam || ''}
+                                                onValueChange={(value) => handleTeamAssignmentUpdate(item.id, value)}
+                                                disabled={updatingItem === item.id || loadingTeams}
+                                              >
+                                                <SelectTrigger className="w-full">
+                                                  <SelectValue placeholder={loadingTeams ? "Loading teams..." : "Select team or person"} />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                  {loadingTeams ? (
+                                                    <SelectItem value="" disabled>
+                                                      <div className="flex items-center gap-2">
+                                                        <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                                                        <span>Loading teams...</span>
+                                                      </div>
+                                                    </SelectItem>
+                                                  ) : getAvailableTeamsAndStaff().length === 0 ? (
+                                                    <SelectItem value="" disabled>
+                                                      <div className="flex items-center gap-2">
+                                                        <Users className="h-3 w-3" />
+                                                        <span>No teams or staff available</span>
+                                                      </div>
+                                                    </SelectItem>
+                                                  ) : (
+                                                    getAvailableTeamsAndStaff().map((option) => (
+                                                      <SelectItem key={option.value} value={option.value}>
+                                                        <div className="flex items-center gap-2">
+                                                          <Users className="h-3 w-3" />
+                                                          <span>{option.label}</span>
+                                                        </div>
+                                                      </SelectItem>
+                                                    ))
+                                                  )}
+                                                </SelectContent>
+                                              </Select>
+                                              <button
+                                                onClick={() => loadTeamsAndStaffData()}
+                                                disabled={loadingTeams}
+                                                className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                title="Refresh teams and staff"
+                                              >
+                                                {loadingTeams ? (
+                                                  <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                                                ) : (
+                                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                                  </svg>
+                                                )}
+                                              </button>
+                                            </div>
+                                          </div>
+
+                                          {/* Current Assignment Display */}
+                                          {(item.ragRating || item.assignedTeam) && (
+                                            <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200">
+                                              {item.ragRating && (
+                                                <span className={`px-3 py-1 text-xs font-bold rounded-full border ${getRAGColor(item.ragRating)}`}>
+                                                  {item.ragRating.toUpperCase()} - {getRAGDays(item.ragRating)} days
+                                                </span>
+                                              )}
+                                              {item.assignedTeam && (
+                                                <span className="px-3 py-1 text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200 rounded-full">
+                                                  Assigned: {getAvailableTeamsAndStaff().find(opt => opt.value === item.assignedTeam)?.label || item.assignedTeam}
+                                                </span>
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>                                      <div className="bg-white/70 backdrop-blur-sm rounded-xl p-4 border border-gray-200/50">
                                         <div className="flex items-center justify-between">
                                           <div className="flex items-center gap-3">
                                             <span className={`px-4 py-2 text-xs font-bold rounded-full shadow-sm ${
