@@ -106,7 +106,7 @@ export default function CareHomeDetailModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-[90vw] md:w-[80vw] lg:max-w-4xl p-0 border-0 shadow-2xl">
+      <DialogContent hideClose className="max-w-4xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-[90vw] md:w-[80vw] lg:max-w-4xl p-0 border-0 shadow-2xl">
         {/* Hidden DialogTitle for accessibility */}
         <DialogTitle className="sr-only">
           {home ? `${home.name} - Care Home Details` : 'Care Home Details'}
@@ -138,20 +138,18 @@ export default function CareHomeDetailModal({
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={onRefresh}
-                  className="bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-sm"
+                {/* Close button: explicit, white X icon that calls onClose */}
+                <button
+                  aria-label="Close"
+                  onClick={onClose}
+                  className="ml-2 p-2 rounded-md bg-transparent hover:bg-white/10 transition-colors"
                 >
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Refresh
-                </Button>
+                  <XCircle className="w-5 h-5 text-white" />
+                </button>
               </div>
             </div>
           </div>
-          {/* Bottom rounded corner overlay */}
-          <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white to-transparent rounded-b-2xl"></div>
+          {/* Bottom rounded corner overlay removed to avoid white gradient */}
         </div>
 
         <div className="p-6 space-y-6">

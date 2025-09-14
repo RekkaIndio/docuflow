@@ -219,11 +219,12 @@ export default function CareHomesPage() {
   return (
     <div>
       {/* Full-width themed header */}
-      <div className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 relative overflow-hidden shadow-lg mb-6 rounded-b-3xl">
-        {/* Subtle background pattern */}
-        <div className="absolute inset-0 opacity-5">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full -translate-y-48 translate-x-48"></div>
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-400 rounded-full translate-y-32 -translate-x-32"></div>
+      <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-blue-600 to-purple-700 text-white rounded-b-[64px] shadow-2xl mb-6">
+        {/* Animated background elements */}
+        <div className="absolute inset-0">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-white/10 to-transparent rounded-full -translate-y-48 translate-x-48 animate-pulse"></div>
+          <div className="absolute bottom-0 left-0 w-80 h-80 bg-gradient-to-tr from-purple-400/20 to-transparent rounded-full translate-y-40 -translate-x-40"></div>
+          <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-gradient-to-br from-blue-300/10 to-transparent rounded-full -translate-x-1/2 -translate-y-1/2 animate-pulse delay-1000"></div>
         </div>
         <div className="relative z-10 px-6 py-8 md:px-8 md:py-12">
           <div className="flex items-center gap-6">
@@ -234,15 +235,15 @@ export default function CareHomesPage() {
                   <Building2 className="w-8 h-8 text-white" />
                 </div>
               </div>
-              <div>
-                <h1 className="text-3xl font-bold text-white mb-2">Care Homes</h1>
+              <div className="ml-4 md:ml-6 lg:ml-8">
+                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight tracking-tight bg-gradient-to-r from-white via-blue-100 to-purple-100 bg-clip-text text-transparent mb-2">Care Homes</h1>
                 <p className="text-blue-100 text-lg">Manage bed counts, occupancy and compliance across workspaces.</p>
               </div>
             </div>
           </div>
         </div>
         {/* Bottom rounded corner overlay */}
-        <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-muted/20 to-transparent rounded-b-3xl"></div>
+        <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-muted/20 to-transparent rounded-b-[64px]"></div>
       </div>
 
       {loading ? (

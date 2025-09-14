@@ -25,7 +25,7 @@ export default function AdminDashboardHeader({
   onRefresh
 }: AdminDashboardHeaderProps) {
   return (
-    <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-blue-600 to-purple-700 text-white rounded-b-3xl shadow-2xl">
+  <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-blue-600 to-purple-700 text-white rounded-b-[64px] shadow-2xl">
       {/* Animated background elements */}
       <div className="absolute inset-0">
         <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-white/10 to-transparent rounded-full -translate-y-48 translate-x-48 animate-pulse"></div>
@@ -96,19 +96,6 @@ export default function AdminDashboardHeader({
                   </div>
                 </div>
               </div>
-
-              {/* Total Beds */}
-              {/* <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
-                <div className="flex items-center gap-2 lg:gap-3 h-full">
-                  <div className="p-2 bg-rose-500/20 rounded-xl group-hover:bg-rose-500/30 transition-colors duration-300">
-                    <Building2 className="w-4 h-4 lg:w-5 lg:h-5 text-rose-400" />
-                  </div>
-                  <div>
-                    <div className="text-xl lg:text-2xl font-bold text-white">{totalBeds}</div>
-                    <div className="text-xs text-rose-200 font-medium uppercase tracking-wide">Total Beds</div>
-                  </div>
-                </div>
-              </div> */}
             </div>
           </div>
         </div>

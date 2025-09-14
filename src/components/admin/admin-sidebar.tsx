@@ -109,23 +109,17 @@ export function AdminSidebar({
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={() => handleNavigation(() => setView('documents'))} className="text-lg h-14">
-              <FileText className="w-7 h-7 mr-2" />
-              <span className="text-lg">Documents</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
             <SidebarMenuButton onClick={() => handleNavigation(() => { setView('policies'); })} className="text-lg h-14">
               <Tag className="w-7 h-7 mr-2" />
               <span className="text-lg">Policies</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
-          {/* <SidebarMenuItem>
+          <SidebarMenuItem>
             <SidebarMenuButton onClick={() => handleNavigation(() => setView('teams'))} className="text-lg h-14">
               <UsersRound className="w-7 h-7 mr-2" />
               <span className="text-lg">Teams</span>
             </SidebarMenuButton>
-          </SidebarMenuItem> */}
+          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter>
