@@ -745,301 +745,180 @@ function ActionPlansCard({ workspaceId, documents, onSelect }: {
 }
 
 function ResidentCareCard({ workspaceId }: { workspaceId?: string }) {
-    const [dependencyData, setDependencyData] = useState<any[]>([]);
-    const [loading, setLoading] = useState(false);
-    
-    useEffect(() => {
-        if (!workspaceId) return;
-        setLoading(true);
-        
-        // Listen to dependency calculator data collection
-        try {
-            const depRef = doc(db, `workspaces/${workspaceId}/dependency_calculator`, 'default');
-            const unsub = onSnapshot(depRef, (snap) => {
-                if (snap.exists()) {
-                    const data = snap.data();
-                    const residents = data.residents || [];
-                    setDependencyData(residents);
-                } else {
-                    setDependencyData([]);
-                }
-                setLoading(false);
-            }, (err) => {
-                console.error('Failed to listen to dependency calculator data', err);
-                setLoading(false);
-            });
-            return () => unsub();
-        } catch (e) {
-            console.error('Failed to set up dependency calculator data listener', e);
-            setLoading(false);
-        }
-    }, [workspaceId]);
-
-    // Calculate dependency statistics using the same functions as the dependency calculator
-    const calculateNDPSScore = (resident: any) => {
-        const scores = [
-            resident.personalCare === "None" ? 0 : resident.personalCare === "Low" ? 1 : resident.personalCare === "Medium" ? 2 : resident.personalCare === "High" ? 3 : 0,
-            resident.mobility === "None" ? 0 : resident.mobility === "Low" ? 1 : resident.mobility === "Medium" ? 2 : resident.mobility === "High" ? 3 : 0,
-            resident.continence === "None" ? 0 : resident.continence === "Low" ? 1 : resident.continence === "Medium" ? 2 : resident.continence === "High" ? 3 : 0,
-            resident.eatingDrinking === "None" ? 0 : resident.eatingDrinking === "Low" ? 1 : resident.eatingDrinking === "Medium" ? 2 : resident.eatingDrinking === "High" ? 3 : 0,
-            resident.skinIntegrity === "None" ? 0 : resident.skinIntegrity === "Low" ? 1 : resident.skinIntegrity === "Medium" ? 2 : resident.skinIntegrity === "High" ? 3 : 0,
-            resident.medication === "None" ? 0 : resident.medication === "Low" ? 1 : resident.medication === "Medium" ? 2 : resident.medication === "High" ? 3 : 0,
-            resident.medical === "None" ? 0 : resident.medical === "Low" ? 1 : resident.medical === "Medium" ? 2 : resident.medical === "High" ? 3 : 0,
-            resident.breathing === "None" ? 0 : resident.breathing === "Low" ? 1 : resident.breathing === "Medium" ? 2 : resident.breathing === "High" ? 3 : 0,
-            resident.emotionalSupport === "None" ? 0 : resident.emotionalSupport === "Low" ? 1 : resident.emotionalSupport === "Medium" ? 2 : resident.emotionalSupport === "High" ? 3 : 0,
-            resident.behaviours === "None" ? 0 : resident.behaviours === "Low" ? 1 : resident.behaviours === "Medium" ? 2 : resident.behaviours === "High" ? 3 : 0,
-            resident.additionalNeeds === "None" ? 0 : resident.additionalNeeds === "Low" ? 1 : resident.additionalNeeds === "Medium" ? 2 : resident.additionalNeeds === "High" ? 3 : 0,
-            resident.cognition === "None" ? 0 : resident.cognition === "Low" ? 1 : resident.cognition === "Medium" ? 2 : resident.cognition === "High" ? 3 : 0,
-            resident.nightNeeds === "None" ? 0 : resident.nightNeeds === "Low" ? 1 : resident.nightNeeds === "Medium" ? 2 : resident.nightNeeds === "High" ? 3 : 0
-        ];
-        return scores.reduce((sum, score) => sum + score, 0);
-    };
-
-    const getNDPSBand = (score: number) => {
-        if (score <= 5) return { band: 1, name: "Independent" };
-        if (score <= 10) return { band: 2, name: "Low Dependency" };
-        if (score <= 15) return { band: 3, name: "Medium Dependency" };
-        if (score <= 20) return { band: 4, name: "High Dependency" };
-        return { band: 5, name: "Very High Dependency" };
-    };
-
-    const calculateResidentCareMinutes = (resident: any) => {
-        const score = calculateNDPSScore(resident);
-        let dayMinutes = 0;
-        let nightMinutes = 0;
-
-        // Day care time based on NDPS score
-        if (score <= 5) dayMinutes = 30; // Independent
-        else if (score <= 10) dayMinutes = 60; // Low dependency
-        else if (score <= 15) dayMinutes = 120; // Medium dependency
-        else if (score <= 20) dayMinutes = 180; // High dependency
-        else dayMinutes = 240; // Very high dependency
-
-        // Night care time (typically less than day)
-        if (score <= 5) nightMinutes = 15;
-        else if (score <= 10) nightMinutes = 30;
-        else if (score <= 15) nightMinutes = 60;
-        else if (score <= 20) nightMinutes = 90;
-        else nightMinutes = 120;
-
-        return { Day: dayMinutes, Night: nightMinutes };
-    };
-
-    const calculateNDPSStaffing = (residents: any[]) => {
-        let totalDayStaff = 0;
-        let totalNightStaff = 0;
-
-        residents.forEach(resident => {
-            const care = calculateResidentCareMinutes(resident);
-            // Convert minutes to 12-hour equivalent and calculate staff needed
-            const dayStaff = (care.Day / 60) / 12; // staff needed for 12-hour shift
-            const nightStaff = (care.Night / 60) / 12;
-            totalDayStaff += dayStaff;
-            totalNightStaff += nightStaff;
-        });
-
-        return { Day: Math.ceil(totalDayStaff * 4) / 4, Night: Math.ceil(totalNightStaff * 4) / 4 }; // Round to nearest quarter
-    };
-
-    const calculateStaffBreakdown = (residents: any[]) => {
-        const totalStaffing = calculateNDPSStaffing(residents);
-        
-        // Fixed CTMs: 1 per shift
-        const dayCTMs = 1;
-        const nightCTMs = 1;
-        
-        // Calculate remaining staff after CTMs
-        const dayRemainingStaff = Math.max(0, totalStaffing.Day - dayCTMs);
-        const nightRemainingStaff = Math.max(0, totalStaffing.Night - nightCTMs);
-        
-        // Analyze resident dependency profile to determine nurse/carer split
-        let highDependencyCount = 0; // Band 4-5
-        let mediumDependencyCount = 0; // Band 3
-        let lowDependencyCount = 0; // Band 1-2
-        
-        residents.forEach(resident => {
-            const score = calculateNDPSScore(resident);
-            const band = getNDPSBand(score).band;
-            if (band >= 4) highDependencyCount++;
-            else if (band === 3) mediumDependencyCount++;
-            else lowDependencyCount++;
-        });
-        
-        // Calculate nurse percentage based on dependency profile
-        const totalResidents = residents.length;
-        let dayNurses = 0;
-        let nightNurses = 0;
-        
-        if (totalResidents > 0) {
-            // More direct approach: ensure nurses for high dependency residents
-            if (highDependencyCount > 0) {
-                // Minimum 1 nurse per shift if any high dependency residents
-                // Plus additional nurses for multiple high dependency residents
-                dayNurses = Math.max(1, Math.ceil(highDependencyCount * 0.5));
-                nightNurses = Math.max(1, Math.ceil(highDependencyCount * 0.3));
-            } else if (mediumDependencyCount >= 3) {
-                // If 3+ medium dependency residents, consider 1 nurse for day shift
-                dayNurses = 1;
-                nightNurses = 0;
-            }
-            
-            // Ensure we don't exceed remaining staff
-            dayNurses = Math.min(dayNurses, dayRemainingStaff);
-            nightNurses = Math.min(nightNurses, nightRemainingStaff);
-        }
-        
-        // Remaining staff are carers
-        const dayCarers = dayRemainingStaff - dayNurses;
-        const nightCarers = nightRemainingStaff - nightNurses;
-        
-        return {
-            Day: {
-                nurses: dayNurses,
-                ctms: dayCTMs,
-                carers: dayCarers,
-                total: dayNurses + dayCTMs + dayCarers
+    // Sample data for demonstration
+    const sampleData = {
+        bands: [
+            { band: 1, count: 9, name: "Independent" },
+            { band: 2, count: 8, name: "Low Dependency" },
+            { band: 3, count: 4, name: "Medium Dependency" },
+            { band: 4, count: 3, name: "High Dependency" },
+            { band: 5, count: 0, name: "Very High Dependency" }
+        ],
+        staffRatios: {
+            dayRatio: "4:1",
+            nightRatio: "8:1",
+            totalCareHours: "28h",
+            avgCarePerResident: "1.1h"
+        },
+        staffRequired: {
+            dayShift: {
+                nurses: 2,
+                ctms: 1,
+                carers: 3,
+                total: 6
             },
-            Night: {
-                nurses: nightNurses,
-                ctms: nightCTMs,
-                carers: nightCarers,
-                total: nightNurses + nightCTMs + nightCarers
-            }
-        };
+            nightShift: {
+                nurses: 1,
+                ctms: 1,
+                carers: 1,
+                total: 3
+            },
+            totalStaff24h: 9
+        }
     };
-
-    const totalResidents = dependencyData.length;
-    const highDependency = dependencyData.filter(r => {
-        const score = calculateNDPSScore(r);
-        const band = getNDPSBand(score).band;
-        return band >= 4;
-    }).length;
-    const mediumDependency = dependencyData.filter(r => {
-        const score = calculateNDPSScore(r);
-        const band = getNDPSBand(score).band;
-        return band === 3;
-    }).length;
-    const lowDependency = dependencyData.filter(r => {
-        const score = calculateNDPSScore(r);
-        const band = getNDPSBand(score).band;
-        return band <= 2;
-    }).length;
-
-    // Average dependency score
-    const avgScore = totalResidents > 0 ? 
-        Math.round(dependencyData.reduce((sum, r) => sum + calculateNDPSScore(r), 0) / totalResidents * 10) / 10 : 0;
-
-    // Care intensity percentage (higher score = more care needed)
-    const careIntensityPercent = Math.min(100, Math.round((avgScore / 10) * 100));
-
-    // Choose gradient colors based on care intensity
-    let gradientColors = { start: '#34d399', end: '#059669' };
-    if (careIntensityPercent > 70) gradientColors = { start: '#f87171', end: '#dc2626' };
-    else if (careIntensityPercent > 40) gradientColors = { start: '#fbbf24', end: '#d97706' };
-
-    // Calculate staffing information
-    const staffingBreakdown = calculateStaffBreakdown(dependencyData);
-    const dayRatio = totalResidents > 0 && staffingBreakdown.Day.total > 0 ? 
-        (Math.round((totalResidents / staffingBreakdown.Day.total) * 100) / 100) : 0;
-    const nightRatio = totalResidents > 0 && staffingBreakdown.Night.total > 0 ? 
-        (Math.round((totalResidents / staffingBreakdown.Night.total) * 100) / 100) : 0;
 
     return (
-        <Card className="group hover:shadow-xl transition-all duration-300 border border-teal-200/60 bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-teal-100/50">
-            <CardHeader className="pb-3 border-b border-teal-100/80 bg-gradient-to-r from-teal-50/40 to-transparent rounded-t-2xl">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2 text-gray-900">
-                    <Heart className="h-4 w-4 text-teal-600" />
-                    Resident Care
-                </CardTitle>
-                <CardDescription className="text-xs text-gray-600 font-medium">
-                    Dependency levels and staffing requirements
-                </CardDescription>
+        <Card className="group relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-teal-500 to-teal-600 hover:shadow-xl text-white transition-all duration-300">
+            <CardHeader className="pb-3 relative z-20">
+                <div className="flex items-center justify-between mb-3">
+                    <div className="p-3 bg-white/15 backdrop-blur-sm rounded-2xl border border-white/20">
+                        <Heart className="h-6 w-6 text-white" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm text-teal-200 font-medium bg-white/10 px-3 py-1 rounded-full border border-white/20">
+                            {sampleData.staffRequired.totalStaff24h} staff
+                        </span>
+                    </div>
+                </div>
+                <CardTitle className="text-lg font-bold text-white mb-2">Resident Care</CardTitle>
+                <CardDescription className="text-teal-100">Dependency levels and staffing requirements</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4 pt-4">
-                {loading ? (
-                    <div className="text-sm text-gray-600">Loading resident data...</div>
-                ) : totalResidents > 0 ? (
-                    <div className="space-y-4">
-                        {/* Dependency Overview */}
-                        <div className="flex items-center gap-4 min-h-[80px]">
-                            <div className="flex-shrink-0 w-16 h-16 flex items-center justify-center">
-                                <OccupancyPie 
-                                    percent={careIntensityPercent} 
-                                    size={64} 
-                                    strokeWidth={6} 
-                                    gradientColors={gradientColors} 
-                                    centerFontSize={14} 
-                                    centerClassName="font-bold text-gray-800" 
-                                    centerFill="transparent" 
-                                />
-                            </div>
-                            <div className="flex-1 space-y-3">
-                                <div className="grid grid-cols-3 gap-2">
-                                    <div className="text-center p-2 bg-red-50 rounded-lg border border-red-200/40">
-                                        <div className="text-lg font-bold text-gray-800">{highDependency}</div>
-                                        <div className="text-xs text-red-700 font-medium">High</div>
-                                    </div>
-                                    <div className="text-center p-2 bg-yellow-50 rounded-lg border border-yellow-200/40">
-                                        <div className="text-lg font-bold text-gray-800">{mediumDependency}</div>
-                                        <div className="text-xs text-yellow-700 font-medium">Medium</div>
-                                    </div>
-                                    <div className="text-center p-2 bg-green-50 rounded-lg border border-green-200/40">
-                                        <div className="text-lg font-bold text-gray-800">{lowDependency}</div>
-                                        <div className="text-xs text-green-700 font-medium">Low</div>
-                                    </div>
-                                </div>
-                                <div className="text-center">
-                                    <div className="text-sm font-semibold text-gray-700">
-                                        Average dependency: {avgScore}/10
-                                    </div>
-                                    <div className="text-xs text-gray-500 mt-1">
-                                        {totalResidents} resident{totalResidents !== 1 ? 's' : ''} assessed
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
 
-                        {/* Staffing Information */}
-                        <div className="border-t border-gray-100 pt-4">
-                            <div className="text-sm font-semibold text-gray-800 mb-3">Staffing Requirements</div>
-                            
-                            {/* Staff Ratios */}
-                            <div className="grid grid-cols-2 gap-3 mb-3">
-                                <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-200/40">
-                                    <div className="text-lg font-bold text-blue-800">{dayRatio}:1</div>
-                                    <div className="text-xs text-blue-700 font-medium">Day Ratio</div>
-                                </div>
-                                <div className="text-center p-3 bg-indigo-50 rounded-lg border border-indigo-200/40">
-                                    <div className="text-lg font-bold text-indigo-800">{nightRatio}:1</div>
-                                    <div className="text-xs text-indigo-700 font-medium">Night Ratio</div>
-                                </div>
+            <CardContent className="space-y-4">
+                {/* Four smaller cards in a 2x2 grid */}
+                <div className="grid grid-cols-2 gap-4">
+                    {/* Bands Card */}
+                    <Card className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl shadow-sm hover:bg-white/15 hover:shadow-md transition-all duration-200">
+                        <CardContent className="p-4">
+                            <div className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                                <BarChart3 className="h-4 w-4 text-teal-200" />
+                                Bands
                             </div>
-
-                            {/* Staff Breakdown */}
                             <div className="space-y-2">
-                                <div className="text-xs font-medium text-gray-600 mb-2">Required Staff (24h total)</div>
-                                <div className="grid grid-cols-2 gap-2 text-center">
-                                    <div className="p-2 bg-green-50 rounded border border-green-200/40">
-                                        <div className="text-sm font-bold text-green-800">{staffingBreakdown.Day.total + staffingBreakdown.Night.total}</div>
-                                        <div className="text-xs text-green-700">Total Staff</div>
-                                    </div>
-                                    <div className="p-2 bg-purple-50 rounded border border-purple-200/40">
-                                        <div className="text-sm font-bold text-purple-800">
-                                            {staffingBreakdown.Day.nurses + staffingBreakdown.Night.nurses}
+                                {sampleData.bands.map((band) => (
+                                    <div key={band.band} className="flex items-center justify-between text-sm">
+                                        <span className="text-teal-100">Band {band.band}</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-bold text-white">{band.count}</span>
+                                            <span className="text-xs text-teal-200">({band.name})</span>
                                         </div>
-                                        <div className="text-xs text-purple-700">Nurses</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Staff Ratios Card */}
+                    <Card className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl shadow-sm hover:bg-white/15 hover:shadow-md transition-all duration-200">
+                        <CardContent className="p-4">
+                            <div className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                                <Users className="h-4 w-4 text-teal-200" />
+                                Staff Ratios
+                            </div>
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between text-sm">
+                                    <span className="text-teal-100">Day Ratio</span>
+                                    <span className="font-bold text-white">{sampleData.staffRatios.dayRatio}</span>
+                                </div>
+                                <div className="flex items-center justify-between text-sm">
+                                    <span className="text-teal-100">Night Ratio</span>
+                                    <span className="font-bold text-white">{sampleData.staffRatios.nightRatio}</span>
+                                </div>
+                                <div className="flex items-center justify-between text-sm">
+                                    <span className="text-teal-100">Total Care Hours</span>
+                                    <span className="font-bold text-white">{sampleData.staffRatios.totalCareHours}</span>
+                                </div>
+                                <div className="flex items-center justify-between text-sm">
+                                    <span className="text-teal-100">Avg. Care/Resident</span>
+                                    <span className="font-bold text-white">{sampleData.staffRatios.avgCarePerResident}</span>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Staff Required Card - Day Shift */}
+                    <Card className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl shadow-sm hover:bg-white/15 hover:shadow-md transition-all duration-200">
+                        <CardContent className="p-4">
+                            <div className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                                <Sun className="h-4 w-4 text-teal-200" />
+                                Day Shift
+                            </div>
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between text-sm">
+                                    <span className="text-teal-100">Nurses</span>
+                                    <span className="font-bold text-white">{sampleData.staffRequired.dayShift.nurses}</span>
+                                </div>
+                                <div className="flex items-center justify-between text-sm">
+                                    <span className="text-teal-100">CTMs</span>
+                                    <span className="font-bold text-white">{sampleData.staffRequired.dayShift.ctms}</span>
+                                </div>
+                                <div className="flex items-center justify-between text-sm">
+                                    <span className="text-teal-100">Carers</span>
+                                    <span className="font-bold text-white">{sampleData.staffRequired.dayShift.carers}</span>
+                                </div>
+                                <div className="border-t border-white/20 pt-2 mt-2">
+                                    <div className="flex items-center justify-between text-sm font-semibold">
+                                        <span className="text-white">Total</span>
+                                        <span className="text-teal-200">{sampleData.staffRequired.dayShift.total}</span>
                                     </div>
                                 </div>
                             </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Staff Required Card - Night Shift */}
+                    <Card className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl shadow-sm hover:bg-white/15 hover:shadow-md transition-all duration-200">
+                        <CardContent className="p-4">
+                            <div className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                                <Moon className="h-4 w-4 text-teal-200" />
+                                Night Shift
+                            </div>
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between text-sm">
+                                    <span className="text-teal-100">Nurses</span>
+                                    <span className="font-bold text-white">{sampleData.staffRequired.nightShift.nurses}</span>
+                                </div>
+                                <div className="flex items-center justify-between text-sm">
+                                    <span className="text-teal-100">CTMs</span>
+                                    <span className="font-bold text-white">{sampleData.staffRequired.nightShift.ctms}</span>
+                                </div>
+                                <div className="flex items-center justify-between text-sm">
+                                    <span className="text-teal-100">Carers</span>
+                                    <span className="font-bold text-white">{sampleData.staffRequired.nightShift.carers}</span>
+                                </div>
+                                <div className="border-t border-white/20 pt-2 mt-2">
+                                    <div className="flex items-center justify-between text-sm font-semibold">
+                                        <span className="text-white">Total</span>
+                                        <span className="text-teal-200">{sampleData.staffRequired.nightShift.total}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* Total Staff Summary */}
+                <Card className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl shadow-sm hover:bg-white/15 hover:shadow-md transition-all duration-200">
+                    <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                            <div className="text-sm font-semibold text-white flex items-center gap-2">
+                                <Clock className="h-4 w-4 text-teal-200" />
+                                Total Staff (24h)
+                            </div>
+                            <div className="text-xl font-bold text-white">{sampleData.staffRequired.totalStaff24h}</div>
                         </div>
-                    </div>
-                ) : (
-                    <div className="text-center py-6">
-                        <Heart className="h-10 w-10 text-gray-400 mx-auto mb-3" />
-                        <p className="text-sm text-gray-600 font-medium">No resident data available</p>
-                        <p className="text-xs text-gray-500 mt-1">Complete dependency assessments to see care metrics</p>
-                    </div>
-                )}
+                    </CardContent>
+                </Card>
             </CardContent>
         </Card>
     );

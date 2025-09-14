@@ -34,7 +34,7 @@ export function generateAppraisalPDF(appraisalData: AppraisalPDFData): Uint8Arra
     doc.setFontSize(fontSize);
     const safeText = (typeof text === 'string') ? text : (text == null ? '' : String(text));
     const words = safeText.split(' ');
-    let lines: string[] = [];
+    const lines: string[] = [];
     let currentLine = '';
 
     words.forEach(word => {
@@ -303,7 +303,7 @@ export async function generateAppraisalPDFWithLogo(appraisalData: AppraisalPDFDa
     doc.setFontSize(fontSize);
     const safeText = (typeof text === 'string') ? text : (text == null ? '' : String(text));
     const words = safeText.split(' ');
-    let lines: string[] = [];
+    const lines: string[] = [];
     let currentLine = '';
 
     words.forEach(word => {

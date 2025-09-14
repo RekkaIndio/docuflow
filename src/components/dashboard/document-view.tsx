@@ -439,7 +439,7 @@ export function DocumentView({ document, onBack, responseContent, responseDetail
     useEffect(() => {
         let t1: ReturnType<typeof setTimeout> | null = null;
         let t2: ReturnType<typeof setTimeout> | null = null;
-        let t3: ReturnType<typeof setTimeout> | null = null;
+        const t3: ReturnType<typeof setTimeout> | null = null;
 
         const hasResponse = responseDetail && (responseDetail.text || (responseDetail.documents && responseDetail.documents.length > 0));
 

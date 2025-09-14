@@ -6,7 +6,7 @@ export async function POST(
   { params }: { params: Promise<{ policyName: string }> }
 ) {
   try {
-    const { content, meta } = await request.json();
+  const { content, meta, workspaceId } = await request.json();
     const resolvedParams = await params;
     const policyName = resolvedParams.policyName;
     
@@ -17,7 +17,7 @@ export async function POST(
     const timestamp = new Date().toISOString();
     const documentId = `${sanitizedName}-${Date.now()}`;
 
-    // Prepare the policy document
+    // Prepare the policy document and a structured extractedJson for chatbot consumption
     const policyDocument = {
       id: documentId,
       policyName: sanitizedName,
@@ -27,11 +27,48 @@ export async function POST(
       createdAt: timestamp,
       updatedAt: timestamp,
       status: 'draft', // Can be 'draft' or 'published'
-      version: '1.0'
+      version: (meta && meta.version) || '1.0',
+      // For backwards compatibility, keep top-level fields
     };
 
-    // Save to Firestore
-    await adminDb.collection('completed_policies').doc(documentId).set(policyDocument);
+    // Build a workspace-scoped document shape that includes extractedJson (used by chat)
+    const workspacePolicyDocument = {
+      id: documentId,
+      policyName: sanitizedName,
+      originalPolicyName: policyName,
+      content: content,
+      meta: meta || {},
+      extractedJson: {
+        content: content || '',
+        title: meta?.title || policyName.replace(/[-_]/g, ' '),
+        effectiveDate: meta?.effectiveDate || null,
+        reviewDate: meta?.reviewDate || null,
+        version: meta?.version || '1.0',
+        appliesTo: meta?.appliesTo || null,
+        type: 'policy'
+      },
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      status: 'draft',
+      version: (meta && meta.version) || '1.0',
+    };
+
+    // Save to legacy collection for backward compatibility
+    try {
+      await adminDb.collection('completed_policies').doc(documentId).set(policyDocument);
+    } catch (e) {
+      console.error('Failed to write to completed_policies (legacy):', e);
+    }
+
+    // If a workspaceId was provided, also write into workspace-scoped collection
+    if (workspaceId) {
+      try {
+        await adminDb.collection('workspaces').doc(workspaceId).collection('policies').doc(documentId).set(workspacePolicyDocument);
+        console.log(`Saved policy to workspaces/${workspaceId}/policies/${documentId}`);
+      } catch (e) {
+        console.error('Failed to write workspace-scoped policy document:', e);
+      }
+    }
 
     return NextResponse.json({
       message: 'Policy saved successfully to Firebase',

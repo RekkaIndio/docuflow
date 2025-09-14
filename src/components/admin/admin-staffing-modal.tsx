@@ -86,7 +86,7 @@ export default function AdminStaffingModal({
       const imgData = canvas.toDataURL('image/png');
       const imgWidth = pdfWidth - 40;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      let yPosition = 40;
+      const yPosition = 40;
       const maxHeight = pdfHeight - 30;
 
       if (imgHeight <= maxHeight) {

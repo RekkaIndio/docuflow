@@ -38,17 +38,60 @@ export default function PoliciesPage() {
 
   useEffect(() => {
     let mounted = true;
-    fetch('/api/policies')
-      .then((r) => r.json())
-      .then((data) => {
+    (async () => {
+      try {
+        // Fetch local templates (filesystem-backed) and Firebase policies
+        const [localRes, firebaseRes] = await Promise.all([
+          fetch('/api/policies'),
+          fetch('/api/policies/firebase')
+        ]);
+
+        const localData = localRes.ok ? await localRes.json() : { files: [] };
+        const firebaseData = firebaseRes.ok ? await firebaseRes.json() : { drafts: [], published: [] };
+
         if (!mounted) return;
-        // data.files may be an array of strings (legacy) or array of objects (new)
-        setFiles(data.files || []);
-      })
-      .catch(() => {
+
+        // localData.files may be array of strings (legacy) or array of PolicyItem
+        const localFiles = localData.files || [];
+
+        // Build combined list: prefer published entries from Firebase where available
+        const published = (firebaseData.published || []) as any[];
+
+        // Map published policies to the UI PolicyItem shape
+        const publishedFiles = published.map(p => ({
+          file: p.pdfPath ? p.pdfPath.split('/').pop() : `${p.policyName}.pdf`,
+          url: p.pdfPath || `/policies/${encodeURIComponent(p.policyName)}.pdf`,
+          title: p.meta?.title || p.policyName.replace(/[-_]/g, ' '),
+          version: p.meta?.version || p.version || null,
+          effectiveDate: p.meta?.effectiveDate || null,
+          reviewDate: p.meta?.reviewDate || null,
+          appliesTo: p.meta?.appliesTo || null,
+          isCompleted: true,
+          lastCustomized: p.updatedAt || p.createdAt || null
+        }));
+
+        // Combine and dedupe by file name (published should override local template)
+        const combinedMap = new Map<string, any>();
+
+        // Add local templates first
+        (Array.isArray(localFiles) ? localFiles : []).forEach((f: any) => {
+          const key = typeof f === 'string' ? f : f.file;
+          combinedMap.set(key, f);
+        });
+
+        // Override/add published files
+        publishedFiles.forEach((pf) => {
+          combinedMap.set(pf.file, pf);
+        });
+
+        const combined = Array.from(combinedMap.values());
+        setFiles(combined || []);
+      } catch (err) {
         if (!mounted) return;
+        console.error('Failed to load policies or Firebase data:', err);
         setFiles([]);
-      });
+      }
+    })();
 
     return () => {
       mounted = false;
@@ -105,6 +148,127 @@ export default function PoliciesPage() {
 
     return items;
   }, [files]);
+
+  // Handle opening specific policy from chat
+  useEffect(() => {
+    const handleOpenSpecificPolicy = (event: CustomEvent) => {
+      const { policyName } = event.detail;
+      if (!policyName || !sortedItems.length) return;
+
+      // Find the policy that matches the requested name
+      const matchingPolicy = sortedItems.find(item =>
+        item.title.toLowerCase().includes(policyName.toLowerCase()) ||
+        item.fileName.toLowerCase().includes(policyName.toLowerCase())
+      );
+
+      if (matchingPolicy) {
+        // Load the actual policy content from Firebase
+        const loadPolicyContent = async () => {
+          try {
+            const response = await fetch('/api/policies/search', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ query: matchingPolicy.title }),
+            });
+
+            if (!response.ok) {
+              throw new Error('Failed to fetch policy content from Firebase');
+            }
+
+            const data = await response.json();
+
+            if (data.results && data.results.length > 0) {
+              // Use the first (best) match
+              const policyData = data.results[0];
+
+              // Create a document object with actual content from Firebase
+              const documentData = {
+                id: policyData.id,
+                name: policyData.name,
+                extractedJson: policyData.extractedJson,
+                createdAt: policyData.createdAt,
+                folderId: 'policies',
+                status: policyData.status,
+                tags: ['policy'],
+                summary: policyData.summary
+              };
+
+              // Set the active document for chat interactions
+              try {
+                window.dispatchEvent(new CustomEvent('set-active-document', {
+                  detail: {
+                    documentId: policyData.id,
+                    documentName: policyData.name,
+                    documentData: documentData
+                  }
+                }));
+                console.log('Set active document:', policyData.name);
+              } catch (e) {
+                console.error('Error setting active document:', e);
+              }
+            } else {
+              throw new Error('No policy found in Firebase');
+            }
+
+          } catch (error) {
+            console.error('Error loading policy content from Firebase:', error);
+            // Fallback: create document object without content
+            const documentData = {
+              id: matchingPolicy.fileName,
+              name: matchingPolicy.title,
+              extractedJson: {
+                content: `Policy: ${matchingPolicy.title}. Content could not be loaded from Firebase.`,
+                title: matchingPolicy.title,
+                type: 'policy'
+              },
+              createdAt: matchingPolicy.effectiveDate || new Date().toISOString(),
+              folderId: 'policies',
+              status: 'current',
+              tags: ['policy'],
+              summary: `Policy document: ${matchingPolicy.title}`
+            };
+
+            try {
+              window.dispatchEvent(new CustomEvent('set-active-document', {
+                detail: {
+                  documentId: matchingPolicy.fileName,
+                  documentName: matchingPolicy.title,
+                  documentData: documentData
+                }
+              }));
+            } catch (e) {
+              console.error('Error setting active document:', e);
+            }
+          }
+        };
+
+        // Load content asynchronously
+        loadPolicyContent();
+
+        // Open the policy document (same as clicking on it)
+        const isString = typeof matchingPolicy.raw === 'string';
+        const url = isString ? `/policies/${encodeURIComponent(matchingPolicy.fileName)}` : (matchingPolicy.raw.url || `/policies/${encodeURIComponent(matchingPolicy.fileName)}`);
+
+        try {
+          window.dispatchEvent(new CustomEvent('navigate-to-document', {
+            detail: {
+              policyFile: matchingPolicy.fileName,
+              documentName: matchingPolicy.title
+            }
+          }));
+        } catch (e) {
+          // Fallback to opening directly
+          window.open(url, '_blank');
+        }
+      }
+    };
+
+    // Listen for the custom event
+    if (typeof window !== 'undefined') {
+      window.addEventListener('open-specific-policy', handleOpenSpecificPolicy as EventListener);
+      return () => window.removeEventListener('open-specific-policy', handleOpenSpecificPolicy as EventListener);
+    }
+  }, [sortedItems]);
 
   return (
     <div>
@@ -208,12 +372,70 @@ export default function PoliciesPage() {
               role="button"
               tabIndex={0}
               onClick={() => {
-                try {
-                  window.dispatchEvent(new CustomEvent('navigate-to-document', { detail: { policyFile: fileName, documentName: title } }));
-                } catch (e) {
-                  const url = isString ? `/policies/${encodeURIComponent(fileName)}` : (it.raw.url || `/policies/${encodeURIComponent(fileName)}`);
-                  window.open(url, '_blank');
-                }
+                // Before navigating, try to load full policy content from Firebase
+                (async () => {
+                  try {
+                    const response = await fetch('/api/policies/search', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ query: title }),
+                    });
+
+                    if (response.ok) {
+                      const data = await response.json();
+                      if (data.results && data.results.length > 0) {
+                        const policyData = data.results[0];
+                        const documentData = {
+                          id: policyData.id,
+                          name: policyData.name,
+                          extractedJson: policyData.extractedJson,
+                          createdAt: policyData.createdAt,
+                          folderId: 'policies',
+                          status: policyData.status,
+                          tags: ['policy'],
+                          summary: policyData.summary
+                        };
+
+                        try {
+                          window.dispatchEvent(new CustomEvent('set-active-document', {
+                            detail: {
+                              documentId: policyData.id,
+                              documentName: policyData.name,
+                              documentData: documentData
+                            }
+                          }));
+                          // Persist to sessionStorage so navigation doesn't lose the activeDoc
+                          try {
+                            if (typeof window !== 'undefined' && window.sessionStorage) {
+                              window.sessionStorage.setItem('docuflow.activeDocument', JSON.stringify(documentData));
+                            }
+                          } catch (e) {
+                            // ignore
+                          }
+
+                          // Debug: log extractedJson size so we can detect empty content issues
+                          try {
+                            const len = (policyData.extractedJson && policyData.extractedJson.content) ? (policyData.extractedJson.content.length) : 0;
+                            console.log('Set active document (click):', policyData.name, 'extractedJson.length=', len);
+                          } catch (e) {
+                            console.log('Set active document (click):', policyData.name);
+                          }
+                        } catch (e) {
+                          console.error('Error dispatching set-active-document on click:', e);
+                        }
+                      }
+                    }
+                  } catch (err) {
+                    console.warn('Failed to pre-load policy content from Firebase on click:', err);
+                  } finally {
+                    try {
+                      window.dispatchEvent(new CustomEvent('navigate-to-document', { detail: { policyFile: fileName, documentName: title } }));
+                    } catch (e) {
+                      const url = isString ? `/policies/${encodeURIComponent(fileName)}` : (it.raw.url || `/policies/${encodeURIComponent(fileName)}`);
+                      window.open(url, '_blank');
+                    }
+                  }
+                })();
               }}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); try { window.dispatchEvent(new CustomEvent('navigate-to-document', { detail: { policyFile: fileName, documentName: title } })); } catch (err) { const url = isString ? `/policies/${encodeURIComponent(fileName)}` : (it.raw.url || `/policies/${encodeURIComponent(fileName)}`); window.open(url, '_blank'); } } }}
               className={`group relative overflow-hidden rounded-2xl shadow-lg border transition-all duration-300 hover:shadow-xl hover:-translate-y-1 min-h-[200px] flex flex-col bg-white/90 border-blue-100 hover:border-blue-200 cursor-pointer focus:outline-none`}

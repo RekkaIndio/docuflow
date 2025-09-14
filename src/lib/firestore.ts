@@ -1224,45 +1224,54 @@ export async function saveFolder(folder: Omit<Folder, 'id' | 'items'>): Promise<
 }
 
 async function deleteFolderRecursive(workspaceId: string, folderId: string) {
-    const batch = writeBatch(db);
-
-    // Get documents in the current folder
-    const docsQuery = query(collection(db, `workspaces/${workspaceId}/documents`), where("folderId", "==", folderId));
-    const docsSnap = await getDocs(docsQuery);
-    
-    for (const docSnap of docsSnap.docs) {
-        const docData = docSnap.data() as Document;
-        // Delete file from storage if it exists
-        if (docData.storagePath) {
-            const fileRef = ref(storage, docData.storagePath);
-            try {
-                await deleteObject(fileRef);
-            } catch (error: any) {
-                // It's okay if the file doesn't exist, log other errors.
-                if (error.code !== 'storage/object-not-found') {
-                    console.error(`Failed to delete file from storage: ${docData.storagePath}`, error);
-                }
-            }
-        }
-        // Delete document from firestore
-        batch.delete(docSnap.ref);
-    }
-
-    // Get subfolders in the current folder
+    // First, recursively delete all subfolders
     const subfoldersQuery = query(collection(db, `workspaces/${workspaceId}/folders`), where("parentId", "==", folderId));
     const subfoldersSnap = await getDocs(subfoldersQuery);
 
-    // Recursively delete subfolders
+    // Recursively delete subfolders first (depth-first)
     for (const subfolderSnap of subfoldersSnap.docs) {
         await deleteFolderRecursive(workspaceId, subfolderSnap.id);
     }
-    
-    // After handling all children, delete the current folder document
-    const folderRef = doc(db, `workspaces/${workspaceId}/folders`, folderId);
-    batch.delete(folderRef);
 
-    // Commit all deletions for the current folder level
-    await batch.commit();
+    // Now delete documents in the current folder in chunks to avoid transaction size limits
+    const docsQuery = query(collection(db, `workspaces/${workspaceId}/documents`), where("folderId", "==", folderId));
+    const docsSnap = await getDocs(docsQuery);
+
+    // Process documents in chunks of 400 to stay under Firebase's 500 operation batch limit
+    const CHUNK_SIZE = 400;
+    for (let i = 0; i < docsSnap.docs.length; i += CHUNK_SIZE) {
+        const chunk = docsSnap.docs.slice(i, i + CHUNK_SIZE);
+        const batch = writeBatch(db);
+
+        for (const docSnap of chunk) {
+            const docData = docSnap.data() as Document;
+
+            // Delete file from storage if it exists
+            if (docData.storagePath) {
+                const fileRef = ref(storage, docData.storagePath);
+                try {
+                    await deleteObject(fileRef);
+                } catch (error: any) {
+                    // It's okay if the file doesn't exist, log other errors.
+                    if (error.code !== 'storage/object-not-found') {
+                        console.error(`Failed to delete file from storage: ${docData.storagePath}`, error);
+                    }
+                }
+            }
+
+            // Add document deletion to batch
+            batch.delete(docSnap.ref);
+        }
+
+        // Commit this chunk's batch
+        if (chunk.length > 0) {
+            await batch.commit();
+        }
+    }
+
+    // Finally, delete the folder itself
+    const folderRef = doc(db, `workspaces/${workspaceId}/folders`, folderId);
+    await deleteDoc(folderRef);
 }
 
 

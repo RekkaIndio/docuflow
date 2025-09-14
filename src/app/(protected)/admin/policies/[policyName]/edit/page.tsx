@@ -95,6 +95,15 @@ export default function AdminPolicyEditPage({ params }: { params: Promise<{ poli
     try {
       // Attach assignedTeams to meta
       const metaWithTeams = { ...filledMeta, assignedTeams: assignedTeams || [] };
+      // Debug: log payload being sent to the save endpoint
+      if (typeof window !== 'undefined') {
+        console.debug('[AdminPolicyEdit] Saving policy to Firebase', {
+          policyName,
+          contentLength: filledPolicy?.length || 0,
+          preview: (filledPolicy || '').slice(0, 200),
+          meta: metaWithTeams,
+        });
+      }
       const response = await fetch(`/api/policies/${encodeURIComponent(policyName)}/save`, {
         method: 'POST',
         headers: {
@@ -103,6 +112,7 @@ export default function AdminPolicyEditPage({ params }: { params: Promise<{ poli
         body: JSON.stringify({
           content: filledPolicy,
           meta: metaWithTeams,
+          workspaceId: workspace?.id || null
         }),
       });
 
@@ -119,6 +129,15 @@ export default function AdminPolicyEditPage({ params }: { params: Promise<{ poli
 
   const handleGeneratePDF = async (filledPolicy: string, filledMeta: PolicyMeta) => {
     try {
+      // Debug: log payload being sent to the generate-pdf endpoint
+      if (typeof window !== 'undefined') {
+        console.debug('[AdminPolicyEdit] Generating PDF / publishing policy', {
+          policyName,
+          contentLength: filledPolicy?.length || 0,
+          preview: (filledPolicy || '').slice(0, 200),
+          meta: filledMeta,
+        });
+      }
       const response = await fetch(`/api/policies/${encodeURIComponent(policyName)}/generate-pdf`, {
         method: 'POST',
         headers: {
@@ -127,6 +146,7 @@ export default function AdminPolicyEditPage({ params }: { params: Promise<{ poli
         body: JSON.stringify({
           content: filledPolicy,
           meta: filledMeta,
+          workspaceId: workspace?.id || null
         }),
       });
 

@@ -1209,34 +1209,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
               <Users className="w-4 h-4" />
               Teams
             </TabsTrigger>
-            <TabsTrigger value="management" className="flex items-center gap-2 whitespace-nowrap">
-              <UserCheck className="w-4 h-4" />
-              Management
-            </TabsTrigger>
-            <TabsTrigger value="nurses" className="flex items-center gap-2 whitespace-nowrap">
-              <UserCheck className="w-4 h-4" />
-              Nurses
-            </TabsTrigger>
-            <TabsTrigger value="ctm" className="flex items-center gap-2 whitespace-nowrap">
-              <UserCheck className="w-4 h-4" />
-              CTM
-            </TabsTrigger>
-            <TabsTrigger value="domestic" className="flex items-center gap-2 whitespace-nowrap">
-              <UserCheck className="w-4 h-4" />
-              Domestic
-            </TabsTrigger>
-            <TabsTrigger value="maintenance" className="flex items-center gap-2 whitespace-nowrap">
-              <UserCheck className="w-4 h-4" />
-              Maintenance
-            </TabsTrigger>
-            <TabsTrigger value="kitchen" className="flex items-center gap-2 whitespace-nowrap">
-              <UserCheck className="w-4 h-4" />
-              Kitchen
-            </TabsTrigger>
-            <TabsTrigger value="activities" className="flex items-center gap-2 whitespace-nowrap">
-              <UserCheck className="w-4 h-4" />
-              Activities
-            </TabsTrigger>
+            {/* Management / staff-category triggers removed — TeamsView handles those categories */}
           </TabsList>
           { /* Dependency tab disabled for now */ }
           

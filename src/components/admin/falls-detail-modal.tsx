@@ -158,7 +158,7 @@ export default function FallsDetailModal({
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
       // Add content to PDF (split into multiple pages if needed)
-      let yPosition = 55;
+      const yPosition = 55;
       const maxHeight = pdfHeight - 20;
 
       if (imgHeight <= maxHeight) {
