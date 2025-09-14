@@ -78,7 +78,7 @@ interface ChatPanelProps {
 }
 
 interface UserIntent {
-  type: 'document_search' | 'file_search' | 'folder_creation' | 'general_query' | 'multi_document_query' | 'audit_query' | 'send_email' | 'user_search' | 'create_audit' | 'document_connection' | 'dependency_query' | 'user_profile' | 'team_info' | 'workspace_info' | 'open_modal' | 'navigate_page' | 'fetch_notifications' | 'create_document' | 'edit_document' | 'occupancy_data' | 'action_plans' | 'open_audit' | 'create_audit';
+  type: 'document_search' | 'file_search' | 'folder_creation' | 'general_query' | 'multi_document_query' | 'audit_query' | 'send_email' | 'user_search' | 'create_audit' | 'document_connection' | 'dependency_query' | 'user_profile' | 'team_info' | 'workspace_info' | 'open_modal' | 'navigate_page' | 'fetch_notifications' | 'create_document' | 'edit_document' | 'occupancy_data' | 'action_plans' | 'open_audit' | 'advanced_analytics' | 'agentic_workflow';
   openDocument?: boolean; // indicates intent to open/view the document
   searchTerm?: string;
   fileName?: string;
@@ -910,23 +910,25 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
       }
     }
 
-    // Action plans patterns
-    const actionPlansPatterns = [
-      /(show|display|get|list)\s+(me\s+)?(the\s+)?action\s+plans?/i,
-      /(action\s+plans?|action\s+items?|pending\s+actions?)/i,
-      /(what\s+)?actions?\s+(do\s+we\s+have|are\s+pending|need\s+to\s+be\s+done)/i
+    // Agentic workflow patterns
+    const workflowPatterns = [
+      /(create|setup|set\s+up|configure)\s+(a\s+|an\s+|new\s+)?workflow/i,
+      /(show|list|display|get)\s+(me\s+)?(the\s+)?workflows?/i,
+      /(enable|disable|activate|deactivate)\s+(workflow|automation)/i,
+      /(run|execute|trigger)\s+(workflow|automation)/i,
+      /(workflow|automation)\s+(status|history|executions?)/i,
+      /(schedule|automate)\s+(reminder|report|audit|task)/i
     ];
 
-    for (const pattern of actionPlansPatterns) {
+    for (const pattern of workflowPatterns) {
       if (pattern.test(input)) {
         return {
-          type: 'action_plans',
+          type: 'agentic_workflow',
           originalInput: userInput
         };
       }
     }
-    
-    // Default to general query
+    // default fallback - treat as a general query when nothing else matches
     return {
       type: 'general_query',
       originalInput: userInput
@@ -1043,11 +1045,12 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
           let response = '📊 **Audit Trends**\n\n';
 
           Object.entries(snapshots).forEach(([auditType, auditData]) => {
-            if (auditData.length > 0) {
-              const latest = auditData[0]; // Already sorted by snapshotCreatedAt desc
+            const data = auditData as any[]; // Type assertion for audit data
+            if (data && data.length > 0) {
+              const latest = data[0]; // Already sorted by snapshotCreatedAt desc
               response += `**${auditType.replace(/-/g, ' ')}**\n`;
               response += `• Latest score: ${latest.scorePercent || 'N/A'}%\n`;
-              response += `• Completed: ${auditData.length} time(s) this month\n`;
+              response += `• Completed: ${data.length} time(s) this month\n`;
               if (latest.comments) {
                 response += `• Comments: ${latest.comments}\n`;
               }
@@ -1067,8 +1070,9 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
           let response = '💬 **Audit Comments**\n\n';
 
           Object.entries(snapshots).forEach(([auditType, auditData]) => {
-            if (auditData.length > 0) {
-              const latest = auditData[0];
+            const data = auditData as any[]; // Type assertion for audit data
+            if (data && data.length > 0) {
+              const latest = data[0];
               if (latest.comments || latest.areasForImprovement || latest.goodPractice || latest.actionRequired) {
                 response += `**${auditType.replace(/-/g, ' ')}**\n`;
                 if (latest.comments) response += `• Comments: ${latest.comments}\n`;
@@ -1753,45 +1757,288 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
       return;
     }
 
-    // Handle action plans
-    if (intent.type === 'action_plans') {
-      appendMessages([{ sender: 'user', text: inputVal }, { sender: 'ai', text: 'Fetching action plans...' }]);
+    // Handle advanced analytics
+    if (intent.type === 'advanced_analytics') {
+      appendMessages([{ sender: 'user', text: inputVal }, { sender: 'ai', text: 'Generating advanced analytics report...' }]);
       setInput('');
       setIsTyping(true);
       try {
         const workspaceId = selectedItem.workspaceId;
         if (!workspaceId) {
-          appendMessages({ sender: 'ai', text: 'No workspace selected for action plans.' });
+          appendMessages({ sender: 'ai', text: 'No workspace selected for analytics.' });
           setIsTyping(false);
           return;
         }
 
-        // Try to fetch action plans from Firestore
-        const { collection, getDocs, query, orderBy, limit } = await import('firebase/firestore');
-        const actionPlansCol = collection(db, `workspaces/${workspaceId}/action-plans`);
-        const actionPlansQuery = query(actionPlansCol, orderBy('createdAt', 'desc'), limit(10));
-        const snapshot = await getDocs(actionPlansQuery);
+        const { generateAdvancedAnalytics } = await import('@/lib/advanced-analytics');
+        const analytics = await generateAdvancedAnalytics(workspaceId);
 
-        if (!snapshot.empty) {
-          const actionCards = snapshot.docs.map(doc => {
-            const data = doc.data();
-            return {
-              id: doc.id,
-              title: data.title || 'Untitled Action',
-              description: data.description || 'No description available',
-              status: data.status || 'pending',
-              dueDate: data.dueDate ? new Date(data.dueDate.toDate()).toLocaleDateString() : undefined,
-              priority: data.priority || 'medium'
+        // Format the analytics response
+        let response = '📊 **Advanced Analytics Report**\n\n';
+
+        // Performance Metrics
+        response += '🏆 **Performance Metrics**\n';
+        response += `• Audit Completion Rate: ${analytics.metrics.auditPerformance.completionRate}%\n`;
+        response += `• Average Audit Score: ${analytics.metrics.auditPerformance.averageScore}%\n`;
+        response += `• Trend: ${analytics.metrics.auditPerformance.trendDirection === 'improving' ? '📈 Improving' : analytics.metrics.auditPerformance.trendDirection === 'declining' ? '📉 Declining' : '➡️ Stable'}\n\n`;
+
+        // Staffing Efficiency
+        response += '👥 **Staffing Efficiency**\n';
+        response += `• Utilization Rate: ${analytics.metrics.staffingEfficiency.utilizationRate}%\n`;
+        response += `• Cost Efficiency: ${analytics.metrics.staffingEfficiency.costEfficiency}%\n`;
+        response += `• Day Shift Coverage: ${analytics.metrics.staffingEfficiency.shiftCoverage.day}%\n`;
+        response += `• Night Shift Coverage: ${analytics.metrics.staffingEfficiency.shiftCoverage.night}%\n\n`;
+
+        // Compliance Health
+        response += '✅ **Compliance Health**\n';
+        response += `• Overall Score: ${analytics.metrics.complianceHealth.overallScore}%\n`;
+        response += `• Critical Issues: ${analytics.metrics.complianceHealth.criticalIssues}\n`;
+        response += `• Upcoming Deadlines: ${analytics.metrics.complianceHealth.upcomingDeadlines}\n`;
+        response += `• Policy Adherence: ${analytics.metrics.complianceHealth.policyAdherence}%\n\n`;
+
+        // Risk Areas
+        if (analytics.metrics.auditPerformance.riskAreas.length > 0) {
+          response += '⚠️ **Risk Areas**\n';
+          analytics.metrics.auditPerformance.riskAreas.forEach(area => {
+            response += `• ${area.replace(/-/g, ' ')}\n`;
+          });
+          response += '\n';
+        }
+
+        // Top Performing Areas
+        if (analytics.metrics.auditPerformance.topPerformingAudits.length > 0) {
+          response += '🌟 **Top Performing Areas**\n';
+          analytics.metrics.auditPerformance.topPerformingAudits.forEach(area => {
+            response += `• ${area.replace(/-/g, ' ')}\n`;
+          });
+          response += '\n';
+        }
+
+        // Predictive Insights
+        if (analytics.metrics.predictiveInsights.riskPredictions.length > 0) {
+          response += '🔮 **Predictive Insights**\n';
+          analytics.metrics.predictiveInsights.riskPredictions.slice(0, 3).forEach(prediction => {
+            response += `• **${prediction.type}** (${Math.round(prediction.probability * 100)}% probability within ${prediction.timeframe})\n`;
+            response += `  - ${prediction.recommendedActions[0]}\n`;
+          });
+          response += '\n';
+        }
+
+        // Benchmark Comparison
+        response += '📈 **Benchmark Comparison**\n';
+        response += `• Your Score: ${analytics.comparisons.benchmarkComparison.workspaceScore.toFixed(1)}\n`;
+        response += `• Industry Average: ${analytics.comparisons.benchmarkComparison.industryAverage}%\n`;
+        response += `• Percentile Rank: ${analytics.comparisons.benchmarkComparison.percentile.toFixed(0)}th percentile\n\n`;
+
+        // Time Period Comparison
+        response += '⏱️ **Period Comparison**\n';
+        response += `• Current Period: ${analytics.comparisons.timePeriodComparison.current.toFixed(1)}\n`;
+        response += `• Previous Period: ${analytics.comparisons.timePeriodComparison.previous.toFixed(1)}\n`;
+        const changeSymbol = analytics.comparisons.timePeriodComparison.change >= 0 ? '📈' : '📉';
+        response += `• Change: ${changeSymbol} ${analytics.comparisons.timePeriodComparison.changePercent.toFixed(1)}%\n\n`;
+
+        // Key Insights
+        if (analytics.insights.length > 0) {
+          response += '💡 **Key Insights**\n';
+          analytics.insights.slice(0, 3).forEach(insight => {
+            const icon = insight.type === 'trend' ? '📊' : insight.type === 'risk' ? '⚠️' : insight.type === 'opportunity' ? '🎯' : '🔍';
+            response += `• ${icon} ${insight.title}\n`;
+            response += `  ${insight.description}\n`;
+          });
+          response += '\n';
+        }
+
+        // Top Recommendations
+        if (analytics.recommendations.length > 0) {
+          response += '🎯 **Top Recommendations**\n';
+          analytics.recommendations.slice(0, 3).forEach(rec => {
+            const priorityIcon = rec.priority === 'high' ? '🔴' : rec.priority === 'medium' ? '🟡' : '🟢';
+            response += `• ${priorityIcon} **${rec.title}**\n`;
+            response += `  ${rec.description}\n`;
+            response += `  Impact: ${rec.impact}/10 | Effort: ${rec.effort}/10\n`;
+          });
+        }
+
+        appendMessages({ sender: 'ai', text: response });
+      } catch (error) {
+        console.error('Error generating analytics:', error);
+        appendMessages({ sender: 'ai', text: 'Sorry, I couldn\'t generate the analytics report. Please try again.' });
+      } finally {
+        setIsTyping(false);
+      }
+      return;
+    }
+
+    // Handle agentic workflow
+    if (intent.type === 'agentic_workflow') {
+      appendMessages([{ sender: 'user', text: inputVal }, { sender: 'ai', text: 'Managing workflows...' }]);
+      setInput('');
+      setIsTyping(true);
+      try {
+        const workspaceId = selectedItem.workspaceId;
+        if (!workspaceId) {
+          appendMessages({ sender: 'ai', text: 'No workspace selected for workflow management.' });
+          setIsTyping(false);
+          return;
+        }
+
+        const { WORKFLOW_TEMPLATES, executeWorkflow, checkWorkflowTriggers } = await import('@/lib/agentic-workflows');
+
+        // Determine the specific workflow action from the user input
+        const inputLower = inputVal.toLowerCase();
+
+        if (inputLower.includes('create') || inputLower.includes('setup') || inputLower.includes('set up')) {
+          // Create a new workflow
+          // Map user words to the template keys defined in src/lib/agentic-workflows
+          let workflowType: keyof typeof WORKFLOW_TEMPLATES = 'audit_reminder'; // default
+
+          if (inputLower.includes('compliance')) workflowType = 'compliance_monitoring';
+          else if (inputLower.includes('performance')) workflowType = 'performance_report';
+          else if (inputLower.includes('risk')) workflowType = 'risk_assessment';
+          else if (inputLower.includes('training')) workflowType = 'staff_training_reminder';
+
+          const template = WORKFLOW_TEMPLATES[workflowType];
+          if (template) {
+            // Create workflow in Firestore
+            const { collection, addDoc, serverTimestamp } = await import('firebase/firestore');
+            const workflowsCol = collection(db, 'workspaces', workspaceId, 'workflows');
+
+            const workflowData = {
+              ...template,
+              id: `${workflowType}_${Date.now()}`,
+              createdAt: serverTimestamp(),
+              createdBy: user?.id || 'system',
+              status: 'active',
+              lastExecuted: null,
+              executionCount: 0
             };
+
+            await addDoc(workflowsCol, workflowData);
+
+            appendMessages({ sender: 'ai', text: `✅ **Workflow Created Successfully**\n\nI've set up the "${template.name}" workflow for you.\n\n**What it does:**\n${template.description}\n\n**Triggers:** ${(template as any).trigger ? JSON.stringify((template as any).trigger) : ''}\n\n**Actions:** ${(template as any).actions ? (template as any).actions.map((a: any) => a.type).join(', ') : ''}\n\nThe workflow is now active and will run automatically based on the configured triggers.` });
+          } else {
+            appendMessages({ sender: 'ai', text: 'Sorry, I couldn\'t identify which type of workflow you want to create. Try specifying "audit reminders", "compliance monitoring", "performance reports", "risk assessments", or "training reminders".' });
+          }
+        } else if (inputLower.includes('list') || inputLower.includes('show') || inputLower.includes('status')) {
+          // List existing workflows
+          const { collection, getDocs, query, orderBy } = await import('firebase/firestore');
+          const workflowsCol = collection(db, 'workspaces', workspaceId, 'workflows');
+          const workflowsQuery = query(workflowsCol, orderBy('createdAt', 'desc'));
+          const snapshot = await getDocs(workflowsQuery);
+
+          if (!snapshot.empty) {
+            let response = '🔄 **Active Workflows**\n\n';
+            snapshot.docs.forEach((doc, index) => {
+              const data = doc.data();
+              const statusIcon = data.status === 'active' ? '🟢' : '🔴';
+              const lastExec = data.lastExecuted ? new Date(data.lastExecuted.toDate()).toLocaleDateString() : 'Never';
+              response += `${index + 1}. ${statusIcon} **${data.name}**\n`;
+              response += `   Status: ${data.status}\n`;
+              response += `   Last executed: ${lastExec}\n`;
+              response += `   Executions: ${data.executionCount || 0}\n\n`;
+            });
+            appendMessages({ sender: 'ai', text: response });
+          } else {
+            appendMessages({ sender: 'ai', text: 'No workflows are currently set up. Try creating one with "create audit reminders workflow" or similar.' });
+          }
+        } else if (inputLower.includes('enable') || inputLower.includes('activate')) {
+          // Enable/activate workflows
+          const { collection, getDocs, doc, updateDoc } = await import('firebase/firestore');
+          const workflowsCol = collection(db, 'workspaces', workspaceId, 'workflows');
+          const snapshot = await getDocs(workflowsCol);
+
+          let activatedCount = 0;
+          for (const docSnap of snapshot.docs) {
+            const data = docSnap.data();
+            if (data.status !== 'active') {
+              await updateDoc(doc(db, 'workspaces', workspaceId, 'workflows', docSnap.id), {
+                status: 'active'
+              });
+              activatedCount++;
+            }
+          }
+
+          if (activatedCount > 0) {
+            appendMessages({ sender: 'ai', text: `✅ Activated ${activatedCount} workflow(s). All workflows are now running.` });
+          } else {
+            appendMessages({ sender: 'ai', text: 'All workflows are already active.' });
+          }
+        } else if (inputLower.includes('disable') || inputLower.includes('deactivate')) {
+          // Disable/deactivate workflows
+          const { collection, getDocs, doc, updateDoc } = await import('firebase/firestore');
+          const workflowsCol = collection(db, 'workspaces', workspaceId, 'workflows');
+          const snapshot = await getDocs(workflowsCol);
+
+          let deactivatedCount = 0;
+          for (const docSnap of snapshot.docs) {
+            const data = docSnap.data();
+            if (data.status === 'active') {
+              await updateDoc(doc(db, 'workspaces', workspaceId, 'workflows', docSnap.id), {
+                status: 'inactive'
+              });
+              deactivatedCount++;
+            }
+          }
+
+          if (deactivatedCount > 0) {
+            appendMessages({ sender: 'ai', text: `⏸️ Deactivated ${deactivatedCount} workflow(s).` });
+          } else {
+            appendMessages({ sender: 'ai', text: 'No active workflows to deactivate.' });
+          }
+        } else if (inputLower.includes('run') || inputLower.includes('execute') || inputLower.includes('trigger')) {
+          // Manually execute workflows
+          const { collection, getDocs } = await import('firebase/firestore');
+          const workflowsCol = collection(db, 'workspaces', workspaceId, 'workflows');
+          const snapshot = await getDocs(workflowsCol);
+
+          if (!snapshot.empty) {
+            let executedCount = 0;
+            for (const docSnap of snapshot.docs) {
+              const workflowData = docSnap.data();
+              if (workflowData.status === 'active') {
+                try {
+                  // executeWorkflow expects (workspaceId, workflowId, triggerData?)
+                  // workflowData may be a plain object from Firestore; ensure we pass the id
+                  const wfId = (workflowData && workflowData.id) ? workflowData.id : docSnap.id;
+                  await executeWorkflow(workspaceId, String(wfId));
+                  executedCount++;
+                } catch (error) {
+                  console.error(`Failed to execute workflow ${workflowData?.name || docSnap.id}:`, error);
+                }
+              }
+            }
+
+            if (executedCount > 0) {
+              appendMessages({ sender: 'ai', text: `🚀 Executed ${executedCount} active workflow(s) manually.` });
+            } else {
+              appendMessages({ sender: 'ai', text: 'No active workflows to execute.' });
+            }
+          } else {
+            appendMessages({ sender: 'ai', text: 'No workflows found to execute.' });
+          }
+        } else {
+          // Show available workflow templates
+          let response = '🤖 **Available Workflow Templates**\n\n';
+          response += 'Here are the automated workflows I can set up for you:\n\n';
+
+          Object.values(WORKFLOW_TEMPLATES).forEach((template, index) => {
+            const tpl = template as any; // Type assertion for template
+            response += `${index + 1}. **${tpl.name}**\n`;
+            response += `   ${tpl.description}\n`;
+            response += `   Triggers: ${tpl.triggers.join(', ')}\n\n`;
           });
 
-          appendMessages({ sender: 'ai', text: `Found ${actionCards.length} action plan(s):`, actions: actionCards });
-        } else {
-          appendMessages({ sender: 'ai', text: 'No action plans found. Navigate to the Action Plans page to create some.' });
+          response += '**Commands you can use:**\n';
+          response += '• "Create audit reminders workflow"\n';
+          response += '• "Show me my workflows"\n';
+          response += '• "Enable all workflows"\n';
+          response += '• "Run workflows now"\n';
+
+          appendMessages({ sender: 'ai', text: response });
         }
       } catch (error) {
-        console.error('Error fetching action plans:', error);
-        appendMessages({ sender: 'ai', text: 'Sorry, I couldn\'t fetch action plans. Please try again.' });
+        console.error('Error managing workflows:', error);
+        appendMessages({ sender: 'ai', text: 'Sorry, I couldn\'t manage the workflows. Please try again.' });
       } finally {
         setIsTyping(false);
       }
@@ -2394,35 +2641,26 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
             <p className="mt-2 text-sm max-w-[60%]">Ask a question about your policies or documents. Try one of the suggested prompts below to get started.</p>
 
             <div className="mt-4 flex flex-wrap gap-2 justify-center">
-              <Button size="sm" variant="ghost" onClick={() => { setInput('Show me the COSHH Policy'); setTimeout(() => handleSend(), 60); }}>
-                Show me the COSHH Policy
+              <Button size="sm" variant="ghost" onClick={() => { setInput('Show me advanced analytics'); setTimeout(() => handleSend(), 60); }}>
+                Show advanced analytics
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => { setInput('Show me audit results'); setTimeout(() => handleSend(), 60); }}>
-                Show audit results
+              <Button size="sm" variant="ghost" onClick={() => { setInput('Performance metrics analysis'); setTimeout(() => handleSend(), 60); }}>
+                Performance analysis
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => { setInput('Show me dependency data'); setTimeout(() => handleSend(), 60); }}>
-                Show dependency data
+              <Button size="sm" variant="ghost" onClick={() => { setInput('Predictive insights report'); setTimeout(() => handleSend(), 60); }}>
+                Predictive insights
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => { setInput('Send email to team about updates'); setTimeout(() => handleSend(), 60); }}>
-                Send email to team
+              <Button size="sm" variant="ghost" onClick={() => { setInput('Risk assessment analysis'); setTimeout(() => handleSend(), 60); }}>
+                Risk assessment
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => { setInput('Show my profile'); setTimeout(() => handleSend(), 60); }}>
-                Show my profile
+              <Button size="sm" variant="ghost" onClick={() => { setInput('Benchmark comparison'); setTimeout(() => handleSend(), 60); }}>
+                Benchmark comparison
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => { setInput('Open domestic staff supervision'); setTimeout(() => handleSend(), 60); }}>
-                Open domestic staff supervision
+              <Button size="sm" variant="ghost" onClick={() => { setInput('Create audit reminders workflow'); setTimeout(() => handleSend(), 60); }}>
+                Create audit workflow
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => { setInput('Show me carers supervision'); setTimeout(() => handleSend(), 60); }}>
-                Show me carers supervision
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => { setInput('Show teams'); setTimeout(() => handleSend(), 60); }}>
-                Show teams
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => { setInput('Show occupancy data'); setTimeout(() => handleSend(), 60); }}>
-                Show occupancy data
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => { setInput('Create new audit'); setTimeout(() => handleSend(), 60); }}>
-                Create new audit
+              <Button size="sm" variant="ghost" onClick={() => { setInput('Show me my workflows'); setTimeout(() => handleSend(), 60); }}>
+                Show workflows
               </Button>
             </div>
           </div>
@@ -2475,7 +2713,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
       <div className="p-4 border-t bg-white shrink-0">
         <div className="relative">
           <Textarea
-            placeholder="Ask me anything... 'Show me audit results', 'Show dependency data', 'Send email to team', 'Find user John', 'Create new audit', 'Show my profile', 'Open tracker', 'Go to action plans', 'Show teams', 'Show occupancy data'..."
+            placeholder="Ask me anything... 'Show advanced analytics', 'Performance analysis', 'Predictive insights', 'Risk assessment', 'Benchmark comparison', 'Create audit workflow', 'Show workflows'..."
             className="w-full resize-none pr-12 min-h-[48px] border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:border-blue-300 transition-colors"
             value={input}
             onChange={(e) => setInput(e.target.value)}
