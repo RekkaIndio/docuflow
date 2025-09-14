@@ -1,7 +1,7 @@
 // Test script to verify audit functionality
 // This can be run in the browser console or as a Node.js script
 
-import { getMonthlyAuditCompletionStatus, getLatestAuditData, getMonthlyAuditSnapshots } from './lib/firestore';
+import { getMonthlyAuditCompletionStatus, getLatestAuditData, getMonthlyAuditSnapshots } from './src/lib/firestore';
 
 // Test function to verify audit data access
 export async function testAuditFunctionality(workspaceId: string) {

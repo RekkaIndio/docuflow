@@ -12,7 +12,6 @@ import {
   NDPSBandChart,
   CareTimeBreakdown,
   HistoricalTrendsChart,
-  ResidentAssessmentModal,
   ResidentAssessmentEditModal,
   type Resident,
   type Community,
@@ -876,10 +875,17 @@ export default function DependencyCalculatorPage() {
   }, []);
 
     function openAddModal() {
-  setForm({ name: "", room: "", ...getDefaultAssessment(), communityId: selectedCommunity ?? null });
-      setEditingIndex(null);
-      setStep(0);
-      setModalOpen(true);
+      const newResident: Resident = {
+        id: genId(),
+        name: "",
+        room: "",
+        ...getDefaultAssessment(),
+        communityId: selectedCommunity ?? null,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      } as Resident;
+      setEditingResident(newResident);
+      setEditModalOpen(true);
     }
 
     function openEditAssessmentModal(resident: Resident) {
@@ -888,7 +894,15 @@ export default function DependencyCalculatorPage() {
     }
 
     function handleSaveAssessment(updatedResident: Resident) {
-      setResidents(prev => prev.map(r => r.id === updatedResident.id ? updatedResident : r));
+      setResidents(prev => {
+        const idx = prev.findIndex(r => r.id === updatedResident.id);
+        if (idx >= 0) {
+          const copy = [...prev];
+          copy[idx] = updatedResident;
+          return copy;
+        }
+        return [...prev, updatedResident];
+      });
       setEditModalOpen(false);
       setEditingResident(null);
     }
@@ -1827,27 +1841,7 @@ export default function DependencyCalculatorPage() {
           />
         </div>
 
-        {/* Resident Assessment Modal */}
-        <ResidentAssessmentModal
-          modalOpen={modalOpen}
-          setModalOpen={setModalOpen}
-          editingIndex={editingIndex}
-          form={form}
-          setForm={setForm}
-          step={step}
-          setStep={setStep}
-          stepError={stepError}
-          setStepError={setStepError}
-          communities={communities}
-          FIELDS={NPDS_FIELDS}
-          attemptNext={attemptNext}
-          attemptSave={attemptSave}
-          handleBack={handleBack}
-          handleChange={handleChange}
-          isStepValid={isStepValid}
-          isAllValid={isAllValid}
-          residents={residents}
-        />
+        {/* Resident Assessment Modal removed: using ResidentAssessmentEditModal for add/edit flows */}
 
         {/* Resident Assessment Edit Modal */}
         <ResidentAssessmentEditModal
