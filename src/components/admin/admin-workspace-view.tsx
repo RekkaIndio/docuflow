@@ -5,12 +5,12 @@ import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import AdminDependencyTable from './admin-dependency-table';
 import { TeamsView } from '@/components/dashboard/teams-view';
-import { collection, query as fsQuery, orderBy, limit, onSnapshot, where, doc, updateDoc, arrayUnion, arrayRemove, getDoc } from 'firebase/firestore';
+import { collection, query as fsQuery, orderBy, limit, onSnapshot, where, doc, updateDoc, arrayUnion, arrayRemove, getDoc, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Folder as FolderIcon, FileText, FileSpreadsheet, FileX2, Home, ChevronRight, ArrowLeft, PlusSquare, Users, Tag, Clock, TrendingUp, Activity, Shield, CheckCircle, AlertTriangle, Calendar, Zap, UserCheck, Phone, Mail, Plus, Trash2, Edit, Save, X } from 'lucide-react';
-import OccupancyPie from '@/components/admin/occupancy-pie';
+import { Folder as FolderIcon, FileText, FileSpreadsheet, FileX2, Home, ChevronRight, ArrowLeft, PlusSquare, Users, Tag, Clock, TrendingUp, Activity, Shield, CheckCircle, AlertTriangle, Calendar, Zap, UserCheck, Phone, Mail, Plus, Trash2, Edit, Save, X, BarChart2 } from 'lucide-react';
+// AdminDependencyTable and OccupancyPie were removed as they're not used in this view
+import StatsView from '@/components/admin/admin-stats-view';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Manager {
@@ -129,42 +129,9 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
   const pushFolder = (id: string) => setStack(s => [...s, id]);
   const popFolder = () => setStack(s => s.slice(0, -1));
 
-  // Simple in-memory folder creation for admin chat commands. This will
-  // call setStack to navigate into the newly-created folder. Persistence
-  // should be handled by a real API call; this keeps UI responsive while
-  // admin prototypes are tested.
-  const onFolderAdd = (folderName: string) => {
-    // create a new folder object and append to current folder's items
-    const newId = `folder-${Date.now()}`;
-    const newFolder: Folder = { id: newId, name: folderName, type: 'folder', items: [], workspaceId: workspace.id } as Folder;
-
-    // mutate workspace.folders in-memory — callers should persist this
-    // in real implementation. If we're in a nested folder, find the
-    // parent and push into its items, otherwise push to root workspace.folders.
-    if (stack.length === 0) {
-      if (!workspace.folders) workspace.folders = [];
-      workspace.folders.push(newFolder as any);
-    } else {
-      // find parent folder and append
-      const parentId = stack[stack.length - 1];
-      const findAndAppend = (items: (Folder | Document)[]) => {
-        for (const it of items) {
-          if (it.type === 'folder' && it.id === parentId) {
-            it.items.push(newFolder as any);
-            return true;
-          }
-          if (it.type === 'folder') {
-            if (findAndAppend(it.items)) return true;
-          }
-        }
-        return false;
-      };
-      findAndAppend(workspace.folders || []);
-    }
-
-    // navigate into the newly created folder
-    pushFolder(newId);
-  };
+  // onFolderAdd helper intentionally removed — folder creation in the
+  // admin view is handled elsewhere or via backend APIs. Keeping the
+  // in-memory mutator caused unused code and lint noise.
 
   const breadcrumb = React.useMemo(() => {
     const crumbs: { id: string; name: string }[] = [{ id: 'root', name: workspace.name }];
@@ -247,6 +214,16 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
   const [staffingLoading, setStaffingLoading] = useState(false);
   const [staffingTimeframe, setStaffingTimeframe] = useState<'day' | 'week' | 'month'>('week');
   const [staffingHistory, setStaffingHistory] = useState<Array<{ date: string; day: number; night: number; total: number }>>([]);
+
+  // Dependency data (residents & communities)
+  const [residents, setResidents] = useState<any[]>([]);
+  const [communities, setCommunities] = useState<any[]>([]);
+  const [dependencyLoading, setDependencyLoading] = useState(false);
+  // Aggregates for stats (workspace-scoped)
+  const [aggregateWoundsData, setAggregateWoundsData] = useState<any>(null);
+  const [aggregateFallsData, setAggregateFallsData] = useState<any>(null);
+  const [aggregateInfectionData, setAggregateInfectionData] = useState<any>(null);
+  const [aggregateAuditData, setAggregateAuditData] = useState<any>(null);
 
   // Management data state
   const [managers, setManagers] = useState<Manager[]>([]);
@@ -380,6 +357,123 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
       setStaffingLoading(false);
     }
   }, [workspace?.id, staffingTimeframe]);
+
+  // Load dependency calculator data (residents & communities) from workspace-scoped doc
+  useEffect(() => {
+    if (!workspace?.id) return;
+    setDependencyLoading(true);
+
+    try {
+      const depRef = doc(db, 'workspaces', workspace.id, 'dependency_calculator', 'default');
+      const unsub = onSnapshot(depRef, (snap) => {
+        if (snap.exists()) {
+          const data = snap.data() as any;
+          setResidents(Array.isArray(data.residents) ? data.residents : []);
+          setCommunities(Array.isArray(data.communities) ? data.communities : []);
+        } else {
+          setResidents([]);
+          setCommunities([]);
+        }
+        setDependencyLoading(false);
+      }, (err) => {
+        console.error('Failed to load dependency calculator data', err);
+        setDependencyLoading(false);
+      });
+
+      return () => unsub();
+    } catch (e) {
+      console.error('Failed to set up dependency listener', e);
+      setDependencyLoading(false);
+    }
+  }, [workspace?.id]);
+
+  // Compute workspace-scoped aggregates for wounds/falls/infections from daily-checkins (last 30 days)
+  useEffect(() => {
+    if (!workspace?.id) return;
+
+    let unsub: (() => void) | undefined;
+    (async () => {
+      try {
+        const colRef = collection(db, `workspaces/${workspace.id}/daily-checkins`);
+        // we'll do a one-time getDocs to compute aggregates for last 30 days
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const q = fsQuery(colRef, where('createdAt', '>=', thirtyDaysAgo));
+  const { getDocs: _getDocs } = await import('firebase/firestore');
+  const snaps = await _getDocs(q);
+
+        // default accumulators
+        let pressure = 0, brk = 0, fracture = 0, bruise = 0, skintear = 0;
+        let totalFalls = 0;
+        let uti = 0, chest = 0, wound = 0;
+
+        if (!snaps.empty) {
+          snaps.docs.forEach((docSnap: any) => {
+            const d: any = docSnap.data();
+            const wounds = d.wounds?.types || {};
+            pressure += Number(wounds.pressure || 0);
+            brk += Number(wounds.break || 0);
+            fracture += Number(wounds.fracture || 0);
+            bruise += Number(wounds.bruise || 0);
+            skintear += Number(wounds.skintear || 0);
+
+            // falls
+            if (d.falls) {
+              if (typeof d.falls === 'object') totalFalls += Number(d.falls.count || 0);
+              else totalFalls += Number(d.falls || 0);
+            }
+
+            // infections
+            if (d.infections) {
+              uti += Number(d.infections.uti || 0);
+              chest += Number(d.infections.chest || 0);
+              wound += Number(d.infections.wound || 0);
+            }
+          });
+        }
+
+        const totalWounds = pressure + brk + fracture + bruise + skintear;
+
+        setAggregateWoundsData({ total: totalWounds, pressure, break: brk, fracture, bruise, skintear, workspacesWithData: totalWounds > 0 ? 1 : 0 });
+        setAggregateFallsData({ totalFalls, workspacesWithData: totalFalls > 0 ? 1 : 0 });
+        const totalInfections = uti + chest + wound;
+        setAggregateInfectionData({ totalInfections, uti, chest, wound, workspacesWithData: totalInfections > 0 ? 1 : 0 });
+
+        // Also listen for audit_latest_scores doc in workspace settings for compliance info
+        const auditRef = doc(db, `workspaces/${workspace.id}/settings`, 'audit_latest_scores');
+        unsub = onSnapshot(auditRef, (snap) => {
+          if (snap.exists()) {
+            const data = snap.data() as any;
+            // reuse dashboard calculation approach
+            const auditTypes = ['care-plan', 'health-safety', 'maintenance', 'restrictive-practice', 'fire-safety', 'infection-control', 'mealtime', 'night-visit', 'staff-file', 'kitchen'];
+            let totalYes = 0, totalQuestions = 0, completed = 0;
+            auditTypes.forEach((t) => {
+              const a = data?.[t];
+              if (a && typeof a.yesCount === 'number' && typeof a.totalCount === 'number') {
+                totalYes += a.yesCount;
+                totalQuestions += a.totalCount;
+                completed += 1;
+              }
+            });
+            const overallPercentage = totalQuestions > 0 ? Math.round((totalYes / totalQuestions) * 100) : null;
+            setAggregateAuditData({ totalYesCount: totalYes, totalQuestions, overallPercentage, auditsCompleted: completed, totalAudits: auditTypes.length, workspacesWithData: completed > 0 ? 1 : 0 });
+          } else {
+            setAggregateAuditData(null);
+          }
+        }, (err) => {
+          console.warn('Failed to listen to audit_latest_scores for workspace', err);
+        });
+
+      } catch (error) {
+        console.warn('Failed to compute workspace aggregates for admin stats', error);
+        setAggregateWoundsData({ total: 0, pressure: 0, break: 0, fracture: 0, bruise: 0, skintear: 0, workspacesWithData: 0 });
+        setAggregateFallsData({ totalFalls: 0, workspacesWithData: 0 });
+        setAggregateInfectionData({ totalInfections: 0, uti: 0, chest: 0, wound: 0, workspacesWithData: 0 });
+      }
+    })();
+
+    return () => { if (unsub) unsub(); };
+  }, [workspace?.id]);
 
   // Load managers from Firebase
   useEffect(() => {
@@ -1123,68 +1217,18 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
 
             {/* Key metrics cards - right side */}
             <div className="w-full lg:w-auto">
-              <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 lg:gap-4">
-                {/* Folders */}
-                <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
-                  <div className="flex items-center gap-2 lg:gap-3 h-full">
-                    <div className="p-2 bg-yellow-500/20 rounded-xl group-hover:bg-yellow-500/30 transition-colors duration-300">
-                      <FolderIcon className="w-4 h-4 lg:w-5 lg:h-5 text-yellow-400" />
-                    </div>
-                    <div>
-                      <div className="text-xl lg:text-2xl font-bold text-white">{totalFolders}</div>
-                      <div className="text-xs text-yellow-200 font-medium uppercase tracking-wide">Folders</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Documents */}
-                <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
-                  <div className="flex items-center gap-2 lg:gap-3 h-full">
-                    <div className="p-2 bg-purple-500/20 rounded-xl group-hover:bg-purple-500/30 transition-colors duration-300">
-                      <FileText className="w-4 h-4 lg:w-5 lg:h-5 text-purple-400" />
-                    </div>
-                    <div>
-                      <div className="text-xl lg:text-2xl font-bold text-white">{totalDocuments}</div>
-                      <div className="text-xs text-purple-200 font-medium uppercase tracking-wide">Documents</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Types */}
-                <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
-                  <div className="flex items-center gap-2 lg:gap-3 h-full">
-                    <div className="p-2 bg-emerald-500/20 rounded-xl group-hover:bg-emerald-500/30 transition-colors duration-300">
-                      <Tag className="w-4 h-4 lg:w-5 lg:h-5 text-emerald-400" />
-                    </div>
-                    <div>
-                      <div className="text-xl lg:text-2xl font-bold text-white">{Object.keys(fileTypeCounts).length}</div>
-                      <div className="text-xs text-emerald-200 font-medium uppercase tracking-wide">Types</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Compliance */}
-                <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
-                  <div className="flex items-center gap-2 lg:gap-3 h-full">
-                    <div className="p-2 bg-emerald-500/20 rounded-xl group-hover:bg-emerald-500/30 transition-colors duration-300">
-                      <Shield className={`w-4 h-4 lg:w-5 lg:h-5 ${totalDocuments > 10 ? 'text-green-400' : totalDocuments > 5 ? 'text-yellow-400' : 'text-red-400'}`} />
-                    </div>
-                    <div>
-                      <div className="text-xl lg:text-2xl font-bold text-white">{totalDocuments > 10 ? '95%' : totalDocuments > 5 ? '78%' : '45%'}</div>
-                      <div className="text-xs text-emerald-200 font-medium uppercase tracking-wide">Compliance</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Occupancy */}
-                <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
-                  <div className="flex items-center gap-2 lg:gap-3 h-full">
-                    <div className="p-2 bg-rose-500/20 rounded-xl group-hover:bg-rose-500/30 transition-colors duration-300">
-                      <Users className="w-4 h-4 lg:w-5 lg:h-5 text-rose-400" />
-                    </div>
-                    <div>
-                      <div className="text-xl lg:text-2xl font-bold text-white">{typeof occupancyPercent === 'number' ? `${occupancyPercent}%` : 'n/a'}</div>
-                      <div className="text-xs text-rose-200 font-medium uppercase tracking-wide">Occupancy</div>
+              <div className="w-full lg:w-auto">
+                <div className="grid grid-cols-1 gap-0">
+                  {/* Occupancy (kept) */}
+                  <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
+                    <div className="flex items-center gap-2 lg:gap-3 h-full">
+                      <div className="p-2 bg-rose-500/20 rounded-xl group-hover:bg-rose-500/30 transition-colors duration-300">
+                        <Users className="w-4 h-4 lg:w-5 lg:h-5 text-rose-400" />
+                      </div>
+                      <div>
+                        <div className="text-xl lg:text-2xl font-bold text-white">{typeof occupancyPercent === 'number' ? `${occupancyPercent}%` : 'n/a'}</div>
+                        <div className="text-xs text-rose-200 font-medium uppercase tracking-wide">Occupancy</div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1208,6 +1252,10 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
             <TabsTrigger value="teams" className="flex items-center gap-2 whitespace-nowrap">
               <Users className="w-4 h-4" />
               Teams
+            </TabsTrigger>
+            <TabsTrigger value="stats" className="flex items-center gap-2 whitespace-nowrap">
+              <TrendingUp className="w-4 h-4" />
+              Stats
             </TabsTrigger>
             {/* Management / staff-category triggers removed — TeamsView handles those categories */}
           </TabsList>
@@ -1387,6 +1435,25 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
           
           <TabsContent value="teams" className="mt-6">
             <TeamsView workspace={workspace} />
+          </TabsContent>
+          
+          <TabsContent value="stats" className="mt-6">
+            <StatsView
+              workspace={workspace}
+              totalFolders={totalFolders}
+              totalDocuments={totalDocuments}
+              occupancyPercent={occupancyPercent as any}
+              fileTypeCounts={fileTypeCounts}
+              recentUploads={recentUploads}
+              staffingData={staffingData}
+              staffingHistory={staffingHistory}
+              residents={residents}
+              communities={communities}
+              aggregateWoundsData={aggregateWoundsData}
+              aggregateFallsData={aggregateFallsData}
+              aggregateInfectionData={aggregateInfectionData}
+              aggregateAuditData={aggregateAuditData}
+            />
           </TabsContent>
           
           <TabsContent value="management" className="mt-6">

@@ -235,10 +235,6 @@ export function StatsOverview({
                 </span>
               </div>
             </div>
-            
-            <div className="pt-3 border-t border-white/20">
-              <div className="text-xs text-purple-200 font-medium text-center">NDPS-Based Calculations</div>
-            </div>
           </div>
         </div>
       </div>
