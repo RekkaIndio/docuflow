@@ -204,7 +204,7 @@ export default function AdminWorkspacesView() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-blue-600 to-purple-700 text-white rounded-b-3xl shadow-2xl">
+      <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-blue-600 to-purple-700 text-white rounded-b-[64px] shadow-2xl">
         {/* Animated background elements */}
         <div className="absolute inset-0">
           <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-white/10 to-transparent rounded-full -translate-y-48 translate-x-48 animate-pulse"></div>
@@ -215,8 +215,8 @@ export default function AdminWorkspacesView() {
         <div className="relative z-10 py-6 sm:py-8 lg:py-10 px-8 md:px-12 lg:px-16">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8 lg:gap-12">
             {/* Main content - left side */}
-            <div className="flex-1">
-              <div className="flex items-center gap-4 mb-4">
+              <div className="flex-1">
+              <div className="flex items-center gap-4 mb-4 -ml-6 md:-ml-8 lg:-ml-12">
                 <div className="p-3 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
                   <Users className="w-8 h-8 text-white" />
                 </div>
@@ -228,11 +228,6 @@ export default function AdminWorkspacesView() {
                     Admin workspaces · {workspaces.length} workspaces · {aggregated.totalFolders} folders · {aggregated.totalDocuments} documents
                   </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <Button size="sm" onClick={() => { /* noop for now */ }} className="bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur-sm">
-                  Refresh
-                </Button>
               </div>
             </div>
 

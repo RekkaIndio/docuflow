@@ -142,22 +142,25 @@ export default function AppraisalsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/10">
       {/* Header */}
-      <div className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 relative overflow-hidden shadow-lg mb-8 rounded-b-2xl">
-        <div className="absolute inset-0 opacity-5">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full -translate-y-48 translate-x-48"></div>
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-400 rounded-full translate-y-32 -translate-x-32"></div>
+      <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-blue-600 to-purple-700 text-white rounded-b-[64px] shadow-2xl mb-8">
+        {/* Animated background elements */}
+        <div className="absolute inset-0">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-white/10 to-transparent rounded-full -translate-y-48 translate-x-48 animate-pulse"></div>
+          <div className="absolute bottom-0 left-0 w-80 h-80 bg-gradient-to-tr from-purple-400/20 to-transparent rounded-full translate-y-40 -translate-x-40"></div>
+          <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-gradient-to-br from-blue-300/10 to-transparent rounded-full -translate-x-1/2 -translate-y-1/2 animate-pulse delay-1000"></div>
         </div>
+
         <div className="relative z-10 px-6 py-8 md:px-8 md:py-12">
-          <div className="max-w-7xl mx-auto">
+    <div className="w-full">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 -ml-20 md:-ml-32 lg:-ml-48">
                 <div className="relative">
                   <div className="w-16 h-16 bg-white/10 backdrop-blur-sm rounded-2xl flex items-center justify-center border border-white/20">
                     <FileText className="w-8 h-8 text-white" />
                   </div>
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold text-white mb-2">Home Manager – Annual Appraisal</h1>
+                  <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight tracking-tight bg-gradient-to-r from-white via-blue-100 to-purple-100 bg-clip-text text-transparent mb-2">Home Manager – Annual Appraisal</h1>
                   <p className="text-blue-100 text-lg">Annual review and development for Home Managers</p>
                 </div>
               </div>
@@ -176,85 +179,78 @@ export default function AppraisalsPage() {
             </div>
           </div>
         </div>
-        <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-muted/20 to-transparent rounded-b-2xl"></div>
+
+        <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-muted/20 to-transparent rounded-b-[64px]"></div>
       </div>
 
-      {/* Content */}
-      <div className="w-full px-4 sm:px-6 lg:px-8 pb-8">
-        <div className="max-w-7xl mx-auto space-y-6">
-          {/* Basic Information Card */}
-          <Card className="shadow-sm">
-            <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 border-b">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <User className="w-5 h-5 text-blue-600" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-semibold">Appraisal Details</h2>
-                  <p className="text-sm text-muted-foreground">Basic information about the appraisal</p>
-                </div>
+  <div className="w-full p-10 bg-gradient-to-br from-slate-50 to-white rounded-3xl shadow-2xl mt-10 border border-slate-200">
+        <div className="flex flex-col lg:flex-row gap-10">
+          {/* Left panel for details, sticky and NOT part of the form */}
+          <div className="w-full lg:w-[480px] flex-shrink-0 bg-white rounded-2xl p-6 border border-slate-200 shadow-xl mb-8 lg:mb-0 self-start">
+            <div className="lg:sticky lg:top-20 lg:max-h-[calc(100vh-160px)] lg:overflow-auto lg:pr-2">
+              <h1 className="text-2xl lg:text-3xl font-extrabold mb-2 text-blue-900 tracking-tight">Home Manager – Annual Appraisal</h1>
+              <p className="mb-4 text-slate-500">Annual review and development for Home Managers. Complete all required fields.</p>
+              <div className="space-y-4 mt-4 p-1">
+              <div>
+                <Label htmlFor="employee-name">Employee Name</Label>
+                <ManagerSearchSelect
+                  value={selectedManager?.name || ""}
+                  onChange={(manager) => {
+                    setSelectedManager(manager);
+                    if (manager) {
+                      setRole("Home Manager");
+                    } else {
+                      setRole("");
+                    }
+                  }}
+                  placeholder="Search for manager..."
+                />
               </div>
-            </CardHeader>
-            <CardContent className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="employee-name">Employee Name</Label>
-                  <ManagerSearchSelect
-                    value={selectedManager?.name || ""}
-                    onChange={(manager) => {
-                      setSelectedManager(manager);
-                      // Auto-populate role as "Home Manager" when a manager is selected
-                      if (manager) {
-                        setRole("Home Manager");
-                      } else {
-                        setRole("");
-                      }
-                    }}
-                    placeholder="Search for manager..."
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="role">Role</Label>
-                  <Input
-                    id="role"
-                    placeholder="Role"
-                    value={role}
-                    onChange={(e) => setRole(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="appraiser">Appraiser</Label>
-                  <Input
-                    id="appraiser"
-                    placeholder="Regional Director / Senior Role"
-                    value={appraiser}
-                    onChange={(e) => setAppraiser(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="appraisal-date">Date of Appraisal</Label>
-                  <Input
-                    id="appraisal-date"
-                    type="date"
-                    value={appraisalDate}
-                    onChange={(e) => setAppraisalDate(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="period-covered">Period Covered</Label>
-                  <Input
-                    id="period-covered"
-                    placeholder="From – To"
-                    value={periodCovered}
-                    onChange={(e) => setPeriodCovered(e.target.value)}
-                  />
-                </div>
+              <div>
+                <Label htmlFor="role">Role</Label>
+                <Input
+                  id="role"
+                  placeholder="Role"
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                />
               </div>
-            </CardContent>
-          </Card>
+              <div>
+                <Label htmlFor="appraiser">Appraiser</Label>
+                <Input
+                  id="appraiser"
+                  placeholder="Regional Director / Senior Role"
+                  value={appraiser}
+                  onChange={(e) => setAppraiser(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="appraisal-date">Date of Appraisal</Label>
+                <Input
+                  id="appraisal-date"
+                  type="date"
+                  value={appraisalDate}
+                  onChange={(e) => setAppraisalDate(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="period-covered">Period Covered</Label>
+                <Input
+                  id="period-covered"
+                  placeholder="From – To"
+                  value={periodCovered}
+                  onChange={(e) => setPeriodCovered(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+          </div>
 
-          {/* Row 1: Previous Objectives and Key Performance Areas */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Main form right column, scrollable */}
+          <div className="flex-1 min-w-0 pr-2">
+            <form onSubmit={(e) => { e.preventDefault(); handleCompleteAppraisal(); }} className="flex flex-col gap-8">
+              {/* Row 1: Previous Objectives and Key Performance Areas */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* 1. Review of Previous Year's Objectives */}
             <Card className="shadow-sm">
               <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 border-b">
@@ -731,6 +727,8 @@ export default function AppraisalsPage() {
             >
               {isSaving ? 'Completing...' : 'Complete Appraisal'}
             </Button>
+          </div>
+            </form>
           </div>
         </div>
       </div>
