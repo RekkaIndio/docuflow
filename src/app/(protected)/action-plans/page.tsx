@@ -362,9 +362,9 @@ export default function ActionPlansPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
+    <div className="min-h-screen bg-slate-50">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-8 rounded-b-2xl shadow-lg relative overflow-hidden">
+      <div className="bg-gradient-to-r from-blue-600/90 to-indigo-600/90 text-white p-6 rounded-b-xl relative overflow-hidden">
         {/* Subtle background pattern */}
         <div className="absolute inset-0 opacity-5">
           <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full -translate-y-48 translate-x-48"></div>
@@ -383,8 +383,8 @@ export default function ActionPlansPage() {
           </div>
 
           <div className="hidden xl:flex items-center gap-6">
-            <div className="grid grid-cols-4 gap-4">
-              <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg hover:bg-white/15 transition-all duration-200">
+            <div className="grid grid-cols-4 gap-3">
+              <div className="p-3 bg-white/6 rounded-lg border border-white/10 shadow-sm hover:bg-white/10 transition-colors duration-150">
                 <div className="flex items-center gap-4">
                   <div className="p-2 bg-red-500/20 rounded-lg">
                     <AlertCircle className="w-5 h-5 text-red-300" />
@@ -395,7 +395,7 @@ export default function ActionPlansPage() {
                   </div>
                 </div>
               </div>
-              <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg hover:bg-white/15 transition-all duration-200">
+              <div className="p-3 bg-white/6 rounded-lg border border-white/10 shadow-sm hover:bg-white/10 transition-colors duration-150">
                 <div className="flex items-center gap-4">
                   <div className="p-2 bg-blue-500/20 rounded-lg">
                     <Clock className="w-5 h-5 text-blue-300" />
@@ -406,7 +406,7 @@ export default function ActionPlansPage() {
                   </div>
                 </div>
               </div>
-              <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg hover:bg-white/15 transition-all duration-200">
+              <div className="p-3 bg-white/6 rounded-lg border border-white/10 shadow-sm hover:bg-white/10 transition-colors duration-150">
                 <div className="flex items-center gap-4">
                   <div className="p-2 bg-green-500/20 rounded-lg">
                     <CheckCircle className="w-5 h-5 text-green-300" />
@@ -417,7 +417,7 @@ export default function ActionPlansPage() {
                   </div>
                 </div>
               </div>
-              <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg hover:bg-white/15 transition-all duration-200">
+              <div className="p-3 bg-white/6 rounded-lg border border-white/10 shadow-sm hover:bg-white/10 transition-colors duration-150">
                 <div className="flex items-center gap-4">
                   <div className="p-2 bg-purple-500/20 rounded-lg">
                     <FileCheck className="w-5 h-5 text-purple-300" />
@@ -433,41 +433,33 @@ export default function ActionPlansPage() {
         </div>
       </div>
 
-      {/* Main Content Container */}
-      <div className="pt-8">
+  {/* Main Content Container */}
+  <div className="pt-6 px-4">
         {/* Action Plan Status */}
-        <div className="w-full px-6 mb-6">
+        <div className="w-full mb-6">
           {!allAuditsCompleted && (
-            <div className="bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-50 border border-amber-200/60 rounded-xl shadow-lg backdrop-blur-sm">
-              <div className="p-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl flex items-center justify-center shadow-lg">
-                    <AlertCircle className="w-6 h-6 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-amber-900 mb-1">Building Correction Plan</h3>
-                    <p className="text-amber-800 text-sm leading-relaxed">
-                      Complete all audits to see the full list of corrections needed. Currently showing <strong>{actionPlan?.totalItems || 0} issues</strong> from <strong>{completedAuditsCount} completed audits</strong>.
-                    </p>
-                  </div>
+            <div className="rounded-lg border-l-4 border-amber-400/70 bg-amber-50/60 p-4">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-amber-400/80 rounded-lg flex items-center justify-center text-white">
+                  <AlertCircle className="w-5 h-5" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-amber-900 mb-0.5">Building Correction Plan</h3>
+                  <p className="text-sm text-amber-800/90">Complete outstanding audits to unlock correction actions and assignments.</p>
                 </div>
               </div>
             </div>
           )}
 
           {allAuditsCompleted && (
-            <div className="bg-gradient-to-r from-green-50 via-emerald-50 to-green-50 border border-green-200/60 rounded-xl shadow-lg backdrop-blur-sm">
-              <div className="p-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
-                    <CheckCircle className="w-6 h-6 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-green-900 mb-1">All Audits Completed</h3>
-                    <p className="text-green-800 text-sm leading-relaxed">
-                      Full correction plan is now available with <strong>{actionPlan?.totalItems || 0} issue{actionPlan?.totalItems !== 1 ? 's' : ''}</strong> to address.
-                    </p>
-                  </div>
+            <div className="rounded-lg border-l-4 border-green-400/70 bg-green-50/60 p-4">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-green-500/80 rounded-lg flex items-center justify-center text-white">
+                  <CheckCircle className="w-5 h-5" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-green-800 mb-0.5">All Audits Completed</h3>
+                  <p className="text-sm text-green-800/90">Great — you can now create and assign corrective actions.</p>
                 </div>
               </div>
             </div>
@@ -476,46 +468,20 @@ export default function ActionPlansPage() {
 
         {/* Action Items */}
         {actionPlan && actionPlan.items.length > 0 ? (
-          <div className="w-full px-6 mb-6">
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 overflow-hidden">
-              <div className="bg-gradient-to-r from-slate-50 via-blue-50 to-indigo-50 p-6 border-b border-gray-200/50">
+          <div className="w-full mb-6">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+              <div className="p-4 border-b border-gray-100">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-3">
-                      <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
-                        <FileCheck className="h-4 w-4 text-white" />
-                      </div>
-                      Items Needing Correction
-                    </h2>
-                    {!allAuditsCompleted && actionPlan && actionPlan.totalItems > 0 && (
-                      <p className="text-sm text-amber-600 mt-1 ml-11">Complete all audits to start corrections</p>
-                    )}
+                    <h2 className="text-lg font-semibold text-gray-800">Action Items — {currentMonthName}</h2>
+                    <div className="text-sm text-gray-500">{actionPlan?.totalItems || 0} issues — {actionPlan?.completedItems || 0} completed</div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <button
-                      onClick={() => {
-                        const allExpanded = Object.keys(groupedItems).every(key => expandedSections[key]);
-                        const newState = Object.keys(groupedItems).reduce((acc, key) => {
-                          acc[key] = !allExpanded;
-                          return acc;
-                        }, {} as Record<string, boolean>);
-                        setExpandedSections(newState);
-                      }}
-                      className="px-4 py-2 text-sm font-medium bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all shadow-sm"
-                    >
-                      {Object.keys(groupedItems).every(key => expandedSections[key]) ? 'Collapse All' : 'Expand All'}
-                    </button>
-                    <div className="bg-white/70 backdrop-blur-sm px-4 py-2 rounded-lg border border-gray-200">
-                      <div className="text-sm font-medium text-gray-700">
-                        {actionPlan?.items.filter(item => item.status !== 'completed').length || 0} pending corrections
-                      </div>
-                    </div>
-                  </div>
+                  <div className="text-sm text-gray-500">Progress: {actionPlan?.progressPercent || 0}%</div>
                 </div>
               </div>
 
               {/* Grouped sections by audit type */}
-              <div className="p-6 space-y-4">
+              <div className="p-4 space-y-4">
                 {Object.entries(groupedItems).map(([auditType, items]) => {
                   const stats = getSectionStats(items);
                   const isExpanded = expandedSections[auditType];
