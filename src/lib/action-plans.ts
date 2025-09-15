@@ -1,5 +1,99 @@
 import { collection, doc, getDocs, getDoc, query, where, orderBy, limit, Timestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from './firebase';
+import { finalizeActionPlan as finalizeActionPlanServer, sendActionPlanAssignmentEmail } from '@/actions/action-plans';
+
+/**
+ * Resolve assignee keys (emails, user ids, team-<id>, category-<id>) to an array of email addresses.
+ */
+async function resolveAssigneeEmails(workspaceId: string, assigneeKey?: string): Promise<string[]> {
+  if (!assigneeKey) return [];
+
+  // Direct email
+  if (assigneeKey.includes('@')) return [assigneeKey];
+
+  // team-<id> -> lookup workspace teams members (stored in workspace teams docs)
+  if (assigneeKey.startsWith('team-')) {
+    const teamId = assigneeKey.replace('team-', '');
+    try {
+      const teamRef = doc(db, `workspaces/${workspaceId}/teams`, teamId);
+      const teamSnap = await getDoc(teamRef);
+      if (teamSnap.exists()) {
+        const t = teamSnap.data() as any;
+        // team doc expected to have members: [{id, email}, ...] or memberIds
+        if (Array.isArray(t.members)) {
+          return t.members.map((m: any) => m.email).filter(Boolean);
+        }
+        if (Array.isArray(t.memberIds)) {
+          // resolve memberIds to emails
+          const emails: string[] = [];
+          for (const id of t.memberIds) {
+            try {
+              const uRef = doc(db, 'users', id);
+              const uSnap = await getDoc(uRef);
+              if (uSnap.exists()) {
+                const u = uSnap.data() as any;
+                if (u.email) emails.push(u.email);
+              }
+            } catch (e) {
+              console.warn('Failed to resolve team member email', e);
+            }
+          }
+          return emails;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to resolve team', e);
+    }
+    return [];
+  }
+
+  // category-<staffId> or just staffId -> try user doc
+  try {
+    // If the key is of the form '<category>-<id>' (e.g. 'managers-abc123'), extract the id
+    let possibleUserId = assigneeKey;
+    const dashIndex = assigneeKey.indexOf('-');
+    if (dashIndex > 0) {
+      possibleUserId = assigneeKey.slice(dashIndex + 1);
+    }
+
+    const userRef = doc(db, 'users', possibleUserId);
+    const userSnap = await getDoc(userRef);
+    if (userSnap.exists()) {
+      const u = userSnap.data() as any;
+      if (u.email) return [u.email];
+    }
+  } catch (e) {
+    console.warn('Failed to resolve user email', e);
+  }
+
+  // Fallback: some workspaces store staff lists inside the workspace document (managers, nurses, etc).
+  // If the earlier user lookup failed and the assigneeKey was category-<id>, try to find the email in workspace fields.
+  try {
+    const dashIndex = assigneeKey.indexOf('-');
+    if (dashIndex > 0) {
+      const possibleUserId = assigneeKey.slice(dashIndex + 1);
+      const workspaceRef = doc(db, 'workspaces', workspaceId);
+      const wsSnap = await getDoc(workspaceRef);
+      if (wsSnap.exists()) {
+        const ws = wsSnap.data() as any;
+        const staffCategories = ['managers','nurses','ctms','domestics','maintenances','kitchens','activities'];
+        for (const cat of staffCategories) {
+          const list = ws[cat];
+          if (Array.isArray(list)) {
+            const found = list.find((s: any) => (s && (s.id === possibleUserId || s.uid === possibleUserId || s.email === possibleUserId)));
+            if (found && found.email) {
+              return [found.email];
+            }
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to resolve assignee from workspace staff lists', e);
+  }
+
+  return [];
+}
 
 export interface ActionPlanItem {
   id: string;
@@ -1287,7 +1381,8 @@ export async function updateActionPlanItemStatus(
       throw new Error('Action plan not found');
     }
 
-    const actionPlan = actionPlanSnap.data() as MonthlyActionPlan;
+  const actionPlan = actionPlanSnap.data() as MonthlyActionPlan;
+  const originalItem = actionPlan.items.find(i => i.id === itemId);
     const updatedItems = actionPlan.items.map(item => {
       if (item.id === itemId) {
         // Create a completely clean object without using spread operator
@@ -1341,9 +1436,50 @@ export async function updateActionPlanItemStatus(
       progressPercent,
       updatedAt: new Date().toISOString()
     });
+
+    // If assignment changed (assignedTo), send a per-recipient assignment email
+    try {
+      const updatedItem = updatedItems.find(i => i.id === itemId);
+      if (updatedItem && originalItem) {
+        const prevAssigned = originalItem.assignedTo || originalItem.assignedTeam;
+        const newAssigned = updatedItem.assignedTo || updatedItem.assignedTeam;
+        if (newAssigned && newAssigned !== prevAssigned) {
+          // Resolve assignee to emails (handles team-*, user ids, direct emails)
+          const emails = await resolveAssigneeEmails(workspaceId, newAssigned);
+
+          if (emails.length > 0) {
+            const itemsSummaryHtml = `<ul><li><b>${updatedItem.auditType}</b>: ${updatedItem.issue} (${updatedItem.priority.toUpperCase()})</li></ul>`;
+            // fire-and-forget
+            sendActionPlanAssignmentEmail({ workspaceId, recipientEmails: emails, assignedBy: 'System', monthKey, itemsSummaryHtml }).catch(e => console.error('Failed to send assignment email', e));
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Error while attempting to send per-assignment email', e);
+    }
+
+    // If all items completed, finalize the action plan (generate PDF, mark isComplete)
+    if (completedItems === actionPlan.totalItems && actionPlan.totalItems > 0) {
+      try {
+        await finalizeActionPlanServer(workspaceId, monthKey);
+      } catch (e) {
+        console.error('Failed to finalize action plan after all items completed:', e);
+      }
+    }
   } catch (error) {
     console.error('Failed to update action plan item status:', error);
     throw error;
+  }
+}
+
+/**
+ * Helper to finalize action plan if fully completed. Public wrapper for other callers.
+ */
+export async function finalizeActionPlanIfComplete(workspaceId: string, monthKey: string) {
+  const plan = await getMonthlyActionPlan(workspaceId, monthKey);
+  if (!plan) return;
+  if (plan.completedItems === plan.totalItems && plan.totalItems > 0 && !plan.isComplete) {
+    await finalizeActionPlanServer(workspaceId, monthKey);
   }
 }
 

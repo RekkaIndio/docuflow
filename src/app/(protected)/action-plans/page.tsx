@@ -6,8 +6,12 @@ import { getMonthlyAuditCompletionStatus } from '@/lib/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckCircle, AlertCircle, Clock, FileCheck, ChevronDown, ChevronRight, Users, Timer } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
+import { generateActionPlanPDF, getActionPlanPDFFilename, ActionPlanPDFData } from '@/lib/action-plan-pdf-generator';
 import { db } from '@/lib/firebase';
+import { finalizeActionPlan } from '@/actions/action-plans';
+import { useToast } from '@/hooks/use-toast';
 
 export default function ActionPlansPage() {
   const activeWorkspace = useWorkspace();
@@ -17,11 +21,13 @@ export default function ActionPlansPage() {
   const [loading, setLoading] = useState(true);
   const [updatingItem, setUpdatingItem] = useState<string | null>(null);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('table');
   
   // Teams and staff data
   const [teams, setTeams] = useState<any[]>([]);
   const [staffData, setStaffData] = useState<any>({});
   const [loadingTeams, setLoadingTeams] = useState(false);
+  const { toast } = useToast();
 
   const currentMonthKey = getCurrentMonthKey();
   const currentMonthName = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -127,39 +133,45 @@ export default function ActionPlansPage() {
     }
   };  const handleItemStatusUpdate = async (itemId: string, status: 'pending' | 'in-progress' | 'completed') => {
     if (!activeWorkspace?.id || !actionPlan) return;
+    // Keep a snapshot for rollback in case the server update fails
+    const prevPlan = actionPlan;
 
+    // Immediately mark as updating
     setUpdatingItem(itemId);
+
+    // Apply optimistic update locally so UI responds immediately
+    setActionPlan(prev => {
+      if (!prev) return prev;
+
+      const updatedItems = prev.items.map(item => {
+        if (item.id === itemId) {
+          return {
+            ...item,
+            status,
+            completedAt: status === 'completed' ? new Date().toISOString() : item.completedAt
+          };
+        }
+        return item;
+      });
+
+      const completedItems = updatedItems.filter(item => item.status === 'completed').length;
+      const progressPercent = prev.totalItems > 0 ? Math.round((completedItems / prev.totalItems) * 100) : 0;
+
+      return {
+        ...prev,
+        items: updatedItems,
+        completedItems,
+        progressPercent,
+        updatedAt: new Date().toISOString()
+      };
+    });
+
     try {
       await updateActionPlanItemStatus(activeWorkspace.id, currentMonthKey, itemId, status);
-
-      // Update local state optimistically
-      setActionPlan(prev => {
-        if (!prev) return prev;
-
-        const updatedItems = prev.items.map(item => {
-          if (item.id === itemId) {
-            return {
-              ...item,
-              status,
-              completedAt: status === 'completed' ? new Date().toISOString() : item.completedAt
-            };
-          }
-          return item;
-        });
-
-        const completedItems = updatedItems.filter(item => item.status === 'completed').length;
-        const progressPercent = prev.totalItems > 0 ? Math.round((completedItems / prev.totalItems) * 100) : 0;
-
-        return {
-          ...prev,
-          items: updatedItems,
-          completedItems,
-          progressPercent,
-          updatedAt: new Date().toISOString()
-        };
-      });
     } catch (error) {
       console.error('Failed to update item status:', error);
+      // Rollback optimistic update
+      setActionPlan(prevPlan);
     } finally {
       setUpdatingItem(null);
     }
@@ -351,6 +363,8 @@ export default function ActionPlansPage() {
   const completedAuditsCount = Object.values(auditCompletionStatus).filter(Boolean).length;
   const totalAuditsCount = Object.keys(auditCompletionStatus).length;
 
+  const canFinalizePlan = actionPlan && actionPlan.items && actionPlan.items.length > 0 && actionPlan.items.every(it => it.status === 'completed');
+
   if (loading) {
     return (
       <div className="container mx-auto p-6">
@@ -395,6 +409,29 @@ export default function ActionPlansPage() {
                   </div>
                 </div>
               </div>
+              {canFinalizePlan && (
+                <div>
+                  <button
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg shadow hover:bg-green-700"
+                    onClick={async () => {
+                      if (!activeWorkspace?.id || !actionPlan) return;
+                      try {
+                        // Call server action to finalize and save PDF
+                        const res = await finalizeActionPlan(activeWorkspace.id, currentMonthKey);
+                        toast({ title: 'Action plan finalized', description: 'Saved to Action Plans folder.' });
+                        // reload
+                        loadActionPlanData();
+                      } catch (e) {
+                        console.error('Finalize failed', e);
+                        toast({ title: 'Failed to finalize', description: 'See console for details.' });
+                      }
+                    }}
+                  >
+                    <FileCheck className="w-4 h-4" />
+                    Complete action
+                  </button>
+                </div>
+              )}
               <div className="p-3 bg-white/6 rounded-lg border border-white/10 shadow-sm hover:bg-white/10 transition-colors duration-150">
                 <div className="flex items-center gap-4">
                   <div className="p-2 bg-blue-500/20 rounded-lg">
@@ -470,18 +507,182 @@ export default function ActionPlansPage() {
         {actionPlan && actionPlan.items.length > 0 ? (
           <div className="w-full mb-6">
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-              <div className="p-4 border-b border-gray-100">
+                  <div className="p-4 border-b border-gray-100">
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="text-lg font-semibold text-gray-800">Action Items — {currentMonthName}</h2>
                     <div className="text-sm text-gray-500">{actionPlan?.totalItems || 0} issues — {actionPlan?.completedItems || 0} completed</div>
                   </div>
-                  <div className="text-sm text-gray-500">Progress: {actionPlan?.progressPercent || 0}%</div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-sm text-gray-500">Progress: {actionPlan?.progressPercent || 0}%</div>
+                            <div className="text-sm text-gray-500">View: <span className="ml-1 font-medium text-gray-700">Table</span></div>
+                            <button
+                              onClick={async () => {
+                                if (!actionPlan) return;
+                                try {
+                                  const items = actionPlan.items.map(it => ({
+                                    auditType: it.auditType,
+                                    issue: it.issue,
+                                    assigned: (() => {
+                                      const opt = getAvailableTeamsAndStaff().find(o => o.value === it.assignedTeam);
+                                      return opt ? opt.label : (it.assignedTeam || 'Unassigned');
+                                    })(),
+                                    ragRating: it.ragRating,
+                                    status: it.status,
+                                    completedAt: it.completedAt
+                                  }));
+
+                                  const pdfData: ActionPlanPDFData = {
+                                    workspaceName: activeWorkspace?.name || 'Workspace',
+                                    monthLabel: currentMonthName,
+                                    generatedBy: activeWorkspace?.name || 'System',
+                                    items
+                                  };
+
+                                  const pdfBuf = await generateActionPlanPDF(pdfData);
+                                  // jsPDF returns an ArrayBuffer-like Uint8Array; cast to any for Blob constructor to avoid TS ArrayBuffer/SharedArrayBuffer mismatch
+                                  const blob = new Blob([pdfBuf as any], { type: 'application/pdf' });
+                                  const url = URL.createObjectURL(blob);
+                                  const a = document.createElement('a');
+                                  a.href = url;
+                                  a.download = getActionPlanPDFFilename(activeWorkspace?.name || 'workspace', currentMonthName);
+                                  document.body.appendChild(a);
+                                  a.click();
+                                  a.remove();
+                                  URL.revokeObjectURL(url);
+                                } catch (error) {
+                                  console.error('Error generating Action Plan PDF:', error);
+                                  alert('Failed to generate PDF. Check console for details.');
+                                }
+                              }}
+                              className="ml-4 px-3 py-2 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700"
+                            >
+                              Download PDF
+                            </button>
+                  </div>
                 </div>
               </div>
 
-              {/* Grouped sections by audit type */}
-              <div className="p-4 space-y-4">
+              {/* Optional table view (simplified) */}
+              {viewMode === 'table' && (
+                <div className="p-4">
+                  <div className="overflow-x-auto p-4">
+                      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                        <table className="w-full table-auto border-collapse">
+                          <thead>
+                            <tr className="text-left text-sm text-gray-600">
+                              <th className="p-4 w-1/6">Audit Type</th>
+                              <th className="p-4 w-2/5">Issue</th>
+                              <th className="p-4 w-1/4">Assigned</th>
+                              <th className="p-4 w-1/6">RAG</th>
+                              <th className="p-4">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {actionPlan.items.map((item, idx) => (
+                              <tr key={item.id} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} border-b hover:bg-gray-100`}>
+                                <td className="p-4 align-top text-sm text-gray-800">{item.auditType.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}</td>
+                                <td className="p-4 align-top text-sm text-gray-700">{item.issue}</td>
+                                <td className="p-4 align-top">
+                                  <Select value={item.assignedTeam || ''} onValueChange={(v) => handleTeamAssignmentUpdate(item.id, v)} disabled={updatingItem === item.id || loadingTeams}>
+                                    <SelectTrigger className="w-full max-w-xs">
+                                      <SelectValue placeholder={loadingTeams ? 'Loading...' : (getAvailableTeamsAndStaff().find(opt => opt.value === item.assignedTeam)?.label || 'Unassigned')} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {getAvailableTeamsAndStaff().map(opt => (
+                                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </td>
+                                <td className="p-4 align-top">
+                                  <div className="flex items-center gap-4">
+                                    <label className="flex items-center cursor-pointer">
+                                      <input
+                                        type="radio"
+                                        aria-label="Red priority"
+                                        name={`rag-${item.id}`}
+                                        value="red"
+                                        checked={item.ragRating === 'red'}
+                                        onChange={() => handleRAGRatingUpdate(item.id, 'red')}
+                                        disabled={updatingItem === item.id}
+                                        className="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 focus:ring-red-500"
+                                      />
+                                      <span className="sr-only">Red - 7 days</span>
+                                      <span className="ml-2 w-3 h-3 bg-red-500 rounded-full" aria-hidden="true"></span>
+                                    </label>
+
+                                    <label className="flex items-center cursor-pointer">
+                                      <input
+                                        type="radio"
+                                        aria-label="Amber priority"
+                                        name={`rag-${item.id}`}
+                                        value="amber"
+                                        checked={item.ragRating === 'amber'}
+                                        onChange={() => handleRAGRatingUpdate(item.id, 'amber')}
+                                        disabled={updatingItem === item.id}
+                                        className="w-4 h-4 text-yellow-600 bg-gray-100 border-gray-300 focus:ring-yellow-500"
+                                      />
+                                      <span className="sr-only">Amber - 14 days</span>
+                                      <span className="ml-2 w-3 h-3 bg-yellow-500 rounded-full" aria-hidden="true"></span>
+                                    </label>
+
+                                    <label className="flex items-center cursor-pointer">
+                                      <input
+                                        type="radio"
+                                        aria-label="Green priority"
+                                        name={`rag-${item.id}`}
+                                        value="green"
+                                        checked={item.ragRating === 'green'}
+                                        onChange={() => handleRAGRatingUpdate(item.id, 'green')}
+                                        disabled={updatingItem === item.id}
+                                        className="w-4 h-4 text-green-600 bg-gray-100 border-gray-300 focus:ring-green-500"
+                                      />
+                                      <span className="sr-only">Green - 30 days</span>
+                                      <span className="ml-2 w-3 h-3 bg-green-500 rounded-full" aria-hidden="true"></span>
+                                    </label>
+                                  </div>
+                                </td>
+                                <td className="p-4 align-top">
+                                  <div className="flex items-center gap-3">
+                                    {item.status !== 'completed' ? (
+                                      <button
+                                        onClick={() => handleItemStatusUpdate(item.id, 'completed')}
+                                        disabled={updatingItem === item.id}
+                                        className="px-4 py-2 rounded bg-blue-600 text-white text-sm"
+                                      >
+                                        {updatingItem === item.id ? 'Updating...' : 'Mark as Completed'}
+                                      </button>
+                                    ) : (
+                                      <>
+                                        <button
+                                          disabled={true}
+                                          className="px-4 py-2 rounded bg-green-600 text-white text-sm"
+                                        >
+                                          Completed
+                                        </button>
+                                        <button
+                                          onClick={() => handleItemStatusUpdate(item.id, 'pending')}
+                                          disabled={updatingItem === item.id}
+                                          className="px-3 py-2 rounded bg-gray-600 text-white text-sm"
+                                        >
+                                          Reopen
+                                        </button>
+                                      </>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                </div>
+              )}
+
+              {/* Grouped sections by audit type (hidden when table-only) */}
+              <div className="p-4 space-y-4 hidden">
                 {Object.entries(groupedItems).map(([auditType, items]) => {
                   const stats = getSectionStats(items);
                   const isExpanded = expandedSections[auditType];
