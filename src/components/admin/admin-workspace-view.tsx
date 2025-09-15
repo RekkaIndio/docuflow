@@ -11,6 +11,7 @@ import { db } from '@/lib/firebase';
 import { Folder as FolderIcon, FileText, FileSpreadsheet, FileX2, Home, ChevronRight, ArrowLeft, PlusSquare, Users, Tag, Clock, TrendingUp, Activity, Shield, CheckCircle, AlertTriangle, Calendar, Zap, UserCheck, Phone, Mail, Plus, Trash2, Edit, Save, X, BarChart2 } from 'lucide-react';
 // AdminDependencyTable and OccupancyPie were removed as they're not used in this view
 import StatsView from '@/components/admin/admin-stats-view';
+import AuditsView from './admin-audits-view';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Manager {
@@ -1257,6 +1258,10 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
               <TrendingUp className="w-4 h-4" />
               Stats
             </TabsTrigger>
+            <TabsTrigger value="audits" className="flex items-center gap-2 whitespace-nowrap">
+              <Tag className="w-4 h-4" />
+              Audits
+            </TabsTrigger>
             {/* Management / staff-category triggers removed — TeamsView handles those categories */}
           </TabsList>
           { /* Dependency tab disabled for now */ }
@@ -1452,6 +1457,14 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
               aggregateWoundsData={aggregateWoundsData}
               aggregateFallsData={aggregateFallsData}
               aggregateInfectionData={aggregateInfectionData}
+              aggregateAuditData={aggregateAuditData}
+            />
+          </TabsContent>
+          
+          <TabsContent value="audits" className="mt-6">
+            <AuditsView
+              workspace={workspace}
+              recentUploads={recentUploads}
               aggregateAuditData={aggregateAuditData}
             />
           </TabsContent>
