@@ -32,6 +32,7 @@ export default function AuditsPage() {
   const [auditScheduleMap, setAuditScheduleMap] = useState<Record<string, string | null>>({});
   const [auditStatusMap, setAuditStatusMap] = useState<Record<string, string>>({});
   const [monthlyCompletionStatus, setMonthlyCompletionStatus] = useState<Record<string, boolean>>({});
+  const [monthlySnapshotsCount, setMonthlySnapshotsCount] = useState<Record<string, number>>({});
 
   useEffect(() => {
     let mounted = true;
@@ -42,6 +43,16 @@ export default function AuditsPage() {
       try {
         const status = await getMonthlyAuditCompletionStatus(activeWorkspace.id);
         if (mounted) setMonthlyCompletionStatus(status);
+        // also compute snapshots counts for progress indicators
+        try {
+          const { getMonthlyAuditSnapshots } = await import('@/lib/firestore');
+          const snaps = await getMonthlyAuditSnapshots(activeWorkspace.id);
+          const counts: Record<string, number> = {};
+          Object.keys(snaps || {}).forEach(k => { counts[k] = Array.isArray(snaps[k]) ? snaps[k].length : 0; });
+          if (mounted) setMonthlySnapshotsCount(counts);
+        } catch (e) {
+          console.warn('Failed to load monthly snapshots for progress', e);
+        }
       } catch (e) {
         console.warn('Failed to load monthly audit completion status', e);
       }
@@ -175,12 +186,14 @@ export default function AuditsPage() {
     onClick: () => void;
   }) => {
     const isCompleted = monthlyCompletionStatus[auditType];
+    const snapshotCount = monthlySnapshotsCount[auditType] ?? 0;
+    const progressPercent = auditType === 'managers-weekly' ? Math.min(100, Math.round((snapshotCount / 4) * 100)) : undefined;
     // If there are fewer than 5 days remaining until reset and the audit is not completed,
     // mark it as urgent (red highlight)
     const isUrgent = !isCompleted && typeof daysRemaining === 'number' && daysRemaining < 5;
 
     return (
-      <div className={`group relative overflow-hidden rounded-xl bg-gradient-to-br from-white to-gray-50/50 border border-gray-200/60 shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer ${isCompleted ? 'ring-2 ring-green-200' : isUrgent ? 'ring-2 ring-red-200' : ''}`}>
+      <div className={`group relative overflow-hidden rounded-xl bg-gradient-to-br from-white to-gray-50/50 border border-gray-200/60 shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer ${isCompleted ? 'ring-2 ring-green-200' : isUrgent ? 'ring-2 ring-red-200' : ''} min-h-[170px] flex flex-col justify-between`}>
         {/* Background pattern */}
         <div className="absolute inset-0 opacity-[0.02]">
           <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-gray-900 to-transparent rounded-full -translate-y-16 translate-x-16"></div>
@@ -190,8 +203,8 @@ export default function AuditsPage() {
         {/* Top accent bar */}
         <div className={`h-1 w-full bg-gradient-to-r ${isCompleted ? 'from-green-500 to-green-600' : isUrgent ? 'from-red-500 to-red-600' : 'from-blue-500 to-blue-600'}`}></div>
 
-        <div className="p-6 relative z-10">
-          <div className="flex items-start gap-4">
+        <div className="p-6 relative z-10 flex-1 flex">
+          <div className="flex items-start gap-4 w-full">
             {/* Icon */}
             <div className={`p-3 rounded-xl bg-gradient-to-br ${isCompleted ? 'from-green-100 to-green-200' : isUrgent ? 'from-red-100 to-red-200' : 'from-blue-100 to-blue-200'} shadow-sm`}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={`${isCompleted ? 'text-green-600' : isUrgent ? 'text-red-600' : 'text-blue-600'}`}>
@@ -200,9 +213,14 @@ export default function AuditsPage() {
             </div>
 
             <div className="flex-1 min-w-0">
-              <h3 className={`text-lg font-semibold text-gray-900 ${isCompleted ? 'text-green-800' : ''} group-hover:text-gray-800 transition-colors`}>
-                {title}
-              </h3>
+              <div className="flex items-center gap-3">
+                <h3 className={`text-lg font-semibold text-gray-900 ${isCompleted ? 'text-green-800' : ''} group-hover:text-gray-800 transition-colors`}>
+                  {title}
+                </h3>
+                {auditType === 'managers-weekly' && !isCompleted && typeof progressPercent === 'number' && (
+                  <span className="text-xs font-medium px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100">{progressPercent}%</span>
+                )}
+              </div>
               <p className={`text-sm text-gray-600 mt-1 ${isCompleted ? 'text-green-700' : ''} group-hover:text-gray-700 transition-colors`}>
                 {description}
               </p>
@@ -238,6 +256,15 @@ export default function AuditsPage() {
                 >
                   Start Audit
                 </button>
+              )}
+              {/* Show progress bar for managers-weekly */}
+              {auditType === 'managers-weekly' && !isCompleted && (
+                <div className="mt-3 w-40">
+                  <div className="text-xs text-gray-600 mb-1">Progress: {snapshotCount}/4</div>
+                  <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                    <div className="h-2 bg-blue-500" style={{ width: `${progressPercent}%` }} />
+                  </div>
+                </div>
               )}
             </div>
           </div>

@@ -5,7 +5,7 @@ import { useWorkspace } from '@/context/workspace';
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
 import { useAuth } from '@/hooks/use-auth';
-import { saveAudit, markAuditCompleted } from '@/lib/firestore';
+import { saveAudit, markAuditCompleted, markAuditCompletedWithSnapshot, saveAuditSnapshot, getMonthlyAuditSnapshots } from '@/lib/firestore';
 import { ChevronDown, ChevronUp, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -129,7 +129,113 @@ interface ManagersWeeklyData {
 
 export default function ManagersWeeklyAuditPage() {
   const [currentReport, setCurrentReport] = useState(1);
-  const [totalReports] = useState(1);
+  const [totalReports, setTotalReports] = useState(1);
+  const emptyReport = (): ManagersWeeklyData => ({
+    home: '',
+    date: '',
+    personCompletingAudit: '',
+
+    communal_areas_clean: '',
+    communal_areas_clean_comment: '',
+    bedrooms_clean: '',
+    bedrooms_clean_comment: '',
+    toilets_bathrooms_clean: '',
+    toilets_bathrooms_clean_comment: '',
+    floors_furniture_good: '',
+    floors_furniture_good_comment: '',
+    cleaning_trolleys_stored: '',
+    cleaning_trolleys_stored_comment: '',
+
+    sanitisers_working: '',
+    sanitisers_working_comment: '',
+    staff_using_ppe: '',
+    staff_using_ppe_comment: '',
+    gloves_aprons_available: '',
+    gloves_aprons_available_comment: '',
+    waste_bins_ok: '',
+    waste_bins_ok_comment: '',
+    cleaning_schedules_visible: '',
+    cleaning_schedules_visible_comment: '',
+
+    fire_exits_clear: '',
+    fire_exits_clear_comment: '',
+    corridors_free_of_trip_hazards: '',
+    corridors_free_of_trip_hazards_comment: '',
+    mobility_aids_stored: '',
+    mobility_aids_stored_comment: '',
+    call_bells_working: '',
+    call_bells_working_comment: '',
+    broken_items_hazards: '',
+    broken_items_hazards_comment: '',
+
+    residents_engaged_dressed: '',
+    residents_engaged_dressed_comment: '',
+    staff_respectful_interactions: '',
+    staff_respectful_interactions_comment: '',
+    residents_offered_fluids: '',
+    residents_offered_fluids_comment: '',
+    mealtimes_well_supported: '',
+    mealtimes_well_supported_comment: '',
+    activities_visible: '',
+    activities_visible_comment: '',
+
+    staff_uniforms_id: '',
+    staff_uniforms_id_comment: '',
+    staff_communicate_professionally: '',
+    staff_communicate_professionally_comment: '',
+    shift_leaders_aware: '',
+    shift_leaders_aware_comment: '',
+    staff_breaks_appropriate: '',
+    staff_breaks_appropriate_comment: '',
+    handovers_private_structured: '',
+    handovers_private_structured_comment: '',
+
+    med_trolleys_locked: '',
+    med_trolleys_locked_comment: '',
+    med_room_tidy_locked: '',
+    med_room_tidy_locked_comment: '',
+    fridge_temps_recorded: '',
+    fridge_temps_recorded_comment: '',
+    mar_charts_up_to_date: '',
+    mar_charts_up_to_date_comment: '',
+    staff_administering_safely: '',
+    staff_administering_safely_comment: '',
+
+    dining_area_clean: '',
+    dining_area_clean_comment: '',
+    kitchenettes_clean: '',
+    kitchenettes_clean_comment: '',
+    fridges_freezers_safe: '',
+    fridges_freezers_safe_comment: '',
+    food_items_dated: '',
+    food_items_dated_comment: '',
+
+    laundry_area_clean: '',
+    laundry_area_clean_comment: '',
+    clean_dirty_separated: '',
+    clean_dirty_separated_comment: '',
+    trolleys_labelled: '',
+    trolleys_labelled_comment: '',
+
+    daily_notes_up_to_date: '',
+    daily_notes_up_to_date_comment: '',
+    fluid_food_charts_completed: '',
+    fluid_food_charts_completed_comment: '',
+    repositioning_charts_filled: '',
+    repositioning_charts_filled_comment: '',
+    cleaning_maintenance_logs_updated: '',
+    cleaning_maintenance_logs_updated_comment: '',
+
+    visible_repairs_needed: '',
+    visible_repairs_needed_comment: '',
+    window_restrictors_ok: '',
+    window_restrictors_ok_comment: '',
+    previous_issues_resolved: '',
+    previous_issues_resolved_comment: '',
+    communal_outdoor_safe: '',
+    communal_outdoor_safe_comment: '',
+  });
+  const [reports, setReports] = useState<ManagersWeeklyData[]>([emptyReport()]);
   const [showModal, setShowModal] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
 
@@ -387,6 +493,7 @@ export default function ManagersWeeklyAuditPage() {
   const [saving, setSaving] = useState(false);
   const [savedAuditId, setSavedAuditId] = useState<string | null>(null);
   const [finalComments, setFinalComments] = useState('');
+  const [savedCount, setSavedCount] = useState(0);
 
   // Helper functions
   const toggleSection = (sectionId: string) => {
@@ -407,6 +514,15 @@ export default function ManagersWeeklyAuditPage() {
   };
 
   const handleChange = (field: keyof ManagersWeeklyData, value: string) => {
+    // update active report in reports array and local data
+    setReports(prev => {
+      const copy = [...prev];
+      const idx = currentReport - 1;
+      const base = copy[idx] ? { ...copy[idx] } : emptyReport();
+      base[field] = value;
+      copy[idx] = base as ManagersWeeklyData;
+      return copy;
+    });
     setData(prev => ({ ...prev, [field]: value }));
     if (value.trim() !== '' && errors.includes(field)) setErrors(prev => prev.filter(e => e !== field));
   };
@@ -426,7 +542,7 @@ export default function ManagersWeeklyAuditPage() {
                   type="radio"
                   name={field}
                   value="Yes"
-                  checked={data[yesNoField] === 'Yes'}
+                  checked={reports[currentReport - 1]?.[yesNoField] === 'Yes'}
                   onChange={(e) => handleChange(yesNoField, e.target.value)}
                   className="mr-2 text-blue-600 focus:ring-blue-500"
                 />
@@ -437,7 +553,7 @@ export default function ManagersWeeklyAuditPage() {
                   type="radio"
                   name={field}
                   value="No"
-                  checked={data[yesNoField] === 'No'}
+                  checked={reports[currentReport - 1]?.[yesNoField] === 'No'}
                   onChange={(e) => handleChange(yesNoField, e.target.value)}
                   className="mr-2 text-blue-600 focus:ring-blue-500"
                 />
@@ -448,7 +564,7 @@ export default function ManagersWeeklyAuditPage() {
                   type="radio"
                   name={field}
                   value="N/A"
-                  checked={data[yesNoField] === 'N/A'}
+                  checked={reports[currentReport - 1]?.[yesNoField] === 'N/A'}
                   onChange={(e) => handleChange(yesNoField, e.target.value)}
                   className="mr-2 text-blue-600 focus:ring-blue-500"
                 />
@@ -463,7 +579,7 @@ export default function ManagersWeeklyAuditPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Comments</label>
             <Textarea
-              value={data[commentField] as string}
+              value={reports[currentReport - 1]?.[commentField] as string}
               onChange={(e) => handleChange(commentField, e.target.value)}
               className="w-full p-3 border border-slate-200 rounded-lg resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-slate-50"
               rows={2}
@@ -490,7 +606,8 @@ export default function ManagersWeeklyAuditPage() {
       'visible_repairs_needed','window_restrictors_ok','previous_issues_resolved','communal_outdoor_safe'
     ];
 
-    const missing = required.filter(f => !data[f].trim());
+    const active = reports[currentReport - 1] ?? data;
+    const missing = required.filter(f => !active[f].trim());
     setErrors(missing as string[]);
     if (missing.length > 0) {
       const el = document.querySelector(`[data-field="${missing[0]}"]`);
@@ -509,7 +626,7 @@ export default function ManagersWeeklyAuditPage() {
     if (!activeWorkspace?.id) return alert('No active workspace selected. Please choose a workspace before saving audits.');
 
     const payload = {
-      ...data,
+      ...(reports[currentReport - 1] ?? data),
       comments: finalComments,
       createActionPlan: !!createActionPlan,
   createdBy: user?.id ?? null,
@@ -518,11 +635,32 @@ export default function ManagersWeeklyAuditPage() {
 
     try {
       setSaving(true);
+      // Save to audits collection
       const id = await saveAudit(payload, activeWorkspace.id);
       setSavedAuditId(id);
-      const completedAt = data.date || new Date().toISOString();
-      await markAuditCompleted(activeWorkspace.id, 'managers-weekly', completedAt);
-      alert('Audit saved');
+
+      // Also save a monthly snapshot for tracking weekly reports
+      const snapshotId = await saveAuditSnapshot(activeWorkspace.id, 'managers-weekly', payload);
+
+      // Re-read snapshots to compute progress
+      const snapshots = await getMonthlyAuditSnapshots(activeWorkspace.id);
+      const count = (snapshots && Array.isArray(snapshots['managers-weekly'])) ? snapshots['managers-weekly'].length : 0;
+      setSavedCount(count);
+
+      const completedAt = (reports[currentReport - 1]?.date) || new Date().toISOString();
+      // If this was the 4th saved report this month, run the full completion workflow
+      if (count >= 4) {
+        try {
+          await markAuditCompletedWithSnapshot(activeWorkspace.id, 'managers-weekly', payload, completedAt);
+          alert('Audit saved — monthly weekly audit complete (snapshot, PDF and action plans generated)');
+        } catch (err) {
+          // Fallback to marking completed if the withSnapshot helper fails
+          await markAuditCompleted(activeWorkspace.id, 'managers-weekly', completedAt);
+          alert('Audit saved and marked completed (with errors generating snapshot/pdf/action plans)');
+        }
+      } else {
+        alert(`Audit saved — progress ${count}/4`);
+      }
     } catch (e) {
       // eslint-disable-next-line no-console
       console.warn('Failed to save managers-weekly audit', e);
@@ -533,6 +671,9 @@ export default function ManagersWeeklyAuditPage() {
   };
 
   const addNewReport = () => {
+    // increment visible report slots (up to 4) and reset form for next report
+    setTotalReports(prev => Math.min(4, prev + 1));
+
     setData({
       home: '',
       date: '',
@@ -638,9 +779,31 @@ export default function ManagersWeeklyAuditPage() {
       communal_outdoor_safe: '',
       communal_outdoor_safe_comment: '',
     });
-
     setErrors([]);
   };
+
+  // Load saved snapshot count for this month
+  React.useEffect(() => {
+    let mounted = true;
+    const loadCount = async () => {
+      if (!activeWorkspace?.id) return;
+      try {
+        const snaps = await getMonthlyAuditSnapshots(activeWorkspace.id);
+        const count = (snaps && Array.isArray(snaps['managers-weekly'])) ? snaps['managers-weekly'].length : 0;
+        if (mounted) setSavedCount(count);
+      } catch (e) {
+        console.warn('Failed to load managers-weekly snapshot count', e);
+      }
+    };
+    loadCount();
+    return () => { mounted = false; };
+  }, [activeWorkspace?.id]);
+
+  // Sync the `data` object with currently selected report to keep validation and other logic consistent
+  React.useEffect(() => {
+    const active = reports[currentReport - 1] ?? emptyReport();
+    setData(active);
+  }, [currentReport, reports]);
 
   return (
     <div className="w-full p-10 bg-gradient-to-br from-slate-50 to-white rounded-3xl shadow-2xl mt-10 border border-slate-200">
@@ -656,7 +819,7 @@ export default function ManagersWeeklyAuditPage() {
                 type="text"
                 className={getFieldClassName('home', "w-full")}
                 name="home"
-                value={data.home}
+                value={reports[currentReport - 1]?.home}
                 onChange={(e) => handleChange('home', e.target.value)}
                 placeholder="Enter care home name"
                 required
@@ -669,7 +832,7 @@ export default function ManagersWeeklyAuditPage() {
                 type="date"
                 className={getFieldClassName('date', "w-full")}
                 name="date"
-                value={data.date}
+                value={reports[currentReport - 1]?.date}
                 onChange={(e) => handleChange('date', e.target.value)}
                 required
               />
@@ -681,7 +844,7 @@ export default function ManagersWeeklyAuditPage() {
                 type="text"
                 className={getFieldClassName('personCompletingAudit', "w-full")}
                 name="personCompletingAudit"
-                value={data.personCompletingAudit}
+                value={reports[currentReport - 1]?.personCompletingAudit}
                 onChange={(e) => handleChange('personCompletingAudit', e.target.value)}
                 placeholder="Full name and position"
                 required
@@ -742,9 +905,23 @@ export default function ManagersWeeklyAuditPage() {
 
             {/* Complete Audit Button */}
             <div className="flex justify-end">
-              <Button type="submit" className="px-6 py-3 bg-blue-800 hover:bg-blue-900 text-white rounded-xl shadow transition-all duration-150 font-medium disabled:opacity-50" disabled={saving}>
-                {saving ? 'Saving...' : 'Complete Audit'}
-              </Button>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => setCurrentReport(prev => Math.max(1, prev - 1))} className="inline-flex items-center justify-center px-2 py-1 rounded-md border border-gray-200 bg-white hover:bg-gray-50 text-sm" title="Previous report" disabled={currentReport <= 1}>
+                    ‹
+                  </button>
+                  <div className="text-sm text-gray-600 mr-2">Report {currentReport}/{totalReports}</div>
+                  <button type="button" onClick={() => setCurrentReport(prev => Math.min(totalReports, prev + 1))} className="inline-flex items-center justify-center px-2 py-1 rounded-md border border-gray-200 bg-white hover:bg-gray-50 text-sm" title="Next report" disabled={currentReport >= totalReports}>
+                    ›
+                  </button>
+                </div>
+                <button type="button" onClick={() => addNewReport()} className="inline-flex items-center justify-center px-3 py-2 rounded-md border border-gray-300 bg-white hover:bg-gray-50 text-sm" title="Add next report" disabled={totalReports >= 4}>
+                  +
+                </button>
+                <Button type="submit" className="px-6 py-3 bg-blue-800 hover:bg-blue-900 text-white rounded-xl shadow transition-all duration-150 font-medium disabled:opacity-50" disabled={saving}>
+                  {saving ? 'Saving...' : 'Complete Audit'}
+                </Button>
+              </div>
             </div>
           </form>
         </div>
