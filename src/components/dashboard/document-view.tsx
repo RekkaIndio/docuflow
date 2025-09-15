@@ -484,7 +484,7 @@ export function DocumentView({ document, onBack, responseContent, responseDetail
           </Button>
           <div className="flex flex-col min-w-0 flex-1">
             <h1 className="text-lg sm:text-xl font-headline font-semibold truncate">{document.name}</h1>
-            <p className="text-xs sm:text-sm text-muted-foreground truncate">Opened by {document.owner.name}</p>
+            <p className="text-xs sm:text-sm text-muted-foreground truncate">Opened by {document.owner?.name ?? 'Unknown'}</p>
           </div>
         </div>
         <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">

@@ -364,7 +364,7 @@ export default function PoliciesPage() {
           const lastCustomized = !isString && it.raw.lastCustomized;
           
           // All policies shown to users are completed
-          const isCompleted = false;
+          const isCompleted = true;
 
           return (
             <div
@@ -438,11 +438,26 @@ export default function PoliciesPage() {
                 })();
               }}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); try { window.dispatchEvent(new CustomEvent('navigate-to-document', { detail: { policyFile: fileName, documentName: title } })); } catch (err) { const url = isString ? `/policies/${encodeURIComponent(fileName)}` : (it.raw.url || `/policies/${encodeURIComponent(fileName)}`); window.open(url, '_blank'); } } }}
-              className={`group relative overflow-hidden rounded-2xl shadow-lg border transition-all duration-300 hover:shadow-xl hover:-translate-y-1 min-h-[200px] flex flex-col bg-white/90 border-blue-100 hover:border-blue-200 cursor-pointer focus:outline-none`}
+              className={`group relative overflow-hidden rounded-2xl shadow-lg border transition-all duration-300 hover:shadow-xl hover:-translate-y-1 min-h-[200px] flex flex-col ${
+                isCompleted 
+                  ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200 hover:border-green-300' 
+                  : 'bg-white/90 border-blue-100 hover:border-blue-200'
+              }`}
             >
+              {/* Subtle background pattern for completed cards */}
+              {isCompleted && (
+                <div className="absolute inset-0 opacity-5 pointer-events-none">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-green-400 rounded-full -translate-y-16 translate-x-16"></div>
+                  <div className="absolute bottom-0 left-0 w-24 h-24 bg-emerald-400 rounded-full translate-y-12 -translate-x-12"></div>
+                </div>
+              )}
               <div className="relative p-6 flex flex-col flex-grow">
                 <div className="flex items-start justify-between mb-4">
-                  <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-sm bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm ${
+                    isCompleted 
+                      ? 'bg-green-500 text-white' 
+                      : 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white'
+                  }`}>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-current">
                       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                       <polyline points="14,2 14,8 20,8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -451,7 +466,9 @@ export default function PoliciesPage() {
                 </div>
                 
                 <div className="space-y-2 flex-grow">
-                  <h3 className="font-semibold text-lg leading-tight text-blue-900 group-hover:text-blue-800">
+                  <h3 className={`font-semibold text-lg leading-tight ${
+                    isCompleted ? 'text-green-800' : 'text-blue-900 group-hover:text-blue-800'
+                  }`}>
                     {title}
                   </h3>
                   <p className="text-sm text-gray-600 leading-relaxed">
@@ -461,8 +478,8 @@ export default function PoliciesPage() {
                 
                 {/* Show renewal date if available */}
                 {reviewDate && (
-                  <div className="mt-4 pt-4 border-t border-blue-200">
-                    <div className="flex items-center justify-between text-xs text-blue-700">
+                  <div className={`mt-4 pt-4 border-t ${isCompleted ? 'border-green-200' : 'border-blue-200'}`}>
+                    <div className={`flex items-center justify-between text-xs ${isCompleted ? 'text-green-700' : 'text-blue-700'}`}>
                       <span>Renewal Date</span>
                       <span className="font-medium">{formatDateSafe(reviewDate)}</span>
                     </div>
@@ -471,7 +488,9 @@ export default function PoliciesPage() {
               </div>
               
               {/* Bottom accent bar */}
-              <div className="absolute left-0 bottom-0 h-1 w-full bg-gradient-to-r from-blue-500 to-indigo-600"></div>
+              <div className={`absolute left-0 bottom-0 h-1 w-full transition-all duration-300 ${
+                isCompleted ? 'bg-gradient-to-r from-green-500 to-emerald-500' : 'bg-gradient-to-r from-blue-500 to-indigo-600'
+              }`}></div>
             </div>
           );
         });
