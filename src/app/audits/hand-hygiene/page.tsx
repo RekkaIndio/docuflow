@@ -1,10 +1,9 @@
 "use client";
 import React, { useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, FileText } from "lucide-react";
 import { useAuth } from '@/hooks/use-auth';
 import { saveAudit, markAuditCompleted } from '@/lib/firestore';
 import { useWorkspace } from '@/context/workspace';
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -302,7 +301,7 @@ export default function HandHygieneAuditPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto p-10 bg-gradient-to-br from-slate-50 to-white rounded-3xl shadow-2xl mt-10 border border-slate-200">
+    <div className="w-full p-10 bg-gradient-to-br from-slate-50 to-white rounded-3xl shadow-2xl mt-10 border border-slate-200">
       <div className="flex flex-col lg:flex-row gap-10">
         {/* Left panel for details, sticky and NOT part of the form */}
         <div className="w-full lg:w-[480px] flex-shrink-0 bg-white rounded-2xl p-10 border border-slate-200 shadow-xl mb-8 lg:mb-0 lg:sticky lg:top-10 self-start h-fit">
@@ -350,8 +349,8 @@ export default function HandHygieneAuditPage() {
           </div>
         </div>
 
-        {/* Main form right column, scrollable */}
-        <div className="flex-1 min-w-0 max-h-[calc(100vh-6rem)] overflow-y-auto pr-2">
+  {/* Main form right column, scrolls with page */}
+  <div className="flex-1 min-w-0 pr-2">
           <form onSubmit={(e) => { e.preventDefault(); handleCompleteAudit(); }} className="flex flex-col gap-8">
             {sections.map((section, idx) => (
               <div key={section.name} className="bg-white rounded-2xl border border-slate-200 shadow-md transition-shadow hover:shadow-lg">
@@ -573,9 +572,11 @@ export default function HandHygieneAuditPage() {
             ))}
 
             {/* Complete Audit Button */}
-            <Button type="submit" className="w-full h-14 text-lg font-bold mt-4 bg-blue-800 hover:bg-blue-900 text-white rounded-xl shadow transition-all duration-150 disabled:opacity-60" disabled={saving}>
-              {saving ? "Saving..." : "Complete Audit"}
-            </Button>
+            <div className="flex justify-end">
+              <button type="button" onClick={handleCompleteAudit} disabled={saving} className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                {saving ? 'Saving...' : 'Complete Audit'}
+              </button>
+            </div>
           </form>
         </div>
       </div>
