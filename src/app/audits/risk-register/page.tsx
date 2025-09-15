@@ -187,7 +187,7 @@ export default function RiskRegisterAuditPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-6 bg-white">
+  <div className="w-full p-6 bg-white">
       <div className="mb-6">
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-2xl font-bold text-gray-900">Risk Register Audit</h1>

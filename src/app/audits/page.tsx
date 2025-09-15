@@ -8,6 +8,7 @@ import { getAuditSchedule, setAuditSchedule, getAuditStatus, getMonthlyAuditComp
 import AccidentIncidentAuditPage from "./accident-incident/page";
 import CallBellMonitoringAuditPage from "./call-bell-monitoring/page";
 import CarePlanAuditPage from "./care-plan/page";
+import MedicationAuditPage from "./medication/page";
 import AuditHeader from '@/components/audit-header';
 import EquipmentAuditPage from "./equipment/page";
 import FireSafetyAuditPage from "./fire-safety/page";
@@ -17,6 +18,7 @@ import InfectionControlAuditPage from "./infection-control/page";
 import KitchenAuditPage from "./kitchen/page";
 import MaintenanceAuditPage from "./maintenance/page";
 import ManagersWeeklyAuditPage from "./managers-weekly/page";
+import ManagersMonthlyAuditPage from "./managers-monthly/page";
 import MealtimeAuditPage from "./mealtime/page";
 import NightVisitAuditPage from "./night-visit/page";
 import RestrictivePracticeAuditPage from "./restrictive-practice/page";
@@ -74,7 +76,7 @@ export default function AuditsPage() {
       console.warn('Failed to subscribe to audit schedules/status', e);
     }
   }, [activeWorkspace?.id]);
-  const [currentView, setCurrentView] = useState<'list' | 'accident-incident' | 'call-bell-monitoring' | 'care-plan' | 'equipment' | 'fire-safety' | 'hand-hygiene' | 'health-safety' | 'infection-control' | 'kitchen' | 'maintenance' | 'managers-weekly' | 'night-visit' | 'restrictive-practice' | 'staff-file' | 'weight-monitoring' | 'wound-monitoring' | 'mealtime' | 'risk-register'>('list');
+  const [currentView, setCurrentView] = useState<'list' | 'accident-incident' | 'call-bell-monitoring' | 'care-plan' | 'medication' | 'equipment' | 'fire-safety' | 'hand-hygiene' | 'health-safety' | 'infection-control' | 'kitchen' | 'maintenance' | 'managers-weekly' | 'managers-monthly' | 'night-visit' | 'restrictive-practice' | 'staff-file' | 'weight-monitoring' | 'wound-monitoring' | 'mealtime' | 'risk-register'>('list');
 
   // Check if we should auto-open a specific audit (from compliance card clicks)
   useEffect(() => {
@@ -83,9 +85,11 @@ export default function AuditsPage() {
       // Clear the stored audit type
       localStorage.removeItem('openAuditType');
       // Set the current view to the specified audit type
-      if (openAuditType === 'accident-incident' || 
+  if (openAuditType === 'accident-incident' || 
           openAuditType === 'call-bell-monitoring' ||
           openAuditType === 'care-plan' ||
+      openAuditType === 'medication' ||
+      openAuditType === 'managers-monthly' ||
           openAuditType === 'equipment' ||
           openAuditType === 'fire-safety' ||
           openAuditType === 'hand-hygiene' ||
@@ -271,6 +275,15 @@ export default function AuditsPage() {
     );
   }
 
+  if (currentView === 'medication') {
+    return (
+      <div>
+        <AuditHeader title="Medication Audit" subtitle="Medication management and safety" onBack={() => setCurrentView('list')} />
+        <MedicationAuditPage />
+      </div>
+    );
+  }
+
   if (currentView === 'equipment') {
     return (
       <div>
@@ -339,6 +352,15 @@ export default function AuditsPage() {
       <div>
         <AuditHeader title="Meal Time Audit" subtitle="Monitor meal service quality" onBack={() => setCurrentView('list')} />
         <MealtimeAuditPage />
+      </div>
+    );
+  }
+
+  if (currentView === 'managers-monthly') {
+    return (
+      <div>
+        <AuditHeader title="Managers Monthly Audit" subtitle="Comprehensive monthly leadership checks" onBack={() => setCurrentView('list')} />
+        <ManagersMonthlyAuditPage />
       </div>
     );
   }
@@ -469,6 +491,14 @@ export default function AuditsPage() {
         />
 
         <AuditCard
+          auditType="medication"
+          title="Medication Audit"
+          description="Medication management and safety"
+          colorClass="bg-emerald-600"
+          onClick={() => handleAuditCardClick('medication')}
+        />
+
+        <AuditCard
           auditType="equipment"
           title="Equipment Audit"
           description="Check equipment safety and maintenance"
@@ -562,6 +592,14 @@ export default function AuditsPage() {
           description="Weekly leadership checks"
           colorClass="bg-slate-600"
           onClick={() => handleAuditCardClick('managers-weekly')}
+        />
+
+        <AuditCard
+          auditType="managers-monthly"
+          title="Managers Monthly Audit"
+          description="Comprehensive monthly leadership checks"
+          colorClass="bg-slate-700"
+          onClick={() => handleAuditCardClick('managers-monthly')}
         />
 
         <AuditCard

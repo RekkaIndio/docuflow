@@ -7,6 +7,9 @@ export const dynamic = 'force-dynamic';
 import { useAuth } from '@/hooks/use-auth';
 import { saveAudit, markAuditCompleted } from '@/lib/firestore';
 import { ChevronDown, ChevronUp, FileText } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 
 interface ManagersWeeklyData {
   home: string;
@@ -397,11 +400,10 @@ export default function ManagersWeeklyAuditPage() {
     return errors.includes(fieldName);
   };
 
-  const getFieldClassName = (fieldName: string) => {
-    const baseClasses = "w-full p-2 border rounded";
+  const getFieldClassName = (fieldName: string, baseClassName: string) => {
     return getFieldError(fieldName)
-      ? `${baseClasses} border-red-500 bg-red-50`
-      : `${baseClasses} border-gray-300`;
+      ? `${baseClassName} border-red-500 bg-red-50 focus:ring-red-500 focus:border-red-500`
+      : baseClassName;
   };
 
   const handleChange = (field: keyof ManagersWeeklyData, value: string) => {
@@ -411,36 +413,64 @@ export default function ManagersWeeklyAuditPage() {
 
   const YesNoQuestion = ({ field, label }: { field: string; label: string }) => {
     const yesNoField = field as keyof ManagersWeeklyData;
+    const commentField = `${field}_comment` as keyof ManagersWeeklyData;
     const hasError = getFieldError(field);
-
     return (
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">{label}</label>
-        <div className="flex gap-4 items-center" data-field={field}>
-          <label className="flex items-center">
-            <input
-              type="radio"
-              name={field}
-              value="Yes"
-              checked={data[yesNoField] === 'Yes'}
-              onChange={(e) => handleChange(yesNoField, e.target.value)}
-              className="mr-2"
+      <div className="bg-slate-50 p-4 rounded-lg border border-slate-200" data-field={field}>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+            <div className="flex gap-4">
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="radio"
+                  name={field}
+                  value="Yes"
+                  checked={data[yesNoField] === 'Yes'}
+                  onChange={(e) => handleChange(yesNoField, e.target.value)}
+                  className="mr-2 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-sm text-gray-700">Yes</span>
+              </label>
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="radio"
+                  name={field}
+                  value="No"
+                  checked={data[yesNoField] === 'No'}
+                  onChange={(e) => handleChange(yesNoField, e.target.value)}
+                  className="mr-2 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-sm text-gray-700">No</span>
+              </label>
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="radio"
+                  name={field}
+                  value="N/A"
+                  checked={data[yesNoField] === 'N/A'}
+                  onChange={(e) => handleChange(yesNoField, e.target.value)}
+                  className="mr-2 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-sm text-gray-700">N/A</span>
+              </label>
+            </div>
+            {errors.includes(yesNoField as string) && (
+              <p className="text-red-500 text-sm mt-1">This field is required</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Comments</label>
+            <Textarea
+              value={data[commentField] as string}
+              onChange={(e) => handleChange(commentField, e.target.value)}
+              className="w-full p-3 border border-slate-200 rounded-lg resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-slate-50"
+              rows={2}
+              placeholder="Add any comments or observations..."
             />
-            Yes
-          </label>
-          <label className="flex items-center">
-            <input
-              type="radio"
-              name={field}
-              value="No"
-              checked={data[yesNoField] === 'No'}
-              onChange={(e) => handleChange(yesNoField, e.target.value)}
-              className="mr-2"
-            />
-            No
-          </label>
+          </div>
         </div>
-        {hasError && <p className="text-red-500 text-sm">This field is required</p>}
       </div>
     );
   };
@@ -613,206 +643,127 @@ export default function ManagersWeeklyAuditPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="max-w-7xl mx-auto p-6">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-4">
-            <FileText className="h-8 w-8 text-blue-600" />
-            <h1 className="text-3xl font-bold text-gray-900">Weekly Managers Walkaround Audit</h1>
+    <div className="w-full p-10 bg-gradient-to-br from-slate-50 to-white rounded-3xl shadow-2xl mt-10 border border-slate-200">
+      <div className="flex flex-col lg:flex-row gap-10">
+        {/* Left panel for details, sticky and NOT part of the form */}
+        <div className="w-full lg:w-[480px] flex-shrink-0 bg-white rounded-2xl p-10 border border-slate-200 shadow-xl mb-8 lg:mb-0 lg:sticky lg:top-10 self-start h-fit">
+          <h1 className="text-3xl font-extrabold mb-2 text-blue-900 tracking-tight">Weekly Managers Walkaround Audit</h1>
+          <p className="mb-4 text-slate-500">Comprehensive weekly assessment of care home operations. All fields required.</p>
+          <div className="space-y-4 mt-4">
+            <div>
+              <label className="block font-semibold mb-1 text-slate-700">Home/Care Facility</label>
+              <Input
+                type="text"
+                className={getFieldClassName('home', "w-full")}
+                name="home"
+                value={data.home}
+                onChange={(e) => handleChange('home', e.target.value)}
+                placeholder="Enter care home name"
+                required
+              />
+              {getFieldError('home') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+            </div>
+            <div>
+              <label className="block font-semibold mb-1 text-slate-700">Audit Date</label>
+              <Input
+                type="date"
+                className={getFieldClassName('date', "w-full")}
+                name="date"
+                value={data.date}
+                onChange={(e) => handleChange('date', e.target.value)}
+                required
+              />
+              {getFieldError('date') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+            </div>
+            <div>
+              <label className="block font-semibold mb-1 text-slate-700">Person Completing Audit</label>
+              <Input
+                type="text"
+                className={getFieldClassName('personCompletingAudit', "w-full")}
+                name="personCompletingAudit"
+                value={data.personCompletingAudit}
+                onChange={(e) => handleChange('personCompletingAudit', e.target.value)}
+                placeholder="Full name and position"
+                required
+              />
+              {getFieldError('personCompletingAudit') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+            </div>
           </div>
-          <p className="text-gray-600 text-lg">
-            Comprehensive weekly assessment of care home operations, covering environment, safety, resident experience, and staff practices.
-          </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Panel - Audit Information */}
-          <div className="lg:col-span-1">
-            <div className="bg-gray-50 rounded-lg p-6 sticky top-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Audit Information
-              </h2>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Home</label>
-                  <input
-                    value={data.home}
-                    data-field="home"
-                    onChange={(e) => handleChange('home', e.target.value)}
-                    className={getFieldClassName('home')}
-                    placeholder="Enter home name"
-                  />
-                  {getFieldError('home') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
-                  <input
-                    type="date"
-                    value={data.date}
-                    data-field="date"
-                    onChange={(e) => handleChange('date', e.target.value)}
-                    className={getFieldClassName('date')}
-                  />
-                  {getFieldError('date') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Person Completing the Audit</label>
-                  <input
-                    value={data.personCompletingAudit}
-                    data-field="personCompletingAudit"
-                    onChange={(e) => handleChange('personCompletingAudit', e.target.value)}
-                    className={getFieldClassName('personCompletingAudit')}
-                    placeholder="Enter auditor name"
-                  />
-                  {getFieldError('personCompletingAudit') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
-                </div>
-              </div>
-
-              {/* Report Navigation */}
-              <div className="mt-6 pt-6 border-t border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setCurrentReport(Math.max(1, currentReport - 1))}
-                      className="p-1 hover:bg-gray-100 rounded"
-                      disabled={currentReport === 1}
-                    >
-                      ←
-                    </button>
-                    <span className="text-sm text-gray-600">Report {currentReport} of {totalReports}</span>
-                    <button
-                      onClick={() => setCurrentReport(Math.min(totalReports, currentReport + 1))}
-                      className="p-1 hover:bg-gray-100 rounded"
-                      disabled={currentReport === totalReports}
-                    >
-                      →
-                    </button>
+        {/* Main form right column, scrollable */}
+        <div className="flex-1 min-w-0 pr-2">
+          <form onSubmit={(e) => { e.preventDefault(); handleComplete(); }} className="flex flex-col gap-8">
+            {sections.map((section, index) => (
+              <div key={index} className="bg-white rounded-2xl border border-slate-200 shadow-md transition-shadow hover:shadow-lg">
+                <button
+                  type="button"
+                  className="w-full flex items-center justify-between px-8 py-5 text-left font-semibold text-blue-900 text-lg focus:outline-none hover:bg-slate-50 rounded-t-2xl transition-colors"
+                  onClick={() => toggleSection(section.id)}
+                >
+                  <div className="flex items-center gap-3">
+                    <FileText className="h-5 w-5 text-gray-600" />
+                    <h3 className="text-lg font-semibold text-gray-900">{section.title}</h3>
                   </div>
-                  <button
-                    onClick={addNewReport}
-                    className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Right Panel - Audit Sections */}
-          <div className="lg:col-span-2">
-            <div className="space-y-6">
-              {sections.map((section) => (
-                <div key={section.id} className="bg-white border border-gray-200 rounded-lg shadow-sm">
-                  <button
-                    onClick={() => toggleSection(section.id)}
-                    className={`w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 transition-colors ${
-                      section.color === 'green' ? 'border-l-4 border-green-500' :
-                      section.color === 'yellow' ? 'border-l-4 border-yellow-500' :
-                      section.color === 'pink' ? 'border-l-4 border-pink-500' :
-                      section.color === 'amber' ? 'border-l-4 border-amber-500' :
-                      'border-l-4 border-indigo-500'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-3 h-3 rounded-full ${
-                        section.color === 'green' ? 'bg-green-500' :
-                        section.color === 'yellow' ? 'bg-yellow-500' :
-                        section.color === 'pink' ? 'bg-pink-500' :
-                        section.color === 'amber' ? 'bg-amber-500' :
-                        'bg-indigo-500'
-                      }`} />
-                      <h3 className="text-lg font-semibold text-gray-900">{section.title}</h3>
-                    </div>
-                    {openSections[section.id] ? (
-                      <ChevronUp className="h-5 w-5 text-gray-500" />
-                    ) : (
-                      <ChevronDown className="h-5 w-5 text-gray-500" />
-                    )}
-                  </button>
-
-                  {openSections[section.id] && (
-                    <div className="px-6 pb-6">
-                      <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-                        <p className="text-sm text-gray-600">{section.guidance}</p>
-                      </div>
-
-                      <div className="space-y-6">
-                        {section.questions.map((question) => (
-                          <YesNoQuestion
-                            key={question.field}
-                            field={question.field}
-                            label={question.label}
-                          />
-                        ))}
-                      </div>
-                    </div>
+                  {openSections[section.id] ? (
+                    <ChevronUp className="h-5 w-5 text-gray-500" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5 text-gray-500" />
                   )}
-                </div>
-              ))}
-
-              {/* Final Comments */}
-              <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Final Comments</h3>
-                <textarea
-                  value={finalComments}
-                  onChange={(e) => setFinalComments(e.target.value)}
-                  rows={4}
-                  placeholder="Add any final comments or observations for this audit"
-                  className="w-full p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-
-              {/* Complete Audit Button */}
-              <div className="flex justify-center pt-6">
-                <button
-                  onClick={handleComplete}
-                  className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-semibold transition-colors shadow-sm"
-                >
-                  Complete Audit
                 </button>
+
+                {openSections[section.id] && (
+                  <div className="px-8 pb-8">
+                    <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+                      <p className="text-sm text-gray-600">{section.guidance}</p>
+                    </div>
+
+                    <div className="space-y-4">
+                      {section.questions.map((question, qIndex) => (
+                        <YesNoQuestion key={qIndex} label={question.label} field={question.field} />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
+            ))}
+
+            {/* Comments Section */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-md p-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Final Comments</label>
+              <Textarea
+                value={finalComments}
+                onChange={(e) => setFinalComments(e.target.value)}
+                rows={4}
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-200"
+                placeholder="Add any final comments or observations for this audit"
+              />
+            </div>
+
+            {/* Complete Audit Button */}
+            <div className="flex justify-end">
+              <Button type="submit" className="px-6 py-3 bg-blue-800 hover:bg-blue-900 text-white rounded-xl shadow transition-all duration-150 font-medium disabled:opacity-50" disabled={saving}>
+                {saving ? 'Saving...' : 'Complete Audit'}
+              </Button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      {/* Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md mx-4">
+            <h3 className="text-lg font-semibold mb-4">Audit Complete</h3>
+            <p className="text-gray-600 mb-6">Would you like to create an action plan for this audit?</p>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => handleModalCreate(false)} className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50" disabled={saving}>{saving ? 'Saving...' : 'No'}</button>
+              <button onClick={() => handleModalCreate(true)} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700" disabled={saving}>{saving ? 'Saving...' : 'Yes, Create Action Plan'}</button>
+              <button onClick={() => handleModalCreate(false)} className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700" disabled={saving}>{saving ? 'Saving...' : 'Save and Close'}</button>
             </div>
           </div>
         </div>
-
-        {/* Completion Modal */}
-        {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
-              <h3 className="text-lg font-semibold mb-4">Audit Completed</h3>
-              <p className="text-gray-600 mb-6">Would you like to create an action plan based on this audit?</p>
-              <div className="flex gap-3 justify-end">
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
-                >
-                  No, thanks
-                </button>
-                <button
-                  onClick={() => handleModalCreate(false)}
-                  disabled={saving}
-                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                >
-                  {saving ? 'Saving...' : 'Save Audit'}
-                </button>
-                <button
-                  onClick={() => handleModalCreate(true)}
-                  disabled={saving}
-                  className="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700"
-                >
-                  {saving ? 'Saving...' : 'Save & Create Action Plan'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }

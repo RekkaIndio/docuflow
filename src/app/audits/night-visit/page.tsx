@@ -1,12 +1,15 @@
 "use client";
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronDown, ChevronUp, FileText } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
 import { useWorkspace } from '@/context/workspace';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
-import { useAuth } from '@/hooks/use-auth';
 import { saveAudit, markAuditCompleted } from '@/lib/firestore';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 interface NightVisitData {
   home: string;
@@ -238,24 +241,12 @@ export default function NightVisitAuditPage() {
   ];
 
   // Helper functions
-  const getFieldError = (fieldName: string) => {
-    return errors.find(error => error.includes(fieldName));
-  };
+  const hasError = (fieldName: string) => errors.includes(fieldName);
 
-  const getFieldClassName = (fieldName: string) => {
-    const hasError = getFieldError(fieldName);
-    return hasError
-      ? "border-red-500 bg-red-50 focus:border-red-500 focus:ring-red-500"
-      : "border-gray-300 focus:border-blue-500 focus:ring-blue-500";
-  };
-
-  const handleYesNoChange = (fieldName: string, value: string) => {
-    setData(prev => ({
-      ...prev,
-      [fieldName]: value
-    }));
-    // Clear any errors for this field
-    setErrors(prev => prev.filter(error => !error.includes(fieldName)));
+  const getFieldClassName = (fieldName: string, baseClassName: string) => {
+    return hasError(fieldName)
+      ? `${baseClassName} border-red-500 bg-red-50 focus:ring-red-500 focus:border-red-500`
+      : baseClassName;
   };
 
   const [data, setData] = useState<NightVisitData>({
@@ -361,34 +352,77 @@ export default function NightVisitAuditPage() {
     if (value.trim() !== '' && errors.includes(field)) setErrors(prev => prev.filter(e => e !== field));
   };
 
-  const YesNoQuestion = ({ label, yesNoField }: { label: string; yesNoField: string; }) => (
-    <div className="space-y-2">
-      <label className="block text-sm font-medium text-gray-700">{label}</label>
-      <div className="flex gap-4 items-center" data-field={yesNoField}>
-        <label className="flex items-center">
-          <input
-            type="radio"
-            name={yesNoField}
-            value="Yes"
-            checked={data[yesNoField as keyof NightVisitData] === 'Yes'}
-            onChange={(e) => handleYesNoChange(yesNoField, e.target.value)}
-            className="mr-2 text-blue-600 focus:ring-blue-500"
+  const YesNoQuestion = ({
+    label,
+    yesNoField,
+    commentField,
+    yesNoValue,
+    commentValue,
+    onYesNoChange,
+    onCommentChange
+  }: {
+    label: string;
+    yesNoField: string;
+    commentField: string;
+    yesNoValue: string;
+    commentValue: string;
+    onYesNoChange: (value: string) => void;
+    onCommentChange: (value: string) => void;
+  }) => (
+    <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+      <div className="space-y-3">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+          <div className="flex gap-4" data-field={yesNoField}>
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="radio"
+                name={yesNoField}
+                value="Yes"
+                checked={yesNoValue === 'Yes'}
+                onChange={(e) => onYesNoChange(e.target.value)}
+                className="mr-2 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-700">Yes</span>
+            </label>
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="radio"
+                name={yesNoField}
+                value="No"
+                checked={yesNoValue === 'No'}
+                onChange={(e) => onYesNoChange(e.target.value)}
+                className="mr-2 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-700">No</span>
+            </label>
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="radio"
+                name={yesNoField}
+                value="N/A"
+                checked={yesNoValue === 'N/A'}
+                onChange={(e) => onYesNoChange(e.target.value)}
+                className="mr-2 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-700">N/A</span>
+            </label>
+          </div>
+          {errors.includes(yesNoField) && (
+            <p className="text-red-500 text-sm mt-1">This field is required</p>
+          )}
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Comments</label>
+          <textarea
+            value={commentValue}
+            onChange={(e) => onCommentChange(e.target.value)}
+            className="w-full p-3 border border-slate-200 rounded-lg resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-slate-50"
+            rows={2}
+            placeholder="Add any comments or observations..."
           />
-          Yes
-        </label>
-        <label className="flex items-center">
-          <input
-            type="radio"
-            name={yesNoField}
-            value="No"
-            checked={data[yesNoField as keyof NightVisitData] === 'No'}
-            onChange={(e) => handleYesNoChange(yesNoField, e.target.value)}
-            className="mr-2 text-blue-600 focus:ring-blue-500"
-          />
-          No
-        </label>
+        </div>
       </div>
-      {getFieldError(yesNoField) && <p className="text-red-500 text-sm">This field is required</p>}
     </div>
   );
 
@@ -477,7 +511,7 @@ export default function NightVisitAuditPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <div className="max-w-7xl mx-auto p-6">
+  <div className="w-full p-6">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Night Visit Audit</h1>
           <p className="text-gray-600">Comprehensive assessment of night-time care and safety procedures</p>
@@ -494,38 +528,41 @@ export default function NightVisitAuditPage() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Home</label>
-                  <input
+                  <Input
                     type="text"
+                    className={getFieldClassName('home', "w-full")}
+                    name="home"
                     value={data.home}
-                    onChange={(e) => handleChange('home', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg ${getFieldClassName('home')}`}
+                    onChange={(e: any) => handleChange('home', e.target.value)}
                     placeholder="Enter home name"
                     data-field="home"
                   />
-                  {getFieldError('home') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
+                  {hasError('home') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
-                  <input
+                  <Input
                     type="date"
+                    className={getFieldClassName('date', "w-full")}
+                    name="date"
                     value={data.date}
-                    onChange={(e) => handleChange('date', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg ${getFieldClassName('date')}`}
+                    onChange={(e: any) => handleChange('date', e.target.value)}
                     data-field="date"
                   />
-                  {getFieldError('date') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
+                  {hasError('date') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Person Completing Audit</label>
-                  <input
+                  <Input
                     type="text"
+                    className={getFieldClassName('personCompletingAudit', "w-full")}
+                    name="personCompletingAudit"
                     value={data.personCompletingAudit}
-                    onChange={(e) => handleChange('personCompletingAudit', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg ${getFieldClassName('personCompletingAudit')}`}
+                    onChange={(e: any) => handleChange('personCompletingAudit', e.target.value)}
                     placeholder="Enter auditor name"
                     data-field="personCompletingAudit"
                   />
-                  {getFieldError('personCompletingAudit') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
+                  {hasError('personCompletingAudit') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
                 </div>
               </div>
             </div>
@@ -559,13 +596,22 @@ export default function NightVisitAuditPage() {
                   {openSections[index] && (
                     <div className="px-6 py-6 bg-gray-50">
                       <div className="space-y-6">
-                        {section.questions.map((question, qIndex) => (
-                          <YesNoQuestion
-                            key={qIndex}
-                            label={question.label}
-                            yesNoField={question.yesNoField}
-                          />
-                        ))}
+                        {section.questions.map((question, qIndex) => {
+                          const yesField = question.yesNoField as keyof NightVisitData;
+                          const commentField = `${question.yesNoField}_comment` as keyof NightVisitData;
+                          return (
+                            <YesNoQuestion
+                              key={qIndex}
+                              label={question.label}
+                              yesNoField={yesField as string}
+                              commentField={commentField as string}
+                              yesNoValue={data[yesField]}
+                              commentValue={(data as any)[commentField]}
+                              onYesNoChange={(value: string) => handleChange(yesField, value)}
+                              onCommentChange={(value: string) => handleChange(commentField, value)}
+                            />
+                          );
+                        })}
                       </div>
                     </div>
                   )}

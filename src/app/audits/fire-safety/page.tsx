@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect } from "react";
 import { useWorkspace } from '@/context/workspace';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, FileText } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -521,7 +521,7 @@ export default function FireSafetyAuditPage() {
   );
 
   return (
-    <div className="max-w-7xl mx-auto p-10 bg-gradient-to-br from-slate-50 to-white rounded-3xl shadow-2xl mt-10 border border-slate-200">
+  <div className="w-full p-10 bg-gradient-to-br from-slate-50 to-white rounded-3xl shadow-2xl mt-10 border border-slate-200">
       <div className="flex flex-col lg:flex-row gap-10">
         {/* Left panel for details, sticky and NOT part of the form */}
         <div className="w-full lg:w-[480px] flex-shrink-0 bg-white rounded-2xl p-10 border border-slate-200 shadow-xl mb-8 lg:mb-0 lg:sticky lg:top-10 self-start h-fit">
@@ -568,8 +568,8 @@ export default function FireSafetyAuditPage() {
             </div>
           </div>
         </div>
-        {/* Main form right column, scrollable */}
-        <div className="flex-1 min-w-0 max-h-[calc(100vh-6rem)] overflow-y-auto pr-2">
+  {/* Main form right column, scrolls with page like care-plan */}
+  <div className="flex-1 min-w-0 pr-2">
           <form onSubmit={(e) => { e.preventDefault(); handleCompleteAudit(); }} className="flex flex-col gap-8">
             {sections.map((section, idx) => (
               <div key={section.name} className="bg-white rounded-2xl border border-slate-200 shadow-md transition-shadow hover:shadow-lg">
@@ -578,13 +578,20 @@ export default function FireSafetyAuditPage() {
                   className="w-full flex items-center justify-between px-8 py-5 text-left font-semibold text-blue-900 text-lg focus:outline-none hover:bg-slate-50 rounded-t-2xl transition-colors"
                   onClick={() => toggleSection(idx)}
                 >
-                  <span>{section.label}</span>
-                  {openSections[idx] ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                  <div className="flex items-center gap-3">
+                    <FileText className="h-5 w-5 text-gray-600" />
+                    <h3 className="text-lg font-semibold text-gray-900">{section.label}</h3>
+                  </div>
+                  {openSections[idx] ? (
+                    <ChevronUp className="h-5 w-5 text-gray-500" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5 text-gray-500" />
+                  )}
                 </button>
                 {openSections[idx] && (
                   <div className="px-8 pb-8">
                     {section.guidance && (
-                      <ul className="mb-2 ml-4 list-disc text-sm text-slate-500 space-y-1">
+                      <ul className="mb-4 ml-4 list-disc text-sm text-slate-500 space-y-1">
                         {section.guidance.map((g, i) => (
                           <li key={i}>{g}</li>
                         ))}
@@ -997,9 +1004,16 @@ export default function FireSafetyAuditPage() {
                 className="w-full bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-200 h-32"
               />
             </div>
-            <Button type="submit" className="w-full h-14 text-lg font-bold mt-4 bg-blue-800 hover:bg-blue-900 text-white rounded-xl shadow transition-all duration-150 disabled:opacity-60" disabled={saving}>
-              {saving ? "Saving..." : "Complete Audit"}
-            </Button>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={handleCompleteAudit}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                disabled={saving}
+              >
+                {saving ? 'Saving...' : 'Complete Audit'}
+              </button>
+            </div>
           </form>
         </div>
       </div>
