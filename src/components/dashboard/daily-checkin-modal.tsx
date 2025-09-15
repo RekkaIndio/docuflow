@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -45,11 +45,7 @@ export default function DailyCheckinModal({ workspaceId, open: controlledOpen, o
   const [staffDay, setStaffDay] = useState<string>('');
   const [staffNight, setStaffNight] = useState<string>('');
   const [occupancy, setOccupancy] = useState<string>('');
-  // Steps mirror the sections from the weekly DailyPage
-  const steps = ['Occupancy', 'Staffing', 'Safeguards', 'Pre-admissions', 'Falls', 'Wounds', 'Infections', 'Review'];
-  const [step, setStep] = useState<number>(0);
-
-  // validation state for each step
+  // validation helpers
   const validateOccupancy = (v: string) => {
     if (!v || v.trim() === '') return false;
     // accept either 'num/num' or percentage or number
@@ -83,12 +79,43 @@ export default function DailyCheckinModal({ workspaceId, open: controlledOpen, o
   const [preAdmissionsCount, setPreAdmissionsCount] = useState<number | ''>('');
   const [showarounds, setShowarounds] = useState<string>('');
 
+  // parsed pills for showarounds (comma-separated)
+  const parsedShowarounds = (showarounds || '').split(',').map(s => s.trim()).filter(Boolean);
+
+  const removeShowaround = (name: string) => {
+    const next = parsedShowarounds.filter(s => s !== name);
+    setShowarounds(next.join(', '));
+  };
+
   const [woundsDetail, setWoundsDetail] = useState<string>('');
   const [woundTypes, setWoundTypes] = useState<{ [k:string]: number }>({ pressure: 0, break: 0, fracture: 0, bruise: 0, skintear: 0 });
 
   const [infectionsUti, setInfectionsUti] = useState<number | ''>('');
   const [infectionsChest, setInfectionsChest] = useState<number | ''>('');
   const [infectionsWound, setInfectionsWound] = useState<number | ''>('');
+
+  // Controlled accordion state: only one section open at a time
+  const [openSection, setOpenSection] = useState<string | null>(null);
+
+  const toggleSection = (name: string) => {
+    setOpenSection((prev) => (prev === name ? null : name));
+  };
+
+  // Progress calculation: consider key top-level sections as completed when they have meaningful values
+  const progress = useMemo(() => {
+    const checks = [
+      validateOccupancy(occupancy), // occupancy
+      validateStaffing(staffDay, staffNight), // staffing
+      Boolean((cqcNotifications !== '' && cqcNotifications !== null) || (safeguards !== '' && safeguards !== null)), // safeguards/CQC
+      Boolean((preAdmissionsCount !== '' && preAdmissionsCount !== null) || (showarounds && showarounds.trim() !== '')), // pre-admissions/showarounds
+      Boolean((fallsCount !== '' && Number(fallsCount) > 0) || (fallsEntries && fallsEntries.length > 0)), // falls
+      Boolean(Object.values(woundTypes || {}).reduce((s, v) => s + (Number(v) || 0), 0) > 0 || (woundsDetail && woundsDetail.trim() !== '')), // wounds
+      Boolean((infectionsUti !== '' && Number(infectionsUti) > 0) || (infectionsChest !== '' && Number(infectionsChest) > 0) || (infectionsWound !== '' && Number(infectionsWound) > 0)), // infections
+    ];
+    const completed = checks.filter(Boolean).length;
+    const total = checks.length || 1;
+    return Math.round((completed / total) * 100);
+  }, [occupancy, staffDay, staffNight, cqcNotifications, safeguards, preAdmissionsCount, showarounds, fallsCount, fallsEntries, woundTypes, woundsDetail, infectionsUti, infectionsChest, infectionsWound]);
 
   const addFallEntry = () => {
     const newEntry = { id: Date.now(), count: 0, injuries: '', witnessed: '', time: '' };
@@ -159,10 +186,7 @@ export default function DailyCheckinModal({ workspaceId, open: controlledOpen, o
           setInfectionsUti(d.infections?.uti ?? '');
           setInfectionsChest(d.infections?.chest ?? '');
           setInfectionsWound(d.infections?.wound ?? '');
-          // if loaded and core validations pass, show review step by default
-          if (validateOccupancy(d.occupancy ? String(d.occupancy) : '') && validateStaffing(String(d.staffingDay || ''), String(d.staffingNight || ''))) {
-            setStep(steps.length - 1);
-          }
+          // no step navigation in single-modal view; we simply load values
         } else {
           setExists(false);
           setStaffDay('');
@@ -231,224 +255,238 @@ export default function DailyCheckinModal({ workspaceId, open: controlledOpen, o
       <DialogTrigger asChild>
         {trigger || <span />}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[960px] p-0 max-h-[90vh] overflow-hidden">
-        {/* Accessibility: ensure a DialogTitle exists for screen readers per radix requirements */}
-        <DialogHeader className="sr-only">
-          <DialogTitle>Daily Check-in — {todayKey}</DialogTitle>
-        </DialogHeader>
-        {/* Dark hero header to match dashboard style */}
-        <div className="bg-gradient-to-br from-emerald-600 via-green-600 to-teal-600 text-white p-6 rounded-t-lg">
+  <DialogContent className="w-full sm:max-w-6xl p-0 max-h-[calc(100vh-3.5rem)] mx-auto my-6">
+        {/* Visually prominent header inspired by ResidentAssessmentEditModal */}
+        <div className="bg-gradient-to-r from-emerald-600 to-teal-600 px-8 py-4 rounded-t-2xl text-white relative">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
                 <Clock className="h-6 w-6 text-white" />
               </div>
               <div>
-                <DialogTitle className="text-2xl font-bold">Daily Check-in — {todayKey}</DialogTitle>
-                <p className="text-slate-300 text-sm mt-1">Record daily occupancy, staffing, and health metrics</p>
+                <DialogTitle className="text-lg font-semibold">Daily Check-in — {todayKey}</DialogTitle>
+                <p className="text-white/90 text-sm mt-1">Record occupancy, staffing, safeguards and clinical metrics</p>
+              </div>
+            </div>
+            <div className="flex flex-col items-end gap-2">
+              <div className="w-48">
+                <div className="text-right text-xs text-white/90 mb-1">{progress}% Complete</div>
+                <div className="w-full h-2 bg-white/20 rounded-full overflow-hidden">
+                  <div className="h-2 bg-white/90" style={{ width: `${progress}%` }} />
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="text-sm text-white/90">{exists ? 'Entry exists for today' : 'New entry'}</div>
+                <DialogClose asChild>
+                  <Button variant="ghost" className="text-white/90">Close</Button>
+                </DialogClose>
               </div>
             </div>
           </div>
+          
         </div>
 
-        <Card className="rounded-b-lg border-0 shadow-none max-h-[calc(90vh-120px)] overflow-y-auto">
-          <CardContent className="p-6">
-            <div className="space-y-6">
-              <StepIndicator steps={steps} current={step} />
-
-            {step === 0 && (
-              <div className="space-y-3">
+        <div className="bg-transparent rounded-b-2xl max-h-[calc(100vh-12rem)] overflow-hidden flex flex-col">
+          <div className="p-4 overflow-y-auto flex-1" style={{ WebkitOverflowScrolling: 'touch' }}>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              {/* Occupancy card */}
+              <div className="col-span-2 bg-slate-50 rounded-xl p-3 border border-gray-100">
+                <div className="flex items-center justify-between mb-2">
+                </div>
                 <div>
                   <Label className="mb-1">Occupancy</Label>
-                  <Input value={occupancy} onChange={(e) => setOccupancy(e.target.value)} placeholder="e.g. 12/20 or 60%" />
-                </div>
-                {!validateOccupancy(occupancy) && <div className="text-xs text-red-500">Please enter occupancy (e.g. 12/20 or 60%).</div>}
-              </div>
-            )}
-
-            {step === 1 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <Label className="mb-1">Day staff</Label>
-                  <Input value={staffDay} onChange={(e) => setStaffDay(e.target.value)} type="number" min={0} />
-                </div>
-                <div>
-                  <Label className="mb-1">Night staff</Label>
-                  <Input value={staffNight} onChange={(e) => setStaffNight(e.target.value)} type="number" min={0} />
-                </div>
-                {!validateStaffing(staffDay, staffNight) && <div className="text-xs text-red-500 col-span-full">Please enter valid non-negative numbers for day and night staff.</div>}
-              </div>
-            )}
-
-            {step === 2 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <Label className="mb-1">CQC Notifications</Label>
-                  <Input type="number" value={cqcNotifications as any} onChange={(e) => setCqcNotifications(e.target.value === '' ? '' : Number(e.target.value))} />
-                </div>
-                <div>
-                  <Label className="mb-1">Safeguards Raised</Label>
-                  <Input type="number" value={safeguards as any} onChange={(e) => setSafeguards(e.target.value === '' ? '' : Number(e.target.value))} />
+                  <input className="w-full bg-white rounded-md px-3 py-2 border border-gray-200 shadow-sm text-sm h-10" value={occupancy} onChange={(e) => setOccupancy(e.target.value)} placeholder="e.g. 12/20 or 60%" />
+                  {!validateOccupancy(occupancy) && <div className="text-xs text-red-500 mt-1">Please enter occupancy (e.g. 12/20 or 60%).</div>}
                 </div>
               </div>
-            )}
 
-            {step === 3 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <Label className="mb-1">Pre-admissions (count)</Label>
-                  <Input type="number" value={preAdmissionsCount as any} onChange={(e) => setPreAdmissionsCount(e.target.value === '' ? '' : Number(e.target.value))} />
-                </div>
-                <div>
-                  <Label className="mb-1">Showarounds (comma separated)</Label>
-                  <Textarea value={showarounds} onChange={(e) => setShowarounds(e.target.value)} placeholder="e.g. John Doe, Jane Smith" />
-                </div>
-              </div>
-            )}
-
-            {step === 4 && (
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <div className="text-sm text-muted-foreground">Total falls: {fallsCount || 0}</div>
-                  <Button variant="ghost" size="sm" onClick={addFallEntry}>Add</Button>
-                </div>
-                {fallsEntries.length === 0 && <div className="text-sm text-muted-foreground">No individual fall entries. Add one or enter an aggregate count.</div>}
-                <div className="space-y-3">
-                  {fallsEntries.map(entry => (
-                    <div key={entry.id} className="grid grid-cols-12 gap-2 items-center">
-                      <div className="col-span-2">
-                        <Label className="mb-1">Count</Label>
-                        <Input type="number" value={entry.count} onChange={(e) => updateFallEntry(entry.id, { count: Number(e.target.value || 0) })} />
-                      </div>
-                      <div className="col-span-4">
-                        <Label className="mb-1">Injuries</Label>
-                        <Input value={entry.injuries} onChange={(e) => updateFallEntry(entry.id, { injuries: e.target.value })} />
-                      </div>
-                      <div className="col-span-3">
-                        <Label className="mb-1">Witnessed</Label>
-                        <Input value={entry.witnessed} onChange={(e) => updateFallEntry(entry.id, { witnessed: e.target.value })} />
-                      </div>
-                      <div className="col-span-2">
-                        <Label className="mb-1">Time</Label>
-                        <Input value={entry.time} onChange={(e) => updateFallEntry(entry.id, { time: e.target.value })} />
-                      </div>
-                      <div className="col-span-1 flex items-end">
-                        <Button variant="destructive" size="sm" onClick={() => removeFallEntry(entry.id)}>Remove</Button>
-                      </div>
+              {/* Staffing & operational metrics in a compact grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 col-span-2">
+                <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-2">Staffing</h4>
+                  <div className="grid grid-cols-1 gap-2">
+                    <div>
+                      <Label className="mb-1">Day staff</Label>
+                      <Input value={staffDay} onChange={(e) => setStaffDay(e.target.value)} type="number" min={0} className="text-sm h-10" />
                     </div>
-                  ))}
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">Aggregate count (optional)</label>
-                  <input type="number" value={fallsCount as any} onChange={(e) => setFallsCount(e.target.value === '' ? '' : Number(e.target.value))} className="w-full border rounded px-2 py-1" />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div>
-                    <label className="text-xs text-muted-foreground">Injuries (summary)</label>
-                    <input value={fallsInjuries} onChange={(e) => setFallsInjuries(e.target.value)} className="w-full border rounded px-2 py-1" />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground">Witnessed (summary)</label>
-                    <input value={fallsWitnessed} onChange={(e) => setFallsWitnessed(e.target.value)} className="w-full border rounded px-2 py-1" />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground">Time (summary)</label>
-                    <input value={fallsTime} onChange={(e) => setFallsTime(e.target.value)} className="w-full border rounded px-2 py-1" />
+                    <div>
+                      <Label className="mb-1">Night staff</Label>
+                      <Input value={staffNight} onChange={(e) => setStaffNight(e.target.value)} type="number" min={0} className="text-sm h-10" />
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
 
-            {step === 5 && (
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-muted-foreground">Pressure</label>
-                  <input type="number" value={woundTypes.pressure as any} onChange={(e) => setWoundCount('pressure', e.target.value === '' ? 0 : Number(e.target.value))} className="w-full border rounded px-2 py-1" />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">Break</label>
-                  <input type="number" value={woundTypes.break as any} onChange={(e) => setWoundCount('break', e.target.value === '' ? 0 : Number(e.target.value))} className="w-full border rounded px-2 py-1" />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">Fracture</label>
-                  <input type="number" value={woundTypes.fracture as any} onChange={(e) => setWoundCount('fracture', e.target.value === '' ? 0 : Number(e.target.value))} className="w-full border rounded px-2 py-1" />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">Bruise</label>
-                  <input type="number" value={woundTypes.bruise as any} onChange={(e) => setWoundCount('bruise', e.target.value === '' ? 0 : Number(e.target.value))} className="w-full border rounded px-2 py-1" />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">Skin tear</label>
-                  <input type="number" value={woundTypes.skintear as any} onChange={(e) => setWoundCount('skintear', e.target.value === '' ? 0 : Number(e.target.value))} className="w-full border rounded px-2 py-1" />
-                </div>
-                <div className="col-span-full">
-                  <label className="text-xs text-muted-foreground">Details / counts</label>
-                  <textarea value={woundsDetail} onChange={(e) => setWoundsDetail(e.target.value)} className="w-full border rounded px-2 py-1" />
-                </div>
-              </div>
-            )}
-
-            {step === 6 && (
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="text-xs text-muted-foreground">UTI</label>
-                  <input type="number" value={infectionsUti as any} onChange={(e) => setInfectionsUti(e.target.value === '' ? '' : Number(e.target.value))} className="w-full border rounded px-2 py-1" />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">Chest</label>
-                  <input type="number" value={infectionsChest as any} onChange={(e) => setInfectionsChest(e.target.value === '' ? '' : Number(e.target.value))} className="w-full border rounded px-2 py-1" />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">Wound</label>
-                  <input type="number" value={infectionsWound as any} onChange={(e) => setInfectionsWound(e.target.value === '' ? '' : Number(e.target.value))} className="w-full border rounded px-2 py-1" />
-                </div>
-              </div>
-            )}
-
-            {step === 2 && (
-              <div className="space-y-3">
-                <h3 className="font-medium">Review</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div>
-                    <div className="text-xs text-muted-foreground">Occupancy</div>
-                    <div className="font-medium">{occupancy || '—'}</div>
+                <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-2">Safeguards & CQC</h4>
+                  <div className="grid grid-cols-1 gap-2">
+                    <div>
+                      <Label className="mb-1">CQC Notifications</Label>
+                      <input className="w-full bg-white rounded-md px-3 py-2 border border-gray-200 shadow-sm text-sm h-10" type="number" value={cqcNotifications as any} onChange={(e) => setCqcNotifications(e.target.value === '' ? '' : Number(e.target.value))} />
+                    </div>
+                    <div>
+                      <Label className="mb-1">Safeguards Raised</Label>
+                      <input className="w-full bg-white rounded-md px-3 py-2 border border-gray-200 shadow-sm text-sm h-10" type="number" value={safeguards as any} onChange={(e) => setSafeguards(e.target.value === '' ? '' : Number(e.target.value))} />
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">Day staff</div>
-                    <div className="font-medium">{staffDay || '0'}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">Night staff</div>
-                    <div className="font-medium">{staffNight || '0'}</div>
+                </div>
+
+                <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-2">Admissions & Showarounds</h4>
+                  <div className="grid grid-cols-1 gap-2">
+                    <div>
+                      <Label className="mb-1">Pre-admissions (count)</Label>
+                      <input className="w-full bg-white rounded-md px-3 py-2 border border-gray-200 shadow-sm text-sm h-10" type="number" value={preAdmissionsCount as any} onChange={(e) => setPreAdmissionsCount(e.target.value === '' ? '' : Number(e.target.value))} />
+                    </div>
+                    <div>
+                      <Label className="mb-1">Showarounds (comma separated)</Label>
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {parsedShowarounds.length === 0 && <div className="text-sm text-gray-500">No showarounds</div>}
+                        {parsedShowarounds.map(name => (
+                          <div key={name} className="inline-flex items-center bg-white/90 border border-gray-200 rounded-full px-3 py-1 text-sm">
+                            <span className="mr-2">{name}</span>
+                            <button type="button" onClick={() => removeShowaround(name)} className="text-xs text-gray-500 hover:text-gray-700">✕</button>
+                          </div>
+                        ))}
+                      </div>
+                      <textarea className="w-full bg-white rounded-md px-3 py-2 border border-gray-200 shadow-sm text-sm h-10" value={showarounds} onChange={(e) => setShowarounds(e.target.value)} placeholder="e.g. John Doe, Jane Smith" />
+                    </div>
                   </div>
                 </div>
               </div>
-            )}
 
-            <div className="mt-4 flex justify-between">
-              <div className="flex items-center gap-2">
-                <DialogClose asChild>
-                  <Button variant="ghost">Cancel</Button>
-                </DialogClose>
-              </div>
-              <div className="flex items-center gap-2">
-                {step > 0 && (
-                  <Button variant="outline" onClick={() => setStep(s => Math.max(0, s - 1))}>Back</Button>
-                )}
-                {step < steps.length - 1 ? (
-                  <Button onClick={() => { if (canProceedFromStep(step)) setStep(s => s + 1); }} disabled={!canProceedFromStep(step)}>
-                    Next
-                  </Button>
-                ) : (
-                  <Button onClick={save} disabled={loading || !validateOccupancy(occupancy) || !validateStaffing(staffDay, staffNight)}>
-                    {loading ? 'Saving...' : exists ? 'Save changes' : 'Save today'}
-                  </Button>
+              <div className="col-span-2">
+                <div role="button" tabIndex={0} aria-expanded={openSection === 'falls'} onClick={() => toggleSection('falls')} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSection('falls'); } }} className="cursor-pointer bg-slate-50 rounded-xl p-3 border border-slate-100">
+                  <div className="flex items-center justify-between"><span className="font-medium text-sm">Falls</span><span className="text-sm text-gray-600">Total: {fallsCount || 0}</span></div>
+                </div>
+                {openSection === 'falls' && (
+                  <div className="bg-slate-50 rounded-b-xl p-3 border border-slate-100 mt-0">
+                  <div className="mb-3">
+                      <Button variant="ghost" size="sm" onClick={addFallEntry}>Add entry</Button>
+                  </div>
+                  {fallsEntries.length === 0 && <div className="text-sm text-gray-500 mb-2">No individual fall entries. Add one or enter an aggregate count.</div>}
+                  <div className="space-y-3">
+                    {fallsEntries.map(entry => (
+                      <div key={entry.id} className="grid grid-cols-12 gap-2 items-center">
+                        <div className="col-span-2">
+                          <Label className="mb-1">Count</Label>
+                  <Input type="number" value={entry.count} onChange={(e) => updateFallEntry(entry.id, { count: Number(e.target.value || 0) })} className="text-sm h-10" />
+                        </div>
+                        <div className="col-span-4">
+                          <Label className="mb-1">Injuries</Label>
+                          <Input value={entry.injuries} onChange={(e) => updateFallEntry(entry.id, { injuries: e.target.value })} className="text-sm h-10" />
+                        </div>
+                        <div className="col-span-3">
+                          <Label className="mb-1">Witnessed</Label>
+                          <Input value={entry.witnessed} onChange={(e) => updateFallEntry(entry.id, { witnessed: e.target.value })} className="text-sm h-10" />
+                        </div>
+                        <div className="col-span-2">
+                          <Label className="mb-1">Time</Label>
+                          <Input value={entry.time} onChange={(e) => updateFallEntry(entry.id, { time: e.target.value })} className="text-sm h-10" />
+                        </div>
+                        <div className="col-span-1 flex items-end">
+                          <Button variant="destructive" size="sm" onClick={() => removeFallEntry(entry.id)}>Remove</Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mt-3">
+                    <div>
+                      <label className="text-xs text-gray-600">Aggregate count (optional)</label>
+                      <input type="number" value={fallsCount as any} onChange={(e) => setFallsCount(e.target.value === '' ? '' : Number(e.target.value))} className="w-full border rounded px-3 py-2 text-sm h-10" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-600">Injuries (summary)</label>
+                      <input value={fallsInjuries} onChange={(e) => setFallsInjuries(e.target.value)} className="w-full border rounded px-3 py-2 text-sm h-10" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-600">Witnessed (summary)</label>
+                      <input value={fallsWitnessed} onChange={(e) => setFallsWitnessed(e.target.value)} className="w-full border rounded px-3 py-2 text-sm h-10" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-600">Time (summary)</label>
+                      <input value={fallsTime} onChange={(e) => setFallsTime(e.target.value)} className="w-full border rounded px-3 py-2 text-sm h-10" />
+                    </div>
+                  </div>
+                  </div>
                 )}
               </div>
+
+              {/* Wounds */}
+              <div className="col-span-2">
+                <div role="button" tabIndex={0} aria-expanded={openSection === 'wounds'} onClick={() => toggleSection('wounds')} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSection('wounds'); } }} className="cursor-pointer bg-slate-50 rounded-xl p-3 border border-slate-100">
+                  <div className="font-medium text-sm">Wounds</div>
+                </div>
+                {openSection === 'wounds' && (
+                  <div className="bg-slate-50 rounded-b-xl p-3 border border-slate-100 mt-0">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-xs text-gray-600">Pressure</label>
+                      <input type="number" value={woundTypes.pressure as any} onChange={(e) => setWoundCount('pressure', e.target.value === '' ? 0 : Number(e.target.value))} className="w-full border rounded px-3 py-2 text-sm h-10" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-600">Break</label>
+                      <input type="number" value={woundTypes.break as any} onChange={(e) => setWoundCount('break', e.target.value === '' ? 0 : Number(e.target.value))} className="w-full border rounded px-3 py-2 text-sm h-10" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-600">Fracture</label>
+                      <input type="number" value={woundTypes.fracture as any} onChange={(e) => setWoundCount('fracture', e.target.value === '' ? 0 : Number(e.target.value))} className="w-full border rounded px-3 py-2 text-sm h-10" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-600">Bruise</label>
+                      <input type="number" value={woundTypes.bruise as any} onChange={(e) => setWoundCount('bruise', e.target.value === '' ? 0 : Number(e.target.value))} className="w-full border rounded px-3 py-2 text-sm h-10" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-600">Skin tear</label>
+                      <input type="number" value={woundTypes.skintear as any} onChange={(e) => setWoundCount('skintear', e.target.value === '' ? 0 : Number(e.target.value))} className="w-full border rounded px-3 py-2 text-sm h-10" />
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <label className="text-xs text-gray-600">Details / counts</label>
+                    <textarea className="w-full bg-white rounded-md px-3 py-2 border border-gray-200 shadow-sm text-sm h-10" value={woundsDetail} onChange={(e) => setWoundsDetail(e.target.value)} />
+                  </div>
+                </div>
+              )}
               </div>
+
+              {/* Infections */}
+              <div className="col-span-2">
+                <div role="button" tabIndex={0} aria-expanded={openSection === 'infections'} onClick={() => toggleSection('infections')} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSection('infections'); } }} className="cursor-pointer bg-slate-50 rounded-xl p-3 border border-slate-100">
+                  <div className="font-medium text-sm">Infections</div>
+                </div>
+                {openSection === 'infections' && (
+                  <div className="bg-slate-50 rounded-b-xl p-3 border border-slate-100 mt-0">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-xs text-gray-600">UTI</label>
+                      <input className="w-full bg-white rounded-md px-3 py-2 border border-gray-200 shadow-sm text-sm h-10" type="number" value={infectionsUti as any} onChange={(e) => setInfectionsUti(e.target.value === '' ? '' : Number(e.target.value))} />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-600">Chest</label>
+                      <input className="w-full bg-white rounded-md px-3 py-2 border border-gray-200 shadow-sm text-sm h-10" type="number" value={infectionsChest as any} onChange={(e) => setInfectionsChest(e.target.value === '' ? '' : Number(e.target.value))} />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-600">Wound</label>
+                      <input className="w-full bg-white rounded-md px-3 py-2 border border-gray-200 shadow-sm text-sm h-10" type="number" value={infectionsWound as any} onChange={(e) => setInfectionsWound(e.target.value === '' ? '' : Number(e.target.value))} />
+                    </div>
+                  </div>
+                </div>
+              )}
+              </div>
+
+              {/* Review removed per request */}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+
+          {/* Footer */}
+          <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 flex justify-end items-center gap-3 flex-shrink-0">
+            <DialogClose asChild>
+              <Button variant="ghost">Cancel</Button>
+            </DialogClose>
+            <Button onClick={save} disabled={loading || !validateOccupancy(occupancy) || !validateStaffing(staffDay, staffNight)} className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white">
+              {loading ? 'Saving...' : exists ? 'Save changes' : 'Save today'}
+            </Button>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );
