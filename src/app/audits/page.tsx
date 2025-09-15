@@ -8,6 +8,7 @@ import { getAuditSchedule, setAuditSchedule, getAuditStatus, getMonthlyAuditComp
 import AccidentIncidentAuditPage from "./accident-incident/page";
 import CallBellMonitoringAuditPage from "./call-bell-monitoring/page";
 import CarePlanAuditPage from "./care-plan/page";
+import AuditHeader from '@/components/audit-header';
 import EquipmentAuditPage from "./equipment/page";
 import FireSafetyAuditPage from "./fire-safety/page";
 import HandHygieneAuditPage from "./hand-hygiene/page";
@@ -120,6 +121,42 @@ export default function AuditsPage() {
     setCurrentView(auditType as any);
   };
 
+  // Calculate next reset date (7th of next month) and days remaining
+  const calculateResetInfo = () => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    const currentDay = now.getDate();
+    
+    // Determine the next reset date (7th of next month, or this month if we haven't passed the 7th yet)
+    let resetMonth = currentMonth;
+    let resetYear = currentYear;
+    
+    if (currentDay >= 7) {
+      // If we've passed the 7th this month, next reset is 7th of next month
+      resetMonth = currentMonth + 1;
+      if (resetMonth > 11) {
+        resetMonth = 0;
+        resetYear = currentYear + 1;
+      }
+    }
+    
+    const resetDate = new Date(resetYear, resetMonth, 7);
+    const timeDiff = resetDate.getTime() - now.getTime();
+    const daysRemaining = Math.ceil(timeDiff / (1000 * 3600 * 24));
+    
+    return { resetDate, daysRemaining };
+  };
+
+  const { resetDate, daysRemaining } = calculateResetInfo();
+  
+  // Determine color based on days remaining
+  const getCountdownColor = (days: number) => {
+    if (days > 15) return { text: 'text-green-800', bg: 'bg-green-100' };
+    if (days > 5) return { text: 'text-amber-800', bg: 'bg-amber-100' };
+    return { text: 'text-destructive', bg: 'bg-destructive/10' };
+  };
+
   const AuditCard = ({ 
     auditType, 
     title, 
@@ -205,15 +242,12 @@ export default function AuditsPage() {
     );
   };
 
+  
+
   if (currentView === 'infection-control') {
     return (
       <div>
-        <button 
-          onClick={() => setCurrentView('list')} 
-          className="mb-4 p-2 text-primary hover:text-primary/80"
-        >
-          ← Back to Audits
-        </button>
+        <AuditHeader title="Infection Control Audit" subtitle="Procedures for infection prevention" onBack={() => setCurrentView('list')} />
         <InfectionControlAuditPage />
       </div>
     );
@@ -222,12 +256,7 @@ export default function AuditsPage() {
   if (currentView === 'call-bell-monitoring') {
     return (
       <div>
-        <button 
-          onClick={() => setCurrentView('list')} 
-          className="mb-4 p-2 text-primary hover:text-primary/80"
-        >
-          ← Back to Audits
-        </button>
+        <AuditHeader title="Call Bell Monitoring Audit" subtitle="Monitor and log call bell responses" onBack={() => setCurrentView('list')} />
         <CallBellMonitoringAuditPage />
       </div>
     );
@@ -236,12 +265,7 @@ export default function AuditsPage() {
   if (currentView === 'care-plan') {
     return (
       <div>
-        <button 
-          onClick={() => setCurrentView('list')} 
-          className="mb-4 p-2 text-primary hover:text-primary/80"
-        >
-          ← Back to Audits
-        </button>
+        <AuditHeader title="Care Plan Audit" subtitle="Review resident care plans" onBack={() => setCurrentView('list')} />
         <CarePlanAuditPage />
       </div>
     );
@@ -250,12 +274,7 @@ export default function AuditsPage() {
   if (currentView === 'equipment') {
     return (
       <div>
-        <button 
-          onClick={() => setCurrentView('list')} 
-          className="mb-4 p-2 text-primary hover:text-primary/80"
-        >
-          ← Back to Audits
-        </button>
+        <AuditHeader title="Equipment Audit" subtitle="Check equipment safety and maintenance" onBack={() => setCurrentView('list')} />
         <EquipmentAuditPage />
       </div>
     );
@@ -264,12 +283,7 @@ export default function AuditsPage() {
   if (currentView === 'fire-safety') {
     return (
       <div>
-        <button 
-          onClick={() => setCurrentView('list')} 
-          className="mb-4 p-2 text-primary hover:text-primary/80"
-        >
-          ← Back to Audits
-        </button>
+        <AuditHeader title="Fire Safety Audit" subtitle="Ensure fire safety compliance" onBack={() => setCurrentView('list')} />
         <FireSafetyAuditPage />
       </div>
     );
@@ -278,12 +292,7 @@ export default function AuditsPage() {
   if (currentView === 'hand-hygiene') {
     return (
       <div>
-        <button 
-          onClick={() => setCurrentView('list')} 
-          className="mb-4 p-2 text-primary hover:text-primary/80"
-        >
-          ← Back to Audits
-        </button>
+        <AuditHeader title="Hand Hygiene Audit" subtitle="Track hand hygiene practices" onBack={() => setCurrentView('list')} />
         <HandHygieneAuditPage />
       </div>
     );
@@ -292,12 +301,7 @@ export default function AuditsPage() {
   if (currentView === 'health-safety') {
     return (
       <div>
-        <button 
-          onClick={() => setCurrentView('list')} 
-          className="mb-4 p-2 text-primary hover:text-primary/80"
-        >
-          ← Back to Audits
-        </button>
+        <AuditHeader title="Health and Safety Audit" subtitle="General health and safety checks" onBack={() => setCurrentView('list')} />
         <HealthSafetyAuditPage />
       </div>
     );
@@ -306,12 +310,7 @@ export default function AuditsPage() {
   if (currentView === 'kitchen') {
     return (
       <div>
-        <button 
-          onClick={() => setCurrentView('list')} 
-          className="mb-4 p-2 text-primary hover:text-primary/80"
-        >
-          ← Back to Audits
-        </button>
+        <AuditHeader title="Kitchen & Kitchenettes Audit" subtitle="Food safety and kitchen cleanliness" onBack={() => setCurrentView('list')} />
         <KitchenAuditPage />
       </div>
     );
@@ -320,12 +319,7 @@ export default function AuditsPage() {
   if (currentView === 'maintenance') {
     return (
       <div>
-        <button 
-          onClick={() => setCurrentView('list')} 
-          className="mb-4 p-2 text-primary hover:text-primary/80"
-        >
-          ← Back to Audits
-        </button>
+        <AuditHeader title="Maintenance Audit" subtitle="Building and facility maintenance checks" onBack={() => setCurrentView('list')} />
         <MaintenanceAuditPage />
       </div>
     );
@@ -334,12 +328,7 @@ export default function AuditsPage() {
   if (currentView === 'managers-weekly') {
     return (
       <div>
-        <button 
-          onClick={() => setCurrentView('list')} 
-          className="mb-4 p-2 text-primary hover:text-primary/80"
-        >
-          ← Back to Audits
-        </button>
+        <AuditHeader title="Weekly Managers Walkaround Audit" subtitle="Weekly leadership checks" onBack={() => setCurrentView('list')} />
         <ManagersWeeklyAuditPage />
       </div>
     );
@@ -348,12 +337,7 @@ export default function AuditsPage() {
   if (currentView === 'mealtime') {
     return (
       <div>
-        <button 
-          onClick={() => setCurrentView('list')} 
-          className="mb-4 p-2 text-primary hover:text-primary/80"
-        >
-          ← Back to Audits
-        </button>
+        <AuditHeader title="Meal Time Audit" subtitle="Monitor meal service quality" onBack={() => setCurrentView('list')} />
         <MealtimeAuditPage />
       </div>
     );
@@ -362,12 +346,7 @@ export default function AuditsPage() {
   if (currentView === 'night-visit') {
     return (
       <div>
-        <button 
-          onClick={() => setCurrentView('list')} 
-          className="mb-4 p-2 text-primary hover:text-primary/80"
-        >
-          ← Back to Audits
-        </button>
+        <AuditHeader title="Night Visit Audit" subtitle="Night-time checks and observations" onBack={() => setCurrentView('list')} />
         <NightVisitAuditPage />
       </div>
     );
@@ -376,12 +355,7 @@ export default function AuditsPage() {
   if (currentView === 'restrictive-practice') {
     return (
       <div>
-        <button 
-          onClick={() => setCurrentView('list')} 
-          className="mb-4 p-2 text-primary hover:text-primary/80"
-        >
-          ← Back to Audits
-        </button>
+        <AuditHeader title="Restrictive Practice Audit" subtitle="Assess restrictive practice use" onBack={() => setCurrentView('list')} />
         <RestrictivePracticeAuditPage />
       </div>
     );
@@ -390,12 +364,7 @@ export default function AuditsPage() {
   if (currentView === 'weight-monitoring') {
     return (
       <div>
-        <button 
-          onClick={() => setCurrentView('list')} 
-          className="mb-4 p-2 text-primary hover:text-primary/80"
-        >
-          ← Back to Audits
-        </button>
+        <AuditHeader title="Weight Monitoring Audit" subtitle="Track resident weight changes" onBack={() => setCurrentView('list')} />
         <WeightMonitoringAuditPage />
       </div>
     );
@@ -404,12 +373,7 @@ export default function AuditsPage() {
   if (currentView === 'staff-file') {
     return (
       <div>
-        <button 
-          onClick={() => setCurrentView('list')} 
-          className="mb-4 p-2 text-primary hover:text-primary/80"
-        >
-          ← Back to Audits
-        </button>
+        <AuditHeader title="Staff File Audit" subtitle="Check staff records and training" onBack={() => setCurrentView('list')} />
         <StaffFileAuditPage />
       </div>
     );
@@ -418,12 +382,7 @@ export default function AuditsPage() {
   if (currentView === 'wound-monitoring') {
     return (
       <div>
-        <button 
-          onClick={() => setCurrentView('list')} 
-          className="mb-4 p-2 text-primary hover:text-primary/80"
-        >
-          ← Back to Audits
-        </button>
+        <AuditHeader title="Wound Monitoring Audit" subtitle="Record wound status and care" onBack={() => setCurrentView('list')} />
         <WoundMonitoringAuditPage />
       </div>
     );
@@ -432,105 +391,19 @@ export default function AuditsPage() {
   if (currentView === 'risk-register') {
     return (
       <div>
-        <button 
-          onClick={() => setCurrentView('list')} 
-          className="mb-4 p-2 text-primary hover:text-primary/80"
-        >
-          ← Back to Audits
-        </button>
+        <AuditHeader title="Risk Register" subtitle="Overview of resident risks and mitigations" onBack={() => setCurrentView('list')} />
         <RiskRegisterAuditPage />
       </div>
     );
   }
-
-  // Calculate next reset date (7th of next month) and days remaining
-  const calculateResetInfo = () => {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
-    const currentDay = now.getDate();
-    
-    // Determine the next reset date (7th of next month, or this month if we haven't passed the 7th yet)
-    let resetMonth = currentMonth;
-    let resetYear = currentYear;
-    
-    if (currentDay >= 7) {
-      // If we've passed the 7th this month, next reset is 7th of next month
-      resetMonth = currentMonth + 1;
-      if (resetMonth > 11) {
-        resetMonth = 0;
-        resetYear = currentYear + 1;
-      }
-    }
-    
-    const resetDate = new Date(resetYear, resetMonth, 7);
-    const timeDiff = resetDate.getTime() - now.getTime();
-    const daysRemaining = Math.ceil(timeDiff / (1000 * 3600 * 24));
-    
-    return { resetDate, daysRemaining };
-  };
-
-  const { resetDate, daysRemaining } = calculateResetInfo();
   
-  // Determine color based on days remaining
-  const getCountdownColor = (days: number) => {
-    if (days > 15) return { text: 'text-green-800', bg: 'bg-green-100' };
-    if (days > 5) return { text: 'text-amber-800', bg: 'bg-amber-100' };
-    return { text: 'text-destructive', bg: 'bg-destructive/10' };
-  };
 
   // Handle different audit views
   if (currentView === 'accident-incident') {
     return (
       <div>
-        <div className="bg-gradient-to-r from-primary to-accent text-primary-foreground p-8 rounded-b-2xl shadow-lg relative overflow-hidden">
-          {/* Subtle background pattern */}
-          <div className="absolute inset-0 opacity-5">
-            <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full -translate-y-48 translate-x-48"></div>
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-primary/20 rounded-full translate-y-32 -translate-x-32"></div>
-          </div>
-          <div className="w-full mx-auto flex items-start justify-between gap-8 relative z-10">
-            <div className="flex items-start gap-6">
-              <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-primary-foreground">
-                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </div>
-              <div className="space-y-2">
-                <h2 className="text-3xl font-bold leading-tight tracking-tight font-headline">Audits</h2>
-                <div className="text-primary-foreground/80 text-base leading-relaxed">Complete monthly compliance audits and track performance</div>
-              </div>
-            </div>
-            <div className="text-right text-sm">
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg p-4">
-                <p className="text-primary-foreground/80">Current month: {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</p>
-                <p className="text-primary-foreground/80">Next reset: {resetDate.toLocaleDateString()}</p>
-                <div className="flex justify-end mt-2">
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${getCountdownColor(daysRemaining).bg} ${getCountdownColor(daysRemaining).text}`}>
-                    {daysRemaining} {daysRemaining === 1 ? 'day' : 'days'} remaining
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-6">
-          <div className="mb-4 flex items-center gap-4">
-            <button 
-              onClick={() => setCurrentView('list')} 
-              className="flex items-center gap-2 px-4 py-2 text-primary hover:text-primary/80 hover:bg-primary/5 rounded-lg transition-colors"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              Back to Audits
-            </button>
-            <div className="h-6 border-l border-gray-300"></div>
-            <h3 className="text-xl font-semibold text-gray-900">Accident and Incident Audit</h3>
-          </div>
-          <AccidentIncidentAuditPage />
-        </div>
+        <AuditHeader title="Accident and Incident Audit" subtitle="Record and review accidents and incidents" onBack={() => setCurrentView('list')} />
+        <AccidentIncidentAuditPage />
       </div>
     );
   }
