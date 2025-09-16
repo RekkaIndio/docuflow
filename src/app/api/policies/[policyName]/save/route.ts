@@ -13,9 +13,9 @@ export async function POST(
     // Sanitize the policy name to prevent issues
     const sanitizedName = policyName.replace(/[^a-zA-Z0-9-_]/g, '');
     
-    // Generate a timestamp for the saved version
-    const timestamp = new Date().toISOString();
-    const documentId = `${sanitizedName}-${Date.now()}`;
+  // Use deterministic document id (sanitized policy name) so repeated saves don't create duplicates
+  const timestamp = new Date().toISOString();
+  const documentId = sanitizedName;
 
     // Prepare the policy document and a structured extractedJson for chatbot consumption
     const policyDocument = {
@@ -26,7 +26,8 @@ export async function POST(
       meta: meta || {},
       createdAt: timestamp,
       updatedAt: timestamp,
-      status: 'draft', // Can be 'draft' or 'published'
+      status: 'completed', // legacy completed_policies collection expects completed entries
+      isCompleted: true,
       version: (meta && meta.version) || '1.0',
       // For backwards compatibility, keep top-level fields
     };
@@ -49,13 +50,15 @@ export async function POST(
       },
       createdAt: timestamp,
       updatedAt: timestamp,
-      status: 'draft',
+      status: 'completed',
+      isCompleted: true,
       version: (meta && meta.version) || '1.0',
     };
 
     // Save to legacy collection for backward compatibility
     try {
-      await adminDb.collection('completed_policies').doc(documentId).set(policyDocument);
+      // Use set with merge to update existing document if present
+      await adminDb.collection('completed_policies').doc(documentId).set(policyDocument, { merge: true });
     } catch (e) {
       console.error('Failed to write to completed_policies (legacy):', e);
     }
@@ -63,7 +66,7 @@ export async function POST(
     // If a workspaceId was provided, also write into workspace-scoped collection
     if (workspaceId) {
       try {
-        await adminDb.collection('workspaces').doc(workspaceId).collection('policies').doc(documentId).set(workspacePolicyDocument);
+        await adminDb.collection('workspaces').doc(workspaceId).collection('policies').doc(documentId).set(workspacePolicyDocument, { merge: true });
         console.log(`Saved policy to workspaces/${workspaceId}/policies/${documentId}`);
       } catch (e) {
         console.error('Failed to write workspace-scoped policy document:', e);

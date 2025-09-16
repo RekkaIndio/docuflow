@@ -249,8 +249,8 @@ const PdfPreview = ({ document: doc }: { document: DocumentType }) => {
         setIsLoading(true);
         setFileData(null);
         
-        // Try storagePath first (preferred method), then downloadUrl, then error
-        const pathToUse = doc.storagePath || doc.downloadUrl;
+    // Prefer an explicit downloadUrl (signed/public URL) first, then storagePath fallback
+    const pathToUse = doc.downloadUrl || doc.storagePath;
         
         if (!pathToUse) {
             toast({ variant: 'destructive', title: 'Error', description: 'No file path available for this PDF.' });
@@ -260,45 +260,151 @@ const PdfPreview = ({ document: doc }: { document: DocumentType }) => {
 
         const fetchFile = async () => {
             try {
-                let base64Data;
-                
-                if (doc.storagePath) {
-                    // Use the Firebase Admin SDK path
-                    base64Data = await getDocumentAsBase64(doc.storagePath);
-                } else if (doc.downloadUrl) {
-                    const url = doc.downloadUrl;
-                    // If it's an absolute or relative HTTP URL (public asset), fetch it directly
-                    if (url.startsWith('http') || url.startsWith('/')) {
-                        const resp = await fetch(url);
+                let base64Data: string | null = null;
+
+                // Helper to convert a Uint8Array to base64
+                const uint8ToBase64 = (uint8: Uint8Array) => {
+                    let binary = '';
+                    const chunkSize = 0x8000;
+                    for (let i = 0; i < uint8.length; i += chunkSize) {
+                        const slice = uint8.subarray(i, i + chunkSize);
+                        binary += String.fromCharCode.apply(null, Array.from(slice));
+                    }
+                    return typeof window !== 'undefined' && window.btoa ? window.btoa(binary) : Buffer.from(uint8).toString('base64');
+                };
+
+                // If the path is a gs:// URL, extract the object path for proxy
+                const isGs = pathToUse.startsWith('gs://');
+                const getObjectPathFromGs = (gs: string) => {
+                    // gs://bucket-name/path/to/object -> path/to/object
+                    const withoutPrefix = gs.replace('gs://', '');
+                    const parts = withoutPrefix.split('/');
+                    parts.shift();
+                    return parts.join('/');
+                };
+
+                // Helper to parse a storage object path from common signed URL formats
+                const parseStoragePathFromUrl = (u: string): string | null => {
+                    try {
+                        const parsed = new URL(u);
+                        // firebase storage signed URL format: https://firebasestorage.googleapis.com/v0/b/<bucket>/o/<encodedPath>?alt=media&token=...
+                        if (parsed.hostname.includes('firebasestorage.googleapis.com')) {
+                            const parts = parsed.pathname.split('/');
+                            const idx = parts.indexOf('o');
+                            if (idx !== -1 && parts.length > idx + 1) {
+                                const encoded = parts.slice(idx + 1).join('/');
+                                return decodeURIComponent(encoded);
+                            }
+                        }
+
+                        // storage.googleapis.com format: https://storage.googleapis.com/<bucket>/<object>
+                        if (parsed.hostname === 'storage.googleapis.com') {
+                            const parts = parsed.pathname.split('/').filter(Boolean);
+                            // first part is bucket, rest is object path
+                            if (parts.length >= 2) {
+                                return parts.slice(1).join('/');
+                            }
+                        }
+
+                        // Some signed urls may be of the form https://<bucket>.storage.googleapis.com/<object>
+                        const match = parsed.hostname.match(/^(.+)\.storage\.googleapis\.com$/);
+                        if (match) {
+                            const parts = parsed.pathname.split('/').filter(Boolean);
+                            if (parts.length >= 1) return parts.join('/');
+                        }
+
+                        return null;
+                    } catch (e) {
+                        return null;
+                    }
+                };
+
+                if (isGs) {
+                    // Use server proxy for gs:// objects (browser cannot fetch gs://)
+                    const objectPath = getObjectPathFromGs(pathToUse);
+                    const proxyResp = await fetch(`/api/storage/proxy?path=${encodeURIComponent(objectPath)}`);
+                    if (!proxyResp.ok) throw new Error(`Proxy fetch failed: ${proxyResp.status}`);
+                    const arrayBuffer = await proxyResp.arrayBuffer();
+                    base64Data = uint8ToBase64(new Uint8Array(arrayBuffer));
+                } else if (pathToUse.startsWith('http') || pathToUse.startsWith('/')) {
+                    // If it's an absolute or relative HTTP URL (public asset or signed URL), try to fetch it directly
+                    try {
+                        const resp = await fetch(pathToUse);
                         if (!resp.ok) throw new Error(`Failed to fetch PDF from URL: ${resp.status}`);
                         const arrayBuffer = await resp.arrayBuffer();
-                        const uint8 = new Uint8Array(arrayBuffer);
-                        // Convert to base64 in chunks to avoid stack/argument size issues
-                        let binary = '';
-                        const chunkSize = 0x8000;
-                        for (let i = 0; i < uint8.length; i += chunkSize) {
-                            const slice = uint8.subarray(i, i + chunkSize);
-                            binary += String.fromCharCode.apply(null, Array.from(slice));
+                        base64Data = uint8ToBase64(new Uint8Array(arrayBuffer));
+                    } catch (directErr) {
+                        console.warn('Direct fetch of signed/public URL failed, attempting server proxy if available', directErr);
+                        // Determine a proxy path: prefer explicit storagePath, otherwise try to parse the object path from the signed URL
+                        let proxyPath: string | null = doc.storagePath || (pathToUse.startsWith('/') ? pathToUse : null);
+                        if (!proxyPath) {
+                            const parsed = parseStoragePathFromUrl(pathToUse);
+                            if (parsed) proxyPath = parsed;
                         }
-                        base64Data = typeof window !== 'undefined' && window.btoa ? window.btoa(binary) : Buffer.from(uint8).toString('base64');
-                    } else {
-                        // For Firebase-style downloadUrl, attempt to extract storage path and fetch via server helper
-                        const urlMatch = url.match(/\/o\/(.+?)\?/);
-                        if (urlMatch) {
-                            const storagePath = decodeURIComponent(urlMatch[1]);
-                            base64Data = await getDocumentAsBase64(storagePath);
+                        if (proxyPath) {
+                            const proxyResp = await fetch(`/api/storage/proxy?path=${encodeURIComponent(proxyPath)}`);
+                            if (!proxyResp.ok) throw new Error(`Proxy fetch failed: ${proxyResp.status}`);
+                            const arrayBuffer = await proxyResp.arrayBuffer();
+                            base64Data = uint8ToBase64(new Uint8Array(arrayBuffer));
                         } else {
-                            throw new Error("Could not extract storage path from downloadUrl");
+                            throw directErr;
+                        }
+                    }
+                } else {
+                    // Otherwise assume it's a storagePath and request a signed URL from the server
+                    try {
+                        const encoded = encodeURIComponent(pathToUse);
+                        const signedResp = await fetch(`/api/storage/signed-url?path=${encoded}`);
+                        if (!signedResp.ok) throw new Error('Failed to create signed URL');
+                        const signedJson = await signedResp.json();
+                        if (signedJson?.url) {
+                            try {
+                                const resp = await fetch(signedJson.url);
+                                if (!resp.ok) throw new Error(`Failed to fetch signed PDF: ${resp.status}`);
+                                const arrayBuffer = await resp.arrayBuffer();
+                                base64Data = uint8ToBase64(new Uint8Array(arrayBuffer));
+                            } catch (signedFetchErr) {
+                                console.warn('Fetch of signed URL failed, falling back to server proxy', signedFetchErr);
+                                // Fall back to proxy using the storagePath or by parsing object path from signed URL
+                                let proxyPath = doc.storagePath || null;
+                                if (!proxyPath) {
+                                    const parsed = parseStoragePathFromUrl(pathToUse);
+                                    if (parsed) proxyPath = parsed;
+                                }
+                                if (proxyPath) {
+                                    const proxyResp = await fetch(`/api/storage/proxy?path=${encodeURIComponent(proxyPath)}`);
+                                    if (!proxyResp.ok) throw new Error(`Proxy fetch failed: ${proxyResp.status}`);
+                                    const arrayBuffer = await proxyResp.arrayBuffer();
+                                    base64Data = uint8ToBase64(new Uint8Array(arrayBuffer));
+                                } else {
+                                    throw signedFetchErr;
+                                }
+                            }
+                        } else {
+                            // Fallback to server helper if signed URL not provided
+                            base64Data = await getDocumentAsBase64(pathToUse);
+                        }
+                    } catch (err) {
+                        console.warn('Signed URL fetch failed, falling back to server getDocumentAsBase64 or proxy', err);
+                        try {
+                            base64Data = await getDocumentAsBase64(pathToUse);
+                        } catch (e) {
+                            // As a last resort, attempt the proxy
+                            const proxyResp = await fetch(`/api/storage/proxy?path=${encodeURIComponent(pathToUse)}`);
+                            if (!proxyResp.ok) throw new Error(`Proxy fetch failed: ${proxyResp.status}`);
+                            const arrayBuffer = await proxyResp.arrayBuffer();
+                            base64Data = uint8ToBase64(new Uint8Array(arrayBuffer));
                         }
                     }
                 }
-                
+
                 if (base64Data) {
                     setFileData(`data:application/pdf;base64,${base64Data}`);
                 } else {
                     throw new Error("Received no data from server");
                 }
             } catch (err: any) {
+                console.error('PdfPreview fetchFile error', err);
                 toast({ variant: 'destructive', title: 'Error', description: 'Could not load PDF for preview.' });
             } finally {
                 setIsLoading(false);

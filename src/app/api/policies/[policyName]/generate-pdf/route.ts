@@ -54,40 +54,62 @@ export async function POST(
 
     const html = template.replace('{{content}}', htmlBody);
 
-    // Generate PDF using Puppeteer
-    const browser = await puppeteer.launch({ 
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-      headless: true
-    });
-    
+    // Attempt to generate PDF using Puppeteer. If this fails (for example on serverless
+    // production where puppeteer can't launch or file writes are not permitted), we will
+    // gracefully fall back to still saving the published policy metadata to Firestore and
+    // returning a JSON success so the admin UI can treat the policy as published.
+    let pdfBuffer: Buffer | null = null;
+    let attemptedPdf = false;
+
     try {
-      const page = await browser.newPage();
-      await page.setContent(html, { waitUntil: 'networkidle0' });
-      
-      const pdfBuffer = await page.pdf({ 
-        format: 'A4', 
-        printBackground: true,
-        margin: {
-          top: '1cm',
-          right: '1cm',
-          bottom: '1cm',
-          left: '1cm'
-        }
+      attemptedPdf = true;
+      // Generate PDF using Puppeteer
+      const browser = await puppeteer.launch({
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        headless: true,
       });
 
-      // Save the PDF to public/policies directory (replacing the original)
-      const publicPoliciesDir = path.join(process.cwd(), 'public', 'policies');
-      await fs.promises.mkdir(publicPoliciesDir, { recursive: true });
-      
-      const pdfPath = path.join(publicPoliciesDir, `${sanitizedName}.pdf`);
-      await fs.promises.writeFile(pdfPath, pdfBuffer);
+      try {
+        const page = await browser.newPage();
+        await page.setContent(html, { waitUntil: 'networkidle0' });
 
-      // Save the published policy to Firebase
+        pdfBuffer = await page.pdf({
+          format: 'A4',
+          printBackground: true,
+          margin: {
+            top: '1cm',
+            right: '1cm',
+            bottom: '1cm',
+            left: '1cm',
+          },
+        });
+
+        // Save the PDF to public/policies directory (replacing the original)
+        const publicPoliciesDir = path.join(process.cwd(), 'public', 'policies');
+        try {
+          await fs.promises.mkdir(publicPoliciesDir, { recursive: true });
+          const pdfPath = path.join(publicPoliciesDir, `${sanitizedName}.pdf`);
+          await fs.promises.writeFile(pdfPath, pdfBuffer);
+        } catch (writeErr) {
+          // Writing to filesystem may fail on some hosting environments (e.g., Vercel). Log and continue.
+          console.warn('Failed to write generated PDF to public/policies, continuing without file write:', writeErr);
+        }
+      } finally {
+        try { await browser.close(); } catch (closeErr) { /* ignore */ }
+      }
+    } catch (puppeteerErr) {
+      // If puppeteer fails (cannot launch in production), log and continue to publish metadata only.
+      console.warn('Puppeteer PDF generation failed, will publish metadata without PDF:', puppeteerErr);
+      pdfBuffer = null;
+    }
+
+    // Save the published policy to Firebase
       const timestamp = new Date().toISOString();
-      const documentId = `${sanitizedName}-published-${Date.now()}`;
+        // Use deterministic id per policy so repeated publishes update same doc
+        const documentId = sanitizedName;
 
       const publishedPolicyDocument = {
-        id: documentId,
+  id: documentId,
         policyName: sanitizedName,
         originalPolicyName: policyName,
         content: content,
@@ -96,12 +118,13 @@ export async function POST(
         updatedAt: timestamp,
         status: 'published',
         version: meta?.version || '1.0',
-        pdfPath: `/policies/${sanitizedName}.pdf`
+        pdfPath: `/policies/${sanitizedName}.pdf`,
+        storagePath: undefined as string | undefined
       };
 
       // Workspace-scoped published document shape including extractedJson
       const workspacePublishedDocument = {
-        id: documentId,
+  id: documentId,
         policyName: sanitizedName,
         originalPolicyName: policyName,
         content: content,
@@ -119,11 +142,13 @@ export async function POST(
         updatedAt: timestamp,
         status: 'published',
         version: meta?.version || '1.0',
-        pdfPath: `/policies/${sanitizedName}.pdf`
+        pdfPath: `/policies/${sanitizedName}.pdf`,
+        storagePath: undefined as string | undefined
       };
 
-      try {
-        await adminDb.collection('published_policies').doc(documentId).set(publishedPolicyDocument);
+    try {
+  // Use set with merge so repeated publishes update the same document
+  await adminDb.collection('published_policies').doc(documentId).set(publishedPolicyDocument, { merge: true });
         console.log('Policy saved to Firebase as published');
       } catch (firebaseError) {
         console.error('Failed to save to published_policies (legacy):', firebaseError);
@@ -131,7 +156,7 @@ export async function POST(
 
       if (workspaceId) {
         try {
-          await adminDb.collection('workspaces').doc(workspaceId).collection('policies').doc(documentId).set(workspacePublishedDocument);
+          await adminDb.collection('workspaces').doc(workspaceId).collection('policies').doc(documentId).set(workspacePublishedDocument, { merge: true });
           console.log(`Saved published policy to workspaces/${workspaceId}/policies/${documentId}`);
         } catch (e) {
           console.error('Failed to write published workspace-scoped policy document:', e);
@@ -209,17 +234,138 @@ export async function POST(
         console.warn('Failed to refresh policies cache:', e);
       }
 
-      return new NextResponse(pdfBuffer as any, {
-        headers: {
+  let pdfUrl: string | null = null;
+  let storagePath: string | null = null;
+
+      if (pdfBuffer) {
+        // If admin.storage is available, upload to configured bucket and attempt to create a signed URL
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          const admin = require('@/lib/firebase-admin').default;
+          if (admin && admin.storage && typeof admin.storage === 'function') {
+            let bucketName = process.env.FIREBASE_STORAGE_BUCKET || process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+            if (!bucketName) {
+              try {
+                // Load web config fallback if present in repository
+                // eslint-disable-next-line @typescript-eslint/no-var-requires
+                const cfg = require('@/lib/firebase-config');
+                bucketName = cfg?.firebaseConfig?.storageBucket || bucketName;
+              } catch (e) {
+                // ignore if not present
+              }
+            }
+
+            const bucket = bucketName ? admin.storage().bucket(bucketName) : admin.storage().bucket();
+
+            storagePath = `workspaces/${workspaceId || 'global'}/policies/${sanitizedName}.pdf`;
+            const file = bucket.file(storagePath);
+
+            // Upload buffer
+            try {
+              await file.save(pdfBuffer, { metadata: { contentType: 'application/pdf' } });
+            } catch (uploadErr) {
+              console.warn('Failed to upload PDF to Firebase Storage:', uploadErr);
+            }
+
+            // Try to create a signed URL valid for 7 days. Retry once if it fails.
+            try {
+              const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: Date.now() + 7 * 24 * 60 * 60 * 1000 });
+              pdfUrl = signedUrl;
+            } catch (urlErr) {
+              console.warn('Failed to create signed URL for uploaded PDF (attempt 1):', urlErr);
+              try {
+                const [signedUrl2] = await file.getSignedUrl({ action: 'read', expires: Date.now() + 7 * 24 * 60 * 60 * 1000 });
+                pdfUrl = signedUrl2;
+              } catch (urlErr2) {
+                console.warn('Failed to create signed URL for uploaded PDF (attempt 2):', urlErr2);
+                // Fall back to the gs:// path so we at least persist storagePath; client code will request a signed URL from the server when needed
+                pdfUrl = `gs://${bucket.name}/${storagePath}`;
+              }
+            }
+          }
+        } catch (storageErr) {
+          console.warn('Storage admin SDK unavailable or errored while uploading PDF:', storageErr);
+        }
+      } else {
+        // No pdfBuffer was generated (Puppeteer failed). If a previously uploaded file exists at the deterministic storage path,
+        // attempt to generate a signed URL for it so the client can preview the existing file.
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          const admin = require('@/lib/firebase-admin').default;
+          if (admin && admin.storage && typeof admin.storage === 'function') {
+            let bucketName = process.env.FIREBASE_STORAGE_BUCKET || process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+            if (!bucketName) {
+              try {
+                // eslint-disable-next-line @typescript-eslint/no-var-requires
+                const cfg = require('@/lib/firebase-config');
+                bucketName = cfg?.firebaseConfig?.storageBucket || bucketName;
+              } catch (e) {
+                // ignore
+              }
+            }
+
+            const bucket = bucketName ? admin.storage().bucket(bucketName) : admin.storage().bucket();
+            storagePath = `workspaces/${workspaceId || 'global'}/policies/${sanitizedName}.pdf`;
+            const file = bucket.file(storagePath);
+            try {
+              const [exists] = await file.exists();
+              if (exists) {
+                try {
+                  const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: Date.now() + 7 * 24 * 60 * 60 * 1000 });
+                  pdfUrl = signedUrl;
+                } catch (urlErr) {
+                  console.warn('Failed to create signed URL for existing PDF:', urlErr);
+                }
+              }
+            } catch (existsErr) {
+              // ignore
+            }
+          }
+        } catch (err) {
+          // ignore
+        }
+      }
+
+      // If pdfUrl is available, set pdfPath on the documents to the signed URL; otherwise fall back to previous path
+      const finalPdfPath = pdfUrl || `/policies/${sanitizedName}.pdf`;
+
+      // Update the saved objects with this final path and storagePath if available
+      publishedPolicyDocument.pdfPath = finalPdfPath;
+      workspacePublishedDocument.pdfPath = finalPdfPath;
+      if (storagePath) {
+        publishedPolicyDocument.storagePath = storagePath;
+        workspacePublishedDocument.storagePath = storagePath;
+      }
+
+      // Persist any updated pdfPath/storagePath back to Firestore for the created documents
+      try {
+        // Use set with merge to avoid errors if the document wasn't created or if there
+        // are eventual consistency issues. This will create or merge fields safely.
+        await adminDb.collection('published_policies').doc(documentId).set({ pdfPath: publishedPolicyDocument.pdfPath, storagePath: publishedPolicyDocument.storagePath || null, updatedAt: new Date().toISOString() }, { merge: true });
+      } catch (updateErr) {
+        console.warn('Failed to set published_policies with storage path/pdfPath:', updateErr);
+      }
+
+      if (workspaceId) {
+        try {
+          await adminDb.collection('workspaces').doc(workspaceId).collection('policies').doc(documentId).set({ pdfPath: workspacePublishedDocument.pdfPath, storagePath: workspacePublishedDocument.storagePath || null, updatedAt: new Date().toISOString() }, { merge: true });
+        } catch (updateErr) {
+          console.warn('Failed to set workspace-scoped policy document with storage path/pdfPath:', updateErr);
+        }
+      }
+
+      // Return actual PDF if available; otherwise send JSON success with X-Policy-Updated header and storage URL when available
+      if (pdfBuffer) {
+        const headers: Record<string, string> = {
           'Content-Type': 'application/pdf',
           'Content-Disposition': `attachment; filename="${sanitizedName}.pdf"`,
-          'X-Policy-Updated': 'true', // Signal that the policy was updated
-        },
-      });
+          'X-Policy-Updated': 'true',
+        };
+        if (pdfUrl) headers['X-PDF-URL'] = pdfUrl;
+        return new NextResponse(pdfBuffer as any, { headers });
+      }
 
-    } finally {
-      await browser.close();
-    }
+      return NextResponse.json({ ok: true, message: 'Policy published', pdfUrl: pdfUrl || null }, { headers: { 'X-Policy-Updated': 'true' } });
 
   } catch (error) {
     console.error('Error generating PDF:', error);

@@ -12,6 +12,7 @@ interface PolicyDocument {
   status: 'draft' | 'published';
   version: string;
   pdfPath?: string;
+  storagePath?: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -96,6 +97,8 @@ export async function POST(request: NextRequest) {
         type: 'policy',
         status: policy.status
       },
+      pdfPath: policy.pdfPath || null,
+      storagePath: policy.storagePath || null,
       createdAt: policy.createdAt,
       folderId: 'policies',
       status: policy.status === 'published' ? 'current' : 'draft',
@@ -116,6 +119,8 @@ export async function POST(request: NextRequest) {
         type: 'policy',
         status: bestMatch.status
       },
+      pdfPath: bestMatch.pdfPath || null,
+      storagePath: bestMatch.storagePath || null,
       createdAt: bestMatch.createdAt,
       folderId: 'policies',
       status: bestMatch.status === 'published' ? 'current' : 'draft',

@@ -1,11 +1,10 @@
 "use client";
-
 import React, { useEffect, useState, useMemo } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/use-auth';
 import { DocumentView } from '@/components/dashboard/document-view';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import type { Document } from '@/lib/types';
 
 type PolicyItem = {
@@ -34,12 +33,12 @@ function getReviewStatus(reviewDate?: string | null) {
   if (isNaN(rev.getTime())) return { label: 'Invalid date', kind: 'neutral' };
   const diffMs = rev.getTime() - now.getTime();
   const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-
   if (diffDays < 0) return { label: 'Overdue', kind: 'overdue' };
-  if (diffDays <= 60) return { label: `Due in ${diffDays} day${diffDays === 1 ? '' : 's'}`, kind: 'due-soon' };
-  if (diffDays <= 180) return { label: 'Up to date', kind: 'ok' };
-  return { label: 'Review due later', kind: 'neutral' };
+  if (diffDays <= 30) return { label: `Due in ${diffDays} day${diffDays === 1 ? '' : 's'}`, kind: 'due-soon' };
+  return { label: 'Up to date', kind: 'ok' };
 }
+
+
 
 // Try to extract a year from a variety of date string formats
 function parseYearFromDateString(s?: string | null): number | null {
@@ -219,11 +218,52 @@ export default function AdminPoliciesPage() {
         const firebaseData = firebaseRes.ok ? await firebaseRes.json() : { drafts: [], published: [] };
         if (!mounted) return;
         const localFiles = localData && typeof localData === 'object' && 'files' in localData ? (localData.files as any[]) : (localData as any[]);
+        const drafts = (firebaseData.drafts || []) as any[];
         const published = (firebaseData.published || []) as any[];
-        const publishedFiles = published.map(p => ({ file: p.pdfPath ? p.pdfPath.split('/').pop() : `${p.policyName}.pdf`, url: p.pdfPath || `/policies/${encodeURIComponent(p.policyName)}.pdf`, title: p.meta?.title || p.policyName.replace(/[-_]/g, ' '), version: p.meta?.version || p.version || null, effectiveDate: p.meta?.effectiveDate || null, reviewDate: p.meta?.reviewDate || null, appliesTo: p.meta?.appliesTo || null, isCompleted: true, lastCustomized: p.updatedAt || p.createdAt || null }));
-        const combinedMap = new Map<string, any>();
+
+        const draftFiles = drafts.map((p: any) => {
+          const name = p?.policyName || p?.id || 'untitled-policy';
+          const file = `${name}.pdf`;
+          const url = p?.pdfPath || `/policies/${encodeURIComponent(String(name))}.pdf`;
+          const title = p?.meta?.title || (typeof name === 'string' ? name.replace(/[-_]/g, ' ') : String(name));
+          return {
+            file,
+            url,
+            title,
+            version: p?.meta?.version || p?.version || null,
+            effectiveDate: p?.meta?.effectiveDate || null,
+            reviewDate: p?.meta?.reviewDate || null,
+            appliesTo: p?.meta?.appliesTo || null,
+            isCompleted: true,
+            lastCustomized: p?.updatedAt || p?.createdAt || null,
+            raw: p
+          };
+        });
+
+        const publishedFiles = published.map((p: any) => {
+          const name = p?.policyName || p?.id || 'untitled-policy';
+          const file = `${name}.pdf`;
+          const url = p?.pdfPath || `/policies/${encodeURIComponent(String(name))}.pdf`;
+          const title = p?.meta?.title || (typeof name === 'string' ? name.replace(/[-_]/g, ' ') : String(name));
+          return {
+            file,
+            url,
+            title,
+            version: p?.meta?.version || p?.version || null,
+            effectiveDate: p?.meta?.effectiveDate || null,
+            reviewDate: p?.meta?.reviewDate || null,
+            appliesTo: p?.meta?.appliesTo || null,
+            isCompleted: true,
+            lastCustomized: p?.updatedAt || p?.createdAt || null,
+            raw: p
+          };
+        });
+
+  const combinedMap = new Map<string, any>();
         (Array.isArray(localFiles) ? localFiles : []).forEach((f: any) => { const key = typeof f === 'string' ? f : f.file; combinedMap.set(key, f); });
-        publishedFiles.forEach((pf) => combinedMap.set(pf.file, pf));
+  // merge drafts first, then published files so published overrides draft entries
+  draftFiles.forEach((df) => combinedMap.set(String(df.file), df));
+  publishedFiles.forEach((pf) => combinedMap.set(String(pf.file), pf));
         const combined = Array.from(combinedMap.values());
         setFiles(combined || []);
       } catch (err) {

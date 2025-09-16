@@ -29,21 +29,20 @@ export default function AdminPolicyEditPage({ params }: { params: Promise<{ poli
   const [teams, setTeams] = useState<any[]>([]);
   const [teamsLoading, setTeamsLoading] = useState(false);
   const [teamsError, setTeamsError] = useState<string | null>(null);
+
   useEffect(() => {
     const fetchTeams = async () => {
       if (!workspace?.id) return;
       setTeamsLoading(true);
       setTeamsError(null);
       try {
-  const { collection, getDocs, query, where } = await import('firebase/firestore');
-  const { db } = await import('@/lib/firebase');
-  const teamsCollection = collection(db, `workspaces/${workspace.id}/teams`);
-  const snapshot = await getDocs(teamsCollection);
-  const fetchedTeams = snapshot.docs.map(d => ({ id: d.id, ...d.data(), workspaceId: workspace.id }));
+        const { collection, getDocs } = await import('firebase/firestore');
+        const { db } = await import('@/lib/firebase');
+        const teamsCollection = collection(db, `workspaces/${workspace.id}/teams`);
+        const snapshot = await getDocs(teamsCollection);
+        const fetchedTeams = snapshot.docs.map(d => ({ id: d.id, ...d.data(), workspaceId: workspace.id }));
         setTeams(fetchedTeams);
-        if (fetchedTeams.length === 0) {
-          console.warn('No teams found for workspace', workspace.id);
-        }
+        if (fetchedTeams.length === 0) console.warn('No teams found for workspace', workspace.id);
       } catch (err) {
         setTeamsError('Failed to load teams');
         setTeams([]);
@@ -68,13 +67,8 @@ export default function AdminPolicyEditPage({ params }: { params: Promise<{ poli
         setLoading(true);
         setError('');
 
-        // Load the markdown content for this policy
         const response = await fetch(`/api/policies/${encodeURIComponent(policyName)}/content`);
-        
-        if (!response.ok) {
-          throw new Error(`Failed to load policy: ${response.statusText}`);
-        }
-
+        if (!response.ok) throw new Error(`Failed to load policy: ${response.statusText}`);
         const data = await response.json();
         setPolicyContent(data.content || '');
         setPolicyMeta(data.meta || {});
@@ -86,41 +80,27 @@ export default function AdminPolicyEditPage({ params }: { params: Promise<{ poli
       }
     };
 
-    if (policyName) {
-      loadPolicy();
-    }
+    if (policyName) loadPolicy();
   }, [policyName]);
 
   const handleSave = async (filledPolicy: string, filledMeta: PolicyMeta, assignedTeams?: string[]) => {
     try {
-      // Attach assignedTeams to meta
       const metaWithTeams = { ...filledMeta, assignedTeams: assignedTeams || [] };
-      // Debug: log payload being sent to the save endpoint
       if (typeof window !== 'undefined') {
-        console.debug('[AdminPolicyEdit] Saving policy to Firebase', {
-          policyName,
-          contentLength: filledPolicy?.length || 0,
-          preview: (filledPolicy || '').slice(0, 200),
-          meta: metaWithTeams,
-        });
+        console.debug('[AdminPolicyEdit] Saving policy to Firebase', { policyName, contentLength: filledPolicy?.length || 0, preview: (filledPolicy || '').slice(0, 200), meta: metaWithTeams });
       }
       const response = await fetch(`/api/policies/${encodeURIComponent(policyName)}/save`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          content: filledPolicy,
-          meta: metaWithTeams,
-          workspaceId: workspace?.id || null
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: filledPolicy, meta: metaWithTeams, workspaceId: workspace?.id || null }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to save policy');
-      }
+      if (!response.ok) throw new Error('Failed to save policy');
 
       alert('Policy draft saved successfully to Firebase!');
+
+      // Notify other parts of the app that a policy was updated (so lists refresh)
+      try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('policy-updated')); } catch (e) {}
     } catch (err) {
       console.error('Failed to save policy:', err);
       alert('Failed to save policy. Please try again.');
@@ -129,50 +109,62 @@ export default function AdminPolicyEditPage({ params }: { params: Promise<{ poli
 
   const handleGeneratePDF = async (filledPolicy: string, filledMeta: PolicyMeta) => {
     try {
-      // Debug: log payload being sent to the generate-pdf endpoint
       if (typeof window !== 'undefined') {
-        console.debug('[AdminPolicyEdit] Generating PDF / publishing policy', {
-          policyName,
-          contentLength: filledPolicy?.length || 0,
-          preview: (filledPolicy || '').slice(0, 200),
-          meta: filledMeta,
-        });
+        console.debug('[AdminPolicyEdit] Generating PDF / publishing policy', { policyName, contentLength: filledPolicy?.length || 0, preview: (filledPolicy || '').slice(0, 200), meta: filledMeta });
       }
+
       const response = await fetch(`/api/policies/${encodeURIComponent(policyName)}/generate-pdf`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          content: filledPolicy,
-          meta: filledMeta,
-          workspaceId: workspace?.id || null
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: filledPolicy, meta: filledMeta, workspaceId: workspace?.id || null }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate PDF');
+        let errText = 'Failed to generate PDF';
+        try { const errJson = await response.json(); errText = errJson?.error || errJson?.message || errText; } catch (e) {}
+        throw new Error(errText);
       }
 
-      // Check if the policy was updated (published)
+      const contentType = response.headers.get('content-type') || '';
       const wasUpdated = response.headers.get('X-Policy-Updated') === 'true';
 
-      // Download the generated PDF
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${policyName}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      if (contentType.includes('application/pdf')) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${policyName}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
 
-      if (wasUpdated) {
-        alert('Policy PDF generated and published successfully to Firebase! All users will now see the updated version when viewing this policy.');
+        if (wasUpdated) alert('Policy PDF generated and published successfully to Firebase! All users will now see the updated version when viewing this policy.');
+        else alert('Policy PDF generated and saved to Firebase successfully!');
+        // Notify other parts of the app and navigate back to policies list
+        try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('policy-updated')); } catch (e) {}
+        router.push('/admin/policies');
       } else {
-        alert('Policy PDF generated and saved to Firebase successfully!');
+        let json: any = null;
+        try { json = await response.json(); } catch (e) {}
+
+        const headerPdfUrl = response.headers.get('X-PDF-URL');
+        const jsonPdfUrl = json?.pdfUrl;
+        const downloadUrl = headerPdfUrl || jsonPdfUrl || null;
+
+        if (downloadUrl) {
+          const openNow = confirm((json?.message || 'Policy published successfully.') + ' Would you like to open the generated PDF now?');
+          if (openNow) window.open(downloadUrl, '_blank');
+        } else {
+          if (wasUpdated) alert(json?.message || 'Policy published successfully. PDF generation skipped in this environment.');
+          else alert(json?.message || 'Policy published successfully.');
+        }
+
+        // Notify other parts of the app and navigate back to policies list
+        try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('policy-updated')); } catch (e) {}
+        router.push('/admin/policies');
       }
+      
     } catch (err) {
       console.error('Failed to generate PDF:', err);
       alert('Failed to generate PDF. Please try again.');
@@ -197,10 +189,7 @@ export default function AdminPolicyEditPage({ params }: { params: Promise<{ poli
           <div className="bg-red-50 border border-red-200 rounded-lg p-6">
             <h2 className="text-lg font-semibold text-red-800 mb-2">Error Loading Policy</h2>
             <p className="text-red-600 mb-4">{error}</p>
-            <Button
-              onClick={() => router.back()}
-              variant="destructive"
-            >
+            <Button onClick={() => router.back()} variant="destructive">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Go Back
             </Button>
@@ -244,11 +233,7 @@ export default function AdminPolicyEditPage({ params }: { params: Promise<{ poli
       {/* Small white header (Back / Edit Policy) */}
       <div className="bg-white border-b px-6 py-4">
         <div className="flex items-center gap-4">
-          <Button
-            onClick={() => router.push('/admin/policies')}
-            variant="ghost"
-            size="sm"
-          >
+          <Button onClick={() => router.push('/admin/policies')} variant="ghost" size="sm">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Policies
           </Button>

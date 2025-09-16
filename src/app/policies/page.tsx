@@ -58,17 +58,24 @@ export default function PoliciesPage() {
         const published = (firebaseData.published || []) as any[];
 
         // Map published policies to the UI PolicyItem shape
-        const publishedFiles = published.map(p => ({
-          file: p.pdfPath ? p.pdfPath.split('/').pop() : `${p.policyName}.pdf`,
-          url: p.pdfPath || `/policies/${encodeURIComponent(p.policyName)}.pdf`,
-          title: p.meta?.title || p.policyName.replace(/[-_]/g, ' '),
-          version: p.meta?.version || p.version || null,
-          effectiveDate: p.meta?.effectiveDate || null,
-          reviewDate: p.meta?.reviewDate || null,
-          appliesTo: p.meta?.appliesTo || null,
-          isCompleted: true,
-          lastCustomized: p.updatedAt || p.createdAt || null
-        }));
+        const publishedFiles = published.map((p: any) => {
+          const name = p?.policyName || p?.id || 'untitled-policy';
+          const file = `${name}.pdf`;
+          const url = p?.pdfPath || `/policies/${encodeURIComponent(String(name))}.pdf`;
+          const title = p?.meta?.title || (typeof name === 'string' ? name.replace(/[-_]/g, ' ') : String(name));
+          return {
+            file,
+            url,
+            title,
+            version: p?.meta?.version || p?.version || null,
+            effectiveDate: p?.meta?.effectiveDate || null,
+            reviewDate: p?.meta?.reviewDate || null,
+            appliesTo: p?.meta?.appliesTo || null,
+            isCompleted: true,
+            lastCustomized: p?.updatedAt || p?.createdAt || null,
+            raw: p
+          };
+        });
 
         // Combine and dedupe by file name (published should override local template)
         const combinedMap = new Map<string, any>();
@@ -81,7 +88,7 @@ export default function PoliciesPage() {
 
         // Override/add published files
         publishedFiles.forEach((pf) => {
-          combinedMap.set(pf.file, pf);
+          combinedMap.set(String(pf.file), pf);
         });
 
         const combined = Array.from(combinedMap.values());
