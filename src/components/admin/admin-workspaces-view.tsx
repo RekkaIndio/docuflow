@@ -21,6 +21,7 @@ export default function AdminWorkspacesView() {
 
   // Create workspace dialog
   const [isCreateWorkspaceOpen, setIsCreateWorkspaceOpen] = React.useState(false);
+  const [searchQuery, setSearchQuery] = React.useState('');
   const [newWorkspaceName, setNewWorkspaceName] = React.useState('');
   const [newWorkspaceOwner, setNewWorkspaceOwner] = React.useState('');
   const [isCreatingWorkspace, setIsCreatingWorkspace] = React.useState(false);
@@ -91,6 +92,17 @@ export default function AdminWorkspacesView() {
     };
     fetchData();
   }, []);
+
+  // Derived filtered workspaces (client-side search)
+  const [filteredWorkspaces, setFilteredWorkspaces] = React.useState<Workspace[]>([]);
+  React.useEffect(() => {
+    if (!searchQuery || searchQuery.trim() === '') {
+      setFilteredWorkspaces(workspaces);
+      return;
+    }
+    const q = searchQuery.trim().toLowerCase();
+    setFilteredWorkspaces(workspaces.filter((w: any) => (w.name || '').toLowerCase().includes(q) || (w.id || '').toLowerCase().includes(q)));
+  }, [searchQuery, workspaces]);
 
   const openRenameDialog = (workspace: any) => {
     setRenameWorkspaceData({ id: workspace.id, currentName: workspace.name || workspace.id });
@@ -318,22 +330,30 @@ export default function AdminWorkspacesView() {
               <h2 className="text-2xl font-bold text-gray-900 tracking-tight">System Overview</h2>
             </div>
             <div className="flex items-center gap-4">
-              <Button onClick={() => setIsCreateWorkspaceOpen(true)} className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
+                <input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search workspaces..."
+                  className="px-3 py-2 border border-gray-200 rounded-md text-sm w-64"
+                />
+                <Button onClick={() => setIsCreateWorkspaceOpen(true)} className="flex items-center gap-2">
                 <Plus className="w-4 h-4" />
                 Create Workspace
               </Button>
+              </div>
               <p className="text-sm text-gray-600">Managing <span className="font-medium">{workspaces.length}</span> workspaces</p>
             </div>
           </div>
         </div>
 
-      {workspaces.length === 0 ? (
+      {filteredWorkspaces.length === 0 ? (
         <div className="rounded-lg border border-gray-200 p-6 text-center text-gray-500 bg-white">
           No workspaces found.
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {workspaces.map((ws: any) => {
+          {filteredWorkspaces.map((ws: any) => {
             const totalDocs = (ws.folders || []).reduce((sum: number, f: any) => 
               sum + ((f.items || []).filter((it: any) => it.type === 'document').length), 0);
             const occupancyPercent = ws.totalBeds && ws.occupiedBeds ? 
@@ -355,17 +375,6 @@ export default function AdminWorkspacesView() {
                     </div>
                   </div>
                   <div className="flex items-center gap-3 ml-4">
-                    {occupancyPercent && (
-                      <div className="flex items-center gap-3 mr-2">
-                        <OccupancyPie percent={occupancyPercent} size={34} strokeWidth={4} />
-                        <div className="text-sm">
-                          <div className={`font-semibold ${
-                              occupancyPercent > 80 ? 'text-red-600' : occupancyPercent > 60 ? 'text-yellow-600' : 'text-green-600'
-                            }`}>{occupancyPercent}%</div>
-                          <div className="text-[10px] text-gray-400">occupancy</div>
-                        </div>
-                      </div>
-                    )}
                     <Button 
                       size="sm" 
                       variant="default" 
@@ -394,51 +403,40 @@ export default function AdminWorkspacesView() {
                   </div>
                 </CardHeader>
                 <CardContent className="p-5">
-                  {/* Workspace Metrics */}
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div className="flex flex-col items-center justify-center p-3 rounded-xl bg-blue-50 border border-blue-100">
-                      <div className="p-2 bg-white rounded-full shadow-sm mb-2">
-                        <Folder className="w-4 h-4 text-blue-500" />
-                      </div>
-                      <div className="text-lg font-bold text-blue-700">{ws.folders?.length || 0}</div>
-                      <div className="text-xs text-blue-600 font-medium">Folders</div>
-                    </div>
-                    <div className="flex flex-col items-center justify-center p-3 rounded-xl bg-green-50 border border-green-100">
-                      <div className="p-2 bg-white rounded-full shadow-sm mb-2">
-                        <FileText className="w-4 h-4 text-green-500" />
-                      </div>
-                      <div className="text-lg font-bold text-green-700">{totalDocs}</div>
-                      <div className="text-xs text-green-600 font-medium">Documents</div>
-                    </div>
-                  </div>
-                  {/* Folder Preview */}
-                  <div className="space-y-2">
-                    <div className="text-sm font-medium text-blue-900 flex items-center gap-2">
-                      <Folder className="w-4 h-4 text-yellow-500" />
-                      Folders Preview
-                    </div>
-                    {(ws.folders || []).length === 0 ? (
-                      <div className="text-xs text-blue-400 text-center py-3 bg-blue-50 rounded-lg">No folders created</div>
-                    ) : (
-                      <div className="space-y-1">
-                        {(ws.folders || []).slice(0, 4).map((f: any) => (
-                          <div key={f.id} className="flex items-center justify-between p-2 bg-blue-50 rounded text-xs border border-blue-100">
-                            <div className="flex items-center gap-2 truncate flex-1">
-                              <Folder className="w-3 h-3 text-yellow-500 flex-shrink-0" />
-                              <span className="truncate">{f.name}</span>
-                            </div>
-                            <Badge variant="outline" className="text-xs border-blue-200 text-blue-700">
-                              {(f.items || []).filter((it: any) => it.type === 'document').length}
-                            </Badge>
+                  {/* Simplified workspace metrics: occupancy, compliance, staffing */}
+                  <div className="grid grid-cols-3 gap-4 mb-2">
+                    {/* Occupancy tile */}
+                    <div className="bg-white rounded-2xl shadow-sm p-6 flex flex-col items-center justify-center">
+                      <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center mb-3">
+                        {typeof occupancyPercent === 'number' ? (
+                          <div className="-mt-1">
+                            <OccupancyPie percent={occupancyPercent} size={28} strokeWidth={3} />
                           </div>
-                        ))}
-                        {(ws.folders || []).length > 4 && (
-                          <div className="text-xs text-blue-400 text-center py-1">
-                            +{(ws.folders || []).length - 4} more folders...
-                          </div>
+                        ) : (
+                          <Building2 className="w-6 h-6 text-slate-400" />
                         )}
                       </div>
-                    )}
+                      <div className="text-2xl font-bold text-slate-800">{typeof occupancyPercent === 'number' ? `${occupancyPercent}%` : '—'}</div>
+                      <div className="text-sm text-slate-500 mt-1">Occupancy</div>
+                    </div>
+
+                    {/* Compliance tile */}
+                    <div className="bg-white rounded-2xl shadow-sm p-6 flex flex-col items-center justify-center">
+                      <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center mb-3">
+                        <Shield className="w-6 h-6 text-emerald-500" />
+                      </div>
+                      <div className="text-2xl font-bold text-slate-800">{ws.complianceScore ? `${Math.round(ws.complianceScore)}%` : '—'}</div>
+                      <div className="text-sm text-slate-500 mt-1">Compliance</div>
+                    </div>
+
+                    {/* Staffing tile */}
+                    <div className="bg-white rounded-2xl shadow-sm p-6 flex flex-col items-center justify-center">
+                      <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center mb-3">
+                        <Users className="w-6 h-6 text-blue-500" />
+                      </div>
+                      <div className="text-2xl font-bold text-slate-800">{typeof ws.staffingLevel === 'number' ? `${ws.staffingLevel}%` : (ws.staffCount ? ws.staffCount : '—')}</div>
+                      <div className="text-sm text-slate-500 mt-1">Staffing</div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
