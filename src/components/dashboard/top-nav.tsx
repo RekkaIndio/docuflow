@@ -12,6 +12,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { LifeBuoy, LogOut, Settings, User as UserIcon, Bell } from 'lucide-react';
+import Link from 'next/link';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { useEffect, useState } from 'react';
 import { collection, query as fsQuery, orderBy, limit as fsLimit, onSnapshot, updateDoc, doc } from 'firebase/firestore';
@@ -187,9 +188,11 @@ export function TopNav({ onSettingsClick, onNotificationsClick, unreadCount = 0,
               <Settings className="mr-2 h-4 w-4" />
               <span>Settings</span>
             </DropdownMenuItem>
-            <DropdownMenuItem>
-              <LifeBuoy className="mr-2 h-4 w-4" />
-              <span>Help Center</span>
+            <DropdownMenuItem asChild>
+              <Link href="/help" className="flex items-center">
+                <LifeBuoy className="mr-2 h-4 w-4" />
+                <span>Help Center</span>
+              </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={signOut}>

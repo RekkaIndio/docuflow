@@ -74,10 +74,84 @@ export async function GET() {
       workspacesSnap.docs.map(async (doc: any) => {
         const workspaceData = doc.data();
         const { folders } = await fetchWorkspaceStructure(doc.id);
+
+        // Derive occupancy from workspace settings where possible
+        let totalBeds: number | undefined = undefined;
+        let occupiedBeds: number | undefined = undefined;
+        try {
+          const occDoc = await adminDb.doc(`workspaces/${doc.id}/settings/occupancy`).get();
+          if (occDoc.exists) {
+            const d = occDoc.data();
+            if (d && typeof d.totalBeds === 'number') totalBeds = d.totalBeds;
+            if (d && typeof d.occupiedBeds === 'number') occupiedBeds = d.occupiedBeds;
+          }
+        } catch (occErr) {
+          console.warn('Failed to read occupancy settings for', doc.id, occErr);
+        }
+
+        // Derive complianceScore from audit_latest_scores (average of numeric scorePercent values)
+        let complianceScore: number | null = null;
+        try {
+          const latestScoresDoc = await adminDb.doc(`workspaces/${doc.id}/settings/audit_latest_scores`).get();
+          if (latestScoresDoc.exists) {
+            const data = latestScoresDoc.data() || {};
+            const scores: number[] = Object.values(data)
+              .map((v: any) => (v && typeof v.scorePercent === 'number' ? v.scorePercent : null))
+              .filter((s: any) => typeof s === 'number');
+            if (scores.length > 0) {
+              complianceScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+            }
+          }
+        } catch (scoreErr) {
+          console.warn('Failed to read audit_latest_scores for', doc.id, scoreErr);
+        }
+
+        // Get latest daily checkin for staffing information
+        let staffCount: number | null = null;
+        let staffingLevel: number | null = null; // percentage
+        let latestDailyCheckinAt: string | null = null;
+        try {
+          const checkinsCol = adminDb.collection(`workspaces/${doc.id}/daily-checkins`);
+          const snaps = await checkinsCol.orderBy('createdAt', 'desc').limit(1).get();
+          if (!snaps.empty) {
+            const latest = snaps.docs[0].data();
+            latestDailyCheckinAt = latest && latest.recordedAt ? latest.recordedAt : (latest && latest.createdAt && latest.createdAt.toDate ? latest.createdAt.toDate().toISOString() : null);
+
+            // staffingDay/night or staffingDay & staffingNight numeric fields
+            const day = latest.staffingDay ?? (latest.staffing && latest.staffing.day) ?? null;
+            const night = latest.staffingNight ?? (latest.staffing && latest.staffing.night) ?? null;
+            if (typeof day === 'number' && typeof night === 'number') {
+              staffCount = (Number(day) || 0) + (Number(night) || 0);
+            } else if (typeof day === 'number') {
+              staffCount = Number(day) || 0;
+            } else if (typeof latest.staffCount === 'number') {
+              staffCount = latest.staffCount;
+            }
+
+            // Derive staffingLevel as percent of required or beds when available
+            if (typeof staffCount === 'number') {
+              if (typeof totalBeds === 'number' && totalBeds > 0) {
+                staffingLevel = Math.round((staffCount / totalBeds) * 100);
+              } else if (typeof workspaceData.requiredStaff === 'number' && workspaceData.requiredStaff > 0) {
+                staffingLevel = Math.round((staffCount / workspaceData.requiredStaff) * 100);
+              }
+            }
+          }
+        } catch (checkinErr) {
+          console.warn('Failed to read latest daily-checkin for', doc.id, checkinErr);
+        }
+
         return {
           id: doc.id,
           ...workspaceData,
-          folders
+          folders,
+          totalBeds,
+          occupiedBeds,
+          occupancy: (typeof totalBeds === 'number' && typeof occupiedBeds === 'number' && totalBeds > 0) ? (occupiedBeds / totalBeds) : workspaceData.occupancy ?? null,
+          complianceScore,
+          staffCount,
+          staffingLevel,
+          latestDailyCheckinAt,
         };
       })
     );

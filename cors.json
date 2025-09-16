@@ -1,0 +1,8 @@
+[
+  {
+    "origin": ["http://localhost:9002", "http://localhost:3000", "https://docuflow-phi.vercel.app"],
+    "method": ["GET", "HEAD", "OPTIONS"],
+    "responseHeader": ["Content-Type", "Content-Length", "Content-Disposition", "Accept-Ranges", "Content-Range", "Range"],
+    "maxAgeSeconds": 3600
+  }
+]

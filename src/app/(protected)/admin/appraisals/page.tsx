@@ -153,7 +153,7 @@ export default function AppraisalsPage() {
         <div className="relative z-10 px-6 py-8 md:px-8 md:py-12">
     <div className="w-full">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-              <div className="flex items-center gap-4 -ml-20 md:-ml-32 lg:-ml-48">
+              <div className="flex items-center gap-4 pl-0 md:pl-4 lg:pl-6">
                 <div className="relative">
                   <div className="w-16 h-16 bg-white/10 backdrop-blur-sm rounded-2xl flex items-center justify-center border border-white/20">
                     <FileText className="w-8 h-8 text-white" />
