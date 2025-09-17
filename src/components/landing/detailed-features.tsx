@@ -46,7 +46,7 @@ export function DetailedFeatures() {
             </div>
             <h2 className="text-3xl font-bold font-headline tracking-tighter sm:text-5xl">Everything you need, nothing you don't.</h2>
             <p className="max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
-                From upload to insight, Docuflow provides a comprehensive suite of tools to supercharge your document management.
+                From upload to insight, CG-360 provides a comprehensive suite of tools to supercharge your document management.
             </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">

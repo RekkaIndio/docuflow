@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1920" height="1080" viewBox="0 0 1920 1080" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="g1" x1="0" x2="1">
+      <stop offset="0%" stop-color="#0ea5e9" stop-opacity="0.08"/>
+      <stop offset="50%" stop-color="#7c3aed" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#ec4899" stop-opacity="0.04"/>
+    </linearGradient>
+    <linearGradient id="g2" x1="0" x2="1">
+      <stop offset="0%" stop-color="#0ea5e9" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#7c3aed" stop-opacity="0.02"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1920" height="1080" fill="#ffffff" />
+
+  <!-- soft diagonal band -->
+  <g opacity="0.9">
+    <rect x="-600" y="-200" width="2200" height="900" transform="rotate(-12 0 0)" fill="url(#g1)" />
+    <circle cx="1500" cy="200" r="300" fill="url(#g2)" />
+    <circle cx="300" cy="700" r="240" fill="#f3f4f6" opacity="0.6" />
+  </g>
+
+  <!-- subtle texture dots -->
+  <g fill="#e6eefb" opacity="0.6">
+    <circle cx="160" cy="120" r="2"/>
+    <circle cx="220" cy="200" r="1.8"/>
+    <circle cx="400" cy="90" r="1.5"/>
+    <circle cx="600" cy="250" r="1.2"/>
+    <circle cx="1200" cy="160" r="1.5"/>
+  </g>
+
+  <!-- faint wave at bottom -->
+  <path d="M0 820 C480 900, 720 760, 1920 880 L1920 1080 L0 1080 Z" fill="#f8fafc" opacity="0.9"/>
+</svg>

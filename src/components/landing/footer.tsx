@@ -11,7 +11,7 @@ export function Footer() {
         <div className="flex flex-col gap-4">
           <Link href="#" className="flex items-center gap-2">
             <Logo className="h-8 w-8 text-primary" />
-            <span className="text-xl font-bold font-headline">Docuflow</span>
+            <span className="text-xl font-bold font-headline">CG-360</span>
           </Link>
           <p className="text-muted-foreground text-sm max-w-xs">
             Unlock the power of your documents with AI-driven intelligence.
@@ -62,7 +62,7 @@ export function Footer() {
         </div>
       </div>
       <div className="container mx-auto px-4 md:px-6 mt-8 border-t border-border/40 pt-6 text-center text-sm text-muted-foreground">
-        <p>&copy; {new Date().getFullYear()} Docuflow. All rights reserved.</p>
+        <p>&copy; {new Date().getFullYear()} CG-360. All rights reserved.</p>
       </div>
     </footer>
   )

@@ -22,11 +22,11 @@ import { NewsletterSignup } from './landing/newsletter-signup';
 
 export function LandingPage() {
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground dark relative">
+    <div className="flex flex-col min-h-screen bg-white text-foreground dark relative">
       <header className="px-4 lg:px-6 h-16 flex items-center sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur-sm">
         <Link href="#" className="flex items-center justify-center gap-2">
           <Logo className="h-6 w-6 text-primary" />
-          <span className="text-xl font-semibold font-headline">DocuFlow AI</span>
+          <span className="text-xl font-semibold font-headline">CG-360 AI</span>
         </Link>
         <nav className="ml-auto hidden lg:flex gap-4 sm:gap-6 items-center">
           <Link href="#" className="text-sm font-medium hover:underline underline-offset-4 text-foreground/80">
@@ -72,7 +72,7 @@ export function LandingPage() {
                     Document Workflow
                   </span>
                 </h1>
-                <p className="max-w-[600px] text-muted-foreground md:text-2xl font-medium">
+                <p className="max-w-[600px] text-slate-800 md:text-2xl font-medium">
                   Automate document processing with AI that understands context, extracts data with precision, and organizes everything intelligently.
                 </p>
                 <div className="flex flex-col gap-4 min-[400px]:flex-row">
@@ -88,7 +88,7 @@ export function LandingPage() {
                     </Link>
                   </Button>
                 </div>
-                <span className="text-xs text-muted-foreground mt-1">No credit card required</span>
+                <span className="text-xs text-slate-700 mt-1">No credit card required</span>
                 <div className="flex items-center gap-4 pt-6">
                   <div className="flex -space-x-2">
                     <Image src="https://i.pravatar.cc/150?u=a" width={40} height={40} alt="User" className="rounded-full border-2 border-background" />
@@ -98,15 +98,15 @@ export function LandingPage() {
                   </div>
                   <div>
                     <p className="font-semibold">10,000+ businesses trust us</p>
-                    <p className="text-sm text-muted-foreground">Process 1M+ documents monthly</p>
+                    <p className="text-sm text-slate-700">Process 1M+ documents monthly</p>
                   </div>
                 </div>
               </div>
               {/* Replace with interactive demo or video preview in future */}
-              <div className="relative z-10 flex items-center justify-center">
+                <div className="relative z-10 flex items-center justify-center">
                 {/* Placeholder for interactive demo or video */}
                 <div className="w-full h-[400px] md:h-[480px] bg-muted/30 rounded-3xl flex items-center justify-center border-2 border-dashed border-primary/30 shadow-xl">
-                  <span className="text-lg text-muted-foreground">[Product Demo Coming Soon]</span>
+                  <span className="text-lg text-slate-700">[Product Demo Coming Soon]</span>
                 </div>
               </div>
             </div>

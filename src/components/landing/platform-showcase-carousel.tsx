@@ -9,7 +9,7 @@ const slides = [
     description: 'Drag & drop or browse to upload PDFs, Word, Excel, and more. See your files appear in real time.',
     visual: (
       <div className="relative w-full h-[340px] md:h-[420px] flex flex-col items-center justify-center">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-pink-400/10 to-transparent rounded-2xl blur-sm" />
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-pink-400/10 to-transparent rounded-2xl blur-sm" />
         <div className="relative z-10 w-[90%] max-w-2xl bg-background/90 border border-primary/20 rounded-2xl shadow-2xl p-8 flex flex-col items-center">
           <UploadCloud className="w-12 h-12 text-primary mb-4 animate-bounce" />
           <div className="w-full h-32 border-2 border-dashed border-primary/30 rounded-xl flex flex-col items-center justify-center bg-muted/40">
@@ -27,7 +27,7 @@ const slides = [
   },
   {
     title: 'AI Reads & Tags Your Docs',
-    description: 'Watch as Docuflow AI extracts key data and auto-tags your files for instant search and organization.',
+  description: 'Watch as CG-360 AI extracts key data and auto-tags your files for instant search and organization.',
     visual: (
       <div className="relative w-full h-[340px] md:h-[420px] flex flex-col items-center justify-center">
         <div className="absolute inset-0 bg-gradient-to-br from-purple-400/10 via-pink-400/10 to-transparent rounded-2xl blur-sm" />
@@ -53,7 +53,7 @@ const slides = [
     )
   },
   {
-    title: 'Chat with Docuflow AI',
+  title: 'Chat with CG-360 AI',
     description: 'Ask questions, get instant summaries, and discover insights—all in a beautiful chat interface.',
     visual: (
       <div className="relative w-full h-[340px] md:h-[420px] flex flex-col items-center justify-center">
@@ -61,7 +61,7 @@ const slides = [
         <div className="relative z-10 w-[90%] max-w-lg bg-background/90 border border-primary/20 rounded-2xl shadow-2xl p-8">
           <div className="flex items-center gap-2 mb-2">
             <Bot className="w-6 h-6 text-primary" />
-            <span className="font-semibold text-primary text-sm">Docuflow AI</span>
+            <span className="font-semibold text-primary text-sm">CG-360 AI</span>
           </div>
           <div className="flex flex-col gap-3">
             <div className="flex justify-end">
@@ -104,15 +104,15 @@ export function PlatformShowcaseCarousel() {
     <section className="w-full py-20 md:py-32 lg:py-40 bg-background flex flex-col items-center">
       <div className="container px-4 md:px-6 flex flex-col items-center">
         <div className="inline-block rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary mb-4">A Look Inside</div>
-        <h2 className="text-4xl md:text-5xl font-bold font-headline tracking-tighter text-center mb-2">See Docuflow in Action</h2>
+        <h2 className="text-4xl md:text-5xl font-bold font-headline tracking-tighter text-center mb-2">See CG-360 in Action</h2>
         <p className="max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed text-center mb-10">
-          Explore how Docuflow transforms your workflow from upload to insight. Watch the platform in action, step by step.
+          Explore how CG-360 transforms your workflow from upload to insight. Watch the platform in action, step by step.
         </p>
         <div className="w-full flex flex-col items-center">
           <div className="w-full max-w-4xl min-h-[420px] flex flex-col items-center justify-center">
             <div className="w-full flex flex-col items-center">
-              <div className="text-primary font-semibold text-xl md:text-2xl mb-2 text-center">{slides[index].title}</div>
-              <div className="text-muted-foreground text-base md:text-lg mb-6 text-center">{slides[index].description}</div>
+          <div className="text-primary font-semibold text-xl md:text-2xl mb-2 text-center">{slides[index].title}</div>
+            <div className="text-slate-700 text-base md:text-lg mb-6 text-center">{slides[index].description}</div>
               {slides[index].visual}
             </div>
           </div>

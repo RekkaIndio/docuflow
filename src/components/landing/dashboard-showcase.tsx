@@ -8,8 +8,8 @@ export function DashboardShowcase() {
       <div className="container px-4 md:px-6">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h3 className="text-2xl font-bold font-headline">Inside Docuflow</h3>
-            <p className="text-muted-foreground mt-1">A quick look at your policy intelligence dashboard — everything your team needs to stay compliant and proactive.</p>
+            <h3 className="text-2xl font-bold font-headline">Inside CG-360</h3>
+            <p className="text-slate-700 mt-1">A quick look at your policy intelligence dashboard — everything your team needs to stay compliant and proactive.</p>
           </div>
           <div className="hidden sm:flex items-center gap-3">
             <button className="px-4 py-2 rounded bg-primary text-primary-foreground font-semibold">Request demo</button>
@@ -25,13 +25,13 @@ export function DashboardShowcase() {
                 <div className="flex items-center gap-3">
                   <img src="/Neurodiversity_Symbol.svg" alt="logo" width={28} height={28} className="w-7 h-7 object-contain" />
                   <div>
-                    <div className="font-semibold">Docuflow Dashboard</div>
-                    <div className="text-xs text-muted-foreground">Overview • Updated 2 mins ago</div>
+                    <div className="font-semibold">CG-360 Dashboard</div>
+                    <div className="text-xs text-slate-700">Overview • Updated 2 mins ago</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="text-xs text-muted-foreground flex items-center gap-2"><Calendar className="w-4 h-4" /> Mar 2025</div>
-                  <div className="text-xs text-muted-foreground flex items-center gap-2"><Search className="w-4 h-4" /> Search documents</div>
+                  <div className="text-xs text-slate-700 flex items-center gap-2"><Calendar className="w-4 h-4" /> Mar 2025</div>
+                  <div className="text-xs text-slate-700 flex items-center gap-2"><Search className="w-4 h-4" /> Search documents</div>
                 </div>
               </div>
 

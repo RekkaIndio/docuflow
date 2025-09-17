@@ -6,7 +6,7 @@ export function Logo(props: SVGProps<SVGSVGElement>) {
   return (
     <Image
       src={neurodiversityLogo}
-      alt="DocuFlow Logo"
+      alt="CG-360 Logo"
       width={128}
       height={128}
       className={props.className}

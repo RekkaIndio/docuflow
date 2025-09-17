@@ -26,9 +26,9 @@ const MockFileBrowser = () => (
         <div className="w-16 bg-muted/30 rounded-l-md p-2 flex flex-col items-center gap-4">
             <Logo className="w-7 h-7 text-primary"/>
             <div className="space-y-3">
-                <Folder className="w-6 h-6 text-muted-foreground" />
-                <MessageSquare className="w-6 h-6 text-muted-foreground" />
-                <PanelLeft className="w-6 h-6 text-muted-foreground" />
+                <Folder className="w-6 h-6 text-slate-700" />
+                <MessageSquare className="w-6 h-6 text-slate-700" />
+                <PanelLeft className="w-6 h-6 text-slate-700" />
             </div>
         </div>
         <div className="flex-1 p-4">
@@ -55,7 +55,7 @@ const MockDocumentView = () => (
     <div className="h-[250px] md:h-[300px] flex flex-col">
         <div className="flex-shrink-0 border-b border-border/50 pb-2 mb-2">
              <h3 className="font-semibold font-headline">Project Plan.pdf</h3>
-             <p className="text-xs text-muted-foreground">Opened by Alex Johnson</p>
+             <p className="text-xs text-slate-700">Opened by Alex Johnson</p>
         </div>
         <div className="flex-1 overflow-hidden space-y-2">
             <div className="w-3/4 h-3 bg-muted/50 rounded"></div>
@@ -78,7 +78,7 @@ const MockChatPanel = () => (
                 <div className="text-xs bg-primary/80 text-primary-foreground p-2 rounded-md">
                     <p>Yes, please list all deadlines mentioned.</p>
                 </div>
-                 <User className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                 <User className="w-5 h-5 text-slate-700 flex-shrink-0" />
             </div>
         </div>
          <div className="flex-shrink-0 mt-2">
@@ -96,8 +96,8 @@ export function DashboardPreview() {
           <div className="inline-block rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
             A Look Inside
           </div>
-          <h2 className="text-3xl font-bold font-headline tracking-tighter sm:text-5xl">See Docuflow in Action</h2>
-          <p className="max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
+          <h2 className="text-3xl font-bold font-headline tracking-tighter sm:text-5xl">See CG-360 in Action</h2>
+          <p className="max-w-[900px] text-slate-700 md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
             Explore the clean, intuitive interface that makes managing your documents effortless. From file browsers to chat panels, everything is designed for clarity and speed.
           </p>
         </div>

@@ -1,4 +1,4 @@
-/* Docuflow DocumentConnectionsShowcase animation */
+/* CG-360 DocumentConnectionsShowcase animation */
 .animate-dash {
   stroke-dasharray: 8 8;
   animation: dashmove 2s linear infinite;
@@ -11,7 +11,7 @@
 
 /* Animated dot for connection path */
 .animated-dot {
-  fill: url(#docuflow-conn);
+  fill: url(#cg360-conn);
   filter: drop-shadow(0 0 6px #a78bfa);
   animation: dotmove 2s linear infinite;
 }

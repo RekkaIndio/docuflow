@@ -37,6 +37,7 @@ import {
   TrendingUp
 } from 'lucide-react';
 import Image from 'next/image';
+import heroImage from '@/assets/heroimage.png';
 import {
   Accordion,
   AccordionContent,
@@ -91,34 +92,30 @@ export default function Page() {
   }, []);
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground dark relative">
+    <div className="flex flex-col min-h-screen bg-white text-foreground dark relative">
       {/* Enhanced Header with better navigation */}
-      <header className="px-4 lg:px-6 h-16 flex items-center sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur-sm">
-        <Link href="#" className="flex items-center justify-center gap-2">
+  <header style={{color: '#000'}} className="px-4 lg:px-6 h-16 flex items-center sticky top-0 z-50 w-full border-b border-border/40 bg-white/95 backdrop-blur-sm text-black dark:text-slate-100">
+        <Link href="#" className="flex items-center justify-center gap-2" style={{color: '#000', opacity: 1}}>
           <Logo className="h-6 w-6 text-primary" />
-          <span className="text-xl font-semibold font-headline">DocuFlow AI</span>
+          <span style={{color: '#000', opacity: 1}} className="text-xl font-semibold font-headline text-black dark:text-slate-100">CG-360 AI</span>
         </Link>
-        <nav className="ml-auto hidden lg:flex gap-4 sm:gap-6 items-center">
-          <Link href="#features" className="text-sm font-medium hover:underline underline-offset-4 text-foreground/80 transition-colors">
+        <nav style={{color: '#000'}} className="ml-auto hidden lg:flex gap-4 sm:gap-6 items-center">
+          <Link href="#features" className="text-sm font-medium hover:underline underline-offset-4 text-black dark:text-slate-200 transition-colors" style={{color: '#000', opacity: 1}}>
             Features
           </Link>
-          <Link href="#compliance" className="text-sm font-medium hover:underline underline-offset-4 text-foreground/80 transition-colors">
+          <Link href="#compliance" className="text-sm font-medium hover:underline underline-offset-4 text-black dark:text-slate-200 transition-colors" style={{color: '#000', opacity: 1}}>
             Compliance
           </Link>
-          <Link href="#pricing" className="text-sm font-medium hover:underline underline-offset-4 text-foreground/80 transition-colors">
+          <Link href="#pricing" className="text-sm font-medium hover:underline underline-offset-4 text-black dark:text-slate-200 transition-colors" style={{color: '#000', opacity: 1}}>
             Pricing
           </Link>
-          <Link href="#demo" className="text-sm font-medium hover:underline underline-offset-4 text-foreground/80 transition-colors">
+          <Link href="#demo" className="text-sm font-medium hover:underline underline-offset-4 text-black dark:text-slate-200 transition-colors" style={{color: '#000', opacity: 1}}>
             Demo
           </Link>
-          <Link href="/login" className="text-sm font-medium hover:underline underline-offset-4 text-foreground/80 transition-colors">
+          <Link href="/login" className="text-sm font-medium hover:underline underline-offset-4 text-black dark:text-slate-200 transition-colors" style={{color: '#000', opacity: 1}}>
             Sign In
           </Link>
           <Button asChild className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all duration-300 hover:shadow-xl hover:shadow-primary/30">
-            <Link href="/signup">
-              Start Free Trial
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Link>
           </Button>
         </nav>
       </header>
@@ -126,7 +123,22 @@ export default function Page() {
       <main className="flex-1">
         {/* Enhanced Hero Section */}
         <section className="w-full pt-16 md:pt-24 lg:pt-32 pb-32 md:pb-48 lg:pb-64 relative overflow-hidden">
-          <AnimatedHeroBg />
+          {/* <AnimatedHeroBg /> -- commented out so the new animated SVG background is visible */}
+          {/* Animated hero background (wavy, colorful blobs). Left side is lightened to keep text readable. */}
+          <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+            {/* Layered blurred gradient blobs (Tailwind-based) */}
+            <div className="absolute -left-48 -top-40 w-[900px] h-[700px] bg-gradient-to-br from-pink-400 via-purple-600 to-cyan-400 opacity-90 rounded-full filter blur-3xl transform-gpu animate-[move1_14s_ease-in-out_infinite]"></div>
+            <div className="absolute right-0 -top-28 w-[1100px] h-[800px] bg-gradient-to-br from-cyan-400 via-indigo-500 to-pink-400 opacity-90 rounded-full filter blur-3xl transform-gpu animate-[move2_18s_ease-in-out_infinite]"></div>
+            <div className="absolute left-1/4 top-[60%] w-[700px] h-[500px] bg-gradient-to-br from-yellow-300 via-pink-300 to-purple-400 opacity-85 rounded-full filter blur-2xl transform-gpu animate-[move3_22s_ease-in-out_infinite]"></div>
+
+            {/* subtle left fade to keep text readable */}
+            <div className="absolute left-0 top-0 w-3/12 h-full bg-gradient-to-r from-white/10 to-transparent pointer-events-none" />
+
+            {/* faint wavy divider as an SVG for polish */}
+            <svg className="absolute bottom-0 left-0 w-full h-[240px] pointer-events-none" viewBox="0 0 1920 240" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+              <path d="M0 40 C220 90, 480 0, 980 140 C1480 280, 1800 120, 1920 140 L1920 240 L0 240 Z" fill="#ffffff" opacity="0.08" />
+            </svg>
+          </div>
           <div className="w-full px-40 md:px-44 lg:px-64 xl:px-80 2xl:px-80 relative z-10">
                         <div className="grid gap-16 lg:gap-20 lg:grid-cols-7 items-center min-h-[600px] lg:min-h-[700px]">
               <div className="lg:col-span-2 flex flex-col justify-center space-y-8">
@@ -139,274 +151,45 @@ export default function Page() {
                   Transform Care Home
                   <br/>
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 animate-gradient-text">
-                    Document Management
+                    Compliance Management
                   </span>
                 </h1>
 
-                <p className="max-w-[500px] text-muted-foreground md:text-xl font-medium leading-relaxed">
-                  Automate compliance, extract insights, and chat with your documents using AI.
-                  Built specifically for care homes with CQC compliance, audits, and resident care management.
+                <p className="max-w-[500px] text-slate-800 md:text-xl font-medium leading-relaxed">
+                  Revolutionise governance in your care home with CG-360. Say goodbye to costly, fragmented platforms—everything you need is in one place. Purpose-built for the care sector, CG-360 ensures effortless CQC compliance while simplifying your operations.
                 </p>
 
                 <div className="flex flex-col gap-4 min-[400px]:flex-row">
-                  <Button size="lg" asChild className="bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20 transition-all duration-300 hover:shadow-2xl hover:shadow-primary/30 hover:scale-105">
-                    <Link href="/signup">
-                      Start Free Trial
-                      <ArrowRight className="ml-2 h-5 w-5 animate-bounce-x" />
-                    </Link>
-                  </Button>
                   <Button size="lg" variant="outline" asChild className="border-2 hover:bg-primary/5 transition-all duration-300">
                     <Link href="#demo">
-                      Watch Demo
+                      Book A Demo
                       <Play className="ml-2 h-5 w-5" />
                     </Link>
                   </Button>
                 </div>
-
-                <div className="flex items-center gap-6 pt-6">
-                  <div className="flex -space-x-2">
-                    <Avatar className="border-2 border-background">
-                      <AvatarImage src="https://i.pravatar.cc/150?u=care1" />
-                      <AvatarFallback>CH</AvatarFallback>
-                    </Avatar>
-                    <Avatar className="border-2 border-background">
-                      <AvatarImage src="https://i.pravatar.cc/150?u=care2" />
-                      <AvatarFallback>MC</AvatarFallback>
-                    </Avatar>
-                    <Avatar className="border-2 border-background">
-                      <AvatarImage src="https://i.pravatar.cc/150?u=care3" />
-                      <AvatarFallback>RC</AvatarFallback>
-                    </Avatar>
-                  </div>
-                </div>
               </div>
 
-              {/* Dashboard Preview - Takes up 5 columns for maximum space */}
+              {/* Hero Image - placed to the right of the hero text */}
               <div className="lg:col-span-5 relative z-10 flex items-center justify-center w-full">
                 <div className="relative w-full h-[500px] md:h-[600px] lg:h-[650px] bg-gradient-to-br from-primary/5 to-purple-500/5 rounded-3xl border border-primary/20 shadow-2xl overflow-hidden">
                   <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-pink-500/10 animate-pulse"></div>
 
-                  {/* Complete Dashboard Interface */}
-                    <div className="relative h-full flex">
-                      {/* Sidebar */}
-                      <div className="w-16 md:w-20 bg-background/95 backdrop-blur-sm border-r border-border/20 flex flex-col items-center py-4 space-y-4">
-                        <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
-                          <Logo className="w-5 h-5 text-primary" />
-                        </div>
-
-                        <div className="flex flex-col space-y-3">
-                          <div className="w-8 h-8 bg-primary/20 rounded-lg flex items-center justify-center cursor-pointer hover:bg-primary/30 transition-colors" onClick={() => handleIconClick('documents')}>
-                            <FileText className="w-4 h-4 text-primary" />
-                          </div>
-                          <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-colors" onClick={() => handleIconClick('folders')}>
-                            <FolderSync className="w-4 h-4 text-muted-foreground" />
-                          </div>
-                          <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-colors" onClick={() => handleIconClick('staff')}>
-                            <Users className="w-4 h-4 text-muted-foreground" />
-                          </div>
-                          <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-colors" onClick={() => handleIconClick('analytics')}>
-                            <BarChart3 className="w-4 h-4 text-muted-foreground" />
-                          </div>
-                          <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-colors" onClick={() => handleIconClick('compliance')}>
-                            <Shield className="w-4 h-4 text-muted-foreground" />
-                          </div>
-                          <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-colors" onClick={() => handleIconClick('chat')}>
-                            <MessageSquare className="w-4 h-4 text-muted-foreground" />
-                          </div>
-                        </div>
-                      </div>
-
-                    {/* Main Content */}
-                    <div className="flex-1 p-6 md:p-8">
-                      {/* Header */}
-                      <div className="flex items-center justify-between mb-6">
-                        <div>
-                          <h3 className="text-lg font-semibold">Dashboard</h3>
-                          <p className="text-sm text-muted-foreground">Welcome back, Sarah</p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <Badge variant="secondary" className="bg-green-100 text-green-800">
-                            <Shield className="w-3 h-3 mr-1" />
-                            CQC Compliant
-                          </Badge>
-                          <Avatar className="w-8 h-8">
-                            <AvatarImage src="https://i.pravatar.cc/150?u=sarah" />
-                            <AvatarFallback>SM</AvatarFallback>
-                          </Avatar>
-                        </div>
-                      </div>
-
-                      {/* Stats Grid */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
-                        <Card className="bg-background/80 backdrop-blur-sm border-primary/20">
-                          <CardContent className="p-4">
-                            <div className="flex items-center gap-2 mb-2">
-                              <FileText className="w-4 h-4 text-primary" />
-                              <span className="text-sm font-medium">Documents</span>
-                            </div>
-                            <div className="text-2xl font-bold text-primary">1,247</div>
-                            <p className="text-xs text-muted-foreground">+12 this week</p>
-                          </CardContent>
-                        </Card>
-
-                        <Card className="bg-background/80 backdrop-blur-sm border-primary/20">
-                          <CardContent className="p-4">
-                            <div className="flex items-center gap-2 mb-2">
-                              <Shield className="w-4 h-4 text-primary" />
-                              <span className="text-sm font-medium">Compliance</span>
-                            </div>
-                            <div className="text-2xl font-bold text-primary">98%</div>
-                            <p className="text-xs text-muted-foreground">Excellent</p>
-                          </CardContent>
-                        </Card>
-
-                        <Card className="bg-background/80 backdrop-blur-sm border-primary/20">
-                          <CardContent className="p-4">
-                            <div className="flex items-center gap-2 mb-2">
-                              <Users className="w-4 h-4 text-primary" />
-                              <span className="text-sm font-medium">Staff</span>
-                            </div>
-                            <div className="text-2xl font-bold text-primary">42</div>
-                            <p className="text-xs text-muted-foreground">All trained</p>
-                          </CardContent>
-                        </Card>
-
-                        <Card className="bg-background/80 backdrop-blur-sm border-primary/20">
-                          <CardContent className="p-4">
-                            <div className="flex items-center gap-2 mb-2">
-                              <MessageSquare className="w-4 h-4 text-primary" />
-                              <span className="text-sm font-medium">AI Insights</span>
-                            </div>
-                            <div className="text-2xl font-bold text-primary">23</div>
-                            <p className="text-xs text-muted-foreground">This month</p>
-                          </CardContent>
-                        </Card>
-                      </div>
-
-                      {/* Main Content Grid */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                        {/* Recent Documents */}
-                        <Card className="md:col-span-2 bg-background/80 backdrop-blur-sm border-primary/20">
-                          <CardHeader className="pb-3">
-                            <CardTitle className="text-base flex items-center gap-2">
-                              <FileText className="w-4 h-4" />
-                              Recent Documents
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent className="space-y-3">
-                            <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                              <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                                <FileText className="w-4 h-4 text-blue-600" />
-                              </div>
-                              <div className="flex-1">
-                                <p className="text-sm font-medium">Staff Training Records Q3</p>
-                                <p className="text-xs text-muted-foreground">Updated 2 hours ago</p>
-                              </div>
-                              <Badge variant="secondary" className="text-xs">PDF</Badge>
-                            </div>
-
-                            <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                              <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                                <Shield className="w-4 h-4 text-green-600" />
-                              </div>
-                              <div className="flex-1">
-                                <p className="text-sm font-medium">CQC Inspection Report</p>
-                                <p className="text-xs text-muted-foreground">Updated yesterday</p>
-                              </div>
-                              <Badge variant="secondary" className="text-xs">DOC</Badge>
-                            </div>
-
-                            <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                              <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                                <Users className="w-4 h-4 text-purple-600" />
-                              </div>
-                              <div className="flex-1">
-                                <p className="text-sm font-medium">Resident Care Plans</p>
-                                <p className="text-xs text-muted-foreground">Updated 3 days ago</p>
-                              </div>
-                              <Badge variant="secondary" className="text-xs">XLS</Badge>
-                            </div>
-                          </CardContent>
-                        </Card>
-
-                        {/* Quick Actions & AI Chat */}
-                        <div className="space-y-6">
-                          {/* Quick Actions */}
-                          <Card className="bg-background/80 backdrop-blur-sm border-primary/20">
-                            <CardHeader className="pb-3">
-                              <CardTitle className="text-base">Quick Actions</CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-2">
-                              <Button size="sm" className="w-full justify-start text-xs h-8">
-                                <UploadCloud className="w-3 h-3 mr-2" />
-                                Upload Document
-                              </Button>
-                              <Button size="sm" variant="outline" className="w-full justify-start text-xs h-8">
-                                <MessageSquare className="w-3 h-3 mr-2" />
-                                Ask AI Assistant
-                              </Button>
-                              <Button size="sm" variant="outline" className="w-full justify-start text-xs h-8">
-                                <Shield className="w-3 h-3 mr-2" />
-                                Run Compliance Check
-                              </Button>
-                            </CardContent>
-                          </Card>
-
-                          {/* AI Assistant Preview */}
-                          <Card className="bg-background/80 backdrop-blur-sm border-primary/20">
-                            <CardHeader className="pb-3">
-                              <CardTitle className="text-base flex items-center gap-2">
-                                <BrainCircuit className="w-4 h-4 text-primary" />
-                                AI Assistant
-                              </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                              <div className="bg-muted/50 rounded-lg p-3 mb-3">
-                                <p className="text-xs text-muted-foreground mb-2">
-                                  "Your medication audit is due in 3 days. I've prepared a checklist..."
-                                </p>
-                                <div className="flex gap-2">
-                                  <Button size="sm" variant="outline" className="text-xs h-6 px-2">
-                                    View
-                                  </Button>
-                                  <Button size="sm" className="text-xs h-6 px-2 bg-primary/90">
-                                    Ask More
-                                  </Button>
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </div>
-                      </div>
-
-                      {/* Compliance Status Bar */}
-                      <div className="mt-8">
-                        <Card className="bg-background/80 backdrop-blur-sm border-primary/20">
-                          <CardContent className="p-4">
-                            <div className="flex items-center justify-between mb-3">
-                              <span className="text-sm font-medium">Compliance Status</span>
-                              <span className="text-sm text-muted-foreground">98% Complete</span>
-                            </div>
-                            <div className="w-full bg-muted rounded-full h-2 mb-3">
-                              <div className="bg-green-500 h-2 rounded-full" style={{width: '98%'}}></div>
-                            </div>
-                            <div className="flex justify-between text-xs text-muted-foreground">
-                              <span>Next audit: March 15, 2025</span>
-                              <span>2 items pending</span>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </div>
+                  {/* Replaced dashboard preview with a simple hero image for the landing */}
+                  <div className="relative h-full flex items-center justify-center">
+                    <div
+                      className="relative w-full h-full overflow-hidden rounded-3xl"
+                      style={{
+                        WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 35%, black 65%, transparent 100%)',
+                        maskImage: 'linear-gradient(to right, transparent 0%, black 35%, black 65%, transparent 100%)',
+                        // ensure the mask uses the container box
+                        WebkitMaskRepeat: 'no-repeat',
+                        maskRepeat: 'no-repeat',
+                      }}
+                    >
+                      <Image src={heroImage} alt="CG-360 preview" className="object-cover" fill priority />
                     </div>
                   </div>
 
-                  {/* Demo Badge */}
-                  <div className="absolute top-4 right-4">
-                    <Button size="sm" variant="secondary" className="bg-background/80 backdrop-blur-sm">
-                      <Play className="w-3 h-3 mr-1" />
-                      Interactive Demo
-                    </Button>
-                  </div>
                 </div>
               </div>
             </div>
@@ -418,7 +201,7 @@ export default function Page() {
           <div className="container px-4 md:px-6">
             <div className="text-center mb-16 animate-on-scroll">
               <Badge variant="outline" className="mb-4">
-                Why Choose DocuFlow AI
+                Why Choose CG-360
               </Badge>
               <h2 className="text-3xl font-bold font-headline tracking-tighter sm:text-5xl mb-4">
                 Built for Care Homes, Powered by AI

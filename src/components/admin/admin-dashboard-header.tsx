@@ -43,8 +43,8 @@ export default function AdminDashboardHeader({
           </div>
 
           {/* Key metrics cards - right side */}
-          <div className="w-full lg:w-auto">
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 lg:gap-4">
+            <div className="w-full lg:w-auto">
+            <div className="grid grid-cols-2 lg:grid-cols-2 gap-3 lg:gap-4">
               {/* Workspaces */}
               <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
                 <div className="flex items-center gap-2 lg:gap-3 h-full">
@@ -59,30 +59,7 @@ export default function AdminDashboardHeader({
               </div>
 
               {/* Folders */}
-              <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
-                <div className="flex items-center gap-2 lg:gap-3 h-full">
-                  <div className="p-2 bg-yellow-500/20 rounded-xl group-hover:bg-yellow-500/30 transition-colors duration-300">
-                    <Folder className="w-4 h-4 lg:w-5 lg:h-5 text-yellow-400" />
-                  </div>
-                  <div>
-                    <div className="text-xl lg:text-2xl font-bold text-white">{totalFolders}</div>
-                    <div className="text-xs text-yellow-200 font-medium uppercase tracking-wide">Folders</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Documents */}
-              <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
-                <div className="flex items-center gap-2 lg:gap-3 h-full">
-                  <div className="p-2 bg-purple-500/20 rounded-xl group-hover:bg-purple-500/30 transition-colors duration-300">
-                    <FileText className="w-4 h-4 lg:w-5 lg:h-5 text-purple-400" />
-                  </div>
-                  <div>
-                    <div className="text-xl lg:text-2xl font-bold text-white">{totalDocuments}</div>
-                    <div className="text-xs text-purple-200 font-medium uppercase tracking-wide">Documents</div>
-                  </div>
-                </div>
-              </div>
+              {/* (Folders and Documents cards removed) */}
 
               {/* Occupancy */}
               <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">

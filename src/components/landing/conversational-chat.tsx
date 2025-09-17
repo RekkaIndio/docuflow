@@ -16,8 +16,8 @@ export function ConversationalChat() {
                             <Bot className="w-6 h-6" />
                         </div>
                         <div>
-                            <h3 className="font-bold font-headline">Docuflow AI</h3>
-                            <p className="text-sm text-muted-foreground">Ask anything about your documents</p>
+                            <h3 className="font-bold font-headline">CG-360 AI</h3>
+                            <p className="text-sm text-slate-700">Ask anything about your documents</p>
                         </div>
                     </div>
                 </div>
@@ -41,18 +41,18 @@ export function ConversationalChat() {
                                         <FileText className="w-5 h-5 text-blue-400 flex-shrink-0"/>
                                         <div>
                                             <p className="font-semibold">Enterprise-ABC-Corp.pdf</p>
-                                            <p className="text-xs text-muted-foreground">Due: March 15, 2025</p>
+                                            <p className="text-xs text-slate-700">Due: March 15, 2025</p>
                                         </div>
                                     </div>
                                     <div className="p-3 bg-background/50 rounded-md flex items-center gap-3">
                                         <FileText className="w-5 h-5 text-blue-400 flex-shrink-0"/>
                                         <div>
                                             <p className="font-semibold">Startup-XYZ-Inc.pdf</p>
-                                            <p className="text-xs text-muted-foreground">Due: May 22, 2025</p>
+                                            <p className="text-xs text-slate-700">Due: May 22, 2025</p>
                                         </div>
                                     </div>
                                 </div>
-                                <p className="mt-3 text-xs text-muted-foreground">
+                                <p className="mt-3 text-xs text-slate-700">
                                     Source: <span className="font-medium">/Contracts/Active/</span> folder.
                                 </p>
                             </div>
@@ -64,7 +64,7 @@ export function ConversationalChat() {
                     <input
                         type="text"
                         placeholder="e.g., show me all invoices over $5000 from Q2"
-                        className="flex-1 bg-transparent focus:outline-none text-sm placeholder:text-muted-foreground px-2"
+                        className="flex-1 bg-transparent focus:outline-none text-sm placeholder:text-slate-500 px-2"
                     />
                      <Button size="sm">
                         <Send className="w-4 h-4"/>

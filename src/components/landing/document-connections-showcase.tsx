@@ -41,25 +41,25 @@ export function DocumentConnectionsShowcase() {
 
   return (
     <section className="w-full bg-[#f8fafd] py-24 md:py-32">
-      <div className="container mx-auto flex flex-col md:flex-row items-center gap-12 px-4 md:px-8">
+  <div className="container mx-auto flex flex-col md:flex-row items-center gap-12 px-4 md:px-8">
         <div className="flex-1 max-w-lg">
           <span className="text-primary font-semibold text-sm mb-2 block">Automated Workflows</span>
           <h2 className="text-4xl md:text-5xl font-bold mb-6 text-slate-900">A connected document platform for teams</h2>
-          <p className="text-lg text-slate-600 mb-6">Visualize how Docuflow connects your folders, documents, and teams. Automate flows, share securely, and keep everyone in sync—no matter how complex your document structure.</p>
+          <p className="text-lg text-slate-600 mb-6">Visualize how CG-360 connects your folders, documents, and teams. Automate flows, share securely, and keep everyone in sync—no matter how complex your document structure.</p>
         </div>
         <div className="flex-1 relative min-h-[420px] min-w-[480px]">
           {/* SVG lines with animated dot */}
           <svg className="absolute left-0 top-0 w-full h-full pointer-events-none" width="480" height="360">
             <defs>
-              <linearGradient id="docuflow-conn" x1="0" y1="0" x2="1" y2="1">
+              <linearGradient id="cg360-conn" x1="0" y1="0" x2="1" y2="1">
                 <stop stopColor="#a78bfa" />
                 <stop offset="1" stopColor="#f472b6" />
               </linearGradient>
             </defs>
             {/* Invoices → Contracts */}
-            <path d={paths[0]} stroke="url(#docuflow-conn)" strokeWidth="4" fill="none" className="animate-dash" />
+            <path d={paths[0]} stroke="url(#cg360-conn)" strokeWidth="4" fill="none" className="animate-dash" />
             {/* Contracts → Team Alpha */}
-            <path d={paths[1]} stroke="url(#docuflow-conn)" strokeWidth="4" fill="none" className="animate-dash" />
+            <path d={paths[1]} stroke="url(#cg360-conn)" strokeWidth="4" fill="none" className="animate-dash" />
             {/* Animated dot on active line */}
             <AnimatedDot path={paths[activeLine]} />
           </svg>

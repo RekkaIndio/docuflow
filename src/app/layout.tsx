@@ -5,7 +5,7 @@ import { AuthProvider } from '@/hooks/use-auth';
 import { ThemeProvider } from '@/components/theme-provider';
 
 export const metadata: Metadata = {
-  title: 'Docuflow',
+  title: 'CG-360',
   description: 'AI-Powered Document Assistant',
   icons: {
     icon: '/Neurodiversity_Symbol.png',

@@ -10,7 +10,7 @@ export function NewsletterSignup() {
     <div className="w-full flex flex-col items-center py-12">
       <div className="bg-background/80 border border-border/30 rounded-2xl px-6 py-8 max-w-xl w-full shadow-lg flex flex-col items-center">
         <h3 className="font-headline text-2xl font-bold mb-2">Get Product Updates</h3>
-        <p className="text-muted-foreground mb-6 text-center">Sign up for our newsletter to get the latest on Docuflow AI features, tips, and exclusive offers.</p>
+  <p className="text-muted-foreground mb-6 text-center">Sign up for our newsletter to get the latest on CG-360 AI features, tips, and exclusive offers.</p>
         {submitted ? (
           <div className="text-green-600 font-semibold">Thank you for subscribing!</div>
         ) : (
