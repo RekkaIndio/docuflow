@@ -351,12 +351,42 @@ export function Dashboard() {
       window.addEventListener('hashchange', handleHashChange);
     }
 
-    const handleDocumentNavigation = (event: CustomEvent) => {
+    const handleDocumentNavigation = async (event: CustomEvent) => {
       const { documentId, documentName, policyFile } = event.detail || {};
 
       // If a policyFile is provided, open the policy PDF as a synthetic Document inside the app
       if (policyFile) {
         if (!activeWorkspace) return; // require an active workspace to show DocumentView
+
+        // Try to load the published policy metadata from the server so we can prefer
+        // the signed pdfPath/storagePath that admin UI uses. Fall back to the
+        // public /policies/... path if nothing is available.
+        let resolvedDownloadUrl: string | undefined = undefined;
+        let resolvedStoragePath: string | undefined = undefined;
+        try {
+          const baseName = policyFile.replace(/\.pdf$/i, '');
+          const searchResp = await fetch('/api/policies/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: baseName }),
+          });
+          if (searchResp.ok) {
+            const json = await searchResp.json();
+            const results = json.results || [];
+            // Try to find an exact id match first
+            const exact = results.find((r: any) => (r.id === baseName) || (r.policyName === baseName));
+            const policyData = exact || results[0];
+            if (policyData) {
+              // prefer pdfPath (signed/public URL) then storagePath
+              if (policyData.pdfPath) resolvedDownloadUrl = policyData.pdfPath;
+              if (!resolvedDownloadUrl && policyData.downloadUrl) resolvedDownloadUrl = policyData.downloadUrl;
+              if (policyData.storagePath) resolvedStoragePath = policyData.storagePath;
+            }
+          }
+        } catch (e) {
+          // ignore and fall back to public path
+        }
+
         const doc: Document = {
           id: `policy:${policyFile}`,
           name: documentName || policyFile.replace(/[-_]/g, ' ').replace('.pdf', ''),
@@ -366,8 +396,9 @@ export function Dashboard() {
           owner: user || { id: 'system', name: 'Policy Library', email: null, avatarUrl: null },
           workspaceId: activeWorkspace.id,
           folderId: null,
-          // Use a public URL; DocumentPreview/PdfPreview will handle fetching it
-          downloadUrl: `/policies/${policyFile}`,
+          // Prefer the signed/pdfPath if the server returned one; otherwise fall back to the public path
+          downloadUrl: resolvedDownloadUrl || `/policies/${policyFile}`,
+          storagePath: resolvedStoragePath,
         } as Document;
 
   setLastChatDetail(undefined);
@@ -471,7 +502,16 @@ export function Dashboard() {
     };
 
     if (typeof window !== 'undefined') {
-      window.addEventListener('navigate-to-document', handleDocumentNavigation as EventListener);
+      // EventListener must be synchronous and accept Event. wrap the async
+      // handler so we can call it and catch errors. Keep a stable reference
+      // so removeEventListener can unregister it later.
+      const navListener = (ev: Event) => {
+        void handleDocumentNavigation(ev as CustomEvent).catch((err) => {
+          console.error('navigate-to-document handler error', err);
+        });
+      };
+
+      window.addEventListener('navigate-to-document', navListener as EventListener);
       // Also listen for workspace navigation events (from admin chat)
       const handleWorkspaceNavigation = (ev: CustomEvent) => {
         const { workspaceId, workspaceName } = ev.detail || {};
@@ -534,7 +574,7 @@ export function Dashboard() {
       window.addEventListener('navigate-to-policies', handlePoliciesNavigation as EventListener);
 
       return () => {
-        window.removeEventListener('navigate-to-document', handleDocumentNavigation as EventListener);
+        window.removeEventListener('navigate-to-document', navListener as EventListener);
         window.removeEventListener('navigate-to-workspace', handleWorkspaceNavigation as EventListener);
         window.removeEventListener('navigate-to-audits', handleAuditsNavigation as EventListener);
         window.removeEventListener('navigate-to-appraisals', handleAppraisalsNavigation as EventListener);
