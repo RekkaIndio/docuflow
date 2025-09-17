@@ -90,7 +90,7 @@ export function PlatformShowcase() {
     <section className="w-full py-20 md:py-32 lg:py-40 bg-background">
       <div className="container px-4 md:px-6 flex flex-col items-center">
         <div className="inline-block rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary mb-4">A Look Inside</div>
-        <h2 className="text-3xl font-bold font-headline tracking-tighter sm:text-5xl text-center mb-2">See CG-360 in Action</h2>
+          {/* Title removed per request */}
         <p className="max-w-[900px] text-slate-700 md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed text-center mb-10">
           Explore how CG-360 transforms your workflow from upload to insight. Watch the platform in action, step by step.
         </p>

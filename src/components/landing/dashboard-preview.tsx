@@ -96,7 +96,7 @@ export function DashboardPreview() {
           <div className="inline-block rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
             A Look Inside
           </div>
-          <h2 className="text-3xl font-bold font-headline tracking-tighter sm:text-5xl">See CG-360 in Action</h2>
+                    {/* Section title intentionally removed per request */}
           <p className="max-w-[900px] text-slate-700 md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
             Explore the clean, intuitive interface that makes managing your documents effortless. From file browsers to chat panels, everything is designed for clarity and speed.
           </p>
