@@ -730,6 +730,51 @@ async function generateAndSaveAuditPDF(workspaceId: string, auditType: string, a
             totalCount: auditData.totalCount
         };
         
+        // If attachments exist on the audit data, try to inline them as base64 data URLs so the PDF generator can embed them.
+        try {
+            if (pdfData.data && pdfData.data.attachments && typeof pdfData.data.attachments === 'object') {
+                // Lazy-import helper that can fetch storage bytes as base64
+                const { getDocumentAsBase64 } = await import('@/actions/documents');
+                const embedded: Record<string, { dataUrl: string; name?: string }[]> = {};
+
+                for (const fieldName of Object.keys(pdfData.data.attachments)) {
+                    const list = pdfData.data.attachments[fieldName];
+                    if (!Array.isArray(list)) continue;
+                    embedded[fieldName] = [];
+                    for (const item of list) {
+                        try {
+                            // Prefer storagePath (server-friendly). If downloadUrl present, skip here.
+                            if (item.storagePath) {
+                                const base64 = await getDocumentAsBase64(item.storagePath);
+                                if (base64) {
+                                    // Try to infer mime type from filename
+                                    const extMatch = (item.name || item.storagePath).match(/\.([a-zA-Z0-9]+)$/);
+                                    const ext = extMatch ? extMatch[1].toLowerCase() : 'png';
+                                    const mime = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : ext === 'gif' ? 'image/gif' : 'image/png';
+                                    const dataUrl = `data:${mime};base64,${base64}`;
+                                    embedded[fieldName].push({ dataUrl, name: item.name });
+                                }
+                            }
+                        } catch (e) {
+                            console.warn('Failed to inline attachment for PDF', item, e);
+                            continue;
+                        }
+                    }
+                    if (embedded[fieldName].length === 0) delete embedded[fieldName];
+                }
+
+                if (Object.keys(embedded).length > 0) {
+                    // Place embedded images under a reserved key for the PDF generator
+                    pdfData.data._embeddedImages = embedded;
+                }
+            }
+        } catch (e) {
+            console.warn('Failed to inline attachments for PDF generation', e);
+        }
+
+    // Generate PDF
+    /*...*/
+        
     // Generate PDF
     const pdfBuffer = generateAuditPDF(pdfData);
         

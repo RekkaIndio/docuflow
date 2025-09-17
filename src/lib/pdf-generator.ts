@@ -182,6 +182,62 @@ export function generateAuditPDF(auditData: AuditPDFData): Uint8Array {
         
         yPosition += 7;
       }
+      // If there are embedded images for this item key, render them below the item
+      try {
+        const embedded = (auditData.data && (auditData.data as any)._embeddedImages) ? (auditData.data as any)._embeddedImages : null;
+        // The item.label is human readable, but attachments were keyed by field name; we try both label and a normalized key
+        const possibleKeys = [
+          // normalized label: lowercase, remove non-word
+          item.label.replace(/[^a-zA-Z0-9]/g, '').toLowerCase(),
+          item.label.replace(/\s+/g, '').toLowerCase(),
+          item.label.toLowerCase()
+        ];
+        if (embedded) {
+          let imagesForItem: { dataUrl: string; name?: string }[] | undefined = undefined;
+          for (const k of Object.keys(embedded)) {
+            if (possibleKeys.includes(k.toLowerCase()) || k.toLowerCase().includes(item.label.toLowerCase()) || item.label.toLowerCase().includes(k.toLowerCase())) {
+              imagesForItem = embedded[k];
+              break;
+            }
+          }
+
+          if (!imagesForItem && embedded[item.label]) imagesForItem = embedded[item.label];
+
+          if (imagesForItem && imagesForItem.length > 0) {
+            // Render thumbnails across the page, scale down if needed
+            const maxImgWidth = Math.min(80, contentWidth - 20);
+            const imgGap = 5;
+            let x = margin + 10;
+            let maxRowHeight = 0;
+            for (const img of imagesForItem) {
+              try {
+                // Determine width/height of the image by creating a temporary Image object (not available in Node), so we'll assume a square thumbnail
+                const w = 60;
+                const h = 60;
+                if (yPosition + h > 270) {
+                  doc.addPage();
+                  yPosition = 20;
+                }
+                // jsPDF addImage accepts dataURL
+                doc.addImage(img.dataUrl, 'PNG', x, yPosition, w, h);
+                x += w + imgGap;
+                maxRowHeight = Math.max(maxRowHeight, h);
+                // wrap to next line
+                if (x + w > margin + contentWidth) {
+                  x = margin + 10;
+                  yPosition += maxRowHeight + imgGap;
+                }
+              } catch (imgErr) {
+                console.warn('Failed to add embedded image to PDF', imgErr);
+                continue;
+              }
+            }
+            yPosition += maxRowHeight + 8;
+          }
+        }
+      } catch (e) {
+        // ignore image embedding failures
+      }
     });
     
     yPosition += 10;

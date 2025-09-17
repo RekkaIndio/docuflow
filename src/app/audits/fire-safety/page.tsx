@@ -120,6 +120,9 @@ export default function FireSafetyAuditPage() {
   const [errors, setErrors] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [finalComments, setFinalComments] = useState('');
+  // attachments: map fieldName -> array of { id, url, name }
+  const [attachments, setAttachments] = useState<Record<string, { id: string; url: string; name: string }[]>>({});
+  const [previewImage, setPreviewImage] = useState<{ url: string; name: string } | null>(null);
   const activeWorkspace = useWorkspace();
   const { user } = useAuth();
   
@@ -370,6 +373,38 @@ export default function FireSafetyAuditPage() {
     }
   };
 
+  // Attachment handlers
+  const handleAddAttachments = (fieldName: string, files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const fileArray = Array.from(files);
+    setAttachments(prev => {
+      const existing = prev[fieldName] ?? [];
+      const added = fileArray.map(f => ({ id: `${fieldName}-${Date.now()}-${f.name}`, url: URL.createObjectURL(f), name: f.name }));
+      return { ...prev, [fieldName]: [...existing, ...added] };
+    });
+  };
+
+  const handleRemoveAttachment = (fieldName: string, id: string) => {
+    setAttachments(prev => {
+      const list = prev[fieldName] ?? [];
+      const remaining = list.filter(a => a.id !== id);
+      const removed = list.find(a => a.id === id);
+      if (removed) {
+        try { URL.revokeObjectURL(removed.url); } catch (e) { /* ignore */ }
+      }
+      return { ...prev, [fieldName]: remaining };
+    });
+  };
+
+  // preview keyboard close (ESC)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPreviewImage(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   const validateForm = () => {
     const requiredFields: (keyof FireSafetyAuditData)[] = [
       'home', 'date', 'personCompletingAudit',
@@ -466,7 +501,28 @@ export default function FireSafetyAuditPage() {
     <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:border-gray-300 transition-colors">
       <div className="space-y-3">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+          <div className="flex items-start justify-between">
+            <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+            <div className="ml-4">
+              <label
+                title="Add attachment"
+                className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100"
+              >
+                <input
+                  type="file"
+                  accept="image/*"
+                  data-field-input={yesNoField}
+                  onChange={(e) => {
+                    handleAddAttachments(yesNoField, e.target.files);
+                    // reset the input so same file can be picked again if removed
+                    e.currentTarget.value = '';
+                  }}
+                  className="hidden"
+                />
+                <span className="text-xl font-bold">+</span>
+              </label>
+            </div>
+          </div>
           <div className="flex gap-4" data-field={yesNoField}>
             <label className="flex items-center cursor-pointer">
               <input
@@ -516,9 +572,34 @@ export default function FireSafetyAuditPage() {
             placeholder="Add any comments or observations..."
           />
         </div>
+        {/* Attachments preview */}
+        <div>
+          <div className="flex flex-wrap gap-2">
+            {(attachments[yesNoField] ?? []).map(att => (
+              <div key={att.id} className="relative w-24 h-24 rounded overflow-hidden border border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setPreviewImage({ url: att.url, name: att.name })}
+                  className="w-full h-full"
+                  title={att.name}
+                >
+                  <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+                </button>
+                <button
+                  onClick={() => handleRemoveAttachment(yesNoField, att.id)}
+                  title="Remove"
+                  className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-gray-200 shadow-sm"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
+
 
   return (
   <div className="w-full p-10 bg-gradient-to-br from-slate-50 to-white rounded-3xl shadow-2xl mt-10 border border-slate-200">
@@ -1046,6 +1127,28 @@ export default function FireSafetyAuditPage() {
               >
                 {saving ? 'Saving...' : 'Save and Close'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Image preview modal */}
+      {previewImage && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black bg-opacity-60" onClick={() => setPreviewImage(null)} />
+          <div className="relative z-70 max-w-3xl w-full mx-4">
+            <div className="bg-white rounded-lg overflow-hidden shadow-xl">
+              <div className="flex justify-between items-start p-2 border-b">
+                <div className="px-3 py-1 text-sm text-gray-700">{previewImage.name}</div>
+                <button
+                  onClick={() => setPreviewImage(null)}
+                  className="m-2 bg-white rounded-full p-1 text-gray-700 border"
+                >
+                  Close
+                </button>
+              </div>
+              <div className="p-4 bg-black flex items-center justify-center">
+                <img src={previewImage.url} alt={previewImage.name} className="max-h-[80vh] w-auto object-contain" />
+              </div>
             </div>
           </div>
         </div>
