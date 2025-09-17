@@ -10,7 +10,7 @@ export default function renderActionPlanAssignmentEmail({ monthKey, assignedBy, 
 
   // Use the hosted SVG as a reliable external source, but attempt to inline the project's PNG
   // when running server-side so the image renders even if external fetching is blocked.
-  const hostedLogo = 'https://docuflow.ai/assets/Neurodiversity_Symbol.svg';
+  const hostedLogo = 'https://docuflow.ai/assets/Neurodiversity_Symbol.png';
 
   let inlineLogoDataUri: string | null = null;
   try {

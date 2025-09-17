@@ -273,6 +273,21 @@ export default function PoliciesPage() {
     // Listen for the custom event
     if (typeof window !== 'undefined') {
       window.addEventListener('open-specific-policy', handleOpenSpecificPolicy as EventListener);
+      // Also support pending policy from sessionStorage (sent by chat before navigation)
+      try {
+        const pending = window.sessionStorage ? window.sessionStorage.getItem('docuflow.pendingPolicy') : null;
+        if (pending) {
+          // Clear it so it doesn't re-open on subsequent mounts
+          try { window.sessionStorage.removeItem('docuflow.pendingPolicy'); } catch (e) {}
+          // Defer to allow the page to fully render and populate sortedItems
+          setTimeout(() => {
+            try { window.dispatchEvent(new CustomEvent('open-specific-policy', { detail: { policyName: pending } })); } catch (e) {}
+          }, 500);
+        }
+      } catch (e) {
+        // ignore storage errors
+      }
+
       return () => window.removeEventListener('open-specific-policy', handleOpenSpecificPolicy as EventListener);
     }
   }, [sortedItems]);

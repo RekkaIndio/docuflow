@@ -143,6 +143,35 @@ export default function AdminPolicyEditPage({ params }: { params: Promise<{ poli
         else alert('Policy PDF generated and saved to Firebase successfully!');
         // Notify other parts of the app and navigate back to policies list
         try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('policy-updated')); } catch (e) {}
+        // If server provided a workspace policy path header, attempt to fetch the saved workspace document
+        try {
+          const workspacePath = response.headers.get('X-Workspace-Policy-Path');
+          if (workspacePath && typeof window !== 'undefined') {
+            // Try to fetch the saved workspace document via our API proxy (normalize path)
+            try {
+              const resp = await fetch(`/api${workspacePath}`);
+              if (resp.ok) {
+                const doc = await resp.json();
+                try {
+                  window.sessionStorage.setItem('docuflow.activeDocument', JSON.stringify(doc));
+                } catch (e) {}
+                try { window.dispatchEvent(new CustomEvent('set-active-document', { detail: { documentId: doc.id, documentName: doc.policyName || doc.name || policyName, documentData: doc } })); } catch (e) {}
+              }
+            } catch (e) {
+              // ignore fetch errors; header is best-effort
+            }
+          } else {
+            // If the server returned a JSON body with workspacePublishedDocument, consume that
+            try {
+              const json = await response.clone().json().catch(() => null);
+              if (json && json.workspacePublishedDocument && typeof window !== 'undefined') {
+                try { window.sessionStorage.setItem('docuflow.activeDocument', JSON.stringify(json.workspacePublishedDocument)); } catch (e) {}
+                try { window.dispatchEvent(new CustomEvent('set-active-document', { detail: { documentId: json.workspacePublishedDocument.id, documentName: json.workspacePublishedDocument.policyName || policyName, documentData: json.workspacePublishedDocument } })); } catch (e) {}
+              }
+            } catch (e) {}
+          }
+        } catch (e) {}
+
         router.push('/admin/policies');
       } else {
         let json: any = null;
@@ -160,8 +189,22 @@ export default function AdminPolicyEditPage({ params }: { params: Promise<{ poli
           else alert(json?.message || 'Policy published successfully.');
         }
 
-        // Notify other parts of the app and navigate back to policies list
+        // Notify other parts of the app and try to persist the returned workspace document so chat can use it
         try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('policy-updated')); } catch (e) {}
+
+        try {
+          const json = await response.json().catch(() => null);
+          if (json) {
+            // If server included the workspacePublishedDocument in the response body, persist & dispatch it
+            if (json.workspacePublishedDocument && typeof window !== 'undefined') {
+              try { window.sessionStorage.setItem('docuflow.activeDocument', JSON.stringify(json.workspacePublishedDocument)); } catch (e) {}
+              try { window.dispatchEvent(new CustomEvent('set-active-document', { detail: { documentId: json.workspacePublishedDocument.id, documentName: json.workspacePublishedDocument.policyName || policyName, documentData: json.workspacePublishedDocument } })); } catch (e) {}
+            }
+          }
+        } catch (e) {
+          // ignore
+        }
+
         router.push('/admin/policies');
       }
       

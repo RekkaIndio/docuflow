@@ -815,7 +815,7 @@ export function AdminChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
       <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-4 text-white">
         <div className="flex items-center gap-3 justify-between">
           <Avatar className="w-10 h-10 border-2 border-blue-200">
-            <AvatarImage src={'/Neurodiversity_Symbol.svg'} alt="CareBot AI" />
+            <AvatarImage src={'/Neurodiversity_Symbol.png'} alt="CareBot AI" />
             <AvatarFallback className="bg-gray-500 text-white text-sm font-semibold">AI</AvatarFallback>
           </Avatar>
           <div>
@@ -847,7 +847,7 @@ export function AdminChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         {messages.length === 0 && !isTyping ? (
           <div className="flex flex-col items-center justify-center min-h-[240px] text-center text-gray-600">
             <Avatar className="w-16 h-16 border-2 border-blue-200 mb-4">
-              <AvatarImage src={'/Neurodiversity_Symbol.svg'} alt="CareBot AI" />
+              <AvatarImage src={'/Neurodiversity_Symbol.png'} alt="CareBot AI" />
               <AvatarFallback className="bg-gray-500 text-white text-sm font-semibold">AI</AvatarFallback>
             </Avatar>
             <h4 className="text-lg font-semibold text-gray-800">Doc - Admin Assistant</h4>
@@ -873,7 +873,7 @@ export function AdminChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
             <div key={index} className={cn("flex items-start gap-3", message.sender === 'user' ? 'justify-end' : '')}>
               {message.sender === 'ai' && (
                 <Avatar className="w-10 h-10 border-2 border-blue-200">
-                  <AvatarImage src={'/Neurodiversity_Symbol.svg'} alt={mockUser.name || undefined} />
+                  <AvatarImage src={'/Neurodiversity_Symbol.png'} alt={mockUser.name || undefined} />
                   <AvatarFallback className="bg-gray-500 text-white text-sm font-semibold">AI</AvatarFallback>
                 </Avatar>
               )}
@@ -901,7 +901,7 @@ export function AdminChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
          {isTyping && (
           <div className="flex items-start gap-3">
             <Avatar className="w-10 h-10 border-2 border-blue-200">
-              <AvatarImage src={'/Neurodiversity_Symbol.svg'} alt="AI" />
+              <AvatarImage src={'/Neurodiversity_Symbol.png'} alt="AI" />
               <AvatarFallback className="bg-blue-500 text-white text-sm font-semibold">AI</AvatarFallback>
             </Avatar>
             <div className="max-w-[75%] rounded-2xl p-4 text-sm bg-white border border-gray-200 shadow-sm">

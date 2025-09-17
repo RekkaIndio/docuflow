@@ -9,7 +9,7 @@ export function HeroProductDemo() {
         {/* Chat header */}
         <div className="flex items-center gap-2 px-4 py-3 border-b border-border/30 bg-primary/10">
           <Image
-            src="/Neurodiversity_Symbol.svg"
+            src="/Neurodiversity_Symbol.png"
             alt="Neurodiversity Symbol"
             width={20}
             height={20}
@@ -36,7 +36,7 @@ export function HeroProductDemo() {
           {/* CareBot's response */}
           <div className="flex justify-start">
             <Image
-              src="/Neurodiversity_Symbol.svg"
+              src="/Neurodiversity_Symbol.png"
               alt="Neurodiversity Symbol"
               width={20}
               height={20}
@@ -71,7 +71,7 @@ export function HeroProductDemo() {
           </div>
           <div className="flex justify-start">
             <Image
-              src="/Neurodiversity_Symbol.svg"
+              src="/Neurodiversity_Symbol.png"
               alt="Neurodiversity Symbol"
               width={20}
               height={20}

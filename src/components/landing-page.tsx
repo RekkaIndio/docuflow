@@ -57,7 +57,7 @@ export function LandingPage() {
               <div className="flex flex-col justify-center space-y-8 relative z-10">
                 <div className="inline-block self-start">
                   <Image
-                    src="/Neurodiversity_Symbol.svg"
+                    src="/Neurodiversity_Symbol.png"
                     alt="Neurodiversity Symbol"
                     width={44}
                     height={22}

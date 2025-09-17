@@ -16,60 +16,28 @@ import { useToast } from "@/hooks/use-toast";
 import { DocumentCard } from "@/components/ui/document-card";
 import { UserCard } from "@/components/ui/user-card";
 import { TeamCard } from "@/components/ui/team-card";
-import { ActionCard } from "@/components/ui/action-card";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-    Command,
-    CommandInput,
-    CommandEmpty,
-    CommandGroup,
-    CommandItem,
-    CommandList,
-  } from "@/components/ui/command";
-import { db } from "@/lib/firebase";
-import { doc, onSnapshot } from "firebase/firestore";
-
-
+import { ActionCard } from '@/components/ui/action-card';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandInput, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
+import { db } from '@/lib/firebase';
+ 
 interface ChatMessage {
   sender: 'user' | 'ai';
   text: string;
   documents?: Array<{
     id?: string;
-    name: string;
+    name?: string;
     status?: 'current' | 'due-soon' | 'overdue' | 'updated';
     statusText?: string;
     subtitle?: string;
     url?: string;
+    summary?: string;
     lastReviewed?: string;
     nextReviewRequired?: string;
-    summary?: string;
   }>;
-  users?: Array<{
-    id?: string;
-    name: string;
-    email?: string;
-    role?: string;
-    avatarUrl?: string;
-    createdAt?: string;
-  }>;
-  teams?: Array<{
-    id?: string;
-    name: string;
-    memberCount?: number;
-    description?: string;
-  }>;
-  actions?: Array<{
-    id?: string;
-    title: string;
-    description?: string;
-    status?: 'pending' | 'completed' | 'overdue';
-    dueDate?: string;
-    priority?: 'low' | 'medium' | 'high';
-  }>;
+  users?: Array<{ id?: string; name?: string; email?: string; role?: string; avatarUrl?: string; createdAt?: string }>;
+  teams?: Array<{ id: string; name: string; memberCount?: number; description?: string }>;
+  actions?: Array<{ id: string; title: string; description?: string; status?: string; dueDate?: string; priority?: string }>;
 }
 
 interface ChatPanelProps {
@@ -78,42 +46,28 @@ interface ChatPanelProps {
 }
 
 interface UserIntent {
-  type: 'document_search' | 'file_search' | 'folder_creation' | 'general_query' | 'multi_document_query' | 'audit_query' | 'send_email' | 'user_search' | 'create_audit' | 'document_connection' | 'dependency_query' | 'user_profile' | 'team_info' | 'workspace_info' | 'open_modal' | 'navigate_page' | 'fetch_notifications' | 'create_document' | 'edit_document' | 'occupancy_data' | 'action_plans' | 'open_audit' | 'advanced_analytics' | 'agentic_workflow' | 'open_policy';
-  openDocument?: boolean; // indicates intent to open/view the document
-  searchTerm?: string;
-  fileName?: string;
-  folderName?: string;
+  type: string;
+  originalInput?: string;
+  // optional extras for certain intents
   auditType?: string;
+  modalType?: string;
+  specificAppraisal?: string;
+  specificPolicy?: string;
+  searchTerm?: string;
+  folderName?: string;
+  userName?: string;
+  // Additional optional intent properties used in code
+  pagePath?: string;
+  openDocument?: boolean;
+  fileName?: string;
   emailSubject?: string;
   emailBody?: string;
-  userName?: string;
-  modalType?: string;
-  pagePath?: string;
+  specificAudit?: string;
+  createAudit?: boolean;
   documentType?: string;
-  specificAppraisal?: string; // specific appraisal name for opening
-  specificAudit?: string; // specific audit type for opening
-  createAudit?: boolean; // indicates intent to create a new audit
-  specificPolicy?: string; // specific policy name for opening
-  originalInput: string;
+  // allow arbitrary extra properties
+  [key: string]: any;
 }
-
-// renderMessage will be declared inside the ChatPanel component so it can
-// use state and the toast hook for interactive actions.
-
-// Command menu removed
-
-function getAllDocuments(items: (Document | Folder)[]): Document[] {
-  const documents: Document[] = [];
-  for (const item of items) {
-    if (item.type === 'document') {
-      documents.push(item);
-    } else if (item.type === 'folder') {
-      documents.push(...getAllDocuments(item.items));
-    }
-  }
-  return documents;
-}
-
 
 export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -125,113 +79,21 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
   };
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [activeDoc, setActiveDoc] = useState<Document | null>(null); // Persist selected doc
-  // Contextual memory: last discussed document(s) or topic(s)
+  const [activeDoc, setActiveDoc] = useState<Document | null>(null);
   const [lastContext, setLastContext] = useState<{ doc?: Document; topic?: string } | null>(null);
   const { user } = useAuth();
   const [profilePicture, setProfilePicture] = useState<string | undefined>(user?.avatarUrl ?? mockUser.avatarUrl ?? undefined);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
-  const workspaceId = (selectedItem as any)?.workspaceId ?? null;
-
-  useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
-
-    (async () => {
-      try {
-        // Prefer workspace-saved image first (if selectedItem has a workspaceId)
-        const workspaceId = (selectedItem as any)?.workspaceId;
-        if (workspaceId) {
-          const wsDocRef = doc(db, 'users', workspaceId);
-          const wsSnap = await (await import('firebase/firestore')).getDoc(wsDocRef);
-          if (wsSnap.exists()) {
-            const data = wsSnap.data();
-            if (data?.profilePicture) {
-              setProfilePicture(data.profilePicture);
-            }
-          }
-        }
-      } catch (err) {
-        // ignore
-      }
-
-      // Then subscribe to the authenticated user's doc for live updates
-      const userIdToUse = user?.id ?? mockUser.id;
-      if (!userIdToUse) return;
-      const userDocRef = doc(db, 'users', userIdToUse);
-      unsubscribe = onSnapshot(userDocRef, (snap) => {
-        const data = snap.data();
-        if (data?.profilePicture) {
-          setProfilePicture(data.profilePicture);
-        } else if (user?.avatarUrl) {
-          setProfilePicture(user.avatarUrl);
-        }
-      });
-    })();
-
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
-  }, [user?.id, workspaceId]);
-
-  // Keep chat conversation when navigating to a document. Only reset the chat
-  // when the selected folder/workspace changes. This prevents the chat from
-  // appearing to refresh (losing the user's input) when we navigate to a
-  // document (for example, when the user asks "Show me the IPC policy" and
-  // the dashboard sets the selected item to that document).
-  const prevSelectedRef = useRef<{ id?: string; type?: string } | null>(null);
-  useEffect(() => {
-    const prev = prevSelectedRef.current;
-
-    // First mount: start with an empty conversation and no active doc
-    if (!prev) {
-      setMessages([]);
-      setActiveDoc(null);
-    } else {
-      // If we've switched folders (i.e., selected a different folder), clear
-      // the chat so the conversation context matches the newly-selected folder.
-      // Do NOT clear when selection changes to a document so the chat stays
-      // intact when navigating to a document from the chat.
-      if (selectedItem.type === 'folder' && selectedItem.id !== prev.id) {
-        setMessages([]);
-        setActiveDoc(null);
-      }
+  const getAllDocuments = (items: (Document | Folder)[]): Document[] => {
+    const documents: Document[] = [];
+    for (const item of items) {
+      if ((item as any).type === 'document') documents.push(item as Document);
+      else if ((item as any).type === 'folder') documents.push(...getAllDocuments((item as any).items || []));
     }
-
-    prevSelectedRef.current = { id: selectedItem.id, type: selectedItem.type };
-  }, [selectedItem.id, selectedItem.type]);
-
-  useEffect(() => {
-    if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
-    }
-  }, [messages, isTyping]);
-
-  // keep a ref copy of messages to avoid stale closures when appending
-  useEffect(() => {
-    messagesRef.current = messages;
-  }, [messages]);
-
-  // Emit a custom event when an AI response is appended so other UI (like DocumentView)
-  // can listen and show the response in a snippet panel.
-  useEffect(() => {
-    if (!messages || messages.length === 0) return;
-    const last = messages[messages.length - 1];
-    if (last && last.sender === 'ai') {
-      try {
-        if (typeof window !== 'undefined' && window.dispatchEvent) {
-          window.dispatchEvent(new CustomEvent('chat-response', { detail: { text: last.text, documents: last.documents || [] } }));
-        }
-      } catch (e) {
-        // ignore
-      }
-    }
-  }, [messages]);
-
-
-
-
+    return documents;
+  };
 
   // Enhanced natural language intent detection
   const detectIntent = (userInput: string): UserIntent => {
@@ -262,7 +124,11 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
       /(what\s+is\s+the|check|calculate)\s+(dependency|staffing)\s+(level|requirement|data)/i,
       /(how\s+many|what)\s+(staff|carers?|nurses?)\s+(do\s+we\s+need|are\s+required)/i,
       /(staffing\s+calculator|dependency\s+calculator|staffing\s+breakdown)/i,
-      /(show\s+me|get)\s+(staffing|dependency)\s+(for|at)\s+(.+)/i
+      /(show\s+me|get)\s+(staffing|dependency)\s+(for|at)\s+(.+)/i,
+      // Explicitly match 'staffing trends' and similar phrasing so it does not fall through to document search
+      /(show|display|get|give|tell|what|how)\s+(me\s+)?(the\s+)?(latest\s+)?(staffing|staff)\s+(trends|trend|history|changes|overview|summary)/i,
+      /(staffing|staff)\s+(trends|trend|history|changes|overview|summary)/i,
+      /(show|display|get|give|tell|what|how)\s+(me\s+)?(the\s+)?(staffing|staff)\s+(trend|history|overview|summary)/i
     ];
 
     for (const pattern of dependencyPatterns) {
@@ -1232,29 +1098,279 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
           return;
         }
 
-        const { collection, getDocs, query, orderBy, limit } = await import('firebase/firestore');
-        
-        // Get latest dependency snapshot from user's collection
-        const snapshotsCol = collection(db, 'users', userIdToUse, 'dependency_calculator_snapshots');
-        const snapshotsQuery = query(snapshotsCol, orderBy('savedAt', 'desc'), limit(1));
-        const snapshotsSnap = await getDocs(snapshotsQuery);
-        
+        const originalInput = intent.originalInput?.toLowerCase() || '';
+        const wantsTrend = /trend|history|over time|over the last|last week|last month|change|changes|compare|since/i.test(originalInput);
+
+  const { collection, getDocs, query, orderBy, limit, doc: docFn, getDoc } = await import('firebase/firestore');
+  let snapshotsCol = collection(db, 'users', userIdToUse, 'dependency_calculator_snapshots');
+
+        // If the user asked for trends/history, fetch multiple snapshots and compute changes
+        if (wantsTrend) {
+          // Fetch up to 12 most recent snapshots (client-visible history)
+          const maxSnapshots = 12;
+          let snapshotsQuery = query(snapshotsCol, orderBy('savedAt', 'desc'), limit(maxSnapshots));
+          let snapshotsSnap = await getDocs(snapshotsQuery);
+
+          // If user has no snapshots, try workspace-level fallback (owner or members)
+          if (snapshotsSnap.empty) {
+            try {
+              // Attempt to read workspace settings to find owner or a member
+              const settingsRef = docFn(db, `workspaces/${workspaceId}/settings`, 'occupancy');
+              const settingsSnap = await getDoc(settingsRef);
+              const ownerId = settingsSnap && settingsSnap.exists() ? (settingsSnap.data() as any).ownerId : null;
+
+              // prefer workspace owner, else try first member listed on workspace doc
+              let candidateUserId: string | null = ownerId || null;
+              if (!candidateUserId) {
+                // read workspace doc members fallback
+                try {
+                  const wsRef = docFn(db, 'workspaces', workspaceId);
+                  const wsSnap = await getDoc(wsRef);
+                  if (wsSnap && wsSnap.exists()) {
+                    const wsData = wsSnap.data() as any;
+                    if (Array.isArray(wsData.members) && wsData.members.length > 0) candidateUserId = wsData.members[0];
+                    else if (typeof wsData.ownerId === 'string') candidateUserId = wsData.ownerId;
+                  }
+                } catch (e) {
+                  // ignore
+                }
+              }
+
+              if (candidateUserId) {
+                snapshotsCol = collection(db, 'users', candidateUserId, 'dependency_calculator_snapshots');
+                snapshotsQuery = query(snapshotsCol, orderBy('savedAt', 'desc'), limit(maxSnapshots));
+                snapshotsSnap = await getDocs(snapshotsQuery);
+              }
+            } catch (e) {
+              // ignore fallback errors and continue
+            }
+          }
+
+          if (snapshotsSnap.empty) {
+            // First try workspace-level snapshots directly from Firestore (client-side)
+            try {
+              const wsSnapshotsCol = collection(db, 'workspaces', workspaceId, 'dependency_calculator_snapshots');
+              const wsQuery = query(wsSnapshotsCol, orderBy('savedAt', 'desc'), limit(maxSnapshots));
+              const wsSnap = await getDocs(wsQuery);
+              if (!wsSnap.empty) {
+                const docs = wsSnap.docs.map(d => d.data()).reverse();
+                const { computeStaffing } = await import('@/lib/staffing');
+                const pointsFromWs: Array<{ date: string; totalStaff: number; carers: number; ns: number; levels: Record<string, number> }> = [];
+                for (const s of docs) {
+                  const residents = s.residents || [];
+                  if (!Array.isArray(residents) || residents.length === 0) continue;
+                  const staffingResult = computeStaffing(residents, s.options || {});
+                  const roundedDay = staffingResult.totals.rounded.day;
+                  const roundedNight = staffingResult.totals.rounded.night;
+                  const totalStaff = (roundedDay.all || 0) + (roundedNight.all || 0);
+                  const carers = (roundedDay.carers || 0) + (roundedNight.carers || 0);
+                  const ns = (roundedDay.ns || 0) + (roundedNight.ns || 0);
+                  const levelCounts: Record<string, number> = {};
+                  staffingResult.perResident.forEach((r) => { if (r.level) levelCounts[r.level] = (levelCounts[r.level] || 0) + 1; });
+                  const date = s.savedAt ? formatDateSafe(s.savedAt) : formatDateSafe(s.updatedAt || s.createdAt);
+                  pointsFromWs.push({ date, totalStaff, carers, ns, levels: levelCounts });
+                }
+
+                if (pointsFromWs.length > 0) {
+                  const first = pointsFromWs[0];
+                  const last = pointsFromWs[pointsFromWs.length - 1];
+                  const diff = last.totalStaff - first.totalStaff;
+                  const pctChange = first.totalStaff > 0 ? ((diff / first.totalStaff) * 100) : NaN;
+
+                  const bandDeltas: Record<string, number> = {};
+                  const allBands = new Set<string>([...Object.keys(first.levels), ...Object.keys(last.levels)]);
+                  allBands.forEach(b => { bandDeltas[b] = (last.levels[b] || 0) - (first.levels[b] || 0); });
+
+                  let response = `📈 **Dependency Trends (last ${pointsFromWs.length} snapshots)**\n\n`;
+                  response += `• Period: ${first.date} → ${last.date}\n`;
+                  response += `• Recommended total staff (day+night): ${first.totalStaff} → ${last.totalStaff} (${isNaN(pctChange) ? 'N/A' : (pctChange >= 0 ? '+' : '') + pctChange.toFixed(1) + '%'})\n`;
+                  response += `• Carers: ${first.carers} → ${last.carers}\n`;
+                  response += `• Nurses/Seniors: ${first.ns} → ${last.ns}\n\n`;
+
+                  response += `**Band changes (first → last):**\n`;
+                  Object.entries(bandDeltas).forEach(([band, delta]) => { const sign = delta > 0 ? '+' : ''; response += `• ${band}: ${ (first.levels[band] || 0) } → ${ (last.levels[band] || 0) } (${sign}${delta})\n`; });
+
+                  response += `\n**Snapshot totals:**\n`;
+                  response += pointsFromWs.map(p => `${p.date}: ${p.totalStaff}`).join(' | ');
+
+                  appendMessages({ sender: 'ai', text: response });
+                  setIsTyping(false);
+                  return;
+                }
+              }
+            } catch (e) {
+              // ignore client-side workspace read failures and fall back to server API
+            }
+
+            // Try workspace-level aggregation API as a fallback (server-side aggregation may include workspace snapshots)
+            try {
+              const apiRes = await fetch(`/api/workspaces/${workspaceId}/dependency-trends`);
+              if (apiRes.ok) {
+                const apiData = await apiRes.json();
+                const apiPoints = Array.isArray(apiData?.points) ? apiData.points : [];
+                if (apiPoints.length > 0) {
+                  // Map API points to local points array shape and continue
+                  const pointsFromApi: Array<{ date: string; totalStaff: number; carers: number; ns: number; levels: Record<string, number> }> = apiPoints.map((p: any) => ({
+                    date: p.date,
+                    totalStaff: Number(p.totalStaff || 0),
+                    carers: Number(p.carers || 0),
+                    ns: Number(p.ns || 0),
+                    levels: p.levels || {}
+                  }));
+
+                  // Use pointsFromApi directly to compute the response
+                  const first = pointsFromApi[0];
+                  const last = pointsFromApi[pointsFromApi.length - 1];
+                  const diff = last.totalStaff - first.totalStaff;
+                  const pctChange = first.totalStaff > 0 ? ((diff / first.totalStaff) * 100) : NaN;
+
+                  const bandDeltas: Record<string, number> = {};
+                  const allBands = new Set<string>([...Object.keys(first.levels), ...Object.keys(last.levels)]);
+                  allBands.forEach(b => {
+                    bandDeltas[b] = (last.levels[b] || 0) - (first.levels[b] || 0);
+                  });
+
+                  let response = `📈 **Dependency Trends (last ${pointsFromApi.length} snapshots)**\n\n`;
+                  response += `• Period: ${first.date} → ${last.date}\n`;
+                  response += `• Recommended total staff (day+night): ${first.totalStaff} → ${last.totalStaff} (${isNaN(pctChange) ? 'N/A' : (pctChange >= 0 ? '+' : '') + pctChange.toFixed(1) + '%'})\n`;
+                  response += `• Carers: ${first.carers} → ${last.carers}\n`;
+                  response += `• Nurses/Seniors: ${first.ns} → ${last.ns}\n\n`;
+
+                  response += `**Band changes (first → last):**\n`;
+                  Object.entries(bandDeltas).forEach(([band, delta]) => {
+                    const sign = delta > 0 ? '+' : '';
+                    response += `• ${band}: ${ (first.levels[band] || 0) } → ${ (last.levels[band] || 0) } (${sign}${delta})\n`;
+                  });
+
+                  response += `\n**Snapshot totals:**\n`;
+                  response += pointsFromApi.map(p => `${p.date}: ${p.totalStaff}`).join(' | ');
+
+                  appendMessages({ sender: 'ai', text: response });
+                  setIsTyping(false);
+                  return;
+                }
+              }
+            } catch (e) {
+              // ignore API failures and fall back to the existing message below
+            }
+
+            appendMessages({ sender: 'ai', text: 'No dependency history found. Please create a few Dependency Calculator snapshots first.' });
+            setIsTyping(false);
+            return;
+          }
+
+          const { computeStaffing } = await import('@/lib/staffing');
+
+          // Build an ordered array from oldest -> newest
+          const docs = snapshotsSnap.docs.map(d => d.data()).reverse();
+
+          const points: Array<{ date: string; totalStaff: number; carers: number; ns: number; levels: Record<string, number> }> = [];
+
+          for (const snap of docs) {
+            const residents = snap.residents || [];
+            const options = snap.options || {};
+            if (residents.length === 0) continue;
+            const staffingResult = computeStaffing(residents, options);
+            const roundedDay = staffingResult.totals.rounded.day;
+            const roundedNight = staffingResult.totals.rounded.night;
+            const totalStaff = (roundedDay.all || 0) + (roundedNight.all || 0);
+            const carers = (roundedDay.carers || 0) + (roundedNight.carers || 0);
+            const ns = (roundedDay.ns || 0) + (roundedNight.ns || 0);
+            const levelCounts: Record<string, number> = {};
+            staffingResult.perResident.forEach((r) => {
+              if (r.level) levelCounts[r.level] = (levelCounts[r.level] || 0) + 1;
+            });
+            const date = snap.savedAt ? formatDateSafe(snap.savedAt) : formatDateSafe(snap.updatedAt || snap.createdAt);
+            points.push({ date, totalStaff, carers, ns, levels: levelCounts });
+          }
+
+          if (points.length === 0) {
+            appendMessages({ sender: 'ai', text: 'No usable dependency snapshots found to generate trends.' });
+            setIsTyping(false);
+            return;
+          }
+
+          const first = points[0];
+          const last = points[points.length - 1];
+          const diff = last.totalStaff - first.totalStaff;
+          const pctChange = first.totalStaff > 0 ? ((diff / first.totalStaff) * 100) : NaN;
+
+          // Compute band deltas between first and last
+          const bandDeltas: Record<string, number> = {};
+          const allBands = new Set<string>([...Object.keys(first.levels), ...Object.keys(last.levels)]);
+          allBands.forEach(b => {
+            bandDeltas[b] = (last.levels[b] || 0) - (first.levels[b] || 0);
+          });
+
+          // Build response
+          let response = `📈 **Dependency Trends (last ${points.length} snapshots)**\n\n`;
+          response += `• Period: ${first.date} → ${last.date}\n`;
+          response += `• Recommended total staff (day+night): ${first.totalStaff} → ${last.totalStaff} (${isNaN(pctChange) ? 'N/A' : (pctChange >= 0 ? '+' : '') + pctChange.toFixed(1) + '%'})\n`;
+          response += `• Carers: ${first.carers} → ${last.carers}\n`;
+          response += `• Nurses/Seniors: ${first.ns} → ${last.ns}\n\n`;
+
+          response += `**Band changes (first → last):**\n`;
+          Object.entries(bandDeltas).forEach(([band, delta]) => {
+            const sign = delta > 0 ? '+' : '';
+            response += `• ${band}: ${ (first.levels[band] || 0) } → ${ (last.levels[band] || 0) } (${sign}${delta})\n`;
+          });
+
+          // Include a small sparkline-like list of totalStaff values
+          response += `\n**Snapshot totals:**\n`;
+          response += points.map(p => `${p.date}: ${p.totalStaff}`).join(' | ');
+
+          appendMessages({ sender: 'ai', text: response });
+          setIsTyping(false);
+          return;
+        }
+
+        // Default: return the latest snapshot (existing behavior)
+        // Default: return the latest snapshot (existing behavior)
+        let snapshotsQuery = query(snapshotsCol, orderBy('savedAt', 'desc'), limit(1));
+        let snapshotsSnap = await getDocs(snapshotsQuery);
+
+        // If user has no personal snapshots, try workspace-level fallback (owner/members)
+        if (snapshotsSnap.empty) {
+          try {
+            const settingsRef = docFn(db, `workspaces/${workspaceId}/settings`, 'occupancy');
+            const settingsSnap = await getDoc(settingsRef);
+            const ownerId = settingsSnap && settingsSnap.exists() ? (settingsSnap.data() as any).ownerId : null;
+            let candidateUserId: string | null = ownerId || null;
+            if (!candidateUserId) {
+              const wsRef = docFn(db, 'workspaces', workspaceId);
+              const wsSnap = await getDoc(wsRef);
+              if (wsSnap && wsSnap.exists()) {
+                const wsData = wsSnap.data() as any;
+                if (Array.isArray(wsData.members) && wsData.members.length > 0) candidateUserId = wsData.members[0];
+                else if (typeof wsData.ownerId === 'string') candidateUserId = wsData.ownerId;
+              }
+            }
+            if (candidateUserId) {
+              snapshotsCol = collection(db, 'users', candidateUserId, 'dependency_calculator_snapshots');
+              snapshotsQuery = query(snapshotsCol, orderBy('savedAt', 'desc'), limit(1));
+              snapshotsSnap = await getDocs(snapshotsQuery);
+            }
+          } catch (e) {
+            // ignore and continue
+          }
+        }
+
         let response = '';
-        
+
         if (!snapshotsSnap.empty) {
           const latestSnapshot = snapshotsSnap.docs[0].data();
           const { computeStaffing } = await import('@/lib/staffing');
-          
+
           // Process the snapshot data
           const residents = latestSnapshot.residents || [];
           const options = latestSnapshot.options || {};
-          
+
           if (residents.length > 0) {
             const staffingResult = computeStaffing(residents, options);
-            
+
             response = `📊 **Latest Dependency Analysis**\n\n`;
             response += `**Residents:** ${residents.length} total\n\n`;
-            
+
             // Breakdown by dependency level
             const levelCounts: Record<string, number> = {};
             staffingResult.perResident.forEach(r => {
@@ -1262,27 +1378,27 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
                 levelCounts[r.level] = (levelCounts[r.level] || 0) + 1;
               }
             });
-            
+
             response += `**Dependency Levels:**\n`;
             Object.entries(levelCounts).forEach(([level, count]) => {
               response += `• ${level}: ${count} resident(s)\n`;
             });
-            
+
             response += `\n**Staffing Requirements:**\n`;
             response += `**Day Shift:**\n`;
             response += `• Carers: ${staffingResult.totals.rounded.day.carers}\n`;
             response += `• Nurses/Seniors: ${staffingResult.totals.rounded.day.ns}\n`;
             response += `• Total: ${staffingResult.totals.rounded.day.all}\n\n`;
-            
+
             response += `**Night Shift:**\n`;
             response += `• Carers: ${staffingResult.totals.rounded.night.carers}\n`;
             response += `• Nurses/Seniors: ${staffingResult.totals.rounded.night.ns}\n`;
             response += `• Total: ${staffingResult.totals.rounded.night.all}\n\n`;
-            
+
             response += `**Total Hours (24h):**\n`;
             response += `• Day: ${staffingResult.totals.hours.day.all.toFixed(1)} hours\n`;
             response += `• Night: ${staffingResult.totals.hours.night.all.toFixed(1)} hours\n`;
-            
+
             const saveDate = latestSnapshot.savedAt ? new Date(latestSnapshot.savedAt).toLocaleString() : 'Unknown';
             response += `\n*Data from: ${saveDate}*`;
           } else {
@@ -2095,6 +2211,15 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
       try {
         // Navigate to policies page and open specific policy
         if (typeof window !== 'undefined' && window.dispatchEvent) {
+          // Persist the requested policy name so the policies page can open it after navigation
+          try {
+            if (window.sessionStorage) {
+              window.sessionStorage.setItem('docuflow.pendingPolicy', String(intent.specificPolicy || ''));
+            }
+          } catch (e) {
+            // ignore storage errors
+          }
+
           // First navigate to policies page
           window.dispatchEvent(new CustomEvent('navigate-to-policies'));
           // Small delay to ensure page loads, then open specific policy
@@ -2461,8 +2586,8 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
                   <div className="flex-1 min-w-0">
                     <DocumentCard
                       id={doc.id}
-                      name={doc.name}
-                      status={doc.status}
+                      name={String(doc.name || 'Untitled')}
+                      status={(doc.status as any) || 'current'}
                       statusText={doc.statusText}
                       subtitle={doc.subtitle}
                       summary={doc.summary}
@@ -2509,15 +2634,15 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
           <div className="mt-3 space-y-2">
             {message.users.map((user) => (
               <UserCard
-                key={user.id}
-                id={user.id}
-                name={user.name}
-                email={user.email}
-                role={user.role}
-                avatarUrl={user.avatarUrl}
-                createdAt={user.createdAt}
-                onClick={() => handleUserCardClick(user)}
-              />
+                    key={user.id}
+                    id={user.id}
+                    name={String(user.name || 'Unknown')}
+                    email={user.email}
+                    role={user.role}
+                    avatarUrl={user.avatarUrl}
+                    createdAt={user.createdAt}
+                    onClick={() => handleUserCardClick(user)}
+                  />
             ))}
           </div>
         )}
@@ -2545,11 +2670,11 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
               <ActionCard
                 key={action.id}
                 id={action.id}
-                title={action.title}
+                title={String(action.title || 'Untitled')}
                 description={action.description}
-                status={action.status}
+                status={(action.status as any) || 'pending'}
                 dueDate={action.dueDate}
-                priority={action.priority}
+                priority={(action.priority as any) || 'medium'}
                 onClick={() => handleActionCardClick(action)}
               />
             ))}
@@ -2738,7 +2863,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
       <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-4 text-white">
         <div className="flex items-center gap-3">
           <Avatar className="w-10 h-10 border-2 border-blue-200">
-            <AvatarImage src={'/Neurodiversity_Symbol.svg'} alt="CareBot AI" />
+            <AvatarImage src={'/Neurodiversity_Symbol.png'} alt="CareBot AI" />
             <AvatarFallback className="bg-gray-500 text-white text-sm font-semibold">AI</AvatarFallback>
           </Avatar>
           <div>
@@ -2751,7 +2876,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         {messages.length === 0 && !isTyping ? (
           <div className="flex flex-col items-center justify-center min-h-[240px] text-center text-gray-600">
             <Avatar className="w-16 h-16 border-2 border-blue-200 mb-4">
-              <AvatarImage src={'/Neurodiversity_Symbol.svg'} alt="CareBot AI" />
+              <AvatarImage src={'/Neurodiversity_Symbol.png'} alt="CareBot AI" />
               <AvatarFallback className="bg-gray-500 text-white text-sm font-semibold">AI</AvatarFallback>
             </Avatar>
             <h4 className="text-lg font-semibold text-gray-800">Doc - Document Assistant</h4>
@@ -2786,7 +2911,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
             <div key={index} className={cn("flex items-start gap-3", message.sender === 'user' ? 'justify-end' : '')}>
               {message.sender === 'ai' && (
                 <Avatar className="w-10 h-10 border-2 border-blue-200">
-                  <AvatarImage src={'/Neurodiversity_Symbol.svg'} alt={mockUser.name || undefined} />
+                  <AvatarImage src={'/Neurodiversity_Symbol.png'} alt={mockUser.name || undefined} />
                   <AvatarFallback className="bg-gray-500 text-white text-sm font-semibold">AI</AvatarFallback>
                 </Avatar>
               )}
@@ -2814,7 +2939,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
          {isTyping && (
           <div className="flex items-start gap-3">
             <Avatar className="w-10 h-10 border-2 border-blue-200">
-              <AvatarImage src={'/Neurodiversity_Symbol.svg'} alt="AI" />
+              <AvatarImage src={'/Neurodiversity_Symbol.png'} alt="AI" />
               <AvatarFallback className="bg-blue-500 text-white text-sm font-semibold">AI</AvatarFallback>
             </Avatar>
             <div className="max-w-[75%] rounded-2xl p-4 text-sm bg-white border border-gray-200 shadow-sm">
