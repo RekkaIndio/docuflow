@@ -36,38 +36,99 @@ export async function generateActionPlanPDF(data: ActionPlanPDFData): Promise<Ui
     console.warn('Could not load logo for Action Plan PDF', e);
   }
 
-  // Header with theme colour gradient (approximate using two rectangles)
-  const themeBlue = [59, 130, 246];
-  const themeIndigo = [79, 70, 229];
-  doc.setFillColor(themeBlue[0], themeBlue[1], themeBlue[2]);
-  doc.rect(0, 0, pageWidth / 2, 60, 'F');
-  doc.setFillColor(themeIndigo[0], themeIndigo[1], themeIndigo[2]);
-  doc.rect(pageWidth / 2, 0, pageWidth / 2, 60, 'F');
+  // Try to render a landing-hero-style background (canvas blobs) for the header so
+  // action-plan PDFs match the dependency-calculator header. If that fails, fall
+  // back to the previous two-rectangle gradient header.
+  let headerBgAdded = false;
+  try {
+    const canvas = (typeof document !== 'undefined') ? document.createElement('canvas') as HTMLCanvasElement : null;
+    if (canvas) {
+      canvas.width = 1200;
+      canvas.height = 600;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        const c = ctx;
+        c.clearRect(0, 0, canvas.width, canvas.height);
+
+        function drawBlob(x: number, y: number, r: number, color1: string, color2: string, alpha = 0.9) {
+          const g = c.createRadialGradient(x, y, r * 0.2, x, y, r);
+          g.addColorStop(0, color1);
+          g.addColorStop(0.5, color2);
+          g.addColorStop(1, color2 + '00');
+          c.globalCompositeOperation = 'screen';
+          c.globalAlpha = alpha * 0.12;
+          c.fillStyle = g as any;
+          c.beginPath();
+          c.ellipse(x, y, r, r * 0.75, 0, 0, Math.PI * 2);
+          c.fill();
+          c.globalCompositeOperation = 'source-over';
+        }
+
+        // position blobs towards the top so the header strip shows them
+        drawBlob(canvas.width * 0.15, canvas.height * 0.18, 420, '#f472b6', '#a78bfa', 0.95);
+        drawBlob(canvas.width * 0.85, canvas.height * 0.16, 480, '#06b6d4', '#3b82f6', 0.95);
+        drawBlob(canvas.width * 0.45, canvas.height * 0.42, 380, '#f59e0b', '#f472b6', 0.9);
+
+        c.globalAlpha = 0.06;
+        c.fillStyle = '#ffffff';
+        c.beginPath();
+        c.moveTo(0, canvas.height * 0.75);
+        c.bezierCurveTo(canvas.width * 0.25, canvas.height * 0.6, canvas.width * 0.5, canvas.height * 0.9, canvas.width, canvas.height * 0.7);
+        c.lineTo(canvas.width, canvas.height);
+        c.lineTo(0, canvas.height);
+        c.closePath();
+        c.fill();
+
+        // Attempt to embed canvas as header image into the PDF (scaled to headerHeight)
+        const headerHeight = 120;
+        const bgDataUrl = canvas.toDataURL('image/png');
+        try {
+          doc.addImage(bgDataUrl, 'PNG', 0, 0, pageWidth, headerHeight);
+          headerBgAdded = true;
+        } catch (e) {
+          console.warn('Failed to add header background image to Action Plan PDF:', e);
+          headerBgAdded = false;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Could not render canvas header for Action Plan PDF:', err);
+  }
+
+  // If canvas background wasn't added, fall back to the old two-rectangle header
+  if (!headerBgAdded) {
+    const themeBlue = [59, 130, 246];
+    const themeIndigo = [79, 70, 229];
+    doc.setFillColor(themeBlue[0], themeBlue[1], themeBlue[2]);
+    doc.rect(0, 0, pageWidth / 2, 60, 'F');
+    doc.setFillColor(themeIndigo[0], themeIndigo[1], themeIndigo[2]);
+    doc.rect(pageWidth / 2, 0, pageWidth / 2, 60, 'F');
+  }
 
   // Add logo if available, otherwise draw placeholder box with icon
   if (logoImageData) {
     try {
-      doc.addImage(logoImageData, 'PNG', margin, 10, 44, 44);
+      // draw a single crisp logo on the left overlay
+      doc.addImage(logoImageData, 'PNG', margin, 12, 44, 44);
     } catch (e) {
-      // fallback to placeholder
       doc.setFillColor(255, 255, 255);
       doc.rect(margin, 12, 44, 36, 'F');
       doc.setFontSize(18);
-      doc.setTextColor(themeBlue[0], themeBlue[1], themeBlue[2]);
+      doc.setTextColor(59, 130, 246);
       doc.text('🧠', margin + 14, 36);
     }
   } else {
     doc.setFillColor(255, 255, 255);
     doc.rect(margin, 12, 44, 36, 'F');
     doc.setFontSize(18);
-    doc.setTextColor(themeBlue[0], themeBlue[1], themeBlue[2]);
+    doc.setTextColor(59, 130, 246);
     doc.text('🧠', margin + 14, 36);
   }
 
-  // Title in header (white text)
+  // Title in header (use black text to match landing hero overlay)
   doc.setFontSize(20);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(255, 255, 255);
+  doc.setTextColor(0, 0, 0);
   doc.text('Action Plan', margin + 56, 30);
 
   doc.setFontSize(10);

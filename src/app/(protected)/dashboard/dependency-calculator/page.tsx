@@ -65,7 +65,7 @@ function getDefaultAssessment(): Omit<Resident, "name" | "room"> {
 }
 
 // Generate PDF Report
-function generatePDFReport(
+async function generatePDFReport(
   residents: Resident[],
   communities: Community[],
   selectedCommunity: string | null,
@@ -123,22 +123,133 @@ function generatePDFReport(
   };
 
   // Header with Logo and Company Info
-  doc.setFillColor(41, 128, 185); // Blue background
-  doc.rect(0, 0, pageWidth, 40, 'F');
+  // Try to include a subtle hero background and logo (landing hero style)
+  let headerBgAdded = false;
+  try {
+  // Create a landing-hero-like background by drawing large blurred gradient blobs
+  // Use a shorter canvas height so the top header strip contains the blobs
+  const canvas = document.createElement('canvas');
+  canvas.width = 1200;
+  canvas.height = 600;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      const c = ctx; // non-null alias for TypeScript
+      // Clear and draw multiple radial gradients similar to the landing hero blobs
+      c.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Simple logo placeholder (you can replace with actual logo)
-  doc.setFillColor(255, 255, 255);
-  doc.roundedRect(15, 10, 25, 20, 3, 3, 'F');
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(41, 128, 185);
-  doc.text('DF', 22, 22);
+      function drawBlob(x: number, y: number, r: number, color1: string, color2: string, alpha = 0.9) {
+        const g = c.createRadialGradient(x, y, r * 0.2, x, y, r);
+        g.addColorStop(0, `${color1}`);
+        g.addColorStop(0.5, `${color2}`);
+        g.addColorStop(1, `${color2}00`);
+        c.globalCompositeOperation = 'screen';
+        c.globalAlpha = alpha * 0.12; // subtle overall
+        c.fillStyle = g as any;
+        c.beginPath();
+        c.ellipse(x, y, r, r * 0.75, 0, 0, Math.PI * 2);
+        c.fill();
+        c.globalCompositeOperation = 'source-over';
+      }
 
-  // Company header
+  // Position blobs so they overlap the top portion (the PDF header strip)
+  drawBlob(canvas.width * 0.15, canvas.height * 0.18, 420, '#f472b6', '#a78bfa', 0.95);
+  drawBlob(canvas.width * 0.85, canvas.height * 0.16, 480, '#06b6d4', '#3b82f6', 0.95);
+  drawBlob(canvas.width * 0.45, canvas.height * 0.42, 380, '#f59e0b', '#f472b6', 0.9);
+
+      // Slight white wavy overlay (very subtle)
+      c.globalAlpha = 0.06;
+      c.fillStyle = '#ffffff';
+      c.beginPath();
+      c.moveTo(0, canvas.height * 0.75);
+      c.bezierCurveTo(canvas.width * 0.25, canvas.height * 0.6, canvas.width * 0.5, canvas.height * 0.9, canvas.width, canvas.height * 0.7);
+      c.lineTo(canvas.width, canvas.height);
+      c.lineTo(0, canvas.height);
+      c.closePath();
+      c.fill();
+
+      // (Removed) Right-side logo watermark — we want a single logo in the PDF header overlay
+
+      // Embed the canvas as the PDF header background only (keep rest of page clean)
+  const headerHeight = 120; // larger header so the hero strip is visible
+      // Scale canvas to header dimensions while preserving quality
+      const bgDataUrl = canvas.toDataURL('image/png');
+      try {
+        // draw the hero-style background into the top header area
+        doc.addImage(bgDataUrl, 'PNG', 0, 0, pageWidth, headerHeight);
+        headerBgAdded = true;
+      } catch (e) {
+        console.warn('Failed to add header background image to PDF:', e);
+        headerBgAdded = false;
+      }
+    }
+  } catch (e) {
+    console.warn('Could not embed hero background into PDF (continuing):', e);
+  }
+
+  // Header (overlayed) with Logo and Company Info
+  // Draw a fallback header bar only if we failed to add the hero background.
+  if (!headerBgAdded) {
+    try {
+      doc.setFillColor(41, 128, 185); // solid blue fallback
+      doc.rect(0, 0, pageWidth, 40, 'F');
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  // Try to draw a crisp logo from the public SVG as a PNG into the header
+  try {
+    const resp2 = await fetch('/Neurodiversity_Symbol.png');
+    if (resp2.ok) {
+      const blob2 = await resp2.blob();
+      const url2 = URL.createObjectURL(blob2);
+      const logoImg = new Image();
+      logoImg.crossOrigin = 'anonymous';
+      logoImg.src = url2;
+      await new Promise<void>((resolve) => {
+        logoImg.onload = () => resolve();
+        logoImg.onerror = () => resolve();
+      });
+
+      const logoCanvas = document.createElement('canvas');
+      const lw = 200;
+      const lh = Math.round((logoImg.height / (logoImg.width || 1)) * lw) || 60;
+      logoCanvas.width = lw;
+      logoCanvas.height = lh;
+      const lctx = logoCanvas.getContext('2d');
+      if (lctx) {
+        lctx.clearRect(0, 0, lw, lh);
+        lctx.drawImage(logoImg, 0, 0, lw, lh);
+        const logoPng = logoCanvas.toDataURL('image/png');
+        try {
+          doc.addImage(logoPng, 'PNG', 15, 8, 30, 22);
+        } catch (e) {
+          doc.setFillColor(255, 255, 255);
+          doc.roundedRect(15, 10, 25, 20, 3, 3, 'F');
+          doc.setFontSize(12);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(41, 128, 185);
+          doc.text('DF', 22, 22);
+        }
+      }
+
+      try { URL.revokeObjectURL(url2); } catch {}
+    }
+  } catch (e) {
+    doc.setFillColor(255, 255, 255);
+    doc.roundedRect(15, 10, 25, 20, 3, 3, 'F');
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(41, 128, 185);
+    doc.text('DF', 22, 22);
+  }
+
+  // Company header text
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(255, 255, 255);
-  doc.text('DocuFlow', 50, 20);
+  // Make header text black to match landing hero styling
+  doc.setTextColor(0, 0, 0);
+  doc.text('CG-360', 50, 20);
 
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
@@ -444,7 +555,7 @@ These recommendations should be reviewed in conjunction with local policies and 
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(128, 128, 128);
-  doc.text(`Generated by DocuFlow - ${workspace?.name || 'Default Workspace'}`, 20, pageHeight - 15);
+  doc.text(`Generated by CG-360- ${workspace?.name || 'Default Workspace'}`, 20, pageHeight - 15);
   doc.text(`Report Date: ${reportDate}`, 20, pageHeight - 10);
   doc.text(`Total Residents: ${filteredResidents.length}`, pageWidth - 60, pageHeight - 15);
   doc.text(`NDPS Methodology v2.0`, pageWidth - 60, pageHeight - 10);

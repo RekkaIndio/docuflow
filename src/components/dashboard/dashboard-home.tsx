@@ -1669,40 +1669,7 @@ const navigateToAuditForm = (auditKey: string) => {
 
                         {/* Key metrics cards - right side */}
                         <div className="hidden xl:flex items-center gap-6">
-                            <div className="grid grid-cols-5 gap-4">
-                                <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
-                                    <div className="flex items-center gap-2 lg:gap-3 h-full">
-                                        <div className="p-2 bg-blue-500/20 rounded-xl group-hover:bg-blue-500/30 transition-colors duration-300">
-                                            <FileText className="w-4 h-4 lg:w-5 lg:h-5 text-blue-300" />
-                                        </div>
-                                        <div>
-                                            <div className="text-xl lg:text-2xl font-bold text-white">{documents.length}</div>
-                                            <div className="text-xs text-blue-200 font-medium uppercase tracking-wide">Documents</div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
-                                    <div className="flex items-center gap-2 lg:gap-3 h-full">
-                                        <div className="p-2 bg-green-500/20 rounded-xl group-hover:bg-green-500/30 transition-colors duration-300">
-                                            <Folder className="w-4 h-4 lg:w-5 lg:h-5 text-green-300" />
-                                        </div>
-                                        <div>
-                                            <div className="text-xl lg:text-2xl font-bold text-white">{folders.length}</div>
-                                            <div className="text-xs text-green-200 font-medium uppercase tracking-wide">Folders</div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
-                                    <div className="flex items-center gap-2 lg:gap-3 h-full">
-                                        <div className="p-2 bg-purple-500/20 rounded-xl group-hover:bg-purple-500/30 transition-colors duration-300">
-                                            <Clock className="w-4 h-4 lg:w-5 lg:h-5 text-purple-300" />
-                                        </div>
-                                        <div>
-                                            <div className="text-xl lg:text-2xl font-bold text-white">{recentDocuments.length}</div>
-                                            <div className="text-xs text-purple-200 font-medium uppercase tracking-wide">Recent</div>
-                                        </div>
-                                    </div>
-                                </div>
+                            <div className="grid grid-cols-2 gap-4">
                                 <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
                                     <div className="flex items-center gap-2 lg:gap-3 h-full">
                                         <div className="p-2 bg-emerald-500/20 rounded-xl group-hover:bg-emerald-500/30 transition-colors duration-300">
