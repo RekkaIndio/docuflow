@@ -37,7 +37,7 @@ export async function POST(
     } catch (e) {
       // Check public directory as fallback
       try {
-        const publicLogoPath = path.join(process.cwd(), 'public', 'Neurodiversity_Symbol.svg');
+  const publicLogoPath = path.join(process.cwd(), 'public', 'Neurodiversity_Symbol.png');
         const svgContent = fs.readFileSync(publicLogoPath, 'utf8');
         logoDataUri = `data:image/svg+xml;base64,${Buffer.from(svgContent).toString('base64')}`;
       } catch (e2) {
@@ -341,20 +341,71 @@ export async function POST(
       try {
         // Use set with merge to avoid errors if the document wasn't created or if there
         // are eventual consistency issues. This will create or merge fields safely.
-        await adminDb.collection('published_policies').doc(documentId).set({ pdfPath: publishedPolicyDocument.pdfPath, storagePath: publishedPolicyDocument.storagePath || null, updatedAt: new Date().toISOString() }, { merge: true });
+        // Persist the full published policy document (including content/meta). Ensure the
+        // global `published_policies` collection contains the same structured JSON so
+        // all workspaces can access it.
+        const finalPublishedDoc = {
+          ...publishedPolicyDocument,
+          // If extractedJson was constructed for the workspace, include it here as well
+          extractedJson: workspacePublishedDocument.extractedJson || null,
+          updatedAt: new Date().toISOString(),
+        };
+        await adminDb.collection('published_policies').doc(documentId).set(finalPublishedDoc, { merge: true });
       } catch (updateErr) {
         console.warn('Failed to set published_policies with storage path/pdfPath:', updateErr);
       }
 
+      let workspaceDocSaved: boolean | null = null;
       if (workspaceId) {
         try {
-          await adminDb.collection('workspaces').doc(workspaceId).collection('policies').doc(documentId).set({ pdfPath: workspacePublishedDocument.pdfPath, storagePath: workspacePublishedDocument.storagePath || null, updatedAt: new Date().toISOString() }, { merge: true });
+          // Persist the full workspace-scoped document so clients and the chat can read the
+          // full policy content (content, meta, extractedJson) even if earlier writes failed.
+          const finalWorkspaceDoc = {
+            ...workspacePublishedDocument,
+            updatedAt: new Date().toISOString(),
+          };
+
+          const docRef = adminDb.collection('workspaces').doc(workspaceId).collection('policies').doc(documentId);
+
+          // Write once then verify by reading back. Retry one more time if verification fails.
+          try {
+            await docRef.set(finalWorkspaceDoc, { merge: true });
+          } catch (writeErr) {
+            console.warn('Failed initial write of workspace-scoped policy document:', writeErr);
+          }
+
+          // Verify the written document contains extractedJson with content
+          for (let attempt = 0; attempt < 2; attempt++) {
+            try {
+              const snap = await docRef.get();
+              const data = snap.exists ? snap.data() : null;
+              if (data && data.extractedJson && (data.extractedJson.content || '').length > 10) {
+                workspaceDocSaved = true;
+                break;
+              }
+              // Retry writing once if verification failed
+              if (attempt === 0) {
+                try { await docRef.set(finalWorkspaceDoc, { merge: true }); } catch (e) { /* ignore */ }
+              }
+            } catch (readErr) {
+              console.warn('Failed to read workspace doc during verification attempt', attempt, readErr);
+            }
+          }
+
+          if (workspaceDocSaved !== true) {
+            workspaceDocSaved = false;
+            console.warn(`Workspace document verification failed for workspaces/${workspaceId}/policies/${documentId}`);
+          }
         } catch (updateErr) {
+          workspaceDocSaved = false;
           console.warn('Failed to set workspace-scoped policy document with storage path/pdfPath:', updateErr);
         }
       }
 
       // Return actual PDF if available; otherwise send JSON success with X-Policy-Updated header and storage URL when available
+      // If workspaceId was provided, include a header pointing to the workspace policy path so the client can confirm the saved JSON
+      const workspacePolicyPathHeader = workspaceId ? `/workspaces/${workspaceId}/policies/${documentId}` : null;
+
       if (pdfBuffer) {
         const headers: Record<string, string> = {
           'Content-Type': 'application/pdf',
@@ -362,10 +413,19 @@ export async function POST(
           'X-Policy-Updated': 'true',
         };
         if (pdfUrl) headers['X-PDF-URL'] = pdfUrl;
+        if (workspacePolicyPathHeader) headers['X-Workspace-Policy-Path'] = workspacePolicyPathHeader;
+        if (workspaceDocSaved !== null) headers['X-Workspace-Doc-Saved'] = workspaceDocSaved ? 'true' : 'false';
         return new NextResponse(pdfBuffer as any, { headers });
       }
 
-      return NextResponse.json({ ok: true, message: 'Policy published', pdfUrl: pdfUrl || null }, { headers: { 'X-Policy-Updated': 'true' } });
+      // When not returning a PDF (e.g., puppeteer not available), include the workspace document in the JSON response
+      const responseBody: any = { ok: true, message: 'Policy published', pdfUrl: pdfUrl || null };
+      if (workspaceId) responseBody.workspacePublishedDocument = workspacePublishedDocument;
+
+  const respHeaders: Record<string, string> = { 'X-Policy-Updated': 'true' };
+  if (workspacePolicyPathHeader) respHeaders['X-Workspace-Policy-Path'] = workspacePolicyPathHeader;
+  if (workspaceDocSaved !== null) respHeaders['X-Workspace-Doc-Saved'] = workspaceDocSaved ? 'true' : 'false';
+  return NextResponse.json(responseBody, { headers: respHeaders });
 
   } catch (error) {
     console.error('Error generating PDF:', error);

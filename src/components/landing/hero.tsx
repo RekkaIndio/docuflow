@@ -14,7 +14,7 @@ export function Hero() {
             {/* Elegant SVG logo as a subtle background */}
             <div className="absolute right-2 bottom-2 md:right-6 md:bottom-6 pointer-events-none select-none opacity-30 md:opacity-20 z-0">
                 <Image
-                    src="/Neurodiversity_Symbol.svg"
+                    src="/Neurodiversity_Symbol.png"
                     alt="Neurodiversity Symbol"
                     width={90}
                     height={45}
@@ -29,7 +29,7 @@ export function Hero() {
                 <div className="flex items-center gap-3">
                     <div className="p-2 rounded-full bg-white/20">
                         <Image
-                            src="/Neurodiversity_Symbol.svg"
+                            src="/Neurodiversity_Symbol.png"
                             alt="Neurodiversity Symbol"
                             width={20}
                             height={20}

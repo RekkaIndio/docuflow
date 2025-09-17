@@ -37,7 +37,11 @@ const webSearch = ai.defineTool(
 
 const ChatWithDocumentsInputSchema = z.object({
   query: z.string().describe('The user query about the documents.'),
-  documentJson: z.string().describe('The JSON representation of the document content.'),
+  // If provided, documentJson will be used directly. If empty, the flow will try to
+  // load the saved structured JSON from Firestore using documentId/workspaceId.
+  documentJson: z.string().optional(),
+  documentId: z.string().optional(),
+  workspaceId: z.string().optional(),
 });
 export type ChatWithDocumentsInput = z.infer<typeof ChatWithDocumentsInputSchema>;
 
@@ -47,7 +51,50 @@ const ChatWithDocumentsOutputSchema = z.object({
 export type ChatWithDocumentsOutput = z.infer<typeof ChatWithDocumentsOutputSchema>;
 
 export async function chatWithDocuments(input: ChatWithDocumentsInput): Promise<ChatWithDocumentsOutput> {
-  return chatWithDocumentsFlow(input);
+  // If the caller didn't provide documentJson but supplied a documentId/workspaceId,
+  // load the saved structured JSON from Firestore so the model has full context.
+  if ((!input.documentJson || input.documentJson.trim().length === 0) && (input.documentId || input.workspaceId)) {
+    try {
+      // Lazy import admin SDK to avoid loading it in environments without credentials
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const admin = require('@/lib/firebase-admin').default;
+      const db = admin.firestore();
+
+      // Try global published_policies first if documentId is provided
+      if (input.documentId) {
+        try {
+          const doc = await db.collection('published_policies').doc(input.documentId).get();
+          if (doc.exists) {
+            const data = doc.data();
+            if (data) {
+              input.documentJson = JSON.stringify(data.extractedJson || { content: data.content || '' });
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to read published_policies document:', e);
+        }
+      }
+
+      // If not found in global, try workspace-scoped document
+      if ((!input.documentJson || input.documentJson.trim().length === 0) && input.workspaceId && input.documentId) {
+        try {
+          const doc = await db.collection('workspaces').doc(input.workspaceId).collection('policies').doc(input.documentId).get();
+          if (doc.exists) {
+            const data = doc.data();
+            if (data) {
+              input.documentJson = JSON.stringify(data.extractedJson || { content: data.content || '' });
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to read workspace-scoped policy document:', e);
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load firebase-admin for document fetch:', e);
+    }
+  }
+
+  return chatWithDocumentsFlow(input as any);
 }
 
 const prompt = ai.definePrompt({

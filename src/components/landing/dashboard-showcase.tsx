@@ -23,7 +23,7 @@ export function DashboardShowcase() {
             <div className="bg-background/90 border border-border/30 rounded-2xl shadow-xl overflow-hidden">
               <div className="flex items-center justify-between px-6 py-4 border-b border-border/20">
                 <div className="flex items-center gap-3">
-                  <img src="/Neurodiversity_Symbol.svg" alt="logo" width={28} height={28} className="w-7 h-7 object-contain" />
+                  <img src="/Neurodiversity_Symbol.png" alt="logo" width={28} height={28} className="w-7 h-7 object-contain" />
                   <div>
                     <div className="font-semibold">CG-360 Dashboard</div>
                     <div className="text-xs text-slate-700">Overview • Updated 2 mins ago</div>

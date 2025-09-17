@@ -425,6 +425,35 @@ export function Dashboard() {
         setSelected(document as Document);
         setView('files');
 
+        // Also notify other parts of the UI (chat panel, policies page, etc.) that
+        // this document is now the active document. Persist to sessionStorage so
+        // components mounted after navigation can restore the active doc.
+        try {
+          if (typeof window !== 'undefined') {
+            try {
+              window.dispatchEvent(new CustomEvent('set-active-document', {
+                detail: {
+                  documentId: document.id,
+                  documentName: document.name,
+                  documentData: document,
+                }
+              }));
+            } catch (e) {
+              // best-effort - ignore
+            }
+
+            try {
+              if (window.sessionStorage) {
+                window.sessionStorage.setItem('docuflow.activeDocument', JSON.stringify(document));
+              }
+            } catch (e) {
+              // ignore storage errors
+            }
+          }
+        } catch (e) {
+          // ignore
+        }
+
         // Still dispatch highlight so any file browser can scroll/highlight the item
         if (typeof window !== 'undefined' && window.dispatchEvent) {
           try { window.dispatchEvent(new CustomEvent('highlight-document', { detail: { documentId } })); } catch (e) {}
