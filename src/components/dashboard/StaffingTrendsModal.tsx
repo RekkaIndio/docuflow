@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Users, TrendingUp, TrendingDown, Minus, Calendar, BarChart3, Clock, Target } from 'lucide-react';
 import { collection, query, orderBy, limit, onSnapshot, where } from 'firebase/firestore';
+import { workspaceCollectionPath } from '@/lib/paths';
 import { db } from '@/lib/firebase';
 
 interface StaffingTrendsModalProps {
@@ -35,7 +36,8 @@ const StaffingTrendsModal = ({ isOpen, onClose, workspaceId }: StaffingTrendsMod
 
     setLoading(true);
     try {
-      const colRef = collection(db, `workspaces/${workspaceId}/daily-checkins`);
+  const orgId = null as string | null;
+  const colRef = collection(db, workspaceCollectionPath(workspaceId, 'daily-checkins', orgId));
       const now = new Date();
       const periodDays = selectedPeriod === '7d' ? 7 : selectedPeriod === '30d' ? 30 : 90;
       const startDate = new Date(now.getTime() - (periodDays * 24 * 60 * 60 * 1000));

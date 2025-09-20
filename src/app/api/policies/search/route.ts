@@ -30,8 +30,8 @@ export async function POST(request: NextRequest) {
     const draftsQuery = adminDb.collection('completed_policies')
       .where('status', '==', 'draft');
 
-    // Search in published_policies collection
-    const publishedQuery = adminDb.collection('published_policies')
+    // Search in organisation-scoped policies collection via collectionGroup('policies')
+    const publishedQuery = adminDb.collectionGroup('policies')
       .where('status', '==', 'published');
 
     const [draftsSnapshot, publishedSnapshot] = await Promise.all([

@@ -7,8 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { useWorkspace } from '@/context/workspace';
+import { workspaceCollectionPath } from '@/lib/paths';
 import { Users, Briefcase, Clock } from 'lucide-react';
 
 // Simple step indicator component
@@ -37,6 +39,7 @@ type Props = {
 
 export default function DailyCheckinModal({ workspaceId, open: controlledOpen, onOpenChange, onEntryUpdate, trigger }: Props) {
   const [open, setOpen] = useState<boolean>(false);
+  const activeWorkspace = useWorkspace();
   useEffect(() => { if (typeof controlledOpen === 'boolean') setOpen(controlledOpen); }, [controlledOpen]);
   const todayKey = new Date().toISOString().split('T')[0];
 
@@ -152,7 +155,8 @@ export default function DailyCheckinModal({ workspaceId, open: controlledOpen, o
     (async () => {
       setLoading(true);
       try {
-        const docRef = doc(db, `workspaces/${workspaceId}/daily-checkins`, todayKey);
+  const orgId = (activeWorkspace as any)?.organisationId ?? null;
+  const docRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'daily-checkins', orgId || null)), todayKey);
         const snap = await getDoc(docRef);
         if (!mounted) return;
         if (snap.exists()) {
@@ -210,7 +214,8 @@ export default function DailyCheckinModal({ workspaceId, open: controlledOpen, o
     setLoading(true);
     try {
       const now = new Date();
-      const docRef = doc(db, `workspaces/${workspaceId}/daily-checkins`, todayKey);
+  const orgId = (activeWorkspace as any)?.organisationId ?? null;
+  const docRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'daily-checkins', orgId || null)), todayKey);
       const fallsPayload: any = { count: fallsCount, injuries: fallsInjuries, witnessed: fallsWitnessed, time: fallsTime };
       if (fallsEntries && fallsEntries.length > 0) fallsPayload.entries = fallsEntries;
       const payload = {

@@ -1,14 +1,17 @@
 // Search documents in a workspace by name, tags, or summary (case-insensitive substring match)
-export async function searchDocumentsInWorkspace(workspaceId: string, queryStr: string): Promise<Document[]> {
-    // Load all documents in workspace (could be optimized with indexed search in future)
-    const documentsQuery = query(collection(db, `workspaces/${workspaceId}/documents`));
+import { workspaceDocPath, workspaceCollectionPath } from './paths';
+
+export async function searchDocumentsInWorkspace(workspaceId: string, queryStr: string, orgId?: string | null): Promise<Document[]> {
+    // Load all documents in workspace (org-aware)
+    const basePath = orgId ? `organisations/${orgId}/workspaces/${workspaceId}` : `workspaces/${workspaceId}`;
+    const documentsQuery = query(collection(db, workspaceCollectionPath(workspaceId, 'documents', orgId || null)));
     const documentsSnap = await getDocs(documentsQuery);
 
     // Normalize and tokenize the query into words
     const normalize = (s?: string) => (s || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
     const queryTokens = normalize(queryStr).split(' ').filter(Boolean);
 
-    // If no query provided, return all documents (useful for callers that expect a full listing)
+    // If no query provided, return all documents
     if (queryTokens.length === 0) {
         return documentsSnap.docs.map(docSnap => {
             const data = docSnap.data() as Document;
@@ -16,121 +19,45 @@ export async function searchDocumentsInWorkspace(workspaceId: string, queryStr: 
         });
     }
 
-    // Simple fuzzy helper: checks if token is a substring or shares prefix with term
     const tokenMatchesTerm = (token: string, term: string) => {
         if (!token || !term) return false;
         if (term.includes(token)) return true; // substring
         if (term.startsWith(token) || token.startsWith(term)) return true; // prefix
-        // allow short fuzzy matches: small Levenshtein distance for short tokens
-        if (Math.abs(term.length - token.length) <= 2) {
-            // quick early-exit: require at least first char equality
-            if (term[0] !== token[0]) return false;
-            let d = 0;
-            const minLen = Math.min(term.length, token.length);
-            for (let i = 0; i < minLen; i++) {
-                if (term[i] !== token[i]) d++;
-                if (d > 2) return false;
-            }
-            return true;
-        }
         return false;
     };
 
     const results: { doc: Document; score: number }[] = [];
-    // Try semantic rerank if an OpenAI API key is available
-    const openApiKey = process.env.OPEN_API_KEY || process.env.OPENAI_API_KEY || process.env.OPEN_API_KEY;
-    let queryEmbedding: number[] | null = null;
-    let useEmbeddings = false;
-    let OpenAIClient: any = null;
-    if (openApiKey) {
-        try {
-            const { OpenAI } = await import('openai');
-            OpenAIClient = new OpenAI({ apiKey: openApiKey });
-            // Compute query embedding
-            const embedRes = await OpenAIClient.embeddings.create({ model: 'text-embedding-3-small', input: queryStr });
-            queryEmbedding = embedRes.data[0].embedding as number[];
-            useEmbeddings = !!queryEmbedding;
-        } catch (e) {
-            console.warn('Embeddings unavailable, falling back to token matching', e);
-            useEmbeddings = false;
-        }
-    }
-    for (const docSnap of documentsSnap.docs) {
+
+    documentsSnap.forEach(docSnap => {
         const data = docSnap.data() as Document;
+        const name = normalize(data.name || '');
+        const summary = normalize(data.summary || '');
+        const tags = Array.isArray((data as any).tags) ? (data as any).tags.map((t: any) => String(t)).join(' ') : '';
+        const blob = [name, summary, tags].filter(Boolean).join(' ');
 
-        // Build a searchable blob from several fields
-        const name = normalize(data.name);
-        const summary = normalize(data.summary);
-        const tags = Array.isArray(data.tags) ? data.tags.map(t => normalize(t)).join(' ') : '';
-        // Include any extracted text if available
-    const extractedText = normalize((data.extractedJson ? JSON.stringify(data.extractedJson) : ''));
-        const blob = [name, summary, tags, extractedText].filter(Boolean).join(' ');
-
-        // If embeddings are enabled and document has an embedding, compute cosine similarity
         let score = 0;
-        if (useEmbeddings && queryEmbedding) {
-            // Ensure the document has an embedding; if not, try to generate and persist one (best-effort)
-            let docEmbedding = (data as any).embedding as number[] | undefined;
-            if (!docEmbedding) {
-                try {
-                    if (OpenAIClient) {
-                        const textToEmbed = [name, summary, tags].filter(Boolean).join('\n');
-                        const res = await OpenAIClient.embeddings.create({ model: 'text-embedding-3-small', input: textToEmbed });
-                        docEmbedding = res.data[0].embedding as number[];
-                        // Persist the embedding back to Firestore (best-effort, no retry)
-                        try {
-                            const docRef = doc(db, `workspaces/${workspaceId}/documents`, docSnap.id);
-                            await setDoc(docRef, { embedding: docEmbedding }, { merge: true });
-                        } catch (persistErr) {
-                            console.warn('Failed to persist embedding for doc', docSnap.id, persistErr);
-                        }
-                    }
-                } catch (e) {
-                    console.warn('Failed to generate embedding for document', docSnap.id, e);
-                    docEmbedding = undefined;
+        for (const token of queryTokens) {
+            if (!token) continue;
+            if (blob.includes(token)) {
+                score += 2;
+                continue;
+            }
+            const blobWords = blob.split(' ').filter(Boolean);
+            let matched = false;
+            for (const w of blobWords) {
+                if (tokenMatchesTerm(token, w)) {
+                    score += 1;
+                    matched = true;
+                    break;
                 }
             }
-
-            if (docEmbedding && queryEmbedding) {
-                // cosine similarity
-                const dot = docEmbedding.reduce((acc, v, i) => acc + v * (queryEmbedding ? queryEmbedding[i] ?? 0 : 0), 0);
-                const normA = Math.sqrt(docEmbedding.reduce((acc, v) => acc + v * v, 0));
-                const normB = Math.sqrt(queryEmbedding.reduce((acc, v) => acc + v * v, 0));
-                const cosine = normA && normB ? dot / (normA * normB) : 0;
-                // map cosine [-1,1] to a positive score, give stronger weight
-                score = Math.max(0, (cosine + 1) / 2) * 100;
-            }
-        }
-
-        // When embeddings aren't used or didn't produce a score, fall back to token scoring
-        if (!score) {
-            for (const token of queryTokens) {
-                if (!token) continue;
-                if (blob.includes(token)) {
-                    score += 2; // exact token present
-                    continue;
-                }
-                // check token against individual words in blob
-                const blobWords = blob.split(' ').filter(Boolean);
-                let matched = false;
-                for (const w of blobWords) {
-                    if (tokenMatchesTerm(token, w)) {
-                        score += 1;
-                        matched = true;
-                        break;
-                    }
-                }
-                if (!matched) {
-                    // small bonus if token is contained in document name specifically
-                    if (name.includes(token)) score += 1;
-                }
-            }
+            if (!matched && name.includes(token)) score += 1;
         }
 
         if (score > 0) {
-            results.push({ doc: { ...data, id: docSnap.id }, score });
+            results.push({ doc: { ...data, id: docSnap.id } as Document, score });
         }
-    }
+    });
 
     // Sort by score desc, then by name
     results.sort((a, b) => b.score - a.score || (a.doc.name || '').localeCompare(b.doc.name || ''));
@@ -138,10 +65,10 @@ export async function searchDocumentsInWorkspace(workspaceId: string, queryStr: 
     return results.map(r => r.doc);
 }
 // Delete a document and its storage (if any)
-export async function deleteDocument(workspaceId: string, documentId: string): Promise<void> {
+export async function deleteDocument(workspaceId: string, documentId: string, orgId?: string | null): Promise<void> {
     try {
-        // Get the document reference
-        const docRef = doc(db, `workspaces/${workspaceId}/documents`, documentId);
+        // Get the document reference (org-aware)
+        const docRef = doc(db, workspaceCollectionPath(workspaceId, 'documents', orgId || null), documentId);
         const docSnap = await getDoc(docRef);
         if (!docSnap.exists()) {
             throw new Error("Document does not exist");
@@ -172,9 +99,11 @@ import type { Workspace, Folder, Document, User } from './types';
 import { db, storage } from './firebase';
 import { ref, deleteObject, uploadBytes, getDownloadURL } from "firebase/storage";
 
-async function fetchAndStructureData(workspaceId: string): Promise<{ folders: (Folder | Document)[], documents: Document[] }> {
-    const foldersQuery = query(collection(db, `workspaces/${workspaceId}/folders`));
-    const documentsQuery = query(collection(db, `workspaces/${workspaceId}/documents`));
+async function fetchAndStructureData(workspaceId: string, orgId?: string | null): Promise<{ folders: (Folder | Document)[], documents: Document[] }> {
+    const basePath = orgId ? `organisations/${orgId}/workspaces/${workspaceId}` : `workspaces/${workspaceId}`;
+    try { console.debug('[fetchAndStructureData] workspaceId=', workspaceId, 'orgId=', orgId, 'basePath=', basePath); } catch (e) {}
+    const foldersQuery = query(collection(db, workspaceCollectionPath(workspaceId, 'folders', orgId || null)));
+    const documentsQuery = query(collection(db, workspaceCollectionPath(workspaceId, 'documents', orgId || null)));
 
     const [foldersSnap, documentsSnap] = await Promise.all([
         getDocs(foldersQuery),
@@ -197,7 +126,7 @@ async function fetchAndStructureData(workspaceId: string): Promise<{ folders: (F
                 const displayName = getAuditDisplayName(auditType);
                 document.name = displayName;
                 // Optionally update in Firestore (uncomment if you want to persist the fix)
-                // updateDoc(doc(db, `workspaces/${document.workspaceId}/documents`, document.id), { name: displayName });
+                // updateDoc(doc(db, workspaceCollectionPath(document.workspaceId, 'documents', orgId), document.id), { name: displayName });
             }
         }
         
@@ -253,8 +182,39 @@ async function fetchAndStructureData(workspaceId: string): Promise<{ folders: (F
 }
 
 // Ensure protected/immutable folders exist in Firestore for a workspace
-export async function ensureProtectedFolders(workspaceId: string): Promise<void> {
+export async function ensureProtectedFolders(workspaceId: string, orgId?: string | null): Promise<void> {
     try {
+        const basePath = orgId ? `organisations/${orgId}/workspaces/${workspaceId}` : `workspaces/${workspaceId}`;
+        // debug context
+        try { console.debug('[ensureProtectedFolders] workspaceId=', workspaceId, 'orgId=', orgId, 'basePath=', basePath); } catch (e) {}
+
+        // If this workspace is org-scoped, ask the server to create protected folders
+        if (orgId) {
+            const url = `/api/admin/workspaces/create-protected-folders`;
+            const payload = { orgId, workspaceId };
+            // Try a couple of times with backoff in case of transient network issues
+            let attempts = 0;
+            const maxAttempts = 3;
+            while (attempts < maxAttempts) {
+                try {
+                    const resp = await fetch(url, { method: 'POST', body: JSON.stringify(payload), headers: { 'Content-Type': 'application/json' } });
+                    if (resp.ok) {
+                        try { console.debug('[ensureProtectedFolders] server-created protected folders for', workspaceId, 'orgId=', orgId); } catch (e) {}
+                        return;
+                    } else {
+                        // If server returns 4xx, don't retry
+                        if (resp.status >= 400 && resp.status < 500) break;
+                    }
+                } catch (e) {
+                    // network error - retry
+                }
+                attempts++;
+                await new Promise(r => setTimeout(r, 200 * attempts));
+            }
+            console.warn('[ensureProtectedFolders] server-side creation failed or unreachable, falling back to client-side for', workspaceId);
+            // Continue to client-side creation as a last resort (best-effort)
+        }
+
         const protectedFolders: { id: string; name: string; parentId?: string | null }[] = [
             { id: 'audits', name: 'Audits', parentId: null },
             { id: 'audits-managers-monthly-audit', name: "Managers' Monthly Audit", parentId: 'audits' },
@@ -290,17 +250,18 @@ export async function ensureProtectedFolders(workspaceId: string): Promise<void>
         ];
 
         for (const f of protectedFolders) {
-            const folderRef = doc(db, `workspaces/${workspaceId}/folders`, f.id);
+            const folderCol = collection(db, workspaceCollectionPath(workspaceId, 'folders', orgId || null));
+            const folderRef = doc(folderCol, f.id);
             const folderSnap = await getDoc(folderRef);
-                    if (!folderSnap.exists()) {
-                        await setDoc(folderRef, {
-                            name: f.name,
-                            type: 'folder',
-                            parentId: f.parentId ?? null,
-                            createdAt: Timestamp.now(),
-                            protected: true,
-                        });
-                    }
+            if (!folderSnap.exists()) {
+                await setDoc(folderRef, {
+                    name: f.name,
+                    type: 'folder',
+                    parentId: f.parentId ?? null,
+                    createdAt: Timestamp.now(),
+                    protected: true,
+                });
+            }
         }
     } catch (error) {
         console.error('Failed to ensure protected folders for workspace', workspaceId, error);
@@ -308,30 +269,67 @@ export async function ensureProtectedFolders(workspaceId: string): Promise<void>
 }
 
 
-export async function getWorkspacesForUser(userId: string): Promise<Workspace[]> {
+export async function getWorkspacesForUser(userId: string, orgIdOverride?: string): Promise<Workspace[]> {
     try {
-        const q = query(collection(db, "workspaces"), where("members", "array-contains", userId));
-        const querySnapshot = await getDocs(q);
-        
-        if (querySnapshot.empty) {
-            return [];
+        // Prefer an explicit orgId override (passed from hydrated server-side user). If not
+        // provided, attempt a best-effort client read for the user's orgId but do not
+        // fail if that read is denied by security rules.
+        let orgId: string | null = orgIdOverride || null;
+        if (!orgId) {
+            try {
+                const userRef = doc(db, `users`, userId);
+                const userSnap = await getDoc(userRef);
+                if (userSnap.exists()) {
+                    const d: any = userSnap.data();
+                    orgId = d.organisationId || null;
+                }
+            } catch (e) {
+                // Likely permission denied by strict rules; continue without orgId
+                console.debug('getWorkspacesForUser: could not read users/{id} for orgId (permission?), continuing without orgId', e);
+                orgId = null;
+            }
+            // If we couldn't read the top-level user doc (or it doesn't exist), try server-side fallback for organisationId
+            if (!orgId) {
+                try {
+                    const resp = await fetch(`/api/users/${encodeURIComponent(userId)}`);
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        if (data && data.organisationId) {
+                            orgId = data.organisationId;
+                            console.debug('getWorkspacesForUser: obtained orgId from server API', orgId);
+                        }
+                    } else {
+                        console.debug('getWorkspacesForUser: server fallback /api/users returned', resp.status);
+                    }
+                } catch (serverErr) {
+                    console.debug('getWorkspacesForUser: server fallback failed', serverErr);
+                }
+            }
         }
 
-        const workspaces = await Promise.all(querySnapshot.docs.map(async (docSnap) => {
-            const workspaceData = docSnap.data() as Omit<Workspace, 'id' | 'folders'>;
-            // Ensure protected folders exist for this workspace
-            await ensureProtectedFolders(docSnap.id);
-            const { folders } = await fetchAndStructureData(docSnap.id);
-            return {
-                id: docSnap.id,
-                ...workspaceData,
-                folders: folders,
-            };
-        }));
-        
-        return workspaces;
+        // Prefer server-admin fetch which returns workspaces (with folders) using admin privileges.
+        // This avoids client-side permission errors when rules forbid direct reads of org-scoped data.
+        try {
+            const resp = await fetch(`/api/users/${encodeURIComponent(userId)}/workspaces${orgId ? `?orgId=${encodeURIComponent(orgId)}` : ''}`);
+            if (resp.ok) {
+                const data = await resp.json();
+                if (data && Array.isArray(data.workspaces)) {
+                    return data.workspaces.map((w: any) => ({ id: w.id, name: w.name, ownerId: w.ownerId, members: w.members || [], organisationId: w.organisationId || null, folders: w.folders || [] }));
+                }
+            } else {
+                console.debug('getWorkspacesForUser: admin fetch returned', resp.status);
+            }
+        } catch (adminErr) {
+            console.debug('getWorkspacesForUser: admin fetch failed', adminErr);
+        }
+
+        // If server fetch fails, return empty list; client-side direct queries were removed to avoid
+        // leaking privileged access or relying on top-level legacy collections.
+        return [];
 
     } catch (error) {
+        // Log and return empty; dashboard should handle empty lists gracefully instead
+        // of bubbling permission errors to the top-level UI.
         console.error("Error fetching workspaces for user:", error);
         return [];
     }
@@ -356,70 +354,24 @@ export async function getUserById(userId: string): Promise<User | null> {
  * Admin helper: return all workspaces with their nested folder/document structure.
  * Note: potentially expensive if you have many workspaces. Consider pagination if needed.
  */
-export async function getAllWorkspaces(): Promise<Workspace[]> {
+export async function getAllWorkspaces(orgId?: string): Promise<Workspace[]> {
     try {
-        const qAll = query(collection(db, "workspaces"));
-        const snaps = await getDocs(qAll);
-        const workspaces = await Promise.all(snaps.docs.map(async (docSnap) => {
-            const workspaceData = docSnap.data() as Omit<Workspace, 'id' | 'folders'>;
-            const { folders } = await fetchAndStructureData(docSnap.id);
-            // attempt to read occupancy settings document (optional)
-            let totalBeds: number | undefined = undefined;
-            let occupiedBeds: number | undefined = undefined;
-            try {
-                const occRef = doc(db, `workspaces/${docSnap.id}/settings`, 'occupancy');
-                const occSnap = await getDoc(occRef);
-                if (occSnap.exists()) {
-                    const d = occSnap.data() as any;
-                    if (typeof d.totalBeds === 'number') totalBeds = d.totalBeds;
-                    if (typeof d.occupiedBeds === 'number') occupiedBeds = d.occupiedBeds;
+        // Use server-admin API to fetch workspaces to avoid client-side permission issues.
+        try {
+            const resp = await fetch(`/api/admin/workspaces${orgId ? `?orgId=${encodeURIComponent(orgId)}` : ''}`);
+            if (resp.ok) {
+                const data = await resp.json();
+                if (data && Array.isArray(data.workspaces)) {
+                    return data.workspaces as Workspace[];
                 }
-            } catch (e) {
-                console.warn('Failed to read occupancy settings for workspace', docSnap.id, e);
+            } else {
+                console.debug('getAllWorkspaces: admin API returned', resp.status);
             }
+        } catch (e) {
+            console.error('Error fetching all workspaces from admin API', e);
+        }
 
-            // Fetch latest dependency snapshot for admin view
-            let dependencySnapshot: any = null;
-            try {
-                // Prefer ownerId, fallback to first member
-                const userId = (workspaceData.ownerId && typeof workspaceData.ownerId === 'string')
-                  ? workspaceData.ownerId
-                  : (Array.isArray(workspaceData.members) && workspaceData.members.length > 0 ? workspaceData.members[0] : null);
-                if (userId) {
-                    // Query all dependency_calculator_snapshots for this user
-                    const snapshotsCol = collection(db, 'users', userId, 'dependency_calculator_snapshots');
-                    const snapshotsSnap = await getDocs(snapshotsCol);
-                    let latest: any = null;
-                    snapshotsSnap.forEach(doc => {
-                        const data = doc.data();
-                        // Use savedAt or updatedAt for recency
-                        const ts = (typeof data.savedAt === 'number') ? data.savedAt : (data.updatedAt && data.updatedAt.toMillis ? data.updatedAt.toMillis() : 0);
-                        if (!latest || ts > latest._ts) {
-                            latest = { ...data, _ts: ts, _id: doc.id };
-                        }
-                    });
-                    if (latest) {
-                        dependencySnapshot = { ...latest };
-                        delete dependencySnapshot._ts;
-                        delete dependencySnapshot._id;
-                    }
-                }
-            } catch (e) {
-                console.warn('Failed to fetch dependency snapshot for workspace', docSnap.id, e);
-            }
-
-            return {
-                id: docSnap.id,
-                ...workspaceData,
-                folders,
-                // attach bed counts if available for admin consumers
-                totalBeds,
-                occupiedBeds,
-                // attach latest dependency snapshot for admin consumers
-                dependencySnapshot,
-            } as Workspace & { totalBeds?: number; occupiedBeds?: number; dependencySnapshot?: any };
-        }));
-        return workspaces;
+        return [];
     } catch (error) {
         console.error('Error fetching all workspaces', error);
         return [];
@@ -427,9 +379,21 @@ export async function getAllWorkspaces(): Promise<Workspace[]> {
 }
 
 // Save a daily check-in document under workspaces/{workspaceId}/daily-checkins
-export async function saveDailyCheckin(workspaceId: string, data: any): Promise<string> {
+export async function saveDailyCheckin(workspaceId: string, data: any, orgId?: string | null): Promise<string> {
     try {
-        const colRef = collection(db, `workspaces/${workspaceId}/daily-checkins`);
+    // If caller provided orgId, prefer it. Otherwise attempt to derive it (fallback)
+    let resolvedOrgId: string | null = orgId ?? null;
+    if (!resolvedOrgId) {
+      try {
+        const wsRef = doc(db, 'workspaces', workspaceId);
+        const wsSnap = await getDoc(wsRef);
+        if (wsSnap.exists()) resolvedOrgId = (wsSnap.data() as any)?.organisationId || null;
+      } catch (e) {
+        console.warn('Failed to resolve organisationId for workspace when saving daily checkin', e);
+      }
+    }
+
+    const colRef = collection(db, workspaceCollectionPath(workspaceId, 'daily-checkins', resolvedOrgId || null));
         const docRef = await addDoc(colRef, { ...data, createdAt: Timestamp.now() });
         return docRef.id;
     } catch (e) {
@@ -442,14 +406,14 @@ export async function saveDailyCheckin(workspaceId: string, data: any): Promise<
 export async function saveAudit(data: any, workspaceId?: string): Promise<string> {
     try {
         if (workspaceId) {
-            const colRef = collection(db, `workspaces/${workspaceId}/audits`);
+            const colRef = collection(db, workspaceCollectionPath(workspaceId, 'audits'));
             const docRef = await addDoc(colRef, { ...data, workspaceId, createdAt: Timestamp.now() });
 
             // If the audit contains a numeric scorePercent and an auditType, mirror it
             // to workspace settings for quick dashboard access.
             try {
                 if (data && typeof data.scorePercent === 'number' && typeof data.auditType === 'string') {
-                    const latestRef = doc(db, `workspaces/${workspaceId}/settings`, 'audit_latest_scores');
+                    const latestRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'settings')), 'audit_latest_scores');
                     const updateData = {
                         [data.auditType]: {
                             scorePercent: data.scorePercent,
@@ -481,7 +445,7 @@ export async function saveAudit(data: any, workspaceId?: string): Promise<string
 export async function updateAudit(auditId: string, data: any, workspaceId?: string): Promise<void> {
     try {
         if (workspaceId) {
-            const docRef = doc(db, `workspaces/${workspaceId}/audits`, auditId);
+            const docRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'audits')), auditId);
             await updateDoc(docRef, { ...data, updatedAt: Timestamp.now() });
             return;
         }
@@ -497,9 +461,19 @@ export async function updateAudit(auditId: string, data: any, workspaceId?: stri
 }
 
 // Update an existing daily checkin document
-export async function updateDailyCheckin(workspaceId: string, checkinId: string, data: any): Promise<void> {
+export async function updateDailyCheckin(workspaceId: string, checkinId: string, data: any, orgId?: string | null): Promise<void> {
     try {
-        const docRef = doc(db, `workspaces/${workspaceId}/daily-checkins`, checkinId);
+        let resolvedOrgId: string | null = orgId ?? null;
+        if (!resolvedOrgId) {
+            try {
+                const wsRef = doc(db, 'workspaces', workspaceId);
+                const wsSnap = await getDoc(wsRef);
+                if (wsSnap.exists()) resolvedOrgId = (wsSnap.data() as any)?.organisationId || null;
+            } catch (e) {
+                console.warn('Failed to resolve organisationId for workspace when updating daily checkin', e);
+            }
+        }
+        const docRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'daily-checkins', resolvedOrgId || null)), checkinId);
         await setDoc(docRef, { ...data, updatedAt: Timestamp.now() }, { merge: true });
     } catch (e) {
         console.error('Failed to update daily checkin', e);
@@ -514,7 +488,7 @@ export async function updateDailyCheckin(workspaceId: string, checkinId: string,
  */
 export async function setAuditSchedule(workspaceId: string, auditKey: string, scheduledDateIso: string | null): Promise<void> {
     try {
-        const docRef = doc(db, `workspaces/${workspaceId}/settings`, 'audit_schedule');
+    const docRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'settings')), 'audit_schedule');
         // Merge update: store a map of auditKey -> ISO date (or null to clear)
         await setDoc(docRef, { [auditKey]: scheduledDateIso }, { merge: true });
     } catch (e) {
@@ -528,7 +502,7 @@ export async function setAuditSchedule(workspaceId: string, auditKey: string, sc
  */
 export async function getAuditSchedule(workspaceId: string): Promise<Record<string, string | null>> {
     try {
-        const docRef = doc(db, `workspaces/${workspaceId}/settings`, 'audit_schedule');
+    const docRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'settings')), 'audit_schedule');
         const snap = await getDoc(docRef);
         if (!snap.exists()) return {};
         return snap.data() as Record<string, string | null>;
@@ -543,7 +517,7 @@ export async function getAuditSchedule(workspaceId: string): Promise<Record<stri
  */
 export async function markAuditCompleted(workspaceId: string, auditKey: string, completedAtIso?: string): Promise<void> {
     try {
-        const docRef = doc(db, `workspaces/${workspaceId}/settings`, 'audit_status');
+    const docRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'settings')), 'audit_status');
         const payload: any = {};
         payload[auditKey] = completedAtIso ?? new Date().toISOString();
         await setDoc(docRef, payload, { merge: true });
@@ -558,7 +532,7 @@ export async function markAuditCompleted(workspaceId: string, auditKey: string, 
  */
 export async function getAuditStatus(workspaceId: string): Promise<Record<string, string>> {
     try {
-        const docRef = doc(db, `workspaces/${workspaceId}/settings`, 'audit_status');
+    const docRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'settings')), 'audit_status');
         const snap = await getDoc(docRef);
         if (!snap.exists()) return {};
         return snap.data() as Record<string, string>;
@@ -579,7 +553,8 @@ export async function saveAuditSnapshot(workspaceId: string, auditType: string, 
         const monthKey = `${year}-${month}`;
         
         // Check for existing snapshot and delete it to avoid duplicates
-        const snapshotCollectionRef = collection(db, `workspaces/${workspaceId}/audit-snapshots/${monthKey}/${auditType}`);
+    const orgId = auditData?.organisationId || auditData?.orgId || null;
+    const snapshotCollectionRef = collection(db, workspaceCollectionPath(workspaceId, `audit-snapshots/${monthKey}/${auditType}`, orgId));
         try {
             const existingSnapshots = await getDocs(snapshotCollectionRef);
             // Delete all existing snapshots for this audit type in this month
@@ -619,7 +594,7 @@ export async function isAuditCompletedThisMonth(workspaceId: string, auditType: 
         
         // Check if there are any snapshots for this audit type in the current month
         const snapshotQuery = query(
-            collection(db, `workspaces/${workspaceId}/audit-snapshots/${monthKey}/${auditType}`)
+            collection(db, workspaceCollectionPath(workspaceId, `audit-snapshots/${monthKey}/${auditType}`))
         );
         const snapshot = await getDocs(snapshotQuery);
 
@@ -629,7 +604,7 @@ export async function isAuditCompletedThisMonth(workspaceId: string, auditType: 
         // that the timestamp falls within the current month. This handles cases where a
         // status timestamp might be set but no snapshot exists for the current month.
         try {
-            const statusRef = doc(db, `workspaces/${workspaceId}/settings`, 'audit_status');
+            const statusRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'settings')), 'audit_status');
             const statusSnap = await getDoc(statusRef);
             if (!statusSnap.exists()) return false;
             const data = statusSnap.data() as Record<string, string>;
@@ -680,7 +655,7 @@ export async function markAuditCompletedWithSnapshot(workspaceId: string, auditT
         // Mirror the audit score to workspace settings for dashboard display
         try {
             if (auditData && typeof auditData.scorePercent === 'number' && typeof auditType === 'string') {
-                const latestRef = doc(db, `workspaces/${workspaceId}/settings`, 'audit_latest_scores');
+                const latestRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'settings')), 'audit_latest_scores');
                 const updateData = {
                     [auditType]: {
                         scorePercent: auditData.scorePercent,
@@ -781,8 +756,9 @@ async function generateAndSaveAuditPDF(workspaceId: string, auditType: string, a
         // Generate filename
         const filename = getAuditPDFFilename(auditType, homeName, pdfData.auditDate);
         
-        // Save to Audits folder
-        const docId = await saveAuditPDFToFolder(workspaceId, auditType, pdfBuffer, filename, pdfData.auditDate);
+        // Save to Audits folder (pass organisationId if present so storage and firestore use org-scoped paths)
+        const orgId = auditData?.organisationId || auditData?.orgId || null;
+        const docId = await saveAuditPDFToFolder(workspaceId, auditType, pdfBuffer, filename, pdfData.auditDate, orgId);
         return docId;
     } catch (e) {
         console.error('Failed to generate and save audit PDF', e);
@@ -812,7 +788,7 @@ export async function getMonthlyAuditCompletionStatus(workspaceId: string): Prom
         await Promise.all(auditTypes.map(async (auditType) => {
             try {
                 const snapshotQuery = query(
-                    collection(db, `workspaces/${workspaceId}/audit-snapshots/${monthKey}/${auditType}`)
+                    collection(db, workspaceCollectionPath(workspaceId, `audit-snapshots/${monthKey}/${auditType}`))
                 );
                 const snapshot = await getDocs(snapshotQuery);
                 result[auditType] = !snapshot.empty;
@@ -857,7 +833,7 @@ export async function getMonthlyAuditSnapshots(workspaceId: string, monthKey?: s
         
         for (const auditType of auditTypes) {
             const snapshotQuery = query(
-                collection(db, `workspaces/${workspaceId}/audit-snapshots/${targetMonth}/${auditType}`)
+                collection(db, workspaceCollectionPath(workspaceId, `audit-snapshots/${targetMonth}/${auditType}`))
             );
             const snapshot = await getDocs(snapshotQuery);
             result[auditType] = snapshot.docs.map(doc => ({
@@ -880,7 +856,7 @@ export async function getLatestAuditData(workspaceId: string, auditType: string,
     try {
         const targetMonth = monthKey || getCurrentMonthKey();
         const snapshotQuery = query(
-            collection(db, `workspaces/${workspaceId}/audit-snapshots/${targetMonth}/${auditType}`),
+            collection(db, workspaceCollectionPath(workspaceId, `audit-snapshots/${targetMonth}/${auditType}`)),
             orderBy('snapshotCreatedAt', 'desc'),
             limit(1)
         );
@@ -933,6 +909,7 @@ export async function saveAuditPDFToFolder(
     pdfData: Uint8Array,
     filename: string,
     auditDate: string
+    , orgId?: string | null
 ): Promise<string> {
     try {
         // Get the month key from audit date
@@ -942,13 +919,13 @@ export async function saveAuditPDFToFolder(
         const monthKey = `${year}-${month}`;
         const monthName = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
-        // Create month folder if it doesn't exist
-        const monthFolderId = await createMonthlyAuditFolder(workspaceId, monthKey, monthName);
+    // Create month folder if it doesn't exist
+    const monthFolderId = await createMonthlyAuditFolder(workspaceId, monthKey, monthName, orgId);
 
         // Check for existing audit document of the same type in this month and delete it
         try {
             const existingDocsQuery = query(
-                collection(db, `workspaces/${workspaceId}/documents`),
+                collection(db, workspaceCollectionPath(workspaceId, 'documents', orgId || null)),
                 where('folderId', '==', monthFolderId),
                 where('extractedJson.auditType', '==', auditType),
                 where('extractedJson.isAuditSnapshot', '==', true)
@@ -965,7 +942,7 @@ export async function saveAuditPDFToFolder(
                         await deleteObject(oldFileRef);
                     }
                     // Delete document from Firestore
-                    await deleteDoc(doc(db, `workspaces/${workspaceId}/documents`, docSnap.id));
+                    await deleteDoc(doc(collection(db, workspaceCollectionPath(workspaceId, 'documents', orgId || null)), docSnap.id));
                 } catch (deleteErr) {
                     console.warn('Failed to delete old audit file/document:', deleteErr);
                     // Continue with creation even if deletion fails
@@ -979,7 +956,10 @@ export async function saveAuditPDFToFolder(
         // Upload PDF binary to Firebase Storage
         try {
             const safeFilename = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
-            const storagePath = `workspaces/${workspaceId}/audits/${monthKey}/${auditType}/${safeFilename}`;
+            // Build storage path: prefer organisation-scoped path when orgId is provided
+            const storagePath = orgId
+                ? `organisations/${orgId}/workspaces/${workspaceId}/audits/${monthKey}/${auditType}/${safeFilename}`
+                : `workspaces/${workspaceId}/audits/${monthKey}/${auditType}/${safeFilename}`;
             const fileRef = ref(storage, storagePath);
 
             // uploadBytes accepts ArrayBuffer | Uint8Array
@@ -988,7 +968,7 @@ export async function saveAuditPDFToFolder(
 
             // Save the PDF as a document with storage metadata
             const displayName = getAuditDisplayName(auditType);
-            const document = {
+            const document: any = {
                 name: displayName,
                 type: 'document' as const,
                 fileType: 'pdf' as const,
@@ -996,6 +976,7 @@ export async function saveAuditPDFToFolder(
                 owner: { id: 'system', name: 'Audit System', email: null, avatarUrl: null },
                 folderId: monthFolderId,
                 workspaceId: workspaceId,
+                organisationId: orgId ?? undefined,
                 storagePath,
                 downloadUrl,
                 extractedJson: {
@@ -1023,19 +1004,19 @@ export async function saveAuditPDFToFolder(
 /**
  * Create or get monthly audit folder
  */
-async function createMonthlyAuditFolder(workspaceId: string, monthKey: string, monthName: string): Promise<string> {
+async function createMonthlyAuditFolder(workspaceId: string, monthKey: string, monthName: string, orgId?: string | null): Promise<string> {
     try {
         // Check if Audits folder exists
-        const auditsFolder = await getOrCreateAuditsFolder(workspaceId);
+        const auditsFolder = await getOrCreateAuditsFolder(workspaceId, orgId);
         
         // Check if month folder exists
         const monthFolderQuery = query(
-            collection(db, `workspaces/${workspaceId}/folders`),
+            collection(db, workspaceCollectionPath(workspaceId, 'folders', orgId || null)),
             where('name', '==', monthName),
             where('parentId', '==', auditsFolder.id)
         );
         
-        const monthFolderSnapshot = await getDocs(monthFolderQuery);
+    const monthFolderSnapshot = await getDocs(monthFolderQuery);
         
         if (!monthFolderSnapshot.empty) {
             return monthFolderSnapshot.docs[0].id;
@@ -1054,7 +1035,7 @@ async function createMonthlyAuditFolder(workspaceId: string, monthKey: string, m
             }
         };
         
-        const docRef = await addDoc(collection(db, `workspaces/${workspaceId}/folders`), monthFolder);
+    const docRef = await addDoc(collection(db, workspaceCollectionPath(workspaceId, 'folders', orgId || null)), monthFolder);
         return docRef.id;
         
     } catch (e) {
@@ -1066,11 +1047,11 @@ async function createMonthlyAuditFolder(workspaceId: string, monthKey: string, m
 /**
  * Get or create the main Audits folder
  */
-async function getOrCreateAuditsFolder(workspaceId: string): Promise<{ id: string; name: string }> {
+async function getOrCreateAuditsFolder(workspaceId: string, orgId?: string | null): Promise<{ id: string; name: string }> {
     try {
         // Check if Audits folder exists
         const auditsFolderQuery = query(
-            collection(db, `workspaces/${workspaceId}/folders`),
+            collection(db, workspaceCollectionPath(workspaceId, 'folders', orgId || null)),
             where('name', '==', 'Audits'),
             where('parentId', '==', null)
         );
@@ -1095,7 +1076,7 @@ async function getOrCreateAuditsFolder(workspaceId: string): Promise<{ id: strin
             }
         };
         
-        const docRef = await addDoc(collection(db, `workspaces/${workspaceId}/folders`), auditsFolder);
+    const docRef = await addDoc(collection(db, workspaceCollectionPath(workspaceId, 'folders', orgId || null)), auditsFolder);
         return { id: docRef.id, name: auditsFolder.name };
         
     } catch (e) {
@@ -1105,10 +1086,20 @@ async function getOrCreateAuditsFolder(workspaceId: string): Promise<{ id: strin
 }
 
 // Delete a daily checkin document
-export async function deleteDailyCheckin(workspaceId: string, checkinId: string): Promise<void> {
+export async function deleteDailyCheckin(workspaceId: string, checkinId: string, orgId?: string | null): Promise<void> {
     try {
-        const docRef = doc(db, `workspaces/${workspaceId}/daily-checkins`, checkinId);
-        await deleteDoc(docRef);
+        let resolvedOrgId: string | null = orgId ?? null;
+        if (!resolvedOrgId) {
+            try {
+                const wsRef = doc(db, 'workspaces', workspaceId);
+                const wsSnap = await getDoc(wsRef);
+                if (wsSnap.exists()) resolvedOrgId = (wsSnap.data() as any)?.organisationId || null;
+            } catch (e) {
+                console.warn('Failed to resolve organisationId for workspace when deleting daily checkin', e);
+            }
+        }
+        const docRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'daily-checkins', resolvedOrgId || null)), checkinId);
+                await deleteDoc(docRef);
     } catch (e) {
         console.error('Failed to delete daily checkin', e);
         throw e;
@@ -1116,9 +1107,19 @@ export async function deleteDailyCheckin(workspaceId: string, checkinId: string)
 }
 
 // Fetch daily checkins in a given time range (inclusive)
-export async function getDailyCheckinsInRange(workspaceId: string, fromTs: any, toTs: any): Promise<any[]> {
+export async function getDailyCheckinsInRange(workspaceId: string, fromTs: any, toTs: any, orgId?: string | null): Promise<any[]> {
     try {
-        const colRef = collection(db, `workspaces/${workspaceId}/daily-checkins`);
+        let resolvedOrgId: string | null = orgId ?? null;
+        if (!resolvedOrgId) {
+            try {
+                const wsRef = doc(db, 'workspaces', workspaceId);
+                const wsSnap = await getDoc(wsRef);
+                if (wsSnap.exists()) resolvedOrgId = (wsSnap.data() as any)?.organisationId || null;
+            } catch (e) {
+                console.warn('Failed to resolve organisationId for workspace when querying daily checkins', e);
+            }
+        }
+        const colRef = collection(db, workspaceCollectionPath(workspaceId, 'daily-checkins', resolvedOrgId || null));
         const q = query(colRef, where('createdAt', '>=', fromTs), where('createdAt', '<=', toTs));
         const snaps = await getDocs(q);
         const items: any[] = [];
@@ -1137,9 +1138,19 @@ export async function getDailyCheckinsInRange(workspaceId: string, fromTs: any, 
 }
 
 // Get the latest daily check-in for a workspace
-export async function getLatestDailyCheckin(workspaceId: string): Promise<any | null> {
-    try {
-        const colRef = collection(db, `workspaces/${workspaceId}/daily-checkins`);
+export async function getLatestDailyCheckin(workspaceId: string, orgId?: string | null): Promise<any | null> {
+        try {
+        let resolvedOrgId: string | null = orgId ?? null;
+        if (!resolvedOrgId) {
+            try {
+                const wsRef = doc(db, 'workspaces', workspaceId);
+                const wsSnap = await getDoc(wsRef);
+                if (wsSnap.exists()) resolvedOrgId = (wsSnap.data() as any)?.organisationId || null;
+            } catch (e) {
+                console.warn('Failed to resolve organisationId for workspace when fetching latest daily checkin', e);
+            }
+        }
+        const colRef = collection(db, workspaceCollectionPath(workspaceId, 'daily-checkins', resolvedOrgId || null));
         const q = query(colRef, orderBy('createdAt', 'desc'), limit(1));
         const snaps = await getDocs(q);
         
@@ -1156,19 +1167,38 @@ export async function getLatestDailyCheckin(workspaceId: string): Promise<any | 
 }
 
 
-export async function createWorkspace(workspace: Omit<Workspace, 'id' | 'folders'>): Promise<Workspace> {
+export async function createWorkspace(workspace: Omit<Workspace, 'id' | 'folders'>, orgId?: string): Promise<Workspace> {
     try {
-        const docRef = await addDoc(collection(db, "workspaces"), workspace);
-        // Ensure protected folders are created for the new workspace
-        await ensureProtectedFolders(docRef.id);
-        const { folders } = await fetchAndStructureData(docRef.id);
-        return {
+        const payload: any = {
             ...workspace,
-            id: docRef.id,
-            folders,
+            createdAt: Timestamp.now(),
         };
+        // Workspace creation must be performed server-side via the admin API.
+        // Require orgId to create org-scoped workspaces.
+        if (!orgId) {
+            throw new Error('Organisation ID is required to create a workspace');
+        }
+
+        // Call admin API to create workspace and provision protected folders
+        try {
+            const resp = await fetch(`/api/admin/workspaces?orgId=${encodeURIComponent(orgId)}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...workspace, ownerId: workspace.ownerId, members: workspace.members }),
+            });
+            if (!resp.ok) {
+                const body = await resp.text().catch(() => null);
+                throw new Error(`Admin API workspace creation failed: ${resp.status} ${String(body)}`);
+            }
+            const json = await resp.json();
+            if (!json || !json.workspace) throw new Error('Admin API returned invalid workspace');
+            return json.workspace as Workspace;
+        } catch (apiErr) {
+            console.error('Failed to create workspace via admin API', apiErr);
+            throw apiErr;
+        }
     } catch (error) {
-        console.error("Error creating workspace:", error);
+        console.error('Error creating workspace:', error);
         throw error;
     }
 }
@@ -1225,10 +1255,13 @@ export async function saveDocument(document: Omit<Document, 'id'>): Promise<stri
             ...document,
             createdAt: Timestamp.now(),
         };
-        const docRef = await addDoc(collection(db, `workspaces/${document.workspaceId}/documents`), docWithTimestamp);
+        const orgId = (document as any).organisationId || (document as any).orgId || null;
+        const docsCol = collection(db, workspaceCollectionPath(document.workspaceId, 'documents', orgId || null));
+        const docRef = await addDoc(docsCol, docWithTimestamp);
         // Also create a workspace-level notification for consumers of the notifications feed
         try {
-            const notifRef = await addDoc(collection(db, `workspaces/${document.workspaceId}/notifications`), {
+            const notifsCol = collection(db, workspaceCollectionPath(document.workspaceId, 'notifications', orgId || null));
+            const notifRef = await addDoc(notifsCol, {
                 title: `New document: ${document.name}`,
                 body: document.summary ?? '',
                 type: 'document',
@@ -1260,7 +1293,9 @@ export async function saveFolder(folder: Omit<Folder, 'id' | 'items'>): Promise<
             ...folder,
             createdAt: Timestamp.now(),
         };
-        const docRef = await addDoc(collection(db, `workspaces/${folder.workspaceId}/folders`), folderWithTimestamp);
+    const orgId = (folder as any).organisationId || (folder as any).orgId || null;
+    const foldersCol = collection(db, workspaceCollectionPath(folder.workspaceId, 'folders', orgId || null));
+    const docRef = await addDoc(foldersCol, folderWithTimestamp);
         return docRef.id;
     } catch (error) {
         console.error("Error saving folder:", error);
@@ -1270,7 +1305,7 @@ export async function saveFolder(folder: Omit<Folder, 'id' | 'items'>): Promise<
 
 async function deleteFolderRecursive(workspaceId: string, folderId: string) {
     // First, recursively delete all subfolders
-    const subfoldersQuery = query(collection(db, `workspaces/${workspaceId}/folders`), where("parentId", "==", folderId));
+    const subfoldersQuery = query(collection(db, workspaceCollectionPath(workspaceId, 'folders')), where("parentId", "==", folderId));
     const subfoldersSnap = await getDocs(subfoldersQuery);
 
     // Recursively delete subfolders first (depth-first)
@@ -1279,7 +1314,7 @@ async function deleteFolderRecursive(workspaceId: string, folderId: string) {
     }
 
     // Now delete documents in the current folder in chunks to avoid transaction size limits
-    const docsQuery = query(collection(db, `workspaces/${workspaceId}/documents`), where("folderId", "==", folderId));
+    const docsQuery = query(collection(db, workspaceCollectionPath(workspaceId, 'documents')), where("folderId", "==", folderId));
     const docsSnap = await getDocs(docsQuery);
 
     // Process documents in chunks of 400 to stay under Firebase's 500 operation batch limit
@@ -1315,7 +1350,7 @@ async function deleteFolderRecursive(workspaceId: string, folderId: string) {
     }
 
     // Finally, delete the folder itself
-    const folderRef = doc(db, `workspaces/${workspaceId}/folders`, folderId);
+    const folderRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'folders')), folderId);
     await deleteDoc(folderRef);
 }
 
@@ -1334,6 +1369,39 @@ export async function createUserInFirestore(user: User) {
     const userRef = doc(db, "users", user.id);
     const userSnap = await getDoc(userRef);
     if (!userSnap.exists()) {
-        await setDoc(userRef, user);
+        try {
+            // Create a top-level user doc immediately to avoid race conditions with security rules
+            // (other rules check existence of /users/{uid}). We'll update organisationId later.
+            await setDoc(userRef, user);
+
+            // Create a new organisation for this user
+            const orgName = user.name ? `${user.name}'s Organisation` : 'My Organisation';
+            const orgRef = doc(collection(db, 'organisations'));
+            await setDoc(orgRef, {
+                name: orgName,
+                ownerId: user.id,
+                createdAt: Timestamp.now(),
+            });
+
+            // Create the user document under organisations/{orgId}/users/{userId}
+            const orgUserRef = doc(db, `organisations/${orgRef.id}/users`, user.id);
+            await setDoc(orgUserRef, { ...user, organisationId: orgRef.id });
+
+            // Update the top-level user doc to include organisationId for compatibility
+            await setDoc(userRef, { ...user, organisationId: orgRef.id }, { merge: true });
+
+            // NOTE: Creating an initial workspace automatically on signup has caused
+            // accidental duplicate workspaces and permission complexity. We no longer
+            // auto-create a workspace here. Workspaces should only be created explicitly
+            // by user action via the UI.
+        } catch (e) {
+            console.error('Failed to create organisation/workspace for new user', e);
+            // Fallback: ensure top-level user doc exists
+            try {
+                await setDoc(userRef, user, { merge: true });
+            } catch (innerErr) {
+                console.error('Failed to create top-level user doc as fallback', innerErr);
+            }
+        }
     }
 }

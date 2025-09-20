@@ -2,6 +2,7 @@
 
 import { db } from '@/lib/firebase';
 import { collection, addDoc, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { workspaceCollectionPath } from '@/lib/paths';
 import { getMonthlyActionPlan } from '@/lib/action-plans';
 import { generateAuditPDF } from '@/lib/pdf-generator';
 import { saveDocument } from '@/lib/firestore';
@@ -118,8 +119,9 @@ export async function finalizeActionPlan(workspaceId: string, monthKey: string) 
     const docId = await saveDocument(document);
 
     // Mark action plan as complete in Firestore
-    const planRef = doc(db, `workspaces/${workspaceId}/action-plans`, monthKey);
-    await updateDoc(planRef, { isComplete: true, completedAt: new Date().toISOString(), finalizedDocumentId: docId });
+  const planCol = collection(db, workspaceCollectionPath(workspaceId, 'action-plans'));
+  const planRef = doc(planCol, monthKey);
+  await updateDoc(planRef, { isComplete: true, completedAt: new Date().toISOString(), finalizedDocumentId: docId });
 
     return { docId };
   } catch (err) {
@@ -134,8 +136,9 @@ export async function finalizeActionPlan(workspaceId: string, monthKey: string) 
 export async function sendAssignmentsForPlan(workspaceId: string, monthKey: string, assignedBy: string) {
   try {
     const { getMonthlyActionPlan } = await import('@/lib/action-plans');
-    const planRef = doc(db, `workspaces/${workspaceId}/action-plans`, monthKey);
-    const planSnap = await getDoc(planRef);
+  const planCol = collection(db, workspaceCollectionPath(workspaceId, 'action-plans'));
+  const planRef = doc(planCol, monthKey);
+  const planSnap = await getDoc(planRef);
     if (!planSnap.exists()) return;
 
     const plan = planSnap.data() as any;

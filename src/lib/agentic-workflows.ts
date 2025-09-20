@@ -1,5 +1,6 @@
 import { collection, doc, getDocs, getDoc, query, where, orderBy, limit, Timestamp, setDoc, updateDoc, addDoc } from 'firebase/firestore';
 import { db } from './firebase';
+import { workspaceCollectionPath } from './paths';
 
 // Agentic Workflow Types
 export interface WorkflowTrigger {
@@ -218,8 +219,8 @@ export async function createWorkflow(workspaceId: string, workflow: Omit<Agentic
       workspaceId
     };
 
-    const workflowsCol = collection(db, `workspaces/${workspaceId}/agentic-workflows`);
-    await setDoc(doc(workflowsCol, workflowData.id), workflowData);
+  const workflowsCol = collection(db, workspaceCollectionPath(workspaceId, 'agentic-workflows'));
+  await setDoc(doc(workflowsCol, workflowData.id), workflowData);
 
     return workflowData.id;
   } catch (error) {
@@ -233,8 +234,8 @@ export async function createWorkflow(workspaceId: string, workflow: Omit<Agentic
  */
 export async function getWorkflows(workspaceId: string): Promise<AgenticWorkflow[]> {
   try {
-    const workflowsCol = collection(db, `workspaces/${workspaceId}/agentic-workflows`);
-    const snapshot = await getDocs(workflowsCol);
+  const workflowsCol = collection(db, workspaceCollectionPath(workspaceId, 'agentic-workflows'));
+  const snapshot = await getDocs(workflowsCol);
 
     return snapshot.docs.map(doc => doc.data() as AgenticWorkflow);
   } catch (error) {
@@ -248,7 +249,7 @@ export async function getWorkflows(workspaceId: string): Promise<AgenticWorkflow
  */
 export async function updateWorkflowStatus(workspaceId: string, workflowId: string, isActive: boolean): Promise<void> {
   try {
-    const workflowRef = doc(db, `workspaces/${workspaceId}/agentic-workflows`, workflowId);
+  const workflowRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'agentic-workflows')), workflowId);
     await updateDoc(workflowRef, {
       isActive,
       updatedAt: new Date().toISOString()
@@ -264,8 +265,8 @@ export async function updateWorkflowStatus(workspaceId: string, workflowId: stri
  */
 export async function executeWorkflow(workspaceId: string, workflowId: string, triggerData?: any): Promise<WorkflowExecution> {
   try {
-    const workflowRef = doc(db, `workspaces/${workspaceId}/agentic-workflows`, workflowId);
-    const workflowSnap = await getDoc(workflowRef);
+  const workflowRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'agentic-workflows')), workflowId);
+  const workflowSnap = await getDoc(workflowRef);
 
     if (!workflowSnap.exists()) {
       throw new Error('Workflow not found');
@@ -308,8 +309,8 @@ export async function executeWorkflow(workspaceId: string, workflowId: string, t
     execution.completedAt = new Date().toISOString();
 
     // Save execution record
-    const executionsCol = collection(db, `workspaces/${workspaceId}/workflow-executions`);
-    await setDoc(doc(executionsCol, execution.id), execution);
+  const executionsCol = collection(db, workspaceCollectionPath(workspaceId, 'workflow-executions'));
+  await setDoc(doc(executionsCol, execution.id), execution);
 
     // Update workflow statistics
     await updateDoc(workflowRef, {
@@ -473,7 +474,7 @@ async function evaluateCondition(workspaceId: string, condition: NonNullable<Wor
  */
 export async function getWorkflowExecutionHistory(workspaceId: string, workflowId?: string, limitCount: number = 50): Promise<WorkflowExecution[]> {
   try {
-    const executionsCol = collection(db, `workspaces/${workspaceId}/workflow-executions`);
+  const executionsCol = collection(db, workspaceCollectionPath(workspaceId, 'workflow-executions'));
     let q = query(executionsCol, orderBy('triggeredAt', 'desc'), limit(limitCount));
 
     if (workflowId) {

@@ -15,6 +15,7 @@ interface PolicyDocument {
   status: 'draft' | 'published';
   version: string;
   pdfPath?: string;
+  _refPath?: string;
 }
 
 interface FirebasePolicies {
@@ -47,13 +48,18 @@ export default function FirebasePoliciesPage() {
     }
   };
 
-  const deletePolicy = async (policyId: string, collection: string) => {
+  const deletePolicy = async (policyId: string, collectionOrPath: string) => {
     if (!confirm('Are you sure you want to delete this policy?')) {
       return;
     }
 
     try {
-      const response = await fetch(`/api/policies/firebase?id=${policyId}&collection=${collection}`, {
+      // If collectionOrPath looks like a full firestore path (contains '/'), pass as path param
+      const isPath = collectionOrPath.includes('/');
+      const url = isPath
+        ? `/api/policies/firebase?path=${encodeURIComponent(collectionOrPath)}&id=${policyId}`
+        : `/api/policies/firebase?id=${policyId}&collection=${collectionOrPath}`;
+      const response = await fetch(url, {
         method: 'DELETE',
       });
 
@@ -172,7 +178,7 @@ export default function FirebasePoliciesPage() {
                   <PolicyCard 
                     key={policy.id} 
                     policy={policy} 
-                    collection="published_policies" 
+                    collection={policy._refPath || 'published_policies'} 
                   />
                 ))
               )}

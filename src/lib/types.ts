@@ -3,12 +3,21 @@ export type User = {
   name: string | null;
   email: string | null;
   avatarUrl: string | null;
+  organisationId?: string | null;
+};
+
+export type Organisation = {
+  id?: string;
+  name: string;
+  ownerId?: string;
+  createdAt?: any;
 };
 
 export type Workspace = {
   id: string;
   name: string;
   folders: (Folder | Document)[];
+  organisationId?: string | null;
   evidenceFolders?: (Folder | Document)[]; // Separate folder structure for evidence
   ownerId?: string;
   members?: string[];

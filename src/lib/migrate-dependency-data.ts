@@ -10,6 +10,7 @@
 
 import { doc, getDoc, setDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { workspaceCollectionPath } from "./paths";
 
 export async function migrateDependencyDataToWorkspace(
   userId: string, 
@@ -30,7 +31,8 @@ export async function migrateDependencyDataToWorkspace(
 
     const oldData = oldSnap.data();
     // Check if new location already has data
-    const newRef = doc(db, "workspaces", workspaceId, "dependency_calculator", "default");
+  const newBase = workspaceCollectionPath(workspaceId, 'dependency_calculator', null) || `workspaces/${workspaceId}/dependency_calculator`;
+  const newRef = doc(db, newBase, "default");
     const newSnap = await getDoc(newRef);
 
     if (newSnap.exists()) {

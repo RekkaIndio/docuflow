@@ -1,5 +1,6 @@
 import { collection, getDocs, query, orderBy, limit, where, doc, getDoc } from 'firebase/firestore';
 import { db } from './firebase';
+import { workspaceCollectionPath } from './paths';
 
 // Define audit data interface
 interface AuditData {
@@ -19,7 +20,7 @@ interface AuditData {
  */
 export async function getAuditTrends(workspaceId: string, auditType?: string): Promise<string> {
   try {
-    const auditsCol = collection(db, `workspaces/${workspaceId}/audits`);
+  const auditsCol = collection(db, workspaceCollectionPath(workspaceId, 'audits'));
 
     let q;
     if (auditType && auditType !== 'all') {
@@ -105,7 +106,7 @@ export async function getAuditTrends(workspaceId: string, auditType?: string): P
  */
 export async function getAuditComments(workspaceId: string, auditType?: string): Promise<string> {
   try {
-    const auditsCol = collection(db, `workspaces/${workspaceId}/audits`);
+  const auditsCol = collection(db, workspaceCollectionPath(workspaceId, 'audits'));
 
     let q;
     if (auditType && auditType !== 'all') {
@@ -180,7 +181,7 @@ export async function getAuditComments(workspaceId: string, auditType?: string):
  */
 export async function getAuditData(workspaceId: string, auditType?: string, dataType?: string): Promise<string> {
   try {
-    const auditsCol = collection(db, `workspaces/${workspaceId}/audits`);
+  const auditsCol = collection(db, workspaceCollectionPath(workspaceId, 'audits'));
 
     let q;
     if (auditType && auditType !== 'all') {
@@ -305,7 +306,7 @@ export async function getAuditData(workspaceId: string, auditType?: string, data
  */
 export async function getMonthlyAuditCompletionStatus(workspaceId: string): Promise<Record<string, boolean>> {
   try {
-    const auditsCol = collection(db, `workspaces/${workspaceId}/audits`);
+  const auditsCol = collection(db, workspaceCollectionPath(workspaceId, 'audits'));
 
     // Get audits from current month
     const now = new Date();
@@ -371,7 +372,7 @@ export async function getMonthlyAuditCompletionStatus(workspaceId: string): Prom
  */
 export async function getLatestAuditData(workspaceId: string, auditType: string): Promise<any> {
   try {
-    const auditsCol = collection(db, `workspaces/${workspaceId}/audits`);
+  const auditsCol = collection(db, workspaceCollectionPath(workspaceId, 'audits'));
 
     const q = query(
       auditsCol,

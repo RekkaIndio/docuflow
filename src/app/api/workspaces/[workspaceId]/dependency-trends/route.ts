@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebase-admin';
+import { adminDb, adminAuth } from '@/lib/firebase-admin';
 
 import type { NextRequest } from 'next/server';
 
@@ -9,13 +9,80 @@ export async function GET(req: NextRequest, { params }: { params: { workspaceId:
   if (!workspaceId) return NextResponse.json({ error: 'workspaceId required' }, { status: 400 });
 
   try {
-    // Read workspace doc to find owner/members
-    const wsRef = adminDb.collection('workspaces').doc(workspaceId);
-    const wsSnap = await wsRef.get();
-    if (!wsSnap.exists) return NextResponse.json({ error: 'workspace not found' }, { status: 404 });
-    const wsData = wsSnap.data() as any;
+    // Require Authorization: Bearer <idToken> so we can verify membership against org-scoped users
+    const authHeader = req.headers.get('authorization') || '';
+    if (!authHeader.startsWith('Bearer ')) return NextResponse.json({ error: 'Missing Bearer token' }, { status: 401 });
+    const idToken = authHeader.replace(/^Bearer\s+/i, '');
 
-    // Candidate user ids to look for snapshots: ownerId, first member
+    // Verify token with Admin SDK
+    let token: any;
+    try {
+      token = await adminAuth.verifyIdToken(idToken);
+    } catch (e) {
+      return NextResponse.json({ error: 'Invalid auth token' }, { status: 401 });
+    }
+
+    const requesterUid = token.uid;
+
+    // Read workspace doc to find owner/members and (if present) organisationId
+    // Prefer organisation-scoped workspace if it exists; otherwise fall back to top-level workspace (migration compatibility)
+    let wsSnap: FirebaseFirestore.DocumentSnapshot | null = null;
+    let wsData: any = null;
+    // First try to find a top-level workspace doc (for backwards compatibility)
+    const topRef = adminDb.collection('workspaces').doc(workspaceId);
+    const topSnap = await topRef.get();
+    if (topSnap.exists) {
+      wsSnap = topSnap;
+      wsData = topSnap.data();
+    }
+
+    // If the workspace doc includes organisationId, prefer org-scoped membership checks and nested paths
+    let orgId: string | undefined = wsData?.organisationId || undefined;
+
+    // If orgId is set, load org-scoped workspace document to get canonical data
+    if (orgId) {
+      try {
+        const orgWsSnap = await adminDb.doc(`organisations/${orgId}/workspaces/${workspaceId}`).get();
+        if (orgWsSnap.exists) {
+          wsSnap = orgWsSnap;
+          wsData = orgWsSnap.data();
+        }
+      } catch (e) {
+        // ignore and continue with top-level data
+      }
+    }
+
+    // Derive a definitive per-workspace organisation id from the chosen snapshot if possible
+    const docOrgId = (wsSnap && (wsSnap.ref && (wsSnap.ref.parent && wsSnap.ref.parent.parent))) ? wsSnap.ref.parent.parent.id : (wsData?.organisationId || undefined);
+
+    if (!wsSnap || !wsSnap.exists) return NextResponse.json({ error: 'workspace not found' }, { status: 404 });
+
+    // Determine membership: check organisations/{orgId}/users/{requesterUid} if orgId present, else check workspace owner/members
+    let isMember = false;
+    if (docOrgId) {
+      try {
+        const orgUserSnap = await adminDb.doc(`organisations/${docOrgId}/users/${requesterUid}`).get();
+        if (orgUserSnap.exists) isMember = true;
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    if (!isMember) {
+      // fallback to checking workspace owner/members fields on the workspace doc
+      try {
+        const ownerId = wsData?.ownerId;
+        const members = Array.isArray(wsData?.members) ? wsData.members : [];
+        if (ownerId === requesterUid) isMember = true;
+        if (!isMember && members.includes && members.includes(requesterUid)) isMember = true;
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    if (!isMember) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+    // Candidate user ids to look for snapshots: ownerId, members
     const candidates: string[] = [];
     if (wsData?.ownerId && typeof wsData.ownerId === 'string') candidates.push(wsData.ownerId);
     if (Array.isArray(wsData?.members) && wsData.members.length > 0) {
@@ -26,7 +93,8 @@ export async function GET(req: NextRequest, { params }: { params: { workspaceId:
 
     // We'll also consider workspace settings occupancy ownerId if present
     try {
-      const settingsSnap = await adminDb.collection(`workspaces/${workspaceId}/settings`).doc('occupancy').get();
+        const settingsPath = docOrgId ? `organisations/${docOrgId}/workspaces/${workspaceId}/settings` : `workspaces/${workspaceId}/settings`;
+      const settingsSnap = await adminDb.doc(`${settingsPath}/occupancy`).get();
       if (settingsSnap.exists) {
         const s = settingsSnap.data() as any;
         if (s?.ownerId && typeof s.ownerId === 'string' && !candidates.includes(s.ownerId)) candidates.unshift(s.ownerId);
@@ -35,12 +103,13 @@ export async function GET(req: NextRequest, { params }: { params: { workspaceId:
       // ignore
     }
 
-    // Collect snapshots from candidate users
+    // Collect snapshots from candidate users (prefer org-scoped user snapshots path if orgId present)
     const allSnapshots: Array<{ savedAt?: number | any; residents?: any[]; options?: any; sourceUser?: string; id?: string }> = [];
 
     for (const userId of candidates) {
       try {
-        const snaps = await adminDb.collection(`users/${userId}/dependency_calculator_snapshots`).orderBy('savedAt', 'desc').limit(50).get();
+  const snapsPath = docOrgId ? `organisations/${docOrgId}/users/${userId}/dependency_calculator_snapshots` : `users/${userId}/dependency_calculator_snapshots`;
+  const snaps = await adminDb.collection(snapsPath).orderBy('savedAt', 'desc').limit(50).get();
         snaps.forEach((s: FirebaseFirestore.QueryDocumentSnapshot) => {
           const data = s.data();
           allSnapshots.push({ ...data, sourceUser: userId, id: s.id });
@@ -50,11 +119,12 @@ export async function GET(req: NextRequest, { params }: { params: { workspaceId:
       }
     }
 
-    // If no user snapshots found, try workspace-level doc path (workspaces/{id}/dependency_calculator_snapshots)
+    // If no user snapshots found, try workspace-level doc path (prefer org-scoped path when orgId present)
     if (allSnapshots.length === 0) {
       try {
-        const snaps = await adminDb.collection(`workspaces/${workspaceId}/dependency_calculator_snapshots`).orderBy('savedAt', 'desc').limit(50).get();
-  snaps.forEach((s: FirebaseFirestore.QueryDocumentSnapshot) => allSnapshots.push({ ...(s.data() as any), sourceUser: 'workspace', id: s.id }));
+  const wsSnapsPath = docOrgId ? `organisations/${docOrgId}/workspaces/${workspaceId}/dependency_calculator_snapshots` : `workspaces/${workspaceId}/dependency_calculator_snapshots`;
+  const snaps = await adminDb.collection(wsSnapsPath).orderBy('savedAt', 'desc').limit(50).get();
+        snaps.forEach((s: FirebaseFirestore.QueryDocumentSnapshot) => allSnapshots.push({ ...(s.data() as any), sourceUser: 'workspace', id: s.id }));
       } catch (e) {
         // ignore
       }

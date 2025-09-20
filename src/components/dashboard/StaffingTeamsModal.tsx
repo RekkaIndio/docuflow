@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Sun, Moon, Save, X } from 'lucide-react';
 import { doc, setDoc, collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { workspaceCollectionPath } from '@/lib/paths';
 import { db } from '@/lib/firebase';
 
 interface StaffingTeamsModalProps {
@@ -53,7 +54,10 @@ export function StaffingTeamsModal({ isOpen, onClose, workspaceId }: StaffingTea
 
     setLoading(true);
     try {
-      const colRef = collection(db, `workspaces/${workspaceId}/daily-checkins`);
+      // Try to read orgId from workspace stored in the top-level app state when available.
+      // Fallback: pass null which the helper treats as legacy top-level path.
+      const orgId = null as string | null;
+      const colRef = collection(db, workspaceCollectionPath(workspaceId, 'daily-checkins', orgId));
       const q = query(colRef, orderBy('createdAt', 'desc'), limit(1));
       const unsub = onSnapshot(q, (snap) => {
         if (!snap.empty) {
@@ -106,10 +110,11 @@ export function StaffingTeamsModal({ isOpen, onClose, workspaceId }: StaffingTea
     setSaving(true);
 
     try {
-      const now = new Date();
-      const dateKey = now.toISOString().split('T')[0]; // YYYY-MM-DD
-      const colRef = collection(db, `workspaces/${workspaceId}/daily-checkins`);
-      const docRef = doc(colRef, dateKey);
+  const now = new Date();
+  const dateKey = now.toISOString().split('T')[0]; // YYYY-MM-DD
+  const orgId = null as string | null;
+  const colRef = collection(db, workspaceCollectionPath(workspaceId, 'daily-checkins', orgId));
+  const docRef = doc(colRef, dateKey);
 
       // Calculate totals for backward compatibility
       const { dayTotal, nightTotal } = calculateTotals();

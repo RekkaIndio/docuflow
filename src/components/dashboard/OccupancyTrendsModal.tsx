@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Users, TrendingUp, TrendingDown, Minus, Calendar, BarChart3, Target, Activity } from 'lucide-react';
 import { collection, query, orderBy, limit, onSnapshot, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { workspaceCollectionPath } from '@/lib/paths';
 
 interface OccupancyTrendsModalProps {
   isOpen: boolean;
@@ -33,7 +34,7 @@ const OccupancyTrendsModal = ({ isOpen, onClose, workspaceId }: OccupancyTrendsM
 
     setLoading(true);
     try {
-      const colRef = collection(db, `workspaces/${workspaceId}/daily-checkins`);
+  const colRef = collection(db, workspaceCollectionPath(workspaceId, 'daily-checkins'));
       const now = new Date();
       const periodDays = selectedPeriod === '7d' ? 7 : selectedPeriod === '30d' ? 30 : 90;
       const startDate = new Date(now.getTime() - (periodDays * 24 * 60 * 60 * 1000));

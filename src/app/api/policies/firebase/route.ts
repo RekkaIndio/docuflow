@@ -21,20 +21,39 @@ export async function GET() {
       .orderBy('updatedAt', 'desc')
       .get();
 
-    // Get all published policies
-    const publishedSnapshot = await adminDb.collection('published_policies')
-      .orderBy('updatedAt', 'desc')
-      .get();
+    // Get published policies across organisations by using a collectionGroup query on `policies`.
+    // Some Firestore setups may reject a collectionGroup query with an orderBy (index requirement),
+    // so try the ordered query first and fall back to an unordered collectionGroup fetch and
+    // perform sorting in JavaScript.
+    let publishedSnapshot: any;
+    try {
+      publishedSnapshot = await adminDb.collectionGroup('policies').orderBy('updatedAt', 'desc').get();
+    } catch (err) {
+      console.warn('collectionGroup orderBy failed, falling back to unordered collectionGroup fetch:', err && (err as any).message ? (err as any).message : String(err));
+      publishedSnapshot = await adminDb.collectionGroup('policies').get();
+    }
 
     const drafts = draftsSnapshot.docs.map((doc: any) => ({
       id: doc.id,
       ...doc.data()
     })) as PolicyDocument[];
 
-    const published = publishedSnapshot.docs.map((doc: any) => ({
+    let published = publishedSnapshot.docs.map((doc: any) => ({
       id: doc.id,
+      _refPath: doc.ref.path,
       ...doc.data()
     })) as PolicyDocument[];
+
+    // If we fetched without server-side ordering, sort by updatedAt (desc) so UI shows newest first.
+    try {
+      published.sort((a: any, b: any) => {
+        const ta = new Date(a?.updatedAt || a?.createdAt || 0).getTime();
+        const tb = new Date(b?.updatedAt || b?.createdAt || 0).getTime();
+        return tb - ta;
+      });
+    } catch (e) {
+      // ignore sort errors
+    }
 
     return NextResponse.json({
       drafts,
@@ -43,11 +62,15 @@ export async function GET() {
     });
 
   } catch (error) {
-    console.error('Error fetching policies from Firebase:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch policies from Firebase' },
-      { status: 500 }
-    );
+    // Detailed logging to help debug admin listing failures
+    try { console.error('Error fetching policies from Firebase (detailed):', error, (error as any)?.stack); } catch (e) {}
+    const isDev = process.env.NODE_ENV !== 'production';
+    const body: any = { error: 'Failed to fetch policies from Firebase' };
+    if (isDev) {
+      body.details = (error && (error as any).message) || String(error);
+      body.stack = (error as any).stack || null;
+    }
+    return NextResponse.json(body, { status: 500 });
   }
 }
 
@@ -56,6 +79,7 @@ export async function DELETE(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const policyId = searchParams.get('id');
     const collection = searchParams.get('collection') || 'completed_policies';
+    const docPath = searchParams.get('path');
 
     if (!policyId) {
       return NextResponse.json(
@@ -64,7 +88,12 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    await adminDb.collection(collection).doc(policyId).delete();
+    if (docPath) {
+      // Delete by direct document path
+      await adminDb.doc(docPath).delete();
+    } else {
+      await adminDb.collection(collection).doc(policyId).delete();
+    }
 
     return NextResponse.json({
       message: 'Policy deleted successfully',

@@ -24,6 +24,7 @@ interface Manager {
 
 export default function SupervisionPage() {
   const adminWorkspaces = useAdminWorkspaces();
+  const defaultAdminWorkspace = adminWorkspaces && adminWorkspaces.length > 0 ? adminWorkspaces[0] : null;
   const [selectedManager, setSelectedManager] = useState<Manager | null>(null);
   const [role, setRole] = useState("");
   const [supervisor, setSupervisor] = useState("");
@@ -182,6 +183,8 @@ export default function SupervisionPage() {
                   <Label htmlFor="supervisee-name">Supervisee Name</Label>
                   <ManagerSearchSelect
                     value={selectedManager?.name || ""}
+                    workspaceId={defaultAdminWorkspace?.id}
+                    organisationId={defaultAdminWorkspace?.organisationId}
                     onChange={(manager) => {
                       setSelectedManager(manager);
                       if (manager) {

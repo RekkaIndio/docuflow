@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { db } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { workspaceCollectionPath } from '@/lib/paths';
 import { useAuth } from "@/hooks/use-auth";
 
 const initialState = {
@@ -56,11 +57,10 @@ export default function HousekeepingSupervisionForm({ onSave, workspaceId }: { o
     let firebaseError = null;
     try {
       if (user) {
-        const collectionPath = workspaceId 
-          ? `workspaces/${workspaceId}/housekeepingSupervisions` 
-          : "housekeepingSupervisions";
-        
-        await addDoc(collection(db, collectionPath), {
+        const targetCollection = workspaceId
+          ? collection(db, workspaceCollectionPath(workspaceId, 'housekeepingSupervisions', (user as any).organisationId))
+          : collection(db, 'housekeepingSupervisions');
+        await addDoc(targetCollection, {
           ...form,
           userId: user.id,
           userEmail: user.email,

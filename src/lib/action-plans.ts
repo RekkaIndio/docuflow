@@ -1,5 +1,6 @@
-import { collection, doc, getDocs, getDoc, query, where, orderBy, limit, Timestamp, setDoc, updateDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, getDoc, query, where, orderBy, limit, Timestamp, setDoc, updateDoc, collection as collectionFn } from 'firebase/firestore';
 import { db } from './firebase';
+import { workspaceCollectionPath, workspaceDocPath } from './paths';
 import { finalizeActionPlan as finalizeActionPlanServer, sendActionPlanAssignmentEmail } from '@/actions/action-plans';
 
 /**
@@ -15,7 +16,7 @@ async function resolveAssigneeEmails(workspaceId: string, assigneeKey?: string):
   if (assigneeKey.startsWith('team-')) {
     const teamId = assigneeKey.replace('team-', '');
     try {
-      const teamRef = doc(db, `workspaces/${workspaceId}/teams`, teamId);
+    const teamRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'teams')), teamId);
       const teamSnap = await getDoc(teamRef);
       if (teamSnap.exists()) {
         const t = teamSnap.data() as any;
@@ -72,7 +73,7 @@ async function resolveAssigneeEmails(workspaceId: string, assigneeKey?: string):
     const dashIndex = assigneeKey.indexOf('-');
     if (dashIndex > 0) {
       const possibleUserId = assigneeKey.slice(dashIndex + 1);
-      const workspaceRef = doc(db, 'workspaces', workspaceId);
+    const workspaceRef = doc(db, workspaceDocPath(workspaceId));
       const wsSnap = await getDoc(workspaceRef);
       if (wsSnap.exists()) {
         const ws = wsSnap.data() as any;
@@ -1298,7 +1299,7 @@ function determinePriority(auditType: string, fieldKey: string): 'high' | 'mediu
  */
 export async function saveActionPlanItems(workspaceId: string, monthKey: string, items: ActionPlanItem[]): Promise<void> {
   try {
-    const actionPlanRef = doc(db, `workspaces/${workspaceId}/action-plans`, monthKey);
+  const actionPlanRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'action-plans')), monthKey);
 
     // Get existing action plan or create new one
     const existingPlan = await getMonthlyActionPlan(workspaceId, monthKey);
@@ -1346,7 +1347,7 @@ export async function saveActionPlanItems(workspaceId: string, monthKey: string,
 export async function getMonthlyActionPlan(workspaceId: string, monthKey?: string): Promise<MonthlyActionPlan | null> {
   try {
     const targetMonth = monthKey || getCurrentMonthKey();
-    const actionPlanRef = doc(db, `workspaces/${workspaceId}/action-plans`, targetMonth);
+  const actionPlanRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'action-plans')), targetMonth);
     const actionPlanSnap = await getDoc(actionPlanRef);
 
     if (!actionPlanSnap.exists()) {
@@ -1374,7 +1375,7 @@ export async function updateActionPlanItemStatus(
   assignedTeam?: string
 ): Promise<void> {
   try {
-    const actionPlanRef = doc(db, `workspaces/${workspaceId}/action-plans`, monthKey);
+  const actionPlanRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'action-plans')), monthKey);
     const actionPlanSnap = await getDoc(actionPlanRef);
 
     if (!actionPlanSnap.exists()) {
@@ -1509,7 +1510,7 @@ export async function areAllAuditsCompleted(workspaceId: string, monthKey?: stri
 
     for (const auditType of auditTypes) {
       const snapshotQuery = query(
-        collection(db, `workspaces/${workspaceId}/audit-snapshots/${targetMonth}/${auditType}`)
+        collection(db, workspaceCollectionPath(workspaceId, `audit-snapshots/${targetMonth}/${auditType}`))
       );
       const snapshot = await getDocs(snapshotQuery);
       if (snapshot.empty) {

@@ -18,8 +18,9 @@ import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Team } from "@/lib/types";
 import { useAuth } from "@/hooks/use-auth";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, collection } from "firebase/firestore";
 import { db } from "@/lib/firebase"; // Ensure this is the correct path to your Firebase config
+import { workspaceCollectionPath } from '@/lib/paths';
 
 interface NewTeamDialogProps {
   children: React.ReactNode;
@@ -60,7 +61,7 @@ export function NewTeamDialog({ children, onTeamCreated, workspaceId }: NewTeamD
 
       // Save the team to Firestore under workspace subcollection if workspaceId available
       if (workspaceId) {
-        const teamRef = doc(db, `workspaces/${workspaceId}/teams`, newTeam.id);
+        const teamRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'teams')), newTeam.id);
         await setDoc(teamRef, newTeam);
       } else {
         const teamRef = doc(db, "teams", newTeam.id);

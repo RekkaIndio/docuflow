@@ -5,6 +5,7 @@ import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '@/com
 import OccupancyPie from '@/components/admin/occupancy-pie';
 import { doc, onSnapshot, collection, query, orderBy, limit, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { workspaceCollectionPath } from '@/lib/paths';
 import { TrendingUp, TrendingDown, Minus, FileText, Shield, Wrench, Lock, Flame, Biohazard, Utensils, Moon, Users, Soup, AlertTriangle, BarChart3, Target, CheckCircle, CheckCircle2, Clock, Award, Activity } from 'lucide-react';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Area, AreaChart } from 'recharts';
@@ -72,7 +73,7 @@ export function StatsView({ workspaceId }: { workspaceId?: string }) {
   useEffect(() => {
     if (!workspaceId) return;
     try {
-      const docRef = doc(db, `workspaces/${workspaceId}/settings`, 'audit_latest_scores');
+      const docRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'settings')), 'audit_latest_scores');
       const unsub = onSnapshot(docRef, (snap) => {
         const data: any = snap.exists() ? snap.data() : {};
         // DEV DEBUG: attach raw snapshot to window so developers can inspect in console

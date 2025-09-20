@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { db } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { workspaceCollectionPath } from '@/lib/paths';
 import { useAuth } from "@/hooks/use-auth";
 
 const initialState = {
@@ -55,7 +56,8 @@ export default function ReceptionSupervisionForm({ onSave, workspaceId }: { onSa
     let firebaseError = null;
     try {
       if (user && workspaceId) {
-        await addDoc(collection(db, `workspaces/${workspaceId}/receptionSupervisions`), {
+        const targetCollection = collection(db, workspaceCollectionPath(workspaceId, 'receptionSupervisions', (user as any).organisationId));
+        await addDoc(targetCollection, {
           ...form,
           userId: user.id,
           userEmail: user.email,

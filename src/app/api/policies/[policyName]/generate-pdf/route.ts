@@ -8,9 +8,13 @@ export async function POST(
   { params }: { params: Promise<{ policyName: string }> }
 ) {
   try {
-  const { content, meta, workspaceId } = await request.json();
+  const { content, meta, workspaceId, organisationId: bodyOrganisationId } = await request.json();
     const resolvedParams = await params;
     const policyName = resolvedParams.policyName;
+    // Dev debug: log incoming request info so server terminal shows what was received
+    try {
+      console.log('[GENERATE] incoming request body/resolvedParams', { policyName, workspaceId, bodyOrganisationId, contentLength: (content || '').length });
+    } catch (e) {}
     
     // Sanitize the policy name to prevent directory traversal
     const sanitizedName = policyName.replace(/[^a-zA-Z0-9-_]/g, '');
@@ -146,20 +150,108 @@ export async function POST(
         storagePath: undefined as string | undefined
       };
 
+  // Persist published policy metadata at organisation level when we can derive an orgId.
+  // We'll track and log derivation attempts and results so the dev server terminal shows what happened.
+  try {
+    // Log initial derivation attempts context
+    try { console.log('[GENERATE] initial derive context', { workspaceId, bodyOrganisationId, sanitizedName }); } catch (e) {}
+  } catch (e) {}
+  // Track any discovered organisation id in one place so we can return it to the client
+  // (some writes happen early in this function, others later). This helps the UI
+  // locate the saved document regardless of where the write occurred.
+  let foundOrgId: string | undefined = undefined;
+    // Do NOT write to the legacy top-level `published_policies` collection.
     try {
-  // Use set with merge so repeated publishes update the same document
-  await adminDb.collection('published_policies').doc(documentId).set(publishedPolicyDocument, { merge: true });
-        console.log('Policy saved to Firebase as published');
-      } catch (firebaseError) {
-        console.error('Failed to save to published_policies (legacy):', firebaseError);
+      // Attempt to derive an organisationId early so we can persist the published doc under the org
+      let orgIdForPublish: string | undefined = bodyOrganisationId;
+      if (!orgIdForPublish && workspaceId) {
+        const wsSnap = await adminDb.collection('workspaces').doc(workspaceId).get();
+        orgIdForPublish = wsSnap.exists ? (wsSnap.data() as any)?.organisationId : undefined;
       }
+
+      if (!orgIdForPublish && workspaceId) {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          const admin = require('@/lib/firebase-admin').default;
+          const FieldPath = admin.firestore.FieldPath;
+          const cgSnap = await adminDb.collectionGroup('workspaces').where(FieldPath.documentId(), '==', workspaceId).limit(1).get();
+          if (!cgSnap.empty) {
+            const foundRef = cgSnap.docs[0].ref;
+            const parts = foundRef.path.split('/');
+            const orgIndex = parts.indexOf('organisations');
+            if (orgIndex !== -1 && parts.length > orgIndex + 1) orgIdForPublish = parts[orgIndex + 1];
+          }
+        } catch (e) {
+          // ignore fallback errors
+        }
+      }
+
+      if (orgIdForPublish) {
+        try {
+          await adminDb
+            .collection('organisations')
+            .doc(orgIdForPublish)
+            .collection('policies')
+            .doc(documentId)
+            .set(publishedPolicyDocument, { merge: true });
+          foundOrgId = orgIdForPublish;
+          console.log(`[GENERATE] early publishedPolicyDocument saved to organisations/${orgIdForPublish}/policies/${documentId}`);
+        } catch (e) {
+          console.warn('[GENERATE] failed early org-scoped write:', e);
+        }
+      } else {
+        console.warn('[GENERATE] No organisationId available for early publish; skipping org-scoped write.');
+      }
+    } catch (firebaseError) {
+      console.error('Failed to save published policy to organisation-scoped policies collection:', firebaseError);
+    }
 
       if (workspaceId) {
         try {
-          await adminDb.collection('workspaces').doc(workspaceId).collection('policies').doc(documentId).set(workspacePublishedDocument, { merge: true });
-          console.log(`Saved published policy to workspaces/${workspaceId}/policies/${documentId}`);
+          // Prefer an explicit organisationId from the request body
+          let orgId = bodyOrganisationId;
+          if (!orgId) {
+            const wsSnap = await adminDb.collection('workspaces').doc(workspaceId).get();
+            orgId = wsSnap.exists ? (wsSnap.data() as any)?.organisationId : undefined;
+          }
+
+          // If still not found, try a collectionGroup lookup to find an organisations/{orgId}/workspaces/{workspaceId}
+          if (!orgId) {
+            try {
+              // eslint-disable-next-line @typescript-eslint/no-var-requires
+              const admin = require('@/lib/firebase-admin').default;
+              const FieldPath = admin.firestore.FieldPath;
+              const cgSnap = await adminDb.collectionGroup('workspaces').where(FieldPath.documentId(), '==', workspaceId).limit(1).get();
+              if (!cgSnap.empty) {
+                const foundRef = cgSnap.docs[0].ref;
+                const parts = foundRef.path.split('/');
+                const orgIndex = parts.indexOf('organisations');
+                if (orgIndex !== -1 && parts.length > orgIndex + 1) orgId = parts[orgIndex + 1];
+              }
+            } catch (e) {
+              // ignore
+            }
+          }
+
+          if (orgId) {
+              try {
+              // Persist the policy at the organisation level so it's available to all workspaces in the org
+              await adminDb
+                .collection('organisations')
+                .doc(orgId)
+                .collection('policies')
+                .doc(documentId)
+                .set(workspacePublishedDocument, { merge: true });
+              foundOrgId = orgId;
+              console.log(`[GENERATE] saved published workspace document to organisations/${orgId}/policies/${documentId}`);
+            } catch (e) {
+              console.warn('[GENERATE] failed to write published policy into organisation-scoped policies path:', e);
+            }
+          } else {
+            console.warn(`No organisationId found for workspace ${workspaceId}; skipping organisation-scoped write to avoid auto-creating legacy workspace doc.`);
+          }
         } catch (e) {
-          console.error('Failed to write published workspace-scoped policy document:', e);
+          console.warn('Failed to derive organisationId or write organisation-scoped published policy for workspace:', workspaceId, e);
         }
       }
 
@@ -257,7 +349,35 @@ export async function POST(
 
             const bucket = bucketName ? admin.storage().bucket(bucketName) : admin.storage().bucket();
 
-            storagePath = `workspaces/${workspaceId || 'global'}/policies/${sanitizedName}.pdf`;
+            // Determine organisation-aware storage path when possible by preferring org-scoped workspace doc
+            let orgIdForStorage: string | undefined = undefined;
+            if (workspaceId) {
+              try {
+                // Try legacy workspace doc first to find an organisationId hint
+                const legacySnap = await adminDb.collection('workspaces').doc(workspaceId).get();
+                const candidateOrgId = legacySnap.exists ? (legacySnap.data() as any)?.organisationId : undefined;
+                if (candidateOrgId) {
+                  // If an organisations/{candidate}/workspaces/{workspaceId} doc exists, prefer that orgId
+                  try {
+                    const orgWsSnap = await adminDb.doc(`organisations/${candidateOrgId}/workspaces/${workspaceId}`).get();
+                    if (orgWsSnap.exists) {
+                      orgIdForStorage = candidateOrgId;
+                    } else {
+                      // If org-scoped doc not present, still use candidateOrgId as a best-effort mapping
+                      orgIdForStorage = candidateOrgId;
+                    }
+                  } catch (e) {
+                    orgIdForStorage = candidateOrgId;
+                  }
+                }
+              } catch (e) {
+                // ignore - fallback to legacy path
+              }
+            }
+
+            storagePath = orgIdForStorage
+              ? `organisations/${orgIdForStorage}/workspaces/${workspaceId}/policies/${sanitizedName}.pdf`
+              : `workspaces/${workspaceId || 'global'}/policies/${sanitizedName}.pdf`;
             const file = bucket.file(storagePath);
 
             // Upload buffer
@@ -305,7 +425,29 @@ export async function POST(
             }
 
             const bucket = bucketName ? admin.storage().bucket(bucketName) : admin.storage().bucket();
-            storagePath = `workspaces/${workspaceId || 'global'}/policies/${sanitizedName}.pdf`;
+            // Compute organisation-aware storage path for existing file lookup (prefer org-scoped workspace doc)
+            let orgIdForStorage: string | undefined = undefined;
+            if (workspaceId) {
+              try {
+                const legacySnap = await adminDb.collection('workspaces').doc(workspaceId).get();
+                let candidateOrgId = legacySnap.exists ? (legacySnap.data() as any)?.organisationId : undefined;
+                if (candidateOrgId) {
+                  try {
+                    const orgSnap = await adminDb.collection('organisations').doc(candidateOrgId).collection('workspaces').doc(workspaceId).get();
+                    if (orgSnap.exists) orgIdForStorage = candidateOrgId;
+                    else orgIdForStorage = candidateOrgId;
+                  } catch (e) {
+                    orgIdForStorage = candidateOrgId;
+                  }
+                }
+              } catch (e) {
+                // ignore
+              }
+            }
+
+            storagePath = orgIdForStorage
+              ? `organisations/${orgIdForStorage}/workspaces/${workspaceId}/policies/${sanitizedName}.pdf`
+              : `workspaces/${workspaceId || 'global'}/policies/${sanitizedName}.pdf`;
             const file = bucket.file(storagePath);
             try {
               const [exists] = await file.exists();
@@ -338,63 +480,132 @@ export async function POST(
       }
 
       // Persist any updated pdfPath/storagePath back to Firestore for the created documents
-      try {
-        // Use set with merge to avoid errors if the document wasn't created or if there
-        // are eventual consistency issues. This will create or merge fields safely.
-        // Persist the full published policy document (including content/meta). Ensure the
-        // global `published_policies` collection contains the same structured JSON so
-        // all workspaces can access it.
+        try {
+  // Persist updated published doc under organisation when possible. Do NOT write to global published_policies.
         const finalPublishedDoc = {
           ...publishedPolicyDocument,
-          // If extractedJson was constructed for the workspace, include it here as well
           extractedJson: workspacePublishedDocument.extractedJson || null,
           updatedAt: new Date().toISOString(),
         };
-        await adminDb.collection('published_policies').doc(documentId).set(finalPublishedDoc, { merge: true });
+
+  // Prefer bodyOrganisationId or workspace-derived org. headerOrgId isn't available yet in this scope.
+  let orgForFinalWrite: string | undefined = bodyOrganisationId;
+        if (!orgForFinalWrite && workspaceId) {
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
+            const admin = require('@/lib/firebase-admin').default;
+            const FieldPath = admin.firestore.FieldPath;
+            const cgSnap = await adminDb.collectionGroup('workspaces').where(FieldPath.documentId(), '==', workspaceId).limit(1).get();
+            if (!cgSnap.empty) {
+              const foundRef = cgSnap.docs[0].ref;
+              const parts = foundRef.path.split('/');
+              const orgIndex = parts.indexOf('organisations');
+              if (orgIndex !== -1 && parts.length > orgIndex + 1) orgForFinalWrite = parts[orgIndex + 1];
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
+
+        if (orgForFinalWrite) {
+          await adminDb
+            .collection('organisations')
+            .doc(orgForFinalWrite)
+            .collection('policies')
+            .doc(documentId)
+            .set(finalPublishedDoc, { merge: true });
+          foundOrgId = orgForFinalWrite;
+        } else {
+          console.warn('No organisationId found; skipping final write of published policy (global published_policies suppressed).');
+        }
       } catch (updateErr) {
-        console.warn('Failed to set published_policies with storage path/pdfPath:', updateErr);
+        console.warn('Failed to set org-scoped policies document with storage path/pdfPath:', updateErr);
       }
 
       let workspaceDocSaved: boolean | null = null;
+      // headerOrgId will be set when we can derive an authoritative organisation id for this workspace
+      let headerOrgId: string | undefined = undefined;
       if (workspaceId) {
         try {
-          // Persist the full workspace-scoped document so clients and the chat can read the
-          // full policy content (content, meta, extractedJson) even if earlier writes failed.
-          const finalWorkspaceDoc = {
-            ...workspacePublishedDocument,
-            updatedAt: new Date().toISOString(),
-          };
-
-          const docRef = adminDb.collection('workspaces').doc(workspaceId).collection('policies').doc(documentId);
-
-          // Write once then verify by reading back. Retry one more time if verification fails.
-          try {
-            await docRef.set(finalWorkspaceDoc, { merge: true });
-          } catch (writeErr) {
-            console.warn('Failed initial write of workspace-scoped policy document:', writeErr);
+          // Try to derive organisationId hint from legacy workspace doc (read-only). If present,
+          // prefer writing into organisations/{orgId}/workspaces/{workspaceId}/policies/{documentId}.
+          // Prefer explicit organisationId from the request body
+          let candidateOrgId = bodyOrganisationId;
+          if (!candidateOrgId) {
+            const legacySnap = await adminDb.collection('workspaces').doc(workspaceId).get();
+            candidateOrgId = legacySnap.exists ? (legacySnap.data() as any)?.organisationId : undefined;
           }
-
-          // Verify the written document contains extractedJson with content
-          for (let attempt = 0; attempt < 2; attempt++) {
+          if (!candidateOrgId) {
             try {
-              const snap = await docRef.get();
-              const data = snap.exists ? snap.data() : null;
-              if (data && data.extractedJson && (data.extractedJson.content || '').length > 10) {
-                workspaceDocSaved = true;
-                break;
+              // Try collectionGroup lookup to find an organisations/{orgId}/workspaces/{workspaceId} doc
+              // eslint-disable-next-line @typescript-eslint/no-var-requires
+              const admin = require('@/lib/firebase-admin').default;
+              const FieldPath = admin.firestore.FieldPath;
+              const cgSnap = await adminDb.collectionGroup('workspaces').where(FieldPath.documentId(), '==', workspaceId).limit(1).get();
+              if (!cgSnap.empty) {
+                const foundRef = cgSnap.docs[0].ref;
+                const parts = foundRef.path.split('/');
+                const orgIndex = parts.indexOf('organisations');
+                if (orgIndex !== -1 && parts.length > orgIndex + 1) candidateOrgId = parts[orgIndex + 1];
               }
-              // Retry writing once if verification failed
-              if (attempt === 0) {
-                try { await docRef.set(finalWorkspaceDoc, { merge: true }); } catch (e) { /* ignore */ }
-              }
-            } catch (readErr) {
-              console.warn('Failed to read workspace doc during verification attempt', attempt, readErr);
+            } catch (e) {
+              // ignore
+            }
+          }
+          if (candidateOrgId) {
+            try {
+              const orgWsSnap = await adminDb.doc(`organisations/${candidateOrgId}/workspaces/${workspaceId}`).get();
+              headerOrgId = candidateOrgId;
+            } catch (e) {
+              headerOrgId = candidateOrgId;
             }
           }
 
-          if (workspaceDocSaved !== true) {
-            workspaceDocSaved = false;
-            console.warn(`Workspace document verification failed for workspaces/${workspaceId}/policies/${documentId}`);
+          // If we set headerOrgId here, record it as foundOrgId so the client can find the org-scoped doc
+          if (headerOrgId) foundOrgId = headerOrgId;
+
+          if (headerOrgId) {
+            // Persist the full workspace-scoped document into organisations/{orgId}/workspaces/{workspaceId}/policies
+            const finalWorkspaceDoc = {
+              ...workspacePublishedDocument,
+              updatedAt: new Date().toISOString(),
+            };
+
+            const docRef = adminDb.doc(`organisations/${headerOrgId}/workspaces/${workspaceId}/policies/${documentId}`);
+
+            // Write once then verify by reading back. Retry one more time if verification fails.
+            try {
+              await docRef.set(finalWorkspaceDoc, { merge: true });
+            } catch (writeErr) {
+              console.warn('Failed initial write of workspace-scoped policy document (org-scoped):', writeErr);
+            }
+
+            for (let attempt = 0; attempt < 2; attempt++) {
+              try {
+                const snap = await docRef.get();
+                const data = snap.exists ? snap.data() : null;
+                if (data && data.extractedJson && (data.extractedJson.content || '').length > 10) {
+                  workspaceDocSaved = true;
+                  break;
+                }
+                // Retry writing once if verification failed
+                if (attempt === 0) {
+                  try { await docRef.set(finalWorkspaceDoc, { merge: true }); } catch (e) { /* ignore */ }
+                }
+              } catch (readErr) {
+                console.warn('Failed to read workspace doc during verification attempt', attempt, readErr);
+              }
+            }
+
+            if (workspaceDocSaved !== true) {
+              workspaceDocSaved = false;
+              console.warn(`Workspace document verification failed for organisations/${headerOrgId}/workspaces/${workspaceId}/policies/${documentId}`);
+            }
+            console.log(`org-scoped write attempted for workspace ${workspaceId} under org ${headerOrgId}; saved=${workspaceDocSaved}`);
+          } else {
+            // No orgId available - avoid creating or writing to legacy top-level workspace doc.
+            workspaceDocSaved = null;
+            console.warn(`No organisationId found for workspace ${workspaceId}; skipping persistence of workspace-scoped published document to avoid auto-creating legacy workspace doc.`);
           }
         } catch (updateErr) {
           workspaceDocSaved = false;
@@ -402,9 +613,20 @@ export async function POST(
         }
       }
 
-      // Return actual PDF if available; otherwise send JSON success with X-Policy-Updated header and storage URL when available
+  // Return actual PDF if available; otherwise send JSON success with X-Policy-Updated header and storage URL when available
       // If workspaceId was provided, include a header pointing to the workspace policy path so the client can confirm the saved JSON
-      const workspacePolicyPathHeader = workspaceId ? `/workspaces/${workspaceId}/policies/${documentId}` : null;
+      // Prefer returning an organisation-scoped path in header when possible
+      // Only return a workspace policy path header when we can determine an organisation-scoped path.
+      // Avoid returning legacy /workspaces/... paths which clients may attempt to fetch and which are likely
+      // protected by Firestore rules. The client will consume workspacePublishedDocument in the response body
+      // as a fallback when this header is not present.
+      let workspacePolicyPathHeader = null;
+      // Prefer any discovered organisation id (foundOrgId) when returning the path/header
+      const orgForHeader = foundOrgId || headerOrgId;
+      if (workspaceId && orgForHeader) {
+        // Return an organisation-level policy path so the UI can find the saved doc under the org
+        workspacePolicyPathHeader = `/organisations/${orgForHeader}/policies/${documentId}`;
+      }
 
       if (pdfBuffer) {
         const headers: Record<string, string> = {
@@ -415,16 +637,35 @@ export async function POST(
         if (pdfUrl) headers['X-PDF-URL'] = pdfUrl;
         if (workspacePolicyPathHeader) headers['X-Workspace-Policy-Path'] = workspacePolicyPathHeader;
         if (workspaceDocSaved !== null) headers['X-Workspace-Doc-Saved'] = workspaceDocSaved ? 'true' : 'false';
+        if (orgForHeader) headers['X-Org-Used'] = orgForHeader;
         return new NextResponse(pdfBuffer as any, { headers });
       }
 
-      // When not returning a PDF (e.g., puppeteer not available), include the workspace document in the JSON response
-      const responseBody: any = { ok: true, message: 'Policy published', pdfUrl: pdfUrl || null };
+  // When not returning a PDF (e.g., puppeteer not available), include the workspace document in the JSON response
+  const responseBody: any = { ok: true, message: 'Policy published', pdfUrl: pdfUrl || null };
       if (workspaceId) responseBody.workspacePublishedDocument = workspacePublishedDocument;
 
   const respHeaders: Record<string, string> = { 'X-Policy-Updated': 'true' };
   if (workspacePolicyPathHeader) respHeaders['X-Workspace-Policy-Path'] = workspacePolicyPathHeader;
   if (workspaceDocSaved !== null) respHeaders['X-Workspace-Doc-Saved'] = workspaceDocSaved ? 'true' : 'false';
+  if (orgForHeader) respHeaders['X-Org-Used'] = orgForHeader;
+
+  // Also include the discovered organisation-scoped published path in the JSON body for easier debugging
+  if (workspacePolicyPathHeader) responseBody.publishedPath = workspacePolicyPathHeader;
+  if (orgForHeader) responseBody.orgId = orgForHeader;
+
+  // Attach small debug info describing candidate org derivation attempts and any write errors
+  responseBody.debug = {
+    foundOrgId,
+    headerOrgId,
+    workspaceDocSaved,
+  };
+
+  // Dev debug: log the debug summary so it's visible in the server terminal when requests are made
+  try {
+    console.log('[GENERATE] response debug', { publishedPath: responseBody.publishedPath || null, orgForHeader: orgForHeader || null, foundOrgId: foundOrgId || null, headerOrgId: headerOrgId || null, workspaceDocSaved });
+  } catch (e) {}
+
   return NextResponse.json(responseBody, { headers: respHeaders });
 
   } catch (error) {

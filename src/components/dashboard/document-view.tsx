@@ -28,6 +28,14 @@ import { ScrollArea } from "../ui/scroll-area";
 import { cn } from "@/lib/utils";
 import * as mammoth from "mammoth";
 
+// Return true for either legacy workspace paths or org-scoped workspace paths
+function isWorkspaceStoragePath(p?: string | null) {
+    if (!p) return false;
+    if (p.startsWith('workspaces/')) return true;
+    if (p.startsWith('organisations/') && p.includes('/workspaces/')) return true;
+    return false;
+}
+
 // Set worker source for pdfjs. This is critical for it to work in Next.js
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
@@ -64,28 +72,28 @@ const ResponseSnippet = ({ title, content }: { title?: string; content?: string 
 };
 
 const JsonViewer = ({ json }: { json: Record<string, any> | undefined }) => {
-  if (!json || Object.keys(json).length === 0) {
-    return (
-      <div className="text-center text-muted-foreground p-8">
-        No structured data extracted for this document.
-      </div>
-    );
-  }
+    if (!json || Object.keys(json).length === 0) {
+        return (
+            <div className="text-center text-muted-foreground p-8">
+                No structured data extracted for this document.
+            </div>
+        );
+    }
 
-  return (
-    <Accordion type="multiple" defaultValue={Object.keys(json)} className="w-full">
-      {Object.entries(json).map(([key, value]) => (
-        <AccordionItem value={key} key={key}>
-          <AccordionTrigger className="font-mono text-sm">{key}</AccordionTrigger>
-          <AccordionContent>
-            <pre className="bg-muted p-4 rounded-md overflow-x-auto text-xs">
-              {JSON.stringify(value, null, 2)}
-            </pre>
-          </AccordionContent>
-        </AccordionItem>
-      ))}
-    </Accordion>
-  );
+    return (
+        <Accordion type="single" collapsible className="w-full">
+            {Object.entries(json).map(([key, value]) => (
+                <AccordionItem key={key} value={key}>
+                    <AccordionTrigger className="font-mono text-sm">{key}</AccordionTrigger>
+                    <AccordionContent>
+                        <pre className="bg-muted p-4 rounded-md overflow-x-auto text-xs">
+                            {JSON.stringify(value, null, 2)}
+                        </pre>
+                    </AccordionContent>
+                </AccordionItem>
+            ))}
+        </Accordion>
+    );
 };
 
 
@@ -342,12 +350,12 @@ const PdfPreview = ({ document: doc }: { document: DocumentType }) => {
                         // other server helpers (signed-url or getDocumentAsBase64) instead of calling the proxy with a
                         // leading-relative public URL like '/policies/...'.
                         let proxyPath: string | null = null;
-                        if (doc.storagePath && doc.storagePath.startsWith('workspaces/')) {
-                            proxyPath = doc.storagePath;
+                        if (isWorkspaceStoragePath(doc.storagePath)) {
+                            proxyPath = doc.storagePath as string;
                         }
                         if (!proxyPath) {
                             const parsed = parseStoragePathFromUrl(pathToUse);
-                            if (parsed && parsed.startsWith('workspaces/')) proxyPath = parsed;
+                            if (isWorkspaceStoragePath(parsed)) proxyPath = parsed;
                         }
 
                         if (proxyPath) {
@@ -425,7 +433,7 @@ const PdfPreview = ({ document: doc }: { document: DocumentType }) => {
                             base64Data = await getDocumentAsBase64(pathToUse);
                         } catch (e) {
                                 // As a last resort, attempt the proxy only if the supplied pathToUse is a workspace path
-                                if (pathToUse && typeof pathToUse === 'string' && pathToUse.startsWith('workspaces/')) {
+                                if (pathToUse && typeof pathToUse === 'string' && isWorkspaceStoragePath(pathToUse)) {
                                     const proxyResp = await fetch(`/api/storage/proxy?path=${encodeURIComponent(pathToUse)}`);
                                     if (!proxyResp.ok) throw new Error(`Proxy fetch failed: ${proxyResp.status}`);
                                     const arrayBuffer = await proxyResp.arrayBuffer();

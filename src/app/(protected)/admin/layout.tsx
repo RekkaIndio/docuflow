@@ -1,5 +1,6 @@
 "use client";
 import React from 'react';
+import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { AdminSidebar } from '@/components/admin/admin-sidebar';
 import AdminWorkspacesContext from '@/context/admin-workspaces';
@@ -11,18 +12,31 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const [workspaces, setWorkspaces] = React.useState<any[]>([]);
   const [careHomes, setCareHomes] = React.useState<any[]>([]);
+  const { user, loading: authLoading } = useAuth();
 
   React.useEffect(() => {
     let mounted = true;
     (async () => {
       try {
-        // Fetch admin workspaces (the same source the dashboard uses)
-        const wsResp = await fetch('/api/admin/workspaces');
+        // Wait for auth hydration; only fetch admin workspaces when we have a user
+        if (authLoading) return;
+        // If the user is not signed in, skip fetching
+        if (!user) {
+          if (mounted) {
+            setWorkspaces([]);
+            setCareHomes([]);
+          }
+          return;
+        }
+
+        const orgQuery = (user as any)?.organisationId ? `?orgId=${encodeURIComponent((user as any).organisationId)}` : '';
+        const wsUrl = `/api/admin/workspaces${orgQuery}`;
+        console.debug('AdminLayout fetching workspaces from', wsUrl);
+        const wsResp = await fetch(wsUrl);
         if (wsResp && wsResp.ok) {
           const data = await wsResp.json();
           if (mounted) setWorkspaces(data.workspaces || []);
         } else {
-          // fallback: empty
           if (mounted) setWorkspaces([]);
         }
 
@@ -43,7 +57,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       }
     })();
     return () => { mounted = false };
-  }, []);
+  }, [user, authLoading]);
 
   // Handle navigation events from chat
   React.useEffect(() => {
