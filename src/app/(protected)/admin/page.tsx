@@ -32,6 +32,7 @@ import { AdminChatPanel } from '@/components/admin/admin-chat-panel';
 import type { Folder, Document } from '@/lib/types';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, collection, getDocs, query, where, onSnapshot } from 'firebase/firestore';
+import { workspaceCollectionPath, workspaceDocPath } from '@/lib/paths';
 import WoundsDetailModal from '@/components/admin/wounds-detail-modal';
 import FallsDetailModal from '@/components/admin/falls-detail-modal';
 import InfectionsDetailModal from '@/components/admin/infections-detail-modal';
@@ -55,7 +56,9 @@ export default function AdminPage() {
     }
     
     try {
-      const resp = await fetch('/api/admin/workspaces', {
+      // If the logged-in user has organisationId, include it so server returns org-scoped workspaces
+      const orgQuery = user && (user as any).organisationId ? `?orgId=${encodeURIComponent((user as any).organisationId)}` : '';
+      const resp = await fetch(`/api/admin/workspaces${orgQuery}`, {
         signal: AbortSignal.timeout(30000) // 30 second timeout
       });
       
@@ -327,7 +330,8 @@ export default function AdminPage() {
       // Fetch audit data for each workspace
       const auditPromises = workspaces.map(async (workspace: any) => {
         try {
-          const auditRef = doc(db, `workspaces/${workspace.id}/settings`, 'audit_latest_scores');
+          const settingsCol = collection(db, workspaceCollectionPath(workspace.id, 'settings', (workspace as any).organisationId));
+          const auditRef = doc(settingsCol, 'audit_latest_scores');
           const auditSnap = await getDoc(auditRef);
           
           if (auditSnap.exists()) {
@@ -446,7 +450,7 @@ export default function AdminPage() {
       // Process each workspace sequentially
       for (const workspace of workspaces) {
         try {
-          const colRef = collection(db, `workspaces/${workspace.id}/daily-checkins`);
+          const colRef = collection(db, workspaceCollectionPath(workspace.id, 'daily-checkins', (workspace as any).organisationId));
           const snap = await getDocs(colRef);
           
           const historyData: Array<{ date: string; day: number; night: number; total: number }> = [];
@@ -576,7 +580,7 @@ export default function AdminPage() {
           const thirtyDaysAgo = new Date();
           thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
           
-          const colRef = collection(db, `workspaces/${workspace.id}/daily-checkins`);
+          const colRef = collection(db, workspaceCollectionPath(workspace.id, 'daily-checkins', (workspace as any).organisationId));
           const q = query(colRef, where('createdAt', '>=', thirtyDaysAgo));
           const snaps = await getDocs(q);
           
@@ -669,7 +673,7 @@ export default function AdminPage() {
       // Fetch falls data from daily-checkins for each workspace
       const fallsPromises = workspaces.map(async (workspace: any) => {
         try {
-          const colRef = collection(db, `workspaces/${workspace.id}/daily-checkins`);
+          const colRef = collection(db, workspaceCollectionPath(workspace.id, 'daily-checkins', (workspace as any).organisationId));
           // Get all daily-checkins to ensure we don't miss any due to date filtering issues
           const snaps = await getDocs(colRef);
           
@@ -769,7 +773,7 @@ export default function AdminPage() {
       // Fetch infection data from daily-checkins for each workspace
       const infectionPromises = workspaces.map(async (workspace: any) => {
         try {
-          const colRef = collection(db, `workspaces/${workspace.id}/daily-checkins`);
+          const colRef = collection(db, workspaceCollectionPath(workspace.id, 'daily-checkins', (workspace as any).organisationId));
           // Get all daily-checkins to ensure we don't miss any due to date filtering issues
           const snaps = await getDocs(colRef);
           

@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Check, PlusCircle, Calendar } from 'lucide-react';
 import DailyCheckinModal from './daily-checkin-modal';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { workspaceCollectionPath } from '@/lib/paths';
 
 export default function DailyCheckinTaskCard({ workspaceId }: { workspaceId: string }) {
   const [completed, setCompleted] = useState<boolean | null>(null);
@@ -18,7 +19,7 @@ export default function DailyCheckinTaskCard({ workspaceId }: { workspaceId: str
     let mounted = true;
     (async () => {
       try {
-        const docRef = doc(db, `workspaces/${workspaceId}/daily-checkins`, todayKey);
+        const docRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'daily-checkins')), todayKey);
         const snap = await getDoc(docRef);
         if (!mounted) return;
         setCompleted(snap.exists());

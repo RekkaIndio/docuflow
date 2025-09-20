@@ -5,6 +5,7 @@ import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { formatDistanceToNow } from 'date-fns';
 import { db } from '@/lib/firebase';
+import { workspaceCollectionPath } from '@/lib/paths';
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, where, getDocs } from 'firebase/firestore';
 
 export type NotificationItem = {
@@ -22,8 +23,8 @@ export function NotificationsView({ workspaceId, onBack }: { workspaceId: string
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!workspaceId) return;
-    const q = query(collection(db, `workspaces/${workspaceId}/notifications`), orderBy('createdAt', 'desc'));
+  if (!workspaceId) return;
+  const q = query(collection(db, workspaceCollectionPath(workspaceId, 'notifications')), orderBy('createdAt', 'desc'));
     const unsub = onSnapshot(q, snap => {
       const notifs: NotificationItem[] = [];
       snap.forEach(docSnap => {
@@ -42,7 +43,7 @@ export function NotificationsView({ workspaceId, onBack }: { workspaceId: string
 
   const markRead = async (id: string) => {
     try {
-      const d = doc(db, `workspaces/${workspaceId}/notifications`, id);
+  const d = doc(db, `${workspaceCollectionPath(workspaceId, 'notifications')}`, id);
       await updateDoc(d, { read: true });
     } catch (err) {
       console.error('Failed to mark read', err);
@@ -51,7 +52,7 @@ export function NotificationsView({ workspaceId, onBack }: { workspaceId: string
 
   const markAllRead = async () => {
     try {
-      const q = query(collection(db, `workspaces/${workspaceId}/notifications`), where('read', '==', false));
+  const q = query(collection(db, workspaceCollectionPath(workspaceId, 'notifications')), where('read', '==', false));
       const snap = await getDocs(q);
       const updates = snap.docs.map(d => updateDoc(d.ref, { read: true }));
       await Promise.all(updates);

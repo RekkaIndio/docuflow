@@ -1,8 +1,9 @@
 
 'use client';
 import React, { useEffect, useState } from "react";
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, collection } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { workspaceCollectionPath } from '@/lib/paths';
 import { useWorkspace } from '@/context/workspace';
 import { getAuditSchedule, setAuditSchedule, getAuditStatus, getMonthlyAuditCompletionStatus } from '@/lib/firestore';
 import AccidentIncidentAuditPage from "./accident-incident/page";
@@ -60,17 +61,18 @@ export default function AuditsPage() {
     
     loadMonthlyStatus();
     
-    try {
-      const schedRef = doc(db, `workspaces/${activeWorkspace.id}/settings`, 'audit_schedule');
-      const statusRef = doc(db, `workspaces/${activeWorkspace.id}/settings`, 'audit_status');
+  try {
+  const settingsCol = collection(db, workspaceCollectionPath(activeWorkspace.id, 'settings', activeWorkspace.organisationId));
+  const schedRef = doc(settingsCol, 'audit_schedule');
+  const statusRef = doc(settingsCol, 'audit_status');
 
-      const unsubSched = onSnapshot(schedRef, (snap) => {
+  const unsubSched = onSnapshot(schedRef, (snap) => {
         if (!mounted) return;
         if (!snap.exists()) return setAuditScheduleMap({});
         setAuditScheduleMap(snap.data() as Record<string, string | null>);
       }, (err) => console.warn('Audit schedule snapshot error', err));
 
-      const unsubStatus = onSnapshot(statusRef, (snap) => {
+  const unsubStatus = onSnapshot(statusRef, (snap) => {
         if (!mounted) return;
         if (!snap.exists()) return setAuditStatusMap({});
         setAuditStatusMap(snap.data() as Record<string, string>);

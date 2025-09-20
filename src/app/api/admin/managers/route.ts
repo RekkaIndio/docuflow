@@ -14,6 +14,13 @@ interface Manager {
 
 export async function GET() {
   try {
+    // Require admin secret header to perform global listing
+    // (This prevents accidental cross-org data exposure.)
+    // Note: callers that need org-scoped listing should call organisations/{orgId}/workspaces instead.
+    const headers = (globalThis as any)?.headers?.() || {};
+    const adminSecret = (headers['x-admin-secret'] || headers['authorization'] || null);
+    if (!adminSecret) return NextResponse.json({ error: 'Missing admin authorization' }, { status: 403 });
+
     // Fetch all workspaces
     const workspacesSnap = await adminDb.collection('workspaces').get();
 

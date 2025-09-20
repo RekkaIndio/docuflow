@@ -1,5 +1,9 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
+import { useAuth } from '@/hooks/use-auth';
+import { db } from '@/lib/firebase';
+import { workspaceDocPath } from '@/lib/paths';
+import { doc, getDoc } from 'firebase/firestore';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -20,6 +24,9 @@ interface Manager {
 interface ManagerSearchSelectProps {
   value?: string;
   onChange: (manager: Manager | null) => void;
+  // Optional: explicitly specify which workspace to read managers from.
+  workspaceId?: string | null;
+  organisationId?: string | null;
   placeholder?: string;
   className?: string;
 }
@@ -28,7 +35,9 @@ export default function ManagerSearchSelect({
   value,
   onChange,
   placeholder = "Search for a manager...",
-  className = ""
+  className = "",
+  workspaceId: propWorkspaceId,
+  organisationId: propOrganisationId,
 }: ManagerSearchSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -41,19 +50,39 @@ export default function ManagerSearchSelect({
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch managers on component mount
+  const { user, loading: authLoading } = useAuth();
+
+  // Fetch managers on component mount (but wait for auth hydration)
   useEffect(() => {
     const fetchManagers = async () => {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch('/api/admin/managers');
-        if (!response.ok) {
-          throw new Error('Failed to fetch managers');
+        // Prefer loading managers from the current workspace document (client-side read)
+        // This mirrors how TeamsView reads managers and avoids calling the admin-only endpoint.
+  // Prefer props if provided (useful for admin pages where the user context may not indicate the target workspace)
+  const workspaceId = propWorkspaceId || (user as any)?.workspaceId || (user as any)?.currentWorkspaceId;
+  const orgId = propOrganisationId || (user as any)?.organisationId;
+
+        if (!workspaceId) {
+          // No workspace context available; return empty list
+          setManagers([]);
+          setFilteredManagers([]);
+          return;
         }
-        const data = await response.json();
-        setManagers(data.managers || []);
-        setFilteredManagers(data.managers || []);
+
+  const docPath = workspaceDocPath(workspaceId, undefined, orgId);
+  const docRef = doc(db, docPath);
+        const snap = await getDoc(docRef);
+        if (!snap.exists()) {
+          setManagers([]);
+          setFilteredManagers([]);
+          return;
+        }
+        const data = snap.data() as any;
+        const mgrs = Array.isArray(data?.managers) ? data.managers : [];
+        setManagers(mgrs);
+        setFilteredManagers(mgrs);
       } catch (err) {
         console.error('Error fetching managers:', err);
         setError('Failed to load managers');
@@ -62,8 +91,11 @@ export default function ManagerSearchSelect({
       }
     };
 
-    fetchManagers();
-  }, []);
+    // Only fetch after auth finishes hydrating so organisationId is available
+    if (!authLoading) {
+      fetchManagers();
+    }
+  }, [authLoading, user]);
 
   // Filter managers based on search term
   useEffect(() => {

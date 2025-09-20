@@ -13,6 +13,11 @@ interface ExtendedUser {
 
 export async function GET() {
   try {
+    // Require admin secret header to perform global listing
+    const headers = (globalThis as any)?.headers?.() || {};
+    const adminSecret = (headers['x-admin-secret'] || headers['authorization'] || null);
+    if (!adminSecret) return NextResponse.json({ error: 'Missing admin authorization' }, { status: 403 });
+
     // Fetch all users using Firebase Admin SDK
     const usersSnap = await adminDb.collection('users').get();
     

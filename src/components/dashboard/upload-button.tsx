@@ -19,6 +19,7 @@ import type { Document } from "@/lib/types";
 import { mockUser } from "@/lib/data";
 import { saveDocument } from "@/lib/firestore";
 import { collection, getDocs, query, where, doc, getDoc, setDoc } from "firebase/firestore";
+import { workspaceCollectionPath } from '@/lib/paths';
 import { db } from "@/lib/firebase";
 import { getStorage, ref, uploadBytes } from "firebase/storage";
 import { Progress } from "@/components/ui/progress";
@@ -186,9 +187,9 @@ export function UploadButton({ onDocumentAdd, workspaceId, folderId, size = "def
           let adminTeamName = 'Admin';
 
           // 1) Workspace-scoped Admin team (subcollection)
-          try {
+            try {
             if (workspaceId) {
-              const teamsQuery = query(collection(db, `workspaces/${workspaceId}/teams`), where("name", "==", "Admin"));
+              const teamsQuery = query(collection(db, workspaceCollectionPath(workspaceId, 'teams')), where("name", "==", "Admin"));
               const teamsSnap = await getDocs(teamsQuery);
               if (!teamsSnap.empty) {
                 const adminTeam = teamsSnap.docs[0].data();
@@ -225,8 +226,8 @@ export function UploadButton({ onDocumentAdd, workspaceId, folderId, size = "def
           if (emails.length === 0) {
             try {
               // Try workspace subcollection fixed id
-              if (workspaceId) {
-                const adminDocRef = doc(db, `workspaces/${workspaceId}/teams`, `admin-${workspaceId}`);
+                if (workspaceId) {
+                const adminDocRef = doc(db, workspaceCollectionPath(workspaceId, 'teams'), `admin-${workspaceId}`);
                 const adminSnap = await getDoc(adminDocRef);
                 if (adminSnap.exists()) {
                   const adminTeam = adminSnap.data() as any;

@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebase-admin';
-import { createWorkspace } from '@/lib/firestore';
+import admin, { adminDb } from '@/lib/firebase-admin';
 
-async function fetchWorkspaceStructure(workspaceId: string) {
+async function fetchWorkspaceStructure(workspaceId: string, orgId?: string) {
   try {
+    const basePath = orgId ? `organisations/${orgId}/workspaces/${workspaceId}` : `workspaces/${workspaceId}`;
     const [foldersSnap, documentsSnap] = await Promise.all([
-      adminDb.collection(`workspaces/${workspaceId}/folders`).get(),
-      adminDb.collection(`workspaces/${workspaceId}/documents`).get()
+      adminDb.collection(`${basePath}/folders`).get(),
+      adminDb.collection(`${basePath}/documents`).get()
     ]);
     
     const allDocuments: Record<string, any> = {};
@@ -66,20 +66,54 @@ async function fetchWorkspaceStructure(workspaceId: string) {
   }
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    // Use Firebase Admin SDK to bypass security rules for admin operations
-    const workspacesSnap = await adminDb.collection('workspaces').get();
-    const workspaces = await Promise.all(
-      workspacesSnap.docs.map(async (doc: any) => {
-        const workspaceData = doc.data();
-        const { folders } = await fetchWorkspaceStructure(doc.id);
+    // For safety, require that global listing is only available to admins.
+    // We detect a platform admin via an Authorization header (this is a simple gate — replace with your real auth check).
+    const url = new URL(req.url);
+    const orgId = url.searchParams.get('orgId') || undefined;
+    const authHeader = req.headers.get('x-admin-secret') || req.headers.get('authorization');
 
-        // Derive occupancy from workspace settings where possible
+    // If no orgId is provided, require admin header to list top-level workspaces
+    if (!orgId && !authHeader) {
+      return NextResponse.json({ error: 'Missing orgId or admin authorization' }, { status: 403 });
+    }
+
+    // If orgId is present, return only workspaces under that organisation
+    let snaps: any;
+    if (orgId) {
+      snaps = await adminDb.collection(`organisations/${orgId}/workspaces`).get();
+    } else if (authHeader) {
+      // For admins without orgId, list workspaces across all organisations
+      const orgSnaps = await adminDb.collection('organisations').get();
+      const allWorkspaces: any[] = [];
+      for (const orgDoc of orgSnaps.docs) {
+        const wsSnaps = await adminDb.collection(`organisations/${orgDoc.id}/workspaces`).get();
+        allWorkspaces.push(...wsSnaps.docs);
+      }
+      snaps = { docs: allWorkspaces };
+    } else {
+      return NextResponse.json({ error: 'Missing orgId or admin authorization' }, { status: 403 });
+    }
+
+    const workspaces = await Promise.all(
+      snaps.docs.map(async (doc: any) => {
+        const workspaceData = doc.data();
+
+        // Derive organisationId from the document reference if present (doc may come from org-scoped collection)
+        const parent = doc && doc.ref && doc.ref.parent && doc.ref.parent.parent ? doc.ref.parent.parent : null;
+        const docOrgId = parent && parent.id ? parent.id : orgId || undefined;
+
+        const { folders } = await fetchWorkspaceStructure(doc.id, docOrgId);
+
+        // attempt occupancy and scores as before, but prefer org-scoped path for this workspace
         let totalBeds: number | undefined = undefined;
         let occupiedBeds: number | undefined = undefined;
         try {
-          const occDoc = await adminDb.doc(`workspaces/${doc.id}/settings/occupancy`).get();
+            const occDocRef = docOrgId
+              ? adminDb.doc(`organisations/${docOrgId}/workspaces/${doc.id}/settings/occupancy`)
+              : adminDb.doc(`workspaces/${doc.id}/settings/occupancy`);
+            const occDoc = await occDocRef.get();
           if (occDoc.exists) {
             const d = occDoc.data();
             if (d && typeof d.totalBeds === 'number') totalBeds = d.totalBeds;
@@ -89,10 +123,12 @@ export async function GET() {
           console.warn('Failed to read occupancy settings for', doc.id, occErr);
         }
 
-        // Derive complianceScore from audit_latest_scores (average of numeric scorePercent values)
         let complianceScore: number | null = null;
         try {
-          const latestScoresDoc = await adminDb.doc(`workspaces/${doc.id}/settings/audit_latest_scores`).get();
+          const latestScoresRef = docOrgId
+            ? adminDb.doc(`organisations/${docOrgId}/workspaces/${doc.id}/settings/audit_latest_scores`)
+            : adminDb.doc(`workspaces/${doc.id}/settings/audit_latest_scores`);
+          const latestScoresDoc = await latestScoresRef.get();
           if (latestScoresDoc.exists) {
             const data = latestScoresDoc.data() || {};
             const scores: number[] = Object.values(data)
@@ -106,18 +142,18 @@ export async function GET() {
           console.warn('Failed to read audit_latest_scores for', doc.id, scoreErr);
         }
 
-        // Get latest daily checkin for staffing information
         let staffCount: number | null = null;
         let staffingLevel: number | null = null; // percentage
         let latestDailyCheckinAt: string | null = null;
         try {
-          const checkinsCol = adminDb.collection(`workspaces/${doc.id}/daily-checkins`);
-          const snaps = await checkinsCol.orderBy('createdAt', 'desc').limit(1).get();
+          const checkinsColRef = docOrgId
+            ? adminDb.collection(`organisations/${docOrgId}/workspaces/${doc.id}/daily-checkins`)
+            : adminDb.collection(`workspaces/${doc.id}/daily-checkins`);
+          const snaps = await checkinsColRef.orderBy('createdAt', 'desc').limit(1).get();
           if (!snaps.empty) {
             const latest = snaps.docs[0].data();
             latestDailyCheckinAt = latest && latest.recordedAt ? latest.recordedAt : (latest && latest.createdAt && latest.createdAt.toDate ? latest.createdAt.toDate().toISOString() : null);
 
-            // staffingDay/night or staffingDay & staffingNight numeric fields
             const day = latest.staffingDay ?? (latest.staffing && latest.staffing.day) ?? null;
             const night = latest.staffingNight ?? (latest.staffing && latest.staffing.night) ?? null;
             if (typeof day === 'number' && typeof night === 'number') {
@@ -128,7 +164,6 @@ export async function GET() {
               staffCount = latest.staffCount;
             }
 
-            // Derive staffingLevel as percent of required or beds when available
             if (typeof staffCount === 'number') {
               if (typeof totalBeds === 'number' && totalBeds > 0) {
                 staffingLevel = Math.round((staffCount / totalBeds) * 100);
@@ -166,9 +201,87 @@ export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
     const { name, ownerId, members } = body || {};
+    const url = new URL(req.url);
+    const orgId = url.searchParams.get('orgId') || undefined;
     if (!name || !ownerId) return NextResponse.json({ error: 'Missing name or ownerId' }, { status: 400 });
-    const ws = await createWorkspace({ name, ownerId, members: members || [ownerId] });
-    return NextResponse.json({ ok: true, workspace: ws });
+
+    // Build payload
+    const payload: any = {
+      name,
+      ownerId,
+      members: Array.isArray(members) ? members : (members ? [members] : [ownerId]),
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    let workspaceId: string;
+
+    if (!orgId) {
+      return NextResponse.json({ error: 'orgId is required to create a workspace' }, { status: 400 });
+    }
+
+    // Create org-scoped workspace
+    const wsRef = await adminDb.collection(`organisations/${orgId}/workspaces`).add({ ...payload, organisationId: orgId });
+    workspaceId = wsRef.id;
+
+    // Ensure organisation user records exist for owner and members so security rules
+    // that check organisations/{orgId}/users/{uid} succeed for client requests.
+    try {
+      const memberIds = Array.isArray(payload.members) ? payload.members : [payload.ownerId];
+      for (const m of memberIds) {
+        try {
+          // Create or merge an organisations/{orgId}/users/{userId} doc
+          const orgUserRef = adminDb.doc(`organisations/${orgId}/users/${m}`);
+          await orgUserRef.set({ id: m, role: m === payload.ownerId ? 'Owner' : 'Member', organisationId: orgId, createdAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+        } catch (inner) {
+          console.warn('admin POST: failed to create org user record for', m, inner);
+        }
+      }
+    } catch (membersErr) {
+      console.warn('admin POST: failed to ensure org user records', membersErr);
+    }
+
+    // Ensure protected folders exist under the org-scoped workspace (server-side)
+    try {
+      const basePath = `organisations/${orgId}/workspaces/${workspaceId}`;
+      const protectedFolders = [
+        { id: 'audits', name: 'Audits', parentId: null },
+        { id: 'audits-managers-monthly-audit', name: "Managers' Monthly Audit", parentId: 'audits' },
+        { id: 'audits-audits', name: 'Audits', parentId: 'audits' },
+        { id: 'complaints-and-compliments', name: 'Complaints and Compliments', parentId: null },
+        { id: 'complaints', name: 'Complaints', parentId: 'complaints-and-compliments' },
+        { id: 'compliments', name: 'Compliments', parentId: 'complaints-and-compliments' },
+        { id: 'surveys', name: 'Surveys', parentId: null },
+        { id: 'surveys-staff', name: 'Staff', parentId: 'surveys' },
+        { id: 'surveys-residents', name: 'Residents', parentId: 'surveys' },
+        { id: 'surveys-professional', name: 'Professional', parentId: 'surveys' },
+        { id: 'surveys-relatives', name: 'Relatives', parentId: 'surveys' },
+        { id: 'action-plans', name: 'Action plans', parentId: null },
+        { id: 'action-plans-external', name: 'External', parentId: 'action-plans' },
+        { id: 'action-plans-internal', name: 'Internal', parentId: 'action-plans' },
+      ];
+
+      for (const f of protectedFolders) {
+        const docRef = adminDb.doc(`${basePath}/folders/${f.id}`);
+        const snap = await docRef.get();
+        if (!snap.exists) {
+          await docRef.set({
+            name: f.name,
+            type: 'folder',
+            parentId: f.parentId ?? null,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            protected: true,
+          });
+        }
+      }
+    } catch (pfErr) {
+      console.warn('admin POST: failed to create protected folders', pfErr);
+    }
+
+    // Build response workspace object using admin reads
+    const wsDoc = await adminDb.doc(`organisations/${orgId}/workspaces/${workspaceId}`).get();
+    const wsData = wsDoc.exists ? wsDoc.data() : { name };
+    const structure = await fetchWorkspaceStructure(workspaceId, orgId);
+    return NextResponse.json({ ok: true, workspace: { id: workspaceId, ...wsData, folders: structure.folders } });
   } catch (e) {
     console.error('Failed to create workspace', e);
     return NextResponse.json({ error: 'Failed' }, { status: 500 });

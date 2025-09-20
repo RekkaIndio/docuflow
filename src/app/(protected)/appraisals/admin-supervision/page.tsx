@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { db } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { workspaceCollectionPath } from '@/lib/paths';
 import { useAuth } from "@/hooks/use-auth";
 
 const initialState = {
@@ -59,11 +60,10 @@ export default function AdminSupervisionForm({ onSave, workspaceId }: { onSave?:
     let firebaseError = null;
     try {
       if (user) {
-        const collectionPath = workspaceId 
-          ? `workspaces/${workspaceId}/adminSupervisions` 
-          : "adminAppraisals";
-        
-        await addDoc(collection(db, collectionPath), {
+        const targetCollection = workspaceId
+          ? collection(db, workspaceCollectionPath(workspaceId, 'adminSupervisions', (user as any).organisationId))
+          : collection(db, 'adminAppraisals');
+        await addDoc(targetCollection, {
           ...form,
           userId: user.id,
           userEmail: user.email,

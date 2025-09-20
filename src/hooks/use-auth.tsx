@@ -44,11 +44,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
         const { uid, email, displayName, photoURL } = firebaseUser;
-        setUser({ id: uid, email, name: displayName, avatarUrl: photoURL });
+        // Basic user fields from Firebase auth; then hydrate with server-side user doc
+        const basicUser = { id: uid, email, name: displayName, avatarUrl: photoURL };
+        setUser(basicUser);
+        try { if (typeof window !== 'undefined') (window as any).__USER__ = basicUser; } catch (e) {}
+
+        // Keep loading true until server-side hydration completes so components
+        // relying on user.organisationId don't fire premature admin requests.
+        (async () => {
+          try {
+            const resp = await fetch(`/api/users/${uid}`);
+            if (resp && resp.ok) {
+              const serverUser = await resp.json();
+              const merged = ({ ...(basicUser as any), ...(serverUser || {}) } as any);
+              setUser(merged);
+              try { if (typeof window !== 'undefined') (window as any).__USER__ = merged; } catch (e) {}
+            }
+          } catch (e) {
+            // ignore hydration failures
+          } finally {
+            setLoading(false);
+          }
+        })();
       } else {
         setUser(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => unsubscribe();
@@ -71,7 +92,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         avatarUrl: null
     };
     await createUserInFirestore(newUser);
-    setUser(newUser);
+    // Hydrate with server-side fields (organisationId, role, etc.)
+    try {
+      const resp = await fetch(`/api/users/${newUser.id}`);
+      if (resp && resp.ok) {
+        const serverUser = await resp.json();
+        setUser({ ...(newUser as any), ...(serverUser || {}) });
+      } else {
+        setUser(newUser);
+      }
+    } catch (e) {
+      setUser(newUser);
+    }
     return userCredential;
   };
 

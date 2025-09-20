@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useWorkspace } from '@/context/workspace';
+import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
@@ -19,6 +20,7 @@ interface PolicyMeta {
 export default function AdminPolicyEditPage({ params }: { params: Promise<{ policyName: string }> }) {
   const router = useRouter();
   const workspace = useWorkspace();
+  const { user } = useAuth();
   const [policyContent, setPolicyContent] = useState<string>('');
   const [policyMeta, setPolicyMeta] = useState<PolicyMeta>({});
   const [loading, setLoading] = useState(true);
@@ -36,9 +38,10 @@ export default function AdminPolicyEditPage({ params }: { params: Promise<{ poli
       setTeamsLoading(true);
       setTeamsError(null);
       try {
-        const { collection, getDocs } = await import('firebase/firestore');
-        const { db } = await import('@/lib/firebase');
-        const teamsCollection = collection(db, `workspaces/${workspace.id}/teams`);
+  const { collection, getDocs } = await import('firebase/firestore');
+  const { db } = await import('@/lib/firebase');
+  const { workspaceCollectionPath } = await import('@/lib/paths');
+  const teamsCollection = collection(db, workspaceCollectionPath(workspace.id, 'teams', (workspace as any)?.organisationId || null));
         const snapshot = await getDocs(teamsCollection);
         const fetchedTeams = snapshot.docs.map(d => ({ id: d.id, ...d.data(), workspaceId: workspace.id }));
         setTeams(fetchedTeams);
@@ -89,15 +92,80 @@ export default function AdminPolicyEditPage({ params }: { params: Promise<{ poli
       if (typeof window !== 'undefined') {
         console.debug('[AdminPolicyEdit] Saving policy to Firebase', { policyName, contentLength: filledPolicy?.length || 0, preview: (filledPolicy || '').slice(0, 200), meta: metaWithTeams });
       }
+  // If workspace.organisationId is not present, try a server-side derive to get an org id
+  // Prefer workspace.organisationId when present, otherwise fall back to authenticated user's organisationId
+  let orgToSend = (workspace as any)?.organisationId || (user as any)?.organisationId || null;
+      if (!orgToSend && workspace?.id) {
+        try {
+          const resp = await fetch('/api/debug/derive-org', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId: workspace.id }) });
+          if (resp.ok) {
+            const json = await resp.json().catch(() => null);
+            if (json && json.foundOrg) orgToSend = json.foundOrg;
+          }
+        } catch (e) {
+          // ignore - we'll send null and server will try other fallbacks
+        }
+      }
+
+      // Final fallback: if we still don't have an org but we have an authenticated user id,
+      // try fetching the server-side user document which should include organisationId.
+      if (!orgToSend && (user as any)?.id) {
+        try {
+          const uu = await fetch(`/api/users/${(user as any).id}`);
+          if (uu.ok) {
+            const serverUser = await uu.json().catch(() => null);
+            if (serverUser?.organisationId) orgToSend = serverUser.organisationId;
+          }
+        } catch (e) {
+          // ignore - fallback not available
+        }
+      }
+
+      // Debug: show workspace and organisation being sent
+      try {
+        console.debug('[AdminPolicyEdit] save: workspaceId, workspace.organisationId, orgToSend', { workspaceId: workspace?.id || null, workspaceOrg: (workspace as any)?.organisationId || null, orgToSend });
+      } catch (e) {}
+
       const response = await fetch(`/api/policies/${encodeURIComponent(policyName)}/save`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: filledPolicy, meta: metaWithTeams, workspaceId: workspace?.id || null }),
+        body: JSON.stringify({ content: filledPolicy, meta: metaWithTeams, workspaceId: workspace?.id || null, organisationId: orgToSend || null }),
       });
 
       if (!response.ok) throw new Error('Failed to save policy');
 
-      alert('Policy draft saved successfully to Firebase!');
+      // Parse JSON body to surface debug info the server may have returned
+      let saveJson: any = null;
+      try {
+        saveJson = await response.clone().json().catch(() => null);
+      } catch (e) {
+        saveJson = null;
+      }
+
+      // Debug: surface which org the server used and whether an org-scoped doc was saved
+      try {
+        const orgUsed = response.headers.get('X-Org-Used');
+        const workspaceSaved = response.headers.get('X-Workspace-Doc-Saved');
+        const workspacePath = response.headers.get('X-Workspace-Policy-Path') || saveJson?.publishedPath || null;
+        console.debug('[AdminPolicyEdit] save response headers:', { orgUsed, workspaceSaved, workspacePath });
+        console.debug('[AdminPolicyEdit] save response json:', saveJson);
+
+        if ((orgUsed && orgUsed !== 'none') || saveJson?.debug?.usedOrgId) {
+          const used = orgUsed && orgUsed !== 'none' ? orgUsed : saveJson?.debug?.usedOrgId;
+          const path = workspacePath || `/organisations/${used}/policies/${policyName}`;
+          alert(`Policy draft saved to organisation ${used}. Path: ${path}`);
+        } else if (saveJson?.debug) {
+          // If server returned debug info, show the derivation attempts
+          const dbg = saveJson.debug;
+          alert('Policy draft saved, but no organisationId was used. Debug: ' + JSON.stringify(dbg));
+        } else if (orgUsed === 'none') {
+          alert('Policy draft saved, but no organisationId was found — policy was NOT saved under an organisation.');
+        } else {
+          alert('Policy draft saved, but org-scoped write did not occur or failed. Check console for details.');
+        }
+      } catch (e) {
+        alert('Policy draft saved successfully to Firebase!');
+      }
 
       // Notify other parts of the app that a policy was updated (so lists refresh)
       try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('policy-updated')); } catch (e) {}
@@ -113,10 +181,44 @@ export default function AdminPolicyEditPage({ params }: { params: Promise<{ poli
         console.debug('[AdminPolicyEdit] Generating PDF / publishing policy', { policyName, contentLength: filledPolicy?.length || 0, preview: (filledPolicy || '').slice(0, 200), meta: filledMeta });
       }
 
+  // If workspace.organisationId missing, attempt server derive so we can publish into org scope
+  // Also fallback to authenticated user's organisationId when workspace isn't set
+  let orgToSend = (workspace as any)?.organisationId || (user as any)?.organisationId || null;
+      if (!orgToSend && workspace?.id) {
+        try {
+          const resp = await fetch('/api/debug/derive-org', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId: workspace.id }) });
+          if (resp.ok) {
+            const json = await resp.json().catch(() => null);
+            if (json && json.foundOrg) orgToSend = json.foundOrg;
+          }
+        } catch (e) {
+          // ignore - server will fallback
+        }
+      }
+
+      // Final fallback: if we still don't have an org but we have an authenticated user id,
+      // try fetching the server-side user document which should include organisationId.
+      if (!orgToSend && (user as any)?.id) {
+        try {
+          const uu = await fetch(`/api/users/${(user as any).id}`);
+          if (uu.ok) {
+            const serverUser = await uu.json().catch(() => null);
+            if (serverUser?.organisationId) orgToSend = serverUser.organisationId;
+          }
+        } catch (e) {
+          // ignore - fallback not available
+        }
+      }
+
+      // Debug: show workspace and organisation being sent for generate
+      try {
+        console.debug('[AdminPolicyEdit] generate: workspaceId, workspace.organisationId, orgToSend', { workspaceId: workspace?.id || null, workspaceOrg: (workspace as any)?.organisationId || null, orgToSend });
+      } catch (e) {}
+
       const response = await fetch(`/api/policies/${encodeURIComponent(policyName)}/generate-pdf`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: filledPolicy, meta: filledMeta, workspaceId: workspace?.id || null }),
+        body: JSON.stringify({ content: filledPolicy, meta: filledMeta, workspaceId: workspace?.id || null, organisationId: orgToSend || null }),
       });
 
       if (!response.ok) {
@@ -146,15 +248,15 @@ export default function AdminPolicyEditPage({ params }: { params: Promise<{ poli
         // If server provided a workspace policy path header, attempt to fetch the saved workspace document
         try {
           const workspacePath = response.headers.get('X-Workspace-Policy-Path');
-          if (workspacePath && typeof window !== 'undefined') {
-            // Try to fetch the saved workspace document via our API proxy (normalize path)
+          // If server returned a workspace path, ensure it's organisation-scoped; avoid attempting to fetch
+          // legacy `/workspaces/...` paths which are likely blocked by Firestore rules. If the header is not
+          // present or points to a legacy path, prefer the JSON body payload `workspacePublishedDocument`.
+          if (workspacePath && typeof window !== 'undefined' && !workspacePath.startsWith('/workspaces/')) {
             try {
               const resp = await fetch(`/api${workspacePath}`);
               if (resp.ok) {
                 const doc = await resp.json();
-                try {
-                  window.sessionStorage.setItem('docuflow.activeDocument', JSON.stringify(doc));
-                } catch (e) {}
+                try { window.sessionStorage.setItem('docuflow.activeDocument', JSON.stringify(doc)); } catch (e) {}
                 try { window.dispatchEvent(new CustomEvent('set-active-document', { detail: { documentId: doc.id, documentName: doc.policyName || doc.name || policyName, documentData: doc } })); } catch (e) {}
               }
             } catch (e) {

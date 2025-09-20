@@ -11,7 +11,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Only allow workspace policy paths to avoid creating an open proxy
-    if (!storagePath.startsWith('workspaces/')) {
+    // Accept both legacy `workspaces/{workspaceId}/...` and org-scoped
+    // `organisations/{orgId}/workspaces/{workspaceId}/...` paths.
+    const isWorkspacePath = storagePath.startsWith('workspaces/');
+    const isOrgWorkspacePath = storagePath.startsWith('organisations/') && storagePath.includes('/workspaces/');
+    if (!isWorkspacePath && !isOrgWorkspacePath) {
       return NextResponse.json({ error: 'Invalid path' }, { status: 400 });
     }
 

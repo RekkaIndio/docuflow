@@ -18,6 +18,7 @@ import { useEffect, useState } from 'react';
 import { collection, query as fsQuery, orderBy, limit as fsLimit, onSnapshot, updateDoc, doc } from 'firebase/firestore';
 import { getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { workspaceCollectionPath } from '@/lib/paths';
 import { formatDistanceToNow } from 'date-fns';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -37,7 +38,8 @@ export function TopNav({ onSettingsClick, onNotificationsClick, unreadCount = 0,
 
   useEffect(() => {
     if (!workspaceId) return;
-    const q = fsQuery(collection(db, `workspaces/${workspaceId}/notifications`), orderBy('createdAt', 'desc'), fsLimit(10));
+    const notificationsPath = workspaceCollectionPath(workspaceId, 'notifications');
+    const q = fsQuery(collection(db, notificationsPath), orderBy('createdAt', 'desc'), fsLimit(10));
     const unsub = onSnapshot(q, (snap) => {
       const items: any[] = [];
       snap.forEach(d => items.push({ id: d.id, ...(d.data() as any) }));
@@ -120,12 +122,12 @@ export function TopNav({ onSettingsClick, onNotificationsClick, unreadCount = 0,
                     if (!workspaceId) return;
                     // mark all read
                     try {
-                      const qAll = fsQuery(collection(db, `workspaces/${workspaceId}/notifications`), orderBy('createdAt', 'desc'), fsLimit(50));
+                      const qAll = fsQuery(collection(db, workspaceCollectionPath(workspaceId, 'notifications')), orderBy('createdAt', 'desc'), fsLimit(50));
                       const snap = await (await import('firebase/firestore')).getDocs(qAll);
                       const updates: Promise<any>[] = [];
                       snap.forEach(d => {
                         if (!(d.data() as any).read) {
-                          updates.push(updateDoc(doc(db, `workspaces/${workspaceId}/notifications`, d.id), { read: true } as any));
+                          updates.push(updateDoc(doc(db, `${workspaceCollectionPath(workspaceId, 'notifications')}`, d.id), { read: true } as any));
                         }
                       });
                       await Promise.all(updates);
@@ -151,7 +153,7 @@ export function TopNav({ onSettingsClick, onNotificationsClick, unreadCount = 0,
                         {!n.read && (
                           <Button size="sm" variant="ghost" onClick={async () => {
                             try {
-                              await updateDoc(doc(db, `workspaces/${workspaceId}/notifications`, n.id), { read: true } as any);
+                              await updateDoc(doc(db, `${workspaceCollectionPath(workspaceId, 'notifications')}`, n.id), { read: true } as any);
                             } catch (err) {
                               console.error('mark read failed', err);
                             }

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/hooks/use-auth";
 import { collection, addDoc, Timestamp } from "firebase/firestore";
+import { workspaceCollectionPath } from '@/lib/paths';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -41,11 +42,10 @@ export default function SeniorCarerSupervisionForm({ onSave, workspaceId }: { on
     e.preventDefault();
     setLoading(true);
     try {
-      const collectionPath = workspaceId 
-        ? `workspaces/${workspaceId}/seniorCarerSupervisions` 
-        : "appraisals-senior-carer-supervision";
-      
-      await addDoc(collection(db, collectionPath), {
+      const targetCollection = workspaceId
+        ? collection(db, workspaceCollectionPath(workspaceId, 'seniorCarerSupervisions', (user as any).organisationId))
+        : collection(db, 'appraisals-senior-carer-supervision');
+      await addDoc(targetCollection, {
         ...form,
         userId: user?.id || null,
         createdBy: user?.id || null,

@@ -39,6 +39,7 @@ import { TopNav } from "./top-nav";
 import { NotificationsView } from "./notifications-view";
 import { db } from '@/lib/firebase';
 import { collection, query as fsQuery, where, onSnapshot, orderBy, limit } from 'firebase/firestore';
+import { workspaceCollectionPath } from '@/lib/paths';
 import { AccessibilityView } from "./accessibility-view";
 // Outstanding Evidence view removed; evidence folders are now regular protected folders
 
@@ -148,7 +149,7 @@ const LoadingDashboard = () => (
 
 
 export function Dashboard() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const isMobile = useIsMobile();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [activeWorkspace, setActiveWorkspace] = useState<Workspace | null>(null);
@@ -183,17 +184,19 @@ export function Dashboard() {
         window.addEventListener('chat-response', handleChatResponse as EventListener);
       }
     if (activeWorkspace) {
-      const q = fsQuery(collection(db, `workspaces/${activeWorkspace.id}/notifications`), where('read', '==', false));
+      // Use org-aware collection paths to avoid invalid document references
+      const notificationsCol = collection(db, workspaceCollectionPath(activeWorkspace.id, 'notifications', activeWorkspace.organisationId || undefined));
+      const q = fsQuery(notificationsCol, where('read', '==', false));
       unsub = onSnapshot(q, (snap: any) => {
         setUnreadNotifications(snap.size);
       }, (err: any) => {
         console.error('Failed to listen for unread notifications', err);
       });
-      
-      // Listen for latest daily checkin entry
+
+      // Listen for latest daily checkin entry using collection->doc pattern
       try {
-        const colRef = collection(db, `workspaces/${activeWorkspace.id}/daily-checkins`);
-        const dailyQ = fsQuery(colRef, orderBy('createdAt', 'desc'), limit(1));
+        const dailyCol = collection(db, workspaceCollectionPath(activeWorkspace.id, 'daily-checkins', activeWorkspace.organisationId || undefined));
+        const dailyQ = fsQuery(dailyCol, orderBy('createdAt', 'desc'), limit(1));
         dailyUnsub = onSnapshot(dailyQ, (snap) => {
           if (!snap.empty) {
             const docSnap = snap.docs[0];
@@ -222,14 +225,30 @@ export function Dashboard() {
 
   useEffect(() => {
     const fetchData = async () => {
+      // Wait for auth hydration so we have server-side user.organisationId available
+      if (authLoading) return;
       if (!user) return;
       setLoading(true);
       
-      let userWorkspaces = await getWorkspacesForUser(user.id);
+  // Pass the server-hydrated organisationId to avoid client-side reads that may be denied
+  const orgId = (user as any)?.organisationId;
+  let userWorkspaces = await getWorkspacesForUser(user.id, orgId || undefined);
       
-      if (!userWorkspaces || userWorkspaces.length === 0) {
-        const newWorkspace = await handleCreateWorkspace(`${user.name || 'My'}'s Workspace`);
-        userWorkspaces = [newWorkspace];
+      // Only create a workspace if we are sure the user has none and the query did not fail due to permissions
+      if (Array.isArray(userWorkspaces) && userWorkspaces.length === 0) {
+        // Add a guard: check if this is the first load, and not a refresh after a failed query
+        // Optionally, check for a flag in localStorage/sessionStorage to avoid repeated creation
+        if (!window.localStorage.getItem('workspaceCreated')) {
+          try {
+            const newWorkspace = await handleCreateWorkspace(`${user.name || 'My'}'s Workspace`);
+            userWorkspaces = [newWorkspace];
+            window.localStorage.setItem('workspaceCreated', 'true');
+          } catch (err) {
+            console.error('Workspace creation failed:', err);
+          }
+        } else {
+          console.warn('Workspace creation skipped: already attempted in this session.');
+        }
       }
 
   // evidenceFolders removed: evidence folders are now created as protected folders (server-side)
@@ -598,7 +617,9 @@ export function Dashboard() {
         ownerId: user.id,
         members: [user.id],
     };
-    const newWorkspace = await createWorkspace(newWorkspaceData);
+    // Pass the organisationId if available to prefer org-scoped workspaces
+    const orgId = (user as any)?.organisationId;
+    const newWorkspace = await createWorkspace(newWorkspaceData, orgId || undefined);
     
     setWorkspaces(prev => [...prev, newWorkspace]);
     setActiveWorkspace(newWorkspace);
@@ -894,8 +915,44 @@ export function Dashboard() {
   }
 
 
-  if (loading || !activeWorkspace) {
+  if (loading) {
     return <LoadingDashboard />;
+  }
+
+  // When not loading but there is no active workspace, show an empty state
+  if (!activeWorkspace) {
+    return (
+      <SidebarProvider defaultOpen>
+        <Sidebar>
+          <div className="p-4">
+            <h3 className="text-lg font-semibold">No workspaces found</h3>
+            <p className="text-sm text-muted-foreground">You don't have any workspaces yet. Create one to get started.</p>
+            <div className="mt-4">
+              <Button onClick={async () => {
+                if (!user) return;
+                try {
+                  const newWs = await handleCreateWorkspace(`${user.name || 'My'}'s Workspace`);
+                  setWorkspaces([...(workspaces || []), newWs]);
+                  setActiveWorkspace(newWs);
+                } catch (e) {
+                  console.error('Failed to create workspace from empty state', e);
+                }
+              }}>Create workspace</Button>
+            </div>
+          </div>
+        </Sidebar>
+        <SidebarInset>
+          <div className="p-8">
+            <Card>
+              <div className="p-6">
+                <h2 className="text-2xl font-bold">Welcome</h2>
+                <p className="mt-2 text-sm text-muted-foreground">Select or create a workspace to continue.</p>
+              </div>
+            </Card>
+          </div>
+        </SidebarInset>
+      </SidebarProvider>
+    );
   }
 
   let currentFolder: Folder | undefined;

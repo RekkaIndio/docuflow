@@ -2,8 +2,9 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useWorkspace } from "@/context/workspace";
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, serverTimestamp, collection } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { workspaceCollectionPath } from "@/lib/paths";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import jsPDF from 'jspdf';
 
@@ -1217,7 +1218,7 @@ export default function DependencyCalculatorPage() {
       // If user is signed in and workspace is available, prefer Firestore
       if (user && workspace) {
         try {
-          const ref = doc(db, "workspaces", workspace.id, "dependency_calculator", "default");
+          const ref = doc(db, workspaceCollectionPath(workspace.id, 'dependency_calculator', (workspace as any).organisationId) || `workspaces/${workspace.id}/dependency_calculator`, "default");
           const snap = await getDoc(ref);
 
           if (snap.exists()) {
@@ -1432,7 +1433,7 @@ export default function DependencyCalculatorPage() {
       return;
     } // only save to Firestore for authenticated users with workspace
 
-    const ref = doc(db, "workspaces", workspace.id, "dependency_calculator", "default");
+  const ref = doc(db, workspaceCollectionPath(workspace.id, 'dependency_calculator', (workspace as any).organisationId) || `workspaces/${workspace.id}/dependency_calculator`, "default");
     const t = setTimeout(async () => {
       try {
         // include staffActual so the user's main dependency_calculator document stays in sync

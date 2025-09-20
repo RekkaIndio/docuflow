@@ -20,6 +20,7 @@ import { ActionCard } from '@/components/ui/action-card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandInput, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
 import { db } from '@/lib/firebase';
+import { workspaceCollectionPath, workspaceBasePath, workspaceDocPath } from '@/lib/paths';
  
 interface ChatMessage {
   sender: 'user' | 'ai';
@@ -887,11 +888,12 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
       // If not enough, fallback to server
       if (multiResults.length < 2) {
         const workspaceId = selectedItem.workspaceId;
+        const orgId = (selectedItem as any).organisationId || (selectedItem as any).organisation?.id || null;
         if (workspaceId) {
           const searchRes = await fetch('/api/search-documents', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ workspaceId, query: inputVal }),
+            body: JSON.stringify({ workspaceId, organisationId: orgId, query: inputVal }),
           });
           if (searchRes.ok) {
             const { results } = await searchRes.json();
@@ -1090,6 +1092,8 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
           return;
         }
 
+        const orgId = (selectedItem as any).organisationId || (selectedItem as any).organisation?.id || null;
+
         // Try to get dependency data from user's snapshots or calculate from current data
         const userIdToUse = user?.id ?? mockUser.id;
         if (!userIdToUse) {
@@ -1115,7 +1119,9 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
           if (snapshotsSnap.empty) {
             try {
               // Attempt to read workspace settings to find owner or a member
-              const settingsRef = docFn(db, `workspaces/${workspaceId}/settings`, 'occupancy');
+              const settingsPath = workspaceCollectionPath(workspaceId, 'settings', orgId || null);
+              const settingsColRef = collection(db, settingsPath);
+              const settingsRef = docFn(settingsColRef, 'occupancy');
               const settingsSnap = await getDoc(settingsRef);
               const ownerId = settingsSnap && settingsSnap.exists() ? (settingsSnap.data() as any).ownerId : null;
 
@@ -1124,7 +1130,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
               if (!candidateUserId) {
                 // read workspace doc members fallback
                 try {
-                  const wsRef = docFn(db, 'workspaces', workspaceId);
+                  const wsRef = docFn(db, workspaceDocPath(workspaceId, undefined, orgId || null));
                   const wsSnap = await getDoc(wsRef);
                   if (wsSnap && wsSnap.exists()) {
                     const wsData = wsSnap.data() as any;
@@ -1149,7 +1155,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
           if (snapshotsSnap.empty) {
             // First try workspace-level snapshots directly from Firestore (client-side)
             try {
-              const wsSnapshotsCol = collection(db, 'workspaces', workspaceId, 'dependency_calculator_snapshots');
+              const wsSnapshotsCol = collection(db, workspaceCollectionPath(workspaceId, 'dependency_calculator_snapshots', orgId || null));
               const wsQuery = query(wsSnapshotsCol, orderBy('savedAt', 'desc'), limit(maxSnapshots));
               const wsSnap = await getDocs(wsQuery);
               if (!wsSnap.empty) {
@@ -1204,7 +1210,8 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
 
             // Try workspace-level aggregation API as a fallback (server-side aggregation may include workspace snapshots)
             try {
-              const apiRes = await fetch(`/api/workspaces/${workspaceId}/dependency-trends`);
+              const apiUrl = `/api/workspaces/${workspaceId}/dependency-trends` + (orgId ? `?orgId=${encodeURIComponent(orgId)}` : '');
+              const apiRes = await fetch(apiUrl);
               if (apiRes.ok) {
                 const apiData = await apiRes.json();
                 const apiPoints = Array.isArray(apiData?.points) ? apiData.points : [];
@@ -1332,13 +1339,15 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         // If user has no personal snapshots, try workspace-level fallback (owner/members)
         if (snapshotsSnap.empty) {
           try {
-            const settingsRef = docFn(db, `workspaces/${workspaceId}/settings`, 'occupancy');
-            const settingsSnap = await getDoc(settingsRef);
+              const settingsPath = workspaceCollectionPath(workspaceId, 'settings', orgId || null);
+              const settingsColRef = collection(db, settingsPath);
+              const settingsRef = docFn(settingsColRef, 'occupancy');
+              const settingsSnap = await getDoc(settingsRef);
             const ownerId = settingsSnap && settingsSnap.exists() ? (settingsSnap.data() as any).ownerId : null;
             let candidateUserId: string | null = ownerId || null;
             if (!candidateUserId) {
-              const wsRef = docFn(db, 'workspaces', workspaceId);
-              const wsSnap = await getDoc(wsRef);
+                  const wsRef = docFn(db, workspaceDocPath(workspaceId, undefined, orgId || null));
+                  const wsSnap = await getDoc(wsRef);
               if (wsSnap && wsSnap.exists()) {
                 const wsData = wsSnap.data() as any;
                 if (Array.isArray(wsData.members) && wsData.members.length > 0) candidateUserId = wsData.members[0];
@@ -1433,7 +1442,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
 
         // Get teams for the workspace from workspace subcollection
         const { collection, getDocs } = await import('firebase/firestore');
-        const teamsCol = collection(db, `workspaces/${workspaceId}/teams`);
+  const teamsCol = collection(db, workspaceCollectionPath(workspaceId, 'teams'));
         const snapshot = await getDocs(teamsCol);
         const teams = snapshot.docs.map(d => ({ id: d.id, name: d.data().name ?? 'Untitled Team' }));
 
@@ -1556,8 +1565,9 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
           return;
         }
 
+        const orgId2 = (selectedItem as any).organisationId || null;
         const { searchDocumentsInWorkspace } = await import('@/lib/firestore');
-        const relatedDocs = await searchDocumentsInWorkspace(workspaceId, intent.searchTerm || '');
+  const relatedDocs = await searchDocumentsInWorkspace(workspaceId, intent.searchTerm || '', orgId2);
 
         if (relatedDocs.length > 0) {
           const docList = relatedDocs.slice(0, 5).map(doc => `- ${doc.name}`).join('\n');
@@ -1627,7 +1637,8 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         }
 
         const { collection, getDocs } = await import('firebase/firestore');
-        const teamsCol = collection(db, `workspaces/${workspaceId}/teams`);
+        const orgId3 = (selectedItem as any).organisationId || null;
+        const teamsCol = collection(db, workspaceCollectionPath(workspaceId, 'teams', orgId3));
         const snapshot = await getDocs(teamsCol);
         const workspaceTeams = snapshot.docs.map(d => ({
             id: d.id,
@@ -1793,7 +1804,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         }
 
         const { collection, getDocs, query, orderBy, limit } = await import('firebase/firestore');
-        const notificationsCol = collection(db, `workspaces/${workspaceId}/notifications`);
+  const notificationsCol = collection(db, workspaceCollectionPath(workspaceId, 'notifications'));
         const notificationsQuery = query(notificationsCol, orderBy('createdAt', 'desc'), limit(5));
         const snapshot = await getDocs(notificationsQuery);
 
@@ -1852,7 +1863,8 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         }
 
         const { searchDocumentsInWorkspace } = await import('@/lib/firestore');
-        const docs = await searchDocumentsInWorkspace(workspaceId, intent.searchTerm || '');
+  const orgIdForSearch = (selectedItem as any).organisationId || null;
+  const docs = await searchDocumentsInWorkspace(workspaceId, intent.searchTerm || '', orgIdForSearch);
 
         if (docs.length > 0) {
           const doc = docs[0];

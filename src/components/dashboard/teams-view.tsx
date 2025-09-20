@@ -41,6 +41,7 @@ import {
   getDoc,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { workspaceCollectionPath, workspaceDocPath } from '@/lib/paths';
 
 
 interface TeamsViewProps {
@@ -199,8 +200,8 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     const fetchTeams = async () => {
       if (!workspace?.id) return;
       try {
-        // Read from workspace subcollection: workspaces/{workspaceId}/teams
-        const teamsCollection = collection(db, `workspaces/${workspace.id}/teams`);
+  // Read from workspace subcollection: organisations/{orgId}/workspaces/{workspaceId}/teams or legacy workspaces/{workspaceId}/teams
+  const teamsCollection = collection(db, workspaceCollectionPath(workspace.id, 'teams', (workspace as any).organisationId || workspace.organisationId));
         const teamsSnapshot = await getDocs(teamsCollection);
         const fetchedTeams = teamsSnapshot.docs.map((d) => {
           const data = d.data() as any;
@@ -237,7 +238,7 @@ export function TeamsView({ workspace }: TeamsViewProps) {
             workspaceId: workspace.id,
           };
           // Add to Firestore under workspace teams subcollection
-          const teamRef = doc(db, `workspaces/${workspace.id}/teams`, newTeam.id);
+          const teamRef = doc(db, workspaceCollectionPath(workspace.id, 'teams', (workspace as any).organisationId || workspace.organisationId), newTeam.id);
           await setDoc(teamRef, newTeam);
           fetchedTeams.push(newTeam);
         }
@@ -257,9 +258,9 @@ export function TeamsView({ workspace }: TeamsViewProps) {
       
       setManagersLoading(true);
       
-      try {
-        const workspaceRef = doc(db, 'workspaces', workspace.id);
-        const workspaceSnap = await getDoc(workspaceRef);
+    try {
+  const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId || workspace.organisationId));
+    const workspaceSnap = await getDoc(workspaceRef);
         
         if (workspaceSnap.exists()) {
           const data = workspaceSnap.data();
@@ -284,7 +285,7 @@ export function TeamsView({ workspace }: TeamsViewProps) {
       setNursesLoading(true);
       
       try {
-        const workspaceRef = doc(db, 'workspaces', workspace.id);
+  const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId || workspace.organisationId));
         const workspaceSnap = await getDoc(workspaceRef);
         
         if (workspaceSnap.exists()) {
@@ -310,7 +311,7 @@ export function TeamsView({ workspace }: TeamsViewProps) {
       setCTMsLoading(true);
       
       try {
-        const workspaceRef = doc(db, 'workspaces', workspace.id);
+  const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId || workspace.organisationId));
         const workspaceSnap = await getDoc(workspaceRef);
         
         if (workspaceSnap.exists()) {
@@ -336,7 +337,7 @@ export function TeamsView({ workspace }: TeamsViewProps) {
       setDomesticsLoading(true);
       
       try {
-        const workspaceRef = doc(db, 'workspaces', workspace.id);
+  const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId || workspace.organisationId));
         const workspaceSnap = await getDoc(workspaceRef);
         
         if (workspaceSnap.exists()) {
@@ -362,7 +363,7 @@ export function TeamsView({ workspace }: TeamsViewProps) {
       setMaintenancesLoading(true);
       
       try {
-        const workspaceRef = doc(db, 'workspaces', workspace.id);
+        const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId || workspace.organisationId));
         const workspaceSnap = await getDoc(workspaceRef);
         
         if (workspaceSnap.exists()) {
@@ -388,7 +389,7 @@ export function TeamsView({ workspace }: TeamsViewProps) {
       setKitchensLoading(true);
       
       try {
-        const workspaceRef = doc(db, 'workspaces', workspace.id);
+        const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId || workspace.organisationId));
         const workspaceSnap = await getDoc(workspaceRef);
         
         if (workspaceSnap.exists()) {
@@ -414,7 +415,7 @@ export function TeamsView({ workspace }: TeamsViewProps) {
       setActivitiesLoading(true);
       
       try {
-        const workspaceRef = doc(db, 'workspaces', workspace.id);
+  const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId || workspace.organisationId));
         const workspaceSnap = await getDoc(workspaceRef);
         
         if (workspaceSnap.exists()) {
@@ -437,7 +438,7 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     if (!workspace?.id) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+  const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId || workspace.organisationId));
       await updateDoc(workspaceRef, {
         managers: arrayUnion(manager)
       });
@@ -454,7 +455,7 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     if (!workspace?.id) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+  const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId || workspace.organisationId));
       // Remove old and add new (atomic operation alternative)
       await updateDoc(workspaceRef, {
         managers: arrayRemove(oldManager)
@@ -475,7 +476,7 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     if (!workspace?.id) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+  const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId || workspace.organisationId));
       await updateDoc(workspaceRef, {
         managers: arrayRemove(manager)
       });
@@ -492,7 +493,7 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     if (!workspace?.id) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+  const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId || workspace.organisationId));
       await updateDoc(workspaceRef, {
         nurses: arrayUnion(nurse)
       });
@@ -509,7 +510,7 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     if (!workspace?.id) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+  const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId || workspace.organisationId));
       // Remove old and add new (atomic operation alternative)
       await updateDoc(workspaceRef, {
         nurses: arrayRemove(oldNurse)
@@ -530,7 +531,7 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     if (!workspace?.id) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+  const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId || workspace.organisationId));
       await updateDoc(workspaceRef, {
         nurses: arrayRemove(nurse)
       });
@@ -547,7 +548,7 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     if (!workspace?.id) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+  const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId || workspace.organisationId));
       await updateDoc(workspaceRef, {
         ctms: arrayUnion(ctm)
       });
@@ -564,7 +565,7 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     if (!workspace?.id) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+  const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId || workspace.organisationId));
       // Remove old and add new (atomic operation alternative)
       await updateDoc(workspaceRef, {
         ctms: arrayRemove(oldCTM)
@@ -585,7 +586,7 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     if (!workspace?.id) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+  const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId || workspace.organisationId));
       await updateDoc(workspaceRef, {
         ctms: arrayRemove(ctm)
       });
@@ -878,14 +879,14 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     (async () => {
       try {
         if (!workspace?.id) throw new Error('Missing workspace id');
-        const teamRef = doc(db, `workspaces/${workspace.id}/teams`, teamId);
+  const teamRef = doc(db, workspaceCollectionPath(workspace.id, 'teams', (workspace as any).organisationId || workspace.organisationId), teamId);
         await deleteDoc(teamRef);
       } catch (error) {
         console.error("Error deleting team:", error);
         // Could refetch or revert optimistic change; for now refetch all teams
         try {
           if (!workspace?.id) return;
-          const teamsCollection = collection(db, `workspaces/${workspace.id}/teams`);
+          const teamsCollection = collection(db, workspaceCollectionPath(workspace.id, 'teams', (workspace as any).organisationId || workspace.organisationId));
           const teamsSnapshot = await getDocs(teamsCollection);
           const fetchedTeams = teamsSnapshot.docs.map((d) => {
             const data = d.data() as Team;
@@ -912,7 +913,7 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     (async () => {
       try {
         if (!workspace?.id) throw new Error('Missing workspace id');
-        const teamRef = doc(db, `workspaces/${workspace.id}/teams`, teamId);
+        const teamRef = doc(db, workspaceCollectionPath(workspace.id, 'teams', (workspace as any).organisationId || workspace.organisationId), teamId);
         await updateDoc(teamRef, {
           accessibleFolderIds,
           folderCount: accessibleFolderIds.length,
@@ -931,7 +932,7 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     (async () => {
       try {
         if (!workspace?.id) throw new Error('Missing workspace id');
-        const teamRef = doc(db, `workspaces/${workspace.id}/teams`, teamToAdd.id);
+  const teamRef = doc(db, workspaceCollectionPath(workspace.id, 'teams', (workspace as any).organisationId || workspace.organisationId), teamToAdd.id);
         await setDoc(teamRef, teamToAdd);
       } catch (error) {
         console.error("Error creating team in Firestore:", error);
@@ -952,7 +953,7 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     (async () => {
       try {
         if (!workspace?.id) throw new Error('Missing workspace id');
-        const teamRef = doc(db, `workspaces/${workspace.id}/teams`, teamId);
+  const teamRef = doc(db, workspaceCollectionPath(workspace.id, 'teams', (workspace as any).organisationId || workspace.organisationId), teamId);
         await updateDoc(teamRef, { emails: arrayUnion(email) });
       } catch (error) {
         console.error("Error adding email to team in Firestore:", error);
@@ -971,7 +972,7 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     (async () => {
       try {
         if (!workspace?.id) throw new Error('Missing workspace id');
-        const teamRef = doc(db, `workspaces/${workspace.id}/teams`, teamId);
+  const teamRef = doc(db, workspaceCollectionPath(workspace.id, 'teams', (workspace as any).organisationId || workspace.organisationId), teamId);
         await updateDoc(teamRef, { emails: arrayRemove(email) });
       } catch (error) {
         console.error("Error removing email from team in Firestore:", error);

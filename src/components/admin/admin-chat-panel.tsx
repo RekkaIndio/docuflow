@@ -227,7 +227,12 @@ export function AdminChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
   useEffect(() => {
     (async () => {
       try {
-        const resp = await fetch('/api/admin/workspaces');
+        // Wait for auth hydration; prefer server-side user object
+        const orgId = (user as any)?.organisationId;
+        const isDevAdmin = typeof document !== 'undefined' && document.cookie.includes('isAdmin=1');
+        if (!orgId && !isDevAdmin) return;
+        const orgQuery = orgId ? `?orgId=${encodeURIComponent(orgId)}` : '';
+        const resp = await fetch(`/api/admin/workspaces${orgQuery}`);
         if (!resp.ok) return;
         const data = await resp.json();
         const list = (data?.workspaces || []).map((w: any) => ({ id: w.id, name: w.name }));

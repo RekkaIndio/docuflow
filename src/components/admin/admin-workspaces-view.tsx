@@ -11,11 +11,13 @@ import { Users, MapPin, BarChart2, Plus, MoreVertical, Edit, Trash2, Target, Ale
 import OccupancyPie from '@/components/admin/occupancy-pie';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
+import { useAuth } from '@/hooks/use-auth';
 import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
 
 type Workspace = any;
 
 export default function AdminWorkspacesView() {
+  const { user, loading } = useAuth();
   const [workspaces, setWorkspaces] = React.useState<Workspace[]>([]);
   const [loadingData, setLoadingData] = React.useState(false);
 
@@ -77,7 +79,23 @@ export default function AdminWorkspacesView() {
     const fetchData = async () => {
       setLoadingData(true);
       try {
-        const resp = await fetch('/api/admin/workspaces');
+        // Wait for auth hydration. Only fetch when we have a user or dev admin cookie.
+        if (loading) return;
+        if (!user && !(typeof document !== 'undefined' && document.cookie.includes('isAdmin=1'))) {
+          setWorkspaces([]);
+          return;
+        }
+
+        const orgId = (user as any)?.organisationId;
+        const isDevAdmin = typeof document !== 'undefined' && document.cookie.includes('isAdmin=1');
+        if (!orgId && !isDevAdmin) {
+          // No organisation context available yet; avoid calling server which will reject.
+          setWorkspaces([]);
+          return;
+        }
+
+        const orgQuery = orgId ? `?orgId=${encodeURIComponent(orgId)}` : '';
+        const resp = await fetch(`/api/admin/workspaces${orgQuery}`);
         if (!resp.ok) {
           setWorkspaces([]);
           return;
@@ -91,7 +109,7 @@ export default function AdminWorkspacesView() {
       }
     };
     fetchData();
-  }, []);
+  }, [user, loading]);
 
   // Derived filtered workspaces (client-side search)
   const [filteredWorkspaces, setFilteredWorkspaces] = React.useState<Workspace[]>([]);
@@ -124,7 +142,9 @@ export default function AdminWorkspacesView() {
 
     setIsCreatingWorkspace(true);
     try {
-      const response = await fetch('/api/admin/workspaces', {
+  const orgId = (user as any)?.organisationId;
+  const orgQuery = orgId ? `?orgId=${encodeURIComponent(orgId)}` : '';
+      const response = await fetch(`/api/admin/workspaces${orgQuery}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newWorkspaceName.trim(), ownerId: newWorkspaceOwner.trim(), members: [newWorkspaceOwner.trim()] }),
@@ -135,7 +155,8 @@ export default function AdminWorkspacesView() {
       }
       const data = await response.json();
       // refresh
-      const workspacesResponse = await fetch('/api/admin/workspaces');
+  const orgQueryRefresh = orgId ? `?orgId=${encodeURIComponent(orgId)}` : '';
+  const workspacesResponse = await fetch(`/api/admin/workspaces${orgQueryRefresh}`);
       if (workspacesResponse.ok) {
         const workspacesData = await workspacesResponse.json();
         setWorkspaces(workspacesData.workspaces || []);
@@ -159,7 +180,9 @@ export default function AdminWorkspacesView() {
     }
     setIsRenamingWorkspace(true);
     try {
-      const response = await fetch(`/api/admin/workspaces/${renameWorkspaceData.id}`, {
+  const orgId = (user as any)?.organisationId;
+  const orgQueryRefresh2 = orgId ? `?orgId=${encodeURIComponent(orgId)}` : '';
+  const response = await fetch(`/api/admin/workspaces/${renameWorkspaceData.id}${orgQueryRefresh2}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newRenameWorkspaceName.trim() }),
@@ -168,7 +191,7 @@ export default function AdminWorkspacesView() {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to rename workspace');
       }
-      const workspacesResponse = await fetch('/api/admin/workspaces');
+  const workspacesResponse = await fetch(`/api/admin/workspaces${orgQueryRefresh2}`);
       if (workspacesResponse.ok) {
         const workspacesData = await workspacesResponse.json();
         setWorkspaces(workspacesData.workspaces || []);
@@ -192,12 +215,15 @@ export default function AdminWorkspacesView() {
     }
     setIsDeletingWorkspace(true);
     try {
-      const response = await fetch(`/api/admin/workspaces/${deleteWorkspaceData.id}`, { method: 'DELETE' });
+  const orgId = (user as any)?.organisationId;
+  const orgQueryDelete = orgId ? `?orgId=${encodeURIComponent(orgId)}` : '';
+  const response = await fetch(`/api/admin/workspaces/${deleteWorkspaceData.id}${orgQueryDelete}`, { method: 'DELETE' });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to delete workspace');
       }
-      const workspacesResponse = await fetch('/api/admin/workspaces');
+  const orgQueryRefresh3 = orgId ? `?orgId=${encodeURIComponent(orgId)}` : '';
+  const workspacesResponse = await fetch(`/api/admin/workspaces${orgQueryRefresh3}`);
       if (workspacesResponse.ok) {
         const workspacesData = await workspacesResponse.json();
         setWorkspaces(workspacesData.workspaces || []);

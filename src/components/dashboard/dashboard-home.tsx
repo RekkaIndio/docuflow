@@ -24,6 +24,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useEffect, useState } from "react";
 import { doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query as fsQuery, orderBy, limit, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { workspaceDocPath, workspaceCollectionPath } from '@/lib/paths';
 import OccupancyPie from '@/components/admin/occupancy-pie';
 import OverviewCards from './overview-cards';
 // consolidated imports above
@@ -85,10 +86,11 @@ const getFileIcon = (fileType: Document["fileType"]) => {
   }
 };
 
-const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradientColors, trends, dailyEntry, onDailyEntryUpdate, carePlanScore, hsScore, maintenanceScore, restrictiveScore, fireScore, infectionScore, mealtimeScore, nightScore, staffFileScore, kitchenScore, handleAuditCardClick, onStaffingTeamsClick, onStaffingTrendsClick, onOccupancyTrendsClick, onComplianceOverviewClick, navigateToAuditForm }: { 
+const QuickActions = ({ documents, onSelect, workspaceId, orgId, overallStats, getGradientColors, trends, dailyEntry, onDailyEntryUpdate, carePlanScore, hsScore, maintenanceScore, restrictiveScore, fireScore, infectionScore, mealtimeScore, nightScore, staffFileScore, kitchenScore, handleAuditCardClick, onStaffingTeamsClick, onStaffingTrendsClick, onOccupancyTrendsClick, onComplianceOverviewClick, navigateToAuditForm }: { 
     documents: Document[], 
     onSelect: (doc: Document) => void, 
     workspaceId?: string,
+    orgId?: string | null,
     overallStats: any,
     getGradientColors: (score: number | null) => { start: string; end: string },
     trends: Record<string, { direction: 'up' | 'down' | 'stable', change: number }>
@@ -205,10 +207,10 @@ const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradi
                 </Card>
                 
                 {/* Occupancy Card */}
-                <OccupancyCard workspaceId={workspaceId} dailyEntry={dailyEntry} onTrendsClick={onOccupancyTrendsClick} />
+                <OccupancyCard workspaceId={workspaceId} orgId={orgId} dailyEntry={dailyEntry} onTrendsClick={onOccupancyTrendsClick} />
                 
                 {/* Staffing Card */}
-                <StaffingCard workspaceId={workspaceId} dailyEntry={dailyEntry} onTeamsClick={onStaffingTeamsClick} onTrendsClick={onStaffingTrendsClick} />
+                <StaffingCard workspaceId={workspaceId} orgId={orgId} dailyEntry={dailyEntry} onTeamsClick={onStaffingTeamsClick} onTrendsClick={onStaffingTrendsClick} />
                 
                 {/* Overall Score Card */}
                 <Card className="group relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-emerald-500 to-green-600 hover:shadow-xl text-white transition-all duration-300 cursor-pointer" onClick={onComplianceOverviewClick}>
@@ -352,7 +354,7 @@ const QuickActions = ({ documents, onSelect, workspaceId, overallStats, getGradi
 
 type OccupancyData = { totalBeds: number; occupiedBeds: number };
 
-function OccupancyCard({ workspaceId, dailyEntry, onTrendsClick }: { workspaceId?: string, dailyEntry?: any, onTrendsClick?: () => void }) {
+function OccupancyCard({ workspaceId, orgId, dailyEntry, onTrendsClick }: { workspaceId?: string, orgId?: string | null, dailyEntry?: any, onTrendsClick?: () => void }) {
     const [totalBeds, setTotalBeds] = useState<number | null>(null);
     const [occupiedBeds, setOccupiedBeds] = useState<number | null>(null);
     const [loading, setLoading] = useState(false);
@@ -402,9 +404,11 @@ function OccupancyCard({ workspaceId, dailyEntry, onTrendsClick }: { workspaceId
             console.warn('Failed to attach care-homes listener, falling back to workspace settings', e);
         }
 
-        // Always listen to workspace settings occupancy as a fallback
+        // Always listen to workspace settings occupancy as a fallback (organisation-aware)
         try {
-            const ref = doc(db, `workspaces/${workspaceId}/settings`, 'occupancy');
+            const settingsCol = workspaceCollectionPath(workspaceId, 'settings', orgId || null);
+            const settingsColRef = collection(db, settingsCol);
+            const ref = doc(settingsColRef, 'occupancy');
             unsubSettings = onSnapshot(ref, (snap) => {
                 if (snap.exists()) {
                         const data = snap.data() as OccupancyData;
@@ -506,8 +510,10 @@ function OccupancyCard({ workspaceId, dailyEntry, onTrendsClick }: { workspaceId
         }
         setSaving(true);
         try {
-            // Save to workspace settings
-            const settingsRef = doc(db, `workspaces/${workspaceId}/settings`, 'occupancy');
+            // Save to workspace settings (organisation-aware)
+            const settingsCol = workspaceCollectionPath(workspaceId, 'settings', orgId || null);
+            const settingsColRef = collection(db, settingsCol);
+            const settingsRef = doc(settingsColRef, 'occupancy');
             await setDoc(settingsRef, {
                 totalBeds: beds,
                 occupiedBeds: occupiedBeds || 0,
@@ -924,7 +930,7 @@ function ResidentCareCard({ workspaceId }: { workspaceId?: string }) {
     );
 }
 
-function StaffingCard({ workspaceId, dailyEntry, onTeamsClick, onTrendsClick }: { workspaceId?: string, dailyEntry?: any, onTeamsClick?: () => void, onTrendsClick?: () => void }) {
+function StaffingCard({ workspaceId, orgId, dailyEntry, onTeamsClick, onTrendsClick }: { workspaceId?: string, orgId?: string | null, dailyEntry?: any, onTeamsClick?: () => void, onTrendsClick?: () => void }) {
     const [staffingData, setStaffingData] = useState<{ day: string; night: string; lastUpdated?: string } | null>(null);
     const [loading, setLoading] = useState(false);
     const [editing, setEditing] = useState(false);
@@ -940,7 +946,7 @@ function StaffingCard({ workspaceId, dailyEntry, onTeamsClick, onTrendsClick }: 
         if (!workspaceId) return;
         setLoading(true);
         try {
-            const colRef = collection(db, `workspaces/${workspaceId}/daily-checkins`);
+            const colRef = collection(db, workspaceCollectionPath(workspaceId, 'daily-checkins', orgId || null));
             const q = fsQuery(colRef, orderBy('createdAt', 'desc'), limit(1));
             const unsub = onSnapshot(q, (snap) => {
                 if (!snap.empty) {
@@ -1002,7 +1008,7 @@ function StaffingCard({ workspaceId, dailyEntry, onTeamsClick, onTrendsClick }: 
             // Save as a new daily check-in for today
             const now = new Date();
             const dateKey = now.toISOString().split('T')[0]; // YYYY-MM-DD
-            const colRef = collection(db, `workspaces/${workspaceId}/daily-checkins`);
+            const colRef = collection(db, workspaceCollectionPath(workspaceId, 'daily-checkins', orgId || null));
             // Use dateKey as doc id to avoid multiple for same day
             const docRef = doc(colRef, dateKey);
             await setDoc(docRef, {
@@ -1284,8 +1290,9 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
             });
         }
 
-        // Subscribe to audit latest scores
-        const ref = doc(db, `workspaces/${workspace.id}/settings`, 'audit_latest_scores');
+    // Subscribe to audit latest scores (organisation-aware)
+    const settingsCol = workspaceCollectionPath(workspace.id, 'settings', (workspace as any)?.organisationId || null);
+    const ref = doc(db, settingsCol, 'audit_latest_scores');
         const unsubAudit = onSnapshot(ref, (snap) => {
             if (snap.exists()) {
                 const data = snap.data() as any;
@@ -1562,7 +1569,7 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
     useEffect(() => {
         if (!workspace?.id) return;
         try {
-            const colRef = collection(db, `workspaces/${workspace.id}/daily-checkins`);
+            const colRef = collection(db, workspaceCollectionPath(workspace.id, 'daily-checkins', (workspace as any)?.organisationId || null));
             const q = fsQuery(colRef, orderBy('createdAt', 'desc'), limit(1));
             const unsub = onSnapshot(q, (snap) => {
                 if (!snap.empty) {
@@ -1716,6 +1723,7 @@ const navigateToAuditForm = (auditKey: string) => {
                             documents={documents}
                             onSelect={onSelect}
                             workspaceId={workspace.id}
+                            orgId={(workspace as any)?.organisationId || null}
                             overallStats={overallStats}
                             getGradientColors={getGradientColors}
                             trends={trends}
@@ -1914,6 +1922,7 @@ const navigateToAuditForm = (auditKey: string) => {
                 isOpen={isComplianceModalOpen}
                 onClose={() => setIsComplianceModalOpen(false)}
                 workspaceId={workspace.id}
+                organisationId={(workspace as any)?.organisationId || null}
             />
         </div>
     );

@@ -20,6 +20,7 @@ import { db } from "@/lib/firebase";
 import { doc, getDoc, setDoc, updateDoc, collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
 import { useAuth } from "@/hooks/use-auth";
 import { useWorkspace } from "@/context/workspace";
+import { workspaceCollectionPath } from '@/lib/paths';
 import { generateAppraisalPDF, generateAppraisalPDFWithLogo, getAppraisalPDFFilename } from '@/lib/appraisal-pdf-generator';
 
 // Mapping of tracker roles to their appraisals
@@ -79,8 +80,9 @@ export default function AppraisalsPage() {
       if (!user?.id || !workspace?.id) return;
 
       try {
-        const docRef = doc(db, `workspaces/${workspace.id}/appraisal-tracker`, user.id);
-        const docSnap = await getDoc(docRef);
+  const trackerCol = collection(db, workspaceCollectionPath(workspace.id, 'appraisal-tracker', workspace.organisationId));
+  const docRef = doc(trackerCol, user.id);
+  const docSnap = await getDoc(docRef);
 
         if (docSnap.exists()) {
           const data = docSnap.data();
@@ -212,7 +214,8 @@ export default function AppraisalsPage() {
     }
 
     // Save to Firebase asynchronously without blocking
-    const docRef = doc(db, `workspaces/${workspace.id}/appraisal-tracker`, user.id);
+  const trackerCol = collection(db, workspaceCollectionPath(workspace.id, 'appraisal-tracker', workspace.organisationId));
+  const docRef = doc(trackerCol, user.id);
     const updateData: any = {
       completionStatus: newStatus,
       updatedAt: new Date(),
@@ -731,7 +734,7 @@ export default function AppraisalsPage() {
       const collectionName = getCollectionName(appraisal);
 
       const q = query(
-        collection(db, `workspaces/${workspace.id}/${collectionName}`),
+        collection(db, workspaceCollectionPath(workspace.id, collectionName, workspace.organisationId)),
         where('userId', '==', user.id),
         orderBy('createdAt', 'desc'),
         limit(10)

@@ -60,33 +60,51 @@ export async function chatWithDocuments(input: ChatWithDocumentsInput): Promise<
       const admin = require('@/lib/firebase-admin').default;
       const db = admin.firestore();
 
-      // Try global published_policies first if documentId is provided
+      // Try to read an organisation-scoped policy document (organisations/{orgId}/policies/{documentId})
       if (input.documentId) {
         try {
-          const doc = await db.collection('published_policies').doc(input.documentId).get();
-          if (doc.exists) {
-            const data = doc.data();
-            if (data) {
-              input.documentJson = JSON.stringify(data.extractedJson || { content: data.content || '' });
+          // If we have a workspaceId, try to derive orgId from legacy workspace doc first
+          let orgId: string | undefined = undefined;
+          if (input.workspaceId) {
+            try {
+              const wsSnap = await db.collection('workspaces').doc(input.workspaceId).get();
+              orgId = wsSnap.exists ? (wsSnap.data() as any)?.organisationId : undefined;
+            } catch (e) {
+              // ignore
             }
           }
-        } catch (e) {
-          console.warn('Failed to read published_policies document:', e);
-        }
-      }
 
-      // If not found in global, try workspace-scoped document
-      if ((!input.documentJson || input.documentJson.trim().length === 0) && input.workspaceId && input.documentId) {
-        try {
-          const doc = await db.collection('workspaces').doc(input.workspaceId).collection('policies').doc(input.documentId).get();
-          if (doc.exists) {
-            const data = doc.data();
-            if (data) {
-              input.documentJson = JSON.stringify(data.extractedJson || { content: data.content || '' });
+          // If orgId is known, try direct org-scoped path
+          if (orgId) {
+            try {
+              const doc = await db.doc(`organisations/${orgId}/policies/${input.documentId}`).get();
+              if (doc.exists) {
+                const data = doc.data();
+                if (data) input.documentJson = JSON.stringify(data.extractedJson || { content: data.content || '' });
+              }
+            } catch (e) {
+              console.warn('Failed to read org-scoped policy document:', e);
+            }
+          }
+
+          // If still not found, try collectionGroup lookup across organisations/*/policies
+          if ((!input.documentJson || input.documentJson.trim().length === 0)) {
+            try {
+              // eslint-disable-next-line @typescript-eslint/no-var-requires
+              const admin = require('@/lib/firebase-admin').default;
+              const FieldPath = admin.firestore.FieldPath;
+              // collectionGroup query by document id requires reading all candidates and filtering by id
+              const cgSnap = await db.collectionGroup('policies').where('id', '==', input.documentId).limit(1).get();
+              if (!cgSnap.empty) {
+                const data = cgSnap.docs[0].data();
+                if (data) input.documentJson = JSON.stringify(data.extractedJson || { content: data.content || '' });
+              }
+            } catch (e) {
+              console.warn('Failed to read collectionGroup polices document:', e);
             }
           }
         } catch (e) {
-          console.warn('Failed to read workspace-scoped policy document:', e);
+          console.warn('Failed to lookup policy document by id:', e);
         }
       }
     } catch (e) {

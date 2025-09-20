@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CheckCircle, AlertCircle, Clock, FileCheck, ChevronDown, ChevronRight, Users, Timer } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
+import { workspaceCollectionPath, workspaceDocPath } from '@/lib/paths';
 import { generateActionPlanPDF, getActionPlanPDFFilename, ActionPlanPDFData } from '@/lib/action-plan-pdf-generator';
 import { db } from '@/lib/firebase';
 import { finalizeActionPlan } from '@/actions/action-plans';
@@ -100,7 +101,7 @@ export default function ActionPlansPage() {
     setLoadingTeams(true);
     try {
       // Load teams
-      const teamsCollection = collection(db, `workspaces/${activeWorkspace.id}/teams`);
+  const teamsCollection = collection(db, workspaceCollectionPath(activeWorkspace.id, 'teams', (activeWorkspace as any).organisationId));
       const teamsSnapshot = await getDocs(teamsCollection);
       const teamsData = teamsSnapshot.docs.map(doc => ({
         id: doc.id,
@@ -110,8 +111,8 @@ export default function ActionPlansPage() {
       setTeams(teamsData);
 
       // Load staff data from workspace
-      const workspaceRef = doc(db, 'workspaces', activeWorkspace.id);
-      const workspaceSnap = await getDoc(workspaceRef);
+  const workspaceRef = doc(db, workspaceDocPath(activeWorkspace.id, undefined, (activeWorkspace as any).organisationId));
+  const workspaceSnap = await getDoc(workspaceRef);
       
       if (workspaceSnap.exists()) {
         const data = workspaceSnap.data();

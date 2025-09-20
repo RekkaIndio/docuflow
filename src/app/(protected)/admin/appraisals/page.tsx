@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { FileText, User, Calendar, Target, Award, TrendingUp, Heart, CheckCircle } from "lucide-react";
 import ManagerSearchSelect from "@/components/admin/manager-search-select";
+import { useAdminWorkspaces } from '@/context/admin-workspaces';
 import Link from "next/link";
 
 interface Manager {
@@ -23,6 +24,8 @@ interface Manager {
 }
 
 export default function AppraisalsPage() {
+  const adminWorkspaces = useAdminWorkspaces();
+  const defaultAdminWorkspace = adminWorkspaces && adminWorkspaces.length > 0 ? adminWorkspaces[0] : null;
   const [selectedManager, setSelectedManager] = useState<Manager | null>(null);
   const [role, setRole] = useState("");
   const [appraiser, setAppraiser] = useState("");
@@ -195,6 +198,8 @@ export default function AppraisalsPage() {
                 <Label htmlFor="employee-name">Employee Name</Label>
                 <ManagerSearchSelect
                   value={selectedManager?.name || ""}
+                  workspaceId={defaultAdminWorkspace?.id}
+                  organisationId={defaultAdminWorkspace?.organisationId}
                   onChange={(manager) => {
                     setSelectedManager(manager);
                     if (manager) {

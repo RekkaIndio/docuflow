@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
+import { workspaceDocPath } from "@/lib/paths";
 import { useAuth } from "@/hooks/use-auth";
 import Link from "next/link";
 
@@ -97,7 +98,10 @@ export default function AuditHistoryPage() {
       if (!user?.id) return;
 
       try {
-        const docRef = doc(db, "appraisal-tracker", user.id);
+        const docRef = (user as any)?.workspaceId
+          ? doc(db, workspaceDocPath((user as any).workspaceId, `appraisal-tracker/${user.id}`, (user as any).organisationId))
+          : doc(db, "appraisal-tracker", user.id);
+
         const docSnap = await getDoc(docRef);
 
         if (docSnap.exists()) {

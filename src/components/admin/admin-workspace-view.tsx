@@ -8,6 +8,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { TeamsView } from '@/components/dashboard/teams-view';
 import { collection, query as fsQuery, orderBy, limit, onSnapshot, where, doc, updateDoc, arrayUnion, arrayRemove, getDoc, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { workspaceCollectionPath, workspaceDocPath } from '@/lib/paths';
 import { Folder as FolderIcon, FileText, FileSpreadsheet, FileX2, Home, ChevronRight, ArrowLeft, PlusSquare, Users, Tag, Clock, TrendingUp, Activity, Shield, CheckCircle, AlertTriangle, Calendar, Zap, UserCheck, Phone, Mail, Plus, Trash2, Edit, Save, X, BarChart2 } from 'lucide-react';
 // AdminDependencyTable and OccupancyPie were removed as they're not used in this view
 import StatsView from '@/components/admin/admin-stats-view';
@@ -282,7 +283,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
     setStaffingLoading(true);
     
     try {
-      const colRef = collection(db, `workspaces/${workspace.id}/daily-checkins`);
+      const colRef = collection(db, workspaceCollectionPath(workspace.id, 'daily-checkins', (workspace as any).organisationId));
       
       // Calculate date range based on timeframe
       let startDate = new Date();
@@ -365,7 +366,8 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
     setDependencyLoading(true);
 
     try {
-      const depRef = doc(db, 'workspaces', workspace.id, 'dependency_calculator', 'default');
+      const depCol = collection(db, workspaceCollectionPath(workspace.id, 'dependency_calculator', (workspace as any).organisationId));
+      const depRef = doc(depCol, 'default');
       const unsub = onSnapshot(depRef, (snap) => {
         if (snap.exists()) {
           const data = snap.data() as any;
@@ -395,7 +397,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
     let unsub: (() => void) | undefined;
     (async () => {
       try {
-        const colRef = collection(db, `workspaces/${workspace.id}/daily-checkins`);
+  const colRef = collection(db, workspaceCollectionPath(workspace.id, 'daily-checkins', (workspace as any).organisationId));
         // we'll do a one-time getDocs to compute aggregates for last 30 days
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -441,7 +443,8 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
         setAggregateInfectionData({ totalInfections, uti, chest, wound, workspacesWithData: totalInfections > 0 ? 1 : 0 });
 
         // Also listen for audit_latest_scores doc in workspace settings for compliance info
-        const auditRef = doc(db, `workspaces/${workspace.id}/settings`, 'audit_latest_scores');
+  const settingsCol = collection(db, workspaceCollectionPath(workspace.id, 'settings', (workspace as any).organisationId));
+  const auditRef = doc(settingsCol, 'audit_latest_scores');
         unsub = onSnapshot(auditRef, (snap) => {
           if (snap.exists()) {
             const data = snap.data() as any;
@@ -485,8 +488,8 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
       setManagersError(null);
       
       try {
-        const workspaceRef = doc(db, 'workspaces', workspace.id);
-        const workspaceSnap = await getDoc(workspaceRef);
+  const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId));
+  const workspaceSnap = await getDoc(workspaceRef);
         
         if (workspaceSnap.exists()) {
           const data = workspaceSnap.data();
@@ -513,8 +516,8 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
       setNursesError(null);
       
       try {
-        const workspaceRef = doc(db, 'workspaces', workspace.id);
-        const workspaceSnap = await getDoc(workspaceRef);
+  const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId));
+  const workspaceSnap = await getDoc(workspaceRef);
         
         if (workspaceSnap.exists()) {
           const data = workspaceSnap.data();
@@ -541,8 +544,8 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
       setCTMsError(null);
       
       try {
-        const workspaceRef = doc(db, 'workspaces', workspace.id);
-        const workspaceSnap = await getDoc(workspaceRef);
+  const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId));
+  const workspaceSnap = await getDoc(workspaceRef);
         
         if (workspaceSnap.exists()) {
           const data = workspaceSnap.data();
@@ -569,8 +572,8 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
       setDomesticsError(null);
       
       try {
-        const workspaceRef = doc(db, 'workspaces', workspace.id);
-        const workspaceSnap = await getDoc(workspaceRef);
+  const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId));
+  const workspaceSnap = await getDoc(workspaceRef);
         
         if (workspaceSnap.exists()) {
           const data = workspaceSnap.data();
@@ -677,7 +680,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
     if (!workspace?.id) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId));
       await updateDoc(workspaceRef, {
         managers: arrayUnion(manager)
       });
@@ -694,7 +697,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
     if (!workspace?.id) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId));
       await updateDoc(workspaceRef, {
         managers: arrayRemove(manager)
       });
@@ -711,7 +714,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
     if (!workspace?.id) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId));
       // Remove old and add new (atomic operation alternative)
       await updateDoc(workspaceRef, {
         managers: arrayRemove(oldManager)
@@ -732,7 +735,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
     if (!workspace?.id) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId));
       await updateDoc(workspaceRef, {
         nurses: arrayUnion(nurse)
       });
@@ -748,7 +751,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
     if (!workspace?.id) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId));
       await updateDoc(workspaceRef, {
         nurses: arrayRemove(nurse)
       });
@@ -764,7 +767,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
     if (!workspace?.id) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId));
       // Remove old and add new (atomic operation alternative)
       await updateDoc(workspaceRef, {
         nurses: arrayRemove(oldNurse)
@@ -784,7 +787,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
     if (!workspace?.id) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId));
       await updateDoc(workspaceRef, {
         ctms: arrayUnion(ctm)
       });
@@ -800,7 +803,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
     if (!workspace?.id) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId));
       await updateDoc(workspaceRef, {
         ctms: arrayRemove(ctm)
       });
@@ -816,7 +819,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
     if (!workspace?.id) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId));
       // Remove old and add new (atomic operation alternative)
       await updateDoc(workspaceRef, {
         ctms: arrayRemove(oldCTM)
@@ -836,7 +839,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
     if (!workspace?.id) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId));
       await updateDoc(workspaceRef, {
         domestics: arrayUnion(domestic)
       });
@@ -852,7 +855,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
     if (!workspace?.id) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId));
       await updateDoc(workspaceRef, {
         domestics: arrayRemove(domestic)
       });
@@ -868,7 +871,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
     if (!workspace?.id) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId));
       await updateDoc(workspaceRef, {
         domestics: arrayRemove(oldDomestic)
       });
@@ -887,7 +890,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
     if (!workspace?.id) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId));
       await updateDoc(workspaceRef, {
         maintenances: arrayUnion(maintenance)
       });
@@ -903,7 +906,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
     if (!workspace?.id) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId));
       await updateDoc(workspaceRef, {
         maintenances: arrayRemove(maintenance)
       });
@@ -919,7 +922,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
     if (!workspace?.id) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId));
       await updateDoc(workspaceRef, {
         maintenances: arrayRemove(oldMaintenance)
       });
@@ -938,7 +941,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
     if (!workspace?.id) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId));
       await updateDoc(workspaceRef, {
         kitchens: arrayUnion(kitchen)
       });
@@ -954,7 +957,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
     if (!workspace?.id) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId));
       await updateDoc(workspaceRef, {
         kitchens: arrayRemove(kitchen)
       });
@@ -970,7 +973,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
     if (!workspace?.id) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId));
       await updateDoc(workspaceRef, {
         kitchens: arrayRemove(oldKitchen)
       });
@@ -989,7 +992,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
     if (!workspace?.id) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId));
       await updateDoc(workspaceRef, {
         activities: arrayUnion(activity)
       });
@@ -1005,7 +1008,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
     if (!workspace?.id) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId));
       await updateDoc(workspaceRef, {
         activities: arrayRemove(activity)
       });
@@ -1021,7 +1024,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
     if (!workspace?.id) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId));
       await updateDoc(workspaceRef, {
         activities: arrayRemove(oldActivity)
       });

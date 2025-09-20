@@ -9,12 +9,14 @@ import { Progress } from '@/components/ui/progress';
 import { TrendingUp, TrendingDown, Minus, BarChart3, Calendar, CheckCircle, AlertCircle, Target, Award } from 'lucide-react';
 import { collection, query, orderBy, limit, onSnapshot, where, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { workspaceCollectionPath } from '@/lib/paths';
 import OccupancyPie from '@/components/admin/occupancy-pie';
 
 interface ComplianceOverviewModalProps {
   isOpen: boolean;
   onClose: () => void;
   workspaceId: string;
+  organisationId?: string | null;
 }
 
 interface AuditData {
@@ -35,7 +37,7 @@ interface ComplianceStats {
   change: number;
 }
 
-export function ComplianceOverviewModal({ isOpen, onClose, workspaceId }: ComplianceOverviewModalProps) {
+export function ComplianceOverviewModal({ isOpen, onClose, workspaceId, organisationId }: ComplianceOverviewModalProps) {
   const [auditData, setAuditData] = useState<Record<string, AuditData>>({});
   const [loading, setLoading] = useState(true);
   const [historicalData, setHistoricalData] = useState<any[]>([]);
@@ -45,8 +47,9 @@ export function ComplianceOverviewModal({ isOpen, onClose, workspaceId }: Compli
 
     setLoading(true);
 
-    // Listen to audit latest scores
-    const ref = doc(db, `workspaces/${workspaceId}/settings`, 'audit_latest_scores');
+  // Listen to audit latest scores (organisation-aware)
+  const settingsCol = workspaceCollectionPath(workspaceId, 'settings', organisationId || null);
+  const ref = doc(db, settingsCol, 'audit_latest_scores');
     const unsub = onSnapshot(ref, (snap) => {
       if (snap.exists()) {
         const data = snap.data() as any;

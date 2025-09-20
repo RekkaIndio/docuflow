@@ -8,9 +8,11 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription }
 import { useToast } from "@/hooks/use-toast";
 import { format, startOfWeek, endOfWeek, addWeeks } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
+import { useWorkspace } from '@/context/workspace';
 
 export default function DailyPage({ workspaceId }: { workspaceId?: string }) {
   const { toast } = useToast();
+  const activeWorkspace = useWorkspace();
 
   const [occupancy, setOccupancy] = useState<string>("");
   const [staffDay, setStaffDay] = useState<string>("");
@@ -69,11 +71,12 @@ export default function DailyPage({ workspaceId }: { workspaceId?: string }) {
     try {
       const from = weekStart;
       const to = endOfWeek(weekStart, { weekStartsOn: 1 });
-      const { getDailyCheckinsInRange } = await import('@/lib/firestore');
+  const { getDailyCheckinsInRange } = await import('@/lib/firestore');
+  const orgId = activeWorkspace?.organisationId ?? null;
       // Firestore Timestamp.now() used when saving, so pass Timestamps here
       const fromTs = Timestamp.fromDate(from);
       const toTs = Timestamp.fromDate(to);
-      const items = await getDailyCheckinsInRange(workspaceId, fromTs, toTs);
+  const items = await getDailyCheckinsInRange(workspaceId, fromTs, toTs, orgId);
       // We keep only one checkin per week: use the most recent (or first) as the canonical entry
       const latest = (items && items.length > 0) ? items[items.length - 1] : null;
       setCurrentEntry(latest);
@@ -173,8 +176,9 @@ export default function DailyPage({ workspaceId }: { workspaceId?: string }) {
     if (!workspaceId) return;
     if (!confirm('Delete this check-in? This cannot be undone.')) return;
     try {
-      const { deleteDailyCheckin } = await import('@/lib/firestore');
-      await deleteDailyCheckin(workspaceId, entryId);
+  const { deleteDailyCheckin } = await import('@/lib/firestore');
+  const orgId = activeWorkspace?.organisationId ?? null;
+  await deleteDailyCheckin(workspaceId, entryId, orgId);
       toast({ title: 'Deleted', description: 'Check-in removed.' });
       // reload week
       await loadWeek(selectedWeekStart);
@@ -218,14 +222,15 @@ export default function DailyPage({ workspaceId }: { workspaceId?: string }) {
       setIsSaving(true);
       // Always upsert a single weekly entry. If editingId exists, update it.
       const { updateDailyCheckin, saveDailyCheckin } = await import('@/lib/firestore');
+      const orgId = activeWorkspace?.organisationId ?? null;
       if (editingId) {
-        await updateDailyCheckin(workspaceId, editingId, payload);
+        await updateDailyCheckin(workspaceId, editingId, payload, orgId);
         toast({ title: 'Updated', description: 'Check-in updated.' });
       } else if (currentEntry && currentEntry.id) {
-        await updateDailyCheckin(workspaceId, currentEntry.id, payload);
+        await updateDailyCheckin(workspaceId, currentEntry.id, payload, orgId);
         toast({ title: 'Updated', description: 'Check-in updated.' });
       } else {
-        const saved = await saveDailyCheckin(workspaceId, payload);
+        const saved = await saveDailyCheckin(workspaceId, payload, orgId);
         // saveDailyCheckin currently returns the created document id (string).
         // Handle both possible shapes (string id or object with .id) defensively.
   const newId = typeof saved === 'string' ? saved : ((saved as any)?.id ?? null);

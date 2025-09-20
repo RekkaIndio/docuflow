@@ -1,60 +1,170 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper function to check if user is admin
+    // Helper: is platform admin (based on top-level users/{uid}.role or org users/{uid}.role)
     function isAdmin() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin'
+          || (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.organisationId != null
+            && exists(/databases/$(database)/documents/organisations/$(get(/databases/$(database)/documents/users/$(request.auth.uid)).data.organisationId)/users/$(request.auth.uid))
+            && get(/databases/$(database)/documents/organisations/$(get(/databases/$(database)/documents/users/$(request.auth.uid)).data.organisationId)/users/$(request.auth.uid)).data.role == 'Admin'
+          )
+        );
+    }
+
+    // Helper: user's organisationId (reads top-level users/{uid}.organisationId)
+    function getUserOrganisationId() {
+      return request.auth != null && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.organisationId
+        : null;
+    }
+
+    // Helper: is member of an organisation (checks organisations/{orgId}/users/{uid} or top-level users.organisationId)
+    function isOrgMember(orgId) {
       return request.auth != null && (
-        // Check if user has admin role in their user document
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin'
+        // Explicit membership under organisations document
+        exists(/databases/$(database)/documents/organisations/$(orgId)/users/$(request.auth.uid))
+        // Or top-level users doc has organisationId set (for compatibility)
+        || (exists(/databases/$(database)/documents/users/$(request.auth.uid))
+            && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.organisationId == orgId)
       );
     }
-    
-    // Allow users to read/write their own user document
+
+    // Top-level users: only a user may read/write their own top-level user doc; admins can read all.
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
-      // Allow admins to read all user documents
       allow read: if isAdmin();
     }
-    
-    // Allow authenticated users to read/write teams
-    match /teams/{teamId} {
-      allow read, write: if request.auth != null;
-    }
-    
-    // Allow users to read/write workspaces where they are members OR if they are admin
-    match /workspaces/{workspaceId} {
-      allow read, write: if request.auth != null && 
-        (request.auth.uid in resource.data.members || 
-         request.auth.uid == resource.data.ownerId ||
-         isAdmin());
-      allow create: if request.auth != null;
-      // Allow admins to list all workspaces (for admin dashboard)
+
+    // Organisations collection: allow listing for admins
+    match /organisations {
       allow list: if isAdmin();
-      
-      // Nested collections within workspaces
-      match /{collection=**} {
-        allow read, write: if request.auth != null && 
-          (request.auth.uid in get(/databases/$(database)/documents/workspaces/$(workspaceId)).data.members ||
-           request.auth.uid == get(/databases/$(database)/documents/workspaces/$(workspaceId)).data.ownerId ||
-           isAdmin());
+    }
+
+    // Organisations: nested collections (published_policies, teams, users, workspaces) are scoped by org membership.
+    match /organisations/{orgId} {
+      // Organisation meta doc: org members or admins may read; org owner or admins may update/delete.
+      // Creation is allowed by the authenticated user if they are the owner in the request payload.
+      allow read: if isOrgMember(orgId) || isAdmin() || (
+        request.auth != null
+        && exists(/databases/$(database)/documents/organisations/$(orgId))
+        && get(/databases/$(database)/documents/organisations/$(orgId)).data.ownerId == request.auth.uid
+      );
+      allow create: if isAdmin() || (
+        request.auth != null && request.resource.data.ownerId == request.auth.uid
+      );
+      allow update, delete: if isAdmin() || (
+        request.auth != null
+        && exists(/databases/$(database)/documents/organisations/$(orgId))
+        && get(/databases/$(database)/documents/organisations/$(orgId)).data.ownerId == request.auth.uid
+      );
+
+      // Allow creating the initial organisation user record as the signed-in user.
+      match /users/{userId} {
+        // Allow the user themselves to create their organisation user record during signup.
+        allow create: if request.auth != null && request.auth.uid == userId;
+        // After creation, org members or admins may read/write; owner may read/write their own record.
+        allow read, write: if isOrgMember(orgId) || isAdmin() || (request.auth != null && request.auth.uid == userId);
+      }
+
+      // Allow creating a workspace under the organisation by the workspace owner (signup flow mirrors workspace)
+      match /workspaces/{workspaceId} {
+        allow create: if request.auth != null && (request.auth.uid == request.resource.data.ownerId || isAdmin());
+        allow read, write: if isOrgMember(orgId) || isAdmin();
+        allow list: if isOrgMember(orgId) || isAdmin();
+
+        match /{collection=**} {
+          allow read, write: if isOrgMember(orgId) || isAdmin();
+        }
+      }
+
+      // Generic nested collections under organisations/{orgId} (fallback) — require org membership or admin
+      match /{subCollection}/{docId=**} {
+        allow read, write: if isOrgMember(orgId) || isAdmin();
       }
     }
-    
-    // Allow authenticated users to read/write care-homes (for admin functions)
+
+    // Top-level workspaces: keep backward compatibility but tighten access.
+    // Allow read/write if the user is listed as a member/owner on the workspace OR is an admin.
+    // Creation must include organisationId matching the creator's org (if present).
+    match /workspaces/{workspaceId} {
+      allow create: if request.auth != null
+        && (getUserOrganisationId() == null || request.resource.data.organisationId == getUserOrganisationId()) ;
+
+      allow read, write: if request.auth != null && (
+        isAdmin()
+        || (resource.data.ownerId == request.auth.uid)
+        || (resource.data.members is list && request.auth.uid in resource.data.members)
+      );
+
+      // Lists at the top-level should be restricted to admins only (prevent listing all workspaces)
+      allow list: if isAdmin();
+
+      // Nested collections inside a top-level workspace are allowed if the requester has access to the workspace
+      match /folders/{folderId} {
+        allow create, write: if request.auth != null && (
+          isAdmin()
+          || (get(/databases/$(database)/documents/workspaces/$(workspaceId)).data.ownerId == request.auth.uid)
+          || (get(/databases/$(database)/documents/workspaces/$(workspaceId)).data.members is list && request.auth.uid in get(/databases/$(database)/documents/workspaces/$(workspaceId)).data.members)
+        );
+        allow read: if request.auth != null && (
+          isAdmin()
+          || (get(/databases/$(database)/documents/workspaces/$(workspaceId)).data.ownerId == request.auth.uid)
+          || (get(/databases/$(database)/documents/workspaces/$(workspaceId)).data.members is list && request.auth.uid in get(/databases/$(database)/documents/workspaces/$(workspaceId)).data.members)
+        );
+      }
+      // Fallback for other nested collections
+      match /{collection=**} {
+        allow read, write: if request.auth != null && (
+          isAdmin()
+          || (get(/databases/$(database)/documents/workspaces/$(workspaceId)).data.ownerId == request.auth.uid)
+          || (get(/databases/$(database)/documents/workspaces/$(workspaceId)).data.members is list && request.auth.uid in get(/databases/$(database)/documents/workspaces/$(workspaceId)).data.members)
+        );
+      }
+    }
+
+    // Scoped workspaces under organisations - prefer these for new reads/writes
+    match /organisations/{orgId}/workspaces/{workspaceId} {
+      allow create: if isOrgMember(orgId) || isAdmin();
+      allow read, write: if isOrgMember(orgId) || isAdmin();
+      allow list: if isOrgMember(orgId) || isAdmin();
+
+      match /folders/{folderId} {
+        allow create, write: if isOrgMember(orgId) || isAdmin();
+        allow read: if isOrgMember(orgId) || isAdmin();
+      }
+      match /{collection=**} {
+        allow read, write: if isOrgMember(orgId) || isAdmin();
+      }
+    }
+
+    // Teams: require organisationId on the document and membership to access
+    match /teams/{teamId} {
+      allow create: if request.auth != null && request.resource.data.organisationId == getUserOrganisationId();
+      allow read, write: if request.auth != null && (
+        isAdmin()
+        || (resource.data.organisationId == getUserOrganisationId())
+      );
+    }
+
+    // Care-homes and audits: require organisation scoping on documents
     match /care-homes/{careHomeId} {
-      allow read, write: if request.auth != null;
+      allow create: if request.auth != null && request.resource.data.organisationId == getUserOrganisationId();
+      allow read, write: if request.auth != null && (
+        isAdmin() || (resource.data.organisationId == getUserOrganisationId())
+      );
     }
-    
-    // Allow authenticated users to read/write audits
+
     match /audits/{auditId} {
-      allow read, write: if request.auth != null;
+      allow create: if request.auth != null && request.resource.data.organisationId == getUserOrganisationId();
+      allow read, write: if request.auth != null && (
+        isAdmin() || (resource.data.organisationId == getUserOrganisationId())
+      );
     }
-    
-    // Allow authenticated users to read/write any other documents (fallback)
-    // But restrict to admins for sensitive operations
-    match /{document=**} {
-      allow read, write: if request.auth != null;
-    }
+
+    // NOTE: No permissive fallback rule - every collection must be explicitly allowed above.
   }
 }
