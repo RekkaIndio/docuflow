@@ -49,6 +49,24 @@ export default function LoginPage() {
     }
   };
 
+  const handleSendMagicLink = async () => {
+    if (!email) return toast({ title: 'Missing email', description: 'Please enter an email to send magic link.' });
+    setLoading(true);
+    try {
+      const resp = await fetch('/api/auth/send-magic-link', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+      const data = await resp.json();
+      if (data.ok) {
+        toast({ title: 'Magic link sent', description: `Check ${email} for a sign-in link.` });
+      } else {
+        toast({ variant: 'destructive', title: 'Failed', description: data.error || 'Failed to send magic link' });
+      }
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'Failed', description: e?.message || String(e) });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
@@ -104,6 +122,7 @@ export default function LoginPage() {
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Log In
           </Button>
+          <Button type="button" onClick={handleSendMagicLink} className="w-full mt-2" disabled={loading}>Send magic link</Button>
         </form>
          <div className="mt-4 text-center text-sm">
           Don't have an account?{' '}

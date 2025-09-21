@@ -45,7 +45,9 @@ async function fetchWorkspaceStructure(workspaceRefPath: string) {
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   try {
-    const userId = params.id;
+  // Next.js requires awaiting `params` in dynamic API routes to avoid sync access
+  // (see: https://nextjs.org/docs/messages/sync-dynamic-apis)
+  const userId = (await params).id;
     const url = new URL(req.url);
     const orgId = url.searchParams.get('orgId') || undefined;
 

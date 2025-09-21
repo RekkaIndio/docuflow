@@ -323,6 +323,32 @@ export async function getWorkspacesForUser(userId: string, orgIdOverride?: strin
             console.debug('getWorkspacesForUser: admin fetch failed', adminErr);
         }
 
+        // If the user-specific endpoint returned no workspaces, attempt a conservative
+        // org-scoped admin listing as a fallback. This helps in dev environments where
+        // the user-workspaces route might not include expected entries due to timing
+        // or differences in membership records. We filter results to only include
+        // workspaces where the user is a member or owner before returning.
+        if (orgId) {
+            try {
+                const resp2 = await fetch(`/api/admin/workspaces?orgId=${encodeURIComponent(orgId)}`);
+                if (resp2.ok) {
+                    const data2 = await resp2.json();
+                    if (data2 && Array.isArray(data2.workspaces)) {
+                        console.debug('getWorkspacesForUser: admin org listing returned', data2.workspaces.length, 'workspaces');
+                        const filtered = data2.workspaces.filter((w: any) => {
+                            const members = Array.isArray(w.members) ? w.members : [];
+                            return members.includes(userId) || w.ownerId === userId;
+                        }).map((w: any) => ({ id: w.id, name: w.name, ownerId: w.ownerId, members: w.members || [], organisationId: w.organisationId || null, folders: w.folders || [] }));
+                        if (filtered.length > 0) return filtered;
+                    }
+                } else {
+                    console.debug('getWorkspacesForUser: admin org listing returned', resp2.status);
+                }
+            } catch (e) {
+                console.debug('getWorkspacesForUser: admin org listing failed', e);
+            }
+        }
+
         // If server fetch fails, return empty list; client-side direct queries were removed to avoid
         // leaking privileged access or relying on top-level legacy collections.
         return [];

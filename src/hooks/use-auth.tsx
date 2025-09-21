@@ -24,6 +24,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   signIn: (email: string, pass: string) => Promise<any>;
+  signInWithCustomToken?: (token: string) => Promise<any>;
   signUp: (email: string, pass: string, name: string) => Promise<any>;
   signOut: () => Promise<void>;
 }
@@ -79,6 +80,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return signInWithEmailAndPassword(auth, email, pass);
   };
 
+  const signInWithCustomToken = (token: string) => {
+    // Dynamically import to avoid SSR issues
+    const { signInWithCustomToken: firebaseSignInWithCustomToken } = require('firebase/auth');
+    return firebaseSignInWithCustomToken(auth, token);
+  };
+
   const signUp = async (email: string, pass: string, name: string) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
     const firebaseUser = userCredential.user;
@@ -120,6 +127,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     loading,
     signIn,
     signUp,
+    signInWithCustomToken,
     signOut,
   };
 

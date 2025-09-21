@@ -404,7 +404,20 @@ export default function AdminWorkspacesView() {
                     <Button 
                       size="sm" 
                       variant="default" 
-                      onClick={() => window.dispatchEvent(new CustomEvent('navigate-to-workspace', { detail: { workspaceId: ws.id, workspaceName: ws.name } }))}
+                      onClick={() => {
+                        try {
+                          if (typeof window !== 'undefined') {
+                            // Dispatch a direct admin-select-workspace event with the full workspace
+                            // so parent admin page can open it even if its local workspaces cache
+                            // is empty or out-of-sync.
+                            window.dispatchEvent(new CustomEvent('admin-select-workspace', { detail: { workspace: ws } }));
+                            // Also dispatch the legacy navigate-to-workspace event for other listeners
+                            window.dispatchEvent(new CustomEvent('navigate-to-workspace', { detail: { workspaceId: ws.id, workspaceName: ws.name } }));
+                          }
+                        } catch (e) {
+                          // best-effort
+                        }
+                      }}
                       className="bg-blue-600 hover:bg-blue-700 text-white border-none font-medium shadow-sm"
                     >
                       Open

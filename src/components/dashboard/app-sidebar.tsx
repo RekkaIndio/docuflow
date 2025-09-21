@@ -57,7 +57,7 @@ import { Loader2 } from "lucide-react";
 
 interface AppSidebarProps {
   workspaces: Workspace[];
-  activeWorkspace: Workspace;
+  activeWorkspace: Workspace | null;
   onWorkspaceChange: (workspaceId: string) => void;
   setView: React.Dispatch<React.SetStateAction<'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'dependency-calculator' | 'daily' | 'notifications' | 'audits' | 'policies' | 'stats' | 'action-plans' | 'appraisals'>>;
   onGoToFiles: () => void;
@@ -151,12 +151,12 @@ export function AppSidebar({
              <Button variant="ghost" className="w-full justify-between h-12 px-2">
                 <div className="flex items-center gap-2 overflow-hidden">
                     <Logo className="w-8 h-8 text-primary flex-shrink-0" />
-                    <div className="flex flex-col text-left overflow-hidden">
-                        <h2 className="text-md font-headline font-semibold truncate">
-                        {activeWorkspace.name}
-                        </h2>
-                        <p className="text-xs text-muted-foreground">Workspace</p>
-                    </div>
+          <div className="flex flex-col text-left overflow-hidden">
+            <h2 className="text-md font-headline font-semibold truncate">
+            {activeWorkspace ? activeWorkspace.name : 'No workspace selected'}
+            </h2>
+            <p className="text-xs text-muted-foreground">Workspace</p>
+          </div>
                 </div>
                 <ChevronsUpDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
             </Button>
@@ -167,7 +167,7 @@ export function AppSidebar({
               <DropdownMenuItem
                 key={ws.id}
                 onClick={() => handleNavigation(() => onWorkspaceChange(ws.id))}
-                disabled={ws.id === activeWorkspace.id}
+                disabled={activeWorkspace ? ws.id === activeWorkspace.id : false}
               >
                 {ws.name}
               </DropdownMenuItem>

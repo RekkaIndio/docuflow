@@ -40,6 +40,11 @@ type Props = {
 export default function DailyCheckinModal({ workspaceId, open: controlledOpen, onOpenChange, onEntryUpdate, trigger }: Props) {
   const [open, setOpen] = useState<boolean>(false);
   const activeWorkspace = useWorkspace();
+  // If the caller didn't pass a workspaceId (or passed empty string), prefer the
+  // workspace from context so saving/loading still works when the parent
+  // doesn't have a stable id at mount time.
+  const effectiveWorkspaceId = workspaceId || (activeWorkspace as any)?.id || '';
+  const effectiveOrgId = (activeWorkspace as any)?.organisationId ?? null;
   useEffect(() => { if (typeof controlledOpen === 'boolean') setOpen(controlledOpen); }, [controlledOpen]);
   const todayKey = new Date().toISOString().split('T')[0];
 
@@ -150,14 +155,15 @@ export default function DailyCheckinModal({ workspaceId, open: controlledOpen, o
   };
 
   useEffect(() => {
-    if (!workspaceId) return;
+    if (!effectiveWorkspaceId) return;
     let mounted = true;
     (async () => {
       setLoading(true);
       try {
-  const orgId = (activeWorkspace as any)?.organisationId ?? null;
-  const docRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'daily-checkins', orgId || null)), todayKey);
-        const snap = await getDoc(docRef);
+  const orgId = effectiveOrgId;
+  const docRef = doc(collection(db, workspaceCollectionPath(effectiveWorkspaceId, 'daily-checkins', orgId || null)), todayKey);
+    console.debug('[DailyCheckinModal] loading from', workspaceCollectionPath(effectiveWorkspaceId, 'daily-checkins', orgId || null), todayKey);
+    const snap = await getDoc(docRef);
         if (!mounted) return;
         if (snap.exists()) {
           const d = snap.data() as any;
@@ -204,18 +210,21 @@ export default function DailyCheckinModal({ workspaceId, open: controlledOpen, o
       }
     })();
     return () => { mounted = false; };
-  }, [workspaceId, todayKey]);
+  }, [workspaceId, todayKey, (activeWorkspace as any)?.id]);
 
   const save = async () => {
-    if (!workspaceId) return;
+    // Require an effective workspace id (either prop or context)
+    if (!effectiveWorkspaceId) return;
     // Re-validate everything before saving
     if (!validateOccupancy(occupancy)) return;
     if (!validateStaffing(staffDay, staffNight)) return;
     setLoading(true);
     try {
       const now = new Date();
-  const orgId = (activeWorkspace as any)?.organisationId ?? null;
-  const docRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'daily-checkins', orgId || null)), todayKey);
+  const orgId = effectiveOrgId;
+  const collectionPath = workspaceCollectionPath(effectiveWorkspaceId, 'daily-checkins', orgId || null);
+  console.debug('[DailyCheckinModal] saving to', collectionPath, todayKey);
+  const docRef = doc(collection(db, collectionPath), todayKey);
       const fallsPayload: any = { count: fallsCount, injuries: fallsInjuries, witnessed: fallsWitnessed, time: fallsTime };
       if (fallsEntries && fallsEntries.length > 0) fallsPayload.entries = fallsEntries;
       const payload = {

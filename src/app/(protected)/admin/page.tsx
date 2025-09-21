@@ -167,8 +167,18 @@ export default function AdminPage() {
       }
     };
 
+    const handleAdminSelectWorkspace = (ev: any) => {
+      const detail = ev?.detail || {};
+      const ws = detail.workspace;
+      if (!ws) return;
+      // Open the passed workspace directly
+      setSelectedWorkspace(ws);
+      setAdminView('home');
+    };
+
     if (typeof window !== 'undefined') {
   window.addEventListener('navigate-to-workspace', handleNavigateToWorkspace as EventListener);
+  window.addEventListener('admin-select-workspace', handleAdminSelectWorkspace as EventListener);
       // Listen for centralized navigation events emitted by the AdminLayout so
       // the page can react (close selected workspace/document when navigating
       // back to dashboard, etc.). This keeps layout-driven router.push in
@@ -195,6 +205,7 @@ export default function AdminPage() {
       window.addEventListener('admin-set-view', handleAdminSetView as EventListener);
       return () => {
         window.removeEventListener('navigate-to-workspace', handleNavigateToWorkspace as EventListener);
+        window.removeEventListener('admin-select-workspace', handleAdminSelectWorkspace as EventListener);
         window.removeEventListener('admin-set-view', handleAdminSetView as EventListener);
       };
     }
