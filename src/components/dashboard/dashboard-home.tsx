@@ -570,7 +570,7 @@ function OccupancyCard({ workspaceId, orgId, dailyEntry, onTrendsClick }: { work
                                 <div className="text-xs text-indigo-200 font-medium">Occupied</div>
                             </div>
                             <div className="text-center p-2 bg-white/10 rounded-lg border border-white/20">
-                                {editing ? (
+                                    {editing ? (
                                     <input
                                         type="number"
                                         className="w-12 border border-white/30 rounded px-1 py-0.5 text-center text-sm font-bold text-white bg-white/10 placeholder-white/50"
@@ -579,6 +579,12 @@ function OccupancyCard({ workspaceId, orgId, dailyEntry, onTrendsClick }: { work
                                         min={0}
                                         disabled={saving}
                                         placeholder="0"
+                                        // Prevent clicks/arrow interactions from bubbling to parent Card which opens modals
+                                        onMouseDown={(e) => e.stopPropagation()}
+                                        onClick={(e) => e.stopPropagation()}
+                                        onFocus={(e) => e.stopPropagation()}
+                                        onKeyDown={(e) => e.stopPropagation()}
+                                        onWheel={(e) => e.stopPropagation()}
                                     />
                                 ) : (
                                     <div className="text-lg font-bold text-white">{displayTotal !== null ? displayTotal : (totalBeds !== null ? totalBeds : '—')}</div>
@@ -1105,6 +1111,12 @@ function StaffingCard({ workspaceId, orgId, dailyEntry, onTeamsClick, onTrendsCl
                                             min={0}
                                             disabled={saving}
                                             placeholder="0"
+                                            // Prevent input interactions from bubbling and reopening modals
+                                            onMouseDown={(e) => e.stopPropagation()}
+                                            onClick={(e) => e.stopPropagation()}
+                                            onFocus={(e) => e.stopPropagation()}
+                                            onKeyDown={(e) => e.stopPropagation()}
+                                            onWheel={(e) => e.stopPropagation()}
                                         />
                                     ) : (
                                         <div className="text-lg font-bold text-white">{staffingData?.day ?? '0'}</div>
@@ -1122,6 +1134,12 @@ function StaffingCard({ workspaceId, orgId, dailyEntry, onTeamsClick, onTrendsCl
                                             min={0}
                                             disabled={saving}
                                             placeholder="0"
+                                            // Prevent input interactions from bubbling and reopening modals
+                                            onMouseDown={(e) => e.stopPropagation()}
+                                            onClick={(e) => e.stopPropagation()}
+                                            onFocus={(e) => e.stopPropagation()}
+                                            onKeyDown={(e) => e.stopPropagation()}
+                                            onWheel={(e) => e.stopPropagation()}
                                         />
                                     ) : (
                                         <div className="text-lg font-bold text-white">{staffingData?.night ?? '0'}</div>
@@ -1181,20 +1199,23 @@ function getAllItems(items: (Document | FolderType)[]): { documents: Document[],
 }
 
 interface DashboardHomeProps {
-    workspace: Workspace;
+    workspace?: Workspace | null;
     onSelect: (item: Document | FolderType) => void;
     onDocumentAdd: (document: Document) => void;
     onFolderAdd: (folder: FolderType) => void;
 }
 
 export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd }: DashboardHomeProps) {
+    // Allow rendering the dashboard even when `workspace` is temporarily null.
+    // Use safe fallbacks for folders/ids so children render and subscribe when the
+    // workspace becomes available.
     const isMobile = useIsMobile();
     const { user } = useAuth();
 
     // Header logo (follows same logic as TopNav: prefer user's profilePicture, then uploadedLogo, with workspace fallback)
     const [headerLogo, setHeaderLogo] = useState<string | null>(null);
     
-    const { documents, folders } = useMemo(() => getAllItems(workspace.folders), [workspace.folders]);
+    const { documents, folders } = useMemo(() => getAllItems(workspace?.folders || []), [workspace?.folders]);
 
 
     
@@ -1206,8 +1227,9 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
 
     const quickAccessFolders = useMemo(() => {
         // In a real app, this would be based on usage. For now, just show top-level folders.
-        return workspace.folders.filter(item => item.type === 'folder').slice(0, 4) as FolderType[];
-    }, [workspace.folders])
+        const f = workspace?.folders || [];
+        return f.filter((item: any) => item.type === 'folder').slice(0, 4) as FolderType[];
+    }, [workspace?.folders])
 
     // Quick read of latest audit scores from workspace settings for the header quick card
     const [carePlanScore, setCarePlanScore] = useState<number | null>(null);
@@ -1252,7 +1274,7 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
 
 
     useEffect(() => {
-        if (!workspace?.id) return;
+        if (!workspace || !workspace.id) return;
         let unsubscribeFromUser: (() => void) | undefined;
 
         (async () => {
@@ -1291,7 +1313,7 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
         }
 
     // Subscribe to audit latest scores (organisation-aware)
-    const settingsCol = workspaceCollectionPath(workspace.id, 'settings', (workspace as any)?.organisationId || null);
+    const settingsCol = workspace && workspace.id ? workspaceCollectionPath(workspace.id, 'settings', (workspace as any)?.organisationId || null) : workspaceCollectionPath('','settings', null);
     const ref = doc(db, settingsCol, 'audit_latest_scores');
         const unsubAudit = onSnapshot(ref, (snap) => {
             if (snap.exists()) {
@@ -1567,7 +1589,7 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
     }, []);
 
     useEffect(() => {
-        if (!workspace?.id) return;
+        if (!workspace || !workspace.id) return;
         try {
             const colRef = collection(db, workspaceCollectionPath(workspace.id, 'daily-checkins', (workspace as any)?.organisationId || null));
             const q = fsQuery(colRef, orderBy('createdAt', 'desc'), limit(1));
@@ -1657,7 +1679,7 @@ const navigateToAuditForm = (auditKey: string) => {
                             <div className="p-1 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg">
                                 {/* Header logo precedence: headerLogo (from user doc) -> workspace.profilePicture -> workspace.settings.uploadedLogo -> fallback icon */}
                                 <Avatar className="w-10 h-10 bg-white/5">
-                                    <AvatarImage src={headerLogo ?? workspace.profilePicture ?? workspace.settings?.uploadedLogo ?? undefined} alt={workspace.name} />
+                                    <AvatarImage src={headerLogo ?? workspace?.profilePicture ?? workspace?.settings?.uploadedLogo ?? undefined} alt={workspace?.name ?? 'Workspace'} />
                                     <AvatarFallback>
                                         <Users className="w-6 h-6 text-white" />
                                     </AvatarFallback>
@@ -1669,7 +1691,7 @@ const navigateToAuditForm = (auditKey: string) => {
                                     <span className="text-sm font-medium text-white/90">Welcome back</span>
                                 </div>
                                 <h1 className="text-3xl font-bold leading-tight tracking-tight text-white">
-                                    {workspace.name}
+                                    {workspace?.name ?? 'Your workspace'}
                                 </h1>
                             </div>
                         </div>
@@ -1722,7 +1744,7 @@ const navigateToAuditForm = (auditKey: string) => {
                         <QuickActions
                             documents={documents}
                             onSelect={onSelect}
-                            workspaceId={workspace.id}
+                            workspaceId={workspace?.id || ''}
                             orgId={(workspace as any)?.organisationId || null}
                             overallStats={overallStats}
                             getGradientColors={getGradientColors}
@@ -1890,21 +1912,21 @@ const navigateToAuditForm = (auditKey: string) => {
             <StaffingTeamsModal
                 isOpen={isStaffingModalOpen}
                 onClose={() => setIsStaffingModalOpen(false)}
-                workspaceId={workspace.id}
+                workspaceId={workspace?.id || ''}
             />
 
             {/* Staffing Trends Modal */}
             <StaffingTrendsModal
                 isOpen={isStaffingTrendsModalOpen}
                 onClose={() => setIsStaffingTrendsModalOpen(false)}
-                workspaceId={workspace.id}
+                workspaceId={workspace?.id || ''}
             />
 
             {/* Audit Detail Modal */}
             <AuditDetailModal
                 isOpen={auditDetailModal.isOpen}
                 onClose={() => setAuditDetailModal(prev => ({ ...prev, isOpen: false }))}
-                workspaceId={workspace.id}
+                workspaceId={workspace?.id || ''}
                 auditType={auditDetailModal.auditType}
                 auditName={auditDetailModal.auditName}
                 currentScore={auditDetailModal.currentScore}
@@ -1914,14 +1936,14 @@ const navigateToAuditForm = (auditKey: string) => {
             <OccupancyTrendsModal
                 isOpen={isOccupancyModalOpen}
                 onClose={() => setIsOccupancyModalOpen(false)}
-                workspaceId={workspace.id}
+                workspaceId={workspace?.id || ''}
             />
 
             {/* Compliance Overview Modal */}
             <ComplianceOverviewModal
                 isOpen={isComplianceModalOpen}
                 onClose={() => setIsComplianceModalOpen(false)}
-                workspaceId={workspace.id}
+                workspaceId={workspace?.id || ''}
                 organisationId={(workspace as any)?.organisationId || null}
             />
         </div>

@@ -178,6 +178,7 @@ export async function GET(req: Request) {
 
         return {
           id: doc.id,
+          organisationId: docOrgId,
           ...workspaceData,
           folders,
           totalBeds,

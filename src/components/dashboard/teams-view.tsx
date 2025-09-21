@@ -29,6 +29,7 @@ import { ManageFolderAccessDialog } from "./manage-folder-access-dialog";
 import { NewTeamDialog } from "./new-team-dialog";
 import { SidebarTrigger } from "../ui/sidebar";
 import { Input } from "@/components/ui/input";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import {
   collection,
   getDocs,
@@ -40,7 +41,7 @@ import {
   arrayRemove,
   getDoc,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { db, auth } from "@/lib/firebase";
 import { workspaceCollectionPath, workspaceDocPath } from '@/lib/paths';
 
 
@@ -147,9 +148,12 @@ const initialMockTeams: Team[] = [
 ]
 
 export function TeamsView({ workspace }: TeamsViewProps) {
+  const workspaceId = workspace?.id || '';
+  const organisationId = (workspace as any)?.organisationId || (workspace as any)?.organisationId || '';
   const [teams, setTeams] = useState<Team[]>([]);
   const [managers, setManagers] = useState<Manager[]>([]);
   const [managersLoading, setManagersLoading] = useState(false);
+  const [pendingInvites, setPendingInvites] = useState<Array<any>>([]);
   const [editingManager, setEditingManager] = useState<string | null>(null);
   const [newManager, setNewManager] = useState({ name: '', roles: '', email: '', phone: '' });
   const [managersError, setManagersError] = useState<string | null>(null);
@@ -198,10 +202,10 @@ export function TeamsView({ workspace }: TeamsViewProps) {
 
   useEffect(() => {
     const fetchTeams = async () => {
-      if (!workspace?.id) return;
+      if (!workspaceId) return;
       try {
   // Read from workspace subcollection: organisations/{orgId}/workspaces/{workspaceId}/teams or legacy workspaces/{workspaceId}/teams
-  const teamsCollection = collection(db, workspaceCollectionPath(workspace.id, 'teams', (workspace as any).organisationId || workspace.organisationId));
+  const teamsCollection = collection(db, workspaceCollectionPath(workspaceId, 'teams', organisationId || workspace?.organisationId));
         const teamsSnapshot = await getDocs(teamsCollection);
         const fetchedTeams = teamsSnapshot.docs.map((d) => {
           const data = d.data() as any;
@@ -216,17 +220,17 @@ export function TeamsView({ workspace }: TeamsViewProps) {
             folderCount,
             accessibleFolderIds,
             emails,
-            workspaceId: workspace.id,
+            workspaceId: workspaceId,
           } as Team;
         });
 
         // Ensure Admin, Staff, and Inspection teams exist for this workspace
         const requiredTeams = [
-          { name: "Admin", id: `admin-${workspace.id}` },
-          { name: "Staff", id: `staff-${workspace.id}` },
-          { name: "Inspection", id: `inspection-${workspace.id}` },
+          { name: "Admin", id: `admin-${workspaceId}` },
+          { name: "Staff", id: `staff-${workspaceId}` },
+          { name: "Inspection", id: `inspection-${workspaceId}` },
         ];
-        const teamsToCreate = requiredTeams.filter(rt => !fetchedTeams.some(t => t.name === rt.name && t.workspaceId === workspace.id));
+        const teamsToCreate = requiredTeams.filter(rt => !fetchedTeams.some(t => t.name === rt.name && t.workspaceId === workspaceId));
         for (const team of teamsToCreate) {
           const newTeam: Team = {
             id: team.id,
@@ -235,10 +239,10 @@ export function TeamsView({ workspace }: TeamsViewProps) {
             folderCount: 0,
             accessibleFolderIds: [],
             emails: [],
-            workspaceId: workspace.id,
+            workspaceId: workspaceId,
           };
           // Add to Firestore under workspace teams subcollection
-          const teamRef = doc(db, workspaceCollectionPath(workspace.id, 'teams', (workspace as any).organisationId || workspace.organisationId), newTeam.id);
+          const teamRef = doc(db, workspaceCollectionPath(workspaceId, 'teams', organisationId || workspace?.organisationId), newTeam.id);
           await setDoc(teamRef, newTeam);
           fetchedTeams.push(newTeam);
         }
@@ -249,17 +253,30 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     };
 
     fetchTeams();
-  }, [workspace.id]);
+  }, [workspaceId, organisationId]);
 
   // Load managers from workspace
+  // Fetch pending invites for the workspace
+  const fetchPendingInvites = async () => {
+    if (!workspaceId) return;
+    try {
+      const resp = await fetch(`/api/admin/invite/list?workspaceId=${encodeURIComponent(workspaceId)}`);
+      if (!resp.ok) return;
+      const data = await resp.json();
+      if (data.ok && Array.isArray(data.invites)) setPendingInvites(data.invites);
+    } catch (e) {
+      console.warn('Failed to fetch pending invites', e);
+    }
+  };
+
   useEffect(() => {
     const loadManagers = async () => {
-      if (!workspace?.id) return;
+      if (!workspaceId) return;
       
       setManagersLoading(true);
       
     try {
-  const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId || workspace.organisationId));
+  const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId));
     const workspaceSnap = await getDoc(workspaceRef);
         
         if (workspaceSnap.exists()) {
@@ -267,25 +284,32 @@ export function TeamsView({ workspace }: TeamsViewProps) {
           const managersData = data.managers || [];
           setManagers(managersData);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to load managers:', error);
+        // Surface permission errors so admin knows why data is missing
+        if (error?.code === 'permission-denied' || (error?.message && error.message.toLowerCase().includes('permission'))) {
+          setManagersError('Missing or insufficient Firestore permissions to read workspace data.');
+        } else {
+          setManagersError('Failed to load managers.');
+        }
       } finally {
         setManagersLoading(false);
       }
     };
-    
+
     loadManagers();
-  }, [workspace.id]);
+    fetchPendingInvites();
+  }, [workspaceId, organisationId]);
 
   // Load nurses from workspace
   useEffect(() => {
     const loadNurses = async () => {
-      if (!workspace?.id) return;
+      if (!workspaceId) return;
       
       setNursesLoading(true);
       
       try {
-  const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId || workspace.organisationId));
+  const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId));
         const workspaceSnap = await getDoc(workspaceRef);
         
         if (workspaceSnap.exists()) {
@@ -301,17 +325,17 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     };
     
     loadNurses();
-  }, [workspace.id]);
+  }, [workspaceId, organisationId]);
 
   // Load CTMs from workspace
   useEffect(() => {
     const loadCTMs = async () => {
-      if (!workspace?.id) return;
+      if (!workspaceId) return;
       
       setCTMsLoading(true);
       
       try {
-  const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId || workspace.organisationId));
+  const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId));
         const workspaceSnap = await getDoc(workspaceRef);
         
         if (workspaceSnap.exists()) {
@@ -327,17 +351,17 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     };
     
     loadCTMs();
-  }, [workspace.id]);
+  }, [workspaceId, organisationId]);
 
   // Load domestics from workspace
   useEffect(() => {
     const loadDomestics = async () => {
-      if (!workspace?.id) return;
+      if (!workspaceId) return;
       
       setDomesticsLoading(true);
       
       try {
-  const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId || workspace.organisationId));
+  const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId));
         const workspaceSnap = await getDoc(workspaceRef);
         
         if (workspaceSnap.exists()) {
@@ -353,17 +377,17 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     };
     
     loadDomestics();
-  }, [workspace.id]);
+  }, [workspaceId, organisationId]);
 
   // Load maintenances from workspace
   useEffect(() => {
     const loadMaintenances = async () => {
-      if (!workspace?.id) return;
+      if (!workspaceId) return;
       
       setMaintenancesLoading(true);
       
       try {
-        const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId || workspace.organisationId));
+        const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId));
         const workspaceSnap = await getDoc(workspaceRef);
         
         if (workspaceSnap.exists()) {
@@ -379,17 +403,17 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     };
     
     loadMaintenances();
-  }, [workspace.id]);
+  }, [workspaceId, organisationId]);
 
   // Load kitchens from workspace
   useEffect(() => {
     const loadKitchens = async () => {
-      if (!workspace?.id) return;
+      if (!workspaceId) return;
       
       setKitchensLoading(true);
       
       try {
-        const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId || workspace.organisationId));
+  const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId));
         const workspaceSnap = await getDoc(workspaceRef);
         
         if (workspaceSnap.exists()) {
@@ -405,17 +429,17 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     };
     
     loadKitchens();
-  }, [workspace.id]);
+  }, [workspaceId, organisationId]);
 
   // Load activities from workspace
   useEffect(() => {
     const loadActivities = async () => {
-      if (!workspace?.id) return;
+      if (!workspaceId) return;
       
       setActivitiesLoading(true);
       
       try {
-  const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId || workspace.organisationId));
+  const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId));
         const workspaceSnap = await getDoc(workspaceRef);
         
         if (workspaceSnap.exists()) {
@@ -431,14 +455,14 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     };
     
     loadActivities();
-  }, [workspace.id]);
+  }, [workspaceId, organisationId]);
 
   // Add manager to Firebase
   const addManagerToFirebase = async (manager: Manager) => {
-    if (!workspace?.id) return false;
+    if (!workspaceId) return false;
     
     try {
-  const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId || workspace.organisationId));
+  const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId));
       await updateDoc(workspaceRef, {
         managers: arrayUnion(manager)
       });
@@ -452,10 +476,10 @@ export function TeamsView({ workspace }: TeamsViewProps) {
 
   // Update manager in Firebase
   const updateManagerInFirebase = async (oldManager: Manager, newManager: Manager) => {
-    if (!workspace?.id) return false;
+    if (!workspaceId) return false;
     
     try {
-  const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId || workspace.organisationId));
+  const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId));
       // Remove old and add new (atomic operation alternative)
       await updateDoc(workspaceRef, {
         managers: arrayRemove(oldManager)
@@ -473,10 +497,10 @@ export function TeamsView({ workspace }: TeamsViewProps) {
 
   // Remove manager from Firebase
   const removeManagerFromFirebase = async (manager: Manager) => {
-    if (!workspace?.id) return false;
+    if (!workspaceId) return false;
     
     try {
-  const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId || workspace.organisationId));
+  const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId));
       await updateDoc(workspaceRef, {
         managers: arrayRemove(manager)
       });
@@ -490,10 +514,10 @@ export function TeamsView({ workspace }: TeamsViewProps) {
 
   // Add nurse to Firebase
   const addNurseToFirebase = async (nurse: Nurse) => {
-    if (!workspace?.id) return false;
+    if (!workspaceId) return false;
     
     try {
-  const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId || workspace.organisationId));
+  const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId));
       await updateDoc(workspaceRef, {
         nurses: arrayUnion(nurse)
       });
@@ -507,10 +531,10 @@ export function TeamsView({ workspace }: TeamsViewProps) {
 
   // Update nurse in Firebase
   const updateNurseInFirebase = async (oldNurse: Nurse, newNurse: Nurse) => {
-    if (!workspace?.id) return false;
+    if (!workspaceId) return false;
     
     try {
-  const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId || workspace.organisationId));
+  const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId));
       // Remove old and add new (atomic operation alternative)
       await updateDoc(workspaceRef, {
         nurses: arrayRemove(oldNurse)
@@ -528,10 +552,10 @@ export function TeamsView({ workspace }: TeamsViewProps) {
 
   // Remove nurse from Firebase
   const removeNurseFromFirebase = async (nurse: Nurse) => {
-    if (!workspace?.id) return false;
+    if (!workspaceId) return false;
     
     try {
-  const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId || workspace.organisationId));
+  const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId));
       await updateDoc(workspaceRef, {
         nurses: arrayRemove(nurse)
       });
@@ -545,10 +569,10 @@ export function TeamsView({ workspace }: TeamsViewProps) {
 
   // Add CTM to Firebase
   const addCTMToFirebase = async (ctm: CTM) => {
-    if (!workspace?.id) return false;
+    if (!workspaceId) return false;
     
     try {
-  const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId || workspace.organisationId));
+  const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId));
       await updateDoc(workspaceRef, {
         ctms: arrayUnion(ctm)
       });
@@ -562,10 +586,10 @@ export function TeamsView({ workspace }: TeamsViewProps) {
 
   // Update CTM in Firebase
   const updateCTMInFirebase = async (oldCTM: CTM, newCTM: CTM) => {
-    if (!workspace?.id) return false;
+    if (!workspaceId) return false;
     
     try {
-  const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId || workspace.organisationId));
+  const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId));
       // Remove old and add new (atomic operation alternative)
       await updateDoc(workspaceRef, {
         ctms: arrayRemove(oldCTM)
@@ -583,10 +607,10 @@ export function TeamsView({ workspace }: TeamsViewProps) {
 
   // Remove CTM from Firebase
   const removeCTMFromFirebase = async (ctm: CTM) => {
-    if (!workspace?.id) return false;
+    if (!workspaceId) return false;
     
     try {
-  const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId || workspace.organisationId));
+  const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId));
       await updateDoc(workspaceRef, {
         ctms: arrayRemove(ctm)
       });
@@ -600,10 +624,10 @@ export function TeamsView({ workspace }: TeamsViewProps) {
 
   // Add domestic to Firebase
   const addDomesticToFirebase = async (domestic: Domestic) => {
-    if (!workspace?.id) return false;
+    if (!workspaceId) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+  const workspaceRef = doc(db, 'workspaces', workspaceId);
       await updateDoc(workspaceRef, {
         domestics: arrayUnion(domestic)
       });
@@ -617,10 +641,10 @@ export function TeamsView({ workspace }: TeamsViewProps) {
 
   // Update domestic in Firebase
   const updateDomesticInFirebase = async (oldDomestic: Domestic, newDomestic: Domestic) => {
-    if (!workspace?.id) return false;
+    if (!workspaceId) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+  const workspaceRef = doc(db, 'workspaces', workspaceId);
       await updateDoc(workspaceRef, {
         domestics: arrayRemove(oldDomestic)
       });
@@ -637,10 +661,10 @@ export function TeamsView({ workspace }: TeamsViewProps) {
 
   // Remove domestic from Firebase
   const removeDomesticFromFirebase = async (domestic: Domestic) => {
-    if (!workspace?.id) return false;
+    if (!workspaceId) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+  const workspaceRef = doc(db, 'workspaces', workspaceId);
       await updateDoc(workspaceRef, {
         domestics: arrayRemove(domestic)
       });
@@ -654,10 +678,10 @@ export function TeamsView({ workspace }: TeamsViewProps) {
 
   // Add maintenance to Firebase
   const addMaintenanceToFirebase = async (maintenance: Maintenance) => {
-    if (!workspace?.id) return false;
+    if (!workspaceId) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+  const workspaceRef = doc(db, 'workspaces', workspaceId);
       await updateDoc(workspaceRef, {
         maintenances: arrayUnion(maintenance)
       });
@@ -671,10 +695,10 @@ export function TeamsView({ workspace }: TeamsViewProps) {
 
   // Update maintenance in Firebase
   const updateMaintenanceInFirebase = async (oldMaintenance: Maintenance, newMaintenance: Maintenance) => {
-    if (!workspace?.id) return false;
+    if (!workspaceId) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+  const workspaceRef = doc(db, 'workspaces', workspaceId);
       await updateDoc(workspaceRef, {
         maintenances: arrayRemove(oldMaintenance)
       });
@@ -691,10 +715,10 @@ export function TeamsView({ workspace }: TeamsViewProps) {
 
   // Remove maintenance from Firebase
   const removeMaintenanceFromFirebase = async (maintenance: Maintenance) => {
-    if (!workspace?.id) return false;
+    if (!workspaceId) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+  const workspaceRef = doc(db, 'workspaces', workspaceId);
       await updateDoc(workspaceRef, {
         maintenances: arrayRemove(maintenance)
       });
@@ -708,10 +732,10 @@ export function TeamsView({ workspace }: TeamsViewProps) {
 
   // Add kitchen to Firebase
   const addKitchenToFirebase = async (kitchen: Kitchen) => {
-    if (!workspace?.id) return false;
+    if (!workspaceId) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+  const workspaceRef = doc(db, 'workspaces', workspaceId);
       await updateDoc(workspaceRef, {
         kitchens: arrayUnion(kitchen)
       });
@@ -725,10 +749,10 @@ export function TeamsView({ workspace }: TeamsViewProps) {
 
   // Update kitchen in Firebase
   const updateKitchenInFirebase = async (oldKitchen: Kitchen, newKitchen: Kitchen) => {
-    if (!workspace?.id) return false;
+    if (!workspaceId) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+  const workspaceRef = doc(db, 'workspaces', workspaceId);
       await updateDoc(workspaceRef, {
         kitchens: arrayRemove(oldKitchen)
       });
@@ -745,10 +769,10 @@ export function TeamsView({ workspace }: TeamsViewProps) {
 
   // Remove kitchen from Firebase
   const removeKitchenFromFirebase = async (kitchen: Kitchen) => {
-    if (!workspace?.id) return false;
+    if (!workspaceId) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+  const workspaceRef = doc(db, 'workspaces', workspaceId);
       await updateDoc(workspaceRef, {
         kitchens: arrayRemove(kitchen)
       });
@@ -762,10 +786,10 @@ export function TeamsView({ workspace }: TeamsViewProps) {
 
   // Add activity to Firebase
   const addActivityToFirebase = async (activity: Activities) => {
-    if (!workspace?.id) return false;
+    if (!workspaceId) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      const workspaceRef = doc(db, 'workspaces', workspaceId);
       await updateDoc(workspaceRef, {
         activities: arrayUnion(activity)
       });
@@ -779,10 +803,10 @@ export function TeamsView({ workspace }: TeamsViewProps) {
 
   // Update activity in Firebase
   const updateActivityInFirebase = async (oldActivity: Activities, newActivity: Activities) => {
-    if (!workspace?.id) return false;
+    if (!workspaceId) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      const workspaceRef = doc(db, 'workspaces', workspaceId);
       await updateDoc(workspaceRef, {
         activities: arrayRemove(oldActivity)
       });
@@ -799,10 +823,10 @@ export function TeamsView({ workspace }: TeamsViewProps) {
 
   // Remove activity from Firebase
   const removeActivityFromFirebase = async (activity: Activities) => {
-    if (!workspace?.id) return false;
+    if (!workspaceId) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspace.id);
+      const workspaceRef = doc(db, 'workspaces', workspaceId);
       await updateDoc(workspaceRef, {
         activities: arrayRemove(activity)
       });
@@ -829,11 +853,49 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     setNewManager({ name: '', roles: '', email: '', phone: '' });
     setManagersError(null);
     
-    // Save to Firebase
-    const success = await addManagerToFirebase(managerToAdd);
+  // Save to Firebase
+  const success = await addManagerToFirebase(managerToAdd);
     if (!success) {
       // Revert optimistic update on failure
       setManagers(prev => prev.filter(m => m.id !== managerToAdd.id));
+    } else {
+      // On success, create/send an invite token via server API (magic-link)
+      try {
+        const inviterName = (window as any)?.CURRENT_USER_NAME || 'Workspace Manager';
+  const workspaceName = workspace?.name || '';
+
+        // Build headers: prefer Firebase ID token in Authorization header
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        try {
+          const currentUser = auth.currentUser;
+          if (currentUser) {
+            const idToken = await currentUser.getIdToken();
+            if (idToken) headers['authorization'] = `Bearer ${idToken}`;
+          }
+        } catch (e) {
+          // ignore token retrieval errors
+        }
+        if (!headers.authorization) headers['x-admin-secret'] = (window as any)?.__ADMIN_SECRET || '';
+
+        const resp = await fetch('/api/admin/invite', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ email: managerToAdd.email, workspaceId: workspaceId, workspaceOrgId: organisationId || null, inviterName, workspaceName })
+        });
+        const data = await resp.json();
+        if (!data.ok) {
+          console.warn('Invite API responded with error', data);
+        } else {
+          if (!data.emailSent) {
+            console.warn('Invite token created but email not sent:', data.error);
+          }
+          // Refresh the pending invites list so count and items update whenever token was created
+          try { fetchPendingInvites(); } catch (e) { /* ignore */ }
+          console.info('Invite created for', managerToAdd.email);
+        }
+      } catch (e) {
+        console.error('Failed to call invite API', e);
+      }
     }
   };
 
@@ -878,19 +940,19 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     setTeams((prevTeams) => prevTeams.filter((team) => team.id !== teamId));
     (async () => {
       try {
-        if (!workspace?.id) throw new Error('Missing workspace id');
-  const teamRef = doc(db, workspaceCollectionPath(workspace.id, 'teams', (workspace as any).organisationId || workspace.organisationId), teamId);
+        if (!workspaceId) throw new Error('Missing workspace id');
+  const teamRef = doc(db, workspaceCollectionPath(workspaceId, 'teams', organisationId || workspace?.organisationId), teamId);
         await deleteDoc(teamRef);
       } catch (error) {
         console.error("Error deleting team:", error);
         // Could refetch or revert optimistic change; for now refetch all teams
-        try {
-          if (!workspace?.id) return;
-          const teamsCollection = collection(db, workspaceCollectionPath(workspace.id, 'teams', (workspace as any).organisationId || workspace.organisationId));
+          try {
+          if (!workspaceId) return;
+          const teamsCollection = collection(db, workspaceCollectionPath(workspaceId, 'teams', organisationId || workspace?.organisationId));
           const teamsSnapshot = await getDocs(teamsCollection);
           const fetchedTeams = teamsSnapshot.docs.map((d) => {
             const data = d.data() as Team;
-            return { ...data, id: data.id ?? d.id, workspaceId: workspace.id } as Team;
+            return { ...data, id: data.id ?? d.id, workspaceId: workspaceId } as Team;
           });
           setTeams(fetchedTeams);
         } catch (e) {
@@ -912,8 +974,8 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     // persist to Firestore
     (async () => {
       try {
-        if (!workspace?.id) throw new Error('Missing workspace id');
-        const teamRef = doc(db, workspaceCollectionPath(workspace.id, 'teams', (workspace as any).organisationId || workspace.organisationId), teamId);
+        if (!workspaceId) throw new Error('Missing workspace id');
+      const teamRef = doc(db, workspaceCollectionPath(workspaceId, 'teams', organisationId || workspace?.organisationId), teamId);
         await updateDoc(teamRef, {
           accessibleFolderIds,
           folderCount: accessibleFolderIds.length,
@@ -931,8 +993,8 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     setTeams((prevTeams) => [...prevTeams, teamToAdd]);
     (async () => {
       try {
-        if (!workspace?.id) throw new Error('Missing workspace id');
-  const teamRef = doc(db, workspaceCollectionPath(workspace.id, 'teams', (workspace as any).organisationId || workspace.organisationId), teamToAdd.id);
+        if (!workspaceId) throw new Error('Missing workspace id');
+  const teamRef = doc(db, workspaceCollectionPath(workspaceId, 'teams', organisationId || workspace?.organisationId), teamToAdd.id);
         await setDoc(teamRef, teamToAdd);
       } catch (error) {
         console.error("Error creating team in Firestore:", error);
@@ -971,8 +1033,8 @@ export function TeamsView({ workspace }: TeamsViewProps) {
     );
     (async () => {
       try {
-        if (!workspace?.id) throw new Error('Missing workspace id');
-  const teamRef = doc(db, workspaceCollectionPath(workspace.id, 'teams', (workspace as any).organisationId || workspace.organisationId), teamId);
+        if (!workspaceId) throw new Error('Missing workspace id');
+      const teamRef = doc(db, workspaceCollectionPath(workspaceId, 'teams', organisationId || workspace?.organisationId), teamId);
         await updateDoc(teamRef, { emails: arrayRemove(email) });
       } catch (error) {
         console.error("Error removing email from team in Firestore:", error);
@@ -1271,7 +1333,7 @@ export function TeamsView({ workspace }: TeamsViewProps) {
           </div>
           {/* Action buttons */}
           <div className="flex items-center gap-3">
-            <NewTeamDialog onTeamCreated={handleTeamCreated} workspaceId={workspace.id}>
+            <NewTeamDialog onTeamCreated={handleTeamCreated} workspaceId={workspaceId}>
               <Button className="bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur-sm">
                 <Plus className="mr-2 h-4 w-4" />
                 Create New Team
@@ -1440,6 +1502,39 @@ export function TeamsView({ workspace }: TeamsViewProps) {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
+                  <div className="mb-6">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Pending Invites ({pendingInvites.length})</h4>
+                    <div className="space-y-2">
+                      {pendingInvites.length === 0 ? (
+                        <div className="text-sm text-gray-500">No pending invites for this workspace.</div>
+                      ) : (
+                        pendingInvites.map((inv) => (
+                          <div key={inv.id} className="flex items-center justify-between bg-gray-50 p-3 rounded">
+                            <div>
+                              <div className="text-sm font-medium">{inv.email}</div>
+                              <div className="text-xs text-gray-500">Expires: {inv.expiresAt ? (new Date(inv.expiresAt).toLocaleString()) : 'N/A'}</div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button size="sm" onClick={async () => {
+                                try {
+                                  const resp = await fetch(`/api/admin/invite/${encodeURIComponent(inv.id)}`, { method: 'POST' });
+                                  const d = await resp.json();
+                                  if (!d.ok) console.warn('Resend failed', d);
+                                } catch (e) { console.error(e); }
+                              }}>Resend</Button>
+                              <Button variant="destructive" size="sm" onClick={async () => {
+                                try {
+                                  const resp = await fetch(`/api/admin/invite/${encodeURIComponent(inv.id)}`, { method: 'DELETE' });
+                                  const d = await resp.json();
+                                  if (d.ok) setPendingInvites(prev => prev.filter(p => p.id !== inv.id));
+                                } catch (e) { console.error(e); }
+                              }}>Revoke</Button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">Name</label>
@@ -1451,11 +1546,15 @@ export function TeamsView({ workspace }: TeamsViewProps) {
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">Roles</label>
-                      <Input
-                        placeholder="e.g. Senior Manager, Team Lead"
-                        value={newManager.roles}
-                        onChange={(e) => setNewManager(prev => ({ ...prev, roles: e.target.value }))}
-                      />
+                      <Select value={newManager.roles || 'Manager'} onValueChange={(value: string) => setNewManager(prev => ({ ...prev, roles: value }))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Manager">Manager</SelectItem>
+                          <SelectItem value="Deputy Manager">Deputy Manager</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">Email Address</label>
@@ -2355,11 +2454,15 @@ function ManagerCard({ manager, isEditing, onEdit, onCancelEdit, onSave, onDelet
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">Roles</label>
-            <Input
-              value={editForm.roles}
-              onChange={(e) => setEditForm(prev => ({ ...prev, roles: e.target.value }))}
-              placeholder="e.g. Senior Manager, Team Lead"
-            />
+            <Select value={editForm.roles || 'Manager'} onValueChange={(value: string) => setEditForm(prev => ({ ...prev, roles: value }))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Manager">Manager</SelectItem>
+                <SelectItem value="Deputy Manager">Deputy Manager</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">Email</label>

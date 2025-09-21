@@ -168,6 +168,11 @@ export function Dashboard() {
   // in-app back arrow can return exactly where the user came from.
   const prevViewRef = useRef<string | null>(null);
 
+  // Primitive workspace identifiers to avoid repeated optional chaining and
+  // to allow stable primitive deps in hooks.
+  const workspaceId = activeWorkspace?.id || '';
+  const organisationId = (activeWorkspace as any)?.organisationId || undefined;
+
 
   useEffect(() => {
     const handleChatResponse = (event: any) => {
@@ -183,9 +188,9 @@ export function Dashboard() {
       if (typeof window !== 'undefined') {
         window.addEventListener('chat-response', handleChatResponse as EventListener);
       }
-    if (activeWorkspace) {
+    if (workspaceId) {
       // Use org-aware collection paths to avoid invalid document references
-      const notificationsCol = collection(db, workspaceCollectionPath(activeWorkspace.id, 'notifications', activeWorkspace.organisationId || undefined));
+      const notificationsCol = collection(db, workspaceCollectionPath(workspaceId, 'notifications', organisationId));
       const q = fsQuery(notificationsCol, where('read', '==', false));
       unsub = onSnapshot(q, (snap: any) => {
         setUnreadNotifications(snap.size);
@@ -195,7 +200,7 @@ export function Dashboard() {
 
       // Listen for latest daily checkin entry using collection->doc pattern
       try {
-        const dailyCol = collection(db, workspaceCollectionPath(activeWorkspace.id, 'daily-checkins', activeWorkspace.organisationId || undefined));
+  const dailyCol = collection(db, workspaceCollectionPath(workspaceId, 'daily-checkins', organisationId));
         const dailyQ = fsQuery(dailyCol, orderBy('createdAt', 'desc'), limit(1));
         dailyUnsub = onSnapshot(dailyQ, (snap) => {
           if (!snap.empty) {
@@ -221,7 +226,7 @@ export function Dashboard() {
         try { window.removeEventListener('chat-response', handleChatResponse as EventListener); } catch (e) {}
       }
     };
-  }, [workspaces, activeWorkspace]);
+  }, [workspaces, workspaceId]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -233,6 +238,29 @@ export function Dashboard() {
   // Pass the server-hydrated organisationId to avoid client-side reads that may be denied
   const orgId = (user as any)?.organisationId;
   let userWorkspaces = await getWorkspacesForUser(user.id, orgId || undefined);
+
+      // If we were redirected from accept-invite (just signed in via magic-link),
+      // wait a short while for admin writes (workspace.members updates) to become visible.
+      const awaiting = typeof window !== 'undefined' ? window.localStorage.getItem('awaitingWorkspace') : null;
+      if (awaiting === '1' && Array.isArray(userWorkspaces) && userWorkspaces.length === 0) {
+        // Poll until workspace appears or timeout (5s, 500ms intervals)
+        const start = Date.now();
+        const timeout = 5000;
+        const interval = 500;
+        while (Date.now() - start < timeout) {
+          await new Promise(r => setTimeout(r, interval));
+          try {
+            const refreshed = await getWorkspacesForUser(user.id, orgId || undefined);
+            if (Array.isArray(refreshed) && refreshed.length > 0) {
+              userWorkspaces = refreshed;
+              break;
+            }
+          } catch (e) {
+            // ignore and retry
+          }
+        }
+        try { if (typeof window !== 'undefined') window.localStorage.removeItem('awaitingWorkspace'); } catch (e) {}
+      }
       
       // Only create a workspace if we are sure the user has none and the query did not fail due to permissions
       if (Array.isArray(userWorkspaces) && userWorkspaces.length === 0) {
@@ -338,8 +366,23 @@ export function Dashboard() {
         return { ...ws, folders: [...toAdd, ...(ws.folders || [])] };
       });
 
-      setWorkspaces(userWorkspaces);
-      setActiveWorkspace(userWorkspaces[0]);
+      // If accept-invite stored an assignedWorkspaceId, prefer that workspace when selecting
+      let assignedWorkspaceId: string | null = null;
+      try { if (typeof window !== 'undefined') assignedWorkspaceId = window.localStorage.getItem('assignedWorkspaceId'); } catch (e) { assignedWorkspaceId = null; }
+
+  try { console.debug('Dashboard: fetched userWorkspaces', userWorkspaces && userWorkspaces.length ? userWorkspaces.map(w=>w.id) : userWorkspaces); } catch(e) {}
+  setWorkspaces(userWorkspaces);
+      if (assignedWorkspaceId) {
+        const found = userWorkspaces.find(ws => ws.id === assignedWorkspaceId) || null;
+        if (found) {
+          setActiveWorkspace(found);
+        } else {
+          setActiveWorkspace(userWorkspaces[0]);
+        }
+        try { if (typeof window !== 'undefined') window.localStorage.removeItem('assignedWorkspaceId'); } catch (e) {}
+      } else {
+        setActiveWorkspace(userWorkspaces[0]);
+      }
       setLoading(false);
     }
     fetchData();
@@ -608,7 +651,7 @@ export function Dashboard() {
     }
   // Include view/user/workspaces so handlers capture the latest state (avoid stale closures)
   // Use stable primitive dependencies so the dependency array length stays constant
-  }, [activeWorkspace?.id, view, user?.id, workspaces.length]);
+  }, [workspaceId, view, user?.id, workspaces.length]);
 
   const handleCreateWorkspace = async (name: string): Promise<Workspace> => {
     if (!user) throw new Error("User not authenticated");
@@ -864,17 +907,16 @@ export function Dashboard() {
 
   // Evidence document delete now uses generic handlers (evidence removed)
 
-  const getRootFolder = (): Folder | undefined => {
-    if (activeWorkspace) {
-        return { 
-            id: 'root', 
-            name: activeWorkspace.name, 
-            type: 'folder', 
-            items: activeWorkspace.folders, 
-            workspaceId: activeWorkspace.id 
-        };
-    }
-    return undefined;
+  const getRootFolder = (): Folder => {
+    // Always return a Folder object so downstream UI can render safely even
+    // when the activeWorkspace hasn't hydrated yet.
+    return {
+      id: 'root',
+      name: activeWorkspace?.name || 'Workspace',
+      type: 'folder',
+      items: activeWorkspace?.folders || [],
+      workspaceId: activeWorkspace?.id || '',
+    } as Folder;
   }
 
   const handleBackToFileBrowser = () => {
@@ -919,41 +961,10 @@ export function Dashboard() {
     return <LoadingDashboard />;
   }
 
-  // When not loading but there is no active workspace, show an empty state
-  if (!activeWorkspace) {
-    return (
-      <SidebarProvider defaultOpen>
-        <Sidebar>
-          <div className="p-4">
-            <h3 className="text-lg font-semibold">No workspaces found</h3>
-            <p className="text-sm text-muted-foreground">You don't have any workspaces yet. Create one to get started.</p>
-            <div className="mt-4">
-              <Button onClick={async () => {
-                if (!user) return;
-                try {
-                  const newWs = await handleCreateWorkspace(`${user.name || 'My'}'s Workspace`);
-                  setWorkspaces([...(workspaces || []), newWs]);
-                  setActiveWorkspace(newWs);
-                } catch (e) {
-                  console.error('Failed to create workspace from empty state', e);
-                }
-              }}>Create workspace</Button>
-            </div>
-          </div>
-        </Sidebar>
-        <SidebarInset>
-          <div className="p-8">
-            <Card>
-              <div className="p-6">
-                <h2 className="text-2xl font-bold">Welcome</h2>
-                <p className="mt-2 text-sm text-muted-foreground">Select or create a workspace to continue.</p>
-              </div>
-            </Card>
-          </div>
-        </SidebarInset>
-      </SidebarProvider>
-    );
-  }
+  // NOTE: Do not early-return when there's no activeWorkspace. We render the full
+  // dashboard layout so invited users (who may not have a hydrated activeWorkspace
+  // immediately) still see the app UI. The app will select an active workspace
+  // once workspaces are loaded.
 
   let currentFolder: Folder | undefined;
   if (selected?.type === 'folder') {
@@ -982,13 +993,13 @@ export function Dashboard() {
 
   const renderContent = () => {
   switch (view) {
-        case 'home':
-            return <DashboardHome 
-                        workspace={activeWorkspace} 
-                        onSelect={handleSelect} 
-                        onDocumentAdd={handleDocumentAdd} 
-                        onFolderAdd={handleFolderAdd} 
-                    />;
+    case 'home':
+      return <DashboardHome 
+            workspace={activeWorkspace} 
+            onSelect={handleSelect} 
+            onDocumentAdd={handleDocumentAdd} 
+            onFolderAdd={handleFolderAdd} 
+          />;
         case 'daily':
             return (
                 <React.Suspense fallback={<div>Loading...</div>}>
@@ -998,24 +1009,26 @@ export function Dashboard() {
                   })()}
                 </React.Suspense>
             );
-        case 'teams':
-            return <TeamsView workspace={activeWorkspace} />;
-        case 'settings':
-            return <SettingsView workspace={activeWorkspace} />;
-        case 'accessibility':
-            return <AccessibilityView workspace={activeWorkspace} />;
+    case 'teams':
+      return activeWorkspace ? <TeamsView workspace={activeWorkspace} /> : <div className="p-6">No workspace</div>;
+    case 'settings':
+      return activeWorkspace ? <SettingsView workspace={activeWorkspace} /> : <div className="p-6">No workspace</div>;
+    case 'accessibility':
+      return activeWorkspace ? <AccessibilityView workspace={activeWorkspace} /> : <div className="p-6">No workspace</div>;
     case 'notifications':
-      return activeWorkspace ? <NotificationsView workspaceId={activeWorkspace.id} onBack={() => setView('home')} /> : <div className="p-6">No workspace</div>;
+      return workspaceId ? <NotificationsView workspaceId={workspaceId} onBack={() => setView('home')} /> : <div className="p-6">No workspace</div>;
     case 'documents':
-      return <AllDocumentsView 
-        key={activeWorkspace.folders.map(f=>f.id).join('-') + '-' + activeWorkspace.folders.length}
-        workspace={activeWorkspace} 
-        onSelect={handleSelect} 
-      />;
-        case 'tags':
-            return <TagsView workspace={activeWorkspace} onSelectDocument={handleSelect} />;
+      return activeWorkspace ? (
+        <AllDocumentsView 
+          key={activeWorkspace.folders.map(f=>f.id).join('-') + '-' + activeWorkspace.folders.length}
+          workspace={activeWorkspace} 
+          onSelect={handleSelect} 
+        />
+      ) : <div className="p-6">No workspace</div>;
+    case 'tags':
+      return activeWorkspace ? <TagsView workspace={activeWorkspace} onSelectDocument={handleSelect} /> : <div className="p-6">No workspace</div>;
     case 'renewals':
-      return activeWorkspace ? <RenewalsView workspaceId={activeWorkspace.id} onSelectDocument={handleSelect} /> : null;
+      return workspaceId ? <RenewalsView workspaceId={workspaceId} onSelectDocument={handleSelect} /> : null;
   /* Outstanding Evidence removed; evidence folders are part of main folders */
     case 'files':
                 if (selected?.type === "document") {
@@ -1034,7 +1047,7 @@ export function Dashboard() {
             }
       return (
         <FileBrowser
-          key={activeWorkspace.folders.map(f=>f.id).join('-') + '-' + activeWorkspace.folders.length}
+          key={activeWorkspace ? activeWorkspace.folders.map(f=>f.id).join('-') + '-' + activeWorkspace.folders.length : 'no-ws'}
           folder={currentFolder as Folder}
           onSelect={handleSelect}
           onDocumentAdd={handleDocumentAdd}
@@ -1064,8 +1077,8 @@ export function Dashboard() {
                   })()}
                 </React.Suspense>
             );
-        case 'stats':
-            return <StatsView workspaceId={activeWorkspace?.id} />;
+    case 'stats':
+      return <StatsView workspaceId={workspaceId} />;
         case 'policies':
             return (
                 <React.Suspense fallback={<div>Loading...</div>}>
@@ -1093,13 +1106,13 @@ export function Dashboard() {
                   })()}
                 </React.Suspense>
             );
-        default:
-             return <DashboardHome 
-                        workspace={activeWorkspace} 
-                        onSelect={handleSelect} 
-                        onDocumentAdd={handleDocumentAdd} 
-                        onFolderAdd={handleFolderAdd} 
-                    />;
+    default:
+       return <DashboardHome 
+            workspace={activeWorkspace} 
+            onSelect={handleSelect} 
+            onDocumentAdd={handleDocumentAdd} 
+            onFolderAdd={handleFolderAdd} 
+          />;
     }
   };
 
@@ -1121,7 +1134,7 @@ export function Dashboard() {
         </Sidebar>
 
         <SidebarInset className="flex flex-col min-h-screen w-full">
-                <TopNav onSettingsClick={() => setView('settings')} onNotificationsClick={() => setView('notifications')} unreadCount={unreadNotifications} workspaceId={activeWorkspace?.id} />
+                <TopNav onSettingsClick={() => setView('settings')} onNotificationsClick={() => setView('notifications')} unreadCount={unreadNotifications} workspaceId={workspaceId} />
             <div className={cn(
               "flex-1 w-full",
               // Add bottom padding on mobile when chat is closed to ensure content isn't hidden behind chat button
@@ -1165,7 +1178,7 @@ export function Dashboard() {
                 <ChatPanel 
                   selectedItem={selected!}
                   onFolderAdd={async (folderName: string) => {
-                          if (!activeWorkspace) return;
+                          if (!workspaceId) return;
                           const currentSelected = selected;
                           // parentId: if selected is folder, use its id, else root
                           const parentId = currentSelected && currentSelected.type === 'folder' ? currentSelected.id : 'root';
@@ -1173,7 +1186,7 @@ export function Dashboard() {
                           const newFolderData = {
                             name: folderName,
                             type: 'folder' as const,
-                            workspaceId: activeWorkspace.id,
+                            workspaceId: workspaceId,
                             parentId: parentId === 'root' ? null : parentId,
                           };
                           // saveFolder returns id, but we want to use handleFolderAdd for state
@@ -1206,7 +1219,7 @@ export function Dashboard() {
                     onClick={handleChatButtonClick}
                     // Allow chat button across the dashboard (site-wide). Chat will open at the workspace root
                     // when no specific folder/document is selected. Keep disabled only if there's no active workspace.
-                    disabled={!activeWorkspace}
+                    disabled={!workspaceId}
                     aria-label="Open chat"
                   >
                     <MessageSquare className={cn(
@@ -1215,7 +1228,7 @@ export function Dashboard() {
                   </Button>
                 </div>
               </TooltipTrigger>
-              {!activeWorkspace && (
+              {!workspaceId && (
                 <TooltipContent side={isMobile ? "top" : "left"}>
                     <p>Please create or select a workspace to use chat.</p>
                 </TooltipContent>
