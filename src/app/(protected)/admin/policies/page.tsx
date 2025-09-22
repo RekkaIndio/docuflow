@@ -21,15 +21,19 @@ type PolicyItem = {
 
 function formatDateSafe(d?: string | null) {
   if (!d) return null;
-  const dt = new Date(d);
+  const normalized = normalizeDateString(d);
+  if (!normalized) return null;
+  const dt = new Date(`${normalized}T00:00:00`);
   if (isNaN(dt.getTime())) return null;
   return dt.toLocaleDateString();
 }
 
 function getReviewStatus(reviewDate?: string | null) {
   if (!reviewDate) return { label: 'No review date', kind: 'neutral' };
+  const normalized = normalizeDateString(reviewDate);
+  if (!normalized) return { label: 'Invalid date', kind: 'neutral' };
   const now = new Date();
-  const rev = new Date(reviewDate);
+  const rev = new Date(`${normalized}T00:00:00`);
   if (isNaN(rev.getTime())) return { label: 'Invalid date', kind: 'neutral' };
   const diffMs = rev.getTime() - now.getTime();
   const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
@@ -44,8 +48,11 @@ function getReviewStatus(reviewDate?: string | null) {
 function parseYearFromDateString(s?: string | null): number | null {
   if (!s) return null;
   // Try native Date parse first
-  const d = new Date(s);
-  if (!isNaN(d.getTime())) return d.getFullYear();
+  const normalized = normalizeDateString(s);
+  if (normalized) {
+    const d = new Date(`${normalized}T00:00:00`);
+    if (!isNaN(d.getTime())) return d.getFullYear();
+  }
 
   // Try ISO-ish formats or YYYY-MM-DD
   const isoMatch = s.match(/(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
@@ -58,6 +65,47 @@ function parseYearFromDateString(s?: string | null): number | null {
   // Fallback: extract any 4-digit year
   const anyYear = s.match(/(20\d{2}|19\d{2})/);
   if (anyYear) return parseInt(anyYear[1], 10);
+  return null;
+}
+
+// Normalize a variety of human-entered date formats into an ISO-ish YYYY-MM-DD string
+function normalizeDateString(s?: string | null): string | null {
+  if (!s) return null;
+  const str = String(s).trim();
+  // ISO-like: YYYY-MM or YYYY-MM-DD or YYYY/MM/DD
+  const isoMatch = str.match(/^(\d{4})[-\/](\d{1,2})(?:[-\/](\d{1,2}))?$/);
+  if (isoMatch) {
+    const y = isoMatch[1];
+    const m = String(isoMatch[2]).padStart(2, '0');
+    const d = isoMatch[3] ? String(isoMatch[3]).padStart(2, '0') : '01';
+    return `${y}-${m}-${d}`;
+  }
+
+  // Month/Year formats like MM/YYYY or M/YYYY
+  const mmYYYY = str.match(/^(\d{1,2})[\/](\d{4})$/);
+  if (mmYYYY) {
+    const m = String(mmYYYY[1]).padStart(2, '0');
+    const y = mmYYYY[2];
+    return `${y}-${m}-01`;
+  }
+
+  // Month name + year (e.g., March 2025)
+  const monthName = str.match(/^(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})$/i);
+  if (monthName) {
+    const months: Record<string, string> = { jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06', jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12' };
+    const m = months[monthName[1].slice(0, 3).toLowerCase()];
+    return `${monthName[2]}-${m}-01`;
+  }
+
+  // Fallback to Date parsing
+  const attempted = new Date(str);
+  if (!isNaN(attempted.getTime())) {
+    const y = attempted.getFullYear();
+    const m = String(attempted.getMonth() + 1).padStart(2, '0');
+    const d = String(attempted.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
   return null;
 }
 
@@ -211,7 +259,8 @@ export default function AdminPoliciesPage() {
 
   useEffect(() => {
     let mounted = true;
-    (async () => {
+
+    async function fetchPolicies() {
       try {
         const [localRes, firebaseRes] = await Promise.all([fetch('/api/policies'), fetch('/api/policies/firebase')]);
         const localData = localRes.ok ? await localRes.json() : { files: [] };
@@ -231,8 +280,8 @@ export default function AdminPoliciesPage() {
             url,
             title,
             version: p?.meta?.version || p?.version || null,
-            effectiveDate: p?.meta?.effectiveDate || null,
-            reviewDate: p?.meta?.reviewDate || null,
+            effectiveDate: p?.meta?.effectiveDate || p?.extractedJson?.effectiveDate || null,
+            reviewDate: p?.meta?.reviewDate || p?.extractedJson?.reviewDate || null,
             appliesTo: p?.meta?.appliesTo || null,
             isCompleted: true,
             lastCustomized: p?.updatedAt || p?.createdAt || null,
@@ -250,8 +299,8 @@ export default function AdminPoliciesPage() {
             url,
             title,
             version: p?.meta?.version || p?.version || null,
-            effectiveDate: p?.meta?.effectiveDate || null,
-            reviewDate: p?.meta?.reviewDate || null,
+            effectiveDate: p?.meta?.effectiveDate || p?.extractedJson?.effectiveDate || null,
+            reviewDate: p?.meta?.reviewDate || p?.extractedJson?.reviewDate || null,
             appliesTo: p?.meta?.appliesTo || null,
             isCompleted: true,
             lastCustomized: p?.updatedAt || p?.createdAt || null,
@@ -259,19 +308,30 @@ export default function AdminPoliciesPage() {
           };
         });
 
-  const combinedMap = new Map<string, any>();
+        const combinedMap = new Map<string, any>();
+        // merge in order: local -> drafts -> published so published overrides
         (Array.isArray(localFiles) ? localFiles : []).forEach((f: any) => { const key = typeof f === 'string' ? f : f.file; combinedMap.set(key, f); });
-  // merge drafts first, then published files so published overrides draft entries
-  draftFiles.forEach((df) => combinedMap.set(String(df.file), df));
-  publishedFiles.forEach((pf) => combinedMap.set(String(pf.file), pf));
+        draftFiles.forEach((df) => combinedMap.set(String(df.file), df));
+        publishedFiles.forEach((pf) => combinedMap.set(String(pf.file), pf));
         const combined = Array.from(combinedMap.values());
         setFiles(combined || []);
       } catch (err) {
         console.error('Error fetching policies', err);
         if (mounted) setFiles([]);
       }
-    })();
-    return () => { mounted = false; };
+    }
+
+    // initial load
+    fetchPolicies();
+
+    // listen for policy-updated events elsewhere in the app and re-fetch when they occur
+    const onPolicyUpdated = () => {
+      // small delay to allow server writes to settle
+      setTimeout(() => { fetchPolicies(); }, 800);
+    };
+    if (typeof window !== 'undefined') window.addEventListener('policy-updated', onPolicyUpdated as EventListener);
+
+    return () => { mounted = false; if (typeof window !== 'undefined') window.removeEventListener('policy-updated', onPolicyUpdated as EventListener); };
   }, []);
 
   // handle open-specific-policy from chat
@@ -296,7 +356,11 @@ export default function AdminPoliciesPage() {
       const reviewDate = isString ? null : f.reviewDate;
       const appliesTo = isString ? null : (f.appliesTo || null);
       const review = getReviewStatus(reviewDate);
-      const ts = reviewDate ? (new Date(reviewDate)).getTime() : Number.POSITIVE_INFINITY;
+      let ts = Number.POSITIVE_INFINITY;
+      if (reviewDate) {
+        const norm = normalizeDateString(reviewDate);
+        if (norm) ts = new Date(`${norm}T00:00:00`).getTime();
+      }
       return { raw: f, fileName, title, version, effectiveDate, reviewDate, appliesTo, review, ts };
     });
     const filteredItems = searchQuery ? items.filter(item => item.title.toLowerCase().includes(searchQuery.toLowerCase()) || item.fileName.toLowerCase().includes(searchQuery.toLowerCase())) : items;
@@ -434,7 +498,11 @@ export default function AdminPoliciesPage() {
                           });
                         }
 
-                        const reviewDateVal = it.reviewDate ? (new Date(it.reviewDate)) : null;
+                        // Prefer the published/extractedJson reviewDate when available, otherwise fall back to mapped reviewDate
+                        const rawReviewFromRaw = it.raw && typeof it.raw !== 'string' ? (it.raw.extractedJson?.reviewDate || it.raw.meta?.reviewDate) : null;
+                        const reviewDateToUse = rawReviewFromRaw || it.reviewDate || null;
+                        const reviewDateNorm = reviewDateToUse ? normalizeDateString(reviewDateToUse) : null;
+                        const reviewDateVal = reviewDateNorm ? new Date(`${reviewDateNorm}T00:00:00`) : null;
                         const reviewYear = reviewDateVal ? reviewDateVal.getFullYear() : null;
                         const daysUntilReview = reviewDateVal ? Math.ceil((reviewDateVal.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
 
@@ -455,7 +523,7 @@ export default function AdminPoliciesPage() {
                                   onClick={() => onYearCellClick(it, yearKey)}
                                 >
                                   <div className="relative inline-block">
-                                    {checked ? (
+                        {checked ? (
                                       <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shadow-md bg-blue-500 text-white">✓</div>
                                     ) : (
                                       <div className="w-10 h-10 rounded-full border-2 border-gray-300 border-dashed flex items-center justify-center text-gray-400 hover:border-blue-400 transition-colors">
@@ -489,23 +557,39 @@ export default function AdminPoliciesPage() {
                 const { fileName, title, version, effectiveDate, reviewDate, appliesTo, review } = it;
                 const isString = typeof it.raw === 'string';
                 const isCompleted = !isString && it.raw.isCompleted;
+                const isExpiringSoon = review && (review.kind === 'due-soon' || review.kind === 'overdue');
+
+                const containerClass = isExpiringSoon
+                  ? 'bg-gradient-to-br from-red-50 to-rose-50 border-red-200 hover:border-red-300'
+                  : (isCompleted ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200 hover:border-green-300' : 'bg-white/90 border-blue-100 hover:border-blue-200');
+
+                const iconClass = isExpiringSoon ? 'bg-red-500 text-white' : (isCompleted ? 'bg-green-500 text-white' : 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white');
+
+                const titleClass = isExpiringSoon ? 'text-red-800' : (isCompleted ? 'text-green-800' : 'text-blue-900 group-hover:text-blue-800');
+
+                const bottomBorder = isExpiringSoon ? 'bg-gradient-to-r from-red-500 to-rose-500' : (isCompleted ? 'bg-gradient-to-r from-green-500 to-emerald-500' : 'bg-gradient-to-r from-blue-500 to-indigo-600');
+
                 return (
-                  <div key={fileName} className={`group relative overflow-hidden rounded-2xl shadow-lg border transition-all duration-300 hover:shadow-xl hover:-translate-y-1 min-h-[200px] flex flex-col cursor-pointer ${isCompleted ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200 hover:border-green-300' : 'bg-white/90 border-blue-100 hover:border-blue-200'}`} onClick={() => router.push(`/admin/policies/${encodeURIComponent(fileName.replace(/\.pdf$/i, ''))}/edit`)}>
-                    {isCompleted && (<div className="absolute inset-0 opacity-5 pointer-events-none"><div className="absolute top-0 right-0 w-32 h-32 bg-green-400 rounded-full -translate-y-16 translate-x-16"></div><div className="absolute bottom-0 left-0 w-24 h-24 bg-emerald-400 rounded-full translate-y-12 -translate-x-12"></div></div>)}
+                  <div key={fileName} className={`group relative overflow-hidden rounded-2xl shadow-lg border transition-all duration-300 hover:shadow-xl hover:-translate-y-1 min-h-[200px] flex flex-col cursor-pointer ${containerClass}`} onClick={() => router.push(`/admin/policies/${encodeURIComponent(fileName.replace(/\.pdf$/i, ''))}/edit`)}>
+                    {isCompleted && (<div className="absolute inset-0 opacity-5 pointer-events-none"><div className={`absolute top-0 right-0 w-32 h-32 rounded-full -translate-y-16 translate-x-16 ${isExpiringSoon ? 'bg-red-300' : 'bg-green-400'}`}></div><div className={`absolute bottom-0 left-0 w-24 h-24 rounded-full translate-y-12 -translate-x-12 ${isExpiringSoon ? 'bg-rose-300' : 'bg-emerald-400'}`}></div></div>)}
                     <div className="relative p-6 flex flex-col flex-grow">
                       <div className="flex items-start justify-between mb-4">
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm ${isCompleted ? 'bg-green-500 text-white' : 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white'}`}>
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm ${iconClass}`}>
                           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-current"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><polyline points="14,2 14,8 20,8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                         </div>
                       </div>
                       <div className="space-y-2 flex-grow">
-                        <h3 className={`font-semibold text-lg leading-tight ${isCompleted ? 'text-green-800' : 'text-blue-900 group-hover:text-blue-800'}`}>{title}</h3>
+                        <h3 className={`font-semibold text-lg leading-tight ${titleClass}`}>{title}</h3>
                         <p className="text-sm text-gray-600 leading-relaxed">{isCompleted ? 'Completed - Click to review or update' : 'Click to begin creating this policy'}</p>
                       </div>
                       {isCompleted && (
-                        <div className="mt-4 pt-4 border-t border-green-200 space-y-2">
-                          <div className="flex items-center justify-between text-xs text-green-700"><span>Status</span><span className="font-medium">✓ Complete</span></div>
-                          {reviewDate && (<div className="flex items-center justify-between text-xs text-green-700"><span>Renewal Date</span><span className="font-medium">{formatDateSafe(reviewDate)}</span></div>)}
+                        <div className="mt-4 pt-4 border-t space-y-2" style={{ borderColor: isExpiringSoon ? undefined : undefined }}>
+                          <div className={`flex items-center justify-between text-xs ${isExpiringSoon ? 'text-red-700' : 'text-green-700'}`}><span>Status</span><span className="font-medium">✓ Complete</span></div>
+                          {(() => {
+                            const rawReview = it.raw && typeof it.raw !== 'string' ? (it.raw.extractedJson?.reviewDate || it.raw.meta?.reviewDate) : null;
+                            const displayReview = rawReview || reviewDate || null;
+                            return displayReview ? (<div className={`flex items-center justify-between text-xs ${isExpiringSoon ? 'text-red-700' : 'text-green-700'}`}><span>Renewal Date</span><span className="font-medium">{formatDateSafe(displayReview)}</span></div>) : null;
+                          })()}
                           <div className="pt-2 flex gap-2">
                             <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); preloadAndOpenPolicy(it); }}>{viewLoading === it.fileName ? 'Loading…' : 'View'}</Button>
                             <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); router.push(`/admin/policies/${encodeURIComponent(fileName.replace(/\.pdf$/i, ''))}/edit`); }}>Edit</Button>
@@ -513,7 +597,7 @@ export default function AdminPoliciesPage() {
                         </div>
                       )}
                     </div>
-                    <div className={`absolute left-0 bottom-0 h-1 w-full transition-all duration-300 ${isCompleted ? 'bg-gradient-to-r from-green-500 to-emerald-500' : 'bg-gradient-to-r from-blue-500 to-indigo-600'}`}></div>
+                    <div className={`absolute left-0 bottom-0 h-1 w-full transition-all duration-300 ${bottomBorder}`}></div>
                   </div>
                 );
               }) : null

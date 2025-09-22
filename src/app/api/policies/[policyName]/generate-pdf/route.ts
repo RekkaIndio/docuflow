@@ -49,6 +49,44 @@ export async function POST(
       }
     }
 
+    // Normalize meta.reviewDate (accept common formats like MM/YYYY, Month YYYY)
+    function normalizeDateStringServer(s?: any): string | null {
+      if (!s) return null;
+      const str = String(s).trim();
+      const isoMatch = str.match(/^(\d{4})[-\/](\d{1,2})(?:[-\/](\d{1,2}))?$/);
+      if (isoMatch) {
+        const y = isoMatch[1];
+        const m = String(isoMatch[2]).padStart(2, '0');
+        const d = isoMatch[3] ? String(isoMatch[3]).padStart(2, '0') : '01';
+        return `${y}-${m}-${d}`;
+      }
+      const mmYYYY = str.match(/^(\d{1,2})[\/](\d{4})$/);
+      if (mmYYYY) {
+        const m = String(mmYYYY[1]).padStart(2, '0');
+        const y = mmYYYY[2];
+        return `${y}-${m}-01`;
+      }
+      const monthName = str.match(/^(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})$/i);
+      if (monthName) {
+        const months: Record<string, string> = { jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06', jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12' };
+        const m = months[monthName[1].slice(0, 3).toLowerCase()];
+        return `${monthName[2]}-${m}-01`;
+      }
+      const attempted = new Date(str);
+      if (!isNaN(attempted.getTime())) {
+        const y = attempted.getFullYear();
+        const m = String(attempted.getMonth() + 1).padStart(2, '0');
+        const d = String(attempted.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+      }
+      return null;
+    }
+
+    if (meta && meta.reviewDate) {
+      const norm = normalizeDateStringServer(meta.reviewDate);
+      if (norm) meta.reviewDate = norm;
+    }
+
     // Replace template placeholders
     template = template.replace('{{logo}}', logoDataUri);
     template = template.replace('{{title}}', meta.title || sanitizedName.replace(/-/g, ' '));
@@ -349,9 +387,10 @@ export async function POST(
 
             const bucket = bucketName ? admin.storage().bucket(bucketName) : admin.storage().bucket();
 
-            // Determine organisation-aware storage path when possible by preferring org-scoped workspace doc
-            let orgIdForStorage: string | undefined = undefined;
-            if (workspaceId) {
+            // Determine organisation-aware storage path. Prefer explicit organisationId sent in the
+            // request body (`bodyOrganisationId`) if present, otherwise derive from workspace hints.
+            let orgIdForStorage: string | undefined = bodyOrganisationId || undefined;
+            if (!orgIdForStorage && workspaceId) {
               try {
                 // Try legacy workspace doc first to find an organisationId hint
                 const legacySnap = await adminDb.collection('workspaces').doc(workspaceId).get();
@@ -375,8 +414,11 @@ export async function POST(
               }
             }
 
+            // Prefer organisation-level storage so policies are accessible at org scope.
+            // Fall back to workspace-scoped path only when no orgId could be determined.
+            try { console.log('[GENERATE] orgIdForStorage (upload):', orgIdForStorage); } catch (e) {}
             storagePath = orgIdForStorage
-              ? `organisations/${orgIdForStorage}/workspaces/${workspaceId}/policies/${sanitizedName}.pdf`
+              ? `organisations/${orgIdForStorage}/policies/${sanitizedName}.pdf`
               : `workspaces/${workspaceId || 'global'}/policies/${sanitizedName}.pdf`;
             const file = bucket.file(storagePath);
 
@@ -425,9 +467,10 @@ export async function POST(
             }
 
             const bucket = bucketName ? admin.storage().bucket(bucketName) : admin.storage().bucket();
-            // Compute organisation-aware storage path for existing file lookup (prefer org-scoped workspace doc)
-            let orgIdForStorage: string | undefined = undefined;
-            if (workspaceId) {
+            // Compute organisation-aware storage path for existing file lookup (prefer explicit
+            // bodyOrganisationId, then org-scoped workspace doc)
+            let orgIdForStorage: string | undefined = bodyOrganisationId || undefined;
+            if (!orgIdForStorage && workspaceId) {
               try {
                 const legacySnap = await adminDb.collection('workspaces').doc(workspaceId).get();
                 let candidateOrgId = legacySnap.exists ? (legacySnap.data() as any)?.organisationId : undefined;
@@ -445,8 +488,10 @@ export async function POST(
               }
             }
 
+            try { console.log('[GENERATE] orgIdForStorage (lookup):', orgIdForStorage); } catch (e) {}
+            // Prefer organisation-level storage for lookups as well.
             storagePath = orgIdForStorage
-              ? `organisations/${orgIdForStorage}/workspaces/${workspaceId}/policies/${sanitizedName}.pdf`
+              ? `organisations/${orgIdForStorage}/policies/${sanitizedName}.pdf`
               : `workspaces/${workspaceId || 'global'}/policies/${sanitizedName}.pdf`;
             const file = bucket.file(storagePath);
             try {

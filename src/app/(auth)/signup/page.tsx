@@ -35,7 +35,14 @@ export default function SignupPage() {
     setLoading(true);
     try {
       await signUp(email, password, name);
-      router.push('/dashboard');
+      // Don't send newly created users straight to the dashboard. The admin
+      // must first create/assign them to a workspace. Redirect to the public
+      // landing page and instruct them to wait for admin setup.
+      toast({
+        title: 'Account created',
+        description: 'Your account was created. Please wait for your admin to add you to a workspace before accessing the dashboard.',
+      });
+      router.push('/');
     } catch (error: any) {
        toast({
         variant: 'destructive',

@@ -33,6 +33,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
   signIn: async () => {},
+  signInWithCustomToken: async () => {},
   signUp: async () => {},
   signOut: async () => {},
 });

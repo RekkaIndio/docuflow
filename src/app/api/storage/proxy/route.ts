@@ -10,12 +10,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required query parameter `path`' }, { status: 400 });
     }
 
-    // Only allow workspace policy paths to avoid creating an open proxy
-    // Accept both legacy `workspaces/{workspaceId}/...` and org-scoped
-    // `organisations/{orgId}/workspaces/{workspaceId}/...` paths.
+    // Restrict proxy to known app-scoped storage paths to avoid creating an open proxy.
+    // Accept legacy workspace paths (`workspaces/{workspaceId}/...`), org-scoped
+    // workspace paths (`organisations/{orgId}/workspaces/{workspaceId}/...`) and
+    // organisation-level document paths (`organisations/{orgId}/policies/...`).
     const isWorkspacePath = storagePath.startsWith('workspaces/');
     const isOrgWorkspacePath = storagePath.startsWith('organisations/') && storagePath.includes('/workspaces/');
-    if (!isWorkspacePath && !isOrgWorkspacePath) {
+    const isOrgLevelPath = storagePath.startsWith('organisations/') && !storagePath.includes('/workspaces/');
+    if (!isWorkspacePath && !isOrgWorkspacePath && !isOrgLevelPath) {
       return NextResponse.json({ error: 'Invalid path' }, { status: 400 });
     }
 
