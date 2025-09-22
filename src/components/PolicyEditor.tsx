@@ -513,7 +513,7 @@ export default function PolicyEditor({ policyContent, policyMeta, onSave, onGene
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <img 
                       src="/Neurodiversity_Symbol.png" 
-                      alt="DocuFlow" 
+                      alt="CG360 Logo" 
                       style={{ 
                         height: '40px',
                         width: 'auto'
@@ -527,7 +527,7 @@ export default function PolicyEditor({ policyContent, policyMeta, onSave, onGene
                         color: '#ffffff',
                         fontFamily: 'Arial, sans-serif'
                       }}>
-                        DocuFlow
+                        CG360
                       </h1>
                       <p style={{
                         margin: '0',

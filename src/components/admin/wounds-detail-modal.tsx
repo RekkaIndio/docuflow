@@ -200,7 +200,7 @@ export default function WoundsDetailModal({
         pdf.setPage(i);
         pdf.setFontSize(8);
         pdf.setFont('helvetica', 'italic');
-        pdf.text(`DocuFlow Admin Dashboard - Incident Reports Analysis | Page ${i} of ${pageCount}`, 20, pdfHeight - 10);
+        pdf.text(`CG360 Admin Dashboard - Incident Reports Analysis | Page ${i} of ${pageCount}`, 20, pdfHeight - 10);
       }
 
       // Save the PDF
@@ -522,7 +522,7 @@ export default function WoundsDetailModal({
         {/* Print Footer */}
         <div className="print-footer">
           <div>Report generated on {new Date().toLocaleDateString()} at {new Date().toLocaleTimeString()}</div>
-          <div>DocuFlow Admin Dashboard - Incident Reports Analysis</div>
+          <div>CG360 Admin Dashboard - Incident Reports Analysis</div>
         </div>
       </DialogContent>
     </Dialog>

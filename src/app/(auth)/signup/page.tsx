@@ -52,7 +52,7 @@ export default function SignupPage() {
         <div className="flex justify-center items-center mb-4">
             <Logo className="w-12 h-12 text-primary" />
         </div>
-        <CardTitle className="font-headline">Create your Docuflow Account</CardTitle>
+        <CardTitle className="font-headline">Create your CG360</CardTitle>
         <CardDescription>Get started with intelligent document management.</CardDescription>
       </CardHeader>
       <CardContent>

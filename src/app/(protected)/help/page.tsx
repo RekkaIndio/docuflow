@@ -1,7 +1,7 @@
 import Link from 'next/link'
 
 export const metadata = {
-  title: 'Help Center - Docuflow',
+  title: 'Help Center - CG360',
 }
 
 export default function HelpPage() {

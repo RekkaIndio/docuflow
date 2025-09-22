@@ -62,7 +62,7 @@ export default function renderActionPlanAssignmentEmail({ monthKey, assignedBy, 
 
         <tr>
           <td style="padding:16px; text-align:center; font-size:12px; color:#94a3b8;">
-            <div>Thank you — Docuflow</div>
+            <div>Thank you — CG360</div>
             <div style="margin-top:6px;">If you did not expect this email, you can ignore it.</div>
           </td>
         </tr>

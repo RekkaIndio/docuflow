@@ -27,8 +27,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const mg = mailgun.client({ username: 'api', key: apiKey, url: apiUrl });
     const year = new Date().getFullYear();
     const html = renderInviteEmail({ inviterName, workspaceName, inviteLink, year });
-    const subject = `${inviterName} invited you to join ${workspaceName} on Docuflow`;
-    const from = `Docuflow <postmaster@${domain}>`;
+    const subject = `${inviterName} invited you to join ${workspaceName} on CG360`;
+    const from = `CG360 <postmaster@${domain}>`;
 
     const resp = await mg.messages.create(domain, {
       from,

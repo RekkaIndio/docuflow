@@ -172,7 +172,7 @@ export default function FallsDetailModal({
       // Add footer
       pdf.setFontSize(8);
       pdf.setFont('helvetica', 'italic');
-      pdf.text(`DocuFlow Admin Dashboard - Falls Prevention Analysis | Generated: ${currentDate.toLocaleDateString()}`, 20, pdfHeight - 10);
+      pdf.text(`CG360 Admin Dashboard - Falls Prevention Analysis | Generated: ${currentDate.toLocaleDateString()}`, 20, pdfHeight - 10);
 
       // Save the PDF
       const fileName = `falls-prevention-report-${currentDate.toISOString().split('T')[0]}.pdf`;
@@ -546,7 +546,7 @@ export default function FallsDetailModal({
         {/* Print Footer */}
         <div className="print-footer">
           <div>Report generated on {new Date().toLocaleDateString()} at {new Date().toLocaleTimeString()}</div>
-          <div>DocuFlow Admin Dashboard - Falls Prevention Analysis</div>
+          <div>CG360 Admin Dashboard - Falls Prevention Analysis</div>
         </div>
       </DialogContent>
     </Dialog>

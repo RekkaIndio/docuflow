@@ -15,7 +15,7 @@ export default function renderSharedDocumentEmail(vars: { sharerName?: string; t
       ${message ? `<p style="margin:0 0 12px 0;">${message}</p>` : ''}
       <p style="margin:0 0 12px 0;"><a href="${documentUrl}">Open ${documentName}</a></p>
       <hr style="border:none;border-top:1px solid #eee;margin:16px 0;" />
-      <p style="font-size:12px;color:#666;margin:0;">&copy; ${year} Docuflow</p>
+      <p style="font-size:12px;color:#666;margin:0;">&copy; ${year} CG360</p>
     </div>
   </body>
 </html>`;

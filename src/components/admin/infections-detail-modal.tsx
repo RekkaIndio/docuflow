@@ -195,7 +195,7 @@ export default function InfectionsDetailModal({
         pdf.setPage(i);
         pdf.setFontSize(8);
         pdf.setFont('helvetica', 'italic');
-        pdf.text(`DocuFlow Admin Dashboard - Infection Control Analysis | Page ${i} of ${pageCount}`, 20, pdfHeight - 10);
+        pdf.text(`CG360 Admin Dashboard - Infection Control Analysis | Page ${i} of ${pageCount}`, 20, pdfHeight - 10);
       }
 
       // Save the PDF
@@ -558,7 +558,7 @@ export default function InfectionsDetailModal({
         {/* Print Footer */}
         <div className="print-footer">
           <div>Report generated on {new Date().toLocaleDateString()} at {new Date().toLocaleTimeString()}</div>
-          <div>DocuFlow Admin Dashboard - Infection Control Analysis</div>
+          <div>CG360 Admin Dashboard - Infection Control Analysis</div>
         </div>
       </DialogContent>
     </Dialog>
