@@ -68,7 +68,7 @@ export function AdminSidebar({
             <div className="flex items-center gap-2 overflow-hidden">
               <Logo className="w-8 h-8 text-primary flex-shrink-0" />
               <div className="flex flex-col text-left overflow-hidden">
-                <h2 className="text-md font-headline font-semibold truncate">DocuFlow</h2>
+                <h2 className="text-md font-headline font-semibold truncate">CG360</h2>
                 <p className="text-xs text-muted-foreground">Admin Workspace</p>
               </div>
             </div>

@@ -393,8 +393,8 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         const content = (match[5] || match[4] || match[3] || '').trim();
         return {
           type: 'send_email',
-          emailSubject: `Message from DocuFlow Chat`,
-          emailBody: content || 'Please check your DocuFlow workspace for updates.',
+          emailSubject: `Message from CG360 Chat`,
+          emailBody: content || 'Please check your CG360 workspace for updates.',
           originalInput: userInput
         };
       }
@@ -1470,7 +1470,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
           teamName: teams.map(t => t.name).join(', '),
           folderNames: [],
           workspaceName: selectedItem.name || 'Workspace',
-          grantedBy: user?.name || user?.email || 'DocuFlow User',
+          grantedBy: user?.name || user?.email || 'CG360 User',
           recipientEmails
         });
 

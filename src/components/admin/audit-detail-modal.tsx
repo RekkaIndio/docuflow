@@ -186,7 +186,7 @@ export default function AuditDetailModal({
         pdf.setPage(i);
         pdf.setFontSize(8);
         pdf.setFont('helvetica', 'italic');
-        pdf.text(`DocuFlow Admin Dashboard - Compliance Score Analysis | Page ${i} of ${pageCount}`, 20, pdfHeight - 10);
+        pdf.text(`CG360 Admin Dashboard - Compliance Score Analysis | Page ${i} of ${pageCount}`, 20, pdfHeight - 10);
       }
 
       // Save the PDF
@@ -592,7 +592,7 @@ export default function AuditDetailModal({
         {/* Print Footer */}
         <div className="print-footer">
           <div>Report generated on {new Date().toLocaleDateString()} at {new Date().toLocaleTimeString()}</div>
-          <div>DocuFlow Admin Dashboard - Compliance Score Analysis</div>
+          <div>CG360 Admin Dashboard - Compliance Score Analysis</div>
         </div>
       </DialogContent>
     </Dialog>

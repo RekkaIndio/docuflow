@@ -55,7 +55,7 @@ export default function LoginPage() {
         <div className="flex justify-center items-center mb-4">
             <Logo className="w-12 h-12 text-primary" />
         </div>
-        <CardTitle className="font-headline">Welcome Back to Docuflow</CardTitle>
+        <CardTitle className="font-headline">Welcome Back to CG360</CardTitle>
         <CardDescription>Sign in to continue to your workspace.</CardDescription>
       </CardHeader>
       <CardContent>

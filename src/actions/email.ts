@@ -47,8 +47,8 @@ export async function sendFolderAccessEmail({
             <ul>
               ${folderListHtml}
             </ul>
-            <p>You can view these folders by logging into your Docuflow account.</p>
-            <p>Thanks,<br/>The Docuflow Team</p>
+            <p>You can view these folders by logging into your CG360 account.</p>
+            <p>Thanks,<br/>The CG360 Team</p>
           </div>
         `,
       },

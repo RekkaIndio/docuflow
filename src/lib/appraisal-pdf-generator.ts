@@ -21,7 +21,7 @@ export function generateAppraisalPDF(appraisalData: AppraisalPDFData): Uint8Arra
   doc.setProperties({
     title: `${appraisalType} Report`,
     subject: `Monthly Appraisal Report - ${new Date(year, month).toLocaleString('default', { month: 'long' })} ${year}`,
-    creator: 'DocuFlow Appraisal System'
+    creator: 'CG360 Appraisal System'
   });
 
   let yPosition = 20;
@@ -95,7 +95,7 @@ export function generateAppraisalPDF(appraisalData: AppraisalPDFData): Uint8Arra
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(31, 41, 55); // Dark gray
-  doc.text('DocuFlow', margin + 40, 22);
+  doc.text('CG360', margin + 40, 22);
 
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
@@ -268,7 +268,7 @@ export function generateAppraisalPDF(appraisalData: AppraisalPDFData): Uint8Arra
     doc.setTextColor(107, 114, 128);
 
     // Left side - company info
-    doc.text('DocuFlow - Professional Document Management', margin, footerY + 2);
+    doc.text('CG360 - Professional Document Management', margin, footerY + 2);
 
     // Center - page number
     doc.text(`Page ${i} of ${pageCount}`, pageWidth / 2, footerY + 2, { align: 'center' });
@@ -290,7 +290,7 @@ export async function generateAppraisalPDFWithLogo(appraisalData: AppraisalPDFDa
   doc.setProperties({
     title: `${appraisalType} Report`,
     subject: `Monthly Appraisal Report - ${new Date(year, month).toLocaleString('default', { month: 'long' })} ${year}`,
-    creator: 'DocuFlow Appraisal System'
+    creator: 'CG360 Appraisal System'
   });
 
   let yPosition = 20;
@@ -379,7 +379,7 @@ export async function generateAppraisalPDFWithLogo(appraisalData: AppraisalPDFDa
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(31, 41, 55); // Dark gray
-  doc.text('DocuFlow', margin + 40, 22);
+  doc.text('CG360', margin + 40, 22);
 
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
@@ -552,7 +552,7 @@ export async function generateAppraisalPDFWithLogo(appraisalData: AppraisalPDFDa
     doc.setTextColor(107, 114, 128);
 
     // Left side - company info
-    doc.text('DocuFlow - Professional Document Management', margin, footerY + 2);
+    doc.text('CG360 - Professional Document Management', margin, footerY + 2);
 
     // Center - page number
     doc.text(`Page ${i} of ${pageCount}`, pageWidth / 2, footerY + 2, { align: 'center' });

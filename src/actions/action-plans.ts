@@ -83,7 +83,7 @@ export async function finalizeActionPlan(workspaceId: string, monthKey: string) 
       auditType: 'action-plan',
       home: `Workspace ${workspaceId}`,
       auditDate: new Date().toISOString(),
-      completedBy: 'Docuflow System',
+      completedBy: 'CG360 System',
       data: {
         monthKey,
         totalItems: plan.totalItems,
