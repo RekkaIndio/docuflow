@@ -8,6 +8,7 @@ declare module '@/hooks/use-auth' {
     user: User | null;
     loading: boolean;
     signIn: (email: string, pass: string) => Promise<any>;
+    signInWithCustomToken?: (token: string) => Promise<any>;
     signUp: (email: string, pass: string, name: string) => Promise<any>;
     signOut: () => Promise<void>;
   };

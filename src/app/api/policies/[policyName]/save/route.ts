@@ -22,7 +22,46 @@ export async function POST(
   const documentId = sanitizedName;
 
     // Prepare the policy document and a structured extractedJson for chatbot consumption
-    const policyDocument = {
+      // Normalize reviewDate if present (accepts MM/YYYY, Month YYYY, YYYY-MM-DD, etc.)
+      function normalizeDateStringServer(s?: any): string | null {
+        if (!s) return null;
+        const str = String(s).trim();
+        const isoMatch = str.match(/^(\d{4})[-\/](\d{1,2})(?:[-\/](\d{1,2}))?$/);
+        if (isoMatch) {
+          const y = isoMatch[1];
+          const m = String(isoMatch[2]).padStart(2, '0');
+          const d = isoMatch[3] ? String(isoMatch[3]).padStart(2, '0') : '01';
+          return `${y}-${m}-${d}`;
+        }
+        const mmYYYY = str.match(/^(\d{1,2})[\/](\d{4})$/);
+        if (mmYYYY) {
+          const m = String(mmYYYY[1]).padStart(2, '0');
+          const y = mmYYYY[2];
+          return `${y}-${m}-01`;
+        }
+        const monthName = str.match(/^(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})$/i);
+        if (monthName) {
+          const months: Record<string, string> = { jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06', jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12' };
+          const m = months[monthName[1].slice(0, 3).toLowerCase()];
+          return `${monthName[2]}-${m}-01`;
+        }
+        const attempted = new Date(str);
+        if (!isNaN(attempted.getTime())) {
+          const y = attempted.getFullYear();
+          const m = String(attempted.getMonth() + 1).padStart(2, '0');
+          const d = String(attempted.getDate()).padStart(2, '0');
+          return `${y}-${m}-${d}`;
+        }
+        return null;
+      }
+
+      // If meta.reviewDate is present, normalize it before building documents
+      if (meta && meta.reviewDate) {
+        const norm = normalizeDateStringServer(meta.reviewDate);
+        if (norm) meta.reviewDate = norm;
+      }
+
+      const policyDocument = {
       id: documentId,
       policyName: sanitizedName,
       originalPolicyName: policyName,

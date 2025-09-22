@@ -104,7 +104,14 @@ export default function AcceptInvitePage() {
     try {
       if (!auth?.signUp) throw new Error('Signup not available');
       await auth.signUp(email, password, name || '');
-      // After sign up, redirect to dashboard
+      // After sign up, do NOT automatically send the user to the dashboard.
+      // The workspace admin needs to assign the user to a workspace first.
+      try {
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem('awaitingWorkspace', '1');
+        }
+      } catch (e) {}
+      // Redirect to the public landing page and show instructions.
       router.push('/');
     } catch (e: any) {
       console.error('Signup failed', e);

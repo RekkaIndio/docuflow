@@ -32,7 +32,8 @@ import * as mammoth from "mammoth";
 function isWorkspaceStoragePath(p?: string | null) {
     if (!p) return false;
     if (p.startsWith('workspaces/')) return true;
-    if (p.startsWith('organisations/') && p.includes('/workspaces/')) return true;
+    // Treat organisation-level policy paths as proxyable as well (e.g. organisations/{orgId}/policies/{name}.pdf)
+    if (p.startsWith('organisations/') && (p.includes('/workspaces/') || p.includes('/policies/'))) return true;
     return false;
 }
 
@@ -335,20 +336,26 @@ const PdfPreview = ({ document: doc }: { document: DocumentType }) => {
                     const arrayBuffer = await proxyResp.arrayBuffer();
                     base64Data = uint8ToBase64(new Uint8Array(arrayBuffer));
                 } else if (pathToUse.startsWith('http') || pathToUse.startsWith('/')) {
-                    // If it's an absolute or relative HTTP URL (public asset or signed URL), try to fetch it directly
+                    // If it's an absolute or relative HTTP URL (public asset or signed URL), prefer server proxy when
+                    // the URL maps to a known app storage object path (to avoid CORS issues). Otherwise attempt direct fetch.
                     try {
-                        const resp = await fetch(pathToUse);
-                        if (!resp.ok) throw new Error(`Failed to fetch PDF from URL: ${resp.status}`);
-                        const arrayBuffer = await resp.arrayBuffer();
-                        base64Data = uint8ToBase64(new Uint8Array(arrayBuffer));
+                        // If the URL is a storage signed URL, parse the object path and use the server proxy where possible
+                        const parsedPath = parseStoragePathFromUrl(pathToUse);
+                        if (parsedPath && isWorkspaceStoragePath(parsedPath)) {
+                            const proxyResp = await fetch(`/api/storage/proxy?path=${encodeURIComponent(parsedPath)}`);
+                            if (!proxyResp.ok) throw new Error(`Proxy fetch failed: ${proxyResp.status}`);
+                            const arrayBuffer = await proxyResp.arrayBuffer();
+                            base64Data = uint8ToBase64(new Uint8Array(arrayBuffer));
+                        } else {
+                            // Not a signed storage URL or not mappable to an app path - attempt direct fetch first
+                            const resp = await fetch(pathToUse);
+                            if (!resp.ok) throw new Error(`Failed to fetch PDF from URL: ${resp.status}`);
+                            const arrayBuffer = await resp.arrayBuffer();
+                            base64Data = uint8ToBase64(new Uint8Array(arrayBuffer));
+                        }
                     } catch (directErr) {
-                        console.warn('Direct fetch of signed/public URL failed, attempting server proxy if available', directErr);
-                        // Determine a proxy path: only use the server proxy when we can derive a workspace storage path
-                        // (the proxy intentionally only supports 'workspaces/...' paths). Prefer explicit doc.storagePath
-                        // but only if it looks like a workspace path. Otherwise try to parse the object path from the signed URL
-                        // and only use it when it begins with 'workspaces/'. If we can't get a workspace path, fall back to
-                        // other server helpers (signed-url or getDocumentAsBase64) instead of calling the proxy with a
-                        // leading-relative public URL like '/policies/...'.
+                        console.warn('Direct fetch/proxy of signed/public URL failed, attempting other fallbacks', directErr);
+                        // Determine a proxy path: prefer explicit doc.storagePath or parsed object path
                         let proxyPath: string | null = null;
                         if (isWorkspaceStoragePath(doc.storagePath)) {
                             proxyPath = doc.storagePath as string;
@@ -364,7 +371,7 @@ const PdfPreview = ({ document: doc }: { document: DocumentType }) => {
                             const arrayBuffer = await proxyResp.arrayBuffer();
                             base64Data = uint8ToBase64(new Uint8Array(arrayBuffer));
                         } else {
-                            // No suitable workspace proxy path available. Try other fallbacks instead of calling proxy with
+                            // No suitable proxy path available. Try other fallbacks instead of calling proxy with
                             // a public relative URL path. Prefer signed-url helper if we have a storagePath, then server helper.
                             if (doc.storagePath) {
                                 try {

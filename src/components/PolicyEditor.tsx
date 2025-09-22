@@ -202,7 +202,64 @@ export default function PolicyEditor({ policyContent, policyMeta, onSave, onGene
 
   const handleSave = () => {
     if (validateForm()) {
-      onSave?.(filledContent, filledMeta, assignedTeams);
+      // Normalize dates in meta before sending so server and listing read consistent YYYY-MM-DD
+      const metaToSend: Record<string, any> = { ...filledMeta };
+      // If the template provides a Renewal Date placeholder (stored as MM/YYYY in formData), prefer that
+      try {
+        // find any placeholder fields labelled Renewal Date
+        const renewalField = placeholderFields.find(f => f.label === 'Renewal Date');
+        if (renewalField) {
+          const val = formData[renewalField.placeholder];
+          if (val && typeof val === 'string') {
+            const m = val.trim();
+            const mmyyyy = m.match(/^(\d{1,2})\/(\d{4})$/);
+            if (mmyyyy) {
+              const month = String(mmyyyy[1]).padStart(2, '0');
+              const year = mmyyyy[2];
+              metaToSend.reviewDate = `${year}-${month}-01`;
+            } else {
+              // fallback: try to parse freeform value
+              const parsed = new Date(m);
+              if (!isNaN(parsed.getTime())) {
+                const y = parsed.getFullYear();
+                const mm = String(parsed.getMonth() + 1).padStart(2, '0');
+                const dd = String(parsed.getDate()).padStart(2, '0');
+                metaToSend.reviewDate = `${y}-${mm}-${dd}`;
+              }
+            }
+          }
+        }
+
+        // Also normalize any keys in meta that look like review/effective dates
+        Object.keys(metaToSend).forEach((k) => {
+          const lower = String(k).toLowerCase();
+          if (lower.includes('review') || lower.includes('renewal') || lower.includes('effective')) {
+            const raw = metaToSend[k];
+            if (raw && typeof raw === 'string') {
+              const mmYYYY = String(raw).trim().match(/^(\d{1,2})\/(\d{4})$/);
+              if (mmYYYY) {
+                const month = String(mmYYYY[1]).padStart(2, '0');
+                const year = mmYYYY[2];
+                metaToSend[k] = `${year}-${month}-01`;
+              } else {
+                // try Date parse fallback
+                const attempt = new Date(String(raw));
+                if (!isNaN(attempt.getTime())) {
+                  const y = attempt.getFullYear();
+                  const mm = String(attempt.getMonth() + 1).padStart(2, '0');
+                  const dd = String(attempt.getDate()).padStart(2, '0');
+                  metaToSend[k] = `${y}-${mm}-${dd}`;
+                }
+              }
+            }
+          }
+        });
+      } catch (e) {
+        // Don't block saving if normalization fails
+        console.warn('Date normalization failed in PolicyEditor.save', e);
+      }
+
+      onSave?.(filledContent, metaToSend, assignedTeams);
     }
   };
 
@@ -214,7 +271,57 @@ export default function PolicyEditor({ policyContent, policyMeta, onSave, onGene
     
     setIsGenerating(true);
     try {
-      await onGeneratePDF?.(filledContent, filledMeta);
+      // Normalize meta similarly to save to ensure publication includes normalized reviewDate
+      const metaToSend: Record<string, any> = { ...filledMeta };
+      try {
+        const renewalField = placeholderFields.find(f => f.label === 'Renewal Date');
+        if (renewalField) {
+          const val = formData[renewalField.placeholder];
+          if (val && typeof val === 'string') {
+            const m = val.trim();
+            const mmyyyy = m.match(/^(\d{1,2})\/(\d{4})$/);
+            if (mmyyyy) {
+              const month = String(mmyyyy[1]).padStart(2, '0');
+              const year = mmyyyy[2];
+              metaToSend.reviewDate = `${year}-${month}-01`;
+            } else {
+              const parsed = new Date(m);
+              if (!isNaN(parsed.getTime())) {
+                const y = parsed.getFullYear();
+                const mm = String(parsed.getMonth() + 1).padStart(2, '0');
+                const dd = String(parsed.getDate()).padStart(2, '0');
+                metaToSend.reviewDate = `${y}-${mm}-${dd}`;
+              }
+            }
+          }
+        }
+        Object.keys(metaToSend).forEach((k) => {
+          const lower = String(k).toLowerCase();
+          if (lower.includes('review') || lower.includes('renewal') || lower.includes('effective')) {
+            const raw = metaToSend[k];
+            if (raw && typeof raw === 'string') {
+              const mmYYYY = String(raw).trim().match(/^(\d{1,2})\/(\d{4})$/);
+              if (mmYYYY) {
+                const month = String(mmYYYY[1]).padStart(2, '0');
+                const year = mmYYYY[2];
+                metaToSend[k] = `${year}-${month}-01`;
+              } else {
+                const attempt = new Date(String(raw));
+                if (!isNaN(attempt.getTime())) {
+                  const y = attempt.getFullYear();
+                  const mm = String(attempt.getMonth() + 1).padStart(2, '0');
+                  const dd = String(attempt.getDate()).padStart(2, '0');
+                  metaToSend[k] = `${y}-${mm}-${dd}`;
+                }
+              }
+            }
+          }
+        });
+      } catch (e) {
+        console.warn('Date normalization failed in PolicyEditor.generate', e);
+      }
+
+      await onGeneratePDF?.(filledContent, metaToSend);
     } finally {
       setIsGenerating(false);
     }
