@@ -28,5 +28,6 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/audits/:path*'],
+  // Run middleware for all routes so we can selectively rewrite by hostname.
+  matcher: ['/:path*'],
 };
