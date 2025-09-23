@@ -19,9 +19,37 @@ export function middleware(req: NextRequest) {
       !pathname.startsWith('/assets') &&
       !pathname.startsWith('/favicon') &&
       !pathname.startsWith('/coming-soon')) {
-    const url = req.nextUrl.clone();
-    url.pathname = '/coming-soon';
-    return NextResponse.rewrite(url);
+    // Return a small inline coming-soon HTML response directly from middleware.
+    const html = `<!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width,initial-scale=1" />
+        <title>CG-360 — Coming Soon</title>
+        <style>
+          body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial;background:#fff;margin:0;display:flex;align-items:center;justify-content:center;height:100vh}
+          .wrap{max-width:680px;text-align:center;padding:24px}
+          .logo{width:96px;height:96px;margin:0 auto 18px}
+          h1{font-size:28px;margin:0 0 8px;color:#0f172a}
+          p{color:#475569;margin:0 0 12px}
+        </style>
+      </head>
+      <body>
+        <div class="wrap">
+          <img class="logo" src="https://docuflow.ai/assets/Neurodiversity_Symbol.png" alt="CG-360" />
+          <h1>CG-360</h1>
+          <p>We're launching soon. This site is temporarily unavailable.</p>
+        </div>
+      </body>
+    </html>`;
+
+    return new NextResponse(html, {
+      status: 200,
+      headers: {
+        'content-type': 'text/html; charset=utf-8',
+        'cache-control': 'no-store, max-age=0'
+      }
+    });
   }
 
   // Default behavior: allow other middleware or routes to handle the request
