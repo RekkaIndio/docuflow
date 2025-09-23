@@ -66,6 +66,11 @@ export default function AdminStaffingChart({
   const roundedAverageDay = Math.round(aggregateStaffingData.averageDay || 0);
   const roundedAverageNight = Math.round(aggregateStaffingData.averageNight || 0);
 
+  // additional summaries
+  const totalWeek = weekData.reduce((s, d) => s + d.total, 0);
+  const avgPerDay = Math.round(totalWeek / Math.max(1, weekData.length));
+  const peakDay = weekData.reduce((best, d) => (d.total > best.total ? d : best), weekData[0] || { date: '', total: 0, dayName: '' });
+
   const dayDiff = roundedAverageDay - prevDay.day;
   const nightDiff = roundedAverageNight - prevDay.night;
   const dayPct = prevDay.day > 0 ? Math.round((dayDiff / prevDay.day) * 100) : (dayDiff > 0 ? 100 : 0);
@@ -81,7 +86,7 @@ export default function AdminStaffingChart({
             <UserCheck className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+            <h2 className="text-2xl font-bold text-gray-900 drop-shadow-sm">
               Weekly Staffing Overview
             </h2>
             <p className="text-sm text-gray-600">Last 7 days staffing levels</p>
@@ -92,8 +97,10 @@ export default function AdminStaffingChart({
             <Button
               size="sm"
               variant="outline"
-              className="bg-white/60 backdrop-blur-sm border-gray-200/50 hover:bg-white/80 transition-all duration-300"
+              className="bg-white/60 backdrop-blur-sm border-gray-200/50 hover:bg-white/80 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-400"
               onClick={onRefresh}
+              aria-label="Refresh staffing data"
+              title="Refresh staffing data"
             >
               <RefreshCw className="w-4 h-4 mr-2" />
               Refresh
@@ -101,10 +108,49 @@ export default function AdminStaffingChart({
             <Button
               size="sm"
               variant="ghost"
-              className="bg-white/40 backdrop-blur-sm border-gray-200/30 hover:bg-white/70 transition-all duration-300"
+              className="bg-white/40 backdrop-blur-sm border-gray-200/30 hover:bg-white/70 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-400"
               onClick={() => setIsModalOpen(true)}
+              aria-label="Open staffing details"
+              title="Open staffing details"
             >
               Details
+            </Button>
+          </div>
+
+          {/* Timeframe buttons */}
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant={staffingTimeframe === 'day' ? 'default' : 'ghost'}
+              onClick={() => onTimeframeChange('day')}
+              className="px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-400"
+              aria-pressed={staffingTimeframe === 'day'}
+              aria-label="View day staffing"
+              title="View day staffing"
+            >
+              Day
+            </Button>
+            <Button
+              size="sm"
+              variant={staffingTimeframe === 'week' ? 'default' : 'ghost'}
+              onClick={() => onTimeframeChange('week')}
+              className="px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-400"
+              aria-pressed={staffingTimeframe === 'week'}
+              aria-label="View week staffing"
+              title="View week staffing"
+            >
+              Week
+            </Button>
+            <Button
+              size="sm"
+              variant={staffingTimeframe === 'month' ? 'default' : 'ghost'}
+              onClick={() => onTimeframeChange('month')}
+              className="px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-400"
+              aria-pressed={staffingTimeframe === 'month'}
+              aria-label="View month staffing"
+              title="View month staffing"
+            >
+              Month
             </Button>
           </div>
         </div>
@@ -130,44 +176,64 @@ export default function AdminStaffingChart({
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Left: main chart (spans 2 columns on large screens) */}
                 <div className="lg:col-span-2 space-y-6">
-                  {/* Current Totals */}
-                  <div className="grid grid-cols-2 gap-6">
+                  {/* Current Snapshot: combined Day + Night */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div
                       role="button"
                       tabIndex={0}
                       onClick={() => setIsModalOpen(true)}
                       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setIsModalOpen(true); }}
-                      className="group/card relative overflow-hidden bg-gradient-to-br from-amber-50 via-amber-25 to-amber-50/50 p-6 rounded-2xl border border-amber-200/50 hover:shadow-lg transition-all duration-300 hover:scale-[1.02] cursor-pointer"
+                      className="group/card relative overflow-hidden bg-gradient-to-br from-white to-emerald-50 p-6 rounded-2xl border border-gray-200/50 hover:shadow-lg transition-all duration-300 hover:scale-[1.02] cursor-pointer"
                     >
-                      <div className="absolute top-0 right-0 w-16 h-16 bg-amber-100/30 rounded-full -mr-8 -mt-8 group-hover/card:bg-amber-100/40 transition-colors duration-300"></div>
+                      <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-100/30 rounded-full -mr-8 -mt-8 group-hover/card:bg-emerald-100/40 transition-colors duration-300"></div>
                       <div className="relative flex items-center gap-4">
-                        <div className="p-3 bg-amber-500/10 rounded-xl group-hover/card:bg-amber-500/20 transition-colors duration-300">
-                          <Users className="w-6 h-6 text-amber-600" />
+                        <div className="p-3 bg-emerald-500/10 rounded-xl group-hover/card:bg-emerald-500/20 transition-colors duration-300">
+                          <Users className="w-6 h-6 text-emerald-600" />
                         </div>
                         <div>
-                          <div className="text-3xl font-bold text-amber-700">{aggregateStaffingData.totalDay}</div>
-                          <div className="text-sm text-amber-600 font-medium">Day Staff Today</div>
-                          <div className="text-xs text-amber-500 mt-1">Active shifts</div>
+                          <div className="text-3xl font-bold text-gray-900">{aggregateStaffingData.totalDay + aggregateStaffingData.totalNight}</div>
+                          <div className="text-sm text-gray-600 font-medium">Total Staff Today</div>
+                          <div className="text-xs text-gray-500 mt-1">{aggregateStaffingData.totalDay} day • {aggregateStaffingData.totalNight} night</div>
                         </div>
                       </div>
                     </div>
 
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => setIsModalOpen(true)}
-                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setIsModalOpen(true); }}
-                      className="group/card relative overflow-hidden bg-gradient-to-br from-blue-50 via-blue-25 to-blue-50/50 p-6 rounded-2xl border border-blue-200/50 hover:shadow-lg transition-all duration-300 hover:scale-[1.02] cursor-pointer"
-                    >
-                      <div className="absolute top-0 right-0 w-16 h-16 bg-blue-100/30 rounded-full -mr-8 -mt-8 group-hover/card:bg-blue-100/40 transition-colors duration-300"></div>
-                      <div className="relative flex items-center gap-4">
-                        <div className="p-3 bg-blue-500/10 rounded-xl group-hover/card:bg-blue-500/20 transition-colors duration-300">
-                          <Users className="w-6 h-6 text-blue-600" />
+                    <div className="flex flex-col gap-4">
+                      <div className="bg-white/60 p-4 rounded-xl border border-gray-200/50 shadow-sm">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="text-sm text-gray-600">Weekly total</div>
+                            <div className="text-xl font-bold text-gray-900">{weekData.reduce((s, d) => s + d.total, 0)}</div>
+                          </div>
+                          <div className="w-28 h-8">
+                            {/* Inline sparkline SVG for totals */}
+                            <svg viewBox={`0 0 ${weekData.length * 10} 20`} className="w-full h-full" preserveAspectRatio="none">
+                              <polyline
+                                fill="none"
+                                stroke="#10b981"
+                                strokeWidth="2"
+                                points={weekData.map((d, i) => {
+                                  const max = Math.max(...weekData.map(w => w.total), 1);
+                                  const x = i * 10;
+                                  const y = 20 - (d.total / max) * 18;
+                                  return `${x},${y}`;
+                                }).join(' ')}
+                              />
+                            </svg>
+                          </div>
                         </div>
+                      </div>
+
+                      <div className="bg-white/60 p-4 rounded-xl border border-gray-200/50 shadow-sm flex items-center justify-between">
                         <div>
-                          <div className="text-3xl font-bold text-blue-700">{aggregateStaffingData.totalNight}</div>
-                          <div className="text-sm text-blue-600 font-medium">Night Staff Today</div>
-                          <div className="text-xs text-blue-500 mt-1">Active shifts</div>
+                          <div className="text-sm text-gray-600">Workspaces reporting</div>
+                          <div className="text-xl font-bold text-gray-900">{aggregateStaffingData.workspacesWithData}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className={`text-sm font-semibold ${((roundedAverageDay + roundedAverageNight) - (prevDay.day + prevDay.night)) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                            {Math.abs(Math.round(((roundedAverageDay + roundedAverageNight) - (prevDay.day + prevDay.night)) / Math.max(1, prevDay.day + prevDay.night) * 100))}%
+                          </div>
+                          <div className="text-xs text-gray-500">vs yesterday</div>
                         </div>
                       </div>
                     </div>
@@ -193,20 +259,19 @@ export default function AdminStaffingChart({
                             const nightHeight = (day.night / maxStaffing) * 100;
 
                             return (
-                              <div key={day.date} className="flex flex-col items-center flex-1 group/bar">
-                                {/* Values above bars */}
-                                <div className="mb-3 space-y-1 text-center">
-                                  <div className="text-sm font-bold text-amber-700">{day.day}</div>
-                                  <div className="text-sm font-bold text-blue-700">{day.night}</div>
+                              <div key={day.date} className="flex flex-col items-center flex-1 group/bar px-1">
+                                {/* Value above bar: show total only to avoid repetition */}
+                                <div className="mb-3 text-center">
+                                  <div className="text-sm font-bold text-gray-900">{day.total}</div>
                                 </div>
 
                                 {/* Bars */}
-                                <div className="flex flex-col w-full max-w-12 justify-end h-32 gap-1">
+                                <div className="flex flex-col w-full max-w-20 justify-end h-32 gap-1">
                                   <div
                                     className="bg-gradient-to-t from-amber-500 to-amber-400 rounded-t transition-all duration-300 hover:from-amber-600 hover:to-amber-500 group-hover/bar:scale-110 w-full shadow-sm"
                                     style={{
                                       height: `${dayHeight}%`,
-                                      minHeight: day.day > 0 ? '4px' : '0'
+                                      minHeight: day.day > 0 ? '6px' : '0'
                                     }}
                                     title={`Day Staff: ${day.day} on ${day.dayName}`}
                                   />
@@ -214,7 +279,7 @@ export default function AdminStaffingChart({
                                     className="bg-gradient-to-t from-blue-500 to-blue-400 rounded-b transition-all duration-300 hover:from-blue-600 hover:to-blue-500 group-hover/bar:scale-110 w-full shadow-sm"
                                     style={{
                                       height: `${nightHeight}%`,
-                                      minHeight: day.night > 0 ? '4px' : '0'
+                                      minHeight: day.night > 0 ? '6px' : '0'
                                     }}
                                     title={`Night Staff: ${day.night} on ${day.dayName}`}
                                   />
@@ -251,21 +316,15 @@ export default function AdminStaffingChart({
                       <div className="mt-6 pt-4 border-t border-gray-200">
                         <div className="grid grid-cols-3 gap-4 text-center">
                           <div>
-                            <div className="text-lg font-bold text-gray-900">
-                              {weekData.reduce((sum, day) => sum + day.day, 0)}
-                            </div>
-                            <div className="text-xs text-gray-600">Total Day Staff</div>
+                            <div className="text-lg font-bold text-gray-900">{totalWeek}</div>
+                            <div className="text-xs text-gray-600">Total This Week</div>
                           </div>
                           <div>
-                            <div className="text-lg font-bold text-gray-900">
-                              {weekData.reduce((sum, day) => sum + day.night, 0)}
-                            </div>
-                            <div className="text-xs text-gray-600">Total Night Staff</div>
+                            <div className="text-lg font-bold text-gray-900">{avgPerDay}</div>
+                            <div className="text-xs text-gray-600">Avg per day</div>
                           </div>
                           <div>
-                            <div className="text-lg font-bold text-gray-900">
-                              {aggregateStaffingData.workspacesWithData}
-                            </div>
+                            <div className="text-lg font-bold text-gray-900">{aggregateStaffingData.workspacesWithData}</div>
                             <div className="text-xs text-gray-600">Workspaces</div>
                           </div>
                         </div>

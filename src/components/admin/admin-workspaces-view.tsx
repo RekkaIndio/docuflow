@@ -259,7 +259,7 @@ export default function AdminWorkspacesView() {
                   <Users className="w-8 h-8 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight tracking-tight bg-gradient-to-r from-white via-blue-100 to-purple-100 bg-clip-text text-transparent">
+                  <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight tracking-tight text-white drop-shadow-sm">
                     Workspaces
                   </h1>
                   <div className="mt-2 text-sm text-blue-100 font-medium">
@@ -363,7 +363,7 @@ export default function AdminWorkspacesView() {
                   placeholder="Search workspaces..."
                   className="px-3 py-2 border border-gray-200 rounded-md text-sm w-64"
                 />
-                <Button onClick={() => setIsCreateWorkspaceOpen(true)} className="flex items-center gap-2">
+                <Button onClick={() => setIsCreateWorkspaceOpen(true)} className="flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary" aria-label="Create workspace" title="Create workspace">
                 <Plus className="w-4 h-4" />
                 Create Workspace
               </Button>
@@ -418,13 +418,15 @@ export default function AdminWorkspacesView() {
                           // best-effort
                         }
                       }}
-                      className="bg-blue-600 hover:bg-blue-700 text-white border-none font-medium shadow-sm"
+                      aria-label={`Open workspace ${ws.name || ws.id}`}
+                      title={`Open workspace ${ws.name || ws.id}`}
+                      className="bg-blue-600 hover:bg-blue-700 text-white border-none font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-400"
                     >
                       Open
                     </Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="text-blue-400 hover:bg-blue-50">
+                        <Button variant="ghost" size="icon" className="text-blue-400 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary" aria-label={`Workspace options for ${ws.name || ws.id}`} title={`Workspace options for ${ws.name || ws.id}`}>
                           <MoreVertical className="w-4 h-4" />
                         </Button>
                       </DropdownMenuTrigger>

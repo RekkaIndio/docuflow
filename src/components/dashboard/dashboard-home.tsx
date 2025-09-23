@@ -38,6 +38,28 @@ import { ComplianceOverviewModal } from './ComplianceOverviewModal';
 import { openDocument } from '@/lib/document-utils';
 
 // Component to display trend indicators
+// Local styles for the pulsing pending state. Using a box-shadow animation on
+// the Card itself avoids clipping issues from `overflow: hidden` and keeps the
+// glow visible while preserving the card's content layering.
+const PendingPulseStyles = () => (
+    <style jsx>{`
+        .pulse-pending {
+            position: relative;
+            /* base subtle glow */
+            box-shadow: 0 0 8px 2px rgba(239,68,68,0.18);
+            animation: pulse-red 2s infinite ease-in-out;
+        }
+
+        /* Slight scaling + shadow intensity change gives a visible pulse without
+             relying on pseudo-elements that can be clipped by overflow:hidden. */
+        @keyframes pulse-red {
+            0% { transform: scale(1); box-shadow: 0 0 6px 1px rgba(239,68,68,0.12); }
+            50% { transform: scale(1.01); box-shadow: 0 0 24px 10px rgba(239,68,68,0.30); }
+            100% { transform: scale(1); box-shadow: 0 0 6px 1px rgba(239,68,68,0.12); }
+        }
+    `}</style>
+);
+
 const TrendIndicator = ({ auditType, trends }: { auditType: string, trends: Record<string, { direction: 'up' | 'down' | 'stable', change: number }> }) => {
     const trend = trends[auditType];
     if (!trend) return null;
@@ -134,6 +156,7 @@ const QuickActions = ({ documents, onSelect, workspaceId, orgId, overallStats, g
 
     return (
         <div className="w-full space-y-8">
+            <PendingPulseStyles />
             {/* Section Header */}
             <div className="space-y-3">
                 <div className="flex items-center gap-3">
@@ -147,7 +170,25 @@ const QuickActions = ({ documents, onSelect, workspaceId, orgId, overallStats, g
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 relative z-10 pointer-events-auto">
                 {/* Daily Check-in Card */}
-                <Card className="group relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-blue-500 to-blue-600 hover:shadow-xl text-white transition-all duration-300">
+                {/* Wrapper ensures animated box-shadow is visible (prevents clipping).
+                    When pending, we add a small padding and the `pulse-pending` class. */}
+                <div className={`relative z-0 ${!isTodayCompleted ? 'p-2 rounded-2xl' : ''}`}>
+                        { !isTodayCompleted && (
+                            <div
+                                aria-hidden
+                                className="absolute -inset-2 rounded-2xl pointer-events-none"
+                                style={{
+                                    zIndex: 0,
+                                    // tightened visible glow: smaller spread and stronger near-edge color
+                                    boxShadow: '0 0 36px 16px rgba(239,68,68,0.78)',
+                                    background: 'radial-gradient(circle at 50% 50%, rgba(239,68,68,0.88) 0%, rgba(239,68,68,0.66) 20%, rgba(239,68,68,0.38) 45%, rgba(239,68,68,0.12) 70%, transparent 100%)',
+                                    // reduced blur so glow sits closer to the card
+                                    filter: 'blur(2px)',
+                                    animation: 'pulse-red 1600ms infinite ease-in-out'
+                                }}
+                            />
+                        )}
+                    <Card className={`group relative z-20 overflow-hidden border-0 shadow-lg bg-gradient-to-br from-blue-500 to-blue-600 hover:shadow-xl text-white transition-all duration-300 ${!isTodayCompleted ? 'pulse-pending' : ''}`}>
                     <CardHeader className="pb-3">
                         <div className="flex items-center justify-between mb-3">
                             <div className="p-3 bg-white/15 backdrop-blur-sm rounded-2xl border border-white/20">
@@ -204,7 +245,8 @@ const QuickActions = ({ documents, onSelect, workspaceId, orgId, overallStats, g
                             </div>
                         </div>
                     </CardContent>
-                </Card>
+                    </Card>
+                </div>
                 
                 {/* Occupancy Card */}
                 <OccupancyCard workspaceId={workspaceId} orgId={orgId} dailyEntry={dailyEntry} onTrendsClick={onOccupancyTrendsClick} />

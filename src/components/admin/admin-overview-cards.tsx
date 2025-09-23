@@ -110,7 +110,9 @@ export default function AdminOverviewCards({
               size="sm"
               variant="ghost"
               onClick={(e) => { e.stopPropagation(); onRefreshWounds(); }}
-              className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-red-50"
+              aria-label="Refresh wounds data"
+              title="Refresh wounds data"
+              className="transition-opacity duration-300 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-300"
             >
               <RefreshCw className="w-4 h-4" />
             </Button>
@@ -184,7 +186,9 @@ export default function AdminOverviewCards({
               size="sm"
               variant="ghost"
               onClick={(e) => { e.stopPropagation(); onRefreshFalls(); }}
-              className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-orange-50"
+              aria-label="Refresh falls data"
+              title="Refresh falls data"
+              className="transition-opacity duration-300 hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-300"
             >
               <RefreshCw className="w-4 h-4" />
             </Button>
@@ -245,7 +249,9 @@ export default function AdminOverviewCards({
               size="sm"
               variant="ghost"
               onClick={(e) => { e.stopPropagation(); onRefreshInfections(); }}
-              className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-pink-50"
+              aria-label="Refresh infections data"
+              title="Refresh infections data"
+              className="transition-opacity duration-300 hover:bg-pink-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-300"
             >
               <RefreshCw className="w-4 h-4" />
             </Button>
@@ -318,7 +324,9 @@ export default function AdminOverviewCards({
               size="sm"
               variant="ghost"
               onClick={(e) => { e.stopPropagation(); onRefreshAudits(); }}
-              className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-blue-50"
+              aria-label="Refresh audit data"
+              title="Refresh audit data"
+              className="transition-opacity duration-300 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-300"
             >
               <RefreshCw className="w-4 h-4" />
             </Button>
