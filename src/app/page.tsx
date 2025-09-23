@@ -158,27 +158,40 @@ export default function Page() {
     return () => observer.disconnect();
   }, []);
 
+  // During launch, hide all sections except the first (hero) so visitors cannot access other pages.
+  // This is a quick, reversible runtime toggle — set to false to show all sections again.
+  useEffect(() => {
+    const HIDE_AFTER_HERO = true;
+    if (!HIDE_AFTER_HERO) return;
+    const main = document.querySelector('main');
+    if (!main) return;
+
+    const sections = Array.from(main.querySelectorAll('section'));
+    sections.forEach((s, i) => {
+      if (i > 0) {
+        try { (s as HTMLElement).style.display = 'none'; } catch (e) { /* noop */ }
+      }
+    });
+
+    return () => {
+      // revert styles when component unmounts
+      sections.forEach((s) => {
+        try { (s as HTMLElement).style.display = ''; } catch (e) { /* noop */ }
+      });
+    };
+  }, []);
+
   return (
   <div className="flex flex-col min-h-screen bg-white text-slate-900 relative">
       {/* Enhanced Header with better navigation */}
   <header style={{color: '#000'}} className="px-4 lg:px-6 h-16 flex items-center sticky top-0 z-50 w-full border-b border-border/40 bg-white/95 backdrop-blur-sm text-black dark:text-slate-100">
-        <Link href="#" className="flex items-center justify-center gap-3" style={{color: '#000', opacity: 1}}>
+        {/* Static branding - logo is non-interactive on landing page to avoid navigation */}
+        <div className="flex items-center justify-center gap-3" style={{color: '#000', opacity: 1}}>
           <Logo className="h-7 w-7 text-primary" />
           <span style={{color: '#000', opacity: 1}} className="text-2xl font-extrabold font-headline tracking-tight text-black dark:text-slate-100">CG-360</span>
-        </Link>
-        <nav style={{color: '#000'}} className="ml-auto hidden lg:flex gap-4 sm:gap-6 items-center">
-          <Link href="#features" className="text-sm font-medium hover:underline underline-offset-4 text-black dark:text-slate-200 transition-colors" style={{color: '#000', opacity: 1}}>
-            Features
-          </Link>
-          <Link href="#demo" className="text-sm font-medium hover:underline underline-offset-4 text-black dark:text-slate-200 transition-colors" style={{color: '#000', opacity: 1}}>
-            Demo
-          </Link>
-          <Link href="/login" className="text-sm font-medium hover:underline underline-offset-4 text-black dark:text-slate-200 transition-colors" style={{color: '#000', opacity: 1}}>
-            Sign In
-          </Link>
-          <Button asChild className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all duration-300 hover:shadow-xl hover:shadow-primary/30">
-          </Button>
-        </nav>
+        </div>
+        {/* Remove navigation links on the landing page during launch. Placeholder keeps layout spacing. */}
+        <nav style={{color: '#000'}} className="ml-auto" aria-hidden="true" />
       </header>
 
       <main className="flex-1">
@@ -200,15 +213,23 @@ export default function Page() {
               <path d="M0 40 C220 90, 480 0, 980 140 C1480 280, 1800 120, 1920 140 L1920 240 L0 240 Z" fill="#ffffff" opacity="0.08" />
             </svg>
           </div>
-          <div className="w-full px-40 md:px-44 lg:px-64 xl:px-80 2xl:px-80 relative z-10">
-                        <div className="grid gap-16 lg:gap-20 lg:grid-cols-7 items-center min-h-[600px] lg:min-h-[700px]">
-              <div className="lg:col-span-2 flex flex-col justify-center space-y-8">
-                <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-3 py-1 rounded-full text-sm font-medium w-fit">
-                  <Sparkles className="w-4 h-4" />
-                  AI-Powered Care Home Compliance
+      <div className="w-full px-6 sm:px-8 md:px-12 lg:px-20 relative z-10">
+            <div className="grid gap-10 md:gap-16 lg:gap-20 lg:grid-cols-7 items-center min-h-[520px] md:min-h-[600px] lg:min-h-[700px]">
+        <div className="lg:col-span-2 flex flex-col justify-center space-y-6">
+                <div className="flex flex-col gap-3">
+                  <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-3 py-1 rounded-full text-sm font-medium w-fit">
+                    <Sparkles className="w-4 h-4" />
+                    AI-Powered Care Home Compliance
+                  </div>
+
+                  {/* Coming soon banner - visible on landing hero */}
+                  <div role="status" aria-live="polite" className="inline-flex items-center gap-2 bg-amber-50 text-amber-800 px-3 py-1 rounded-full text-sm font-semibold w-fit border border-amber-100">
+                    <span className="inline-block w-2 h-2 bg-amber-600 rounded-full" aria-hidden />
+                    Coming soon — launching shortly
+                  </div>
                 </div>
 
-                <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-5xl xl:text-6xl font-extrabold font-headline tracking-tighter drop-shadow-lg leading-tight">
+                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-5xl xl:text-6xl font-extrabold font-headline tracking-tighter drop-shadow-lg leading-tight">
                   Transform Care Home
                   <br/>
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 animate-gradient-text">
@@ -216,7 +237,7 @@ export default function Page() {
                   </span>
                 </h1>
 
-                <p className="max-w-[500px] text-slate-900 md:text-xl font-medium leading-relaxed">
+                <p className="max-w-[500px] text-slate-900 md:text-lg font-medium leading-relaxed">
                   Revolutionise governance in your care home with CG-360. Say goodbye to costly, fragmented platforms—everything you need is in one place. Purpose-built for the care sector, CG-360 ensures effortless CQC compliance while simplifying your operations.
                 </p>
 
@@ -245,7 +266,7 @@ export default function Page() {
 
               {/* Hero Image - placed to the right of the hero text */}
               <div className="lg:col-span-5 relative z-10 flex items-center justify-center w-full">
-                <div className="relative w-full h-[500px] md:h-[600px] lg:h-[650px] bg-gradient-to-br from-primary/5 to-purple-500/5 rounded-3xl border border-primary/20 shadow-2xl overflow-visible">
+                <div className="relative w-full h-[320px] sm:h-[420px] md:h-[520px] lg:h-[650px] bg-gradient-to-br from-primary/5 to-purple-500/5 rounded-3xl border border-primary/20 shadow-2xl overflow-visible">
                   <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-pink-500/10 animate-pulse"></div>
 
                   {/* Replaced dashboard preview with a simple hero image for the landing */}
@@ -264,37 +285,39 @@ export default function Page() {
                     </div>
                   </div>
                   {/* Icon row beneath the hero image that highlights core platform capabilities */}
-                  <div className="mt-6 px-6 md:px-12 lg:px-16 relative z-20">
+                  <div className="mt-6 px-4 md:px-12 lg:px-16 relative z-20">
                     <div className="max-w-5xl mx-auto flex items-center justify-center gap-6 bg-transparent">
-                      <button type="button" aria-label="Compliance details" onClick={() => handleIconClick('compliance')} className="flex items-center gap-3 focus:outline-none group">
+                      <div className="hidden md:flex items-center gap-6">
+                        <button type="button" aria-label="Compliance details" onClick={() => handleIconClick('compliance')} className="flex items-center gap-3 focus:outline-none group">
                         <Shield className="w-8 h-8 text-slate-900 transition-transform transform group-hover:scale-105 group-focus:scale-105 drop-shadow-[0_8px_24px_rgba(99,102,241,0.12)]" />
                         <span className="text-sm font-semibold text-slate-900">Compliance</span>
-                      </button>
+                        </button>
 
-                      <button type="button" aria-label="Governance details" onClick={() => handleIconClick('governance')} className="flex items-center gap-3 focus:outline-none group">
-                        <Building2 className="w-8 h-8 text-slate-900 transition-transform transform group-hover:scale-105 group-focus:scale-105 drop-shadow-[0_8px_24px_rgba(99,102,241,0.12)]" />
-                        <span className="text-sm font-semibold text-slate-900">Governance</span>
-                      </button>
+                        <button type="button" aria-label="Governance details" onClick={() => handleIconClick('governance')} className="flex items-center gap-3 focus:outline-none group">
+                          <Building2 className="w-8 h-8 text-slate-900 transition-transform transform group-hover:scale-105 group-focus:scale-105 drop-shadow-[0_8px_24px_rgba(99,102,241,0.12)]" />
+                          <span className="text-sm font-semibold text-slate-900">Governance</span>
+                        </button>
 
-                      <button type="button" aria-label="Security details" onClick={() => handleIconClick('security')} className="flex items-center gap-3 focus:outline-none group">
-                        <Lock className="w-8 h-8 text-slate-900 transition-transform transform group-hover:scale-105 group-focus:scale-105 drop-shadow-[0_8px_24px_rgba(99,102,241,0.12)]" />
-                        <span className="text-sm font-semibold text-slate-900">Security</span>
-                      </button>
+                        <button type="button" aria-label="Security details" onClick={() => handleIconClick('security')} className="flex items-center gap-3 focus:outline-none group">
+                          <Lock className="w-8 h-8 text-slate-900 transition-transform transform group-hover:scale-105 group-focus:scale-105 drop-shadow-[0_8px_24px_rgba(99,102,241,0.12)]" />
+                          <span className="text-sm font-semibold text-slate-900">Security</span>
+                        </button>
 
-                      <button type="button" aria-label="Automation details" onClick={() => handleIconClick('automation')} className="flex items-center gap-3 focus:outline-none group">
-                        <Zap className="w-8 h-8 text-slate-900 transition-transform transform group-hover:scale-105 group-focus:scale-105 drop-shadow-[0_8px_24px_rgba(99,102,241,0.12)]" />
-                        <span className="text-sm font-semibold text-slate-900">Automation</span>
-                      </button>
+                        <button type="button" aria-label="Automation details" onClick={() => handleIconClick('automation')} className="flex items-center gap-3 focus:outline-none group">
+                          <Zap className="w-8 h-8 text-slate-900 transition-transform transform group-hover:scale-105 group-focus:scale-105 drop-shadow-[0_8px_24px_rgba(99,102,241,0.12)]" />
+                          <span className="text-sm font-semibold text-slate-900">Automation</span>
+                        </button>
 
-                      <button type="button" aria-label="Insights details" onClick={() => handleIconClick('insights')} className="flex items-center gap-3 focus:outline-none group">
-                        <BarChart3 className="w-8 h-8 text-slate-900 transition-transform transform group-hover:scale-105 group-focus:scale-105 drop-shadow-[0_8px_24px_rgba(99,102,241,0.12)]" />
-                        <span className="text-sm font-semibold text-slate-900">Insights</span>
-                      </button>
+                        <button type="button" aria-label="Insights details" onClick={() => handleIconClick('insights')} className="flex items-center gap-3 focus:outline-none group">
+                          <BarChart3 className="w-8 h-8 text-slate-900 transition-transform transform group-hover:scale-105 group-focus:scale-105 drop-shadow-[0_8px_24px_rgba(99,102,241,0.12)]" />
+                          <span className="text-sm font-semibold text-slate-900">Insights</span>
+                        </button>
 
-                      <button type="button" aria-label="Accessibility details" onClick={() => handleIconClick('accessibility')} className="flex items-center gap-3 focus:outline-none group">
-                        <Accessibility className="w-8 h-8 text-slate-900 transition-transform transform group-hover:scale-105 group-focus:scale-105 drop-shadow-[0_8px_24px_rgba(99,102,241,0.12)]" />
-                        <span className="text-sm font-semibold text-slate-900">Accessibility</span>
-                      </button>
+                        <button type="button" aria-label="Accessibility details" onClick={() => handleIconClick('accessibility')} className="flex items-center gap-3 focus:outline-none group">
+                          <Accessibility className="w-8 h-8 text-slate-900 transition-transform transform group-hover:scale-105 group-focus:scale-105 drop-shadow-[0_8px_24px_rgba(99,102,241,0.12)]" />
+                          <span className="text-sm font-semibold text-slate-900">Accessibility</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1718,7 +1741,7 @@ export default function Page() {
             </div>
           </DialogContent>
         </Dialog>
-    <Footer />
+  {/* Footer hidden temporarily during launch */}
   </div>
   );
 }
