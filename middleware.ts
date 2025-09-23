@@ -9,10 +9,11 @@ export function middleware(req: NextRequest) {
   // Serve a simple coming-soon page when the request hostname matches the live domain.
   // This rewrites all requests to the coming-soon page on cg360.co.uk (and www) while
   // leaving the primary vercel preview domain unchanged for development.
-  const targetHosts = ['cg360.co.uk', 'www.cg360.co.uk', 'cg-360.vercel.app', 'www.cg-360.vercel.app'];
+  // Match hostnames that indicate this project (production domain or preview host variants)
+  const isTargetHost = hostname.endsWith('cg360.co.uk') || hostname.includes('cg-360') || hostname.includes('cg360');
 
   // Skip internal next, static, and api routes so assets and API continue to work if needed
-  if (targetHosts.some(h => hostname.endsWith(h)) &&
+  if (isTargetHost &&
       !pathname.startsWith('/_next') &&
       !pathname.startsWith('/api') &&
       !pathname.startsWith('/assets') &&
