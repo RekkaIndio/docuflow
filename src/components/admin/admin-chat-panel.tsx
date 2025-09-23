@@ -166,6 +166,8 @@ export function AdminChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
   const [adminWorkspaces, setAdminWorkspaces] = useState<Array<{ id: string; name: string }>>([]);
 
   const workspaceId = (selectedItem as any)?.workspaceId ?? null;
+  // Organisation-aware: selectedItem may include organisationId directly or nested under organisation
+  const organisationIdFromSelected = (selectedItem as any)?.organisationId || (selectedItem as any)?.organisation?.id || null;
 
   // Handler to open a document (navigate/highlight)
   const onOpenDocument = (doc: { id?: string; name?: string; url?: string }) => {
@@ -188,20 +190,28 @@ export function AdminChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
 
     (async () => {
       try {
-        // Prefer workspace-saved image first (if selectedItem has a workspaceId)
+        // Prefer workspace-saved image first (if selectedItem has a workspaceId).
+        // Use organisation-scoped workspace doc when organisationId is available.
         const workspaceId = (selectedItem as any)?.workspaceId;
+        const orgId = organisationIdFromSelected;
         if (workspaceId) {
-          const wsDocRef = doc(db, 'users', workspaceId);
-          const wsSnap = await (await import('firebase/firestore')).getDoc(wsDocRef);
-          if (wsSnap.exists()) {
-            const data = wsSnap.data();
-            if (data?.profilePicture) {
-              setProfilePicture(data.profilePicture);
+          try {
+            const wsDocRef = orgId
+              ? doc(db, 'organisations', orgId, 'workspaces', workspaceId)
+              : doc(db, 'workspaces', workspaceId);
+            const wsSnap = await (await import('firebase/firestore')).getDoc(wsDocRef);
+            if (wsSnap.exists()) {
+              const data = wsSnap.data();
+              if (data?.profilePicture) {
+                setProfilePicture(data.profilePicture);
+              }
             }
+          } catch (e) {
+            // fallback: ignore and continue to subscribe to user doc
           }
         }
       } catch (err) {
-        // ignore
+        // ignore outer errors
       }
 
       // Then subscribe to the authenticated user's doc for live updates
@@ -227,8 +237,8 @@ export function AdminChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
   useEffect(() => {
     (async () => {
       try {
-        // Wait for auth hydration; prefer server-side user object
-        const orgId = (user as any)?.organisationId;
+  // Wait for auth hydration; prefer organisation from selectedItem when present, otherwise server-side user object
+  const orgId = organisationIdFromSelected || (user as any)?.organisationId;
         const isDevAdmin = typeof document !== 'undefined' && document.cookie.includes('isAdmin=1');
         if (!orgId && !isDevAdmin) return;
         const orgQuery = orgId ? `?orgId=${encodeURIComponent(orgId)}` : '';
@@ -443,10 +453,12 @@ export function AdminChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         try {
           const resolvedWorkspace = resolveWorkspaceFromInput(inputVal);
           const workspaceIdCandidate = resolvedWorkspace?.id || (selectedItem as any)?.workspaceId;
+          const organisationIdCandidate = organisationIdFromSelected || null;
           const searchBody: any = { query: inputVal };
           if (workspaceIdCandidate && !searchAll) searchBody.workspaceId = workspaceIdCandidate;
           else if (searchAll) searchBody.searchAll = true;
           else searchBody.searchAll = true;
+          if (organisationIdCandidate) searchBody.organisationId = organisationIdCandidate;
 
           const searchRes = await fetch('/api/search-documents', {
             method: 'POST',
@@ -518,7 +530,7 @@ export function AdminChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
           // Dispatch custom event for dashboard to pick up
           try {
             if (typeof window !== 'undefined' && window.dispatchEvent) {
-              window.dispatchEvent(new CustomEvent('navigate-to-workspace', { detail: { workspaceId: resolved.id, workspaceName: resolved.name } }));
+              window.dispatchEvent(new CustomEvent('navigate-to-workspace', { detail: { workspaceId: resolved.id, workspaceName: resolved.name, organisationId: organisationIdFromSelected || undefined } }));
             }
           } catch (e) {}
           appendMessages({ sender: 'ai', text: `Opening workspace "${resolved.name}"...` });
@@ -597,7 +609,8 @@ export function AdminChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
       // Resolve workspace from input if mentioned (e.g., "Wilton Manor")
       const resolvedWorkspace = resolveWorkspaceFromInput(userInput);
       // Search the workspace for relevant documents
-      const workspaceIdCandidate = resolvedWorkspace?.id || (selectedItem as any)?.workspaceId;
+  const workspaceIdCandidate = resolvedWorkspace?.id || (selectedItem as any)?.workspaceId;
+  const organisationIdCandidate = organisationIdFromSelected || null;
 
       const searchQuery = intent.type === 'document_search' || intent.type === 'file_search'
         ? (intent.searchTerm || intent.fileName || userInput)
@@ -686,6 +699,7 @@ export function AdminChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         // No workspace candidate found and not searching all: fall back to searchAll
         searchBody.searchAll = true;
       }
+      if (organisationIdCandidate) searchBody.organisationId = organisationIdCandidate;
 
       // If we couldn't load adminWorkspaces and there's no resolved workspace,
       // avoid firing a costly cross-workspace search which may fail due to server-side

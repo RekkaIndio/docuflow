@@ -170,12 +170,6 @@ export default function Page() {
           <Link href="#features" className="text-sm font-medium hover:underline underline-offset-4 text-black dark:text-slate-200 transition-colors" style={{color: '#000', opacity: 1}}>
             Features
           </Link>
-          <Link href="#compliance" className="text-sm font-medium hover:underline underline-offset-4 text-black dark:text-slate-200 transition-colors" style={{color: '#000', opacity: 1}}>
-            Compliance
-          </Link>
-          <Link href="#pricing" className="text-sm font-medium hover:underline underline-offset-4 text-black dark:text-slate-200 transition-colors" style={{color: '#000', opacity: 1}}>
-            Pricing
-          </Link>
           <Link href="#demo" className="text-sm font-medium hover:underline underline-offset-4 text-black dark:text-slate-200 transition-colors" style={{color: '#000', opacity: 1}}>
             Demo
           </Link>

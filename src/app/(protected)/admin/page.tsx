@@ -1487,11 +1487,28 @@ export default function AdminPage() {
             // Default dashboard / files view (unchanged)
             <>
               {loadingData ? (
-                <div className="flex items-center justify-center min-h-[400px]">
-                  <div className="text-center space-y-4">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-                    <div className="text-lg font-semibold">Loading admin dashboard...</div>
-                    <div className="text-sm text-muted-foreground">Fetching workspace data</div>
+                <div className="space-y-6 p-6">
+                  {/* Header skeleton */}
+                  <div className="h-36 rounded-2xl bg-slate-100/80 animate-pulse" />
+
+                  {/* Top metrics skeleton */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="h-28 bg-slate-100 rounded-lg animate-pulse" />
+                    <div className="h-28 bg-slate-100 rounded-lg animate-pulse" />
+                    <div className="h-28 bg-slate-100 rounded-lg animate-pulse" />
+                    <div className="h-28 bg-slate-100 rounded-lg animate-pulse" />
+                  </div>
+
+                  {/* Charts skeletons */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="h-64 bg-slate-100 rounded-lg animate-pulse" />
+                    <div className="h-64 bg-slate-100 rounded-lg animate-pulse" />
+                  </div>
+
+                  {/* List / activity skeleton */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="h-48 bg-slate-100 rounded-lg animate-pulse" />
+                    <div className="h-48 bg-slate-100 rounded-lg animate-pulse" />
                   </div>
                 </div>
               ) : (
@@ -1618,7 +1635,14 @@ export default function AdminPage() {
             <div className="h-full flex flex-col shadow-2xl bg-white rounded-lg">
               <div className="flex items-center justify-between p-2 border-b">
                 <h3 className="font-semibold px-2 truncate">Admin Chat</h3>
-                <Button variant="ghost" size="icon" onClick={() => setIsChatOpen(false)}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setIsChatOpen(false)}
+                  aria-label="Close admin chat"
+                  title="Close admin chat"
+                  className="focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                >
                   <X className="w-5 h-5" />
                 </Button>
               </div>
@@ -1630,20 +1654,22 @@ export default function AdminPage() {
         ) : (
           <Tooltip>
             <TooltipTrigger asChild>
-              <div>
-                <Button
-                  size={isMobile ? "default" : "lg"}
-                  className={cn(
-                    "rounded-full shadow-lg transition-all duration-200",
-                    isMobile ? "w-14 h-14" : "w-16 h-16"
-                  )}
-                  onClick={() => setIsChatOpen(true)}
-                  aria-label="Open admin chat"
-                >
-                  <MessageSquare className={cn(isMobile ? "w-5 h-5" : "w-6 h-6")} />
-                </Button>
-              </div>
-            </TooltipTrigger>
+                <div>
+                  <Button
+                    size={isMobile ? "default" : "lg"}
+                    className={cn(
+                      "rounded-full shadow-lg transition-all duration-200",
+                      isMobile ? "w-14 h-14" : "w-16 h-16",
+                      "focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                    )}
+                    onClick={() => setIsChatOpen(true)}
+                    aria-label="Open admin chat"
+                    title="Open admin chat"
+                  >
+                    <MessageSquare className={cn(isMobile ? "w-5 h-5" : "w-6 h-6")} />
+                  </Button>
+                </div>
+              </TooltipTrigger>
             <TooltipContent side={isMobile ? "top" : "left"}>
               <p>Open admin chat</p>
             </TooltipContent>

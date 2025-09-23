@@ -37,9 +37,9 @@ export default function AdminDashboardHeader({
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8 lg:gap-12">
           {/* Main content - left side */}
           <div className="flex-1 space-y-4 lg:space-y-6">
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight tracking-tight bg-gradient-to-r from-white via-blue-100 to-purple-100 bg-clip-text text-transparent">
-              Admin Dashboard
-            </h1>
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight tracking-tight text-white drop-shadow-sm">
+                Admin Dashboard
+              </h1>
           </div>
 
           {/* Key metrics cards - right side */}
