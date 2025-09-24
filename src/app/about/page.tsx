@@ -1,3 +1,5 @@
+"use client";
+
 import Link from 'next/link';
 import { Footer } from '@/components/footer';
 import { Logo } from '@/components/icons/logo';
