@@ -844,7 +844,7 @@ function ResidentCareCard({ workspaceId }: { workspaceId?: string }) {
                         </span>
                     </div>
                 </div>
-                <CardTitle className="text-lg font-bold text-white mb-2">Resident Care</CardTitle>
+                <CardTitle className="text-lg font-bold text-white mb-2">Dependency Levels</CardTitle>
                 <CardDescription className="text-teal-100">Dependency levels and staffing requirements</CardDescription>
             </CardHeader>
 

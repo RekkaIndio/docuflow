@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { LifeBuoy, LogOut, Settings, User as UserIcon, Bell } from 'lucide-react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { useEffect, useState } from 'react';
 import { collection, query as fsQuery, orderBy, limit as fsLimit, onSnapshot, updateDoc, doc } from 'firebase/firestore';
@@ -32,6 +33,7 @@ interface TopNavProps {
 
 export function TopNav({ onSettingsClick, onNotificationsClick, unreadCount = 0, workspaceId }: TopNavProps) {
   const { user, signOut } = useAuth();
+  const pathname = usePathname();
   const isMobile = useIsMobile();
   const [recent, setRecent] = useState<any[]>([]);
   const [profilePicture, setProfilePicture] = useState<string | null>(null);
@@ -186,10 +188,29 @@ export function TopNav({ onSettingsClick, onNotificationsClick, unreadCount = 0,
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-             <DropdownMenuItem onClick={onSettingsClick}>
-              <Settings className="mr-2 h-4 w-4" />
-              <span>Settings</span>
-            </DropdownMenuItem>
+            {pathname && pathname.startsWith('/admin') ? (
+              <DropdownMenuItem asChild>
+                  <Link
+                    href="/admin?view=settings"
+                    className="flex items-center"
+                    onClick={() => {
+                      try {
+                        if (typeof window !== 'undefined' && window.dispatchEvent) {
+                          window.dispatchEvent(new CustomEvent('admin-set-view', { detail: { view: 'settings' } }));
+                        }
+                      } catch (e) {}
+                    }}
+                  >
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>Settings</span>
+                  </Link>
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem onClick={onSettingsClick}>
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Settings</span>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem asChild>
               <Link href="/help" className="flex items-center">
                 <LifeBuoy className="mr-2 h-4 w-4" />

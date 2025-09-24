@@ -97,32 +97,39 @@ export function NewTeamDialog({ children, onTeamCreated, workspaceId }: NewTeamD
           </DialogDescription>
         </DialogHeader>
         <div className="py-4">
-          <Label htmlFor="team-name" className="sr-only">
-            Team Name
-          </Label>
-          <Input
-            id="team-name"
-            placeholder="e.g. 'Marketing Department'"
-            value={teamName}
-            onChange={(e) => setTeamName(e.target.value)}
-          />
-          <Label htmlFor="team-emails" className="sr-only">
-            Team Emails
-          </Label>
-          <Input
-            id="team-emails"
-            placeholder="Enter email addresses, separated by commas"
-            value={emails.join(", ")}
-            onChange={(e) => setEmails(e.target.value.split(",").map((email) => email.trim()))}
-          />
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="team-name" className="sr-only">
+                Team Name
+              </Label>
+              <Input
+                id="team-name"
+                placeholder="e.g. 'Marketing Department'"
+                value={teamName}
+                onChange={(e) => setTeamName(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="team-emails" className="sr-only">
+                Team Emails
+              </Label>
+              <Input
+                id="team-emails"
+                placeholder="Enter email addresses, separated by commas"
+                value={emails.join(", ")}
+                onChange={(e) => setEmails(e.target.value.split(",").map((email) => email.trim()))}
+              />
+            </div>
+          </div>
         </div>
-        <DialogFooter>
+        <DialogFooter className="space-x-3 justify-end">
           <DialogClose asChild>
-            <Button variant="outline" disabled={isCreating}>
+            <Button variant="outline" disabled={isCreating} className="min-w-[100px]">
               Cancel
             </Button>
           </DialogClose>
-          <Button onClick={handleCreate} disabled={isCreating || !teamName.trim()}>
+          <Button onClick={handleCreate} disabled={isCreating || !teamName.trim()} className="min-w-[140px]">
             {isCreating ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

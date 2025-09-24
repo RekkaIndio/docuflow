@@ -11,7 +11,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const tokenRef = adminDb.collection('loginTokens').doc();
-    const tokenId = tokenRef.id;
+    const tokenId = tokenRef.id;  
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours
     await tokenRef.set({ email: String(email).toLowerCase(), createdAt: now.toISOString(), expiresAt, consumedAt: null, type: 'magic' });
@@ -19,8 +19,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.APP_URL || 'http://localhost:3000');
     const inviteLink = `${appUrl.replace(/\/$/, '')}/accept-invite?token=${encodeURIComponent(tokenId)}`;
     const year = new Date().getFullYear();
-    const html = renderInviteEmail({ inviterName: 'Docuflow', workspaceName: 'Docuflow', inviteLink, year });
-    const subject = `Sign in to Docuflow`;
+    const html = renderInviteEmail({ inviterName: 'CG-360', workspaceName: 'CG-360', inviteLink, year });
+    const subject = `Sign in to CG-360`;
     await sendWithMailgun({ to: [String(email).toLowerCase()], subject, html });
 
     return res.status(200).json({ ok: true });

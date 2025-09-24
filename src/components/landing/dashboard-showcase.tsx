@@ -1,8 +1,10 @@
 import React from 'react';
 import { FileText, Calendar, Search, CheckCircle, Clock, Users, TrendingUp } from 'lucide-react';
 import Image from 'next/image';
+import { useCalendly } from '@/context/calendly-context';
 
 export function DashboardShowcase() {
+  const { openCalendlyModal } = useCalendly();
   return (
     <section className="w-full py-20 md:py-28 bg-gradient-to-br from-white/80 to-slate-50 dark:from-slate-900 dark:to-slate-800">
       <div className="container px-4 md:px-6">
@@ -12,7 +14,7 @@ export function DashboardShowcase() {
             <p className="text-slate-700 mt-1">A quick look at your policy intelligence dashboard — everything your team needs to stay compliant and proactive.</p>
           </div>
           <div className="hidden sm:flex items-center gap-3">
-            <button className="px-4 py-2 rounded bg-primary text-primary-foreground font-semibold">Request demo</button>
+            <button onClick={openCalendlyModal} className="px-4 py-2 rounded bg-primary text-primary-foreground font-semibold">Request demo</button>
             <a href="/signup" className="px-4 py-2 rounded border border-border text-sm font-medium">Start free</a>
           </div>
         </div>

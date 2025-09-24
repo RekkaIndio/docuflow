@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import AdminWorkspaceView from '@/components/admin/admin-workspace-view';
 import AdminWorkspacesView from '@/components/admin/admin-workspaces-view';
 import AdminDashboardHeader from '@/components/admin/admin-dashboard-header';
+import AdminPageHeader from '@/components/admin/admin-page-header';
 import AdminOverviewCards from '@/components/admin/admin-overview-cards';
 import AdminStaffingChart from '@/components/admin/admin-staffing-chart';
 import AdminSystemMetrics from '@/components/admin/admin-system-metrics';
@@ -19,7 +20,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, MapPin, BarChart2, Download, MessageSquare, X, ArrowLeft, BarChart3, TrendingUp, TrendingDown, Plus, MoreVertical, Edit, Trash2, Target, AlertTriangle, UserCheck } from 'lucide-react';
+import { Users, MapPin, BarChart2, Download, MessageSquare, X, ArrowLeft, BarChart3, TrendingUp, TrendingDown, Plus, MoreVertical, Edit, Trash2, Target, AlertTriangle, UserCheck, Folder as FolderIcon, Building2, Shield, Zap, FileText } from 'lucide-react';
+import { computeStaffAggregate } from '@/lib/computeStaffAggregate';
 import OccupancyPie from '@/components/admin/occupancy-pie';
 import OverviewCards from '@/components/dashboard/overview-cards';
 import AdminSettings from '@/components/admin/admin-settings';
@@ -1178,113 +1180,89 @@ export default function AdminPage() {
                   ) : (
                     // Show workspaces list with Manage Teams button
                     <>
-                      {/* Teams Header - updated to match dashboard style */}
-                      <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-blue-600 to-indigo-700 text-white rounded-b-[64px] shadow-2xl mb-6">
-                        {/* Animated background elements */}
-                        <div className="absolute inset-0">
-                          <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-white/10 to-transparent rounded-full -translate-y-48 translate-x-48 animate-pulse"></div>
-                          <div className="absolute bottom-0 left-0 w-80 h-80 bg-gradient-to-tr from-purple-400/20 to-transparent rounded-full translate-y-40 -translate-x-40"></div>
-                          <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-gradient-to-br from-blue-300/10 to-transparent rounded-full -translate-x-1/2 -translate-y-1/2 animate-pulse delay-1000"></div>
-                        </div>
-                        <div className="relative z-10 px-6 py-8 md:px-8 md:py-12">
-                          <div className="flex items-center gap-6">
-                            <div className="flex items-center gap-2">
-                              <div className="relative">
-                                <div className="w-16 h-16 bg-white/10 backdrop-blur-sm rounded-2xl flex items-center justify-center border border-white/20">
-                                  <Users className="w-8 h-8 text-white" />
-                                </div>
-                              </div>
-                              <div className="ml-4 md:ml-6 lg:ml-8">
-                                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight tracking-tight bg-gradient-to-r from-white via-blue-100 to-purple-100 bg-clip-text text-transparent mb-2">Teams Management</h1>
-                                <p className="text-blue-100 text-lg">Manage teams and permissions across workspaces</p>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        {/* Bottom rounded corner overlay */}
-                        <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-muted/20 to-transparent rounded-b-[64px]"></div>
-                      </div>
+                      {/* Teams Header */}
+                      <>
+                        <AdminPageHeader
+                          title="Teams Management"
+                          subtitle="Manage teams and permissions across workspaces"
+                          icon={<Users className="w-5 h-5 text-white" />}
+                        />
+                      </>
 
                       {workspaces.length === 0 ? (
                         <div className="rounded border p-6 text-center text-muted-foreground">No workspaces found.</div>
                       ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {filteredWorkspaces.map((ws: any) => (
-                            <Card key={ws.id} className={cn('hover:shadow-lg transition-shadow overflow-hidden', ws.region ? '' : 'opacity-95')}>
-                              {/* Thin accent bar */}
-                              <div className={cn('h-1', ws.overallScore != null ? 'bg-gradient-to-r from-blue-500 to-indigo-600' : 'bg-slate-200')}></div>
+                        <div className="w-full p-4 sm:p-6 lg:p-8">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {filteredWorkspaces.map((ws: any) => {
+                            const totalDocs = (ws.folders || []).reduce((sum: number, f: any) =>
+                              sum + ((f.items || []).filter((it: any) => it.type === 'document').length), 0);
+                            const occupancyPercent = ws.totalBeds && ws.occupiedBeds ? 
+                              Math.round((ws.occupiedBeds / ws.totalBeds) * 100) : 
+                              (ws.occupancy ? Math.round(ws.occupancy * 100) : null);
 
-                              <CardHeader className="flex items-start justify-between w-full px-4 pt-3 pb-2 bg-white">
-                                <div className="flex items-center gap-3 min-w-0">
-                                  <div className="flex-shrink-0 rounded-md p-2 bg-blue-50">
-                                    <Users className="w-5 h-5 text-blue-600" />
-                                  </div>
-                                  <div className="min-w-0">
-                                    <div className="text-sm font-semibold truncate text-left">{ws.name || ws.id}</div>
-                                    <div className="text-xs text-muted-foreground">{ws.region || 'Region unknown'}</div>
-                                  </div>
-                                </div>
+                            const staffAggregate = computeStaffAggregate(ws);
 
-                                <div className="flex items-center gap-2 ml-4">
-                                  <div className="flex flex-col items-end">
-                                    <div className="text-sm font-semibold">{ws.folders?.length || 0}</div>
-                                    <div className="text-xs text-muted-foreground">folders</div>
-                                  </div>
-                                  <Badge variant="secondary">{Math.round((ws.occupancy || 0) * 100)}%</Badge>
-                                  <Button onClick={() => setSelectedWorkspaceForTeams(ws)} variant="default" className="bg-blue-600 text-white hover:bg-blue-700">
-                                    Manage Teams
-                                  </Button>
-
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button variant="ghost" size="icon">
-                                        <MoreVertical className="w-4 h-4" />
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                      <DropdownMenuItem onClick={() => { setAdminView('workspaces'); window.dispatchEvent(new CustomEvent('navigate-to-workspace', { detail: { workspaceId: ws.id, workspaceName: ws.name } })); }}>
-                                        <Edit className="w-4 h-4 mr-2" />
-                                        Rename / Manage
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem 
-                                        onClick={() => { setAdminView('workspaces'); window.dispatchEvent(new CustomEvent('navigate-to-workspace', { detail: { workspaceId: ws.id, workspaceName: ws.name } })); }}
-                                        className="text-red-600 focus:text-red-600"
-                                      >
-                                        <Trash2 className="w-4 h-4 mr-2" />
-                                        Delete
-                                      </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
-                                </div>
-                              </CardHeader>
-
-                              <CardContent className="pt-2">
-                                <div className="flex items-center gap-4">
-                                  <div className="flex items-center gap-3">
-                                    <div className="w-12 h-12">
-                                      <OccupancyPie percent={Math.round((ws.occupancy || 0) * 100)} size={48} strokeWidth={6} />
+                            return (
+                              <Card key={ws.id} className="relative hover:shadow-xl transition-all duration-300 border border-blue-100 bg-white rounded-2xl">
+                                {/* top accent */}
+                                <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl bg-gradient-to-r from-blue-500 via-purple-500 to-indigo-500" aria-hidden />
+                                <CardHeader className="flex flex-row items-center justify-between w-full px-5 py-4 border-b border-blue-50 bg-white rounded-t-2xl">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <FolderIcon className="w-5 h-5 text-blue-500" />
+                                      <span className="text-lg font-semibold truncate text-blue-900">{ws.name || ws.id}</span>
                                     </div>
-                                    <div className="text-sm">
-                                      <div className="font-medium">{ws.occupiedBeds ?? '—'} / {ws.totalBeds ?? '—'}</div>
-                                      <div className="text-xs text-muted-foreground">Occupied / Total Beds</div>
+                                    <div className="text-xs text-blue-400 mt-1 font-medium">
+                                      {ws.folders?.length || 0} folders • {totalDocs} documents
                                     </div>
                                   </div>
-
-                                  <div className="flex-1 text-sm text-muted-foreground">
-                                    <div className="space-y-1">
-                                      {(ws.folders || []).slice(0, 4).map((f: any) => (
-                                        <div key={f.id} className="flex items-center justify-between">
-                                          <div className="truncate">{f.name}</div>
-                                          <div className="text-xs text-muted-foreground">{(f.items || []).filter((it: any) => it.type === 'document').length} docs</div>
-                                        </div>
-                                      ))}
-                                      {(ws.folders || []).length > 4 && <div className="text-xs text-muted-foreground">And more...</div>}
+                                  <div className="flex items-center gap-3 ml-4">
+                                    <Button
+                                      size="sm"
+                                      variant="default"
+                                      onClick={() => setSelectedWorkspaceForTeams(ws)}
+                                      aria-label={`Manage teams for ${ws.name || ws.id}`}
+                                      title={`Manage teams for ${ws.name || ws.id}`}
+                                      className="bg-blue-600 hover:bg-blue-700 text-white border-none font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-400"
+                                    >
+                                      Manage Teams
+                                    </Button>
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="text-blue-400 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary" aria-label={`Workspace options for ${ws.name || ws.id}`} title={`Workspace options for ${ws.name || ws.id}`}>
+                                          <MoreVertical className="w-4 h-4" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={() => { setAdminView('workspaces'); window.dispatchEvent(new CustomEvent('navigate-to-workspace', { detail: { workspaceId: ws.id, workspaceName: ws.name } })); }}>
+                                          <Edit className="w-4 h-4 mr-2 text-blue-500" />
+                                          Rename / Manage
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => { setAdminView('workspaces'); window.dispatchEvent(new CustomEvent('navigate-to-workspace', { detail: { workspaceId: ws.id, workspaceName: ws.name } })); }} className="text-red-600 focus:text-red-600">
+                                          <Trash2 className="w-4 h-4 mr-2 text-red-500" />
+                                          Delete
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </div>
+                                </CardHeader>
+                                <CardContent className="p-5">
+                                  <div className="flex items-center justify-center mb-2">
+                                    {/* Single centered staffing tile */}
+                                    <div className="bg-white rounded-2xl shadow-sm p-6 flex flex-col items-center justify-center w-40">
+                                      <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center mb-3">
+                                        <Users className="w-6 h-6 text-blue-500" />
+                                      </div>
+                                      <div className="text-2xl font-bold text-slate-800">{staffAggregate !== null ? staffAggregate : (typeof ws.staffingLevel === 'number' ? `${ws.staffingLevel}%` : '—')}</div>
+                                      <div className="text-sm text-slate-500 mt-1">Staffing</div>
                                     </div>
                                   </div>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          ))}
+                                </CardContent>
+                              </Card>
+                            );
+                          })}
+                        </div>
                         </div>
                       )}
                     </>
@@ -1534,25 +1512,12 @@ export default function AdminPage() {
 
                     <main className="flex-1 overflow-y-auto">
                       <div className="min-h-full bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/10">
-                        {/* Enhanced Dashboard Header - Full Width with negative margins to counteract TopNav padding */}
+                        {/* Standardized Admin header */}
                         <div className="-mx-4 md:-mx-6">
-                          <AdminDashboardHeader
-                            workspaceCount={workspaces.length}
-                            totalFolders={aggregated.totalFolders}
-                            totalDocuments={aggregated.totalDocuments}
-                            averageOccupancy={careOverview.averageOccupancy}
-                            totalOccupied={careOverview.totalOccupied}
-                            totalBeds={careOverview.totalBeds}
-                            onRefresh={async () => {
-                              // Refresh workspace data first
-                              await fetchData();
-                              // Then recalculate aggregates
-                              calculateAggregateAuditScores();
-                              calculateAggregateWoundsData();
-                              calculateAggregateStaffingData();
-                              calculateAggregateFallsData();
-                              calculateAggregateInfectionData();
-                            }}
+                          <AdminPageHeader
+                            title="Admin Dashboard"
+                            subtitle={`Overview · ${workspaces.length} workspaces · Avg occupancy ${Math.round((careOverview.averageOccupancy || 0) * 100)}%`}
+                            icon={<BarChart2 className="w-5 h-5 text-white" />}
                           />
                         </div>
                         

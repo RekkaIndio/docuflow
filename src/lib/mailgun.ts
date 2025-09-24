@@ -12,7 +12,7 @@ export async function sendWithMailgun({ to, subject, html }: { to: string[]; sub
 
   const mailgun = new Mailgun(FormData);
   const mg = mailgun.client({ username: 'api', key: apiKey, url: apiUrl });
-  const from = `Docuflow <postmaster@${domain}>`;
+  const from = `CG-360 <postmaster@${domain}>`;
   const resp = await mg.messages.create(domain, {
     from,
     to,

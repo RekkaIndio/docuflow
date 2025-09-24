@@ -24,13 +24,30 @@ export function LandingPage() {
   return (
     <div className="flex flex-col min-h-screen bg-white text-foreground dark relative">
       <header className="px-4 lg:px-6 h-16 flex items-center sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur-sm">
-        {/* Logo left as static element to avoid navigation from the landing page */}
-        <div className="flex items-center justify-center gap-2">
+        <Link href="#" className="flex items-center justify-center gap-2">
           <Logo className="h-6 w-6 text-primary" />
           <span className="text-xl font-semibold font-headline">CG-360 AI</span>
-        </div>
-        {/* Intentionally remove navigation links on the public landing page so users cannot navigate away during launch. */}
-        <nav className="ml-auto" aria-hidden="true" />
+        </Link>
+        <nav className="ml-auto hidden lg:flex gap-4 sm:gap-6 items-center">
+          <Link href="#" className="text-sm font-medium hover:underline underline-offset-4 text-foreground/80">
+            Features
+          </Link>
+          <Link href="#" className="text-sm font-medium hover:underline underline-offset-4 text-foreground/80">
+            Use Cases
+          </Link>
+          <Link href="#" className="text-sm font-medium hover:underline underline-offset-4 text-foreground/80">
+            Pricing
+          </Link>
+          <Link href="#" className="text-sm font-medium hover:underline underline-offset-4 text-foreground/80">
+            Demo
+          </Link>
+          <Link href="/login" className="text-sm font-medium hover:underline underline-offset-4 text-foreground/80">
+            Sign In
+          </Link>
+          <Button asChild className="bg-primary hover:bg-primary/90 animate-pulse focus:animate-none shadow-lg shadow-primary/20">
+            <Link href="/signup">Start Free Trial</Link>
+          </Button>
+        </nav>
       </header>
       <main className="flex-1">
         <section className="w-full py-24 md:py-40 lg:py-52 relative overflow-hidden">
@@ -48,15 +65,6 @@ export function LandingPage() {
                     style={{ filter: 'blur(0.5px)' }}
                     priority
                   />
-                </div>
-                {/* Coming soon banner */}
-                <div className="inline-block mt-2">
-                  <span className="inline-flex items-center gap-2 bg-primary/10 text-primary rounded-full px-3 py-1 text-xs font-medium">
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-                      <circle cx="5" cy="5" r="5" fill="currentColor" />
-                    </svg>
-                    Coming soon
-                  </span>
                 </div>
                 <h1 className="text-5xl font-extrabold font-headline tracking-tighter sm:text-6xl xl:text-7xl/none drop-shadow-lg">
                   Transform Your <br/>

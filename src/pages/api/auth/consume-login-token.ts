@@ -81,7 +81,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           } else {
             wsRef = adminDb.collection('workspaces').doc(workspaceIdFromToken);
           }
-          await wsRef.update({ members: admin.firestore.FieldValue.arrayUnion(uid) });
+          // If token contains a temporaryRole, add to temporaryMembers map keyed by uid with Timestamp expiresAt
+          if (tokenData && tokenData.temporaryRole) {
+            try {
+              const expiresAtIso = tokenData.expiresAt || null;
+              const expiresAtTs = expiresAtIso ? admin.firestore.Timestamp.fromDate(new Date(expiresAtIso)) : null;
+              const fieldKey = `temporaryMembers.${uid}`;
+              const updateObj: any = {};
+              updateObj[fieldKey] = { role: tokenData.temporaryRole, expiresAt: expiresAtTs };
+              await wsRef.update(updateObj);
+            } catch (err) {
+              // ignore - fallback to adding to members
+              await wsRef.update({ members: admin.firestore.FieldValue.arrayUnion(uid) });
+            }
+          } else {
+            await wsRef.update({ members: admin.firestore.FieldValue.arrayUnion(uid) });
+          }
         } catch (err) {
           // ignore failures here; best-effort membership attach
           try {
@@ -89,7 +104,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               const wsRef = workspaceOrgIdFromToken ? adminDb.doc(`organisations/${workspaceOrgIdFromToken}/workspaces/${workspaceIdFromToken}`) : adminDb.collection('workspaces').doc(workspaceIdFromToken);
               const wsSnap = await wsRef.get();
               if (!wsSnap.exists()) {
-                await wsRef.set({ members: [uid] }, { merge: true });
+                const dataToSet: any = {};
+                if (tokenData && tokenData.temporaryRole) {
+                  const expiresAtIso = tokenData.expiresAt || null;
+                  const expiresAtTs = expiresAtIso ? admin.firestore.Timestamp.fromDate(new Date(expiresAtIso)) : null;
+                  dataToSet[`temporaryMembers.${uid}`] = { role: tokenData.temporaryRole, expiresAt: expiresAtTs };
+                } else {
+                  dataToSet.members = [uid];
+                }
+                await wsRef.set(dataToSet, { merge: true });
               }
             }
           } catch (err2) {
@@ -146,13 +169,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 wsRef = adminDb.collection('workspaces').doc(workspaceIdForToken);
               }
               try {
-                await wsRef.update({ members: admin.firestore.FieldValue.arrayUnion(authUid) });
+                if (tokenData && tokenData.temporaryRole) {
+                  const expiresAtIso = tokenData.expiresAt || null;
+                  const expiresAtTs = expiresAtIso ? admin.firestore.Timestamp.fromDate(new Date(expiresAtIso)) : null;
+                  const fieldKey = `temporaryMembers.${authUid}`;
+                  const updateObj: any = {};
+                  updateObj[fieldKey] = { role: tokenData.temporaryRole, expiresAt: expiresAtTs };
+                  await wsRef.update(updateObj);
+                } else {
+                  await wsRef.update({ members: admin.firestore.FieldValue.arrayUnion(authUid) });
+                }
               } catch (e) {
-                // If update fails (missing doc), try to set members array
+                // If update fails (missing doc), try to set appropriate map/array
                 try {
                   const wsSnap = await wsRef.get();
                   if (!wsSnap.exists()) {
-                    await wsRef.set({ members: [authUid] }, { merge: true });
+                    const dataToSet: any = {};
+                    if (tokenData && tokenData.temporaryRole) {
+                      const expiresAtIso = tokenData.expiresAt || null;
+                      const expiresAtTs = expiresAtIso ? admin.firestore.Timestamp.fromDate(new Date(expiresAtIso)) : null;
+                      dataToSet[`temporaryMembers.${authUid}`] = { role: tokenData.temporaryRole, expiresAt: expiresAtTs };
+                    } else {
+                      dataToSet.members = [authUid];
+                    }
+                    await wsRef.set(dataToSet, { merge: true });
                   }
                 } catch (err) {
                   console.warn('Failed to add invited user to workspace members:', err);

@@ -3,10 +3,11 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from '@/hooks/use-auth';
 import { ThemeProvider } from '@/components/theme-provider';
+import { CalendlyProvider } from '@/context/calendly-context';
 
 export const metadata: Metadata = {
   title: 'CG-360',
-  description: 'AI-Powered Document Assistant',
+  description: 'Complete governance and management solution for care homes.',
   icons: {
     icon: '/Neurodiversity_Symbol.png',
     shortcut: '/Neurodiversity_Symbol.png',
@@ -32,7 +33,9 @@ export default function RootLayout({
       <body className="font-body antialiased">
   <ThemeProvider>
             <AuthProvider>
-                {children}
+                <CalendlyProvider>
+                    {children}
+                </CalendlyProvider>
             </AuthProvider>
             <Toaster />
   </ThemeProvider>

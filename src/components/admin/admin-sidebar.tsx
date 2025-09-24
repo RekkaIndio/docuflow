@@ -23,6 +23,7 @@ import {
   Building2,
   Tag,
 } from "lucide-react";
+import Link from 'next/link';
 import { Logo } from "@/components/icons/logo";
 import { usePathname } from 'next/navigation';
 import type { Workspace } from "@/lib/types";
@@ -132,9 +133,22 @@ export function AdminSidebar({
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton onClick={() => handleNavigation(() => setView('settings'))} className="text-lg h-12">
-                <Settings className="w-6 h-6 mr-2" />
-                <span className="text-sm">Settings</span>
+              {/* Use next/link for admin settings so navigation uses client router and updates URL. */}
+              <SidebarMenuButton asChild className="text-lg h-12">
+                <Link
+                  href="/admin?view=settings"
+                  className="flex items-center w-full"
+                  onClick={() => {
+                    try {
+                      if (typeof window !== 'undefined' && window.dispatchEvent) {
+                        window.dispatchEvent(new CustomEvent('admin-set-view', { detail: { view: 'settings' } }));
+                      }
+                    } catch (e) {}
+                  }}
+                >
+                  <Settings className="w-6 h-6 mr-2" />
+                  <span className="text-sm">Settings</span>
+                </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>

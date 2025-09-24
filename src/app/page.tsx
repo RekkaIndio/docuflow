@@ -35,11 +35,13 @@ import {
   Github,
   Linkedin,
   TrendingUp,
-  Accessibility
+  Accessibility,
+  Menu,
+  Clock,
+  DollarSign
 } from 'lucide-react';
 import { Lock } from 'lucide-react';
 import Image from 'next/image';
-import heroImage from '@/assets/heroimage.png';
 import {
   Accordion,
   AccordionContent,
@@ -64,74 +66,12 @@ import { DetailedFeatures } from '@/components/landing/detailed-features';
 import { DashboardPreview } from '@/components/landing/dashboard-preview';
 import { NewsletterSignup } from '@/components/landing/newsletter-signup';
 import { Footer } from '@/components/footer';
+import { CalendlyModal } from '@/components/calendly-modal';
+import { useCalendly } from '@/context/calendly-context';
 
 export default function Page() {
   const [activeModal, setActiveModal] = useState<string | null>(null);
-
-  // Lazy-load Calendly widget on first interaction to avoid blocking / freezing
-  const calendlyLoaderRef = useRef<Promise<void> | null>(null);
-  const [isLoadingCalendly, setIsLoadingCalendly] = useState<boolean>(false);
-
-  const loadCalendlyScript = () => {
-    if (typeof window === 'undefined') return Promise.reject();
-    if ((window as any).Calendly) return Promise.resolve();
-    if (calendlyLoaderRef.current) return calendlyLoaderRef.current;
-
-    // Create a loader promise that injects CSS and script, with a timeout.
-    const loader = new Promise<void>((resolve, reject) => {
-      try {
-        // ensure widget css is present (Calendly expects its stylesheet)
-        if (!document.querySelector('link[data-calendly="widget-css"]')) {
-          const link = document.createElement('link');
-          link.rel = 'stylesheet';
-          link.href = 'https://assets.calendly.com/assets/external/widget.css';
-          link.setAttribute('data-calendly', 'widget-css');
-          document.head.appendChild(link);
-        }
-
-        const script = document.createElement('script');
-        script.src = 'https://assets.calendly.com/assets/external/widget.js';
-        script.async = true;
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error('Failed to load Calendly script'));
-        document.head.appendChild(script);
-      } catch (err) {
-        reject(err);
-      }
-    });
-
-    // Timeout after 8s to avoid indefinite hangs
-    const timeout = new Promise<void>((_, reject) => setTimeout(() => reject(new Error('Calendly load timeout')), 8000));
-    calendlyLoaderRef.current = Promise.race([loader, timeout]) as Promise<void>;
-
-    // swallow lower-level errors here; callers will fallback
-    calendlyLoaderRef.current.catch(() => {
-      /* noop */
-    });
-
-    return calendlyLoaderRef.current;
-  };
-
-  const openCalendlyPopup = async (url = 'https://calendly.com/jamiemasonwright/cg-360-demo') => {
-    if (typeof window === 'undefined') return;
-    try {
-      setIsLoadingCalendly(true);
-      await loadCalendlyScript();
-      const w = window as any;
-      if (w.Calendly && typeof w.Calendly.initPopupWidget === 'function') {
-        w.Calendly.initPopupWidget({ url });
-      } else {
-        // fallback
-        window.open(url, '_blank', 'noopener,noreferrer');
-      }
-    } catch (err) {
-      // failed to load script; open Calendly in new tab
-      window.open(url, '_blank', 'noopener,noreferrer');
-    } finally {
-      // small delay so spinner doesn't flicker
-      setTimeout(() => setIsLoadingCalendly(false), 300);
-    }
-  };
+  const { openCalendlyModal } = useCalendly();
 
   const handleIconClick = (modalType: string) => {
     setActiveModal(activeModal === modalType ? null : modalType);
@@ -158,553 +98,489 @@ export default function Page() {
     return () => observer.disconnect();
   }, []);
 
-  // During launch, hide all sections except the first (hero) so visitors cannot access other pages.
-  // This is a quick, reversible runtime toggle — set to false to show all sections again.
-  useEffect(() => {
-    const HIDE_AFTER_HERO = true;
-    if (!HIDE_AFTER_HERO) return;
-    const main = document.querySelector('main');
-    if (!main) return;
-
-    const sections = Array.from(main.querySelectorAll('section'));
-    sections.forEach((s, i) => {
-      if (i > 0) {
-        try { (s as HTMLElement).style.display = 'none'; } catch (e) { /* noop */ }
-      }
-    });
-
-    return () => {
-      // revert styles when component unmounts
-      sections.forEach((s) => {
-        try { (s as HTMLElement).style.display = ''; } catch (e) { /* noop */ }
-      });
-    };
-  }, []);
-
   return (
-  <div className="flex flex-col min-h-screen bg-white text-slate-900 relative">
-      {/* Enhanced Header with better navigation */}
-  <header style={{color: '#000'}} className="px-4 lg:px-6 h-16 flex items-center sticky top-0 z-50 w-full border-b border-border/40 bg-white/95 backdrop-blur-sm text-black dark:text-slate-100">
-        {/* Static branding - logo is non-interactive on landing page to avoid navigation */}
-        <div className="flex items-center justify-center gap-3" style={{color: '#000', opacity: 1}}>
-          <Logo className="h-7 w-7 text-primary" />
-          <span style={{color: '#000', opacity: 1}} className="text-2xl font-extrabold font-headline tracking-tight text-black dark:text-slate-100">CG-360</span>
+  <div className="flex flex-col min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 text-slate-900 relative">
+      {/* Enhanced Header with Glassmorphism */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-xl border-b border-slate-200/50 shadow-sm">
+        <div className="w-full px-4 lg:px-6 h-16 flex items-center justify-between">
+          <Link href="#" className="flex items-center gap-3 group">
+            <div className="w-12 h-12 rounded-lg flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow duration-300">
+              <Logo className="h-8 w-8" />
+            </div>
+            <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              CG-360
+            </span>
+          </Link>
+
+          <nav className="hidden lg:flex items-center gap-8">
+            <Link href="#features" className="text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors duration-200">
+              Features
+            </Link>
+            <Link href="#compliance" className="text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors duration-200">
+              Compliance
+            </Link>
+            <Link href="#demo" className="text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors duration-200">
+              Demo
+            </Link>
+            <Button
+              size="sm"
+              onClick={openCalendlyModal}
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+            >
+              Book Demo
+            </Button>
+          </nav>
+
+          {/* Mobile menu button */}
+          <Button variant="ghost" size="sm" className="lg:hidden">
+            <Menu className="h-5 w-5" />
+          </Button>
         </div>
-        {/* Remove navigation links on the landing page during launch. Placeholder keeps layout spacing. */}
-        <nav style={{color: '#000'}} className="ml-auto" aria-hidden="true" />
       </header>
 
-      <main className="flex-1">
-        {/* Enhanced Hero Section */}
-        <section className="w-full pt-16 md:pt-24 lg:pt-32 pb-32 md:pb-48 lg:pb-64 relative overflow-hidden">
-          {/* <AnimatedHeroBg /> -- commented out so the new animated SVG background is visible */}
-          {/* Animated hero background (wavy, colorful blobs). Left side is lightened to keep text readable. */}
-          <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-            {/* Layered blurred gradient blobs (Tailwind-based) */}
-            <div className="absolute -left-48 -top-40 w-[900px] h-[700px] bg-gradient-to-br from-pink-400 via-purple-600 to-cyan-400 opacity-90 rounded-full filter blur-3xl transform-gpu animate-[move1_14s_ease-in-out_infinite]"></div>
-            <div className="absolute right-0 -top-28 w-[1100px] h-[800px] bg-gradient-to-br from-cyan-400 via-indigo-500 to-pink-400 opacity-90 rounded-full filter blur-3xl transform-gpu animate-[move2_18s_ease-in-out_infinite]"></div>
-            <div className="absolute left-1/4 top-[60%] w-[700px] h-[500px] bg-gradient-to-br from-yellow-300 via-pink-300 to-purple-400 opacity-85 rounded-full filter blur-2xl transform-gpu animate-[move3_22s_ease-in-out_infinite]"></div>
+      <main className="flex-1 pt-16">
+        {/* Hero Section - Dramatic Redesign */}
+        <section className="relative min-h-screen flex items-center overflow-hidden bg-gradient-to-br from-blue-50 via-white to-purple-50">
+          {/* Animated Background Elements */}
+          <div className="absolute inset-0 overflow-hidden">
+            <div className="absolute -top-40 -left-40 w-96 h-96 bg-gradient-to-br from-blue-400/30 to-purple-400/30 rounded-full blur-3xl animate-pulse"></div>
+            <div className="absolute top-1/4 -right-40 w-80 h-80 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full blur-3xl animate-pulse" style={{animationDelay: '1s'}}></div>
+            <div className="absolute bottom-0 left-1/4 w-72 h-72 bg-gradient-to-br from-cyan-400/25 to-blue-400/25 rounded-full blur-3xl animate-pulse" style={{animationDelay: '2s'}}></div>
 
-            {/* subtle left fade to keep text readable */}
-            <div className="absolute left-0 top-0 w-3/12 h-full bg-gradient-to-r from-white/10 to-transparent pointer-events-none" />
-
-            {/* faint wavy divider as an SVG for polish */}
-            <svg className="absolute bottom-0 left-0 w-full h-[240px] pointer-events-none" viewBox="0 0 1920 240" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-              <path d="M0 40 C220 90, 480 0, 980 140 C1480 280, 1800 120, 1920 140 L1920 240 L0 240 Z" fill="#ffffff" opacity="0.08" />
-            </svg>
+            {/* Floating geometric shapes */}
+            <div className="absolute top-20 left-20 w-4 h-4 bg-blue-500/40 rotate-45 animate-bounce"></div>
+            <div className="absolute top-40 right-32 w-6 h-6 bg-purple-500/30 rounded-full animate-pulse"></div>
+            <div className="absolute bottom-32 left-32 w-3 h-3 bg-cyan-500/50 rotate-12 animate-ping"></div>
           </div>
-      <div className="w-full px-6 sm:px-8 md:px-12 lg:px-20 relative z-10">
-            <div className="grid gap-10 md:gap-16 lg:gap-20 lg:grid-cols-7 items-center min-h-[520px] md:min-h-[600px] lg:min-h-[700px]">
-        <div className="lg:col-span-2 flex flex-col justify-center space-y-6">
-                <div className="flex flex-col gap-3">
-                  <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-3 py-1 rounded-full text-sm font-medium w-fit">
-                    <Sparkles className="w-4 h-4" />
-                    AI-Powered Care Home Compliance
-                  </div>
 
-                  {/* Coming soon banner - visible on landing hero */}
-                  <div role="status" aria-live="polite" className="inline-flex items-center gap-2 bg-amber-50 text-amber-800 px-3 py-1 rounded-full text-sm font-semibold w-fit border border-amber-100">
-                    <span className="inline-block w-2 h-2 bg-amber-600 rounded-full" aria-hidden />
-                    Coming soon — launching shortly
-                  </div>
+          <div className="container mx-auto px-4 lg:px-6 relative z-10">
+            <div className="grid lg:grid-cols-2 gap-12 items-center min-h-[80vh]">
+              {/* Hero Content */}
+              <div className="space-y-8">
+                <div className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-100 to-purple-100 text-blue-800 px-4 py-2 rounded-full text-sm font-medium border border-blue-200/50">
+                  <Sparkles className="w-4 h-4" />
+                  AI-Powered Care Home Compliance Platform
                 </div>
 
-                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-5xl xl:text-6xl font-extrabold font-headline tracking-tighter drop-shadow-lg leading-tight">
-                  Transform Care Home
-                  <br/>
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 animate-gradient-text">
-                    Compliance Management
-                  </span>
-                </h1>
+                <div className="space-y-4">
+                  <h1 className="text-5xl lg:text-7xl font-bold leading-tight">
+                    Transform Your
+                    <span className="block bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-600 bg-clip-text text-transparent animate-gradient-x">
+                      Care Home Compliance
+                    </span>
+                  </h1>
 
-                <p className="max-w-[500px] text-slate-900 md:text-lg font-medium leading-relaxed">
-                  Revolutionise governance in your care home with CG-360. Say goodbye to costly, fragmented platforms—everything you need is in one place. Purpose-built for the care sector, CG-360 ensures effortless CQC compliance while simplifying your operations.
-                </p>
+                  <p className="text-xl text-slate-600 leading-relaxed max-w-lg">
+                    Say goodbye to fragmented systems and compliance nightmares. CG-360 brings everything together in one elegant, intelligent platform designed specifically for care homes.
+                  </p>
+                </div>
 
-                <div className="flex flex-col gap-4 min-[400px]:flex-row">
+                <div className="flex flex-col sm:flex-row gap-4">
                   <Button
                     size="lg"
-                    variant="outline"
-                    onMouseEnter={() => { /* warm-up load on hover */ if (!calendlyLoaderRef.current) loadCalendlyScript().catch(()=>{}); }}
-                    onFocus={() => { if (!calendlyLoaderRef.current) loadCalendlyScript().catch(()=>{}); }}
-                    onClick={() => openCalendlyPopup()}
-                    className="border-2 hover:bg-primary/5 transition-all duration-300"
+                    onClick={openCalendlyModal}
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105"
                   >
-                    <span className="inline-flex items-center">
-                      {isLoadingCalendly ? (
-                        <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-                        </svg>
-                      ) : null}
-                      Book A Demo
-                      <Play className="ml-2 h-5 w-5" />
-                    </span>
+                    <Play className="mr-2 h-5 w-5" />
+                    Book Your Free Demo
                   </Button>
                 </div>
-              </div>
 
-              {/* Hero Image - placed to the right of the hero text */}
-              <div className="lg:col-span-5 relative z-10 flex items-center justify-center w-full">
-                <div className="relative w-full h-[320px] sm:h-[420px] md:h-[520px] lg:h-[650px] bg-gradient-to-br from-primary/5 to-purple-500/5 rounded-3xl border border-primary/20 shadow-2xl overflow-visible">
-                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-pink-500/10 animate-pulse"></div>
-
-                  {/* Replaced dashboard preview with a simple hero image for the landing */}
-                  <div className="relative h-full flex items-center justify-center">
-                    <div
-                      className="relative w-full h-full overflow-hidden rounded-3xl"
-                      style={{
-                        WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 35%, black 65%, transparent 100%)',
-                        maskImage: 'linear-gradient(to right, transparent 0%, black 35%, black 65%, transparent 100%)',
-                        // ensure the mask uses the container box
-                        WebkitMaskRepeat: 'no-repeat',
-                        maskRepeat: 'no-repeat',
-                      }}
-                    >
-                      <Image src={heroImage} alt="CG-360 preview" className="object-cover" fill priority />
-                    </div>
+                {/* Trust Indicators */}
+                <div className="flex items-center gap-8 pt-8">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span className="text-sm text-slate-600">CQC Compliant</span>
                   </div>
-                  {/* Icon row beneath the hero image that highlights core platform capabilities */}
-                  <div className="mt-6 px-4 md:px-12 lg:px-16 relative z-20">
-                    <div className="max-w-5xl mx-auto flex items-center justify-center gap-6 bg-transparent">
-                      <div className="hidden md:flex items-center gap-6">
-                        <button type="button" aria-label="Compliance details" onClick={() => handleIconClick('compliance')} className="flex items-center gap-3 focus:outline-none group">
-                        <Shield className="w-8 h-8 text-slate-900 transition-transform transform group-hover:scale-105 group-focus:scale-105 drop-shadow-[0_8px_24px_rgba(99,102,241,0.12)]" />
-                        <span className="text-sm font-semibold text-slate-900">Compliance</span>
-                        </button>
-
-                        <button type="button" aria-label="Governance details" onClick={() => handleIconClick('governance')} className="flex items-center gap-3 focus:outline-none group">
-                          <Building2 className="w-8 h-8 text-slate-900 transition-transform transform group-hover:scale-105 group-focus:scale-105 drop-shadow-[0_8px_24px_rgba(99,102,241,0.12)]" />
-                          <span className="text-sm font-semibold text-slate-900">Governance</span>
-                        </button>
-
-                        <button type="button" aria-label="Security details" onClick={() => handleIconClick('security')} className="flex items-center gap-3 focus:outline-none group">
-                          <Lock className="w-8 h-8 text-slate-900 transition-transform transform group-hover:scale-105 group-focus:scale-105 drop-shadow-[0_8px_24px_rgba(99,102,241,0.12)]" />
-                          <span className="text-sm font-semibold text-slate-900">Security</span>
-                        </button>
-
-                        <button type="button" aria-label="Automation details" onClick={() => handleIconClick('automation')} className="flex items-center gap-3 focus:outline-none group">
-                          <Zap className="w-8 h-8 text-slate-900 transition-transform transform group-hover:scale-105 group-focus:scale-105 drop-shadow-[0_8px_24px_rgba(99,102,241,0.12)]" />
-                          <span className="text-sm font-semibold text-slate-900">Automation</span>
-                        </button>
-
-                        <button type="button" aria-label="Insights details" onClick={() => handleIconClick('insights')} className="flex items-center gap-3 focus:outline-none group">
-                          <BarChart3 className="w-8 h-8 text-slate-900 transition-transform transform group-hover:scale-105 group-focus:scale-105 drop-shadow-[0_8px_24px_rgba(99,102,241,0.12)]" />
-                          <span className="text-sm font-semibold text-slate-900">Insights</span>
-                        </button>
-
-                        <button type="button" aria-label="Accessibility details" onClick={() => handleIconClick('accessibility')} className="flex items-center gap-3 focus:outline-none group">
-                          <Accessibility className="w-8 h-8 text-slate-900 transition-transform transform group-hover:scale-105 group-focus:scale-105 drop-shadow-[0_8px_24px_rgba(99,102,241,0.12)]" />
-                          <span className="text-sm font-semibold text-slate-900">Accessibility</span>
-                        </button>
-                      </div>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                    <span className="text-sm text-slate-600">GDPR Ready</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
+                    <span className="text-sm text-slate-600">AI-Powered</span>
                   </div>
                 </div>
+              </div>
+
+              {/* Hero Visual */}
+              <div className="relative">
+                <div className="relative rounded-3xl shadow-2xl border border-slate-200/50 overflow-hidden transform scale-125">
+                  <img
+                    src="/heroimage.png"
+                    alt="CG-360 Platform Dashboard"
+                    className="w-full h-auto object-cover"
+                    style={{
+                      maskImage: 'radial-gradient(ellipse at center, rgba(0,0,0,0.9) 60%, rgba(0,0,0,0.4) 80%, rgba(0,0,0,0.02) 100%)',
+                      WebkitMaskImage: 'radial-gradient(ellipse at center, rgba(0,0,0,0.9) 60%, rgba(0,0,0,0.4) 80%, rgba(0,0,0,0.02) 100%)',
+                      opacity: 0.7
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Scroll Indicator */}
+          <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce">
+            <div className="w-6 h-10 border-2 border-slate-400 rounded-full flex justify-center">
+              <div className="w-1 h-3 bg-slate-400 rounded-full mt-2 animate-pulse"></div>
+            </div>
+          </div>
+        </section>
+
+        {/* Features Section - Redesigned */}
+        <section id="features" className="py-24 bg-white relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-50/50 to-blue-50/30"></div>
+
+          <div className="container mx-auto px-4 lg:px-6 relative z-10">
+            <div className="text-center mb-16">
+              <div className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-100 to-purple-100 text-blue-800 px-4 py-2 rounded-full text-sm font-medium mb-4">
+                <Zap className="w-4 h-4" />
+                Powerful Capabilities
+              </div>
+              <h2 className="text-4xl lg:text-5xl font-bold mb-6">
+                Everything you need to
+                <span className="block bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                  excel at compliance
+                </span>
+              </h2>
+              <p className="text-xl text-slate-600 max-w-3xl mx-auto">
+                From document management to automated reporting, CG-360 provides the complete toolkit for care home compliance excellence.
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {/* Feature Cards */}
+              <div className="group bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl border border-slate-200/50 hover:border-blue-200/50 transition-all duration-300 hover:-translate-y-2">
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+                  <FileText className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-xl font-bold mb-4 text-slate-900">Smart Document Management</h3>
+                <p className="text-slate-600 leading-relaxed">
+                  AI-powered document processing with automatic categorisation, version control, and compliance tracking. Never lose track of important paperwork again.
+                </p>
+              </div>
+
+              <div className="group bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl border border-slate-200/50 hover:border-purple-200/50 transition-all duration-300 hover:-translate-y-2">
+                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+                  <BrainCircuit className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-xl font-bold mb-4 text-slate-900">AI Compliance Assistant</h3>
+                <p className="text-slate-600 leading-relaxed">
+                  Get instant answers to compliance questions, automated policy reviews, and intelligent recommendations tailored to your care home's needs.
+                </p>
+              </div>
+
+              <div className="group bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl border border-slate-200/50 hover:border-cyan-200/50 transition-all duration-300 hover:-translate-y-2">
+                <div className="w-12 h-12 bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+                  <BarChart3 className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-xl font-bold mb-4 text-slate-900">Real-time Analytics</h3>
+                <p className="text-slate-600 leading-relaxed">
+                  Comprehensive dashboards showing compliance status, staffing ratios, and operational insights. Make data-driven decisions with confidence.
+                </p>
+              </div>
+
+              <div className="group bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl border border-slate-200/50 hover:border-green-200/50 transition-all duration-300 hover:-translate-y-2">
+                <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+                  <Users className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-xl font-bold mb-4 text-slate-900">Staff Management</h3>
+                <p className="text-slate-600 leading-relaxed">
+                  Complete staff records, and supervision management. Ensure your team stays compliant and up-to-date with regulations.
+                </p>
+              </div>
+
+              <div className="group bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl border border-slate-200/50 hover:border-orange-200/50 transition-all duration-300 hover:-translate-y-2">
+                <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+                  <Shield className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-xl font-bold mb-4 text-slate-900">Inspection Access</h3>
+                <p className="text-slate-600 leading-relaxed">
+                  Offer inspection level access to your homes compliance and governance. Be prepared for CQC visits with organised evidence and clear compliance documentation.
+                </p>
+              </div>
+
+              <div className="group bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl border border-slate-200/50 hover:border-pink-200/50 transition-all duration-300 hover:-translate-y-2">
+                <div className="w-12 h-12 bg-gradient-to-br from-pink-500 to-pink-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+                  <Zap className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-xl font-bold mb-4 text-slate-900">Automation Engine</h3>
+                <p className="text-slate-600 leading-relaxed">
+                  Automate routine compliance tasks, generate reports, and receive alerts. Focus on resident care while we handle the paperwork.
+                </p>
+              </div>
+            </div>
+
+            {/* CTA in Features */}
+            <div className="text-center mt-16">
+              <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-3xl p-8 border border-blue-100">
+                <h3 className="text-2xl font-bold mb-4 text-slate-900">Ready to transform your compliance?</h3>
+                <p className="text-slate-600 mb-6">See how CG-360 can streamline your operations and ensure inspection readiness.</p>
+                <Button
+                  size="lg"
+                  onClick={openCalendlyModal}
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-xl hover:shadow-2xl transition-all duration-300"
+                >
+                  <Play className="mr-2 h-5 w-5" />
+                  Book Your Demo
+                </Button>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Key Benefits Section - updated to match hero visual style */}
-        <section className="w-full py-20 md:py-32 lg:py-40 bg-white">
-          <div className="container px-4 md:px-6">
-            <div className="text-center mb-16 animate-on-scroll">
-              <Badge variant="outline" className="mb-4">
-                Why Choose CG-360
-              </Badge>
-              <h2 className="text-4xl font-bold font-headline tracking-tighter sm:text-5xl mb-4">
-                Built for Care Homes — Simple, Reliable, Compliant
-              </h2>
-              <p className="max-w-[800px] mx-auto text-slate-900 md:text-xl">
-                Manage policies and resident records, stay inspection-ready, and simplify daily operations — all from a single, secure platform designed for care homes.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-              <Card className="bg-white border-border/10 hover:border-primary/30 transition-all duration-300 shadow-lg transform hover:shadow-xl hover:-translate-y-1">
-                <CardHeader className="text-center">
-                  <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Shield className="w-6 h-6 text-primary" />
-                  </div>
-                  <CardTitle className="text-lg">Document & Policy Management</CardTitle>
-                </CardHeader>
-                <CardContent className="text-center">
-                  <p className="text-sm text-slate-700">
-                    Centralise policies, procedures and resident records with version control, approval workflows and audit trails.
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white border-border/10 hover:border-primary/30 transition-all duration-300 shadow-lg transform hover:shadow-xl hover:-translate-y-1">
-                <CardHeader className="text-center">
-                  <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <BrainCircuit className="w-6 h-6 text-primary" />
-                  </div>
-                  <CardTitle className="text-lg">Compliance Automation & Reporting</CardTitle>
-                </CardHeader>
-                <CardContent className="text-center">
-                  <p className="text-sm text-slate-700">
-                    Automatic checks, scheduled reports and easy-to-read dashboards that highlight compliance status and next steps.
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white border-border/10 hover:border-primary/30 transition-all duration-300 shadow-lg transform hover:shadow-xl hover:-translate-y-1">
-                <CardHeader className="text-center">
-                  <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Users className="w-6 h-6 text-primary" />
-                  </div>
-                  <CardTitle className="text-lg">Staff Workflows & Rostering</CardTitle>
-                </CardHeader>
-                <CardContent className="text-center">
-                  <p className="text-sm text-slate-700">
-                    Manage staff training, qualifications and task assignments with role-based access and clear handovers.
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white border-border/10 hover:border-primary/30 transition-all duration-300 shadow-lg transform hover:shadow-xl hover:-translate-y-1">
-                <CardHeader className="text-center">
-                  <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Zap className="w-6 h-6 text-primary" />
-                  </div>
-                  <CardTitle className="text-lg">Operational Efficiency</CardTitle>
-                </CardHeader>
-                <CardContent className="text-center">
-                  <p className="text-sm text-slate-700">
-                    Reduce paperwork and administrative overhead with templates, bulk actions and built-in evidence collection for inspections.
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
+        {/* Compliance Section - Redesigned */}
+        <section id="compliance" className="py-24 bg-gradient-to-br from-slate-50 to-blue-50 relative overflow-hidden">
+          <div className="absolute inset-0">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-blue-200/30 to-purple-200/30 rounded-full blur-3xl"></div>
+            <div className="absolute bottom-0 left-0 w-80 h-80 bg-gradient-to-br from-cyan-200/30 to-blue-200/30 rounded-full blur-3xl"></div>
           </div>
-        </section>
 
-        {/* Features Section - updated visual style to match hero */}
-        <section id="features" className="w-full py-20 md:py-32 lg:py-40 bg-white">
-          <div className="container px-4 md:px-6">
-            <div className="text-center mb-16 animate-on-scroll">
-              <Badge variant="outline" className="mb-4">
-                Powerful Features
-              </Badge>
-              <h2 className="text-4xl font-bold font-headline tracking-tighter sm:text-5xl mb-4">
-                Everything You Need for Care Home Compliance
-              </h2>
-              <p className="max-w-[800px] mx-auto text-slate-900 md:text-xl">
-                Comprehensive tools designed specifically for care home operations and regulatory requirements.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              <Card className="bg-white border-border/10 hover:border-primary/30 transition-all duration-300 shadow-lg group animate-on-scroll-left">
-                <CardHeader>
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                      <UploadCloud className="w-5 h-5 text-primary" />
-                    </div>
-                    <CardTitle className="text-lg">Smart Document Upload</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-slate-900 mb-4">
-                    Upload PDFs, Word docs, Excel files, and more. Our AI automatically extracts data, generates tags, and organizes everything.
-                  </p>
-                  <ul className="space-y-2 text-sm">
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      Multi-format support
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      Automatic categorization
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      Bulk upload capability
-                    </li>
-                  </ul>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white border-border/10 hover:border-primary/30 transition-all duration-300 shadow-lg group animate-on-scroll-scale">
-                <CardHeader>
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                      <MessageSquare className="w-5 h-5 text-primary" />
-                    </div>
-                    <CardTitle className="text-lg">AI Document Chat</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-slate-900 mb-4">
-                    Ask questions about your documents in natural language. Get instant answers from individual files or entire folders.
-                  </p>
-                  <ul className="space-y-2 text-sm">
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      Natural language queries
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      Cross-document analysis
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      Compliance insights
-                    </li>
-                  </ul>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white border-border/10 hover:border-primary/30 transition-all duration-300 shadow-lg group animate-on-scroll-right">
-                <CardHeader>
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                      <Shield className="w-5 h-5 text-primary" />
-                    </div>
-                    <CardTitle className="text-lg">Compliance Management</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-slate-900 mb-4">
-                    Track CQC requirements, manage audits, and maintain compliance records with automated workflows.
-                  </p>
-                  <ul className="space-y-2 text-sm">
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      CQC compliance tracking
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      Automated audit prep
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      Regulatory reporting
-                    </li>
-                  </ul>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white border-border/10 hover:border-primary/30 transition-all duration-300 shadow-lg group animate-on-scroll-left">
-                <CardHeader>
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                      <FolderSync className="w-5 h-5 text-primary" />
-                    </div>
-                    <CardTitle className="text-lg">Hierarchical Organization</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-slate-900 mb-4">
-                    Organize documents in intuitive folder structures designed for care home operations and compliance needs.
-                  </p>
-                  <ul className="space-y-2 text-sm">
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      Care home specific folders
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      Automatic tagging
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      Quick search & filter
-                    </li>
-                  </ul>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white border-border/10 hover:border-primary/30 transition-all duration-300 shadow-lg group animate-on-scroll-scale">
-                <CardHeader>
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                      <Bell className="w-5 h-5 text-primary" />
-                    </div>
-                    <CardTitle className="text-lg">Smart Notifications</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-slate-900 mb-4">
-                    Never miss important deadlines, audit dates, or compliance requirements with intelligent notifications.
-                  </p>
-                  <ul className="space-y-2 text-sm">
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      Deadline reminders
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      Compliance alerts
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      Document updates
-                    </li>
-                  </ul>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white border-border/10 hover:border-primary/30 transition-all duration-300 shadow-lg group animate-on-scroll-right">
-                <CardHeader>
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                      <BarChart3 className="w-5 h-5 text-primary" />
-                    </div>
-                    <CardTitle className="text-lg">Analytics & Reporting</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-slate-900 mb-4">
-                    Get insights into your compliance status, document activity, and operational efficiency with detailed reports.
-                  </p>
-                  <ul className="space-y-2 text-sm">
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      Compliance dashboards
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      Performance metrics
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      Custom reports
-                    </li>
-                  </ul>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </section>
-
-        {/* Compliance Section - updated to match hero look */}
-        <section id="compliance" className="w-full py-20 md:py-32 lg:py-40 bg-white">
-          <div className="container px-4 md:px-6">
-            <div className="text-center mb-16 animate-on-scroll">
-              <Badge variant="outline" className="mb-4">
-                Regulatory Compliance
-              </Badge>
-              <h2 className="text-4xl font-bold font-headline tracking-tighter sm:text-5xl mb-4">
-                Stay Ahead of CQC Requirements
-              </h2>
-              <p className="max-w-[800px] mx-auto text-slate-900 md:text-xl">
-                Comprehensive compliance tools designed to meet and exceed regulatory standards for care homes.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-              <div className="space-y-8 animate-on-scroll-left">
-                <div className="flex gap-4">
-                  <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Award className="w-6 h-6 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-semibold mb-2">CQC Audit Preparation</h3>
-                    <p className="text-slate-900">
-                      Automated audit checklists, evidence gathering, and compliance gap analysis to ensure you're always inspection-ready.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex gap-4">
-                  <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <FileText className="w-6 h-6 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-semibold mb-2">Policy Management</h3>
-                    <p className="text-slate-900">
-                      Maintain up-to-date policies across all care domains with version control, approval workflows, and staff training tracking.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex gap-4">
-                  <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Users className="w-6 h-6 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-semibold mb-2">Staff Compliance</h3>
-                    <p className="text-slate-900">
-                      Track staff qualifications, training records, appraisals, and competency assessments with automated reminders.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex gap-4">
-                  <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Heart className="w-6 h-6 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-semibold mb-2">Resident Care Records</h3>
-                    <p className="text-slate-900">
-                      Comprehensive resident documentation, care planning, and quality assurance with AI-powered insights.
-                    </p>
-                  </div>
-                </div>
+          <div className="container mx-auto px-4 lg:px-6 relative z-10">
+            <div className="text-center mb-16">
+              <div className="inline-flex items-center gap-2 bg-gradient-to-r from-green-100 to-blue-100 text-green-800 px-4 py-2 rounded-full text-sm font-medium mb-4">
+                <Shield className="w-4 h-4" />
+                Inspection Ready
               </div>
+              <h2 className="text-4xl lg:text-5xl font-bold mb-6">
+                Always prepared for
+                <span className="block bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
+                  CQC inspections
+                </span>
+              </h2>
+              <p className="text-xl text-slate-600 max-w-3xl mx-auto">
+                Generate comprehensive inspection evidence packs in minutes. Show inspectors exactly what they need to see, when they need to see it.
+              </p>
+            </div>
 
-              <div className="relative animate-on-scroll-right">
-                <Card className="bg-white/95 backdrop-blur-sm border-primary/20 shadow-xl">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Shield className="w-5 h-5 text-primary" />
-                      Compliance Dashboard
-                    </CardTitle>
-                    <CardDescription>
-                      Real-time view of your compliance status
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium">CQC Standards</span>
-                      <Badge variant="secondary" className="bg-green-100 text-green-800">98% Compliant</Badge>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-2">
-                      <div className="bg-green-500 h-2 rounded-full animate-pulse" style={{width: '98%'}}></div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4 pt-4">
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-primary">47</div>
-                        <div className="text-xs text-slate-700">Active Policies</div>
+            <div className="grid lg:grid-cols-2 gap-12 items-center">
+              {/* Dashboard Mockup */}
+              <div className="relative">
+                <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/50 overflow-hidden">
+                  <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 text-white">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Shield className="w-8 h-8" />
+                        <div>
+                          <div className="font-bold text-lg">Compliance Dashboard</div>
+                          <div className="text-blue-100">Live monitoring active</div>
+                        </div>
                       </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-primary">156</div>
-                        <div className="text-xs text-slate-700">Staff Records</div>
+                      <div className="flex items-center gap-2 bg-white/20 px-3 py-1 rounded-full">
+                        <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                        <span className="text-sm font-medium">96% Ready</span>
                       </div>
                     </div>
+                  </div>
 
-                    <div className="pt-4 border-t">
+                  <div className="p-6">
+                    <div className="grid grid-cols-3 gap-4 mb-6">
+                      <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-xl border border-blue-200/50">
+                        <div className="text-2xl font-bold text-blue-600">47</div>
+                        <div className="text-xs text-blue-600 font-medium">Active Policies</div>
+                      </div>
+                      <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-xl border border-purple-200/50">
+                        <div className="text-2xl font-bold text-purple-600">156</div>
+                        <div className="text-xs text-purple-600 font-medium">Staff Records</div>
+                      </div>
+                      <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-xl border border-green-200/50">
+                        <div className="text-2xl font-bold text-green-600">8</div>
+                        <div className="text-xs text-green-600 font-medium">Open Actions</div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/50">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium text-slate-700">Overall Readiness</span>
+                          <span className="text-sm font-bold text-slate-900">96%</span>
+                        </div>
+                        <div className="w-full bg-slate-200 rounded-full h-3">
+                          <div className="bg-gradient-to-r from-green-500 to-blue-500 h-3 rounded-full transition-all duration-1000" style={{width: '96%'}}></div>
+                        </div>
+                      </div>
+
                       <div className="flex items-center justify-between text-sm">
-                        <span>Next Audit Due</span>
-                        <span className="font-medium">March 15, 2025</span>
+                        <span className="text-slate-600">Next inspection</span>
+                        <span className="font-medium text-slate-900">March 15, 2025</span>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
+
+                {/* Floating elements */}
+                <div className="absolute -top-4 -right-4 bg-gradient-to-r from-green-500 to-blue-500 text-white p-3 rounded-2xl shadow-xl">
+                  <CheckCircle2 className="w-6 h-6" />
+                </div>
+                <div className="absolute -bottom-4 -left-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white p-3 rounded-2xl shadow-xl">
+                  <FileText className="w-6 h-6" />
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="space-y-8">
+                <div className="space-y-6">
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                      <CheckCircle2 className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold mb-2 text-slate-900">Instant Evidence Packs</h3>
+                      <p className="text-slate-600 leading-relaxed">
+                        Generate comprehensive inspection documentation in seconds. Every policy, record, and compliance check organised and ready for review.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                      <BarChart3 className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold mb-2 text-slate-900">Live Compliance Monitoring</h3>
+                      <p className="text-slate-600 leading-relaxed">
+                        Real-time dashboards showing your compliance status across all areas. Know exactly where you stand, always.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                      <Bell className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold mb-2 text-slate-900">Automated Alerts</h3>
+                      <p className="text-slate-600 leading-relaxed">
+                        Never miss a deadline or compliance requirement. Smart notifications keep you ahead of inspections and regulations.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-2xl border border-blue-100">
+                  <div className="flex items-center gap-3 mb-4">
+                    <Award className="w-6 h-6 text-blue-600" />
+                    <span className="font-semibold text-slate-900">CQC Inspection Guarantee</span>
+                  </div>
+                  <p className="text-slate-600 text-sm leading-relaxed">
+                    Our platform is designed to help support care homes with compliance and inspections. With CG-360, you're not just compliant — you're inspection-ready.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Success Metrics & ROI */}
+        <section className="w-full py-24 bg-gradient-to-br from-slate-50 to-blue-50 relative overflow-hidden">
+          <div className="absolute inset-0">
+            <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-blue-50/50 to-purple-50/50"></div>
+            <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-white/20 rounded-full blur-3xl"></div>
+            <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-white/20 rounded-full blur-3xl"></div>
+          </div>
+
+          <div className="container mx-auto px-4 lg:px-6 relative z-10">
+            <div className="text-center mb-16">
+              <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-800 px-4 py-2 rounded-full text-sm font-medium mb-6">
+                <TrendingUp className="w-4 h-4" />
+                Increase Efficiency & Cut Costs
+              </div>
+              <h2 className="text-4xl lg:text-5xl font-bold text-slate-900 mb-6">
+                CG-360
+                <span className="block text-slate-600">
+                  Measurable time and cost savings
+                </span>
+              </h2>
+              <p className="text-xl text-slate-600 max-w-3xl mx-auto">
+                Care homes using CG-360 will see significant improvements in efficiency, compliance, and operational costs.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-16">
+              <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-lg hover:shadow-xl transition-all duration-300 text-center">
+                <div className="w-16 h-16 bg-gradient-to-r from-green-500 to-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <FileText className="w-8 h-8 text-white" />
+                </div>
+                <div className="text-xl font-bold text-slate-900 mb-2">Policy Management</div>
+                <p className="text-sm text-slate-500">Streamlined creation, updates, and management of care home policies with version control and approval workflows.</p>
+              </div>
+
+              <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-lg hover:shadow-xl transition-all duration-300 text-center">
+                <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <Users className="w-8 h-8 text-white" />
+                </div>
+                <div className="text-xl font-bold text-slate-900 mb-2">Staff Management</div>
+                <p className="text-sm text-slate-500">Complete staff records along with supervision management to ensure compliance and up-to-date certifications.</p>
+              </div>
+
+              <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-lg hover:shadow-xl transition-all duration-300 text-center">
+                <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <Shield className="w-8 h-8 text-white" />
+                </div>
+                <div className="text-xl font-bold text-slate-900 mb-2">Compliance Tracking</div>
+                <p className="text-sm text-slate-500">Automated compliance monitoring and audit preparation to meet CQC standards and maintain inspection readiness.</p>
+              </div>
+
+              <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-lg hover:shadow-xl transition-all duration-300 text-center">
+                <div className="w-16 h-16 bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <TrendingUp className="w-8 h-8 text-white" />
+                </div>
+                <div className="text-xl font-bold text-slate-900 mb-2">Trend Tracking</div>
+                <p className="text-sm text-slate-500">Monitor compliance trends, performance metrics, and operational insights over time for proactive improvements.</p>
+              </div>
+            </div>
+
+            {/* Platform Overview */}
+            <div className="max-w-4xl mx-auto">
+              <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-xl">
+                <div className="text-center mb-8">
+                  <h3 className="text-2xl font-bold text-slate-900 mb-2">How CG-360 Works</h3>
+                  <p className="text-slate-600">Transparent implementation with ongoing support</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                  <div className="text-center">
+                    <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                      <UploadCloud className="w-8 h-8 text-white" />
+                    </div>
+                    <div className="text-lg font-bold text-slate-900 mb-2">2 Week Setup</div>
+                    <div className="text-sm font-medium text-slate-700 mb-2">Fast Implementation</div>
+                    <p className="text-sm text-slate-500">Complete setup and in just 2 weeks with full transparency throughout the process</p>
+                  </div>
+
+                  <div className="text-center">
+                    <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                      <MessageSquare className="w-8 h-8 text-white" />
+                    </div>
+                    <div className="text-lg font-bold text-slate-900 mb-2">Monthly Updates</div>
+                    <div className="text-sm font-medium text-slate-700 mb-2">Feedback & Communication</div>
+                    <p className="text-sm text-slate-500">Regular check-ins and transparent updates with all stakeholders to ensure optimal performance</p>
+                  </div>
+
+                  <div className="text-center">
+                    <div className="w-16 h-16 bg-gradient-to-r from-green-500 to-green-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                      <TrendingUp className="w-8 h-8 text-white" />
+                    </div>
+                    <div className="text-lg font-bold text-slate-900 mb-2">Continuous Support</div>
+                    <div className="text-sm font-medium text-slate-700 mb-2">Ongoing Optimisation</div>
+                    <p className="text-sm text-slate-500">Transparent reporting and continuous platform improvements to maximize your compliance efficiency</p>
+                  </div>
+                </div>
+
+                <div className="text-center">
+                  <p className="text-sm text-slate-500 mb-4">
+                    We believe in complete transparency throughout your journey with CG-360.
+                  </p>
+                  <Button
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-3 px-8 rounded-xl transition-all duration-300 transform hover:scale-105"
+                    onClick={openCalendlyModal}
+                  >
+                    Book Your Free Demo
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
@@ -713,37 +589,39 @@ export default function Page() {
   </main>
 
     {/* Demo CTA (replaces TrustedByBar) */}
-    <section id="demo" className="w-full py-24 bg-white relative overflow-hidden">
-      <div className="absolute inset-0 z-0 pointer-events-none">
-        <div className="absolute -left-48 -top-20 w-[700px] h-[500px] bg-gradient-to-br from-pink-400 via-purple-600 to-cyan-400 opacity-90 rounded-full filter blur-3xl transform-gpu animate-[move1_14s_ease-in-out_infinite]"></div>
-        <div className="absolute right-0 -top-10 w-[900px] h-[600px] bg-gradient-to-br from-cyan-400 via-indigo-500 to-pink-400 opacity-90 rounded-full filter blur-3xl transform-gpu animate-[move2_18s_ease-in-out_infinite]"></div>
-        <div className="absolute left-1/4 top-[55%] w-[500px] h-[380px] bg-gradient-to-br from-yellow-300 via-pink-300 to-purple-400 opacity-85 rounded-full filter blur-2xl transform-gpu animate-[move3_22s_ease-in-out_infinite]"></div>
-
-        {/* subtle left fade to keep CTA text readable */}
-        <div className="absolute left-0 top-0 w-2/12 h-full bg-gradient-to-r from-white/90 to-transparent pointer-events-none" />
-
-        <svg className="absolute bottom-0 left-0 w-full h-[140px] pointer-events-none" viewBox="0 0 1920 140" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-          <path d="M0 20 C220 60, 480 0, 980 90 C1480 180, 1800 60, 1920 90 L1920 140 L0 140 Z" fill="#ffffff" opacity="0.08" />
-        </svg>
+    <section id="demo" className="w-full py-24 bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 relative overflow-hidden">
+      <div className="absolute inset-0">
+        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-blue-500/20 to-purple-500/20"></div>
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-white/10 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-white/10 rounded-full blur-3xl"></div>
       </div>
 
-      <div className="relative z-10">
-        <div className="container px-4 md:px-6 text-center">
-          <h2 className="text-3xl sm:text-4xl font-bold mb-4">See CG-360 in Action</h2>
-          <p className="max-w-[800px] mx-auto text-slate-900 mb-8">
-            Book a personalised walkthrough with our team — we’ll show how CG-360 transforms compliance, reduces admin, and supports better resident care.
+      <div className="container mx-auto px-4 lg:px-6 relative z-10">
+        <div className="text-center mb-16">
+          <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-medium mb-6">
+            <Calendar className="w-4 h-4" />
+            Free Demo
+          </div>
+          <h2 className="text-4xl lg:text-5xl font-bold text-white mb-6">
+            See CG-360 in action
+            <span className="block text-blue-100">
+              Book your free demo today
+            </span>
+          </h2>
+          <p className="text-xl text-blue-100 max-w-3xl mx-auto">
+            Experience how CG-360 transforms compliance management. Our experts will show you how to go from overwhelmed to inspection-ready in minutes.
           </p>
-          <div className="flex items-center justify-center gap-4">
+        </div>
+
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center">
             <Button
-              size="lg"
-              onMouseEnter={() => { if (!calendlyLoaderRef.current) loadCalendlyScript().catch(()=>{}); }}
-              onFocus={() => { if (!calendlyLoaderRef.current) loadCalendlyScript().catch(()=>{}); }}
-              onClick={() => openCalendlyPopup()}
-              className="bg-primary hover:bg-primary/90 text-white shadow-md"
+              className="bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white font-semibold py-4 px-8 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-xl text-lg"
+              onClick={openCalendlyModal}
             >
-              Book a demo
+              <Calendar className="w-5 h-5 mr-2" />
+              Book Your Free Demo
             </Button>
-            <Link href="/contact" className="text-sm font-medium text-slate-900 underline underline-offset-4">Contact sales</Link>
           </div>
         </div>
       </div>
@@ -788,7 +666,7 @@ export default function Page() {
                       </li>
                       <li className="flex items-center gap-2">
                         <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Automatic categorization & tagging
+                        Automatic categorisation & tagging
                       </li>
                       <li className="flex items-center gap-2">
                         <CheckCircle2 className="w-4 h-4 text-green-500" />
@@ -927,7 +805,7 @@ export default function Page() {
                       <h4 className="font-semibold text-lg mb-2">Compliance-First Design</h4>
                       <p className="text-muted-foreground">
                         Folder structures are pre-configured to match CQC requirements and care home
-                        operational needs, ensuring you stay organized and compliant.
+                        operational needs, ensuring you stay organised and compliant.
                       </p>
                     </div>
                   </div>
@@ -1741,7 +1619,7 @@ export default function Page() {
             </div>
           </DialogContent>
         </Dialog>
-  {/* Footer hidden temporarily during launch */}
+    <Footer />
   </div>
   );
 }

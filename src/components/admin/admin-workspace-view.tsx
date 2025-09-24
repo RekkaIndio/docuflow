@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { TeamsView } from '@/components/dashboard/teams-view';
+import { NewTeamDialog } from '@/components/dashboard/new-team-dialog';
 import { collection, query as fsQuery, orderBy, limit, onSnapshot, where, doc, updateDoc, arrayUnion, arrayRemove, getDoc, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { workspaceCollectionPath, workspaceDocPath } from '@/lib/paths';
@@ -127,6 +128,18 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
   }, [stack, workspace, rootWrapper]);
 
   const currentFolder = getCurrentFolder();
+
+  // Local wrapper to expose the NewTeamDialog trigger in the admin view
+  function NewTeamDialogWrapper({ workspaceId }: { workspaceId?: string }) {
+    return (
+      <NewTeamDialog onTeamCreated={() => { /* handled inside TeamsView via realtime fetch */ }} workspaceId={workspaceId}>
+        <Button className="bg-blue-600 hover:bg-blue-700 text-white border border-transparent">
+          <Plus className="mr-2 h-4 w-4 text-white" />
+          Create New Team
+        </Button>
+      </NewTeamDialog>
+    );
+  }
 
   const pushFolder = (id: string) => setStack(s => [...s, id]);
   const popFolder = () => setStack(s => s.slice(0, -1));
@@ -1442,7 +1455,12 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
           </TabsContent>
           
           <TabsContent value="teams" className="mt-6">
-            <TeamsView workspace={workspace} />
+            {/* Render TeamsView without its full-width header when embedded in admin view */}
+            <div className="mb-4 flex items-center justify-between">
+              <div />
+              <NewTeamDialogWrapper workspaceId={workspace.id} />
+            </div>
+            <TeamsView workspace={workspace} hideHeader />
           </TabsContent>
           
           <TabsContent value="stats" className="mt-6">
