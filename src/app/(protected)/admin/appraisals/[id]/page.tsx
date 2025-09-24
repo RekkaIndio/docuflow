@@ -18,13 +18,27 @@ export default function AppraisalDetailsPage({ params }: AppraisalDetailsPagePro
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // params may be a Promise in some Next.js versions — unwrap it inside the async
+  // fetch routine to avoid accessing params.id synchronously.
   useEffect(() => {
     fetchAppraisal();
-  }, [params.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchAppraisal = async () => {
     try {
-      const response = await fetch(`/api/admin/appraisals/${params.id}`);
+      // params can be a Promise in some Next.js setups. Await if needed.
+      // We avoid directly reading params.id at top-level to prevent the console warning.
+  const maybePromise: any = params as any;
+  const resolvedParams: any = typeof maybePromise?.then === 'function' ? await maybePromise : maybePromise;
+      const id = resolvedParams?.id;
+      if (!id) {
+        setError('Invalid appraisal id');
+        setLoading(false);
+        return;
+      }
+
+      const response = await fetch(`/api/admin/appraisals/${id}`);
       if (response.ok) {
         const data = await response.json();
         setAppraisal(data.appraisal);

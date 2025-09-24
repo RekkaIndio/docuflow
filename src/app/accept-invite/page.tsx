@@ -31,11 +31,10 @@ export default function AcceptInvitePage() {
       }
     }
 
-    if (!token) {
-      setError('Missing invite token');
-      setStatus('error');
-      return;
-    }
+    // If token is still empty, don't immediately mark as error — wait until
+    // the effect re-runs after token state is updated to avoid a brief flash
+    // of "Missing invite token" while the browser populates the value.
+    if (!token) return;
 
     (async () => {
       try {
@@ -122,8 +121,17 @@ export default function AcceptInvitePage() {
   return (
     <div style={{ maxWidth: 720, margin: '40px auto', padding: 20 }}>
       <h1>Accept Invitation</h1>
-      {status === 'loading' && <p>Validating invite...</p>}
-      {status === 'error' && <div style={{ color: 'red' }}>{error || 'Invalid invite'}</div>}
+
+      {(status === 'loading' || status === 'signed-in') && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div aria-hidden style={{ width: 20, height: 20, borderRadius: 10, border: '3px solid #ddd', borderTopColor: '#333', animation: 'df-spin 1s linear infinite' }} />
+          <p style={{ margin: 0 }}>{status === 'loading' ? 'Validating invite…' : 'Signed in — redirecting…'}</p>
+        </div>
+      )}
+
+      {status === 'error' && (
+        <div style={{ color: 'red' }}>{error || 'Invalid invite'}</div>
+      )}
 
       {status === 'signup' && (
         <form onSubmit={handleSignup} style={{ display: 'grid', gap: 12 }}>
@@ -143,7 +151,7 @@ export default function AcceptInvitePage() {
         </form>
       )}
 
-      {status === 'signed-in' && <p>Signed in — redirecting...</p>}
+      <style>{`@keyframes df-spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }

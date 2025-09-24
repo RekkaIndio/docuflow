@@ -8,7 +8,7 @@ const INVITE_EXPIRY_DAYS = 7;
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { email, workspaceId, inviterName, workspaceName } = body || {};
+    const { email, workspaceId, inviterName, workspaceName, expiresInHours, temporaryRole } = body || {};
 
     if (!email || !workspaceId) {
       return NextResponse.json({ ok: false, error: 'Missing required fields (email, workspaceId)' }, { status: 400 });
@@ -51,7 +51,12 @@ export async function POST(req: Request) {
     const tokenRef = adminDb.collection('loginTokens').doc();
     const tokenId = tokenRef.id;
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + INVITE_EXPIRY_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    let expiresAtDate: Date;
+    if (typeof expiresInHours === 'number' && Number.isFinite(expiresInHours) && expiresInHours > 0) {
+      expiresAtDate = new Date(now.getTime() + expiresInHours * 60 * 60 * 1000);
+    } else {
+      expiresAtDate = new Date(now.getTime() + INVITE_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
+    }
 
     const tokenDoc = {
       email: String(email).toLowerCase(),
@@ -60,11 +65,12 @@ export async function POST(req: Request) {
       inviterName: inviterName || null,
       workspaceName: workspaceName || null,
       createdAt: now.toISOString(),
-      expiresAt,
+      expiresAt: expiresAtDate.toISOString(),
       consumedAt: null,
       type: 'invite',
     } as any;
 
+    if (temporaryRole) tokenDoc.temporaryRole = temporaryRole;
     await tokenRef.set(tokenDoc);
 
     // Build invite link

@@ -42,11 +42,16 @@ import {
   getDoc,
 } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
+import { useToast } from '@/hooks/use-toast';
 import { workspaceCollectionPath, workspaceDocPath } from '@/lib/paths';
 
 
 interface TeamsViewProps {
-    workspace: Workspace;
+  workspace: Workspace;
+  // When true the full-width themed header is hidden (useful when
+  // embedding TeamsView inside another page that already provides a
+  // header, e.g. the admin workspace view).
+  hideHeader?: boolean;
 }
 
 interface Manager {
@@ -147,13 +152,16 @@ const initialMockTeams: Team[] = [
   }
 ]
 
-export function TeamsView({ workspace }: TeamsViewProps) {
+export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
   const workspaceId = workspace?.id || '';
   const organisationId = (workspace as any)?.organisationId || (workspace as any)?.organisationId || '';
   const [teams, setTeams] = useState<Team[]>([]);
   const [managers, setManagers] = useState<Manager[]>([]);
   const [managersLoading, setManagersLoading] = useState(false);
   const [pendingInvites, setPendingInvites] = useState<Array<any>>([]);
+  // Per-team invite duration (hours) for temporary invites (e.g. inspection)
+  const [inviteDurations, setInviteDurations] = useState<Record<string, number>>({});
+  const { toast } = useToast();
   const [editingManager, setEditingManager] = useState<string | null>(null);
   const [newManager, setNewManager] = useState({ name: '', roles: '', email: '', phone: '' });
   const [managersError, setManagersError] = useState<string | null>(null);
@@ -885,9 +893,13 @@ export function TeamsView({ workspace }: TeamsViewProps) {
         const data = await resp.json();
         if (!data.ok) {
           console.warn('Invite API responded with error', data);
+          toast({ title: 'Invite failed', description: data?.error || 'Failed to create invite', variant: 'destructive' });
         } else {
           if (!data.emailSent) {
             console.warn('Invite token created but email not sent:', data.error);
+            toast({ title: 'Invite created', description: `Created invite token for ${managerToAdd.email} (email not sent)` });
+          } else {
+            toast({ title: 'Invite sent', description: `Magic link sent to ${managerToAdd.email}` });
           }
           // Refresh the pending invites list so count and items update whenever token was created
           try { fetchPendingInvites(); } catch (e) { /* ignore */ }
@@ -1017,6 +1029,49 @@ export function TeamsView({ workspace }: TeamsViewProps) {
         if (!workspace?.id) throw new Error('Missing workspace id');
   const teamRef = doc(db, workspaceCollectionPath(workspace.id, 'teams', (workspace as any).organisationId || workspace.organisationId), teamId);
         await updateDoc(teamRef, { emails: arrayUnion(email) });
+        // If this is the Inspection team, create a magic-link invite with 24h expiry and inspection_readonly role
+        const team = teams.find(t => t.id === teamId || (t.name === 'Inspection' && t.workspaceId === workspace?.id));
+        const isInspection = team?.name === 'Inspection' || teamId.startsWith(`inspection-${workspace?.id}`);
+        // read selected duration for this team (default to 24 hours)
+        const expiresInHours = inviteDurations[teamId] || 24;
+        if (isInspection) {
+          try {
+            const inviterName = (window as any)?.CURRENT_USER_NAME || 'Workspace Manager';
+            const workspaceName = workspace?.name || '';
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            try {
+              const currentUser = auth.currentUser;
+              if (currentUser) {
+                const idToken = await currentUser.getIdToken();
+                if (idToken) headers['authorization'] = `Bearer ${idToken}`;
+              }
+            } catch (e) {
+              // ignore
+            }
+            if (!headers.authorization) headers['x-admin-secret'] = (window as any)?.__ADMIN_SECRET || '';
+
+            const resp = await fetch('/api/admin/invite', {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({ email, workspaceId: workspace.id, workspaceOrgId: organisationId || null, inviterName, workspaceName, expiresInHours, temporaryRole: 'inspection_readonly' })
+            });
+            const data = await resp.json();
+            if (!data.ok) {
+              console.warn('Invite API responded with error for inspection invite', data);
+              toast({ title: 'Invite failed', description: data?.error || 'Failed to create invite', variant: 'destructive' });
+            } else {
+              if (data.emailSent) {
+                toast({ title: 'Invite sent', description: `Magic link sent to ${email}` });
+              } else {
+                toast({ title: 'Invite created', description: `Created invite token for ${email} (email not sent)` });
+              }
+              try { fetchPendingInvites(); } catch (e) { /* ignore */ }
+            }
+          } catch (err) {
+            console.error('Failed to create inspection invite', err);
+            toast({ title: 'Invite failed', description: 'Failed to create invite', variant: 'destructive' });
+          }
+        }
       } catch (error) {
         console.error("Error adding email to team in Firestore:", error);
       }
@@ -1314,34 +1369,36 @@ export function TeamsView({ workspace }: TeamsViewProps) {
 
   return (
     <div className="flex flex-col h-full bg-muted/20">
-      {/* Full-width themed header */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-8 rounded-b-2xl shadow-lg relative overflow-hidden">
-        {/* Subtle background pattern */}
-        <div className="absolute inset-0 opacity-5">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full -translate-y-48 translate-x-48"></div>
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-400 rounded-full translate-y-32 -translate-x-32"></div>
-        </div>
-        <div className="w-full mx-auto flex items-start justify-between gap-8 relative z-10">
-          <div className="flex items-start gap-6">
-            <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg">
-              <Users className="w-8 h-8 text-white" />
+      {/* Full-width themed header (opt-out for embedding pages) */}
+      {!hideHeader && (
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-8 rounded-b-2xl shadow-lg relative overflow-hidden">
+          {/* Subtle background pattern */}
+          <div className="absolute inset-0 opacity-5">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full -translate-y-48 translate-x-48"></div>
+            <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-400 rounded-full translate-y-32 -translate-x-32"></div>
+          </div>
+          <div className="w-full mx-auto flex items-start justify-between gap-8 relative z-10">
+            <div className="flex items-start gap-6">
+              <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg">
+                <Users className="w-8 h-8 text-white" />
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-3xl font-bold leading-tight tracking-tight">Teams & Permissions</h2>
+                <div className="text-slate-200 text-base leading-relaxed">Manage team access and folder permissions across your workspace</div>
+              </div>
             </div>
-            <div className="space-y-2">
-              <h2 className="text-3xl font-bold leading-tight tracking-tight">Teams & Permissions</h2>
-              <div className="text-slate-200 text-base leading-relaxed">Manage team access and folder permissions across your workspace</div>
+            {/* Action buttons */}
+            <div className="flex items-center gap-3">
+              <NewTeamDialog onTeamCreated={handleTeamCreated} workspaceId={workspaceId}>
+                <Button className="bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur-sm">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create New Team
+                </Button>
+              </NewTeamDialog>
             </div>
           </div>
-          {/* Action buttons */}
-          <div className="flex items-center gap-3">
-            <NewTeamDialog onTeamCreated={handleTeamCreated} workspaceId={workspaceId}>
-              <Button className="bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur-sm">
-                <Plus className="mr-2 h-4 w-4" />
-                Create New Team
-              </Button>
-            </NewTeamDialog>
-          </div>
         </div>
-      </div>
+      )}
 
       <main className="flex-1 p-6 overflow-y-auto">
         <Tabs defaultValue="teams" className="w-full">
@@ -1420,27 +1477,43 @@ export function TeamsView({ workspace }: TeamsViewProps) {
                         )}
                       </ul>
                       <div className="mt-2 flex gap-2">
-                        <Input
-                          placeholder="Add email"
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              const input = e.target as HTMLInputElement;
-                              handleAddEmail(team.id, input.value);
-                              input.value = "";
-                            }
-                          }}
-                        />
-                        <Button
-                          onClick={(e) => {
-                            const input = e.currentTarget
-                              .previousElementSibling as HTMLInputElement;
-                            handleAddEmail(team.id, input.value);
-                            input.value = "";
-                          }}
-                        >
-                          Add
-                        </Button>
-                      </div>
+                          <Input
+                            placeholder="Add email"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                const input = e.target as HTMLInputElement;
+                                handleAddEmail(team.id, input.value);
+                                input.value = "";
+                              }
+                            }}
+                          />
+                          {/* Only show duration selector for Inspection team */}
+                          {(team.name === 'Inspection' || team.id.startsWith(`inspection-${workspace?.id}`)) && (
+                            <Select value={(inviteDurations[team.id] || 24).toString()} onValueChange={(val: string) => setInviteDurations(prev => ({ ...prev, [team.id]: parseInt(val, 10) }))}>
+                              <SelectTrigger className="min-w-[110px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="4">4 hours</SelectItem>
+                                <SelectItem value="8">8 hours</SelectItem>
+                                <SelectItem value="24">24 hours</SelectItem>
+                                <SelectItem value="48">48 hours</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          )}
+                          <Button
+                            onClick={(e) => {
+                              // Find the input element within the same container so this works whether the Select exists or not
+                              const container = e.currentTarget.parentElement as HTMLElement | null;
+                              const emailInput = container?.querySelector('input') as HTMLInputElement | null;
+                              if (!emailInput) return;
+                              handleAddEmail(team.id, emailInput.value);
+                              emailInput.value = "";
+                            }}
+                          >
+                            Add
+                          </Button>
+                        </div>
                     </div>
                     <div className="flex -space-x-2">
                       {team.members.map((member) => (

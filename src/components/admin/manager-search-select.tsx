@@ -131,6 +131,34 @@ export default function ManagerSearchSelect({
     onChange(manager);
   };
 
+  // If parent passes a value (selected manager name), reflect it internally
+  useEffect(() => {
+    if (!value) {
+      // clear selection when parent clears value
+      if (selectedManager) {
+        setSelectedManager(null);
+      }
+      setSearchTerm('');
+      return;
+    }
+    // If we already have managers loaded, try to find a matching manager and set it
+    if (managers && managers.length > 0) {
+      const found = managers.find(m => m.name === value || m.id === value);
+      if (found) {
+        setSelectedManager(found);
+        setSearchTerm(found.name);
+        onChange(found);
+      } else {
+        // If not found, just set the search term so the input shows the value
+        setSearchTerm(value);
+      }
+    } else {
+      // Managers not loaded yet — just set the search term for now
+      setSearchTerm(value);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
   // Handle clearing selection
   const handleClear = () => {
     setSelectedManager(null);

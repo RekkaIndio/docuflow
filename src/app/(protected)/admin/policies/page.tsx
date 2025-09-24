@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { DocumentView } from '@/components/dashboard/document-view';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import AdminPageHeader from '@/components/admin/admin-page-header';
 import type { Document } from '@/lib/types';
 
 type PolicyItem = {
@@ -394,51 +395,11 @@ export default function AdminPoliciesPage() {
 
   return (
     <div>
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-8 rounded-b-2xl shadow-lg relative overflow-hidden">
-        <div className="absolute inset-0 opacity-5">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full -translate-y-48 translate-x-48"></div>
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-400 rounded-full translate-y-32 -translate-x-32"></div>
-        </div>
-        <div className="w-full flex items-start justify-between gap-8 relative z-10">
-          <div className="flex items-start gap-6">
-            <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-white">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <polyline points="14,2 14,8 20,8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </div>
-            <div>
-              <h2 className="text-3xl font-bold leading-tight tracking-tight">Policies</h2>
-              <div className="mt-1 text-slate-200 text-base leading-relaxed">Manage policy documents. Create policies from templates or edit existing ones.</div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3">
-              <div className="min-w-[88px] h-14 flex flex-col items-center justify-center bg-white/10 backdrop-blur-sm rounded-md text-center border border-white/20 px-3">
-                <div className="text-xs text-slate-200">Total</div>
-                <div className="text-lg font-semibold mt-1">{stats.total}</div>
-              </div>
-              <div className="min-w-[88px] h-14 flex flex-col items-center justify-center bg-red-500/10 rounded-md text-center border border-red-500/20 px-3">
-                <div className="text-xs text-red-300">Overdue</div>
-                <div className="text-lg font-semibold text-red-300 mt-1">{stats.overdue}</div>
-              </div>
-              <div className="min-w-[88px] h-14 flex flex-col items-center justify-center bg-yellow-500/10 rounded-md text-center border border-yellow-500/20 px-3">
-                <div className="text-xs text-yellow-300">Due soon</div>
-                <div className="text-lg font-semibold text-yellow-300 mt-1">{stats.dueSoon}</div>
-              </div>
-              <div className="min-w-[88px] h-14 flex flex-col items-center justify-center bg-green-500/10 rounded-md text-center border border-green-500/20 px-3">
-                <div className="text-xs text-green-300">Up to date</div>
-                <div className="text-lg font-semibold text-green-300 mt-1">{stats.ok}</div>
-              </div>
-              <div className="min-w-[88px] h-14 flex flex-col items-center justify-center bg-blue-500/10 rounded-md text-center border border-blue-500/20 px-3">
-                <div className="text-xs text-blue-300">Review later</div>
-                <div className="text-lg font-semibold text-blue-300 mt-1">{stats.reviewLater}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <AdminPageHeader
+        title="Policies"
+        subtitle="Manage policy documents. Create policies from templates or edit existing ones."
+        icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-white"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><polyline points="14,2 14,8 20,8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+      />
 
       <div className="p-6 w-full max-w-full">
         <div className="mb-4 flex items-center justify-between">
@@ -557,21 +518,29 @@ export default function AdminPoliciesPage() {
                 const { fileName, title, version, effectiveDate, reviewDate, appliesTo, review } = it;
                 const isString = typeof it.raw === 'string';
                 const isCompleted = !isString && it.raw.isCompleted;
-                const isExpiringSoon = review && (review.kind === 'due-soon' || review.kind === 'overdue');
+                const isOverdue = review && review.kind === 'overdue';
+                const isDueSoon = review && review.kind === 'due-soon';
 
-                const containerClass = isExpiringSoon
+                const containerClass = isOverdue
                   ? 'bg-gradient-to-br from-red-50 to-rose-50 border-red-200 hover:border-red-300'
-                  : (isCompleted ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200 hover:border-green-300' : 'bg-white/90 border-blue-100 hover:border-blue-200');
+                  : isDueSoon
+                    ? 'bg-gradient-to-br from-orange-50 to-amber-50 border-orange-200 hover:border-orange-300'
+                    : (isCompleted ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200 hover:border-green-300' : 'bg-white/90 border-blue-100 hover:border-blue-200');
 
-                const iconClass = isExpiringSoon ? 'bg-red-500 text-white' : (isCompleted ? 'bg-green-500 text-white' : 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white');
+                const iconClass = isOverdue ? 'bg-red-500 text-white' : (isDueSoon ? 'bg-orange-500 text-white' : (isCompleted ? 'bg-green-500 text-white' : 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white'));
 
-                const titleClass = isExpiringSoon ? 'text-red-800' : (isCompleted ? 'text-green-800' : 'text-blue-900 group-hover:text-blue-800');
+                const titleClass = isOverdue ? 'text-red-800' : (isDueSoon ? 'text-orange-800' : (isCompleted ? 'text-green-800' : 'text-blue-900 group-hover:text-blue-800'));
 
-                const bottomBorder = isExpiringSoon ? 'bg-gradient-to-r from-red-500 to-rose-500' : (isCompleted ? 'bg-gradient-to-r from-green-500 to-emerald-500' : 'bg-gradient-to-r from-blue-500 to-indigo-600');
+                const bottomBorder = isOverdue ? 'bg-gradient-to-r from-red-500 to-rose-500' : (isDueSoon ? 'bg-gradient-to-r from-orange-500 to-amber-500' : (isCompleted ? 'bg-gradient-to-r from-green-500 to-emerald-500' : 'bg-gradient-to-r from-blue-500 to-indigo-600'));
 
                 return (
                   <div key={fileName} className={`group relative overflow-hidden rounded-2xl shadow-lg border transition-all duration-300 hover:shadow-xl hover:-translate-y-1 min-h-[200px] flex flex-col cursor-pointer ${containerClass}`} onClick={() => router.push(`/admin/policies/${encodeURIComponent(fileName.replace(/\.pdf$/i, ''))}/edit`)}>
-                    {isCompleted && (<div className="absolute inset-0 opacity-5 pointer-events-none"><div className={`absolute top-0 right-0 w-32 h-32 rounded-full -translate-y-16 translate-x-16 ${isExpiringSoon ? 'bg-red-300' : 'bg-green-400'}`}></div><div className={`absolute bottom-0 left-0 w-24 h-24 rounded-full translate-y-12 -translate-x-12 ${isExpiringSoon ? 'bg-rose-300' : 'bg-emerald-400'}`}></div></div>)}
+                    {isCompleted && (
+                      <div className="absolute inset-0 opacity-5 pointer-events-none">
+                        <div className={`absolute top-0 right-0 w-32 h-32 rounded-full -translate-y-16 translate-x-16 ${isOverdue ? 'bg-red-300' : (isDueSoon ? 'bg-orange-300' : 'bg-green-400')}`}></div>
+                        <div className={`absolute bottom-0 left-0 w-24 h-24 rounded-full translate-y-12 -translate-x-12 ${isOverdue ? 'bg-rose-300' : (isDueSoon ? 'bg-amber-300' : 'bg-emerald-400')}`}></div>
+                      </div>
+                    )}
                     <div className="relative p-6 flex flex-col flex-grow">
                       <div className="flex items-start justify-between mb-4">
                         <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm ${iconClass}`}>
@@ -583,15 +552,15 @@ export default function AdminPoliciesPage() {
                         <p className="text-sm text-gray-600 leading-relaxed">{isCompleted ? 'Completed - Click to review or update' : 'Click to begin creating this policy'}</p>
                       </div>
                       {isCompleted && (
-                        <div className="mt-4 pt-4 border-t space-y-2" style={{ borderColor: isExpiringSoon ? undefined : undefined }}>
-                          <div className={`flex items-center justify-between text-xs ${isExpiringSoon ? 'text-red-700' : 'text-green-700'}`}><span>Status</span><span className="font-medium">✓ Complete</span></div>
+                        <div className="mt-4 pt-4 border-t space-y-2">
+                          <div className={`flex items-center justify-between text-xs ${isOverdue ? 'text-red-700' : (isDueSoon ? 'text-orange-700' : 'text-green-700')}`}><span>Status</span><span className="font-medium">✓ Complete</span></div>
                           {(() => {
                             const rawReview = it.raw && typeof it.raw !== 'string' ? (it.raw.extractedJson?.reviewDate || it.raw.meta?.reviewDate) : null;
                             const displayReview = rawReview || reviewDate || null;
-                            return displayReview ? (<div className={`flex items-center justify-between text-xs ${isExpiringSoon ? 'text-red-700' : 'text-green-700'}`}><span>Renewal Date</span><span className="font-medium">{formatDateSafe(displayReview)}</span></div>) : null;
+                            return displayReview ? (<div className={`flex items-center justify-between text-xs ${isOverdue ? 'text-red-700' : (isDueSoon ? 'text-orange-700' : 'text-green-700')}`}><span>Renewal Date</span><span className="font-medium">{formatDateSafe(displayReview)}</span></div>) : null;
                           })()}
                           <div className="pt-2 flex gap-2">
-                            <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); preloadAndOpenPolicy(it); }}>{viewLoading === it.fileName ? 'Loading…' : 'View'}</Button>
+                            <Button size="sm" onClick={(e) => { e.stopPropagation(); preloadAndOpenPolicy(it); }}>{viewLoading === it.fileName ? 'Loading…' : 'View'}</Button>
                             <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); router.push(`/admin/policies/${encodeURIComponent(fileName.replace(/\.pdf$/i, ''))}/edit`); }}>Edit</Button>
                           </div>
                         </div>

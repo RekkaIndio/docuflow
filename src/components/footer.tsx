@@ -2,9 +2,12 @@
 
 import Link from 'next/link';
 import { Logo } from '@/components/icons/logo';
-import { Twitter, Github, Linkedin } from 'lucide-react';
+import { Linkedin } from 'lucide-react';
+import { useCalendly } from '@/context/calendly-context';
 
 export function Footer() {
+  const { openCalendlyModal } = useCalendly();
+
   return (
     <footer className="w-full bg-white border-t border-border/50 text-slate-700">
       <div className="container px-6 py-12 mx-auto">
@@ -23,35 +26,11 @@ export function Footer() {
               <ul className="space-y-2 text-sm">
                 <li><Link href="#features" className="hover:underline">Features</Link></li>
                 <li><Link href="#compliance" className="hover:underline">Compliance</Link></li>
-                <li><Link href="#pricing" className="hover:underline">Pricing</Link></li>
                 <li>
                   <button
-                    onClick={async (e) => {
+                    onClick={(e) => {
                       e.preventDefault();
-                      const url = 'https://calendly.com/jamiemasonwright/cg-360-demo';
-                      try {
-                        if ((window as any).Calendly && typeof (window as any).Calendly.initPopupWidget === 'function') {
-                          (window as any).Calendly.initPopupWidget({ url });
-                          return;
-                        }
-
-                        await new Promise<void>((resolve, reject) => {
-                          const script = document.createElement('script');
-                          script.src = 'https://assets.calendly.com/assets/external/widget.js';
-                          script.async = true;
-                          script.onload = () => resolve();
-                          script.onerror = () => reject();
-                          document.head.appendChild(script);
-                        });
-
-                        if ((window as any).Calendly && typeof (window as any).Calendly.initPopupWidget === 'function') {
-                          (window as any).Calendly.initPopupWidget({ url });
-                        } else {
-                          window.open(url, '_blank', 'noopener,noreferrer');
-                        }
-                      } catch (err) {
-                        window.open(url, '_blank', 'noopener,noreferrer');
-                      }
+                      openCalendlyModal();
                     }}
                     className="hover:underline text-left"
                   >
@@ -65,8 +44,6 @@ export function Footer() {
               <div className="font-medium mb-2">Company</div>
               <ul className="space-y-2 text-sm">
                 <li><Link href="/about" className="hover:underline">About</Link></li>
-                <li><Link href="/careers" className="hover:underline">Careers</Link></li>
-                <li><Link href="/blog" className="hover:underline">Blog</Link></li>
                 <li><Link href="/contact" className="hover:underline">Contact</Link></li>
               </ul>
             </div>
@@ -74,8 +51,7 @@ export function Footer() {
             <div>
               <div className="font-medium mb-2">Resources</div>
               <ul className="space-y-2 text-sm">
-                <li><Link href="/docs" className="hover:underline">Docs</Link></li>
-                <li><Link href="/help" className="hover:underline">Help Center</Link></li>
+                <li><Link href="/help" className="hover:underline">Help Centre</Link></li>
                 <li><Link href="/privacy" className="hover:underline">Privacy</Link></li>
                 <li><Link href="/terms" className="hover:underline">Terms</Link></li>
               </ul>
@@ -84,11 +60,9 @@ export function Footer() {
             <div>
               <div className="font-medium mb-2">Contact</div>
               <ul className="space-y-2 text-sm">
-                <li>support@cg-360.com</li>
+                <li>support@cg360.co.uk</li>
                 <li className="flex items-center gap-3 mt-2">
-                  <a href="https://twitter.com" aria-label="Twitter" className="hover:text-primary"><Twitter className="w-5 h-5" /></a>
-                  <a href="https://github.com" aria-label="Github" className="hover:text-primary"><Github className="w-5 h-5" /></a>
-                  <a href="https://linkedin.com" aria-label="LinkedIn" className="hover:text-primary"><Linkedin className="w-5 h-5" /></a>
+                  <a href="https://www.linkedin.com/company/cg-360/" aria-label="LinkedIn" className="hover:text-primary"><Linkedin className="w-5 h-5" /></a>
                 </li>
               </ul>
             </div>

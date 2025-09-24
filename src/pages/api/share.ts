@@ -65,7 +65,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const mailgun = new Mailgun(FormData);
     const mg = mailgun.client({ username: 'api', key: apiKey, url: apiUrl });
 
-    const from = `Docuflow <postmaster@${domain}>`;
+    const from = `CG-360 <postmaster@${domain}>`;
     const html = renderSharedDocumentEmail({ sharerName: (req as any).user?.name || 'A colleague', teamName: teamData.name || 'team', documentName: name || url, documentUrl: url, message: emailBody });
     const sendRes = await mg.messages.create(domain, {
       from,

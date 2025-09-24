@@ -94,7 +94,27 @@ service cloud.firestore {
       allow create: if request.auth != null
         && (getUserOrganisationId() == null || request.resource.data.organisationId == getUserOrganisationId()) ;
 
-      allow read, write: if request.auth != null && (
+      // Helper: is user a temporary member (map keyed by uid with role and expiresAt timestamp)
+      function isTemporaryMember() {
+        return request.auth != null
+          && resource.data.keys().hasAll(['temporaryMembers'])
+          && (resource.data.temporaryMembers is map)
+          && (request.auth.uid in resource.data.temporaryMembers)
+          && (resource.data.temporaryMembers[request.auth.uid] != null
+              && (resource.data.temporaryMembers[request.auth.uid].expiresAt == null
+                  || resource.data.temporaryMembers[request.auth.uid].expiresAt > request.time));
+      }
+
+      // Read allowed if user is admin OR owner OR a full member OR a valid temporary member
+      allow read: if request.auth != null && (
+        isAdmin()
+        || (resource.data.ownerId == request.auth.uid)
+        || (resource.data.members is list && request.auth.uid in resource.data.members)
+        || isTemporaryMember()
+      );
+
+      // Writes allowed only for admins, owners or full members (temporary members cannot write)
+      allow write: if request.auth != null && (
         isAdmin()
         || (resource.data.ownerId == request.auth.uid)
         || (resource.data.members is list && request.auth.uid in resource.data.members)

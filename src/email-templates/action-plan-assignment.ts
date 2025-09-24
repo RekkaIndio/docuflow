@@ -37,7 +37,7 @@ export default function renderActionPlanAssignmentEmail({ monthKey, assignedBy, 
       <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
         <tr>
           <td style="background:#f6f9fc; padding:28px 16px; text-align:center;">
-            <img src="${logoUrl}" alt="Docuflow" width="160" style="max-width:160px; height:auto; display:block; margin:0 auto 8px;" />
+            <img src="${logoUrl}" alt="CG-360" width="160" style="max-width:160px; height:auto; display:block; margin:0 auto 8px;" />
             <div style="font-size:13px; color:#6b7280;">Action Plan Assignment</div>
           </td>
         </tr>

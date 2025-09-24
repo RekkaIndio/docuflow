@@ -7,11 +7,13 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Users, MapPin, BarChart2, Plus, MoreVertical, Edit, Trash2, Target, AlertTriangle, TrendingUp, Activity, CheckCircle, XCircle, Clock, FileText, Building2, Shield, Zap, Database, Wifi, Folder } from 'lucide-react';
+import { Users, MapPin, BarChart2, Plus, MoreVertical, Edit, Trash2, Target, AlertTriangle, TrendingUp, Activity, CheckCircle, XCircle, Clock, FileText, Building2, Shield, Zap, Database, Wifi, Folder as FolderIcon } from 'lucide-react';
 import OccupancyPie from '@/components/admin/occupancy-pie';
+import { computeStaffAggregate } from '@/lib/computeStaffAggregate';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/use-auth';
+import AdminPageHeader from '@/components/admin/admin-page-header';
 import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
 
 type Workspace = any;
@@ -240,109 +242,47 @@ export default function AdminWorkspacesView() {
     }
   };
 
+  // Compute deduplicated staff count from various possible workspace member fields.
+  const computeStaffAggregate = (ws: any) => {
+    if (!ws) return '—';
+    try {
+      const membersSet = new Set<string>();
+      const collect = (arr: any) => {
+        if (!arr) return;
+        if (!Array.isArray(arr)) return;
+        for (const m of arr) {
+          if (!m) continue;
+          if (typeof m === 'string') membersSet.add(m);
+          else if (typeof m === 'object') {
+            if (m.id) membersSet.add(String(m.id));
+            else if (m.email) membersSet.add(String(m.email));
+            else if (m.userId) membersSet.add(String(m.userId));
+            else membersSet.add(JSON.stringify(m));
+          }
+        }
+      };
+
+      collect(ws.members);
+      const candidateFields = ['managers','nurses','ctms','domestics','maintenances','kitchens','activities','staff','staffMembers'];
+      for (const f of candidateFields) collect(ws[f]);
+
+      if (membersSet.size > 0) return membersSet.size;
+      if (typeof ws.staffCount === 'number') return ws.staffCount;
+      if (typeof ws.staffingLevel === 'number') return `${ws.staffingLevel}%`;
+      return '—';
+    } catch (e) {
+      return '—';
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-blue-600 to-purple-700 text-white rounded-b-[64px] shadow-2xl">
-        {/* Animated background elements */}
-        <div className="absolute inset-0">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-white/10 to-transparent rounded-full -translate-y-48 translate-x-48 animate-pulse"></div>
-          <div className="absolute bottom-0 left-0 w-80 h-80 bg-gradient-to-tr from-purple-400/20 to-transparent rounded-full translate-y-40 -translate-x-40"></div>
-          <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-gradient-to-br from-blue-300/10 to-transparent rounded-full -translate-x-1/2 -translate-y-1/2 animate-pulse delay-1000"></div>
-        </div>
-        
-        <div className="relative z-10 py-6 sm:py-8 lg:py-10 px-8 md:px-12 lg:px-16">
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8 lg:gap-12">
-            {/* Main content - left side */}
-              <div className="flex-1">
-              <div className="flex items-center gap-4 mb-4 -ml-6 md:-ml-8 lg:-ml-12">
-                <div className="p-3 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
-                  <Users className="w-8 h-8 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight tracking-tight text-white drop-shadow-sm">
-                    Workspaces
-                  </h1>
-                  <div className="mt-2 text-sm text-blue-100 font-medium">
-                    Admin workspaces · {workspaces.length} workspaces · {aggregated.totalFolders} folders · {aggregated.totalDocuments} documents
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Key metrics cards - right side */}
-            <div className="w-full lg:w-auto">
-              <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 lg:gap-4">
-                {/* Workspaces */}
-                <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
-                  <div className="flex items-center gap-2 lg:gap-3 h-full">
-                    <div className="p-2 bg-blue-500/20 rounded-xl group-hover:bg-blue-500/30 transition-colors duration-300">
-                      <Building2 className="w-4 h-4 lg:w-5 lg:h-5 text-blue-400" />
-                    </div>
-                    <div>
-                      <div className="text-xl lg:text-2xl font-bold text-white">{workspaces.length}</div>
-                      <div className="text-xs text-blue-200 font-medium uppercase tracking-wide">Workspaces</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Folders */}
-                <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
-                  <div className="flex items-center gap-2 lg:gap-3 h-full">
-                    <div className="p-2 bg-yellow-500/20 rounded-xl group-hover:bg-yellow-500/30 transition-colors duration-300">
-                      <Folder className="w-4 h-4 lg:w-5 lg:h-5 text-yellow-400" />
-                    </div>
-                    <div>
-                      <div className="text-xl lg:text-2xl font-bold text-white">{aggregated.totalFolders}</div>
-                      <div className="text-xs text-yellow-200 font-medium uppercase tracking-wide">Folders</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Documents */}
-                <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
-                  <div className="flex items-center gap-2 lg:gap-3 h-full">
-                    <div className="p-2 bg-purple-500/20 rounded-xl group-hover:bg-purple-500/30 transition-colors duration-300">
-                      <FileText className="w-4 h-4 lg:w-5 lg:h-5 text-purple-400" />
-                    </div>
-                    <div>
-                      <div className="text-xl lg:text-2xl font-bold text-white">{aggregated.totalDocuments}</div>
-                      <div className="text-xs text-purple-200 font-medium uppercase tracking-wide">Documents</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* System Health */}
-                <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
-                  <div className="flex items-center gap-2 lg:gap-3 h-full">
-                    <div className="p-2 bg-emerald-500/20 rounded-xl group-hover:bg-emerald-500/30 transition-colors duration-300">
-                      <Zap className="w-4 h-4 lg:w-5 lg:h-5 text-emerald-400" />
-                    </div>
-                    <div>
-                      <div className="text-xl lg:text-2xl font-bold text-white">98%</div>
-                      <div className="text-xs text-emerald-200 font-medium uppercase tracking-wide">Health</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Occupancy */}
-                <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
-                  <div className="flex items-center gap-2 lg:gap-3 h-full">
-                    <div className="p-2 bg-rose-500/20 rounded-xl group-hover:bg-rose-500/30 transition-colors duration-300">
-                      <div className="w-4 h-4 lg:w-5 lg:h-5">
-                        <OccupancyPie percent={Math.round((careOverview.averageOccupancy || 0) * 100)} size={20} strokeWidth={3} />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-xl lg:text-2xl font-bold text-white">{Math.round((careOverview.averageOccupancy || 0) * 100)}%</div>
-                      <div className="text-xs text-rose-200 font-medium uppercase tracking-wide">Occupancy</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <AdminPageHeader
+        title="Workspaces"
+        subtitle={`Admin workspaces · ${workspaces.length} workspaces · ${aggregated.totalFolders} folders · ${aggregated.totalDocuments} documents`}
+        icon={<Users className="w-5 h-5 text-white" />}
+      />
+      {/* Top summary strip removed per admin update — keeping header and main content below */}
 
       {/* Main content */}
       <div className="p-6 space-y-6">
@@ -392,10 +332,10 @@ export default function AdminWorkspacesView() {
                 <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl bg-gradient-to-r from-blue-500 via-purple-500 to-indigo-500" aria-hidden />
                 <CardHeader className="flex flex-row items-center justify-between w-full px-5 py-4 border-b border-blue-50 bg-white rounded-t-2xl">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <Folder className="w-5 h-5 text-blue-500" />
-                      <span className="text-lg font-semibold truncate text-blue-900">{ws.name || ws.id}</span>
-                    </div>
+                            <div className="flex items-center gap-2">
+                                <FolderIcon className="w-5 h-5 text-blue-500" />
+                                <span className="text-lg font-semibold truncate text-blue-900">{ws.name || ws.id}</span>
+                              </div>
                     <div className="text-xs text-blue-400 mt-1 font-medium">
                       {ws.folders?.length || 0} folders • {totalDocs} documents
                     </div>
@@ -470,12 +410,12 @@ export default function AdminWorkspacesView() {
                       <div className="text-sm text-slate-500 mt-1">Compliance</div>
                     </div>
 
-                    {/* Staffing tile */}
+                    {/* Staffing tile (aggregated staff count) */}
                     <div className="bg-white rounded-2xl shadow-sm p-6 flex flex-col items-center justify-center">
                       <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center mb-3">
                         <Users className="w-6 h-6 text-blue-500" />
                       </div>
-                      <div className="text-2xl font-bold text-slate-800">{typeof ws.staffingLevel === 'number' ? `${ws.staffingLevel}%` : (ws.staffCount ? ws.staffCount : '—')}</div>
+                      <div className="text-2xl font-bold text-slate-800">{computeStaffAggregate(ws) ?? (typeof ws.staffCount === 'number' ? ws.staffCount : (typeof ws.staffingLevel === 'number' ? `${ws.staffingLevel}%` : '—'))}</div>
                       <div className="text-sm text-slate-500 mt-1">Staffing</div>
                     </div>
                   </div>
