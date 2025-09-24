@@ -185,22 +185,6 @@ export default function Page() {
                     Book Your Free Demo
                   </Button>
                 </div>
-
-                {/* Trust Indicators */}
-                <div className="flex items-center gap-8 pt-8">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                    <span className="text-sm text-slate-600">CQC Compliant</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                    <span className="text-sm text-slate-600">GDPR Ready</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
-                    <span className="text-sm text-slate-600">AI-Powered</span>
-                  </div>
-                </div>
               </div>
 
               {/* Hero Visual */}
