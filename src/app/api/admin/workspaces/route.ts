@@ -206,6 +206,43 @@ export async function POST(req: Request) {
     const orgId = url.searchParams.get('orgId') || undefined;
     if (!name || !ownerId) return NextResponse.json({ error: 'Missing name or ownerId' }, { status: 400 });
 
+    // Workspace quota enforcement
+    // Platform admin override (existing logic)
+    const adminHeader = req.headers.get('x-admin-secret') || req.headers.get('authorization');
+
+    // Only enforce quota if not platform admin
+    let enforceQuota = true;
+    if (adminHeader) enforceQuota = false;
+
+    if (!orgId) {
+      return NextResponse.json({ error: 'orgId is required to create a workspace' }, { status: 400 });
+    }
+
+    if (enforceQuota) {
+      // Read workspaceLimit directly from organisation doc
+      const orgRef = adminDb.doc(`organisations/${orgId}`);
+      const orgSnap = await orgRef.get();
+      let workspaceLimit = null;
+      if (orgSnap.exists) {
+        const orgData = orgSnap.data();
+        workspaceLimit = typeof orgData.workspaceLimit === 'number' ? orgData.workspaceLimit : null;
+      }
+      // If no limit, allow unlimited
+      if (workspaceLimit !== null) {
+        // Count current workspaces
+        const wsSnap = await adminDb.collection(`organisations/${orgId}/workspaces`).get();
+        const currentCount = wsSnap.size;
+        if (currentCount >= workspaceLimit) {
+          return NextResponse.json({
+            error: 'workspace_limit_reached',
+            message: `Workspace limit reached (${currentCount} of ${workspaceLimit}). Contact support to upgrade.`,
+            limit: workspaceLimit,
+            used: currentCount
+          }, { status: 403 });
+        }
+      }
+    }
+
     // Build payload
     const payload: any = {
       name,
@@ -215,10 +252,6 @@ export async function POST(req: Request) {
     };
 
     let workspaceId: string;
-
-    if (!orgId) {
-      return NextResponse.json({ error: 'orgId is required to create a workspace' }, { status: 400 });
-    }
 
     // Create org-scoped workspace
     const wsRef = await adminDb.collection(`organisations/${orgId}/workspaces`).add({ ...payload, organisationId: orgId });

@@ -19,9 +19,13 @@ import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firesto
 type Workspace = any;
 
 export default function AdminWorkspacesView() {
+  // Modal for workspace limit reached
+  const [isLimitModalOpen, setIsLimitModalOpen] = React.useState(false);
   const { user, loading } = useAuth();
   const [workspaces, setWorkspaces] = React.useState<Workspace[]>([]);
   const [loadingData, setLoadingData] = React.useState(false);
+  const [workspaceLimit, setWorkspaceLimit] = React.useState<number|null>(null);
+  const [quotaLoading, setQuotaLoading] = React.useState(false);
 
   // Create workspace dialog
   const [isCreateWorkspaceOpen, setIsCreateWorkspaceOpen] = React.useState(false);
@@ -80,19 +84,21 @@ export default function AdminWorkspacesView() {
   React.useEffect(() => {
     const fetchData = async () => {
       setLoadingData(true);
+      setQuotaLoading(true);
       try {
         // Wait for auth hydration. Only fetch when we have a user or dev admin cookie.
         if (loading) return;
         if (!user && !(typeof document !== 'undefined' && document.cookie.includes('isAdmin=1'))) {
           setWorkspaces([]);
+          setWorkspaceLimit(null);
           return;
         }
 
         const orgId = (user as any)?.organisationId;
         const isDevAdmin = typeof document !== 'undefined' && document.cookie.includes('isAdmin=1');
         if (!orgId && !isDevAdmin) {
-          // No organisation context available yet; avoid calling server which will reject.
           setWorkspaces([]);
+          setWorkspaceLimit(null);
           return;
         }
 
@@ -100,14 +106,35 @@ export default function AdminWorkspacesView() {
         const resp = await fetch(`/api/admin/workspaces${orgQuery}`);
         if (!resp.ok) {
           setWorkspaces([]);
+          setWorkspaceLimit(null);
           return;
         }
         const data = await resp.json();
         setWorkspaces(data.workspaces || []);
+
+        // Directly read workspaceLimit from Firestore using Firebase JS SDK
+        if (orgId) {
+          try {
+            const orgDocRef = doc(db, 'organisations', orgId);
+            const orgSnap = await getDoc(orgDocRef);
+            if (orgSnap.exists()) {
+              const orgData = orgSnap.data();
+              setWorkspaceLimit(typeof orgData.workspaceLimit === 'number' ? orgData.workspaceLimit : null);
+            } else {
+              setWorkspaceLimit(null);
+            }
+          } catch (e) {
+            setWorkspaceLimit(null);
+          }
+        } else {
+          setWorkspaceLimit(null);
+        }
       } catch (e) {
-        console.error('Failed to fetch workspaces', e);
+        console.error('Failed to fetch workspaces or quota', e);
+        setWorkspaceLimit(null);
       } finally {
         setLoadingData(false);
+        setQuotaLoading(false);
       }
     };
     fetchData();
@@ -144,8 +171,8 @@ export default function AdminWorkspacesView() {
 
     setIsCreatingWorkspace(true);
     try {
-  const orgId = (user as any)?.organisationId;
-  const orgQuery = orgId ? `?orgId=${encodeURIComponent(orgId)}` : '';
+      const orgId = (user as any)?.organisationId;
+      const orgQuery = orgId ? `?orgId=${encodeURIComponent(orgId)}` : '';
       const response = await fetch(`/api/admin/workspaces${orgQuery}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -153,12 +180,18 @@ export default function AdminWorkspacesView() {
       });
       if (!response.ok) {
         const errorData = await response.json();
+        if (errorData.error === 'workspace_limit_reached') {
+          setIsLimitModalOpen(true);
+          setIsCreateWorkspaceOpen(false);
+        } else {
+          alert(errorData.error || 'Failed to create workspace');
+        }
         throw new Error(errorData.error || 'Failed to create workspace');
       }
       const data = await response.json();
       // refresh
-  const orgQueryRefresh = orgId ? `?orgId=${encodeURIComponent(orgId)}` : '';
-  const workspacesResponse = await fetch(`/api/admin/workspaces${orgQueryRefresh}`);
+      const orgQueryRefresh = orgId ? `?orgId=${encodeURIComponent(orgId)}` : '';
+      const workspacesResponse = await fetch(`/api/admin/workspaces${orgQueryRefresh}`);
       if (workspacesResponse.ok) {
         const workspacesData = await workspacesResponse.json();
         setWorkspaces(workspacesData.workspaces || []);
@@ -169,7 +202,6 @@ export default function AdminWorkspacesView() {
       alert(`Workspace "${data.workspace?.name}" created successfully!`);
     } catch (error) {
       console.error('Error creating workspace:', error);
-      alert(`Failed to create workspace: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsCreatingWorkspace(false);
     }
@@ -275,6 +307,8 @@ export default function AdminWorkspacesView() {
     }
   };
 
+  // Quota UI logic
+  const atQuota = workspaceLimit !== null && workspaces.length >= workspaceLimit;
   return (
     <div className="min-h-screen bg-gray-50">
       <AdminPageHeader
@@ -282,8 +316,6 @@ export default function AdminWorkspacesView() {
         subtitle={`Admin workspaces · ${workspaces.length} workspaces · ${aggregated.totalFolders} folders · ${aggregated.totalDocuments} documents`}
         icon={<Users className="w-5 h-5 text-white" />}
       />
-      {/* Top summary strip removed per admin update — keeping header and main content below */}
-
       {/* Main content */}
       <div className="p-6 space-y-6">
         {/* System Overview */}
@@ -303,14 +335,39 @@ export default function AdminWorkspacesView() {
                   placeholder="Search workspaces..."
                   className="px-3 py-2 border border-gray-200 rounded-md text-sm w-64"
                 />
-                <Button onClick={() => setIsCreateWorkspaceOpen(true)} className="flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary" aria-label="Create workspace" title="Create workspace">
-                <Plus className="w-4 h-4" />
-                Create Workspace
-              </Button>
+                <Button
+                  onClick={() => setIsCreateWorkspaceOpen(true)}
+                  className="flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                  aria-label="Create workspace"
+                  title="Create workspace"
+                  disabled={atQuota || isCreatingWorkspace}
+                >
+                  <Plus className="w-4 h-4" />
+                  {atQuota ? 'Quota Reached' : (isCreatingWorkspace ? 'Creating...' : 'Create Workspace')}
+                </Button>
               </div>
-              <p className="text-sm text-gray-600">Managing <span className="font-medium">{workspaces.length}</span> workspaces</p>
+              <p className="text-sm text-gray-600">
+                Managing <span className="font-medium">{workspaces.length}</span> workspaces
+                {workspaceLimit !== null && (
+                  <span className="ml-2 text-xs text-blue-500 bg-blue-50 rounded px-2 py-1">
+                    Quota: {workspaces.length} / {workspaceLimit}
+                    {workspaceLimit > workspaces.length && (
+                      <span className="ml-2 text-green-600">({workspaceLimit - workspaces.length} left)</span>
+                    )}
+                    {workspaceLimit <= workspaces.length && (
+                      <span className="ml-2 text-red-600">(0 left)</span>
+                    )}
+                  </span>
+                )}
+              </p>
             </div>
           </div>
+          {atQuota && (
+            <div className="mb-4 p-4 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-yellow-500" />
+              Workspace quota reached. Please contact support to upgrade your plan or increase your limit.
+            </div>
+          )}
         </div>
 
       {filteredWorkspaces.length === 0 ? (
@@ -442,6 +499,21 @@ export default function AdminWorkspacesView() {
               <Button variant="ghost" onClick={() => setIsCreateWorkspaceOpen(false)}>Cancel</Button>
               <Button onClick={handleCreateWorkspace} disabled={isCreatingWorkspace}>{isCreatingWorkspace ? 'Creating...' : 'Create'}</Button>
             </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Workspace Limit Modal */}
+      <Dialog open={isLimitModalOpen} onOpenChange={setIsLimitModalOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Workspace Limit Reached</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-gray-700">You have reached the maximum number of workspaces allowed for your organisation. Please contact support to upgrade your plan or increase your limit.</p>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setIsLimitModalOpen(false)} autoFocus>OK</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
