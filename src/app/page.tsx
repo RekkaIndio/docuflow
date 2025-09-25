@@ -71,6 +71,8 @@ import { useCalendly } from '@/context/calendly-context';
 
 export default function Page() {
   const [activeModal, setActiveModal] = useState<string | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
   const { openCalendlyModal } = useCalendly();
 
   const handleIconClick = (modalType: string) => {
@@ -97,6 +99,35 @@ export default function Page() {
 
     return () => observer.disconnect();
   }, []);
+
+  // Close mobile menu on window resize to desktop
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) { // lg breakpoint
+        setMobileMenuOpen(false);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Close mobile menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node)) {
+        setMobileMenuOpen(false);
+      }
+    };
+
+    if (mobileMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [mobileMenuOpen]);
 
   return (
   <div className="flex flex-col min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 text-slate-900 relative">
@@ -132,11 +163,58 @@ export default function Page() {
           </nav>
 
           {/* Mobile menu button */}
-          <Button variant="ghost" size="sm" className="lg:hidden">
-            <Menu className="h-5 w-5" />
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="lg:hidden"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          >
+            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </Button>
         </div>
       </header>
+
+      {/* Mobile Menu */}
+      {mobileMenuOpen && (
+        <div 
+          ref={mobileMenuRef}
+          className="lg:hidden fixed top-16 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-b border-slate-200/50 shadow-lg"
+        >
+          <div className="px-4 py-6 space-y-4">
+            <Link 
+              href="#features" 
+              className="block text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors duration-200 py-2"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Features
+            </Link>
+            <Link 
+              href="#compliance" 
+              className="block text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors duration-200 py-2"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Compliance
+            </Link>
+            <Link 
+              href="#demo" 
+              className="block text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors duration-200 py-2"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Demo
+            </Link>
+            <Button
+              size="sm"
+              onClick={() => {
+                openCalendlyModal();
+                setMobileMenuOpen(false);
+              }}
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+            >
+              Book Demo
+            </Button>
+          </div>
+        </div>
+      )}
 
       <main className="flex-1 pt-16">
         {/* Hero Section - Dramatic Redesign */}
