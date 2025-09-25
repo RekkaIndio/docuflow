@@ -50,3 +50,6 @@ firestore-debug.log
 # logs
 *.log
 dev.log
+
+# AI instructions
+.github/copilot-instructions.md
