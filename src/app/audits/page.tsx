@@ -47,7 +47,7 @@ export default function AuditsPage() {
         // also compute snapshots counts for progress indicators
         try {
           const { getMonthlyAuditSnapshots } = await import('@/lib/firestore');
-          const snaps = await getMonthlyAuditSnapshots(activeWorkspace.id);
+          const snaps = await getMonthlyAuditSnapshots(activeWorkspace.id, undefined, activeWorkspace.organisationId || null);
           const counts: Record<string, number> = {};
           Object.keys(snaps || {}).forEach(k => { counts[k] = Array.isArray(snaps[k]) ? snaps[k].length : 0; });
           if (mounted) setMonthlySnapshotsCount(counts);

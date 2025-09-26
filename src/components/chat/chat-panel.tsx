@@ -951,7 +951,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         if (originalInput.includes('trend') || originalInput.includes('performance')) {
           // Get audit trends
           const { getMonthlyAuditSnapshots } = await import('@/lib/firestore');
-          const snapshots = await getMonthlyAuditSnapshots(workspaceId);
+          const snapshots = await getMonthlyAuditSnapshots(workspaceId, undefined, (selectedItem as any).organisationId || null);
           let response = '📊 **Audit Trends**\n\n';
 
           Object.entries(snapshots).forEach(([auditType, auditData]) => {
@@ -976,7 +976,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         } else if (originalInput.includes('comment')) {
           // Get audit comments
           const { getMonthlyAuditSnapshots } = await import('@/lib/firestore');
-          const snapshots = await getMonthlyAuditSnapshots(workspaceId);
+          const snapshots = await getMonthlyAuditSnapshots(workspaceId, undefined, (selectedItem as any).organisationId || null);
           let response = '💬 **Audit Comments**\n\n';
 
           Object.entries(snapshots).forEach(([auditType, auditData]) => {
@@ -1007,7 +1007,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
           if (auditType === 'all') {
             // Get all audit types and their latest scores
             const { getMonthlyAuditCompletionStatus } = await import('@/lib/firestore');
-            const completionStatus = await getMonthlyAuditCompletionStatus(workspaceId);
+            const completionStatus = await getMonthlyAuditCompletionStatus(workspaceId, (selectedItem as any).organisationId || null);
             const auditTypes = Object.keys(completionStatus);
 
             let response = 'Latest audit scores:\n\n';
@@ -1037,7 +1037,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         } else {
           // General audit status query
           const { getMonthlyAuditCompletionStatus } = await import('@/lib/firestore');
-          const completionStatus = await getMonthlyAuditCompletionStatus(workspaceId);
+          const completionStatus = await getMonthlyAuditCompletionStatus(workspaceId, (selectedItem as any).organisationId || null);
           const auditTypes = Object.keys(completionStatus);
 
           let response = 'Here is the current audit status:\n\n';

@@ -46,8 +46,8 @@ export default function AuditsView({ workspace, recentUploads, aggregateAuditDat
       try {
         const { getMonthlyAuditSnapshots, getMonthlyAuditCompletionStatus } = await import('@/lib/firestore');
         const [snaps, completion] = await Promise.all([
-          getMonthlyAuditSnapshots(workspace.id),
-          getMonthlyAuditCompletionStatus(workspace.id)
+          getMonthlyAuditSnapshots(workspace.id, undefined, (workspace as any).organisationId),
+          getMonthlyAuditCompletionStatus(workspace.id, (workspace as any).organisationId)
         ]);
         if (!mounted) return;
         setSnapshots(snaps || {});

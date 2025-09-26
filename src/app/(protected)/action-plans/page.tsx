@@ -64,7 +64,7 @@ export default function ActionPlansPage() {
       setActionPlan(plan);
 
       // Load audit completion status
-      const auditStatus = await getMonthlyAuditCompletionStatus(activeWorkspace.id);
+      const auditStatus = await getMonthlyAuditCompletionStatus(activeWorkspace.id, activeWorkspace.organisationId || null);
       setAuditCompletionStatus(auditStatus);
 
       // Check if all audits are completed
