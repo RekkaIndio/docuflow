@@ -188,7 +188,7 @@ export function Dashboard() {
       if (typeof window !== 'undefined') {
         window.addEventListener('chat-response', handleChatResponse as EventListener);
       }
-    if (workspaceId) {
+    if (workspaceId && organisationId) {
       // Use org-aware collection paths to avoid invalid document references
       const notificationsCol = collection(db, workspaceCollectionPath(workspaceId, 'notifications', organisationId));
       const q = fsQuery(notificationsCol, where('read', '==', false));
@@ -196,6 +196,7 @@ export function Dashboard() {
         setUnreadNotifications(snap.size);
       }, (err: any) => {
         console.error('Failed to listen for unread notifications', err);
+        // Don't set unsub here as it might cause issues
       });
 
       // Listen for latest daily checkin entry using collection->doc pattern
@@ -210,7 +211,9 @@ export function Dashboard() {
             setDailyEntry(null);
           }
         }, (err) => {
-          console.warn('Failed to listen to daily-checkins', err);
+          console.error('Failed to listen to daily-checkins', err);
+          // Reset daily entry on error to avoid stale state
+          setDailyEntry(null);
         });
       } catch (e) {
         console.error('Failed to attach daily-checkins listener', e);
@@ -226,7 +229,7 @@ export function Dashboard() {
         try { window.removeEventListener('chat-response', handleChatResponse as EventListener); } catch (e) {}
       }
     };
-  }, [workspaces, workspaceId]);
+  }, [workspaces, workspaceId, organisationId]);
 
   useEffect(() => {
     const fetchData = async () => {
