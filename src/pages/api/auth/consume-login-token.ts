@@ -97,6 +97,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           } else {
             await wsRef.update({ members: admin.firestore.FieldValue.arrayUnion(uid) });
           }
+
+          // Update the user's organisationId if the workspace is org-scoped
+          if (workspaceOrgIdFromToken) {
+            try {
+              await userDoc.ref.update({ organisationId: workspaceOrgIdFromToken });
+            } catch (updateErr) {
+              console.warn('Failed to update user organisationId:', updateErr);
+            }
+          }
         } catch (err) {
           // ignore failures here; best-effort membership attach
           try {
@@ -155,7 +164,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           const nowIso = new Date().toISOString();
           // token data may include workspaceId; attach if present
           const workspaceId = (tokenSnap.data() as any)?.workspaceId || null;
-          await userRef.set({ email, createdAt: nowIso, createdFromInvite: true, workspaceId });
+          const workspaceOrgId = (tokenSnap.data() as any)?.workspaceOrgId || null;
+          await userRef.set({ 
+            email, 
+            createdAt: nowIso, 
+            createdFromInvite: true, 
+            workspaceId,
+            organisationId: workspaceOrgId
+          });
           // If token included a workspaceId, add this user to the workspace members array
           try {
             const tokenData = tokenSnap.data() as any;
