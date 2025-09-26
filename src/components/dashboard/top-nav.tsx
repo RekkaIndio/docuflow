@@ -29,9 +29,10 @@ interface TopNavProps {
   onNotificationsClick?: () => void;
   unreadCount?: number;
   workspaceId?: string | null;
+  organisationId?: string | null;
 }
 
-export function TopNav({ onSettingsClick, onNotificationsClick, unreadCount = 0, workspaceId }: TopNavProps) {
+export function TopNav({ onSettingsClick, onNotificationsClick, unreadCount = 0, workspaceId, organisationId }: TopNavProps) {
   const { user, signOut } = useAuth();
   const pathname = usePathname();
   const isMobile = useIsMobile();
@@ -53,17 +54,17 @@ export function TopNav({ onSettingsClick, onNotificationsClick, unreadCount = 0,
   useEffect(() => {
     let unsubscribeFromUser: (() => void) | undefined;
 
-    // One-off check: if workspaceId is present and different from user id, try to read any previously-saved profilePicture there
+    // One-off check: if workspaceId is present, try to read workspace profilePicture/uploadedLogo
     (async () => {
       try {
-        if (workspaceId && workspaceId !== user?.id) {
-          const wsDocRef = doc(db, 'users', workspaceId);
+        if (workspaceId && organisationId) {
+          const wsDocRef = doc(db, `organisations/${organisationId}/workspaces`, workspaceId);
           const wsSnap = await getDoc(wsDocRef);
           if (wsSnap.exists()) {
             const data = wsSnap.data();
             if (data?.profilePicture) {
               setProfilePicture(data.profilePicture);
-              return; // prefer workspace-saved image until user doc subscription overrides it
+              return; // prefer workspace profile picture
             } else if (data?.uploadedLogo) {
               setProfilePicture(data.uploadedLogo);
               return;

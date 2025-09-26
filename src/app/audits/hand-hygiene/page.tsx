@@ -256,11 +256,12 @@ export default function HandHygieneAuditPage() {
         comments: finalComments,
         createActionPlan,
         createdBy: user?.id ?? null,
+        organisationId: activeWorkspace.organisationId || null,
       };
 
-      await saveAudit(payload, activeWorkspace.id);
+      await saveAudit(payload, activeWorkspace.id, activeWorkspace.organisationId || null);
       const completedAt = auditData.date || new Date().toISOString();
-      await markAuditCompleted(activeWorkspace.id, 'hand-hygiene', completedAt);
+      await markAuditCompleted(activeWorkspace.id, 'hand-hygiene', completedAt, activeWorkspace.organisationId || null);
       setShowModal(false);
       alert('Audit saved');
     } catch (err) {

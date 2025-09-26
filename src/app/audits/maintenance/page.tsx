@@ -469,11 +469,12 @@ export default function MaintenanceAuditPage() {
       scorePercent,
       yesCount,
       totalCount,
+      organisationId: activeWorkspace.organisationId || null,
     };
 
     try {
       setSaving(true);
-      const id = await saveAudit(payload, workspaceId);
+      const id = await saveAudit(payload, workspaceId, activeWorkspace.organisationId || null);
       setSavedAuditId(id);
       try {
         const completedAt = data.date || new Date().toISOString();

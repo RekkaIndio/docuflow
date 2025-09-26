@@ -239,11 +239,12 @@ export default function EquipmentAuditPage() {
         comments: finalComments,
         createActionPlan,
         createdBy: user?.id ?? null,
+        organisationId: activeWorkspace.organisationId || null,
       };
 
-      const auditId = await saveAudit(payload, activeWorkspace.id);
+      const auditId = await saveAudit(payload, activeWorkspace.id, activeWorkspace.organisationId || null);
       const completedAt = auditData.date || new Date().toISOString();
-      await markAuditCompleted(activeWorkspace.id, 'equipment', completedAt);
+      await markAuditCompleted(activeWorkspace.id, 'equipment', completedAt, activeWorkspace.organisationId || null);
       setShowModal(false);
       alert('Audit saved');
     } catch (err) {

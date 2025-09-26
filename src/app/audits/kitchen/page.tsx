@@ -466,9 +466,10 @@ export default function KitchenAuditPage() {
         yesCount,
         totalCount,
         scorePercent,
+        organisationId: activeWorkspace.organisationId || null,
       };
 
-      const id = await saveAudit(payload, activeWorkspace.id);
+      const id = await saveAudit(payload, activeWorkspace.id, activeWorkspace.organisationId || null);
       const completedAt = data.date || new Date().toISOString();
       const result = await markAuditCompletedWithSnapshot(activeWorkspace.id, 'kitchen', payload, completedAt);
       setShowModal(false);

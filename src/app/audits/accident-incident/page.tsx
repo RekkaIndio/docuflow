@@ -106,6 +106,7 @@ export default function AccidentIncidentAuditPage() {
     }
 
     const workspaceId = activeWorkspace.id;
+    const orgId = activeWorkspace.organisationId || null;
 
     // Save audit immediately to ensure it's stored under the active workspace
     try {
@@ -116,8 +117,9 @@ export default function AccidentIncidentAuditPage() {
         createActionPlan: false,
         createdBy: user?.id ?? null,
         workspaceId: workspaceId,
+        organisationId: orgId,
       };
-      const id = await saveAudit(auditPayload, workspaceId);
+      const id = await saveAudit(auditPayload, workspaceId, orgId);
       setSavedAuditId(id);
       
       // Mark this audit type as completed for the month and save snapshot
@@ -147,8 +149,9 @@ export default function AccidentIncidentAuditPage() {
         console.warn('No active workspace when completing audit; skipping update.');
       } else {
         const workspaceId = activeWorkspace.id;
+        const orgId = activeWorkspace.organisationId || null;
         if (savedAuditId) {
-          await updateAudit(savedAuditId, { createActionPlan: !!createActionPlan, comments: finalComments }, workspaceId);
+          await updateAudit(savedAuditId, { createActionPlan: !!createActionPlan, comments: finalComments }, workspaceId, orgId);
         }
       }
       setSaving(false);

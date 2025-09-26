@@ -631,19 +631,20 @@ export default function ManagersWeeklyAuditPage() {
       createActionPlan: !!createActionPlan,
   createdBy: user?.id ?? null,
       workspaceId: activeWorkspace.id,
+      organisationId: activeWorkspace.organisationId || null,
     };
 
     try {
       setSaving(true);
       // Save to audits collection
-      const id = await saveAudit(payload, activeWorkspace.id);
+      const id = await saveAudit(payload, activeWorkspace.id, activeWorkspace.organisationId || null);
       setSavedAuditId(id);
 
       // Also save a monthly snapshot for tracking weekly reports
       const snapshotId = await saveAuditSnapshot(activeWorkspace.id, 'managers-weekly', payload);
 
       // Re-read snapshots to compute progress
-      const snapshots = await getMonthlyAuditSnapshots(activeWorkspace.id);
+      const snapshots = await getMonthlyAuditSnapshots(activeWorkspace.id, undefined, activeWorkspace.organisationId || null);
       const count = (snapshots && Array.isArray(snapshots['managers-weekly'])) ? snapshots['managers-weekly'].length : 0;
       setSavedCount(count);
 
@@ -788,7 +789,7 @@ export default function ManagersWeeklyAuditPage() {
     const loadCount = async () => {
       if (!activeWorkspace?.id) return;
       try {
-        const snaps = await getMonthlyAuditSnapshots(activeWorkspace.id);
+        const snaps = await getMonthlyAuditSnapshots(activeWorkspace.id, undefined, activeWorkspace.organisationId || null);
         const count = (snaps && Array.isArray(snaps['managers-weekly'])) ? snaps['managers-weekly'].length : 0;
         if (mounted) setSavedCount(count);
       } catch (e) {

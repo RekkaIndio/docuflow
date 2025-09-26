@@ -24,7 +24,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useEffect, useState } from "react";
 import { doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query as fsQuery, orderBy, limit, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { workspaceDocPath, workspaceCollectionPath } from '@/lib/paths';
+import { workspaceDocPath, workspaceCollectionPath, workspaceBasePath } from '@/lib/paths';
 import OccupancyPie from '@/components/admin/occupancy-pie';
 import OverviewCards from './overview-cards';
 // consolidated imports above
@@ -385,7 +385,7 @@ const QuickActions = ({ documents, onSelect, workspaceId, orgId, overallStats, g
                         </CardContent>
                     </Card>
                     {/* Action Plans Card */}
-                    <ActionPlansCard workspaceId={workspaceId} documents={documents} onSelect={onSelect} />
+                    <ActionPlansCard workspaceId={workspaceId} orgId={orgId} documents={documents} onSelect={onSelect} />
                 </div>
                 {/* Placeholder for new card to the right */}
                 <ResidentCareCard workspaceId={workspaceId} />
@@ -409,8 +409,6 @@ function OccupancyCard({ workspaceId, orgId, dailyEntry, onTrendsClick }: { work
     useEffect(() => {
         if (!workspaceId) return;
         setLoading(true);
-        let unsubCareHome: (() => void) | null = null;
-        let unsubSettings: (() => void) | null = null;
 
     // Try dev HTTP API for care-homes first (in dev this is an in-memory store)
         (async () => {
@@ -422,31 +420,21 @@ function OccupancyCard({ workspaceId, orgId, dailyEntry, onTrendsClick }: { work
                     if (json && typeof json.occupancy === 'number') {
                         setCareHomePercent(json.occupancy);
                     }
+                } else if (resp.status === 404) {
+                    // API endpoint doesn't exist, silently continue to workspace settings fallback
+                } else {
+                    console.warn('Care-homes API returned unexpected status:', resp.status);
                 }
             } catch (e) {
-                // ignore - fallback to Firestore listeners
+                // Network error or other fetch failure, ignore - fallback to workspace settings
             }
         })();
 
-        // Prefer live care-homes occupancy if available via Firestore (production)
-        try {
-            const chRef = doc(db, `care-homes`, workspaceId, 'occupancy', 'current');
-            unsubCareHome = onSnapshot(chRef, (snap) => {
-                if (snap.exists()) {
-                    const data = snap.data() as OccupancyData;
-                    setTotalBeds(typeof data.totalBeds === 'number' ? data.totalBeds : null);
-                    setOccupiedBeds(typeof data.occupiedBeds === 'number' ? data.occupiedBeds : null);
-                }
-                setLoading(false);
-            }, (err) => {
-                console.error('care-homes occupancy listener error', err);
-                setLoading(false);
-            });
-        } catch (e) {
-            console.warn('Failed to attach care-homes listener, falling back to workspace settings', e);
-        }
+        // For org-scoped workspaces, only use workspace settings (care-homes collection is for separate care home entities)
+        // Skip care-homes Firestore listener for workspaces
 
         // Always listen to workspace settings occupancy as a fallback (organisation-aware)
+        let unsubSettings: (() => void) | null = null;
         try {
             const settingsCol = workspaceCollectionPath(workspaceId, 'settings', orgId || null);
             const settingsColRef = collection(db, settingsCol);
@@ -468,7 +456,6 @@ function OccupancyCard({ workspaceId, orgId, dailyEntry, onTrendsClick }: { work
         }
 
         return () => {
-            if (unsubCareHome) unsubCareHome();
             if (unsubSettings) unsubSettings();
         };
     }, [workspaceId]);
@@ -665,8 +652,9 @@ function OccupancyCard({ workspaceId, orgId, dailyEntry, onTrendsClick }: { work
 
 // Use shared OccupancyPie for staffing visual
 
-function ActionPlansCard({ workspaceId, documents, onSelect }: { 
-    workspaceId?: string, 
+function ActionPlansCard({ workspaceId, orgId, documents, onSelect }: { 
+    workspaceId?: string,
+    orgId?: string | null,
     documents: Document[], 
     onSelect: (item: Document) => void 
 }) {
@@ -688,12 +676,13 @@ function ActionPlansCard({ workspaceId, documents, onSelect }: {
         if (!workspaceId) return;
         setLoading(true);
 
-        // Listen to audits collection to find action plans
+        // Listen to workspace-scoped audits collection to find action plans
         try {
-            const auditsRef = collection(db, 'audits');
+            const auditsCol = workspaceCollectionPath(workspaceId, 'audits', orgId || null);
+            const auditsRef = collection(db, auditsCol);
             // Simplified query to avoid composite index requirement
             const q = fsQuery(auditsRef, 
-                where('workspaceId', '==', workspaceId),
+                where('createActionPlan', '==', true),
                 orderBy('createdAt', 'desc'),
                 limit(50) // Get more docs to filter client-side
             );
@@ -706,19 +695,18 @@ function ActionPlansCard({ workspaceId, documents, onSelect }: {
                         ...doc.data(),
                         createdAt: doc.data().createdAt?.toDate?.() || new Date(doc.data().createdAt)
                     }))
-                    .filter((plan: any) => plan.createActionPlan === true)
                     .slice(0, 5);
                 setActionPlans(plans);
                 setLoading(false);
             }, (err) => {
-                console.error('Failed to listen to action plans', err);
+                console.error('Failed to listen to workspace audits for action plans', err);
                 setLoading(false);
                 setActionPlans([]);
             });
             
             return () => unsub();
         } catch (e) {
-            console.error('Failed to set up action plans listener', e);
+            console.error('Failed to set up workspace audits listener for action plans', e);
             setLoading(false);
             setActionPlans([]);
         }
@@ -1323,7 +1311,7 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
             try {
                 // If workspace.id refers to another user/doc, try to read any previously-saved image there
                 if (workspace.id && workspace.id !== user?.id) {
-                    const wsDocRef = doc(db, 'users', workspace.id);
+                    const wsDocRef = doc(db, workspaceBasePath(workspace.id, (workspace as any)?.organisationId || null));
                     const wsSnap = await getDoc(wsDocRef);
                     if (wsSnap.exists()) {
                         const data = wsSnap.data();
@@ -1343,13 +1331,40 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
 
         // Live subscribe to the authenticated user's doc (this should be the source of truth)
         if (user?.id) {
-            const userDocRef = doc(db, 'users', user.id);
+            // Try organisation-scoped user document first, then fall back to top-level
+            const orgId = (workspace as any)?.organisationId;
+            let userDocRef;
+            if (orgId) {
+                userDocRef = doc(db, `organisations/${orgId}/users`, user.id);
+            } else {
+                userDocRef = doc(db, 'users', user.id);
+            }
             unsubscribeFromUser = onSnapshot(userDocRef, (d) => {
                 const data = d.data();
                 if (data?.profilePicture) {
                     setHeaderLogo(data.profilePicture);
                 } else if (data?.uploadedLogo) {
                     setHeaderLogo(data.uploadedLogo);
+                }
+            }, (err) => {
+                console.warn('Failed to subscribe to user document for header logo', err);
+                // If org-scoped fails and we have orgId, try top-level as fallback
+                if (orgId && err.code === 'permission-denied') {
+                    const fallbackRef = doc(db, 'users', user.id);
+                    const fallbackUnsub = onSnapshot(fallbackRef, (d) => {
+                        const data = d.data();
+                        if (data?.profilePicture) {
+                            setHeaderLogo(data.profilePicture);
+                        } else if (data?.uploadedLogo) {
+                            setHeaderLogo(data.uploadedLogo);
+                        }
+                    }, (fallbackErr) => {
+                        console.warn('Failed to subscribe to fallback user document', fallbackErr);
+                    });
+                    // Update the unsubscribe function to clean up both listeners
+                    unsubscribeFromUser = () => {
+                        fallbackUnsub();
+                    };
                 }
             });
         }
@@ -1470,7 +1485,7 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
             if (unsubscribeFromUser) unsubscribeFromUser();
             if (unsubAudit) unsubAudit();
         };
-    }, [workspace?.id]);
+    }, [workspace?.id, (workspace as any)?.organisationId]);
 
 
 

@@ -155,16 +155,18 @@ export default function CallBellMonitoringAuditPage() {
     }
 
     const workspaceId = activeWorkspace.id;
+    const orgId = activeWorkspace.organisationId || null;
     const payload = {
       ...currentReport,
       comments: currentReport.comments || finalComments,
       createActionPlan: false,
       createdBy: user?.id ?? null,
+      organisationId: orgId,
     };
 
     try {
       setSaving(true);
-      const id = await saveAudit(payload, workspaceId);
+      const id = await saveAudit(payload, workspaceId, orgId);
       setSavedAuditId(id);
       // Mark audit as completed and save snapshot
       try {
@@ -189,10 +191,11 @@ export default function CallBellMonitoringAuditPage() {
       alert('No active workspace selected. Audit was saved locally but could not be finalized.');
       return;
     }
+    const orgId = activeWorkspace.organisationId || null;
     try {
       setSaving(true);
       if (savedAuditId) {
-        await updateAudit(savedAuditId, { createActionPlan: !!createActionPlan, comments: finalComments || currentReport.comments }, activeWorkspace.id);
+        await updateAudit(savedAuditId, { createActionPlan: !!createActionPlan, comments: finalComments || currentReport.comments }, activeWorkspace.id, orgId);
       }
       setSaving(false);
       alert(`Audit completed and saved${createActionPlan ? '; an action plan will be created.' : '.'}`);

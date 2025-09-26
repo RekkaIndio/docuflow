@@ -568,6 +568,7 @@ export default function RiskRegisterAuditPage() {
                       comments: finalComments,
                       completedBy: user?.id ?? null,
                       completedAt: new Date().toISOString(),
+                      organisationId: activeWorkspace.organisationId || null,
                     };
                     await markAuditCompletedWithSnapshot(activeWorkspace.id, 'risk-register', auditData, auditData.completedAt);
                     setShowCompleteModal(false);

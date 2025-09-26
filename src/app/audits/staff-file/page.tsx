@@ -303,14 +303,15 @@ export default function StaffFileAuditPage() {
       yesCount,
       totalCount,
       scorePercent,
+      organisationId: activeWorkspace.organisationId || null,
     };
 
     try {
       setSaving(true);
-      const id = await saveAudit(payload, workspaceId);
+      const id = await saveAudit(payload, workspaceId, activeWorkspace.organisationId || null);
       setSavedAuditId(id);
       try {
-        await markAuditCompleted(workspaceId, 'staff-file', new Date().toISOString());
+        await markAuditCompleted(workspaceId, 'staff-file', new Date().toISOString(), activeWorkspace.organisationId || null);
       } catch (e) {
         console.warn('Failed to mark audit completed', e);
       }

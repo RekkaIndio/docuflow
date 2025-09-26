@@ -464,9 +464,9 @@ export default function FireSafetyAuditPage() {
       const totalCount = YES_NO_FIELDS.length;
       const scorePercent = totalCount > 0 ? Math.round((yesCount / totalCount) * 100) : 0;
 
-      const payload = { ...auditData, comments: finalComments, createActionPlan, createdBy: user?.id ?? null, workspaceId: activeWorkspace.id, auditType: 'fire-safety', scorePercent, yesCount, totalCount };
-  const id = await saveAudit(payload, activeWorkspace.id);
-  const result = await markAuditCompletedWithSnapshot(activeWorkspace.id, 'fire-safety', payload, auditData.date || new Date().toISOString());
+      const payload = { ...auditData, comments: finalComments, createActionPlan, createdBy: user?.id ?? null, workspaceId: activeWorkspace.id, auditType: 'fire-safety', scorePercent, yesCount, totalCount, organisationId: activeWorkspace.organisationId || null };
+      const id = await saveAudit(payload, activeWorkspace.id, activeWorkspace.organisationId || null);
+      const result = await markAuditCompletedWithSnapshot(activeWorkspace.id, 'fire-safety', payload, auditData.date || new Date().toISOString());
   alert('Audit completed and saved');
       setShowModal(false);
     } catch (e) {

@@ -391,10 +391,10 @@ export default function InfectionControlAuditPage() {
       const totalCount = YES_NO_FIELDS.length;
       const scorePercent = totalCount > 0 ? Math.round((yesCount / totalCount) * 100) : 0;
 
-      const payload = { ...data, comments: finalComments, createActionPlan, createdBy: user?.id ?? null, workspaceId: activeWorkspace.id, auditType: 'infection-control', scorePercent, yesCount, totalCount };
+      const payload = { ...data, comments: finalComments, createActionPlan, createdBy: user?.id ?? null, workspaceId: activeWorkspace.id, auditType: 'infection-control', scorePercent, yesCount, totalCount, organisationId: activeWorkspace.organisationId || null };
       
       // Save to regular audits collection
-      const id = await saveAudit(payload, activeWorkspace.id);
+      const id = await saveAudit(payload, activeWorkspace.id, activeWorkspace.organisationId || null);
       
       // Save snapshot and mark as completed (also generates PDF)
       const result = await markAuditCompletedWithSnapshot(activeWorkspace.id, 'infection-control', payload, data.date || new Date().toISOString());

@@ -419,7 +419,7 @@ export default function CarePlanAuditPage() {
       if (!activeWorkspace?.id) return;
       
       try {
-        const existingData = await getLatestAuditData(activeWorkspace.id, 'care-plan');
+        const existingData = await getLatestAuditData(activeWorkspace.id, 'care-plan', undefined, activeWorkspace.organisationId || null);
         if (existingData) {
           // Remove metadata fields and populate form
           const { id, createdAt, ...formData } = existingData;
@@ -516,9 +516,10 @@ export default function CarePlanAuditPage() {
         scorePercent,
         yesCount,
         totalCount,
+        organisationId: activeWorkspace.organisationId || null,
       };
 
-      const auditId = await saveAudit(payload, activeWorkspace.id);
+      const auditId = await saveAudit(payload, activeWorkspace.id, activeWorkspace.organisationId || null);
   // mark audit completed and save snapshot (generate PDF)
   const result = await markAuditCompletedWithSnapshot(activeWorkspace.id, 'care-plan', payload, new Date().toISOString());
       try {

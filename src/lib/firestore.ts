@@ -429,17 +429,17 @@ export async function saveDailyCheckin(workspaceId: string, data: any, orgId?: s
 }
 
 // Save a generic audit record to a top-level `audits` collection
-export async function saveAudit(data: any, workspaceId?: string): Promise<string> {
+export async function saveAudit(data: any, workspaceId?: string, orgId?: string | null): Promise<string> {
     try {
         if (workspaceId) {
-            const colRef = collection(db, workspaceCollectionPath(workspaceId, 'audits'));
+            const colRef = collection(db, workspaceCollectionPath(workspaceId, 'audits', orgId || null));
             const docRef = await addDoc(colRef, { ...data, workspaceId, createdAt: Timestamp.now() });
 
             // If the audit contains a numeric scorePercent and an auditType, mirror it
             // to workspace settings for quick dashboard access.
             try {
                 if (data && typeof data.scorePercent === 'number' && typeof data.auditType === 'string') {
-                    const latestRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'settings')), 'audit_latest_scores');
+                    const latestRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'settings', orgId || null)), 'audit_latest_scores');
                     const updateData = {
                         [data.auditType]: {
                             scorePercent: data.scorePercent,
@@ -468,10 +468,10 @@ export async function saveAudit(data: any, workspaceId?: string): Promise<string
     }
 }
 
-export async function updateAudit(auditId: string, data: any, workspaceId?: string): Promise<void> {
+export async function updateAudit(auditId: string, data: any, workspaceId?: string, orgId?: string | null): Promise<void> {
     try {
         if (workspaceId) {
-            const docRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'audits')), auditId);
+            const docRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'audits', orgId || null)), auditId);
             await updateDoc(docRef, { ...data, updatedAt: Timestamp.now() });
             return;
         }
@@ -512,9 +512,9 @@ export async function updateDailyCheckin(workspaceId: string, checkinId: string,
  * Set the scheduled completion date for a named audit (e.g., 'accident-incident')
  * stored under workspaces/{workspaceId}/settings/audit_schedule
  */
-export async function setAuditSchedule(workspaceId: string, auditKey: string, scheduledDateIso: string | null): Promise<void> {
+export async function setAuditSchedule(workspaceId: string, auditKey: string, scheduledDateIso: string | null, orgId?: string | null): Promise<void> {
     try {
-    const docRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'settings')), 'audit_schedule');
+    const docRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'settings', orgId || null)), 'audit_schedule');
         // Merge update: store a map of auditKey -> ISO date (or null to clear)
         await setDoc(docRef, { [auditKey]: scheduledDateIso }, { merge: true });
     } catch (e) {
@@ -526,9 +526,9 @@ export async function setAuditSchedule(workspaceId: string, auditKey: string, sc
 /**
  * Get the audit schedule map for a workspace. Returns an object mapping auditKey -> ISO date string | null
  */
-export async function getAuditSchedule(workspaceId: string): Promise<Record<string, string | null>> {
+export async function getAuditSchedule(workspaceId: string, orgId?: string | null): Promise<Record<string, string | null>> {
     try {
-    const docRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'settings')), 'audit_schedule');
+    const docRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'settings', orgId || null)), 'audit_schedule');
         const snap = await getDoc(docRef);
         if (!snap.exists()) return {};
         return snap.data() as Record<string, string | null>;
@@ -541,9 +541,9 @@ export async function getAuditSchedule(workspaceId: string): Promise<Record<stri
 /**
  * Mark an audit as completed for a given auditKey. Stores lastCompletedAt under workspaces/{workspaceId}/settings/audit_status
  */
-export async function markAuditCompleted(workspaceId: string, auditKey: string, completedAtIso?: string): Promise<void> {
+export async function markAuditCompleted(workspaceId: string, auditKey: string, completedAtIso?: string, orgId?: string | null): Promise<void> {
     try {
-    const docRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'settings')), 'audit_status');
+    const docRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'settings', orgId || null)), 'audit_status');
         const payload: any = {};
         payload[auditKey] = completedAtIso ?? new Date().toISOString();
         await setDoc(docRef, payload, { merge: true });
@@ -556,9 +556,9 @@ export async function markAuditCompleted(workspaceId: string, auditKey: string, 
 /**
  * Get the audit status map for a workspace: auditKey -> ISO date string when last completed.
  */
-export async function getAuditStatus(workspaceId: string): Promise<Record<string, string>> {
+export async function getAuditStatus(workspaceId: string, orgId?: string | null): Promise<Record<string, string>> {
     try {
-    const docRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'settings')), 'audit_status');
+    const docRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'settings', orgId || null)), 'audit_status');
         const snap = await getDoc(docRef);
         if (!snap.exists()) return {};
         return snap.data() as Record<string, string>;
@@ -611,7 +611,7 @@ export async function saveAuditSnapshot(workspaceId: string, auditType: string, 
 /**
  * Check if an audit has been completed for the current month
  */
-export async function isAuditCompletedThisMonth(workspaceId: string, auditType: string): Promise<boolean> {
+export async function isAuditCompletedThisMonth(workspaceId: string, auditType: string, orgId?: string | null): Promise<boolean> {
     try {
         const date = new Date();
         const year = date.getFullYear();
@@ -620,7 +620,7 @@ export async function isAuditCompletedThisMonth(workspaceId: string, auditType: 
         
         // Check if there are any snapshots for this audit type in the current month
         const snapshotQuery = query(
-            collection(db, workspaceCollectionPath(workspaceId, `audit-snapshots/${monthKey}/${auditType}`))
+            collection(db, workspaceCollectionPath(workspaceId, `audit-snapshots/${monthKey}/${auditType}`, orgId || null))
         );
         const snapshot = await getDocs(snapshotQuery);
 
@@ -630,7 +630,7 @@ export async function isAuditCompletedThisMonth(workspaceId: string, auditType: 
         // that the timestamp falls within the current month. This handles cases where a
         // status timestamp might be set but no snapshot exists for the current month.
         try {
-            const statusRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'settings')), 'audit_status');
+            const statusRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'settings', orgId || null)), 'audit_status');
             const statusSnap = await getDoc(statusRef);
             if (!statusSnap.exists()) return false;
             const data = statusSnap.data() as Record<string, string>;
@@ -698,7 +698,7 @@ export async function markAuditCompletedWithSnapshot(workspaceId: string, auditT
         }
 
         // Then mark as completed in the status map
-        await markAuditCompleted(workspaceId, auditType, completedAtIso);
+        await markAuditCompleted(workspaceId, auditType, completedAtIso, auditData?.organisationId || auditData?.orgId || null);
 
         return { snapshotId, pdfDocId };
     } catch (e) {
@@ -795,7 +795,7 @@ async function generateAndSaveAuditPDF(workspaceId: string, auditType: string, a
 /**
  * Get the audit completion status for all audit types in the current month
  */
-export async function getMonthlyAuditCompletionStatus(workspaceId: string): Promise<Record<string, boolean>> {
+export async function getMonthlyAuditCompletionStatus(workspaceId: string, orgId?: string | null): Promise<Record<string, boolean>> {
     try {
         const auditTypes = [
             'accident-incident', 'call-bell-monitoring', 'care-plan', 'equipment',
@@ -814,7 +814,7 @@ export async function getMonthlyAuditCompletionStatus(workspaceId: string): Prom
         await Promise.all(auditTypes.map(async (auditType) => {
             try {
                 const snapshotQuery = query(
-                    collection(db, workspaceCollectionPath(workspaceId, `audit-snapshots/${monthKey}/${auditType}`))
+                    collection(db, workspaceCollectionPath(workspaceId, `audit-snapshots/${monthKey}/${auditType}`, orgId || null))
                 );
                 const snapshot = await getDocs(snapshotQuery);
                 result[auditType] = !snapshot.empty;
@@ -844,7 +844,7 @@ export function getCurrentMonthKey(): string {
 /**
  * Get audit snapshots for a specific month
  */
-export async function getMonthlyAuditSnapshots(workspaceId: string, monthKey?: string): Promise<Record<string, any[]>> {
+export async function getMonthlyAuditSnapshots(workspaceId: string, monthKey?: string, orgId?: string | null): Promise<Record<string, any[]>> {
     try {
         const targetMonth = monthKey || getCurrentMonthKey();
         const result: Record<string, any[]> = {};
@@ -859,7 +859,7 @@ export async function getMonthlyAuditSnapshots(workspaceId: string, monthKey?: s
         
         for (const auditType of auditTypes) {
             const snapshotQuery = query(
-                collection(db, workspaceCollectionPath(workspaceId, `audit-snapshots/${targetMonth}/${auditType}`))
+                collection(db, workspaceCollectionPath(workspaceId, `audit-snapshots/${targetMonth}/${auditType}`, orgId || null))
             );
             const snapshot = await getDocs(snapshotQuery);
             result[auditType] = snapshot.docs.map(doc => ({
@@ -878,11 +878,11 @@ export async function getMonthlyAuditSnapshots(workspaceId: string, monthKey?: s
 /**
  * Get the latest (most recent) audit data for a specific audit type in the current month
  */
-export async function getLatestAuditData(workspaceId: string, auditType: string, monthKey?: string): Promise<any | null> {
+export async function getLatestAuditData(workspaceId: string, auditType: string, monthKey?: string, orgId?: string | null): Promise<any | null> {
     try {
         const targetMonth = monthKey || getCurrentMonthKey();
         const snapshotQuery = query(
-            collection(db, workspaceCollectionPath(workspaceId, `audit-snapshots/${targetMonth}/${auditType}`)),
+            collection(db, workspaceCollectionPath(workspaceId, `audit-snapshots/${targetMonth}/${auditType}`, orgId || null)),
             orderBy('snapshotCreatedAt', 'desc'),
             limit(1)
         );

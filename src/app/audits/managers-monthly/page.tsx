@@ -297,14 +297,15 @@ export default function ManagersMonthlyAuditPage() {
       createActionPlan: !!createActionPlan,
       createdBy: user?.id ?? null,
       workspaceId: activeWorkspaceId,
+      organisationId: activeWorkspace?.organisationId || null,
     };
 
     try {
       setSaving(true);
-      const id = await saveAudit(payload, activeWorkspaceId);
+      const id = await saveAudit(payload, activeWorkspaceId, activeWorkspace?.organisationId || null);
       setSavedAuditId(id);
       const completedAt = data.date || new Date().toISOString();
-      await markAuditCompleted(activeWorkspaceId, 'managers-monthly', completedAt);
+      await markAuditCompleted(activeWorkspaceId, 'managers-monthly', completedAt, activeWorkspace?.organisationId || null);
       alert('Audit saved');
     } catch (e) {
       // eslint-disable-next-line no-console

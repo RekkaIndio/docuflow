@@ -42,7 +42,7 @@ export default function AuditsPage() {
     // Load monthly completion status
     const loadMonthlyStatus = async () => {
       try {
-        const status = await getMonthlyAuditCompletionStatus(activeWorkspace.id);
+        const status = await getMonthlyAuditCompletionStatus(activeWorkspace.id, activeWorkspace.organisationId || null);
         if (mounted) setMonthlyCompletionStatus(status);
         // also compute snapshots counts for progress indicators
         try {

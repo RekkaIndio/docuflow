@@ -180,9 +180,10 @@ export default function WeightMonitoringAuditPage() {
         createActionPlan,
         createdBy: user?.id ?? null,
         workspaceId: activeWorkspace.id,
+        organisationId: activeWorkspace.organisationId || null,
       };
-      const id = await saveAudit(payload, activeWorkspace.id);
-      await markAuditCompleted(activeWorkspace.id, 'weight-monitoring', data.date || new Date().toISOString());
+      const id = await saveAudit(payload, activeWorkspace.id, activeWorkspace.organisationId || null);
+      await markAuditCompleted(activeWorkspace.id, 'weight-monitoring', data.date || new Date().toISOString(), activeWorkspace.organisationId || null);
       alert('Audit saved');
       setShowModal(false);
     } catch (e) {

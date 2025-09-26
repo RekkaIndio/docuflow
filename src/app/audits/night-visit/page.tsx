@@ -489,14 +489,15 @@ export default function NightVisitAuditPage() {
       yesCount,
       totalCount,
       scorePercent,
+      organisationId: activeWorkspace?.organisationId || null,
     };
 
     try {
       setSaving(true);
-      const id = await saveAudit(payload, activeWorkspaceId);
+      const id = await saveAudit(payload, activeWorkspaceId, activeWorkspace?.organisationId || null);
       setSavedAuditId(id);
       const completedAt = data.date || new Date().toISOString();
-      await markAuditCompleted(activeWorkspaceId, 'night-visit', completedAt);
+      await markAuditCompleted(activeWorkspaceId, 'night-visit', completedAt, activeWorkspace?.organisationId || null);
       alert('Audit saved');
     } catch (e) {
       // eslint-disable-next-line no-console

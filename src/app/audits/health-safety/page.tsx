@@ -571,8 +571,8 @@ export default function HealthSafetyAuditPage() {
       const totalCount = YES_NO_FIELDS.length;
       const scorePercent = totalCount > 0 ? Math.round((yesCount / totalCount) * 100) : 0;
 
-  const payload = { auditType: 'health-safety', ...auditData, comments: finalComments, createActionPlan, createdBy: user?.id ?? null, workspaceId: activeWorkspace.id, yesCount, totalCount, scorePercent };
-      const id = await saveAudit(payload, activeWorkspace.id);
+  const payload = { auditType: 'health-safety', ...auditData, comments: finalComments, createActionPlan, createdBy: user?.id ?? null, workspaceId: activeWorkspace.id, yesCount, totalCount, scorePercent, organisationId: activeWorkspace.organisationId || null };
+      const id = await saveAudit(payload, activeWorkspace.id, activeWorkspace.organisationId || null);
       const result = await markAuditCompletedWithSnapshot(activeWorkspace.id, 'health-safety', payload, auditData.date || new Date().toISOString());
       alert('Audit saved');
       setShowModal(false);
