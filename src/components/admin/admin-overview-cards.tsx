@@ -3,7 +3,7 @@
 import React from 'react';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, Target, Shield, Activity, TrendingUp, CheckCircle2, XCircle, Clock, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Target, Shield, Activity, TrendingUp, CheckCircle2, XCircle, Clock, RefreshCw, Calendar } from 'lucide-react';
 import OccupancyPie from '@/components/admin/occupancy-pie';
 
 interface AdminOverviewCardsProps {
@@ -35,16 +35,23 @@ interface AdminOverviewCardsProps {
     wound: number;
     workspacesWithData: number;
   };
+  aggregateDailyCheckinData?: {
+    totalWorkspaces: number;
+    completedToday: number;
+    percentComplete: number;
+  };
   workspaceCount: number;
   isMounted: boolean;
   onRefreshWounds: () => void;
   onRefreshAudits: () => void;
   onRefreshFalls: () => void;
   onRefreshInfections: () => void;
+  onRefreshDailyCheckin?: () => void;
   onOpenWoundsModal?: () => void;
   onOpenFallsModal?: () => void;
   onOpenInfectionsModal?: () => void;
   onOpenAuditModal?: () => void;
+  onOpenDailyCheckinReport?: () => void;
 }
 
 const getGradientColors = (score: number | null) => {
@@ -59,17 +66,22 @@ export default function AdminOverviewCards({
   aggregateAuditData,
   aggregateFallsData,
   aggregateInfectionData,
+  aggregateDailyCheckinData,
   workspaceCount,
   isMounted,
   onRefreshWounds,
   onRefreshAudits,
   onRefreshFalls,
   onRefreshInfections,
+  onRefreshDailyCheckin,
   onOpenWoundsModal,
   onOpenFallsModal,
   onOpenInfectionsModal,
-  onOpenAuditModal
+  onOpenAuditModal,
+  onOpenDailyCheckinReport
 }: AdminOverviewCardsProps) {
+  const todayKey = new Date().toISOString().split('T')[0];
+  
   return (
     <div className="mb-8">
       {/* Header Section */}
@@ -91,9 +103,100 @@ export default function AdminOverviewCards({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+        {/* Daily Check-in Card */}
+  <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-amber-50 via-white to-amber-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
+          {/* Animated background elements */}
+          <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent"></div>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-amber-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-amber-100/40 transition-colors duration-300"></div>
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-amber-200/20 rounded-full -ml-12 -mb-12"></div>
+
+          <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-amber-500/10 rounded-xl group-hover:bg-amber-500/20 transition-colors duration-300">
+                <Calendar className="h-5 w-5 text-amber-500" />
+              </div>
+              <div className="text-sm font-semibold text-gray-700">Daily Check-in</div>
+            </div>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={(e) => { e.stopPropagation(); onRefreshDailyCheckin?.(); }}
+              aria-label="Refresh daily check-in data"
+              title="Refresh daily check-in data"
+              className="transition-opacity duration-300 hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-300"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </Button>
+          </CardHeader>
+
+          <CardContent className="relative">
+            {isMounted && aggregateDailyCheckinData ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="text-3xl font-bold text-amber-600">
+                    {aggregateDailyCheckinData.completedToday}/{aggregateDailyCheckinData.totalWorkspaces}
+                  </div>
+                  <div className={`text-xs font-medium px-2 py-1 rounded-full ${
+                    aggregateDailyCheckinData.percentComplete >= 80 ? 'text-green-600 bg-green-50' :
+                    aggregateDailyCheckinData.percentComplete >= 50 ? 'text-amber-600 bg-amber-50' :
+                    'text-red-600 bg-red-50'
+                  }`}>
+                    {aggregateDailyCheckinData.percentComplete}%
+                  </div>
+                </div>
+
+                <div className="text-sm text-gray-600">
+                  {aggregateDailyCheckinData.completedToday === aggregateDailyCheckinData.totalWorkspaces 
+                    ? 'All workspaces checked in today'
+                    : `${aggregateDailyCheckinData.totalWorkspaces - aggregateDailyCheckinData.completedToday} pending`}
+                </div>
+
+                <div className="flex items-center justify-between pt-3 border-t border-gray-100 text-xs text-gray-500">
+                  <span>{todayKey}</span>
+                  <div className="flex items-center gap-1">
+                    {aggregateDailyCheckinData.percentComplete === 100 ? (
+                      <><CheckCircle2 className="w-3 h-3 text-green-500" /> <span>Complete</span></>
+                    ) : aggregateDailyCheckinData.percentComplete >= 50 ? (
+                      <><Clock className="w-3 h-3 text-amber-500" /> <span>In Progress</span></>
+                    ) : (
+                      <><XCircle className="w-3 h-3 text-red-500" /> <span>Needs Attention</span></>
+                    )}
+                  </div>
+                </div>
+
+                {onOpenDailyCheckinReport && (
+                  <div className="pt-3">
+                    <Button
+                      size="sm"
+                      className="w-full bg-gradient-to-r from-amber-500 to-amber-600 text-white hover:from-amber-600 hover:to-amber-700"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onOpenDailyCheckinReport();
+                      }}
+                    >
+                      View analytics
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-6">
+                <div className="text-2xl font-bold text-gray-400">—</div>
+                <div className="text-sm text-gray-600 mt-1">
+                  {!isMounted ? 'Loading...' : 'No check-in data'}
+                </div>
+                <div className="text-xs text-gray-500 mt-2">
+                  Complete daily check-ins to see metrics
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Wounds Card */}
-        <Card className="group relative overflow-hidden bg-gradient-to-br from-red-50 via-white to-red-50/50 border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer" onClick={onOpenWoundsModal}>
+  <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-red-50 via-white to-red-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer" onClick={onOpenWoundsModal}>
           {/* Animated background elements */}
           <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-transparent"></div>
           <div className="absolute top-0 right-0 w-32 h-32 bg-red-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-red-100/40 transition-colors duration-300"></div>
@@ -169,7 +272,7 @@ export default function AdminOverviewCards({
         </Card>
 
         {/* Falls Prevention Card */}
-        <Card className="group relative overflow-hidden bg-gradient-to-br from-orange-50 via-white to-orange-50/50 border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer" onClick={onOpenFallsModal}>
+  <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-orange-50 via-white to-orange-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer" onClick={onOpenFallsModal}>
           {/* Animated background elements */}
           <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-transparent"></div>
           <div className="absolute top-0 right-0 w-32 h-32 bg-orange-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-orange-100/40 transition-colors duration-300"></div>
@@ -232,7 +335,7 @@ export default function AdminOverviewCards({
         </Card>
 
         {/* Infections Card */}
-        <Card className="group relative overflow-hidden bg-gradient-to-br from-pink-50 via-white to-pink-50/50 border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer" onClick={onOpenInfectionsModal}>
+  <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-pink-50 via-white to-pink-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer" onClick={onOpenInfectionsModal}>
           {/* Animated background elements */}
           <div className="absolute inset-0 bg-gradient-to-br from-pink-500/5 to-transparent"></div>
           <div className="absolute top-0 right-0 w-32 h-32 bg-pink-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-pink-100/40 transition-colors duration-300"></div>
@@ -307,7 +410,7 @@ export default function AdminOverviewCards({
         </Card>
 
         {/* Compliance Score Card */}
-        <Card className="group relative overflow-hidden bg-gradient-to-br from-blue-50 via-white to-blue-50/50 border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer" onClick={onOpenAuditModal}>
+  <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-blue-50 via-white to-blue-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer" onClick={onOpenAuditModal}>
           {/* Animated background elements */}
           <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent"></div>
           <div className="absolute top-0 right-0 w-32 h-32 bg-blue-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-blue-100/40 transition-colors duration-300"></div>

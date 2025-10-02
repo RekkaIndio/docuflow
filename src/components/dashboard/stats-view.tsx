@@ -9,8 +9,9 @@ import { workspaceCollectionPath } from '@/lib/paths';
 import { TrendingUp, TrendingDown, Minus, FileText, Shield, Wrench, Lock, Flame, Biohazard, Utensils, Moon, Users, Soup, AlertTriangle, BarChart3, Target, CheckCircle, CheckCircle2, Clock, Award, Activity } from 'lucide-react';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Area, AreaChart } from 'recharts';
+import PageHeader from '../page-header';
 
-export function StatsView({ workspaceId }: { workspaceId?: string }) {
+export function StatsView({ workspaceId, organisationId }: { workspaceId?: string, organisationId?: string }) {
   const [carePlanScore, setCarePlanScore] = useState<number | null>(null);
   const [carePlanYesCount, setCarePlanYesCount] = useState<number | null>(null);
   const [carePlanTotalCount, setCarePlanTotalCount] = useState<number | null>(null);
@@ -73,7 +74,11 @@ export function StatsView({ workspaceId }: { workspaceId?: string }) {
   useEffect(() => {
     if (!workspaceId) return;
     try {
-      const docRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'settings')), 'audit_latest_scores');
+      if (!organisationId) {
+        console.warn('No organisationId provided to StatsView. Cannot subscribe to org-scoped audit_latest_scores.');
+        return;
+      }
+      const docRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'settings', organisationId)), 'audit_latest_scores');
       const unsub = onSnapshot(docRef, (snap) => {
         const data: any = snap.exists() ? snap.data() : {};
         // DEV DEBUG: attach raw snapshot to window so developers can inspect in console
@@ -622,78 +627,65 @@ export function StatsView({ workspaceId }: { workspaceId?: string }) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-8 rounded-b-2xl shadow-lg relative overflow-hidden">
-        {/* Subtle background pattern */}
-        <div className="absolute inset-0 opacity-5">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full -translate-y-48 translate-x-48"></div>
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-400 rounded-full translate-y-32 -translate-x-32"></div>
+      <PageHeader
+        title="Audit Performance Dashboard"
+        subtitle="Monitor compliance scores and track audit performance across all care home standards"
+        leading={(
+          <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <BarChart3 />
+          </svg>
+        )}
+        actions={(
+          <div className="flex items-center gap-3">
+            <div className="inline-flex items-center gap-2 px-3 py-0.5 rounded-full bg-white/10 text-white text-sm">
+              <FileText className="w-4 h-4 text-white/90" />
+              <span className="font-medium">Audits: {overallStats.auditsCompleted}</span>
+            </div>
+            <div className="inline-flex items-center gap-2 px-3 py-0.5 rounded-full bg-white/10 text-white text-sm">
+              <Target className="w-4 h-4 text-white/90" />
+              <span className="font-medium">Score: {overallStats.overallPercentage ?? 'N/A'}%</span>
+            </div>
+          </div>
+        )}
+      />
+      
+      {/* Reintroduce the larger KPI grid below the header so it doesn't force the header to grow */}
+      <div className="mt-2 hidden xl:grid grid-cols-4 gap-6 w-full max-w-5xl mx-auto">
+        {/* Reused KPI tiles from previous header actions (kept visually identical) */}
+        <div className="group relative p-6 bg-white/90 rounded-2xl shadow-lg border border-slate-200 flex flex-col items-center transition-all hover:scale-[1.03] focus-within:ring-2 ring-blue-400" tabIndex={0} aria-label="Total Audits">
+          <div className="mb-2 flex items-center justify-center w-14 h-14 rounded-full bg-blue-100">
+            <FileText className="w-7 h-7 text-blue-500" />
+          </div>
+          <div className="text-4xl font-extrabold text-blue-700">
+            {overallStats.totalAudits !== undefined && overallStats.totalAudits !== null ? overallStats.totalAudits : <span className="text-base text-slate-400">No data</span>}
+          </div>
+          <div className="text-sm text-blue-700 font-medium">Total Audits</div>
         </div>
-        
-        <div className="w-full mx-auto flex items-start justify-between gap-8 relative z-10">
-          <div className="flex items-start gap-6">
-            <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg">
-              <BarChart3 className="w-12 h-12 text-white" />
-            </div>
-            <div className="space-y-2">
-              <h1 className="text-3xl font-bold leading-tight tracking-tight">Audit Performance Dashboard</h1>
-              <p className="text-slate-200 text-base leading-relaxed">Monitor compliance scores and track audit performance across all care home standards</p>
-            </div>
+        <div className="group relative p-6 bg-white/90 rounded-2xl shadow-lg border border-slate-200 flex flex-col items-center transition-all hover:scale-[1.03] focus-within:ring-2 ring-emerald-400" tabIndex={0} aria-label="Completed">
+          <div className="mb-2 flex items-center justify-center w-14 h-14 rounded-full bg-emerald-50">
+            <CheckCircle className="w-7 h-7 text-emerald-400" />
           </div>
-
-          <div className="hidden xl:flex items-center gap-6">
-            <div className="grid grid-cols-4 gap-4">
-              <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg hover:bg-white/15 transition-all duration-200">
-                <div className="flex items-center gap-4">
-                  <div className="p-2 bg-blue-500/20 rounded-lg">
-                    <FileText className="w-5 h-5 text-blue-300" />
-                  </div>
-                  <div>
-                    <div className="text-xs text-slate-300 font-medium uppercase tracking-wide">Total Audits</div>
-                    <div className="text-2xl font-bold text-white">{overallStats.totalAudits}</div>
-                  </div>
-                </div>
-              </div>
-              <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg hover:bg-white/15 transition-all duration-200">
-                <div className="flex items-center gap-4">
-                  <div className="p-2 bg-green-500/20 rounded-lg">
-                    <CheckCircle className="w-5 h-5 text-green-300" />
-                  </div>
-                  <div>
-                    <div className="text-xs text-slate-300 font-medium uppercase tracking-wide">Completed</div>
-                    <div className="text-2xl font-bold text-white">{overallStats.auditsCompleted}</div>
-                  </div>
-                </div>
-              </div>
-              <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg hover:bg-white/15 transition-all duration-200">
-                <div className="flex items-center gap-4">
-                  <div className="p-2 bg-purple-500/20 rounded-lg">
-                    <Target className="w-5 h-5 text-purple-300" />
-                  </div>
-                  <div>
-                    <div className="text-xs text-slate-300 font-medium uppercase tracking-wide">Overall Score</div>
-                    <div className="text-2xl font-bold text-white">{overallStats.overallPercentage || 0}%</div>
-                  </div>
-                </div>
-              </div>
-              <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg hover:bg-white/15 transition-all duration-200">
-                <div className="flex items-center gap-4">
-                  <div className="p-2 bg-amber-500/20 rounded-lg">
-                    <Activity className="w-5 h-5 text-amber-300" />
-                  </div>
-                  <div>
-                    <div className="text-xs text-slate-300 font-medium uppercase tracking-wide">Questions</div>
-                    <div className="text-2xl font-bold text-white">{overallStats.totalYesCount}/{overallStats.totalQuestions}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
+          <div className="text-4xl font-extrabold text-emerald-600">{overallStats.totalAudits ? overallStats.auditsCompleted : '—'}</div>
+          <div className="text-sm text-emerald-600 font-medium">Completed</div>
+        </div>
+        <div className="group relative p-6 bg-white/90 rounded-2xl shadow-lg border border-slate-200 flex flex-col items-center transition-all hover:scale-[1.03] focus-within:ring-2 ring-teal-400" tabIndex={0} aria-label="Overall Score">
+          <div className="mb-2 flex items-center justify-center w-14 h-14 rounded-full bg-teal-50">
+            <Target className="w-7 h-7 text-teal-400" />
           </div>
+          <div className="text-4xl font-extrabold text-teal-700">{overallStats.overallPercentage !== null ? `${overallStats.overallPercentage}%` : 'N/A'}</div>
+          <div className="text-sm text-teal-600 font-medium">Overall Score</div>
+        </div>
+        <div className="group relative p-6 bg-white/90 rounded-2xl shadow-lg border border-slate-200 flex flex-col items-center transition-all hover:scale-[1.03] focus-within:ring-2 ring-amber-400" tabIndex={0} aria-label="Questions">
+          <div className="mb-2 flex items-center justify-center w-14 h-14 rounded-full bg-amber-50">
+            <Clock className="w-7 h-7 text-amber-400" />
+          </div>
+          <div className="text-4xl font-extrabold text-amber-700">0/0</div>
+          <div className="text-sm text-amber-600 font-medium">Questions</div>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="w-full px-6 py-6 space-y-6">
+      {/* Content */}
+      <div className="p-6">
         {/* Performance Overview */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Audit Performance Chart */}

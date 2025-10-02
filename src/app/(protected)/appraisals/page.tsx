@@ -16,6 +16,7 @@ import NursesSupervisionForm from "./nurses-supervision/page";
 import ReceptionSupervisionForm from "./reception-supervision/page";
 import SeniorCarerSupervisionForm from "./senior-carer-supervision/page";
 import TrackerModal from "../../../components/TrackerModal";
+import PageHeader from '../../../components/page-header';
 import { db } from "@/lib/firebase";
 import { doc, getDoc, setDoc, updateDoc, collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
 import { useAuth } from "@/hooks/use-auth";
@@ -771,18 +772,10 @@ export default function AppraisalsPage() {
   };
   return (
     <div>
-      {/* Policies-style Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-8 rounded-b-2xl shadow-lg relative overflow-hidden mb-6">
-        {/* Subtle background pattern */}
-        <div className="absolute inset-0 opacity-5 pointer-events-none select-none">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full -translate-y-48 translate-x-48"></div>
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-400 rounded-full translate-y-32 -translate-x-32"></div>
-        </div>
-        <div className="relative z-10">
-          <h1 className="text-3xl font-bold leading-tight tracking-tight">Appraisals & Supervisions</h1>
-          <div className="mt-1 text-slate-200 text-base leading-relaxed">Manage and complete staff appraisals and supervisions. Click a card to begin.</div>
-        </div>
-      </div>
+      <PageHeader
+        title="Appraisals & Supervisions"
+        subtitle="Manage and complete staff appraisals and supervisions. Click a card to begin."
+      />
       {/* Tabs below header */}
       <div className="flex gap-2 border-b border-gray-200 mb-8">
         <button

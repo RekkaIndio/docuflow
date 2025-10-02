@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useEffect, useState } from "react";
 import { doc, onSnapshot, collection } from 'firebase/firestore';
@@ -27,6 +26,7 @@ import StaffFileAuditPage from "./staff-file/page";
 import WeightMonitoringAuditPage from "./weight-monitoring/page";
 import WoundMonitoringAuditPage from "./wound-monitoring/page";
 import RiskRegisterAuditPage from "./risk-register/page";
+import PageHeader from '@/components/page-header';
 
 export default function AuditsPage() {
   const activeWorkspace = useWorkspace();
@@ -461,37 +461,30 @@ export default function AuditsPage() {
 
   return (
     <div>
-      <div className="bg-gradient-to-r from-primary to-accent text-primary-foreground p-8 rounded-b-2xl shadow-lg relative overflow-hidden">
-        {/* Subtle background pattern */}
-        <div className="absolute inset-0 opacity-5">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full -translate-y-48 translate-x-48"></div>
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-primary/20 rounded-full translate-y-32 -translate-x-32"></div>
-        </div>
-        <div className="w-full mx-auto flex items-start justify-between gap-8 relative z-10">
-          <div className="flex items-start gap-6">
-            <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-primary-foreground">
-                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </div>
-            <div className="space-y-2">
-              <h2 className="text-3xl font-bold leading-tight tracking-tight font-headline">Audits</h2>
-              <div className="text-primary-foreground/80 text-base leading-relaxed">Complete monthly compliance audits and track performance</div>
-            </div>
-          </div>
-          <div className="text-right text-sm">
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg p-4">
-              <p className="text-primary-foreground/80">Current month: {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</p>
-              <p className="text-primary-foreground/80">Next reset: {resetDate.toLocaleDateString()}</p>
-              <div className="flex justify-end mt-2">
-                <span className={`px-3 py-1 rounded-full text-sm font-medium ${getCountdownColor(daysRemaining).bg} ${getCountdownColor(daysRemaining).text}`}>
-                  {daysRemaining} {daysRemaining === 1 ? 'day' : 'days'} remaining
+      <PageHeader
+        title="Audits"
+        subtitle="Complete monthly compliance audits and track performance"
+        gradientClass="from-primary to-accent"
+        textClass="text-primary-foreground"
+        leading={(
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-primary-foreground w-6 h-6">
+            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        )}
+        actions={(
+          <div className="text-right">
+            <div className="flex flex-col items-end h-10 sm:h-12 px-3 py-1 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 text-sm">
+              <div className="text-primary-foreground/80 text-xs">{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</div>
+              <div className="mt-1 flex items-center gap-2">
+                <div className="text-primary-foreground/80 text-xs">Next: {resetDate.toLocaleDateString()}</div>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getCountdownColor(daysRemaining).bg} ${getCountdownColor(daysRemaining).text}`}>
+                  {daysRemaining} {daysRemaining === 1 ? 'day' : 'days'}
                 </span>
               </div>
             </div>
           </div>
-        </div>
-      </div>
+        )}
+      />
 
       <div className="p-6">
       <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

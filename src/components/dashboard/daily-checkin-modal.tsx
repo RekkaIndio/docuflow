@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useMemo } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,7 @@ import { db } from '@/lib/firebase';
 import { useWorkspace } from '@/context/workspace';
 import { workspaceCollectionPath } from '@/lib/paths';
 import { Users, Briefcase, Clock } from 'lucide-react';
+import { getWorkspaceCollectionRef, getWorkspaceDocRef } from '@/lib/firestore';
 
 // Simple step indicator component
 function StepIndicator({ steps, current }: { steps: string[]; current: number }) {
@@ -161,11 +162,11 @@ export default function DailyCheckinModal({ workspaceId, open: controlledOpen, o
       setLoading(true);
       try {
   const orgId = effectiveOrgId;
-  const docRef = doc(collection(db, workspaceCollectionPath(effectiveWorkspaceId, 'daily-checkins', orgId || null)), todayKey);
+  const docRef = getWorkspaceDocRef(effectiveWorkspaceId, 'daily-checkins', todayKey, orgId || null);
     console.debug('[DailyCheckinModal] loading from', workspaceCollectionPath(effectiveWorkspaceId, 'daily-checkins', orgId || null), todayKey);
-    const snap = await getDoc(docRef);
+    const snap = docRef ? await getDoc(docRef) : null;
         if (!mounted) return;
-        if (snap.exists()) {
+        if (snap?.exists()) {
           const d = snap.data() as any;
           setExists(true);
           setStaffDay(d.staffingDay ? String(d.staffingDay) : '');
@@ -222,9 +223,13 @@ export default function DailyCheckinModal({ workspaceId, open: controlledOpen, o
     try {
       const now = new Date();
   const orgId = effectiveOrgId;
-  const collectionPath = workspaceCollectionPath(effectiveWorkspaceId, 'daily-checkins', orgId || null);
-  console.debug('[DailyCheckinModal] saving to', collectionPath, todayKey);
-  const docRef = doc(collection(db, collectionPath), todayKey);
+  const docRef = getWorkspaceDocRef(effectiveWorkspaceId, 'daily-checkins', todayKey, orgId || null);
+      console.debug('[DailyCheckinModal] saving to', workspaceCollectionPath(effectiveWorkspaceId, 'daily-checkins', orgId || null), todayKey);
+      if (!docRef) {
+        console.error('Cannot determine daily-checkins path');
+        setLoading(false);
+        return;
+      }
       const fallsPayload: any = { count: fallsCount, injuries: fallsInjuries, witnessed: fallsWitnessed, time: fallsTime };
       if (fallsEntries && fallsEntries.length > 0) fallsPayload.entries = fallsEntries;
       const payload = {
@@ -264,12 +269,34 @@ export default function DailyCheckinModal({ workspaceId, open: controlledOpen, o
     return true;
   };
 
+  const handleOpenChange = (v: boolean) => {
+    setOpen(v);
+    onOpenChange?.(v);
+  };
+
+  const handleTriggerClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('[DailyCheckinModal] Trigger clicked!');
+    setOpen(true);
+    onOpenChange?.(true);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); onOpenChange?.(v); }}>
-      <DialogTrigger asChild>
-        {trigger || <span />}
-      </DialogTrigger>
-  <DialogContent className="w-full sm:max-w-6xl p-0 max-h-[calc(100vh-3.5rem)] mx-auto my-6">
+    <>
+      <div 
+        onClick={handleTriggerClick}
+        onMouseDown={(e) => e.stopPropagation()}
+        style={{ position: 'relative', zIndex: 10 }}
+      >
+        {trigger || (
+          <Button className="w-full" type="button">
+            {exists ? "Update check-in" : "Complete check-in"}
+          </Button>
+        )}
+      </div>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogContent className="w-full sm:max-w-6xl p-0 max-h-[calc(100vh-3.5rem)] mx-auto my-6">
         {/* Visually prominent header inspired by ResidentAssessmentEditModal */}
         <div className="bg-gradient-to-r from-emerald-600 to-teal-600 px-8 py-4 rounded-t-2xl text-white relative">
           <div className="flex items-start justify-between">
@@ -501,7 +528,8 @@ export default function DailyCheckinModal({ workspaceId, open: controlledOpen, o
             </Button>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

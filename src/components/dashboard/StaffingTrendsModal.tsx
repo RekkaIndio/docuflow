@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Users, TrendingUp, TrendingDown, Minus, Calendar, BarChart3, Clock, Target } from 'lucide-react';
 import { collection, query, orderBy, limit, onSnapshot, where } from 'firebase/firestore';
+import { getWorkspaceCollectionRef } from '@/lib/firestore';
 import { workspaceCollectionPath } from '@/lib/paths';
 import { db } from '@/lib/firebase';
 
@@ -37,7 +38,12 @@ const StaffingTrendsModal = ({ isOpen, onClose, workspaceId }: StaffingTrendsMod
     setLoading(true);
     try {
   const orgId = null as string | null;
-  const colRef = collection(db, workspaceCollectionPath(workspaceId, 'daily-checkins', orgId));
+  const colRef = getWorkspaceCollectionRef(workspaceId, 'daily-checkins', orgId);
+  if (!colRef) {
+    setLoading(false);
+    return;
+  }
+
       const now = new Date();
       const periodDays = selectedPeriod === '7d' ? 7 : selectedPeriod === '30d' ? 30 : 90;
       const startDate = new Date(now.getTime() - (periodDays * 24 * 60 * 60 * 1000));
@@ -49,11 +55,11 @@ const StaffingTrendsModal = ({ isOpen, onClose, workspaceId }: StaffingTrendsMod
       );
 
       const unsub = onSnapshot(q, (snap) => {
-        const entries = snap.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt?.toDate?.() || new Date(doc.data().createdAt),
-          recordedAt: doc.data().recordedAt?.toDate?.() || new Date(doc.data().recordedAt)
+        const entries = snap.docs.map((d: any) => ({
+          id: d.id,
+          ...d.data(),
+          createdAt: d.data().createdAt?.toDate?.() || new Date(d.data().createdAt),
+          recordedAt: d.data().recordedAt?.toDate?.() || new Date(d.data().recordedAt)
         })) as StaffingEntry[];
 
         setStaffingHistory(entries);

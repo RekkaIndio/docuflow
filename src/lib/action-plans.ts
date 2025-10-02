@@ -1344,10 +1344,10 @@ export async function saveActionPlanItems(workspaceId: string, monthKey: string,
 /**
  * Get monthly action plan for a workspace
  */
-export async function getMonthlyActionPlan(workspaceId: string, monthKey?: string): Promise<MonthlyActionPlan | null> {
+export async function getMonthlyActionPlan(workspaceId: string, monthKey?: string, organisationId?: string | null): Promise<MonthlyActionPlan | null> {
   try {
     const targetMonth = monthKey || getCurrentMonthKey();
-  const actionPlanRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'action-plans')), targetMonth);
+    const actionPlanRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'action-plans', organisationId)), targetMonth);
     const actionPlanSnap = await getDoc(actionPlanRef);
 
     if (!actionPlanSnap.exists()) {
@@ -1497,7 +1497,7 @@ export function getCurrentMonthKey(): string {
 /**
  * Check if all audits are completed for the month
  */
-export async function areAllAuditsCompleted(workspaceId: string, monthKey?: string): Promise<boolean> {
+export async function areAllAuditsCompleted(workspaceId: string, monthKey?: string, organisationId?: string | null): Promise<boolean> {
   try {
     const targetMonth = monthKey || getCurrentMonthKey();
     const auditTypes = [
@@ -1510,7 +1510,7 @@ export async function areAllAuditsCompleted(workspaceId: string, monthKey?: stri
 
     for (const auditType of auditTypes) {
       const snapshotQuery = query(
-        collection(db, workspaceCollectionPath(workspaceId, `audit-snapshots/${targetMonth}/${auditType}`))
+        collection(db, workspaceCollectionPath(workspaceId, `audit-snapshots/${targetMonth}/${auditType}`, organisationId))
       );
       const snapshot = await getDocs(snapshotQuery);
       if (snapshot.empty) {

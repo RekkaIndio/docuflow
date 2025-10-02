@@ -10,6 +10,7 @@ import { TrendingUp, TrendingDown, Minus, BarChart3, Calendar, CheckCircle, Aler
 import { collection, query, orderBy, limit, onSnapshot, where, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { workspaceCollectionPath } from '@/lib/paths';
+import { AUDIT_TYPES, AUDIT_DISPLAY_NAMES, AuditType } from '@/lib/audit-types';
 import OccupancyPie from '@/components/admin/occupancy-pie';
 
 interface ComplianceOverviewModalProps {
@@ -55,22 +56,15 @@ export function ComplianceOverviewModal({ isOpen, onClose, workspaceId, organisa
         const data = snap.data() as any;
         const processedData: Record<string, AuditData> = {};
 
-        const auditTypes = [
-          'care-plan', 'health-safety', 'maintenance', 'restrictive-practice',
-          'fire-safety', 'infection-control', 'mealtime', 'night-visit', 'staff-file', 'kitchen'
-        ];
-
-        auditTypes.forEach(auditType => {
+        AUDIT_TYPES.forEach((auditType) => {
           const audit = data[auditType];
-          if (audit) {
-            processedData[auditType] = {
-              auditType,
-              scorePercent: typeof audit.scorePercent === 'number' ? audit.scorePercent : null,
-              yesCount: typeof audit.yesCount === 'number' ? audit.yesCount : null,
-              totalCount: typeof audit.totalCount === 'number' ? audit.totalCount : null,
-              updatedAt: audit.updatedAt || null
-            };
-          }
+          processedData[auditType] = {
+            auditType,
+            scorePercent: typeof audit?.scorePercent === 'number' ? audit.scorePercent : null,
+            yesCount: typeof audit?.yesCount === 'number' ? audit.yesCount : null,
+            totalCount: typeof audit?.totalCount === 'number' ? audit.totalCount : null,
+            updatedAt: audit?.updatedAt || null
+          };
         });
 
         setAuditData(processedData);
@@ -91,7 +85,7 @@ export function ComplianceOverviewModal({ isOpen, onClose, workspaceId, organisa
         totalYesCount: 0,
         totalQuestions: 0,
         auditsCompleted: 0,
-        totalAudits: 10,
+  totalAudits: AUDIT_TYPES.length,
         trend: 'stable',
         change: 0
       };
@@ -110,7 +104,7 @@ export function ComplianceOverviewModal({ isOpen, onClose, workspaceId, organisa
       totalYesCount,
       totalQuestions,
       auditsCompleted: validAudits.length,
-      totalAudits: 10,
+      totalAudits: AUDIT_TYPES.length,
       trend,
       change
     };
@@ -119,19 +113,7 @@ export function ComplianceOverviewModal({ isOpen, onClose, workspaceId, organisa
   const stats = calculateStats();
 
   const getAuditDisplayName = (auditType: string): string => {
-    const names: Record<string, string> = {
-      'care-plan': 'Care Plan',
-      'health-safety': 'Health & Safety',
-      'maintenance': 'Maintenance',
-      'restrictive-practice': 'Restrictive Practice',
-      'fire-safety': 'Fire Safety',
-      'infection-control': 'Infection Control',
-      'mealtime': 'Mealtime',
-      'night-visit': 'Night Visit',
-      'staff-file': 'Staff File',
-      'kitchen': 'Kitchen'
-    };
-    return names[auditType] || auditType.replace(/-/g, ' ');
+    return AUDIT_DISPLAY_NAMES[auditType as AuditType] || auditType.replace(/-/g, ' ');
   };
 
   const getScoreColor = (score: number | null): string => {

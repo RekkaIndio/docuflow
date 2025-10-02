@@ -23,6 +23,7 @@ import { workspaceCollectionPath } from '@/lib/paths';
 import { formatDistanceToNow } from 'date-fns';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { getWorkspaceCollectionRef, getWorkspaceDocRef } from '@/lib/firestore';
 
 interface TopNavProps {
   onSettingsClick: () => void;
@@ -41,11 +42,12 @@ export function TopNav({ onSettingsClick, onNotificationsClick, unreadCount = 0,
 
   useEffect(() => {
     if (!workspaceId) return;
-    const notificationsPath = workspaceCollectionPath(workspaceId, 'notifications');
-    const q = fsQuery(collection(db, notificationsPath), orderBy('createdAt', 'desc'), fsLimit(10));
-    const unsub = onSnapshot(q, (snap) => {
+    const notificationsColRef = getWorkspaceCollectionRef(workspaceId, 'notifications', organisationId || null);
+    if (!notificationsColRef) return;
+    const q = fsQuery(notificationsColRef, orderBy('createdAt', 'desc'), fsLimit(10));
+    const unsub = onSnapshot(q, (snap: any) => {
       const items: any[] = [];
-      snap.forEach(d => items.push({ id: d.id, ...(d.data() as any) }));
+      snap.forEach((d: any) => items.push({ id: d.id, ...(d.data() as any) }));
       setRecent(items);
     });
     return () => unsub();
@@ -125,12 +127,15 @@ export function TopNav({ onSettingsClick, onNotificationsClick, unreadCount = 0,
                     if (!workspaceId) return;
                     // mark all read
                     try {
-                      const qAll = fsQuery(collection(db, workspaceCollectionPath(workspaceId, 'notifications')), orderBy('createdAt', 'desc'), fsLimit(50));
+                      const notificationsColRef = getWorkspaceCollectionRef(workspaceId, 'notifications', organisationId || null);
+                      if (!notificationsColRef) return;
+                      const qAll = fsQuery(notificationsColRef, orderBy('createdAt', 'desc'), fsLimit(50));
                       const snap = await (await import('firebase/firestore')).getDocs(qAll);
                       const updates: Promise<any>[] = [];
-                      snap.forEach(d => {
+                      snap.forEach((d: any) => {
                         if (!(d.data() as any).read) {
-                          updates.push(updateDoc(doc(db, `${workspaceCollectionPath(workspaceId, 'notifications')}`, d.id), { read: true } as any));
+                          const docRef = getWorkspaceDocRef(workspaceId, 'notifications', d.id, organisationId || null);
+                          if (docRef) updates.push(updateDoc(docRef, { read: true } as any));
                         }
                       });
                       await Promise.all(updates);
@@ -156,7 +161,8 @@ export function TopNav({ onSettingsClick, onNotificationsClick, unreadCount = 0,
                         {!n.read && (
                           <Button size="sm" variant="ghost" onClick={async () => {
                             try {
-                              await updateDoc(doc(db, `${workspaceCollectionPath(workspaceId, 'notifications')}`, n.id), { read: true } as any);
+                              const docRef = getWorkspaceDocRef(workspaceId, 'notifications', n.id, organisationId || null);
+                              if (docRef) await updateDoc(docRef, { read: true } as any);
                             } catch (err) {
                               console.error('mark read failed', err);
                             }

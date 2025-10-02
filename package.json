@@ -12,7 +12,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "ensure-org-users": "node scripts/ensure-org-user-records.js"
   },
   "dependencies": {
     "@genkit-ai/firebase": "^1.15.5",

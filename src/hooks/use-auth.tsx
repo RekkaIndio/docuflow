@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -18,7 +17,7 @@ import {
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import type { User } from '@/lib/types';
-import { createUserInFirestore } from '@/lib/firestore';
+import { createUserInFirestore, ensureOrgUserRecord } from '@/lib/firestore';
 
 interface AuthContextType {
   user: User | null;
@@ -61,6 +60,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               const merged = ({ ...(basicUser as any), ...(serverUser || {}) } as any);
               setUser(merged);
               try { if (typeof window !== 'undefined') (window as any).__USER__ = merged; } catch (e) {}
+
+              // Ensure organisation-scoped user record exists when we have an organisationId.
+              // This avoids permission-denied errors when client code subscribes to org-scoped docs.
+              try {
+                const orgId = (merged as any)?.organisationId;
+                if (orgId) {
+                  await ensureOrgUserRecord(uid, orgId, merged as any);
+                }
+              } catch (e) {
+                // Non-fatal; proceed without blocking auth hydration
+                console.debug('ensureOrgUserRecord during auth hydration failed', e);
+              }
             }
           } catch (e) {
             // ignore hydration failures

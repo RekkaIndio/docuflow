@@ -613,7 +613,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
       setMaintenancesError(null);
       
       try {
-        const workspaceRef = doc(db, 'workspaces', workspace.id);
+        const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId));
         const workspaceSnap = await getDoc(workspaceRef);
         
         if (workspaceSnap.exists()) {
@@ -641,7 +641,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
       setKitchensError(null);
       
       try {
-        const workspaceRef = doc(db, 'workspaces', workspace.id);
+        const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId));
         const workspaceSnap = await getDoc(workspaceRef);
         
         if (workspaceSnap.exists()) {
@@ -669,7 +669,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
       setActivitiesError(null);
       
       try {
-        const workspaceRef = doc(db, 'workspaces', workspace.id);
+        const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId));
         const workspaceSnap = await getDoc(workspaceRef);
         
         if (workspaceSnap.exists()) {
@@ -1038,6 +1038,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
     
     try {
       const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any).organisationId));
+      // Remove old and add new (atomic operation alternative)
       await updateDoc(workspaceRef, {
         activities: arrayRemove(oldActivity)
       });
@@ -1955,7 +1956,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
               <Card>
                 <CardHeader>
                   <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <Plus className="w-5 h-5 text-orange-600" />
+                    <Plus className="w-5 h-5 text-blue-600" />
                     Add New Domestic
                   </h3>
                 </CardHeader>
@@ -2021,7 +2022,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                         }
                       }}
                       disabled={!newDomestic.name || !newDomestic.roles || !newDomestic.email || !newDomestic.phone || domesticsLoading}
-                      className="bg-orange-600 hover:bg-orange-700"
+                      className="bg-blue-600 hover:bg-blue-700"
                     >
                       <Plus className="w-4 h-4 mr-2" />
                       {domesticsLoading ? 'Adding...' : 'Add Domestic'}
@@ -2036,7 +2037,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                   <h3 className="text-lg font-semibold flex items-center gap-2">
                     <UserCheck className="w-5 h-5 text-green-600" />
                     Current Domestics ({domestics.length})
-                    {domesticsLoading && <div className="w-4 h-4 border-2 border-orange-600 border-t-transparent rounded-full animate-spin"></div>}
+                    {domesticsLoading && <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>}
                   </h3>
                 </CardHeader>
                 <CardContent>
@@ -2871,7 +2872,7 @@ function AdminCTMCard({ ctm, isEditing, onEdit, onCancelEdit, onSave, onDelete, 
             <UserCheck className="w-4 h-4 text-blue-600" />
             <span className="font-medium text-blue-900">Edit CTM</span>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div>
               <label className="text-xs font-medium text-gray-700 block mb-1">Name</label>
               <Input

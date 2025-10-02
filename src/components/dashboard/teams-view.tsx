@@ -44,6 +44,7 @@ import {
 import { db, auth } from "@/lib/firebase";
 import { useToast } from '@/hooks/use-toast';
 import { workspaceCollectionPath, workspaceDocPath } from '@/lib/paths';
+import PageHeader from '../page-header';
 
 
 interface TeamsViewProps {
@@ -635,7 +636,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     if (!workspaceId) return false;
     
     try {
-  const workspaceRef = doc(db, 'workspaces', workspaceId);
+  const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId));
       await updateDoc(workspaceRef, {
         domestics: arrayUnion(domestic)
       });
@@ -652,7 +653,8 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     if (!workspaceId) return false;
     
     try {
-  const workspaceRef = doc(db, 'workspaces', workspaceId);
+  const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId));
+      // Remove old and add new (atomic operation alternative)
       await updateDoc(workspaceRef, {
         domestics: arrayRemove(oldDomestic)
       });
@@ -672,7 +674,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     if (!workspaceId) return false;
     
     try {
-  const workspaceRef = doc(db, 'workspaces', workspaceId);
+  const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId));
       await updateDoc(workspaceRef, {
         domestics: arrayRemove(domestic)
       });
@@ -689,7 +691,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     if (!workspaceId) return false;
     
     try {
-  const workspaceRef = doc(db, 'workspaces', workspaceId);
+  const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId));
       await updateDoc(workspaceRef, {
         maintenances: arrayUnion(maintenance)
       });
@@ -706,7 +708,8 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     if (!workspaceId) return false;
     
     try {
-  const workspaceRef = doc(db, 'workspaces', workspaceId);
+  const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId));
+      // Remove old and add new (atomic operation alternative)
       await updateDoc(workspaceRef, {
         maintenances: arrayRemove(oldMaintenance)
       });
@@ -726,7 +729,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     if (!workspaceId) return false;
     
     try {
-  const workspaceRef = doc(db, 'workspaces', workspaceId);
+  const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId));
       await updateDoc(workspaceRef, {
         maintenances: arrayRemove(maintenance)
       });
@@ -743,7 +746,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     if (!workspaceId) return false;
     
     try {
-  const workspaceRef = doc(db, 'workspaces', workspaceId);
+  const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId));
       await updateDoc(workspaceRef, {
         kitchens: arrayUnion(kitchen)
       });
@@ -760,7 +763,8 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     if (!workspaceId) return false;
     
     try {
-  const workspaceRef = doc(db, 'workspaces', workspaceId);
+  const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId));
+      // Remove old and add new (atomic operation alternative)
       await updateDoc(workspaceRef, {
         kitchens: arrayRemove(oldKitchen)
       });
@@ -780,7 +784,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     if (!workspaceId) return false;
     
     try {
-  const workspaceRef = doc(db, 'workspaces', workspaceId);
+  const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId));
       await updateDoc(workspaceRef, {
         kitchens: arrayRemove(kitchen)
       });
@@ -797,7 +801,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     if (!workspaceId) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspaceId);
+      const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId));
       await updateDoc(workspaceRef, {
         activities: arrayUnion(activity)
       });
@@ -814,7 +818,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     if (!workspaceId) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspaceId);
+      const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId));
       await updateDoc(workspaceRef, {
         activities: arrayRemove(oldActivity)
       });
@@ -834,7 +838,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     if (!workspaceId) return false;
     
     try {
-      const workspaceRef = doc(db, 'workspaces', workspaceId);
+      const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId));
       await updateDoc(workspaceRef, {
         activities: arrayRemove(activity)
       });
@@ -948,17 +952,17 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
   };
 
   const handleDeleteTeam = (teamId: string) => {
-    // optimistic UI
+    // optimistic UI: remove locally first
     setTeams((prevTeams) => prevTeams.filter((team) => team.id !== teamId));
     (async () => {
       try {
         if (!workspaceId) throw new Error('Missing workspace id');
-  const teamRef = doc(db, workspaceCollectionPath(workspaceId, 'teams', organisationId || workspace?.organisationId), teamId);
+        const teamRef = doc(db, workspaceCollectionPath(workspaceId, 'teams', organisationId || workspace?.organisationId), teamId);
         await deleteDoc(teamRef);
       } catch (error) {
         console.error("Error deleting team:", error);
-        // Could refetch or revert optimistic change; for now refetch all teams
-          try {
+        // On failure, refetch teams from Firestore as a safe fallback
+        try {
           if (!workspaceId) return;
           const teamsCollection = collection(db, workspaceCollectionPath(workspaceId, 'teams', organisationId || workspace?.organisationId));
           const teamsSnapshot = await getDocs(teamsCollection);
@@ -987,7 +991,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     (async () => {
       try {
         if (!workspaceId) throw new Error('Missing workspace id');
-      const teamRef = doc(db, workspaceCollectionPath(workspaceId, 'teams', organisationId || workspace?.organisationId), teamId);
+        const teamRef = doc(db, workspaceCollectionPath(workspaceId, 'teams', organisationId || workspace?.organisationId), teamId);
         await updateDoc(teamRef, {
           accessibleFolderIds,
           folderCount: accessibleFolderIds.length,
@@ -1006,7 +1010,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     (async () => {
       try {
         if (!workspaceId) throw new Error('Missing workspace id');
-  const teamRef = doc(db, workspaceCollectionPath(workspaceId, 'teams', organisationId || workspace?.organisationId), teamToAdd.id);
+        const teamRef = doc(db, workspaceCollectionPath(workspaceId, 'teams', organisationId || workspace?.organisationId), teamToAdd.id);
         await setDoc(teamRef, teamToAdd);
       } catch (error) {
         console.error("Error creating team in Firestore:", error);
@@ -1027,7 +1031,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     (async () => {
       try {
         if (!workspace?.id) throw new Error('Missing workspace id');
-  const teamRef = doc(db, workspaceCollectionPath(workspace.id, 'teams', (workspace as any).organisationId || workspace.organisationId), teamId);
+        const teamRef = doc(db, workspaceCollectionPath(workspace.id, 'teams', (workspace as any).organisationId || workspace.organisationId), teamId);
         await updateDoc(teamRef, { emails: arrayUnion(email) });
         // If this is the Inspection team, create a magic-link invite with 24h expiry and inspection_readonly role
         const team = teams.find(t => t.id === teamId || (t.name === 'Inspection' && t.workspaceId === workspace?.id));
@@ -1089,7 +1093,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     (async () => {
       try {
         if (!workspaceId) throw new Error('Missing workspace id');
-      const teamRef = doc(db, workspaceCollectionPath(workspaceId, 'teams', organisationId || workspace?.organisationId), teamId);
+        const teamRef = doc(db, workspaceCollectionPath(workspaceId, 'teams', organisationId || workspace?.organisationId), teamId);
         await updateDoc(teamRef, { emails: arrayRemove(email) });
       } catch (error) {
         console.error("Error removing email from team in Firestore:", error);
@@ -1369,37 +1373,25 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
 
   return (
     <div className="flex flex-col h-full bg-muted/20">
-      {/* Full-width themed header (opt-out for embedding pages) */}
-      {!hideHeader && (
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-8 rounded-b-2xl shadow-lg relative overflow-hidden">
-          {/* Subtle background pattern */}
-          <div className="absolute inset-0 opacity-5">
-            <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full -translate-y-48 translate-x-48"></div>
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-400 rounded-full translate-y-32 -translate-x-32"></div>
-          </div>
-          <div className="w-full mx-auto flex items-start justify-between gap-8 relative z-10">
-            <div className="flex items-start gap-6">
-              <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg">
-                <Users className="w-8 h-8 text-white" />
-              </div>
-              <div className="space-y-2">
-                <h2 className="text-3xl font-bold leading-tight tracking-tight">Teams & Permissions</h2>
-                <div className="text-slate-200 text-base leading-relaxed">Manage team access and folder permissions across your workspace</div>
-              </div>
-            </div>
-            {/* Action buttons */}
-            <div className="flex items-center gap-3">
-              <NewTeamDialog onTeamCreated={handleTeamCreated} workspaceId={workspaceId}>
-                <Button className="bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur-sm">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create New Team
-                </Button>
-              </NewTeamDialog>
-            </div>
-          </div>
-        </div>
-      )}
-
+            {!hideHeader && (
+              <PageHeader
+                title="Teams & Staff"
+                subtitle="Manage teams and staff assignments"
+                leading={(
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-white w-6 h-6">
+                    <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}
+                actions={(
+                  <>
+                    <NewTeamDialog workspaceId={workspaceId} onTeamCreated={(team) => setTeams(prev => [team, ...prev])}>
+                      <Button variant="outline" size="sm" className="h-8 sm:h-10 bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-sm px-3"> <Plus className="mr-2 h-4 w-4"/> New Team</Button>
+                    </NewTeamDialog>
+                    <SidebarTrigger />
+                  </>
+                )}
+              />
+            )}
       <main className="flex-1 p-6 overflow-y-auto">
         <Tabs defaultValue="teams" className="w-full">
           <TabsList className="grid w-[1200px] grid-cols-8 bg-white border border-gray-200 rounded-lg mb-6">

@@ -1,7 +1,7 @@
-
 "use client";
 
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback, useRef, useTransition } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   SidebarProvider,
   Sidebar,
@@ -40,7 +40,7 @@ import { NotificationsView } from "./notifications-view";
 import { db } from '@/lib/firebase';
 import { collection, query as fsQuery, where, onSnapshot, orderBy, limit } from 'firebase/firestore';
 import { workspaceCollectionPath } from '@/lib/paths';
-import { AccessibilityView } from "./accessibility-view";
+import { ensureOrgUserRecord } from '@/lib/firestore';
 // Outstanding Evidence view removed; evidence folders are now regular protected folders
 
 
@@ -147,17 +147,49 @@ const LoadingDashboard = () => (
     </SidebarProvider>
 )
 
+const DASHBOARD_VIEWS = [
+  "home",
+  "files",
+  "documents",
+  "tags",
+  "teams",
+  "settings",
+  "renewals",
+  "accessibility",
+  "dependency-calculator",
+  "daily",
+  "notifications",
+  "audits",
+  "policies",
+  "stats",
+  "action-plans",
+  "appraisals",
+  "rotas",
+] as const;
+
+type DashboardView = (typeof DASHBOARD_VIEWS)[number];
+
+const isDashboardView = (value: string | null): value is DashboardView => {
+  return value !== null && (DASHBOARD_VIEWS as readonly string[]).includes(value);
+};
+
 
 export function Dashboard() {
   const { user, loading: authLoading } = useAuth();
   const isMobile = useIsMobile();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [activeWorkspace, setActiveWorkspace] = useState<Workspace | null>(null);
   const [selected, setSelected] = useState<Folder | Document | null>(null);
   // evidenceSelected removed; evidence folders are part of the main folders tree
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'dependency-calculator' | 'daily' | 'notifications' | 'audits' | 'policies' | 'stats' | 'action-plans' | 'appraisals'>('home');
+  const [view, setViewState] = useState<DashboardView>(() => {
+    const initialParam = searchParams?.get('view') ?? null;
+    return isDashboardView(initialParam) ? initialParam : 'home';
+  });
   const [unreadNotifications, setUnreadNotifications] = useState<number>(0);
   const [breadcrumb, setBreadcrumb] = useState<(Folder | { id: 'root', name: string, type: 'folder' })[]>([]);
   const [lastChatDetail, setLastChatDetail] = useState<{ text?: string; documents?: any[] } | undefined>(undefined);
@@ -167,6 +199,53 @@ export function Dashboard() {
   // Remember the previous view when we open a synthetic policy document so the
   // in-app back arrow can return exactly where the user came from.
   const prevViewRef = useRef<string | null>(null);
+  const pendingViewSyncRef = useRef<DashboardView | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const pendingRouterUpdateRef = useRef<string | null>(null);
+
+  useEffect(() => {
+  const param = searchParams?.get('view') ?? null;
+    const normalized = isDashboardView(param) ? param : 'home';
+
+    if (pendingViewSyncRef.current && normalized === pendingViewSyncRef.current) {
+      pendingViewSyncRef.current = null;
+      return;
+    }
+
+    setViewState((current) => (current === normalized ? current : normalized));
+  }, [searchParams]);
+
+  // Sync view state to URL
+  useEffect(() => {
+    if (pendingRouterUpdateRef.current !== null) {
+      const targetView = pendingRouterUpdateRef.current;
+      pendingRouterUpdateRef.current = null;
+      
+      const params = new URLSearchParams(window.location.search);
+      if (targetView === 'home') {
+        params.delete('view');
+      } else {
+        params.set('view', targetView);
+      }
+      pendingViewSyncRef.current = targetView as DashboardView;
+      const query = params.toString();
+      startTransition(() => {
+        router.replace(`${pathname}${query ? `?${query}` : ''}`, { scroll: false });
+      });
+    }
+  }, [view, pathname, router, startTransition]);
+
+  const setView = useCallback<React.Dispatch<React.SetStateAction<DashboardView>>>(
+    (next) => {
+      setViewState((current) => {
+        const resolved = typeof next === 'function' ? next(current) : next;
+        // Schedule router update for next effect
+        pendingRouterUpdateRef.current = resolved;
+        return resolved;
+      });
+    },
+    []
+  );
 
   // Primitive workspace identifiers to avoid repeated optional chaining and
   // to allow stable primitive deps in hooks.
@@ -188,33 +267,55 @@ export function Dashboard() {
       if (typeof window !== 'undefined') {
         window.addEventListener('chat-response', handleChatResponse as EventListener);
       }
+    // Ensure org user record exists before attaching org-scoped listeners so
+    // the subscription won't fail with permission-denied when the org user
+    // document is missing.
+    (async () => {
+      try {
+        if (workspaceId && organisationId && user?.id) {
+          await ensureOrgUserRecord(user.id, organisationId, user as any);
+        }
+      } catch (e) {
+        console.debug('Failed to ensure org user record before attaching listeners', e);
+      }
+    })();
     if (workspaceId && organisationId) {
       // Use org-aware collection paths to avoid invalid document references
-      const notificationsCol = collection(db, workspaceCollectionPath(workspaceId, 'notifications', organisationId));
-      const q = fsQuery(notificationsCol, where('read', '==', false));
-      unsub = onSnapshot(q, (snap: any) => {
-        setUnreadNotifications(snap.size);
-      }, (err: any) => {
-        console.error('Failed to listen for unread notifications', err);
-        // Don't set unsub here as it might cause issues
-      });
+      const notificationsPath = workspaceCollectionPath(workspaceId, 'notifications', organisationId);
+      if (notificationsPath) {
+        try {
+          const notificationsCol = collection(db, notificationsPath);
+          const q = fsQuery(notificationsCol, where('read', '==', false));
+          unsub = onSnapshot(q, (snap: any) => {
+            setUnreadNotifications(snap.size);
+          }, (err: any) => {
+            console.error('Failed to listen for unread notifications', err);
+            // Don't set unsub here as it might cause issues
+          });
+        } catch (e) {
+          console.error('Failed to attach notifications listener (invalid path?)', e);
+        }
+      }
 
       // Listen for latest daily checkin entry using collection->doc pattern
       try {
-  const dailyCol = collection(db, workspaceCollectionPath(workspaceId, 'daily-checkins', organisationId));
-        const dailyQ = fsQuery(dailyCol, orderBy('createdAt', 'desc'), limit(1));
-        dailyUnsub = onSnapshot(dailyQ, (snap) => {
-          if (!snap.empty) {
-            const docSnap = snap.docs[0];
-            setDailyEntry({ id: docSnap.id, ...docSnap.data() });
-          } else {
+        const dailyPath = workspaceCollectionPath(workspaceId, 'daily-checkins', organisationId);
+        if (dailyPath) {
+          const dailyCol = collection(db, dailyPath);
+          const dailyQ = fsQuery(dailyCol, orderBy('createdAt', 'desc'), limit(1));
+          dailyUnsub = onSnapshot(dailyQ, (snap) => {
+            if (!snap.empty) {
+              const docSnap = snap.docs[0];
+              setDailyEntry({ id: docSnap.id, ...docSnap.data() });
+            } else {
+              setDailyEntry(null);
+            }
+          }, (err) => {
+            console.error('Failed to listen to daily-checkins', err);
+            // Reset daily entry on error to avoid stale state
             setDailyEntry(null);
-          }
-        }, (err) => {
-          console.error('Failed to listen to daily-checkins', err);
-          // Reset daily entry on error to avoid stale state
-          setDailyEntry(null);
-        });
+          });
+        }
       } catch (e) {
         console.error('Failed to attach daily-checkins listener', e);
       }
@@ -1017,7 +1118,14 @@ export function Dashboard() {
     case 'settings':
       return activeWorkspace ? <SettingsView workspace={activeWorkspace} /> : <div className="p-6">No workspace</div>;
     case 'accessibility':
-      return activeWorkspace ? <AccessibilityView workspace={activeWorkspace} /> : <div className="p-6">No workspace</div>;
+      return activeWorkspace ? (
+        <React.Suspense fallback={<div>Loading...</div>}>
+          {(() => {
+            const AccessibilityViewComp = require("./accessibility-view").default;
+            return <AccessibilityViewComp workspace={activeWorkspace} />;
+          })()}
+        </React.Suspense>
+      ) : <div className="p-6">No workspace</div>;
     case 'notifications':
       return workspaceId ? <NotificationsView workspaceId={workspaceId} onBack={() => setView('home')} /> : <div className="p-6">No workspace</div>;
     case 'documents':
@@ -1081,7 +1189,7 @@ export function Dashboard() {
                 </React.Suspense>
             );
     case 'stats':
-      return <StatsView workspaceId={workspaceId} />;
+      return <StatsView workspaceId={workspaceId} organisationId={organisationId} />;
         case 'policies':
             return (
                 <React.Suspense fallback={<div>Loading...</div>}>
@@ -1108,6 +1216,21 @@ export function Dashboard() {
                     return <ActionPlansPage />;
                   })()}
                 </React.Suspense>
+            );
+        case 'rotas':
+            return activeWorkspace ? (
+                <React.Suspense fallback={<div>Loading...</div>}>
+                  {(() => {
+                    const { RotasView } = require("@/components/rotas/rotas-view");
+                    return <RotasView workspace={activeWorkspace} />;
+                  })()}
+                </React.Suspense>
+            ) : (
+              <div className="container mx-auto py-8 px-4">
+                <div className="text-center">
+                  <p className="text-muted-foreground">Please select a workspace to view rotas</p>
+                </div>
+              </div>
             );
     default:
        return <DashboardHome 

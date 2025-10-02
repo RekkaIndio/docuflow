@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useMemo, useState } from "react";
@@ -16,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { FileText, FileSpreadsheet, FileIcon, FileX2, ArrowUpDown, Search } from "lucide-react";
 import { SidebarTrigger } from "../ui/sidebar";
+import PageHeader from '../page-header';
 
 type SortKey = keyof Document | 'owner.name';
 type SortDirection = 'asc' | 'desc';
@@ -116,39 +116,30 @@ export function AllDocumentsView({ workspace, onSelect }: AllDocumentsViewProps)
     
     return (
         <div className="flex flex-col h-full">
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-8 rounded-b-2xl shadow-lg relative overflow-hidden">
-                {/* Subtle background pattern */}
-                <div className="absolute inset-0 opacity-5">
-                    <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full -translate-y-48 translate-x-48"></div>
-                    <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-400 rounded-full translate-y-32 -translate-x-32"></div>
-                </div>
-                <div className="w-full mx-auto flex items-start justify-between gap-8 relative z-10">
-                    <div className="flex items-start gap-6">
-                        <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg">
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-white">
-                                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                <polyline points="14,2 14,8 20,8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                <line x1="16" y1="13" x2="8" y2="13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                <line x1="16" y1="17" x2="8" y2="17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                <polyline points="10,9 9,9 8,9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                        </div>
-                        <div className="space-y-2">
-                            <h2 className="text-3xl font-bold leading-tight tracking-tight">All Documents</h2>
-                            <div className="text-slate-200 text-base leading-relaxed">Browse and search all documents in your workspace</div>
-                        </div>
-                    </div>
+            <PageHeader
+                title="All Documents"
+                subtitle="Browse and search all documents in your workspace"
+                leading={(
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-white w-6 h-6">
+                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <polyline points="14,2 14,8 20,8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <line x1="16" y1="13" x2="8" y2="13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <line x1="16" y1="17" x2="8" y2="17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <polyline points="10,9 9,9 8,9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                )}
+                actions={(
                     <div className="relative w-full max-w-xs">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
                         <Input 
                             placeholder="Search documents..."
-                            className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-slate-300"
+                            className="h-10 sm:h-12 pl-10 bg-white/10 border-white/20 text-white placeholder:text-slate-300"
                             value={filter}
                             onChange={(e) => setFilter(e.target.value)}
                         />
                     </div>
-                </div>
-            </div>
+                 )}
+            />
             <main className="flex-1 overflow-y-auto p-4 sm:p-6">
                 <Table>
                     <TableHeader>

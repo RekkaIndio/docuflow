@@ -78,11 +78,11 @@ export default function AdminStaffingChart({
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   return (
-    <div className="mb-8">
+    <div className="mb-10 space-y-6">
       {/* Header Section */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl shadow-lg">
+          <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-lg">
             <UserCheck className="w-6 h-6 text-white" />
           </div>
           <div>
@@ -156,17 +156,17 @@ export default function AdminStaffingChart({
         </div>
       </div>
 
-      <Card className="group relative overflow-hidden bg-gradient-to-br from-green-100 via-white to-green-100/30 border-0 shadow-lg hover:shadow-xl transition-all duration-300">
+      <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-white/80 via-indigo-50/60 to-white/85 backdrop-blur-xl shadow-2xl hover:shadow-[0_40px_120px_rgba(79,70,229,0.25)] transition-all duration-500">
         {/* Animated background elements */}
-        <div className="absolute inset-0 bg-gradient-to-br from-green-200/30 to-transparent"></div>
-        <div className="absolute top-0 right-0 w-32 h-32 bg-green-100/40 rounded-full -mr-16 -mt-16 group-hover:bg-green-100/50 transition-colors duration-300"></div>
-        <div className="absolute bottom-0 left-0 w-24 h-24 bg-green-200/20 rounded-full -ml-12 -mb-12"></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-400/15 via-purple-400/10 to-transparent"></div>
+        <div className="absolute top-0 right-0 w-40 h-40 bg-indigo-300/25 rounded-full -mr-20 -mt-16 blur-2xl group-hover:bg-indigo-300/35 transition-colors duration-500"></div>
+        <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-300/20 rounded-full -ml-16 -mb-14 blur-2xl"></div>
 
-        <CardContent className="relative p-8">
+        <CardContent className="relative p-8 lg:p-10">
           {staffingLoading ? (
             <div className="h-64 flex items-center justify-center">
               <div className="flex flex-col items-center gap-3">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
+                <div className="animate-spin rounded-full h-9 w-9 border-b-2 border-indigo-500"></div>
                 <div className="text-gray-600">Loading staffing data...</div>
               </div>
             </div>
@@ -183,12 +183,12 @@ export default function AdminStaffingChart({
                       tabIndex={0}
                       onClick={() => setIsModalOpen(true)}
                       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setIsModalOpen(true); }}
-                      className="group/card relative overflow-hidden bg-gradient-to-br from-white to-emerald-50 p-6 rounded-2xl border border-gray-200/50 hover:shadow-lg transition-all duration-300 hover:scale-[1.02] cursor-pointer"
+                      className="group/card relative overflow-hidden bg-gradient-to-br from-white/90 to-indigo-100/60 p-6 rounded-2xl border border-white/40 backdrop-blur-md hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer"
                     >
-                      <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-100/30 rounded-full -mr-8 -mt-8 group-hover/card:bg-emerald-100/40 transition-colors duration-300"></div>
+                      <div className="absolute top-0 right-0 w-16 h-16 bg-indigo-200/40 rounded-full -mr-8 -mt-8 blur-sm group-hover/card:bg-indigo-200/60 transition-colors duration-300"></div>
                       <div className="relative flex items-center gap-4">
-                        <div className="p-3 bg-emerald-500/10 rounded-xl group-hover/card:bg-emerald-500/20 transition-colors duration-300">
-                          <Users className="w-6 h-6 text-emerald-600" />
+                        <div className="p-3 bg-indigo-500/10 rounded-xl group-hover/card:bg-indigo-500/20 transition-colors duration-300">
+                          <Users className="w-6 h-6 text-indigo-600" />
                         </div>
                         <div>
                           <div className="text-3xl font-bold text-gray-900">{aggregateStaffingData.totalDay + aggregateStaffingData.totalNight}</div>
@@ -199,7 +199,7 @@ export default function AdminStaffingChart({
                     </div>
 
                     <div className="flex flex-col gap-4">
-                      <div className="bg-white/60 p-4 rounded-xl border border-gray-200/50 shadow-sm">
+                      <div className="bg-white/75 backdrop-blur-md p-4 rounded-xl border border-white/40 shadow-sm">
                         <div className="flex items-center justify-between">
                           <div>
                             <div className="text-sm text-gray-600">Weekly total</div>
@@ -224,7 +224,7 @@ export default function AdminStaffingChart({
                         </div>
                       </div>
 
-                      <div className="bg-white/60 p-4 rounded-xl border border-gray-200/50 shadow-sm flex items-center justify-between">
+                      <div className="bg-white/75 backdrop-blur-md p-4 rounded-xl border border-white/40 shadow-sm flex items-center justify-between">
                         <div>
                           <div className="text-sm text-gray-600">Workspaces reporting</div>
                           <div className="text-xl font-bold text-gray-900">{aggregateStaffingData.workspacesWithData}</div>
@@ -249,7 +249,7 @@ export default function AdminStaffingChart({
                       </div>
                     </div>
 
-                    <div className="bg-gradient-to-br from-gray-50 to-gray-100/50 rounded-2xl p-8 border border-gray-200/50">
+                    <div className="bg-gradient-to-br from-white/80 via-indigo-50/50 to-white/80 rounded-2xl p-8 border border-white/40 backdrop-blur-md">
                       {/* Chart Area */}
                       <div className="h-56 mb-6">
                         <div className="flex items-end justify-between h-44 gap-4">
@@ -268,7 +268,7 @@ export default function AdminStaffingChart({
                                 {/* Bars */}
                                 <div className="flex flex-col w-full max-w-20 justify-end h-32 gap-1">
                                   <div
-                                    className="bg-gradient-to-t from-amber-500 to-amber-400 rounded-t transition-all duration-300 hover:from-amber-600 hover:to-amber-500 group-hover/bar:scale-110 w-full shadow-sm"
+                                    className="bg-gradient-to-t from-indigo-500 to-indigo-400 rounded-t transition-all duration-300 hover:from-indigo-600 hover:to-indigo-500 group-hover/bar:scale-110 w-full shadow-sm"
                                     style={{
                                       height: `${dayHeight}%`,
                                       minHeight: day.day > 0 ? '6px' : '0'
@@ -276,7 +276,7 @@ export default function AdminStaffingChart({
                                     title={`Day Staff: ${day.day} on ${day.dayName}`}
                                   />
                                   <div
-                                    className="bg-gradient-to-t from-blue-500 to-blue-400 rounded-b transition-all duration-300 hover:from-blue-600 hover:to-blue-500 group-hover/bar:scale-110 w-full shadow-sm"
+                                    className="bg-gradient-to-t from-sky-500 to-sky-400 rounded-b transition-all duration-300 hover:from-sky-600 hover:to-sky-500 group-hover/bar:scale-110 w-full shadow-sm"
                                     style={{
                                       height: `${nightHeight}%`,
                                       minHeight: day.night > 0 ? '6px' : '0'
@@ -303,11 +303,11 @@ export default function AdminStaffingChart({
                       {/* Legend */}
                       <div className="flex items-center justify-center gap-8 mt-8 pt-4 border-t border-gray-200">
                         <div className="flex items-center gap-3 text-sm">
-                          <div className="w-4 h-4 bg-gradient-to-t from-amber-500 to-amber-400 rounded shadow-sm"></div>
+                          <div className="w-4 h-4 bg-gradient-to-t from-indigo-500 to-indigo-400 rounded shadow-sm"></div>
                           <span className="font-semibold text-gray-700">Day Staff</span>
                         </div>
                         <div className="flex items-center gap-3 text-sm">
-                          <div className="w-4 h-4 bg-gradient-to-t from-blue-500 to-blue-400 rounded shadow-sm"></div>
+                          <div className="w-4 h-4 bg-gradient-to-t from-sky-500 to-sky-400 rounded shadow-sm"></div>
                           <span className="font-semibold text-gray-700">Night Staff</span>
                         </div>
                       </div>
@@ -335,7 +335,7 @@ export default function AdminStaffingChart({
 
                 {/* Right: stacked cards */}
                 <div className="lg:col-span-1 flex flex-col gap-6">
-                  <Card className="bg-white/60 p-4 shadow-md flex-1 border border-gray-200/50">
+                  <Card className="bg-white/75 backdrop-blur-md p-4 shadow-md flex-1 border border-white/40">
                     <CardContent className="p-4 h-full flex flex-col justify-between">
                       <div>
                         <h5 className="text-lg font-semibold">Staffing Summary</h5>
@@ -364,7 +364,7 @@ export default function AdminStaffingChart({
                             <div className="text-2xl font-bold text-blue-700">{roundedAverageNight}</div>
                             <div className="text-sm text-gray-500">Average Night Staff</div>
                           </div>
-                          <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2">
                             {nightDiff >= 0 ? (
                               <ArrowUp className="w-4 h-4 text-emerald-600" />
                             ) : (
@@ -379,7 +379,7 @@ export default function AdminStaffingChart({
                     </CardContent>
                   </Card>
 
-                  <Card className="bg-white/60 p-4 shadow-md flex-1 border border-gray-200/50">
+                  <Card className="bg-white/75 backdrop-blur-md p-4 shadow-md flex-1 border border-white/40">
                     <CardContent className="p-4 h-full flex flex-col justify-between">
                       <div>
                         <h5 className="text-lg font-semibold">Workspaces</h5>

@@ -83,11 +83,11 @@ export default function AdminRecentActivity({ workspaces, aggregated }: AdminRec
   const activities = generateRecentActivities();
 
   return (
-    <div className="mb-8">
+    <div className="mb-10 space-y-6">
       {/* Header Section */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg">
+          <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-lg">
             <Activity className="w-6 h-6 text-white" />
           </div>
           <div>
@@ -103,16 +103,16 @@ export default function AdminRecentActivity({ workspaces, aggregated }: AdminRec
         </div>
       </div>
 
-      <Card className="group relative overflow-hidden bg-gradient-to-br from-blue-50 via-white to-blue-50/50 border-0 shadow-lg hover:shadow-xl transition-all duration-300">
+      <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-white/80 via-indigo-50/50 to-white/80 backdrop-blur-xl shadow-2xl hover:shadow-[0_40px_120px_rgba(79,70,229,0.25)] transition-all duration-500">
         {/* Animated background elements */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent"></div>
-        <div className="absolute top-0 right-0 w-32 h-32 bg-blue-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-blue-100/40 transition-colors duration-300"></div>
-        <div className="absolute bottom-0 left-0 w-24 h-24 bg-blue-200/20 rounded-full -ml-12 -mb-12"></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-400/15 via-purple-400/10 to-transparent"></div>
+        <div className="absolute top-0 right-0 w-40 h-40 bg-indigo-200/25 rounded-full -mr-20 -mt-16 blur-2xl group-hover:bg-indigo-200/35 transition-colors duration-500"></div>
+        <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-200/20 rounded-full -ml-16 -mb-14 blur-2xl"></div>
 
-        <CardContent className="relative p-8">
+        <CardContent className="relative p-8 lg:p-10">
           <div className="space-y-4">
             {activities.map((activity, index) => (
-              <div key={index} className="group/activity flex items-start gap-4 p-4 rounded-2xl bg-gradient-to-r from-white/60 to-white/30 backdrop-blur-sm border border-gray-200/50 hover:shadow-lg hover:scale-[1.02] transition-all duration-300 cursor-pointer">
+              <div key={index} className="group/activity flex items-start gap-4 p-4 rounded-2xl bg-gradient-to-r from-white/75 to-indigo-50/40 backdrop-blur-lg border border-white/40 hover:shadow-xl hover:scale-[1.02] transition-all duration-300 cursor-pointer">
                 <div className={`p-3 rounded-2xl bg-gradient-to-br ${activity.gradient} group-hover/activity:scale-110 transition-transform duration-300`}>
                   <activity.icon className={`w-5 h-5 ${activity.color}`} />
                 </div>
@@ -138,9 +138,9 @@ export default function AdminRecentActivity({ workspaces, aggregated }: AdminRec
             ))}
           </div>
 
-          <div className="mt-8 pt-6 border-t border-gray-200/50">
+          <div className="mt-8 pt-6 border-t border-white/40">
             <div className="text-center">
-              <button className="group/btn inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-medium rounded-xl hover:from-blue-600 hover:to-indigo-700 transition-all duration-300 hover:shadow-lg hover:scale-105">
+              <button className="group/btn inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium rounded-xl hover:from-indigo-600 hover:to-purple-700 transition-all duration-300 hover:shadow-lg hover:scale-105">
                 <span>View all activity</span>
                 <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform duration-300" />
               </button>
