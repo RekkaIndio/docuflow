@@ -72,3 +72,38 @@ export type Team = {
   emails: string[]; // Added 'emails' property
   workspaceId: string;
 };
+
+// Feature Flag System Types
+export type FeatureModuleKey = 
+  | 'dashboard'
+  | 'dependencyCalculator'
+  | 'audits'
+  | 'actionPlans'
+  | 'policies'
+  | 'appraisals'
+  | 'rotas'
+  | 'files'
+  | 'teams'
+  | 'stats'
+  | 'chatPanel'
+  | 'notifications'
+  | 'tags'
+  | 'renewals'
+  | 'dailyCheckins'
+  | 'accessibility'
+  | 'settings';
+
+export type FeatureModule = {
+  enabled: boolean;
+  name: string;
+  description?: string;
+  category?: 'core' | 'compliance' | 'operations' | 'communication' | 'analytics';
+  // Core features cannot be disabled
+  isCore?: boolean;
+};
+
+export type OrganisationFeatureFlags = {
+  modules: Record<FeatureModuleKey, FeatureModule>;
+  updatedAt?: any; // Firestore timestamp
+  updatedBy?: string; // User ID who made the change
+};
