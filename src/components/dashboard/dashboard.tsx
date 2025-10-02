@@ -41,6 +41,8 @@ import { db } from '@/lib/firebase';
 import { collection, query as fsQuery, where, onSnapshot, orderBy, limit } from 'firebase/firestore';
 import { workspaceCollectionPath } from '@/lib/paths';
 import { ensureOrgUserRecord } from '@/lib/firestore';
+import { useFeatureFlags } from '@/hooks/use-feature-flags';
+import { FeatureGuard } from '@/components/feature-guard';
 // Outstanding Evidence view removed; evidence folders are now regular protected folders
 
 
@@ -251,6 +253,9 @@ export function Dashboard() {
   // to allow stable primitive deps in hooks.
   const workspaceId = activeWorkspace?.id || '';
   const organisationId = (activeWorkspace as any)?.organisationId || undefined;
+
+  // Load feature flags for the organisation
+  const { isEnabled } = useFeatureFlags(organisationId);
 
 
   useEffect(() => {
@@ -1098,36 +1103,58 @@ export function Dashboard() {
   const renderContent = () => {
   switch (view) {
     case 'home':
-      return <DashboardHome 
+      return (
+        <FeatureGuard feature="dashboard" organisationId={organisationId} onNavigateBack={() => setView('home')}>
+          <DashboardHome 
             workspace={activeWorkspace} 
             onSelect={handleSelect} 
             onDocumentAdd={handleDocumentAdd} 
             onFolderAdd={handleFolderAdd} 
-          />;
+          />
+        </FeatureGuard>
+      );
         case 'daily':
             return (
-                <React.Suspense fallback={<div>Loading...</div>}>
-                  {(() => {
-                    const DailyPage = require("./daily").default;
-                    return <DailyPage workspaceId={activeWorkspace?.id} />;
-                  })()}
-                </React.Suspense>
+                <FeatureGuard feature="dailyCheckins" organisationId={organisationId} onNavigateBack={() => setView('home')}>
+                  <React.Suspense fallback={<div>Loading...</div>}>
+                    {(() => {
+                      const DailyPage = require("./daily").default;
+                      return <DailyPage workspaceId={activeWorkspace?.id} />;
+                    })()}
+                  </React.Suspense>
+                </FeatureGuard>
             );
     case 'teams':
-      return activeWorkspace ? <TeamsView workspace={activeWorkspace} /> : <div className="p-6">No workspace</div>;
+      return (
+        <FeatureGuard feature="teams" organisationId={organisationId} onNavigateBack={() => setView('home')}>
+          {activeWorkspace ? <TeamsView workspace={activeWorkspace} /> : <div className="p-6">No workspace</div>}
+        </FeatureGuard>
+      );
     case 'settings':
-      return activeWorkspace ? <SettingsView workspace={activeWorkspace} /> : <div className="p-6">No workspace</div>;
+      return (
+        <FeatureGuard feature="settings" organisationId={organisationId} onNavigateBack={() => setView('home')}>
+          {activeWorkspace ? <SettingsView workspace={activeWorkspace} /> : <div className="p-6">No workspace</div>}
+        </FeatureGuard>
+      );
     case 'accessibility':
-      return activeWorkspace ? (
-        <React.Suspense fallback={<div>Loading...</div>}>
-          {(() => {
-            const AccessibilityViewComp = require("./accessibility-view").default;
-            return <AccessibilityViewComp workspace={activeWorkspace} />;
-          })()}
-        </React.Suspense>
-      ) : <div className="p-6">No workspace</div>;
+      return (
+        <FeatureGuard feature="accessibility" organisationId={organisationId} onNavigateBack={() => setView('home')}>
+          {activeWorkspace ? (
+            <React.Suspense fallback={<div>Loading...</div>}>
+              {(() => {
+                const AccessibilityViewComp = require("./accessibility-view").default;
+                return <AccessibilityViewComp workspace={activeWorkspace} />;
+              })()}
+            </React.Suspense>
+          ) : <div className="p-6">No workspace</div>}
+        </FeatureGuard>
+      );
     case 'notifications':
-      return workspaceId ? <NotificationsView workspaceId={workspaceId} onBack={() => setView('home')} /> : <div className="p-6">No workspace</div>;
+      return (
+        <FeatureGuard feature="notifications" organisationId={organisationId} onNavigateBack={() => setView('home')}>
+          {workspaceId ? <NotificationsView workspaceId={workspaceId} onBack={() => setView('home')} /> : <div className="p-6">No workspace</div>}
+        </FeatureGuard>
+      );
     case 'documents':
       return activeWorkspace ? (
         <AllDocumentsView 
@@ -1137,12 +1164,22 @@ export function Dashboard() {
         />
       ) : <div className="p-6">No workspace</div>;
     case 'tags':
-      return activeWorkspace ? <TagsView workspace={activeWorkspace} onSelectDocument={handleSelect} /> : <div className="p-6">No workspace</div>;
+      return (
+        <FeatureGuard feature="tags" organisationId={organisationId} onNavigateBack={() => setView('home')}>
+          {activeWorkspace ? <TagsView workspace={activeWorkspace} onSelectDocument={handleSelect} /> : <div className="p-6">No workspace</div>}
+        </FeatureGuard>
+      );
     case 'renewals':
-      return workspaceId ? <RenewalsView workspaceId={workspaceId} onSelectDocument={handleSelect} /> : null;
+      return (
+        <FeatureGuard feature="renewals" organisationId={organisationId} onNavigateBack={() => setView('home')}>
+          {workspaceId ? <RenewalsView workspaceId={workspaceId} onSelectDocument={handleSelect} /> : null}
+        </FeatureGuard>
+      );
   /* Outstanding Evidence removed; evidence folders are part of main folders */
     case 'files':
-                if (selected?.type === "document") {
+      return (
+        <FeatureGuard feature="files" organisationId={organisationId} onNavigateBack={() => setView('home')}>
+          {selected?.type === "document" ? (() => {
                 // Use a custom onBack that prefers prevViewRef (if set) to return
                 // the user to the Policies page when they opened a policy from there.
                 const onDocBack = () => {
@@ -1155,8 +1192,7 @@ export function Dashboard() {
                   }
                 };
                 return <DocumentView document={selected} onBack={onDocBack} responseDetail={lastChatDetail} isChatOpen={isChatOpen} />;
-            }
-      return (
+            })() : (
         <FileBrowser
           key={activeWorkspace ? activeWorkspace.folders.map(f=>f.id).join('-') + '-' + activeWorkspace.folders.length : 'no-ws'}
           folder={currentFolder as Folder}
@@ -1169,68 +1205,88 @@ export function Dashboard() {
           breadcrumb={breadcrumb}
           onBreadcrumbClick={handleBreadcrumbClick}
         />
+      )}
+        </FeatureGuard>
       );
         case 'dependency-calculator':
             return (
-                <React.Suspense fallback={<div>Loading...</div>}>
-                  {(() => {
-                    const DependencyCalculatorPage = require("@/app/(protected)/dashboard/dependency-calculator/page").default;
-                    return <DependencyCalculatorPage />;
-                  })()}
-                </React.Suspense>
+                <FeatureGuard feature="dependencyCalculator" organisationId={organisationId} onNavigateBack={() => setView('home')}>
+                  <React.Suspense fallback={<div>Loading...</div>}>
+                    {(() => {
+                      const DependencyCalculatorPage = require("@/app/(protected)/dashboard/dependency-calculator/page").default;
+                      return <DependencyCalculatorPage />;
+                    })()}
+                  </React.Suspense>
+                </FeatureGuard>
             );
         case 'audits':
             return (
-                <React.Suspense fallback={<div>Loading...</div>}>
-                  {(() => {
-                    const AuditsPage = require("@/app/audits/page").default;
-                    return <AuditsPage />;
-                  })()}
-                </React.Suspense>
+                <FeatureGuard feature="audits" organisationId={organisationId} onNavigateBack={() => setView('home')}>
+                  <React.Suspense fallback={<div>Loading...</div>}>
+                    {(() => {
+                      const AuditsPage = require("@/app/audits/page").default;
+                      return <AuditsPage />;
+                    })()}
+                  </React.Suspense>
+                </FeatureGuard>
             );
     case 'stats':
-      return <StatsView workspaceId={workspaceId} organisationId={organisationId} />;
+      return (
+        <FeatureGuard feature="stats" organisationId={organisationId} onNavigateBack={() => setView('home')}>
+          <StatsView workspaceId={workspaceId} organisationId={organisationId} />
+        </FeatureGuard>
+      );
         case 'policies':
             return (
-                <React.Suspense fallback={<div>Loading...</div>}>
-                  {(() => {
-                    const PoliciesPage = require("@/app/policies/page").default;
-                    return <PoliciesPage />;
-                  })()}
-                </React.Suspense>
+                <FeatureGuard feature="policies" organisationId={organisationId} onNavigateBack={() => setView('home')}>
+                  <React.Suspense fallback={<div>Loading...</div>}>
+                    {(() => {
+                      const PoliciesPage = require("@/app/policies/page").default;
+                      return <PoliciesPage />;
+                    })()}
+                  </React.Suspense>
+                </FeatureGuard>
             );
         case 'appraisals':
             return (
-                <React.Suspense fallback={<div>Loading...</div>}>
-                  {(() => {
-                    const AppraisalsPage = require("@/app/(protected)/appraisals/page").default;
-                    return <AppraisalsPage />;
-                  })()}
-                </React.Suspense>
+                <FeatureGuard feature="appraisals" organisationId={organisationId} onNavigateBack={() => setView('home')}>
+                  <React.Suspense fallback={<div>Loading...</div>}>
+                    {(() => {
+                      const AppraisalsPage = require("@/app/(protected)/appraisals/page").default;
+                      return <AppraisalsPage />;
+                    })()}
+                  </React.Suspense>
+                </FeatureGuard>
             );
         case 'action-plans':
             return (
-                <React.Suspense fallback={<div>Loading...</div>}>
-                  {(() => {
-                    const ActionPlansPage = require("@/app/(protected)/action-plans/page").default;
-                    return <ActionPlansPage />;
-                  })()}
-                </React.Suspense>
+                <FeatureGuard feature="actionPlans" organisationId={organisationId} onNavigateBack={() => setView('home')}>
+                  <React.Suspense fallback={<div>Loading...</div>}>
+                    {(() => {
+                      const ActionPlansPage = require("@/app/(protected)/action-plans/page").default;
+                      return <ActionPlansPage />;
+                    })()}
+                  </React.Suspense>
+                </FeatureGuard>
             );
         case 'rotas':
-            return activeWorkspace ? (
-                <React.Suspense fallback={<div>Loading...</div>}>
-                  {(() => {
-                    const { RotasView } = require("@/components/rotas/rotas-view");
-                    return <RotasView workspace={activeWorkspace} />;
-                  })()}
-                </React.Suspense>
-            ) : (
-              <div className="container mx-auto py-8 px-4">
-                <div className="text-center">
-                  <p className="text-muted-foreground">Please select a workspace to view rotas</p>
-                </div>
-              </div>
+            return (
+              <FeatureGuard feature="rotas" organisationId={organisationId} onNavigateBack={() => setView('home')}>
+                {activeWorkspace ? (
+                  <React.Suspense fallback={<div>Loading...</div>}>
+                    {(() => {
+                      const { RotasView } = require("@/components/rotas/rotas-view");
+                      return <RotasView workspace={activeWorkspace} />;
+                    })()}
+                  </React.Suspense>
+                ) : (
+                  <div className="container mx-auto py-8 px-4">
+                    <div className="text-center">
+                      <p className="text-muted-foreground">Please select a workspace to view rotas</p>
+                    </div>
+                  </div>
+                )}
+              </FeatureGuard>
             );
     default:
        return <DashboardHome 
@@ -1300,7 +1356,7 @@ export function Dashboard() {
                   <X className={cn("w-5 h-5", isMobile && "w-4 h-4")} />
                 </Button>
               </div>
-              {(selected !== null) && (
+              {(selected !== null) && isEnabled('chatPanel') && (
                 <ChatPanel 
                   selectedItem={selected!}
                   onFolderAdd={async (folderName: string) => {
@@ -1329,14 +1385,15 @@ export function Dashboard() {
               )}
             </Card>
           ) : (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div
-                  className={cn({ "cursor-not-allowed": !selected })}
-                >
-                  <Button
-                    size={isMobile ? "default" : "lg"}
-                    className={cn(
+            isEnabled('chatPanel') && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div
+                    className={cn({ "cursor-not-allowed": !selected })}
+                  >
+                    <Button
+                      size={isMobile ? "default" : "lg"}
+                      className={cn(
                       "rounded-full shadow-lg transition-all duration-200",
                       isMobile
                         ? "w-14 h-14" // Smaller on mobile but still easily tappable
@@ -1360,6 +1417,7 @@ export function Dashboard() {
                 </TooltipContent>
               )}
             </Tooltip>
+            )
           )}
         </div>
         </TooltipProvider>

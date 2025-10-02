@@ -12,6 +12,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
+import FeatureManagement from '@/components/admin/feature-management';
 
 interface AdminSettingsProps {
   workspaces: any[];
@@ -176,9 +177,10 @@ export default function AdminSettings({ workspaces = [] }: AdminSettingsProps) {
       </div>
 
       <Tabs defaultValue="profile" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="profile">Owner Profile</TabsTrigger>
           <TabsTrigger value="workspaces">Workspaces</TabsTrigger>
+          <TabsTrigger value="features">Feature Management</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile" className="space-y-6">
@@ -354,6 +356,10 @@ export default function AdminSettings({ workspaces = [] }: AdminSettingsProps) {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="features" className="space-y-6">
+          <FeatureManagement organisationId={user?.organisationId} />
         </TabsContent>
       </Tabs>
     </div>

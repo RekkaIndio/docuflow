@@ -54,6 +54,7 @@ import {
 import { Input } from "../ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { useFeatureFlags } from "@/hooks/use-feature-flags";
 
 
 interface AppSidebarProps {
@@ -131,6 +132,12 @@ export function AppSidebar({
 }: AppSidebarProps) {
   const { user, signOut } = useAuth();
   const { isMobile, setOpenMobile, toggleSidebar, state } = useSidebar();
+  
+  // Get organisation ID from active workspace
+  const organisationId = (activeWorkspace as any)?.organisationId;
+  
+  // Load feature flags for the organisation
+  const { isEnabled, loading: flagsLoading } = useFeatureFlags(organisationId);
 
   const handleNavigation = (action: () => void) => {
     action();
@@ -181,88 +188,134 @@ export function AppSidebar({
       <SidebarContent>
         <SidebarMenu>
       
-      <SidebarMenuItem>
-         <SidebarMenuButton onClick={() => handleNavigation(() => setView('home'))} className="text-lg h-14">
-          <LayoutDashboard className="w-7 h-7 mr-2" />
-          <div className="flex items-center gap-2">
-            <span className="text-lg">Dashboard</span>
-            {!isTodayCompleted && (
-              <AlertCircle className="w-4 h-4 text-red-500 animate-pulse" />
-            )}
-          </div>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-      <SidebarMenuItem>
-         <SidebarMenuButton onClick={() => handleNavigation(() => setView('dependency-calculator'))} className="text-lg h-14">
-          <UsersRound className="w-7 h-7 mr-2" />
-          <span className="text-lg">Dependency</span>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton onClick={() => handleNavigation(() => setView('audits'))} className="text-lg h-14">
-                <Tag className="w-7 h-7 mr-2" />
-                <span className="text-lg">Audits</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton onClick={() => handleNavigation(() => setView('action-plans'))} className="text-lg h-14">
-                <ClipboardList className="w-7 h-7 mr-2" />
-                <span className="text-lg">Action Plans</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton onClick={() => handleNavigation(() => setView('policies'))} className="text-lg h-14">
-                <Tag className="w-7 h-7 mr-2" />
-                <span className="text-lg">Policies</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton onClick={() => handleNavigation(() => setView('appraisals'))} className="text-lg h-14">
-                <ClipboardList className="w-7 h-7 mr-2" />
-                <span className="text-lg">Supervisions</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton onClick={() => handleNavigation(() => setView('rotas'))} className="text-lg h-14">
-                <Calendar className="w-7 h-7 mr-2" />
-                <span className="text-lg">Rotas</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-      <SidebarMenuItem>
-         <SidebarMenuButton onClick={() => handleNavigation(onGoToFiles)} className="text-lg h-14">
-          <FolderIcon className="w-7 h-7 mr-2" />
-          <span className="text-lg">Folders</span>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-             <SidebarMenuItem>
-        <SidebarMenuButton onClick={() => handleNavigation(() => setView('teams'))} className="text-lg h-14">
-          <UsersRound className="w-7 h-7 mr-2" />
-          <span className="text-lg">Teams</span>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton onClick={() => handleNavigation(() => setView('stats'))} className="text-lg h-14">
-                <BarChart3 className="w-7 h-7 mr-2" />
-                <span className="text-lg">Stats</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
+      {/* Dashboard - Always visible (core feature) */}
+      {isEnabled('dashboard') && (
+        <SidebarMenuItem>
+          <SidebarMenuButton onClick={() => handleNavigation(() => setView('home'))} className="text-lg h-14">
+            <LayoutDashboard className="w-7 h-7 mr-2" />
+            <div className="flex items-center gap-2">
+              <span className="text-lg">Dashboard</span>
+              {!isTodayCompleted && (
+                <AlertCircle className="w-4 h-4 text-red-500 animate-pulse" />
+              )}
+            </div>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      )}
+      
+      {/* Dependency Calculator */}
+      {isEnabled('dependencyCalculator') && (
+        <SidebarMenuItem>
+          <SidebarMenuButton onClick={() => handleNavigation(() => setView('dependency-calculator'))} className="text-lg h-14">
+            <UsersRound className="w-7 h-7 mr-2" />
+            <span className="text-lg">Dependency</span>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      )}
+      
+      {/* Audits */}
+      {isEnabled('audits') && (
+        <SidebarMenuItem>
+          <SidebarMenuButton onClick={() => handleNavigation(() => setView('audits'))} className="text-lg h-14">
+            <Tag className="w-7 h-7 mr-2" />
+            <span className="text-lg">Audits</span>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      )}
+      
+      {/* Action Plans */}
+      {isEnabled('actionPlans') && (
+        <SidebarMenuItem>
+          <SidebarMenuButton onClick={() => handleNavigation(() => setView('action-plans'))} className="text-lg h-14">
+            <ClipboardList className="w-7 h-7 mr-2" />
+            <span className="text-lg">Action Plans</span>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      )}
+      
+      {/* Policies */}
+      {isEnabled('policies') && (
+        <SidebarMenuItem>
+          <SidebarMenuButton onClick={() => handleNavigation(() => setView('policies'))} className="text-lg h-14">
+            <Tag className="w-7 h-7 mr-2" />
+            <span className="text-lg">Policies</span>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      )}
+      
+      {/* Appraisals/Supervisions */}
+      {isEnabled('appraisals') && (
+        <SidebarMenuItem>
+          <SidebarMenuButton onClick={() => handleNavigation(() => setView('appraisals'))} className="text-lg h-14">
+            <ClipboardList className="w-7 h-7 mr-2" />
+            <span className="text-lg">Supervisions</span>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      )}
+      
+      {/* Rotas */}
+      {isEnabled('rotas') && (
+        <SidebarMenuItem>
+          <SidebarMenuButton onClick={() => handleNavigation(() => setView('rotas'))} className="text-lg h-14">
+            <Calendar className="w-7 h-7 mr-2" />
+            <span className="text-lg">Rotas</span>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      )}
+      
+      {/* Files/Folders - Always visible (core feature) */}
+      {isEnabled('files') && (
+        <SidebarMenuItem>
+          <SidebarMenuButton onClick={() => handleNavigation(onGoToFiles)} className="text-lg h-14">
+            <FolderIcon className="w-7 h-7 mr-2" />
+            <span className="text-lg">Folders</span>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      )}
+      
+      {/* Teams */}
+      {isEnabled('teams') && (
+        <SidebarMenuItem>
+          <SidebarMenuButton onClick={() => handleNavigation(() => setView('teams'))} className="text-lg h-14">
+            <UsersRound className="w-7 h-7 mr-2" />
+            <span className="text-lg">Teams</span>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      )}
+      
+      {/* Stats */}
+      {isEnabled('stats') && (
+        <SidebarMenuItem>
+          <SidebarMenuButton onClick={() => handleNavigation(() => setView('stats'))} className="text-lg h-14">
+            <BarChart3 className="w-7 h-7 mr-2" />
+            <span className="text-lg">Stats</span>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      )}
+      
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter>
         <div className="w-full">
           <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton onClick={() => handleNavigation(() => setView('accessibility'))} className="text-lg h-12">
-                <Accessibility className="w-6 h-6 mr-2" />
-                <span className="text-sm">Accessibility</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton onClick={() => handleNavigation(() => setView('settings'))} className="text-lg h-12">
-                <Settings className="w-6 h-6 mr-2" />
-                <span className="text-sm">Settings</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
+            {/* Accessibility - Always visible (core feature) */}
+            {isEnabled('accessibility') && (
+              <SidebarMenuItem>
+                <SidebarMenuButton onClick={() => handleNavigation(() => setView('accessibility'))} className="text-lg h-12">
+                  <Accessibility className="w-6 h-6 mr-2" />
+                  <span className="text-sm">Accessibility</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
+            {/* Settings - Always visible (core feature) */}
+            {isEnabled('settings') && (
+              <SidebarMenuItem>
+                <SidebarMenuButton onClick={() => handleNavigation(() => setView('settings'))} className="text-lg h-12">
+                  <Settings className="w-6 h-6 mr-2" />
+                  <span className="text-sm">Settings</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
           </SidebarMenu>
         </div>
       </SidebarFooter>
