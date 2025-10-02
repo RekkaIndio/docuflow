@@ -28,6 +28,7 @@ import {
     CommandList,
   } from "@/components/ui/command";
 import { db } from "@/lib/firebase";
+import { workspaceDocPath } from '@/lib/paths';
 import { doc, onSnapshot } from "firebase/firestore";
 
 
@@ -196,9 +197,7 @@ export function AdminChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         const orgId = organisationIdFromSelected;
         if (workspaceId) {
           try {
-            const wsDocRef = orgId
-              ? doc(db, 'organisations', orgId, 'workspaces', workspaceId)
-              : doc(db, 'workspaces', workspaceId);
+            const wsDocRef = doc(db, workspaceDocPath(workspaceId, undefined, orgId || null));
             const wsSnap = await (await import('firebase/firestore')).getDoc(wsDocRef);
             if (wsSnap.exists()) {
               const data = wsSnap.data();

@@ -1,5 +1,6 @@
 // Search documents in a workspace by name, tags, or summary (case-insensitive substring match)
 import { workspaceDocPath, workspaceCollectionPath } from './paths';
+import { AUDIT_TYPES } from './audit-types';
 
 export async function searchDocumentsInWorkspace(workspaceId: string, queryStr: string, orgId?: string | null): Promise<Document[]> {
     // Load all documents in workspace (org-aware)
@@ -94,7 +95,7 @@ export async function deleteDocument(workspaceId: string, documentId: string, or
 }
 
 
-import { collection, getDocs, doc, getDoc, addDoc, query, where, Timestamp, setDoc, deleteDoc, writeBatch, updateDoc, orderBy, limit } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc, addDoc, query, where, Timestamp, setDoc, deleteDoc, writeBatch, updateDoc, orderBy, limit, serverTimestamp } from "firebase/firestore";
 import type { Workspace, Folder, Document, User } from './types';
 import { db, storage } from './firebase';
 import { ref, deleteObject, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -407,13 +408,11 @@ export async function getAllWorkspaces(orgId?: string): Promise<Workspace[]> {
 // Save a daily check-in document under workspaces/{workspaceId}/daily-checkins
 export async function saveDailyCheckin(workspaceId: string, data: any, orgId?: string | null): Promise<string> {
     try {
-    // If caller provided orgId, prefer it. Otherwise attempt to derive it (fallback)
+    // If caller provided orgId, prefer it. Otherwise attempt to derive it via admin API (safer than client-side reads)
     let resolvedOrgId: string | null = orgId ?? null;
     if (!resolvedOrgId) {
       try {
-        const wsRef = doc(db, 'workspaces', workspaceId);
-        const wsSnap = await getDoc(wsRef);
-        if (wsSnap.exists()) resolvedOrgId = (wsSnap.data() as any)?.organisationId || null;
+        resolvedOrgId = await resolveWorkspaceOrgId(workspaceId);
       } catch (e) {
         console.warn('Failed to resolve organisationId for workspace when saving daily checkin', e);
       }
@@ -492,9 +491,7 @@ export async function updateDailyCheckin(workspaceId: string, checkinId: string,
         let resolvedOrgId: string | null = orgId ?? null;
         if (!resolvedOrgId) {
             try {
-                const wsRef = doc(db, 'workspaces', workspaceId);
-                const wsSnap = await getDoc(wsRef);
-                if (wsSnap.exists()) resolvedOrgId = (wsSnap.data() as any)?.organisationId || null;
+                resolvedOrgId = await resolveWorkspaceOrgId(workspaceId);
             } catch (e) {
                 console.warn('Failed to resolve organisationId for workspace when updating daily checkin', e);
             }
@@ -797,15 +794,11 @@ async function generateAndSaveAuditPDF(workspaceId: string, auditType: string, a
  */
 export async function getMonthlyAuditCompletionStatus(workspaceId: string, orgId?: string | null): Promise<Record<string, boolean>> {
     try {
-        const auditTypes = [
-            'accident-incident', 'call-bell-monitoring', 'care-plan', 'equipment',
-            'fire-safety', 'hand-hygiene', 'health-safety', 'infection-control',
-            'kitchen', 'maintenance', 'managers-weekly', 'mealtime', 'night-visit',
-            'restrictive-practice', 'staff-file', 'weight-monitoring', 'wound-monitoring',
-            'risk-register'
-        ];
+        const auditTypes = AUDIT_TYPES;
 
-        const result: Record<string, boolean> = {};
+        const result: Record<string, boolean> = Object.fromEntries(
+            auditTypes.map((type) => [type, false])
+        );
 
         const date = new Date();
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -847,17 +840,11 @@ export function getCurrentMonthKey(): string {
 export async function getMonthlyAuditSnapshots(workspaceId: string, monthKey?: string, orgId?: string | null): Promise<Record<string, any[]>> {
     try {
         const targetMonth = monthKey || getCurrentMonthKey();
-        const result: Record<string, any[]> = {};
+        const result: Record<string, any[]> = Object.fromEntries(
+            AUDIT_TYPES.map((type) => [type, [] as any[]])
+        );
         
-        const auditTypes = [
-            'accident-incident', 'call-bell-monitoring', 'care-plan', 'equipment', 
-            'fire-safety', 'hand-hygiene', 'health-safety', 'infection-control', 
-            'kitchen', 'maintenance', 'managers-weekly', 'mealtime', 'night-visit', 
-            'restrictive-practice', 'staff-file', 'weight-monitoring', 'wound-monitoring', 
-            'risk-register'
-        ];
-        
-        for (const auditType of auditTypes) {
+        for (const auditType of AUDIT_TYPES) {
             const snapshotQuery = query(
                 collection(db, workspaceCollectionPath(workspaceId, `audit-snapshots/${targetMonth}/${auditType}`, orgId || null))
             );
@@ -1117,14 +1104,12 @@ export async function deleteDailyCheckin(workspaceId: string, checkinId: string,
         let resolvedOrgId: string | null = orgId ?? null;
         if (!resolvedOrgId) {
             try {
-                const wsRef = doc(db, 'workspaces', workspaceId);
-                const wsSnap = await getDoc(wsRef);
-                if (wsSnap.exists()) resolvedOrgId = (wsSnap.data() as any)?.organisationId || null;
+                resolvedOrgId = await resolveWorkspaceOrgId(workspaceId);
             } catch (e) {
                 console.warn('Failed to resolve organisationId for workspace when deleting daily checkin', e);
             }
         }
-        const docRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'daily-checkins', resolvedOrgId || null)), checkinId);
+         const docRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'daily-checkins', resolvedOrgId || null)), checkinId);
                 await deleteDoc(docRef);
     } catch (e) {
         console.error('Failed to delete daily checkin', e);
@@ -1138,9 +1123,7 @@ export async function getDailyCheckinsInRange(workspaceId: string, fromTs: any, 
         let resolvedOrgId: string | null = orgId ?? null;
         if (!resolvedOrgId) {
             try {
-                const wsRef = doc(db, 'workspaces', workspaceId);
-                const wsSnap = await getDoc(wsRef);
-                if (wsSnap.exists()) resolvedOrgId = (wsSnap.data() as any)?.organisationId || null;
+                resolvedOrgId = await resolveWorkspaceOrgId(workspaceId);
             } catch (e) {
                 console.warn('Failed to resolve organisationId for workspace when querying daily checkins', e);
             }
@@ -1169,9 +1152,7 @@ export async function getLatestDailyCheckin(workspaceId: string, orgId?: string 
         let resolvedOrgId: string | null = orgId ?? null;
         if (!resolvedOrgId) {
             try {
-                const wsRef = doc(db, 'workspaces', workspaceId);
-                const wsSnap = await getDoc(wsRef);
-                if (wsSnap.exists()) resolvedOrgId = (wsSnap.data() as any)?.organisationId || null;
+                resolvedOrgId = await resolveWorkspaceOrgId(workspaceId);
             } catch (e) {
                 console.warn('Failed to resolve organisationId for workspace when fetching latest daily checkin', e);
             }
@@ -1429,5 +1410,85 @@ export async function createUserInFirestore(user: User) {
                 console.error('Failed to create top-level user doc as fallback', innerErr);
             }
         }
+    }
+}
+
+/**
+ * Ensure an organisation-scoped user doc exists for the given userId.
+ * This is safe for the user to call (security rules allow users to create their
+ * own organisations/{orgId}/users/{uid} doc). Returns true if the doc exists or
+ * was successfully created, false on error.
+ */
+export async function ensureOrgUserRecord(userId: string, organisationId: string, data?: Partial<User>): Promise<boolean> {
+    try {
+        if (!userId || !organisationId) return false;
+        const ref = doc(db, `organisations/${organisationId}/users`, userId);
+        const snap = await getDoc(ref);
+        if (snap.exists()) return true;
+
+        const payload: any = {
+            id: userId,
+            organisationId,
+            name: data?.name || null,
+            email: data?.email || null,
+            role: (data as any)?.role || 'Member',
+            createdAt: serverTimestamp()
+        };
+        await setDoc(ref, payload, { merge: true });
+        console.debug('ensureOrgUserRecord: created org user record', userId, organisationId);
+        return true;
+    } catch (e) {
+        console.error('ensureOrgUserRecord failed', e);
+        return false;
+    }
+}
+
+/**
+ * Return a safe CollectionReference for an organisation-aware workspace path.
+ * Returns null when workspaceId is missing or the computed path is empty.
+ */
+export function getWorkspaceCollectionRef(workspaceId?: string | null, subpath?: string, organisationId?: string | null): any | null {
+    if (!workspaceId) return null;
+    const path = workspaceCollectionPath(workspaceId, subpath || '', organisationId ?? null);
+    if (!path) return null;
+    try {
+        return collection(db, path) as any;
+    } catch (err) {
+        console.warn('[getWorkspaceCollectionRef] invalid path', path, err);
+        return null;
+    }
+}
+
+/**
+ * Return a safe DocumentReference for an organisation-aware workspace path.
+ * Returns null when workspaceId is missing or the computed path is empty.
+ */
+export function getWorkspaceDocRef(workspaceId?: string | null, subpath?: string, docId?: string, organisationId?: string | null): any | null {
+    if (!workspaceId || !docId) return null;
+    const path = workspaceCollectionPath(workspaceId, subpath || '', organisationId ?? null);
+    if (!path) return null;
+    try {
+        return doc(collection(db, path), docId) as any;
+    } catch (err) {
+        console.warn('[getWorkspaceDocRef] invalid path', path, err);
+        return null;
+    }
+}
+
+/**
+ * Resolve a workspace's organisationId by asking the admin API. Returns null when unknown.
+ * This avoids attempting client-side reads of workspaces/{id} when the workspace is org-scoped (which
+ * would be denied by Firestore rules for ordinary users).
+ */
+async function resolveWorkspaceOrgId(workspaceId: string): Promise<string | null> {
+    if (!workspaceId) return null;
+    try {
+        const resp = await fetch(`/api/admin/workspaces/${encodeURIComponent(workspaceId)}`);
+        if (!resp.ok) return null;
+        const data = await resp.json();
+        return data?.organisationId ?? null;
+    } catch (e) {
+        console.debug('resolveWorkspaceOrgId: admin API lookup failed', e);
+        return null;
     }
 }

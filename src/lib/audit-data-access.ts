@@ -1,6 +1,7 @@
 import { collection, getDocs, query, orderBy, limit, where, doc, getDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import { workspaceCollectionPath } from './paths';
+import { AUDIT_TYPES } from './audit-types';
 
 // Define audit data interface
 interface AuditData {
@@ -323,39 +324,15 @@ export async function getMonthlyAuditCompletionStatus(workspaceId: string): Prom
     const snapshot = await getDocs(q);
 
     // Get all audit types that should exist
-    const allAuditTypes = [
-      'hand-hygiene',
-      'accident-incident',
-      'call-bell-monitoring',
-      'care-plan',
-      'equipment',
-      'fire-safety',
-      'health-safety',
-      'infection-control',
-      'kitchen',
-      'maintenance',
-      'managers-weekly',
-      'mealtime',
-      'night-visit',
-      'restrictive-practice',
-      'staff-file',
-      'weight-monitoring',
-      'wound-monitoring',
-      'risk-register'
-    ];
-
-    const completionStatus: Record<string, boolean> = {};
-
-    // Initialize all as false
-    allAuditTypes.forEach(type => {
-      completionStatus[type] = false;
-    });
+    const completionStatus: Record<string, boolean> = Object.fromEntries(
+      AUDIT_TYPES.map((type) => [type, false])
+    );
 
     // Mark completed audits as true
     snapshot.docs.forEach(doc => {
       const data = doc.data() as any;
       const auditType = data.auditType;
-      if (auditType && allAuditTypes.includes(auditType)) {
+      if (auditType && completionStatus.hasOwnProperty(auditType)) {
         completionStatus[auditType] = true;
       }
     });

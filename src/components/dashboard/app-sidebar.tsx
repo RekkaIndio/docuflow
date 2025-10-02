@@ -27,6 +27,7 @@ import {
   BarChart3,
   ClipboardList,
   AlertCircle,
+  Calendar,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Logo } from "@/components/icons/logo";
@@ -59,7 +60,7 @@ interface AppSidebarProps {
   workspaces: Workspace[];
   activeWorkspace: Workspace | null;
   onWorkspaceChange: (workspaceId: string) => void;
-  setView: React.Dispatch<React.SetStateAction<'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'dependency-calculator' | 'daily' | 'notifications' | 'audits' | 'policies' | 'stats' | 'action-plans' | 'appraisals'>>;
+  setView: React.Dispatch<React.SetStateAction<'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'dependency-calculator' | 'daily' | 'notifications' | 'audits' | 'policies' | 'stats' | 'action-plans' | 'appraisals' | 'rotas'>>;
   onGoToFiles: () => void;
   onCreateWorkspace: (name: string) => void;
   dailyEntry?: any;
@@ -219,6 +220,12 @@ export function AppSidebar({
               <SidebarMenuButton onClick={() => handleNavigation(() => setView('appraisals'))} className="text-lg h-14">
                 <ClipboardList className="w-7 h-7 mr-2" />
                 <span className="text-lg">Supervisions</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={() => handleNavigation(() => setView('rotas'))} className="text-lg h-14">
+                <Calendar className="w-7 h-7 mr-2" />
+                <span className="text-lg">Rotas</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
       <SidebarMenuItem>

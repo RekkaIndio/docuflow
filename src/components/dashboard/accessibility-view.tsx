@@ -365,3 +365,6 @@ export function AccessibilityView({ workspace }: AccessibilityViewProps) {
         </div>
     );
 }
+
+// Also provide a default export for simpler imports
+export default AccessibilityView;

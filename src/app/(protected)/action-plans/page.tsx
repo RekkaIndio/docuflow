@@ -13,6 +13,7 @@ import { generateActionPlanPDF, getActionPlanPDFFilename, ActionPlanPDFData } fr
 import { db } from '@/lib/firebase';
 import { finalizeActionPlan } from '@/actions/action-plans';
 import { useToast } from '@/hooks/use-toast';
+import PageHeader from '../../../components/page-header';
 
 export default function ActionPlansPage() {
   const activeWorkspace = useWorkspace();
@@ -60,7 +61,7 @@ export default function ActionPlansPage() {
     setLoading(true);
     try {
       // Load action plan
-      const plan = await getMonthlyActionPlan(activeWorkspace.id, currentMonthKey);
+  const plan = await getMonthlyActionPlan(activeWorkspace.id, currentMonthKey, activeWorkspace.organisationId || null);
       setActionPlan(plan);
 
       // Load audit completion status
@@ -68,7 +69,7 @@ export default function ActionPlansPage() {
       setAuditCompletionStatus(auditStatus);
 
       // Check if all audits are completed
-      const allCompleted = await areAllAuditsCompleted(activeWorkspace.id, currentMonthKey);
+  const allCompleted = await areAllAuditsCompleted(activeWorkspace.id, currentMonthKey, activeWorkspace.organisationId || null);
       setAllAuditsCompleted(allCompleted);
 
       // Initialize expanded sections - expand sections with high priority items by default
@@ -379,97 +380,7 @@ export default function ActionPlansPage() {
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600/90 to-indigo-600/90 text-white p-6 rounded-b-xl relative overflow-hidden">
-        {/* Subtle background pattern */}
-        <div className="absolute inset-0 opacity-5">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full -translate-y-48 translate-x-48"></div>
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-400 rounded-full translate-y-32 -translate-x-32"></div>
-        </div>
-        
-        <div className="w-full mx-auto flex items-start justify-between gap-8 relative z-10">
-          <div className="flex items-start gap-6">
-            <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg">
-              <CheckCircle className="w-12 h-12 text-white" />
-            </div>
-            <div className="space-y-2">
-              <h1 className="text-3xl font-bold leading-tight tracking-tight">Action Plans</h1>
-              <p className="text-slate-200 text-base leading-relaxed">Track and correct issues identified from monthly audits to maintain compliance standards</p>
-            </div>
-          </div>
-
-          <div className="hidden xl:flex items-center gap-6">
-            <div className="grid grid-cols-4 gap-3">
-              <div className="p-3 bg-white/6 rounded-lg border border-white/10 shadow-sm hover:bg-white/10 transition-colors duration-150">
-                <div className="flex items-center gap-4">
-                  <div className="p-2 bg-red-500/20 rounded-lg">
-                    <AlertCircle className="w-5 h-5 text-red-300" />
-                  </div>
-                  <div>
-                    <div className="text-xs text-slate-300 font-medium uppercase tracking-wide">Issues Found</div>
-                    <div className="text-2xl font-bold text-white">{actionPlan?.totalItems || 0}</div>
-                  </div>
-                </div>
-              </div>
-              {canFinalizePlan && (
-                <div>
-                  <button
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg shadow hover:bg-green-700"
-                    onClick={async () => {
-                      if (!activeWorkspace?.id || !actionPlan) return;
-                      try {
-                        // Call server action to finalize and save PDF
-                        const res = await finalizeActionPlan(activeWorkspace.id, currentMonthKey);
-                        toast({ title: 'Action plan finalized', description: 'Saved to Action Plans folder.' });
-                        // reload
-                        loadActionPlanData();
-                      } catch (e) {
-                        console.error('Finalize failed', e);
-                        toast({ title: 'Failed to finalize', description: 'See console for details.' });
-                      }
-                    }}
-                  >
-                    <FileCheck className="w-4 h-4" />
-                    Complete action
-                  </button>
-                </div>
-              )}
-              <div className="p-3 bg-white/6 rounded-lg border border-white/10 shadow-sm hover:bg-white/10 transition-colors duration-150">
-                <div className="flex items-center gap-4">
-                  <div className="p-2 bg-blue-500/20 rounded-lg">
-                    <Clock className="w-5 h-5 text-blue-300" />
-                  </div>
-                  <div>
-                    <div className="text-xs text-slate-300 font-medium uppercase tracking-wide">Pending</div>
-                    <div className="text-2xl font-bold text-white">{(actionPlan?.totalItems || 0) - (actionPlan?.completedItems || 0)}</div>
-                  </div>
-                </div>
-              </div>
-              <div className="p-3 bg-white/6 rounded-lg border border-white/10 shadow-sm hover:bg-white/10 transition-colors duration-150">
-                <div className="flex items-center gap-4">
-                  <div className="p-2 bg-green-500/20 rounded-lg">
-                    <CheckCircle className="w-5 h-5 text-green-300" />
-                  </div>
-                  <div>
-                    <div className="text-xs text-slate-300 font-medium uppercase tracking-wide">Completed</div>
-                    <div className="text-2xl font-bold text-white">{actionPlan?.completedItems || 0}</div>
-                  </div>
-                </div>
-              </div>
-              <div className="p-3 bg-white/6 rounded-lg border border-white/10 shadow-sm hover:bg-white/10 transition-colors duration-150">
-                <div className="flex items-center gap-4">
-                  <div className="p-2 bg-purple-500/20 rounded-lg">
-                    <FileCheck className="w-5 h-5 text-purple-300" />
-                  </div>
-                  <div>
-                    <div className="text-xs text-slate-300 font-medium uppercase tracking-wide">Progress</div>
-                    <div className="text-2xl font-bold text-white">{actionPlan?.progressPercent || 0}%</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <PageHeader title="Monthly Action Plans" subtitle={currentMonthName} />
 
   {/* Main Content Container */}
   <div className="pt-6 px-4">

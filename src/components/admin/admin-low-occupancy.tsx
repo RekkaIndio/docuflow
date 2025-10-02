@@ -32,7 +32,7 @@ export default function AdminLowOccupancy({ workspaces }: AdminLowOccupancyProps
 
   if (lowOccupancyWorkspaces.length === 0) {
     return (
-      <div className="mb-8">
+      <div className="mb-10 space-y-6">
         {/* Header Section */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
@@ -52,13 +52,13 @@ export default function AdminLowOccupancy({ workspaces }: AdminLowOccupancyProps
           </div>
         </div>
 
-        <Card className="group relative overflow-hidden bg-gradient-to-br from-green-50 via-white to-green-50/50 border-0 shadow-lg hover:shadow-xl transition-all duration-300">
+        <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-white/80 via-emerald-50/50 to-white/85 backdrop-blur-xl shadow-2xl hover:shadow-[0_40px_120px_rgba(16,185,129,0.25)] transition-all duration-500">
           {/* Animated background elements */}
-          <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-transparent"></div>
-          <div className="absolute top-0 right-0 w-32 h-32 bg-green-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-green-100/40 transition-colors duration-300"></div>
-          <div className="absolute bottom-0 left-0 w-24 h-24 bg-green-200/20 rounded-full -ml-12 -mb-12"></div>
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-400/15 via-teal-400/10 to-transparent"></div>
+          <div className="absolute top-0 right-0 w-40 h-40 bg-emerald-200/25 rounded-full -mr-20 -mt-16 blur-2xl group-hover:bg-emerald-200/35 transition-colors duration-500"></div>
+          <div className="absolute bottom-0 left-0 w-32 h-32 bg-teal-200/20 rounded-full -ml-16 -mb-14 blur-2xl"></div>
 
-          <CardContent className="relative p-8">
+          <CardContent className="relative p-8 lg:p-10">
             <div className="text-center py-12">
               <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl shadow-lg mb-6">
                 <CheckCircle className="w-10 h-10 text-white" />
@@ -75,11 +75,11 @@ export default function AdminLowOccupancy({ workspaces }: AdminLowOccupancyProps
   }
 
   return (
-    <div className="mb-8">
+    <div className="mb-10 space-y-6">
       {/* Header Section */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl shadow-lg">
+          <div className="p-2 bg-gradient-to-br from-amber-500 to-rose-600 rounded-xl shadow-lg">
             <AlertTriangle className="w-6 h-6 text-white" />
           </div>
           <div>
@@ -95,13 +95,13 @@ export default function AdminLowOccupancy({ workspaces }: AdminLowOccupancyProps
         </div>
       </div>
 
-      <Card className="group relative overflow-hidden bg-gradient-to-br from-orange-50 via-white to-orange-50/50 border-0 shadow-lg hover:shadow-xl transition-all duration-300">
+      <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-white/80 via-amber-50/50 to-white/85 backdrop-blur-xl shadow-2xl hover:shadow-[0_40px_120px_rgba(249,115,22,0.25)] transition-all duration-500">
         {/* Animated background elements */}
-        <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-transparent"></div>
-        <div className="absolute top-0 right-0 w-32 h-32 bg-orange-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-orange-100/40 transition-colors duration-300"></div>
-        <div className="absolute bottom-0 left-0 w-24 h-24 bg-orange-200/20 rounded-full -ml-12 -mb-12"></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-amber-400/15 via-rose-400/10 to-transparent"></div>
+        <div className="absolute top-0 right-0 w-40 h-40 bg-amber-200/25 rounded-full -mr-20 -mt-16 blur-2xl group-hover:bg-amber-200/35 transition-colors duration-500"></div>
+        <div className="absolute bottom-0 left-0 w-32 h-32 bg-rose-200/20 rounded-full -ml-16 -mb-14 blur-2xl"></div>
 
-        <CardContent className="relative p-8">
+        <CardContent className="relative p-8 lg:p-10">
           <div className="space-y-4">
             {lowOccupancyWorkspaces.map((w: any) => {
               const occupancy = typeof w.occupancy === 'number'
@@ -110,7 +110,7 @@ export default function AdminLowOccupancy({ workspaces }: AdminLowOccupancyProps
               const occupancyPercent = Math.round(occupancy * 100);
 
               return (
-                <div key={`low-${w.id}`} className="group/workspace flex items-center justify-between p-6 bg-gradient-to-r from-white/60 to-white/30 backdrop-blur-sm border border-orange-200/50 rounded-2xl hover:shadow-lg hover:scale-[1.02] transition-all duration-300 cursor-pointer">
+                <div key={`low-${w.id}`} className="group/workspace flex items-center justify-between p-6 bg-gradient-to-r from-white/75 to-amber-50/40 backdrop-blur-lg border border-white/40 rounded-2xl hover:shadow-xl hover:scale-[1.02] transition-all duration-300 cursor-pointer">
                   <div className="flex items-center gap-4">
                     <div className="relative">
                       <div className="w-16 h-16 flex items-center justify-center bg-white rounded-2xl shadow-sm group-hover/workspace:shadow-md transition-shadow duration-300">
@@ -156,7 +156,7 @@ export default function AdminLowOccupancy({ workspaces }: AdminLowOccupancyProps
             })}
           </div>
 
-          <div className="mt-8 pt-6 border-t border-orange-200/50">
+          <div className="mt-8 pt-6 border-t border-white/40">
             <div className="flex items-center justify-center gap-4 text-sm text-gray-600">
               <div className="flex items-center gap-2">
                 <TrendingDown className="w-4 h-4 text-orange-500" />

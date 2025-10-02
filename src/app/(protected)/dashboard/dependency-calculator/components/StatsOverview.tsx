@@ -256,14 +256,10 @@ export function StatsOverview({
             const breakdown = calculateStaffBreakdown(residents);
             return (
               <>
-                {/* Day Shift Breakdown */}
+                {/* Day Shift Breakdown (no nurses) */}
                 <div className="mb-3">
                   <div className="text-sm font-semibold text-amber-200 mb-2">Day Shift</div>
-                  <div className="grid grid-cols-4 gap-1 text-center">
-                    <div className="bg-white/10 rounded-lg p-2">
-                      <div className="text-sm font-bold text-white">{breakdown.Day.nurses}</div>
-                      <div className="text-xs text-amber-200">Nurses</div>
-                    </div>
+                  <div className="grid grid-cols-3 gap-1 text-center">
                     <div className="bg-white/10 rounded-lg p-2">
                       <div className="text-sm font-bold text-white">{breakdown.Day.ctms}</div>
                       <div className="text-xs text-amber-200">CTMs</div>
@@ -279,14 +275,10 @@ export function StatsOverview({
                   </div>
                 </div>
 
-                {/* Night Shift Breakdown */}
+                {/* Night Shift Breakdown (no nurses) */}
                 <div className="mb-3">
                   <div className="text-sm font-semibold text-amber-200 mb-2">Night Shift</div>
-                  <div className="grid grid-cols-4 gap-1 text-center">
-                    <div className="bg-white/10 rounded-lg p-2">
-                      <div className="text-sm font-bold text-white">{breakdown.Night.nurses}</div>
-                      <div className="text-xs text-amber-200">Nurses</div>
-                    </div>
+                  <div className="grid grid-cols-3 gap-1 text-center">
                     <div className="bg-white/10 rounded-lg p-2">
                       <div className="text-sm font-bold text-white">{breakdown.Night.ctms}</div>
                       <div className="text-xs text-amber-200">CTMs</div>

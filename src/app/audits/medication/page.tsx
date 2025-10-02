@@ -428,6 +428,11 @@ export default function MedicationAuditPage() {
       alert('No active workspace selected. Please choose a workspace before saving audits.');
       return;
     }
+    if (!activeWorkspace.organisationId) {
+      console.warn('No organisationId found on activeWorkspace. This will cause Firestore permission errors.');
+      alert('Your workspace is missing an organisation. Please contact support or try reloading.');
+      return;
+    }
     const workspaceId = activeWorkspace.id;
     const payload = {
       ...data,
@@ -435,15 +440,15 @@ export default function MedicationAuditPage() {
       createActionPlan: !!createActionPlan,
       createdBy: authUser?.id ?? null,
       workspaceId,
-      organisationId: activeWorkspace.organisationId || null,
+      organisationId: activeWorkspace.organisationId,
     };
 
     try {
       setSaving(true);
-      const id = await saveAudit(payload, workspaceId, activeWorkspace.organisationId || null);
+      const id = await saveAudit(payload, workspaceId, activeWorkspace.organisationId);
       setSavedAuditId(id);
       try {
-        await markAuditCompleted(workspaceId, 'medication', new Date().toISOString(), activeWorkspace.organisationId || null);
+        await markAuditCompleted(workspaceId, 'medication', new Date().toISOString(), activeWorkspace.organisationId);
       } catch (e) {
         console.warn('Failed to mark audit completed', e);
       }

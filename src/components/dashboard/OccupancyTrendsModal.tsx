@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Users, TrendingUp, TrendingDown, Minus, Calendar, BarChart3, Target, Activity } from 'lucide-react';
 import { collection, query, orderBy, limit, onSnapshot, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { getWorkspaceCollectionRef } from '@/lib/firestore';
 import { workspaceCollectionPath } from '@/lib/paths';
 
 interface OccupancyTrendsModalProps {
@@ -34,7 +35,9 @@ const OccupancyTrendsModal = ({ isOpen, onClose, workspaceId }: OccupancyTrendsM
 
     setLoading(true);
     try {
-  const colRef = collection(db, workspaceCollectionPath(workspaceId, 'daily-checkins'));
+  const colRef = getWorkspaceCollectionRef(workspaceId, 'daily-checkins', null);
+  if (!colRef) return;
+
       const now = new Date();
       const periodDays = selectedPeriod === '7d' ? 7 : selectedPeriod === '30d' ? 30 : 90;
       const startDate = new Date(now.getTime() - (periodDays * 24 * 60 * 60 * 1000));
@@ -46,11 +49,11 @@ const OccupancyTrendsModal = ({ isOpen, onClose, workspaceId }: OccupancyTrendsM
       );
 
       const unsub = onSnapshot(q, (snap) => {
-        const entries = snap.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt?.toDate?.() || new Date(doc.data().createdAt),
-          recordedAt: doc.data().recordedAt?.toDate?.() || new Date(doc.data().recordedAt)
+        const entries = snap.docs.map((d: any) => ({
+          id: d.id,
+          ...d.data(),
+          createdAt: d.data().createdAt?.toDate?.() || new Date(d.data().createdAt),
+          recordedAt: d.data().recordedAt?.toDate?.() || new Date(d.data().recordedAt)
         })) as OccupancyEntry[];
 
         setOccupancyHistory(entries);

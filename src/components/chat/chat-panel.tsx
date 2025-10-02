@@ -1283,12 +1283,8 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
             const totalStaff = (roundedDay.all || 0) + (roundedNight.all || 0);
             const carers = (roundedDay.carers || 0) + (roundedNight.carers || 0);
             const ns = (roundedDay.ns || 0) + (roundedNight.ns || 0);
-            const levelCounts: Record<string, number> = {};
-            staffingResult.perResident.forEach((r) => {
-              if (r.level) levelCounts[r.level] = (levelCounts[r.level] || 0) + 1;
-            });
             const date = snap.savedAt ? formatDateSafe(snap.savedAt) : formatDateSafe(snap.updatedAt || snap.createdAt);
-            points.push({ date, totalStaff, carers, ns, levels: levelCounts });
+            points.push({ date, totalStaff, carers, ns, levels: {} });
           }
 
           if (points.length === 0) {
@@ -1442,7 +1438,8 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
 
         // Get teams for the workspace from workspace subcollection
         const { collection, getDocs } = await import('firebase/firestore');
-  const teamsCol = collection(db, workspaceCollectionPath(workspaceId, 'teams'));
+        const orgId = (selectedItem as any)?.organisationId || null;
+  const teamsCol = collection(db, workspaceCollectionPath(workspaceId, 'teams', orgId));
         const snapshot = await getDocs(teamsCol);
         const teams = snapshot.docs.map(d => ({ id: d.id, name: d.data().name ?? 'Untitled Team' }));
 
@@ -1455,7 +1452,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         // For now, send to all teams (can be enhanced to specify which team)
         const recipientEmails: string[] = [];
         for (const team of teams) {
-          // Get team members - this is simplified, in reality you'd need to fetch team members
+          // Get team members - this is simplified, in a real implementation, you'd search users by name/email
           // For now, we'll use a placeholder
         }
 
@@ -2046,6 +2043,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
       setIsTyping(true);
       try {
         const workspaceId = selectedItem.workspaceId;
+        const orgId = (selectedItem as any).organisationId || null;
         if (!workspaceId) {
           appendMessages({ sender: 'ai', text: 'No workspace selected for workflow management.' });
           setIsTyping(false);
@@ -2071,7 +2069,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
           if (template) {
             // Create workflow in Firestore
             const { collection, addDoc, serverTimestamp } = await import('firebase/firestore');
-            const workflowsCol = collection(db, 'workspaces', workspaceId, 'workflows');
+            const workflowsCol = collection(db, workspaceCollectionPath(workspaceId, 'workflows', orgId || null));
 
             const workflowData = {
               ...template,
@@ -2092,7 +2090,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         } else if (inputLower.includes('list') || inputLower.includes('show') || inputLower.includes('status')) {
           // List existing workflows
           const { collection, getDocs, query, orderBy } = await import('firebase/firestore');
-          const workflowsCol = collection(db, 'workspaces', workspaceId, 'workflows');
+          const workflowsCol = collection(db, workspaceCollectionPath(workspaceId, 'workflows', orgId || null));
           const workflowsQuery = query(workflowsCol, orderBy('createdAt', 'desc'));
           const snapshot = await getDocs(workflowsQuery);
 
@@ -2114,14 +2112,14 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         } else if (inputLower.includes('enable') || inputLower.includes('activate')) {
           // Enable/activate workflows
           const { collection, getDocs, doc, updateDoc } = await import('firebase/firestore');
-          const workflowsCol = collection(db, 'workspaces', workspaceId, 'workflows');
+          const workflowsCol = collection(db, workspaceCollectionPath(workspaceId, 'workflows', orgId || null));
           const snapshot = await getDocs(workflowsCol);
 
           let activatedCount = 0;
           for (const docSnap of snapshot.docs) {
             const data = docSnap.data();
             if (data.status !== 'active') {
-              await updateDoc(doc(db, 'workspaces', workspaceId, 'workflows', docSnap.id), {
+              await updateDoc(doc(db, workspaceCollectionPath(workspaceId, 'workflows', orgId || null), docSnap.id), {
                 status: 'active'
               });
               activatedCount++;
@@ -2136,14 +2134,14 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         } else if (inputLower.includes('disable') || inputLower.includes('deactivate')) {
           // Disable/deactivate workflows
           const { collection, getDocs, doc, updateDoc } = await import('firebase/firestore');
-          const workflowsCol = collection(db, 'workspaces', workspaceId, 'workflows');
+          const workflowsCol = collection(db, workspaceCollectionPath(workspaceId, 'workflows', orgId || null));
           const snapshot = await getDocs(workflowsCol);
 
           let deactivatedCount = 0;
           for (const docSnap of snapshot.docs) {
             const data = docSnap.data();
             if (data.status === 'active') {
-              await updateDoc(doc(db, 'workspaces', workspaceId, 'workflows', docSnap.id), {
+              await updateDoc(doc(db, workspaceCollectionPath(workspaceId, 'workflows', orgId || null), docSnap.id), {
                 status: 'inactive'
               });
               deactivatedCount++;
@@ -2158,7 +2156,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         } else if (inputLower.includes('run') || inputLower.includes('execute') || inputLower.includes('trigger')) {
           // Manually execute workflows
           const { collection, getDocs } = await import('firebase/firestore');
-          const workflowsCol = collection(db, 'workspaces', workspaceId, 'workflows');
+          const workflowsCol = collection(db, workspaceCollectionPath(workspaceId, 'workflows', orgId || null));
           const snapshot = await getDocs(workflowsCol);
 
           if (!snapshot.empty) {
@@ -2733,14 +2731,13 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
           return;
         }
   // Use a simple approach to fetch teams from Firestore (similar to TeamsView)
-  const { collection, getDocs, doc: docRef, setDoc } = await import('firebase/firestore');
-        const teamsCol = collection(db, 'teams');
-        const snapshot = await getDocs(teamsCol);
+  const { collection, getDocs } = await import('firebase/firestore');
+        // Prefer organisation-scoped workspace teams path to respect security rules.
         const wsId = selectedItem.workspaceId;
-        const fetched = snapshot.docs
-          .map(d => ({ ...(d.data() as any), id: d.id }))
-          .filter((t: any) => !t.workspaceId || t.workspaceId === wsId)
-          .map((t: any) => ({ id: t.id, name: t.name ?? 'Untitled Team' }));
+        const orgId = (selectedItem as any)?.organisationId || undefined;
+        const teamsCol = collection(db, workspaceCollectionPath(wsId, 'teams', orgId));
+        const snapshot = await getDocs(teamsCol);
+        const fetched = snapshot.docs.map(d => ({ id: d.id, name: (d.data() as any)?.name ?? 'Untitled Team' }));
         if (!cancelled) setTeams(fetched);
       } catch (e) {
         console.error('Failed to fetch teams for share popover', e);

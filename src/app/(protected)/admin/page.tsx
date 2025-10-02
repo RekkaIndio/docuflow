@@ -20,7 +20,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, MapPin, BarChart2, Download, MessageSquare, X, ArrowLeft, BarChart3, TrendingUp, TrendingDown, Plus, MoreVertical, Edit, Trash2, Target, AlertTriangle, UserCheck, Folder as FolderIcon, Building2, Shield, Zap, FileText } from 'lucide-react';
+import { Users, MapPin, BarChart2, Download, MessageSquare, X, ArrowLeft, BarChart3, TrendingUp, TrendingDown, Plus, MoreVertical, Edit, Trash2, Target, AlertTriangle, UserCheck, Folder as FolderIcon, Building2, Shield, Zap, FileText, Clock, CheckCircle2 } from 'lucide-react';
 import { computeStaffAggregate } from '@/lib/computeStaffAggregate';
 import OccupancyPie from '@/components/admin/occupancy-pie';
 import OverviewCards from '@/components/dashboard/overview-cards';
@@ -39,6 +39,212 @@ import WoundsDetailModal from '@/components/admin/wounds-detail-modal';
 import FallsDetailModal from '@/components/admin/falls-detail-modal';
 import InfectionsDetailModal from '@/components/admin/infections-detail-modal';
 import AuditDetailModal from '@/components/admin/audit-detail-modal';
+
+type AdminHeroProps = {
+  workspaceCount: number;
+  totalDocuments: number;
+  careOverview: { totalHomes: number; totalBeds: number; totalOccupied: number; averageOccupancy: number };
+  aggregateAuditData: {
+    overallPercentage: number | null;
+    auditsCompleted: number;
+    totalAudits: number;
+  };
+  aggregateWoundsTotal: number;
+  aggregateFallsTotal: number;
+  aggregateInfectionsTotal: number;
+  aggregateDailyCheckinData?: {
+    totalWorkspaces: number;
+    completedToday: number;
+    percentComplete: number;
+  };
+  onManageWorkspaces: () => void;
+  onOpenAnalytics: () => void;
+};
+
+const AdminDashboardHero = ({
+  workspaceCount,
+  totalDocuments,
+  careOverview,
+  aggregateAuditData,
+  aggregateWoundsTotal,
+  aggregateFallsTotal,
+  aggregateInfectionsTotal,
+  aggregateDailyCheckinData,
+  onManageWorkspaces,
+  onOpenAnalytics
+}: AdminHeroProps) => {
+  const averageOccupancyPercent = Math.round((careOverview?.averageOccupancy || 0) * 100);
+  const occupancyHelper = careOverview?.totalBeds
+    ? `${careOverview.totalOccupied}/${careOverview.totalBeds} beds occupied`
+    : 'Awaiting occupancy data';
+
+  const dailyPercent = aggregateDailyCheckinData?.percentComplete ?? null;
+  const dailyHelper = aggregateDailyCheckinData
+    ? `${aggregateDailyCheckinData.completedToday}/${aggregateDailyCheckinData.totalWorkspaces} completed today`
+    : 'No submissions recorded today';
+
+  const quickMetrics = [
+    {
+      label: 'Active workspaces',
+      value: workspaceCount.toString(),
+      helper: 'Organisations connected',
+      Icon: Building2,
+    },
+    {
+      label: 'Daily check-ins',
+      value: dailyPercent !== null ? `${dailyPercent}%` : '—',
+      helper: dailyHelper,
+      Icon: Clock,
+    },
+    {
+      label: 'Average occupancy',
+      value: `${averageOccupancyPercent}%`,
+      helper: occupancyHelper,
+      Icon: TrendingUp,
+    },
+    {
+      label: 'Documents managed',
+      value: totalDocuments.toString(),
+      helper: 'Across all workspace libraries',
+      Icon: FileText,
+    },
+  ];
+
+  const signalItems = [
+    {
+      Icon: Shield,
+      tone: aggregateAuditData.overallPercentage !== null && aggregateAuditData.overallPercentage >= 80 ? 'text-emerald-200' : 'text-amber-200',
+      text:
+        aggregateAuditData.overallPercentage !== null
+          ? `Compliance average at ${aggregateAuditData.overallPercentage}% (${aggregateAuditData.auditsCompleted}/${aggregateAuditData.totalAudits} audits)`
+          : 'Compliance insights will appear once audits are logged.',
+    },
+    {
+      Icon: AlertTriangle,
+      tone: aggregateWoundsTotal > 0 ? 'text-red-200' : 'text-emerald-200',
+      text:
+        aggregateWoundsTotal > 0
+          ? `${aggregateWoundsTotal} active incident reports require follow-up.`
+          : 'No open incident reports across workspaces.',
+    },
+    {
+      Icon: Target,
+      tone: aggregateFallsTotal > 0 ? 'text-amber-200' : 'text-emerald-200',
+      text:
+        aggregateFallsTotal > 0
+          ? `${aggregateFallsTotal} falls recorded in the last 30 days.`
+          : 'No falls reported in the last month.',
+    },
+    {
+      Icon: CheckCircle2,
+      tone: aggregateInfectionsTotal > 0 ? 'text-sky-200' : 'text-emerald-200',
+      text:
+        aggregateInfectionsTotal > 0
+          ? `${aggregateInfectionsTotal} infections logged recently.`
+          : 'Infection control remains clear across workspaces.',
+    },
+  ];
+
+  const todayLabel = new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+
+  return (
+    <section className="relative overflow-hidden rounded-3xl border border-slate-200/50 bg-gradient-to-br from-slate-950 via-indigo-950 to-violet-950 text-white shadow-2xl">
+      <div className="pointer-events-none absolute inset-0 opacity-60">
+        <div className="absolute -top-24 -right-20 h-80 w-80 rounded-full bg-cyan-500/30 blur-3xl animate-pulse" />
+        <div className="absolute bottom-[-6rem] left-[-4rem] h-96 w-96 rounded-full bg-violet-500/25 blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[600px] rounded-full bg-indigo-500/10 blur-3xl" />
+      </div>
+
+      <div className="relative z-10 grid gap-10 p-8 lg:grid-cols-[minmax(0,1.2fr),minmax(0,0.9fr)] lg:p-12">
+        <div className="space-y-8">
+          <div className="flex flex-wrap items-center gap-5">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/20 bg-white/10">
+              <Building2 className="h-8 w-8 text-white/85" />
+            </div>
+            <div className="space-y-2">
+              <p className="text-xs uppercase tracking-[0.3em] text-white/60">Admin overview</p>
+              <h1 className="text-3xl font-semibold sm:text-4xl">Admin control centre</h1>
+              <p className="max-w-3xl text-base text-white/70">
+                Orchestrate compliance, care performance, and organisational health across every workspace with a consolidated command view.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              variant="secondary"
+              size="lg"
+              className="border-white/40 bg-white/15 text-white hover:bg-white/25 hover:border-white/60 backdrop-blur-sm shadow-md transition-all"
+              onClick={onManageWorkspaces}
+            >
+              Manage workspaces
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              className="border-white/30 bg-transparent text-white hover:bg-white/10 hover:border-white/40 backdrop-blur-sm"
+              onClick={onOpenAnalytics}
+            >
+              Open analytics
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {quickMetrics.map(({ label, value, helper, Icon }) => (
+              <div
+                key={label}
+                className="group relative overflow-hidden rounded-2xl border border-white/15 bg-white/10 p-5 backdrop-blur-md shadow-lg transition-all duration-300 hover:shadow-xl"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="rounded-xl bg-white/15 p-3 text-white/80">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-xs font-semibold uppercase tracking-wider text-white/60">{label}</div>
+                    <div className="text-xl font-bold text-white">{value}</div>
+                    <div className="text-xs text-white/60">{helper}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-col justify-between gap-6 rounded-2xl border border-white/20 bg-gradient-to-br from-white/15 to-white/5 p-7 backdrop-blur-md shadow-lg">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-bold uppercase tracking-wider text-white">Signal board</span>
+              <Badge className="bg-emerald-500/25 border-emerald-400/60 text-emerald-100 backdrop-blur-sm">
+                {todayLabel}
+              </Badge>
+            </div>
+            <p className="text-sm text-white/75 leading-relaxed">
+              Key indicators highlighting where to focus attention across the network today.
+            </p>
+          </div>
+
+          <div className="space-y-4 text-sm text-white/75">
+            {signalItems.map(({ Icon, tone, text }, index) => (
+              <div key={index} className="flex items-start gap-3">
+                <Icon className={`mt-1 h-4 w-4 ${tone}`} />
+                <span>{text}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 text-xs text-white/60">
+            <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1">
+              {workspaceCount} workspaces monitored
+            </span>
+            <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1">
+              {aggregateAuditData.auditsCompleted} audits synced
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
 
 export default function AdminPage() {
   const { user, loading } = useAuth();
@@ -297,6 +503,17 @@ export default function AdminPage() {
     averageDay: 0,
     averageNight: 0,
     workspacesWithData: 0
+  });
+
+  // Aggregate daily check-in data state
+  const [aggregateDailyCheckinData, setAggregateDailyCheckinData] = React.useState<{
+    totalWorkspaces: number;
+    completedToday: number;
+    percentComplete: number;
+  }>({
+    totalWorkspaces: 0,
+    completedToday: 0,
+    percentComplete: 0
   });
 
   // Enhanced staffing chart state
@@ -871,6 +1088,58 @@ export default function AdminPage() {
     }
   };
 
+  // Function to calculate aggregate daily check-in data across all workspaces
+  const calculateAggregateDailyCheckinData = async () => {
+    if (!workspaces || workspaces.length === 0) {
+      setAggregateDailyCheckinData({
+        totalWorkspaces: 0,
+        completedToday: 0,
+        percentComplete: 0
+      });
+      return;
+    }
+
+    const todayKey = new Date().toISOString().split('T')[0];
+    let completedToday = 0;
+
+    try {
+      // Check each workspace for today's check-in
+      const checkinPromises = workspaces.map(async (workspace: any) => {
+        try {
+          const colRef = collection(db, workspaceCollectionPath(workspace.id, 'daily-checkins', (workspace as any).organisationId));
+          const todayDocRef = doc(colRef, todayKey);
+          const snap = await getDoc(todayDocRef);
+          
+          return snap.exists() ? 1 : 0;
+        } catch (error) {
+          console.warn(`Failed to check daily check-in for workspace ${workspace.id}:`, error);
+          return 0;
+        }
+      });
+
+      const results = await Promise.all(checkinPromises);
+      completedToday = results.reduce<number>((sum, val) => sum + val, 0);
+
+      const percentComplete = workspaces.length > 0 
+        ? Math.round((completedToday / workspaces.length) * 100) 
+        : 0;
+
+      setAggregateDailyCheckinData({
+        totalWorkspaces: workspaces.length,
+        completedToday,
+        percentComplete
+      });
+
+    } catch (error) {
+      console.error('Failed to calculate aggregate daily check-in data:', error);
+      setAggregateDailyCheckinData({
+        totalWorkspaces: workspaces.length,
+        completedToday: 0,
+        percentComplete: 0
+      });
+    }
+  };
+
   // Effect to calculate aggregate audit scores when workspaces change
   React.useEffect(() => {
     if (workspaces.length > 0) {
@@ -879,6 +1148,7 @@ export default function AdminPage() {
       calculateAggregateStaffingData();
       calculateAggregateFallsData();
       calculateAggregateInfectionData();
+      calculateAggregateDailyCheckinData();
     }
   }, [workspaces, staffingTimeframe]);
 
@@ -1512,59 +1782,65 @@ export default function AdminPage() {
 
                     <main className="flex-1 overflow-y-auto">
                       <div className="min-h-full bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/10">
-                        {/* Standardized Admin header */}
-                        <div className="-mx-4 md:-mx-6">
-                          <AdminPageHeader
-                            title="Admin Dashboard"
-                            subtitle={`Overview · ${workspaces.length} workspaces · Avg occupancy ${Math.round((careOverview.averageOccupancy || 0) * 100)}%`}
-                            icon={<BarChart2 className="w-5 h-5 text-white" />}
-                          />
-                        </div>
-                        
-                        {/* Content with padding */}
-                        <div className="w-full p-4 sm:p-6 lg:p-8 space-y-8 lg:space-y-12">                        {/* Main Overview Cards */}
-                        <AdminOverviewCards
-                          aggregateWoundsData={aggregateWoundsData}
-                          aggregateAuditData={aggregateAuditData}
-                          aggregateFallsData={aggregateFallsData}
-                          aggregateInfectionData={aggregateInfectionData}
-                          workspaceCount={workspaces.length}
-                          isMounted={isMounted}
-                          onRefreshWounds={calculateAggregateWoundsData}
-                          onRefreshAudits={calculateAggregateAuditScores}
-                          onRefreshFalls={calculateAggregateFallsData}
-                          onRefreshInfections={calculateAggregateInfectionData}
-                          onOpenWoundsModal={() => setIsWoundsModalOpen(true)}
-                          onOpenFallsModal={() => setIsFallsModalOpen(true)}
-                          onOpenInfectionsModal={() => setIsInfectionsModalOpen(true)}
-                          onOpenAuditModal={() => setIsAuditModalOpen(true)}
-                        />
-
-                        {/* Enhanced Staffing Chart */}
-                        <AdminStaffingChart
-                          aggregateStaffingData={aggregateStaffingData}
-                          staffingHistory={staffingHistory}
-                          staffingTimeframe={staffingTimeframe}
-                          staffingLoading={staffingLoading}
-                          workspaceCount={workspaces.length}
-                          onTimeframeChange={setStaffingTimeframe}
-                          onRefresh={calculateAggregateStaffingData}
-                        />
-
-                        {/* Additional Analytics Grid */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                          {/* Recent Activity */}
-                          <AdminRecentActivity 
-                            workspaces={workspaces}
-                            aggregated={aggregated}
+                        <div className="w-full px-4 sm:px-6 lg:px-8 py-8 space-y-10 lg:space-y-14">
+                          <AdminDashboardHero
+                            workspaceCount={workspaces.length}
+                            totalDocuments={aggregated.totalDocuments}
+                            careOverview={careOverview}
+                            aggregateAuditData={{
+                              overallPercentage: aggregateAuditData.overallPercentage,
+                              auditsCompleted: aggregateAuditData.auditsCompleted,
+                              totalAudits: aggregateAuditData.totalAudits,
+                            }}
+                            aggregateWoundsTotal={aggregateWoundsData.total}
+                            aggregateFallsTotal={aggregateFallsData.totalFalls}
+                            aggregateInfectionsTotal={aggregateInfectionData.totalInfections}
+                            aggregateDailyCheckinData={aggregateDailyCheckinData}
+                            onManageWorkspaces={() => setAdminView('workspaces')}
+                            onOpenAnalytics={() => setAdminView('stats')}
                           />
 
-                          {/* Low Occupancy Alert */}
-                          <AdminLowOccupancy workspaces={workspaces} />
+                          <AdminOverviewCards
+                            aggregateWoundsData={aggregateWoundsData}
+                            aggregateAuditData={aggregateAuditData}
+                            aggregateFallsData={aggregateFallsData}
+                            aggregateInfectionData={aggregateInfectionData}
+                            aggregateDailyCheckinData={aggregateDailyCheckinData}
+                            workspaceCount={workspaces.length}
+                            isMounted={isMounted}
+                            onRefreshWounds={calculateAggregateWoundsData}
+                            onRefreshAudits={calculateAggregateAuditScores}
+                            onRefreshFalls={calculateAggregateFallsData}
+                            onRefreshInfections={calculateAggregateInfectionData}
+                            onRefreshDailyCheckin={calculateAggregateDailyCheckinData}
+                            onOpenWoundsModal={() => setIsWoundsModalOpen(true)}
+                            onOpenFallsModal={() => setIsFallsModalOpen(true)}
+                            onOpenInfectionsModal={() => setIsInfectionsModalOpen(true)}
+                            onOpenAuditModal={() => setIsAuditModalOpen(true)}
+                            onOpenDailyCheckinReport={() => setAdminView('stats')}
+                          />
+
+                          <AdminStaffingChart
+                            aggregateStaffingData={aggregateStaffingData}
+                            staffingHistory={staffingHistory}
+                            staffingTimeframe={staffingTimeframe}
+                            staffingLoading={staffingLoading}
+                            workspaceCount={workspaces.length}
+                            onTimeframeChange={setStaffingTimeframe}
+                            onRefresh={calculateAggregateStaffingData}
+                          />
+
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-4">
+                            <AdminRecentActivity 
+                              workspaces={workspaces}
+                              aggregated={aggregated}
+                            />
+
+                            <AdminLowOccupancy workspaces={workspaces} />
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </main>
+                    </main>
                 </>
               )}
             </>

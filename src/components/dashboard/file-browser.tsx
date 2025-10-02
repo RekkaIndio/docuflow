@@ -40,6 +40,7 @@ import { SidebarTrigger } from "../ui/sidebar";
 import { UploadButton } from "./upload-button";
 import { NewFolderDialog } from "./new-folder-dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
+import PageHeader from '../page-header';
 
 interface FileBrowserProps {
   folder: Folder;
@@ -163,44 +164,36 @@ export function FileBrowser({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-8 rounded-b-2xl shadow-lg relative overflow-hidden">
-        {/* Subtle background pattern */}
-        <div className="absolute inset-0 opacity-5">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full -translate-y-48 translate-x-48"></div>
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-400 rounded-full translate-y-32 -translate-x-32"></div>
-        </div>
-        <div className="w-full mx-auto flex items-start justify-between gap-8 relative z-10">
-          <div className="flex items-start gap-6">
-            <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-white">
-                <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M8 5a2 2 0 012-2h4a2 2 0 012 2v0" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </div>
-            <div className="space-y-2">
-              <h2 className="text-3xl font-bold leading-tight tracking-tight">Files & Folders</h2>
-              <div className="text-slate-200 text-base leading-relaxed">Browse and organise your documents and folders</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
+      <PageHeader
+        title="Files & Folders"
+        subtitle="Browse and organise your documents and folders"
+        leading={(
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-white w-6 h-6">
+            <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M8 5a2 2 0 012-2h4a2 2 0 012 2v0" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        )}
+        actions={(
+          <>
             <NewFolderDialog
-              workspaceId={folder?.workspaceId || ""}
-              parentId={folder?.id || 'root'}
-              onFolderCreated={onFolderAdd}
-            >
-              <Button variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-sm">
+               workspaceId={folder?.workspaceId || ""}
+               parentId={folder?.id || 'root'}
+               onFolderCreated={onFolderAdd}
+             >
+              <Button variant="outline" size="sm" className="h-8 sm:h-10 bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-sm px-3">
                 <Plus className="mr-2 h-4 w-4" />
                 New Folder
               </Button>
             </NewFolderDialog>
             <UploadButton
-              onDocumentAdd={onDocumentAdd}
-              workspaceId={folder?.workspaceId}
-              folderId={folder?.id || 'root'}
-            />
-          </div>
-        </div>
-      </div>
+               onDocumentAdd={onDocumentAdd}
+               workspaceId={folder?.workspaceId}
+               folderId={folder?.id || 'root'}
+               size="sm"
+             />
+          </>
+        )}
+      />
 
       <div className="flex-1 bg-background">
         <header className="p-4 border-b flex items-center justify-between shrink-0 bg-background">

@@ -7,6 +7,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { db } from '@/lib/firebase';
 import { workspaceCollectionPath } from '@/lib/paths';
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, where, getDocs } from 'firebase/firestore';
+import { getWorkspaceCollectionRef, getWorkspaceDocRef } from '@/lib/firestore';
 
 export type NotificationItem = {
   id: string;
@@ -24,10 +25,12 @@ export function NotificationsView({ workspaceId, onBack }: { workspaceId: string
 
   useEffect(() => {
   if (!workspaceId) return;
-  const q = query(collection(db, workspaceCollectionPath(workspaceId, 'notifications')), orderBy('createdAt', 'desc'));
-    const unsub = onSnapshot(q, snap => {
+  const notificationsColRef = getWorkspaceCollectionRef(workspaceId, 'notifications', null);
+  if (!notificationsColRef) return;
+  const q = query(notificationsColRef, orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(q, (snap: any) => {
       const notifs: NotificationItem[] = [];
-      snap.forEach(docSnap => {
+      snap.forEach((docSnap: any) => {
         const data = docSnap.data();
         notifs.push({ id: docSnap.id, ...data } as NotificationItem);
       });
@@ -43,8 +46,8 @@ export function NotificationsView({ workspaceId, onBack }: { workspaceId: string
 
   const markRead = async (id: string) => {
     try {
-  const d = doc(db, `${workspaceCollectionPath(workspaceId, 'notifications')}`, id);
-      await updateDoc(d, { read: true });
+  const d = getWorkspaceDocRef(workspaceId, 'notifications', id, null);
+      if (d) await updateDoc(d, { read: true });
     } catch (err) {
       console.error('Failed to mark read', err);
     }
@@ -52,9 +55,14 @@ export function NotificationsView({ workspaceId, onBack }: { workspaceId: string
 
   const markAllRead = async () => {
     try {
-  const q = query(collection(db, workspaceCollectionPath(workspaceId, 'notifications')), where('read', '==', false));
+  const notificationsColRef = getWorkspaceCollectionRef(workspaceId, 'notifications', null);
+      if (!notificationsColRef) return;
+      const q = query(notificationsColRef, where('read', '==', false));
       const snap = await getDocs(q);
-      const updates = snap.docs.map(d => updateDoc(d.ref, { read: true }));
+      const updates = snap.docs.map((d: any) => {
+        const docRef = getWorkspaceDocRef(workspaceId, 'notifications', d.id, null);
+        return docRef ? updateDoc(docRef, { read: true }) : Promise.resolve();
+      });
       await Promise.all(updates);
     } catch (err) {
       console.error('Failed to mark all read', err);
