@@ -358,9 +358,9 @@ export default function Page() {
                 <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
                   <Shield className="w-6 h-6 text-white" />
                 </div>
-                <h3 className="text-xl font-bold mb-4 text-slate-900">Inspection Access</h3>
+                <h3 className="text-xl font-bold mb-4 text-slate-900">CQC Inspection Readiness</h3>
                 <p className="text-slate-600 leading-relaxed">
-                  Offer inspection level access to your homes compliance and governance. Be prepared for CQC visits with organised evidence and clear compliance documentation.
+                  Provide inspectors with instant access to your compliance framework. Pre-organised evidence packs, real-time compliance dashboards, and comprehensive audit trails ensure you're always inspection-ready. Track staff training, safeguarding records, medication management, and care quality metrics all in one place.
                 </p>
               </div>
 
@@ -490,9 +490,23 @@ export default function Page() {
                     </div>
                     <div>
                       <h3 className="text-xl font-bold mb-2 text-slate-900">Instant Evidence Packs</h3>
-                      <p className="text-slate-600 leading-relaxed">
+                      <p className="text-slate-600 leading-relaxed mb-3">
                         Generate comprehensive inspection documentation in seconds. Every policy, record, and compliance check organised and ready for review.
                       </p>
+                      <ul className="space-y-1.5 text-sm text-slate-600">
+                        <li className="flex items-start gap-2">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-green-600 mt-0.5 flex-shrink-0" />
+                          <span>Current policies with version history and approval records</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-green-600 mt-0.5 flex-shrink-0" />
+                          <span>Staff personnel files with training certificates and supervisions</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-green-600 mt-0.5 flex-shrink-0" />
+                          <span>Resident care plans, risk assessments, and quality monitoring data</span>
+                        </li>
+                      </ul>
                     </div>
                   </div>
 
@@ -526,9 +540,27 @@ export default function Page() {
                     <Award className="w-6 h-6 text-blue-600" />
                     <span className="font-semibold text-slate-900">CQC Inspection Guarantee</span>
                   </div>
-                  <p className="text-slate-600 text-sm leading-relaxed">
+                  <p className="text-slate-600 text-sm leading-relaxed mb-3">
                     Our platform is designed to help support care homes with compliance and inspections. With CG-360, you're not just compliant — you're inspection-ready.
                   </p>
+                  <ul className="space-y-2 text-sm text-slate-600">
+                    <li className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                      <span>Generate complete evidence packs matching all five CQC key questions (Safe, Effective, Caring, Responsive, Well-led)</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                      <span>Maintain up-to-date staff training records, DBS checks, and competency assessments with automated expiry alerts</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                      <span>Track incident reports, safeguarding concerns, and action plans with full audit trails for regulatory oversight</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                      <span>Demonstrate continuous improvement through trend analysis and automated compliance monitoring</span>
+                    </li>
+                  </ul>
                 </div>
               </div>
             </div>
