@@ -21,7 +21,6 @@ export default function AboutPage() {
         <nav className="ml-auto hidden lg:flex gap-4 sm:gap-6 items-center">
           <Link href="/" className="text-sm font-medium hover:underline">Home</Link>
           <Link href="/contact" className="text-sm font-medium hover:underline">Contact</Link>
-          <Link href="/login" className="text-sm font-medium hover:underline">Sign In</Link>
           <Button asChild className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20">
             <Link
               href="#"
