@@ -37,6 +37,7 @@ import { AuditDetailModal } from './AuditDetailModal';
 import { ComplianceOverviewModal } from './ComplianceOverviewModal';
 import { openDocument } from '@/lib/document-utils';
 import AuditDonut from './audit-donut';
+import { StaffingOverviewCard } from './staffing-overview-card';
 
 // Component to display trend indicators
 // Local styles for the pulsing pending state. Using a box-shadow animation on
@@ -46,10 +47,10 @@ const PendingPulseStyles = () => (
     <style jsx>{`
         .pulse-pending {
             position: relative;
-            /* Enhanced glow effect for better visibility */
-            box-shadow: 0 0 20px 4px rgba(251, 191, 36, 0.4), 0 0 40px 8px rgba(251, 191, 36, 0.2);
-            animation: pulse-amber 2s infinite ease-in-out;
-            border: 2px solid rgba(251, 191, 36, 0.6) !important;
+            /* Red glow for pending daily check-in (user dashboard only) */
+            box-shadow: 0 0 24px 6px rgba(239, 68, 68, 0.28), 0 0 48px 12px rgba(239, 68, 68, 0.18);
+            animation: pulse-red 2s infinite ease-in-out;
+            border: 2px solid rgba(239, 68, 68, 0.6) !important;
         }
 
         .pulse-occupancy {
@@ -68,22 +69,22 @@ const PendingPulseStyles = () => (
             border: 2px solid rgba(59, 130, 246, 0.6) !important;
         }
 
-        /* Enhanced pulsing animation with amber glow for pending daily check-in */
-        @keyframes pulse-amber {
+        /* Enhanced pulsing animation with red glow for pending daily check-in */
+        @keyframes pulse-red {
             0% { 
                 transform: scale(1); 
-                box-shadow: 0 0 20px 4px rgba(251, 191, 36, 0.4), 0 0 40px 8px rgba(251, 191, 36, 0.2);
-                border-color: rgba(251, 191, 36, 0.6);
+                box-shadow: 0 0 24px 6px rgba(239, 68, 68, 0.28), 0 0 48px 12px rgba(239, 68, 68, 0.18);
+                border-color: rgba(239, 68, 68, 0.6);
             }
             50% { 
                 transform: scale(1.02); 
-                box-shadow: 0 0 30px 8px rgba(251, 191, 36, 0.6), 0 0 60px 15px rgba(251, 191, 36, 0.3);
-                border-color: rgba(251, 191, 36, 0.8);
+                box-shadow: 0 0 36px 12px rgba(239, 68, 68, 0.46), 0 0 72px 22px rgba(239, 68, 68, 0.22);
+                border-color: rgba(239, 68, 68, 0.85);
             }
             100% { 
                 transform: scale(1); 
-                box-shadow: 0 0 20px 4px rgba(251, 191, 36, 0.4), 0 0 40px 8px rgba(251, 191, 36, 0.2);
-                border-color: rgba(251, 191, 36, 0.6);
+                box-shadow: 0 0 24px 6px rgba(239, 68, 68, 0.28), 0 0 48px 12px rgba(239, 68, 68, 0.18);
+                border-color: rgba(239, 68, 68, 0.6);
             }
         }
 
@@ -269,11 +270,11 @@ const DashboardHero = ({
     ];
 
     return (
-        <section className="relative overflow-hidden rounded-3xl border border-slate-200/50 bg-gradient-to-br from-slate-950 via-indigo-950 to-violet-950 text-white shadow-2xl">
+        <section className="relative overflow-hidden rounded-3xl border border-border/50 bg-gradient-to-br from-primary to-accent text-primary-foreground shadow-2xl">
             <div className="pointer-events-none absolute inset-0 opacity-60">
-                <div className="absolute -top-24 -right-20 h-80 w-80 rounded-full bg-cyan-500/30 blur-3xl animate-pulse" />
-                <div className="absolute bottom-[-6rem] left-[-4rem] h-96 w-96 rounded-full bg-violet-500/25 blur-3xl" />
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[600px] rounded-full bg-indigo-500/10 blur-3xl" />
+                <div className="absolute -top-24 -right-20 h-80 w-80 rounded-full bg-primary/30 blur-3xl animate-pulse" />
+                <div className="absolute bottom-[-6rem] left-[-4rem] h-96 w-96 rounded-full bg-accent/25 blur-3xl" />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[600px] rounded-full bg-primary/10 blur-3xl" />
             </div>
 
             <div className="relative z-10 grid gap-10 p-8 lg:grid-cols-[minmax(0,1.3fr),minmax(0,0.9fr)] lg:p-12">
@@ -327,17 +328,25 @@ const DashboardHero = ({
                             onEntryUpdate={onDailyEntryUpdate}
                             trigger={
                                 <div
-                                    className={`group relative overflow-hidden rounded-2xl border border-white/20 bg-gradient-to-br from-white/20 to-white/5 p-5 backdrop-blur-md shadow-lg transition-all duration-300 hover:shadow-xl hover:from-white/25 hover:to-white/10 cursor-pointer min-h-[140px] flex flex-col justify-between ${
-                                        !isTodayCompleted ? "pulse-pending" : ""
+                                    className={`group relative rounded-2xl border p-5 backdrop-blur-md transition-all duration-300 cursor-pointer min-h-[140px] flex flex-col justify-between ${
+                                        !isTodayCompleted 
+                                            ? "bg-gradient-to-br from-red-500/20 to-red-600/10 border-red-400/50 shadow-[0_0_20px_4px_rgba(239,68,68,0.2),0_0_40px_8px_rgba(239,68,68,0.12)] animate-pulse-slow hover:shadow-[0_0_28px_8px_rgba(239,68,68,0.3),0_0_56px_16px_rgba(239,68,68,0.18)]" 
+                                            : "bg-gradient-to-br from-white/20 to-white/5 border-white/20 shadow-lg hover:shadow-xl hover:from-white/25 hover:to-white/10"
                                     }`}
+                                    style={!isTodayCompleted ? {
+                                        boxShadow: '0 0 20px 4px rgba(239, 68, 68, 0.2), 0 0 40px 8px rgba(239, 68, 68, 0.12)',
+                                    } : undefined}
                                 >
                                     <div className="flex items-center gap-4">
-                                        <div className="rounded-xl p-3 bg-blue-500/20 text-blue-100">
+                                        <div className={`rounded-xl p-3 ${!isTodayCompleted ? 'bg-red-500/30 text-red-50' : 'bg-blue-500/20 text-blue-100'}`}>
                                             <Calendar className="h-5 w-5" />
                                         </div>
                                         <div className="flex-1">
-                                            <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-white/70">
+                                            <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-white/70 flex items-center gap-2">
                                                 Daily check-in
+                                                {!isTodayCompleted && (
+                                                    <span className="inline-flex h-2 w-2 rounded-full bg-red-400 animate-pulse-slow" />
+                                                )}
                                             </div>
                                             <div className="text-xl font-bold text-white">
                                                 {isTodayCompleted ? "Complete" : "Pending"}
@@ -347,7 +356,7 @@ const DashboardHero = ({
                                             </div>
                                         </div>
                                         {!isTodayCompleted && (
-                                            <AlertCircle className="h-5 w-5 text-amber-300" />
+                                            <AlertCircle className="h-5 w-5 text-red-300" />
                                         )}
                                         {isTodayCompleted && (
                                             <CheckCircle className="h-5 w-5 text-emerald-300" />
@@ -372,7 +381,7 @@ const DashboardHero = ({
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">
                             <span className="text-sm font-bold uppercase tracking-wider text-white">Health snapshot</span>
-                            <Badge className={`${isTodayCompleted ? "bg-emerald-500/30 border-emerald-400/50 text-emerald-100" : "bg-amber-500/30 border-amber-400/50 text-amber-100"} border backdrop-blur-sm shadow-md`}>
+                            <Badge className={`${isTodayCompleted ? "bg-emerald-500/30 border-emerald-400/50 text-emerald-100" : "bg-red-500/30 border-red-400/50 text-red-100"} border backdrop-blur-sm shadow-md`}>
                                 {isTodayCompleted ? "✓ Complete" : "⚠ Pending"}
                             </Badge>
                         </div>
@@ -617,7 +626,7 @@ function MiniOccupancyCard({ workspaceId, orgId, dailyEntry, onTrendsClick }: { 
                             <CheckCircle className="h-5 w-5 text-emerald-300" />
                         )}
                         {percent < 70 && percent > 0 && (
-                            <AlertCircle className="h-5 w-5 text-amber-300" />
+                            <AlertCircle className="h-5 w-5 text-red-300" />
                         )}
                     </>
                 )}
@@ -842,7 +851,7 @@ function MiniStaffingCard({ workspaceId, orgId, dailyEntry, onTeamsClick, onTren
                             <CheckCircle className="h-5 w-5 text-emerald-300" />
                         )}
                         {totalStaff > 0 && totalStaff < STAFF_TARGET && (
-                            <AlertCircle className="h-5 w-5 text-amber-300" />
+                            <AlertCircle className="h-5 w-5 text-red-300" />
                         )}
                     </>
                 )}
@@ -1034,102 +1043,15 @@ const ExecutiveSummary = ({
 
             <div className="grid gap-6 2xl:grid-cols-5">
                 <div className="space-y-6 2xl:col-span-3">
-                    <Card
-                        className="group relative overflow-hidden rounded-2xl border-0 bg-gradient-to-br from-violet-50 to-white shadow-xl hover:shadow-2xl transition-all duration-300 cursor-pointer"
-                        onClick={() => {
+                    <StaffingOverviewCard
+                        workspaceId={workspaceId}
+                        orgId={orgId}
+                        onNavigateToRotas={() => {
                             if (typeof window !== "undefined") {
-                                window.dispatchEvent(new CustomEvent("navigate-to-audits"));
+                                window.dispatchEvent(new CustomEvent("navigate-to-rotas"));
                             }
                         }}
-                    >
-                        <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-violet-500 via-purple-500 to-fuchsia-500 shadow-md" />
-                        <CardHeader className="pb-4 pt-5">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2 text-slate-500">
-                                    <FileCheck className="h-4 w-4" />
-                                    <CardTitle className="text-base font-semibold text-slate-900">Audits</CardTitle>
-                                </div>
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        navigateToAuditForm("");
-                                    }}
-                                >
-                                    View audits
-                                </Button>
-                            </div>
-                            <CardDescription className="text-sm text-slate-500">
-                                Track monthly completions and jump straight into the next outstanding audit.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                                <div className="flex items-center gap-4">
-                                    <AuditDonut completed={overallStats.auditsCompleted} total={overallStats.totalAudits} />
-                                    <div>
-                                        <p className="text-lg font-semibold text-slate-900">
-                                            {overallStats.auditsCompleted}/{overallStats.totalAudits} audits complete
-                                        </p>
-                                        <p className="text-sm text-slate-500">This month</p>
-                                    </div>
-                                </div>
-                                <div className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                                    Keep pace by completing {overallStats.totalAudits - overallStats.auditsCompleted} more audits this cycle.
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                {(() => {
-                                    const auditTypes = [
-                                        { key: "care-plan", name: "Care Plan", score: carePlanScore },
-                                        { key: "health-safety", name: "Health & Safety", score: hsScore },
-                                        { key: "maintenance", name: "Maintenance", score: maintenanceScore },
-                                        { key: "restrictive-practice", name: "Restrictive Practice", score: restrictiveScore },
-                                        { key: "fire-safety", name: "Fire Safety", score: fireScore },
-                                        { key: "infection-control", name: "Infection Control", score: infectionScore },
-                                        { key: "mealtime", name: "Mealtime", score: mealtimeScore },
-                                        { key: "night-visit", name: "Night Visit", score: nightScore },
-                                        { key: "staff-file", name: "Staff File", score: staffFileScore },
-                                        { key: "kitchen", name: "Kitchen", score: kitchenScore },
-                                    ];
-
-                                    const incompleteAudits = auditTypes.filter((audit) => audit.score === null || audit.score === 0);
-
-                                    if (incompleteAudits.length === 0) {
-                                        return (
-                                            <div className="flex items-center justify-center rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-50 px-4 py-6 text-emerald-700 shadow-sm">
-                                                <CheckCircle className="mr-2 h-5 w-5" />
-                                                <span className="font-semibold">All scheduled audits are complete this month.</span>
-                                            </div>
-                                        );
-                                    }
-
-                                    return incompleteAudits.map((audit) => (
-                                        <button
-                                            key={audit.key}
-                                            type="button"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                navigateToAuditForm(audit.key);
-                                                handleAuditCardClick(audit.key);
-                                            }}
-                                            className="group flex w-full items-center justify-between rounded-xl border border-amber-200/60 bg-gradient-to-r from-amber-50 to-white px-4 py-3 text-left text-sm text-slate-700 transition-all hover:border-amber-400 hover:from-amber-100 hover:to-amber-50 hover:shadow-md"
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <div className="p-1.5 rounded-lg bg-amber-100 group-hover:bg-amber-200 transition-colors">
-                                                    <AlertCircle className="h-4 w-4 text-amber-600" />
-                                                </div>
-                                                <span className="font-medium">{audit.name}</span>
-                                            </div>
-                                            <Badge variant="destructive" className="rounded-full text-xs shadow-sm">Pending</Badge>
-                                        </button>
-                                    ));
-                                })()}
-                            </div>
-                        </CardContent>
-                    </Card>
+                    />
 
                     <ActionPlansCard
                         workspaceId={workspaceId}
@@ -1312,11 +1234,11 @@ function OccupancyCard({ workspaceId, orgId, dailyEntry, onTrendsClick }: { work
     };
 
     return (
-        <Card className="group relative overflow-hidden border-0 shadow-xl bg-gradient-to-br from-purple-600 via-purple-500 to-pink-500 hover:shadow-2xl text-white transition-all duration-300 cursor-pointer min-h-[220px] flex flex-col" onClick={onTrendsClick}>
+        <Card className="group relative overflow-hidden border-0 shadow-xl bg-gradient-to-br from-purple-600 via-blue-500 to-cyan-500 hover:shadow-2xl text-white transition-all duration-300 cursor-pointer min-h-[220px] flex flex-col" onClick={onTrendsClick}>
             {/* Animated background effects */}
             <div className="pointer-events-none absolute inset-0 opacity-20">
                 <div className="absolute -top-16 -right-16 h-48 w-48 rounded-full bg-white/30 blur-3xl" />
-                <div className="absolute bottom-[-3rem] left-[-2rem] h-40 w-40 rounded-full bg-pink-300/40 blur-3xl" />
+                <div className="absolute bottom-[-3rem] left-[-2rem] h-96 w-96 rounded-full bg-accent/25 blur-3xl" />
             </div>
             <CardHeader className="pb-4 relative z-20">
                 <div className="flex items-center justify-between mb-3">
@@ -1507,7 +1429,7 @@ function ActionPlansCard({ workspaceId, orgId, documents, onSelect }: {
                                                 }
                                             </span>
                                         </div>
-                                        <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
+                                        <Badge variant="secondary" className="rounded-full text-xs bg-green-100 text-green-700">
                                             {plan.createdAt ? 
                                                 new Date(plan.createdAt).toLocaleDateString() : 
                                                 'Recent'
@@ -1695,7 +1617,9 @@ function ResidentCareCard({ workspaceId, orgId }: { workspaceId?: string, orgId?
                             <BarChart3 className="h-4 w-4 text-cyan-200" />
                             Dependency Distribution
                         </h3>
-                        <span className="text-xs text-cyan-100 bg-white/10 px-2 py-1 rounded-full">NDPS Bands</span>
+                        <span className="text-xs text-cyan-100 bg-white/10 px-2 py-1 rounded-full border border-white/20">
+                            NDPS Bands
+                        </span>
                     </div>
                     
                     {/* Horizontal stacked bar */}
@@ -1815,254 +1739,6 @@ function ResidentCareCard({ workspaceId, orgId }: { workspaceId?: string, orgId?
                         </div>
                     </div>
                 </div>
-            </CardContent>
-        </Card>
-    );
-}
-
-function StaffingCard({ workspaceId, orgId, dailyEntry, onTeamsClick, onTrendsClick }: { workspaceId?: string, orgId?: string | null, dailyEntry?: any, onTeamsClick?: () => void, onTrendsClick?: () => void }) {
-    const [staffingData, setStaffingData] = useState<{ day: string; night: string; lastUpdated?: string } | null>(null);
-    const [loading, setLoading] = useState(false);
-    const [editing, setEditing] = useState(false);
-    const [dayInput, setDayInput] = useState('');
-    const [nightInput, setNightInput] = useState('');
-    const [saving, setSaving] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-
-    // Optionally, set a target/ideal staff number for visual reference
-    const STAFF_TARGET = 20; // You can make this configurable or fetch from settings
-
-    useEffect(() => {
-        if (!workspaceId) return;
-        setLoading(true);
-        try {
-            const colRef = collection(db, workspaceCollectionPath(workspaceId, 'daily-checkins', orgId || null));
-            const q = fsQuery(colRef, orderBy('createdAt', 'desc'), limit(1));
-            const unsub = onSnapshot(q, (snap) => {
-                if (!snap.empty) {
-                    const latestDoc = snap.docs[0];
-                    const data = latestDoc.data();
-                    const day = data.staffingDay || data.staffing?.day || '0';
-                    const night = data.staffingNight || data.staffing?.night || '0';
-                    const lastUpdated = data.createdAt ? 
-                        (data.createdAt.toDate ? data.createdAt.toDate() : new Date(data.createdAt)) :
-                        new Date(data.recordedAt || Date.now());
-                    // If dailyEntry exists, prefer its values for immediate UI feedback
-                    const preferredDay = (dailyEntry && (dailyEntry.staffingDay !== undefined)) ? String(dailyEntry.staffingDay) : String(day);
-                    const preferredNight = (dailyEntry && (dailyEntry.staffingNight !== undefined)) ? String(dailyEntry.staffingNight) : String(night);
-                    setStaffingData({
-                        day: preferredDay,
-                        night: preferredNight,
-                        lastUpdated: lastUpdated.toLocaleString()
-                    });
-                    setDayInput(preferredDay);
-                    setNightInput(preferredNight);
-                } else {
-                    setStaffingData(null);
-                    setDayInput('');
-                    setNightInput('');
-                }
-                setLoading(false);
-            }, (err) => {
-                console.error('Failed to listen to daily checkins for staffing', err);
-                setLoading(false);
-            });
-            return () => unsub();
-        } catch (e) {
-            console.error('Failed to set up daily checkins listener', e);
-            setLoading(false);
-        }
-    }, [workspaceId]);
-
-    const totalStaff = (editing
-        ? (parseInt(dayInput || '0', 10) + parseInt(nightInput || '0', 10))
-        : (staffingData ? (parseInt(staffingData.day || '0') + parseInt(staffingData.night || '0')) : 0)
-    );
-    const percent = STAFF_TARGET > 0 ? Math.min(100, Math.round((totalStaff / STAFF_TARGET) * 100)) : 0;
-    // Gradient colors for ring, matching audit card style
-    let gradientColors = { start: '#34d399', end: '#059669' };
-    if (percent < 80 && percent >= 20) gradientColors = { start: '#fbbf24', end: '#d97706' };
-    else if (percent < 20) gradientColors = { start: '#f87171', end: '#dc2626' };
-
-    const handleSave = async () => {
-        setError(null);
-        if (!workspaceId) return;
-        const day = parseInt(dayInput || '0', 10);
-        const night = parseInt(nightInput || '0', 10);
-        if (isNaN(day) || isNaN(night) || day < 0 || night < 0) {
-            setError('Please enter valid non-negative numbers');
-            return;
-        }
-        setSaving(true);
-        try {
-            // Save as a new daily check-in for today
-            const now = new Date();
-            const dateKey = now.toISOString().split('T')[0]; // YYYY-MM-DD
-            const colRef = collection(db, workspaceCollectionPath(workspaceId, 'daily-checkins', orgId || null));
-            // Use dateKey as doc id to avoid multiple for same day
-            const docRef = doc(colRef, dateKey);
-            await setDoc(docRef, {
-                staffingDay: day,
-                staffingNight: night,
-                createdAt: now,
-                recordedAt: now,
-                // Optionally, add a userId if available
-            }, { merge: true });
-            setEditing(false);
-        } catch (e) {
-            setError('Failed to save staff levels');
-            console.error(e);
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    return (
-        <Card className="group relative overflow-hidden border-0 shadow-xl bg-gradient-to-br from-indigo-600 via-blue-500 to-cyan-500 hover:shadow-2xl text-white transition-all duration-300 cursor-pointer min-h-[220px] flex flex-col" onClick={onTrendsClick}>
-            {/* Animated background effects */}
-            <div className="pointer-events-none absolute inset-0 opacity-20">
-                <div className="absolute -top-16 -right-16 h-48 w-48 rounded-full bg-white/30 blur-3xl" />
-                <div className="absolute bottom-[-3rem] left-[-2rem] h-40 w-40 rounded-full bg-cyan-300/40 blur-3xl" />
-            </div>
-            <CardHeader className="pb-4 relative z-20">
-                <div className="flex items-center justify-between mb-3">
-                    <div className="p-3 bg-white/20 backdrop-blur-sm rounded-2xl border border-white/30 shadow-lg">
-                        <Users className="h-6 w-6 text-white" />
-                    </div>
-                    <div className="flex items-center gap-2">
-                        {onTeamsClick && (
-                            <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                className="relative z-30 text-white/80 hover:text-white hover:bg-white/10 transition-colors duration-200 pointer-events-auto" 
-                                onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    onTeamsClick();
-                                }} 
-                                disabled={saving || loading}
-                            >
-                                <Users className="w-4 h-4 mr-1" />
-                                Teams
-                            </Button>
-                        )}
-                        <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="relative z-30 text-white/80 hover:text-white hover:bg-white/10 transition-colors duration-200 pointer-events-auto" 
-                            onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setEditing(prev => !prev);
-                            }} 
-                            disabled={saving || loading}
-                        >
-                            <Edit3 className="w-4 h-4 mr-1" /> {editing ? 'Cancel' : 'Edit'}
-                        </Button>
-                    </div>
-                </div>
-                <CardTitle className="text-lg font-bold text-white mb-2">Staffing</CardTitle>
-                <CardDescription className="text-blue-100">Monitor current staffing levels</CardDescription>
-            </CardHeader>
-            
-            <CardContent className="space-y-4 flex-1">
-                {loading ? (
-                    <div className="text-sm text-blue-100">Loading...</div>
-                ) : (
-                    <div className="flex items-center gap-4 min-h-[80px]">
-                        <div className="flex-shrink-0 w-16 h-16 flex items-center justify-center relative">
-                            <style>{`.staffing-hide-pie-text text { display: none !important; }`}</style>
-                            <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
-                                <span className="text-xl font-bold text-white drop-shadow">{totalStaff}</span>
-                            </div>
-                            <div className="staffing-hide-pie-text">
-                                <OccupancyPie
-                                    percent={percent}
-                                    size={64}
-                                    strokeWidth={6}
-                                    gradientColors={gradientColors}
-                                    centerClassName=""
-                                    centerFill="#fff"
-                                    centerFontSize={18}
-                                />
-                            </div>
-                        </div>
-                        <div className="flex-1 space-y-2">
-                            <div className="grid grid-cols-2 gap-2">
-                                <div className="text-center p-2 bg-white/10 rounded-lg border border-white/20">
-                                    <Sun className="h-4 w-4 text-yellow-300 mx-auto mb-1" />
-                                    {editing ? (
-                                        <input
-                                            type="number"
-                                            className="w-12 border border-white/30 rounded px-1 py-0.5 text-center text-sm font-bold text-white bg-white/10 placeholder-white/50"
-                                            value={dayInput}
-                                            onChange={e => setDayInput(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value || '0', 10)).toString())}
-                                            min={0}
-                                            disabled={saving}
-                                            placeholder="0"
-                                            // Prevent input interactions from bubbling and reopening modals
-                                            onMouseDown={(e) => e.stopPropagation()}
-                                            onClick={(e) => e.stopPropagation()}
-                                            onFocus={(e) => e.stopPropagation()}
-                                            onKeyDown={(e) => e.stopPropagation()}
-                                            onWheel={(e) => e.stopPropagation()}
-                                        />
-                                    ) : (
-                                        <div className="text-lg font-bold text-white">{staffingData?.day ?? '0'}</div>
-                                    )}
-                                    <div className="text-xs text-blue-200 font-medium">Day</div>
-                                </div>
-                                <div className="text-center p-2 bg-white/10 rounded-lg border border-white/20">
-                                    <Moon className="h-4 w-4 text-indigo-300 mx-auto mb-1" />
-                                    {editing ? (
-                                        <input
-                                            type="number"
-                                            className="w-12 border border-white/30 rounded px-1 py-0.5 text-center text-sm font-bold text-white bg-white/10 placeholder-white/50"
-                                            value={nightInput}
-                                            onChange={e => setNightInput(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value || '0', 10)).toString())}
-                                            min={0}
-                                            disabled={saving}
-                                            placeholder="0"
-                                            // Prevent input interactions from bubbling and reopening modals
-                                            onMouseDown={(e) => e.stopPropagation()}
-                                            onClick={(e) => e.stopPropagation()}
-                                            onFocus={(e) => e.stopPropagation()}
-                                            onKeyDown={(e) => e.stopPropagation()}
-                                            onWheel={(e) => e.stopPropagation()}
-                                        />
-                                    ) : (
-                                        <div className="text-lg font-bold text-white">{staffingData?.night ?? '0'}</div>
-                                    )}
-                                    <div className="text-xs text-blue-200 font-medium">Night</div>
-                                </div>
-                            </div>
-                            {error && <div className="text-xs text-red-300 text-center font-medium">{error}</div>}
-                            {editing ? (
-                                <div className="flex justify-center mt-2">
-                                    <Button 
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            handleSave();
-                                        }} 
-                                        disabled={saving || loading} 
-                                        size="sm" 
-                                        className="relative z-30 pointer-events-auto bg-white/20 hover:bg-white/30 text-white border-white/30 hover:border-white/50 transition-colors duration-200"
-                                    >
-                                        {saving ? 'Saving...' : 'Save'}
-                                    </Button>
-                                </div>
-                            ) : (
-                                staffingData?.lastUpdated && (
-                                    <div className="text-xs text-blue-200 text-center font-medium">
-                                        <Clock className="inline-block h-3 w-3 mr-1 align-text-bottom" />
-                                        Last updated: {staffingData.lastUpdated}
-                                    </div>
-                                )
-                            )}
-                        </div>
-                    </div>
-                )}
             </CardContent>
         </Card>
     );
@@ -2863,6 +2539,7 @@ const navigateToAuditForm = (auditKey: string) => {
                 isOpen={isStaffingModalOpen}
                 onClose={() => setIsStaffingModalOpen(false)}
                 workspaceId={workspace?.id || ''}
+                organisationId={(workspace as any)?.organisationId || null}
             />
 
             {/* Staffing Trends Modal */}
@@ -2870,6 +2547,7 @@ const navigateToAuditForm = (auditKey: string) => {
                 isOpen={isStaffingTrendsModalOpen}
                 onClose={() => setIsStaffingTrendsModalOpen(false)}
                 workspaceId={workspace?.id || ''}
+                organisationId={(workspace as any)?.organisationId || null}
             />
 
             {/* Audit Detail Modal */}

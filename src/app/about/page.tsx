@@ -23,7 +23,15 @@ export default function AboutPage() {
           <Link href="/contact" className="text-sm font-medium hover:underline">Contact</Link>
           <Link href="/login" className="text-sm font-medium hover:underline">Sign In</Link>
           <Button asChild className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20">
-            <Link href="/signup">Start Free Trial</Link>
+            <Link
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                openCalendlyModal();
+              }}
+            >
+              Book a Demo
+            </Link>
           </Button>
         </nav>
       </header>
@@ -271,15 +279,20 @@ export default function AboutPage() {
             <div className="max-w-4xl mx-auto text-center">
               <h2 className="text-3xl md:text-4xl font-bold mb-6">Ready to Transform Your Compliance?</h2>
               <p className="text-lg text-slate-600 mb-8 max-w-2xl mx-auto">
-                Join hundreds of care homes already using CG-360 to make compliance effortless.
-                Start your free trial today and see the difference AI-powered governance can make.
+                Book your free demo today.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Button asChild size="lg" className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 px-8">
-                  <Link href="/signup">Start Free Trial</Link>
-                </Button>
                 <Button asChild variant="outline" size="lg" className="px-8">
-                  <button onClick={openCalendlyModal}>Book a Demo</button>
+                  <Link
+                    href="#"
+                    onClick={e => {
+                      e.preventDefault();
+                      openCalendlyModal();
+                    }}
+                    className="bg-primary text-white hover:bg-primary/90 font-semibold rounded-lg px-8 py-3 transition-colors shadow-lg shadow-primary/20"
+                  >
+                    Book a Demo
+                  </Link>
                 </Button>
               </div>
             </div>

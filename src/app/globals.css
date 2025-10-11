@@ -198,3 +198,52 @@
     color: revert !important;
   }
 }
+
+@layer components {
+  /* Gentle pulsing red glow for pending user daily check-ins */
+  @keyframes pulse-red {
+    0% {
+      box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.0);
+    }
+    50% {
+      box-shadow: 0 12px 36px 10px rgba(239, 68, 68, 0.18);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.0);
+    }
+  }
+
+  /* Slow gentle pulse for daily check-in card (4 second cycle) */
+  @keyframes pulse-slow {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+  }
+
+  .glow-red {
+    /* stronger baseline shadow + subtle inner ring so the glow remains visible even if clipped */
+    box-shadow: 0 12px 36px 4px rgba(239, 68, 68, 0.12), inset 0 0 0 3px rgba(239, 68, 68, 0.03) !important;
+    animation: pulse-red 2.6s ease-in-out infinite !important;
+    border-color: rgba(239, 68, 68, 0.65) !important;
+    filter: drop-shadow(0 8px 20px rgba(239, 68, 68, 0.12));
+  }
+
+  /* Dark mode variant: slightly stronger glow for visibility */
+  .dark .glow-red {
+    box-shadow: 0 14px 40px 8px rgba(239, 68, 68, 0.18), inset 0 0 0 3px rgba(239, 68, 68, 0.04) !important;
+    animation: pulse-red 2.6s ease-in-out infinite !important;
+    border-color: rgba(239, 68, 68, 0.9) !important;
+    filter: drop-shadow(0 12px 26px rgba(239, 68, 68, 0.16));
+  }
+
+  /* Accessibility: if an accessibility theme is active, don't animate — just show a static border */
+  body[data-accessibility-theme] .glow-red {
+    animation: none !important;
+    filter: none !important;
+    box-shadow: none !important;
+    border-color: rgba(239, 68, 68, 0.75) !important;
+  }
+}

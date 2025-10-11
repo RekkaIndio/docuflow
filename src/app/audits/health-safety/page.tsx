@@ -206,7 +206,7 @@ export default function HealthSafetyAuditPage() {
     },
     {
       name: 'slips-trips-falls',
-      label: 'Slips, Trips, and Falls Prevention',
+      label: 'Slips, Trips, and Falls',
       guidance: 'Assess floor conditions, safety aids, and falls prevention measures.'
     },
     {

@@ -83,9 +83,9 @@ export function Pricing() {
                 <div className="inline-block rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
                    Simple Pricing
                 </div>
-                <h2 className="text-3xl font-bold font-headline tracking-tighter sm:text-5xl">Choose your plan</h2>
+                <h2 className="text-3xl font-bold font-headline tracking-tighter sm:text-5xl">Choo</h2>
                 <p className="max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
-                    Start free and scale as you grow. No hidden fees, cancel anytime.
+                    
                 </p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mt-12">

@@ -11,10 +11,6 @@ export async function POST(
   const { content, meta, workspaceId, organisationId: bodyOrganisationId } = await request.json();
     const resolvedParams = await params;
     const policyName = resolvedParams.policyName;
-    // Dev debug: log incoming request info so server terminal shows what was received
-    try {
-      console.log('[GENERATE] incoming request body/resolvedParams', { policyName, workspaceId, bodyOrganisationId, contentLength: (content || '').length });
-    } catch (e) {}
     
     // Sanitize the policy name to prevent directory traversal
     const sanitizedName = policyName.replace(/[^a-zA-Z0-9-_]/g, '');
@@ -192,7 +188,7 @@ export async function POST(
   // We'll track and log derivation attempts and results so the dev server terminal shows what happened.
   try {
     // Log initial derivation attempts context
-    try { console.log('[GENERATE] initial derive context', { workspaceId, bodyOrganisationId, sanitizedName }); } catch (e) {}
+    try { /* debug logging removed: initial derive context */ } catch (e) {}
   } catch (e) {}
   // Track any discovered organisation id in one place so we can return it to the client
   // (some writes happen early in this function, others later). This helps the UI
@@ -233,7 +229,7 @@ export async function POST(
             .doc(documentId)
             .set(publishedPolicyDocument, { merge: true });
           foundOrgId = orgIdForPublish;
-          console.log(`[GENERATE] early publishedPolicyDocument saved to organisations/${orgIdForPublish}/policies/${documentId}`);
+          // debug logging removed: early publishedPolicyDocument saved
         } catch (e) {
           console.warn('[GENERATE] failed early org-scoped write:', e);
         }
@@ -272,19 +268,19 @@ export async function POST(
           }
 
           if (orgId) {
-              try {
-              // Persist the policy at the organisation level so it's available to all workspaces in the org
-              await adminDb
-                .collection('organisations')
-                .doc(orgId)
-                .collection('policies')
-                .doc(documentId)
-                .set(workspacePublishedDocument, { merge: true });
-              foundOrgId = orgId;
-              console.log(`[GENERATE] saved published workspace document to organisations/${orgId}/policies/${documentId}`);
-            } catch (e) {
-              console.warn('[GENERATE] failed to write published policy into organisation-scoped policies path:', e);
-            }
+                  try {
+                  // Persist the policy at the organisation level so it's available to all workspaces in the org
+                  await adminDb
+                    .collection('organisations')
+                    .doc(orgId)
+                    .collection('policies')
+                    .doc(documentId)
+                    .set(workspacePublishedDocument, { merge: true });
+                  foundOrgId = orgId;
+                  // debug logging removed: saved published workspace document to org path
+                } catch (e) {
+                  console.warn('[GENERATE] failed to write published policy into organisation-scoped policies path:', e);
+                }
           } else {
             console.warn(`No organisationId found for workspace ${workspaceId}; skipping organisation-scoped write to avoid auto-creating legacy workspace doc.`);
           }
@@ -349,7 +345,7 @@ export async function POST(
           }
         }
       } else {
-        console.log('Skipping local policy markdown save (SAVE_POLICIES_LOCALLY != true)');
+        // debug logging removed: skipping local policy markdown save by flag
       }
 
       // Refresh the policies cache so updated metadata appears immediately

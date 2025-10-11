@@ -4,7 +4,7 @@
 // Based on authentic NPDS methodology for rehabilitation settings
 export const NPDS_SECTIONS = {
   BCN: "Basic Care Needs",           // 12 items, max score 65
-  SNN: "Special Nursing Needs",      // 5 items, max score 25
+  SNN: "Special Needs",      // 5 items, max score 25
   THERAPY: "Therapy Needs"           // 3 items, max score 10
 } as const;
 

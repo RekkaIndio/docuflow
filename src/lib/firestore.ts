@@ -102,7 +102,7 @@ import { ref, deleteObject, uploadBytes, getDownloadURL } from "firebase/storage
 
 async function fetchAndStructureData(workspaceId: string, orgId?: string | null): Promise<{ folders: (Folder | Document)[], documents: Document[] }> {
     const basePath = orgId ? `organisations/${orgId}/workspaces/${workspaceId}` : `workspaces/${workspaceId}`;
-    try { console.debug('[fetchAndStructureData] workspaceId=', workspaceId, 'orgId=', orgId, 'basePath=', basePath); } catch (e) {}
+    try { /* debug logging removed: fetchAndStructureData context info */ } catch (e) {}
     const foldersQuery = query(collection(db, workspaceCollectionPath(workspaceId, 'folders', orgId || null)));
     const documentsQuery = query(collection(db, workspaceCollectionPath(workspaceId, 'documents', orgId || null)));
 
@@ -187,7 +187,7 @@ export async function ensureProtectedFolders(workspaceId: string, orgId?: string
     try {
         const basePath = orgId ? `organisations/${orgId}/workspaces/${workspaceId}` : `workspaces/${workspaceId}`;
         // debug context
-        try { console.debug('[ensureProtectedFolders] workspaceId=', workspaceId, 'orgId=', orgId, 'basePath=', basePath); } catch (e) {}
+        try { /* debug logging removed: ensureProtectedFolders context */ } catch (e) {}
 
         // If this workspace is org-scoped, ask the server to create protected folders
         if (orgId) {
@@ -200,7 +200,6 @@ export async function ensureProtectedFolders(workspaceId: string, orgId?: string
                 try {
                     const resp = await fetch(url, { method: 'POST', body: JSON.stringify(payload), headers: { 'Content-Type': 'application/json' } });
                     if (resp.ok) {
-                        try { console.debug('[ensureProtectedFolders] server-created protected folders for', workspaceId, 'orgId=', orgId); } catch (e) {}
                         return;
                     } else {
                         // If server returns 4xx, don't retry
@@ -286,7 +285,6 @@ export async function getWorkspacesForUser(userId: string, orgIdOverride?: strin
                 }
             } catch (e) {
                 // Likely permission denied by strict rules; continue without orgId
-                console.debug('getWorkspacesForUser: could not read users/{id} for orgId (permission?), continuing without orgId', e);
                 orgId = null;
             }
             // If we couldn't read the top-level user doc (or it doesn't exist), try server-side fallback for organisationId
@@ -297,13 +295,13 @@ export async function getWorkspacesForUser(userId: string, orgIdOverride?: strin
                         const data = await resp.json();
                         if (data && data.organisationId) {
                             orgId = data.organisationId;
-                            console.debug('getWorkspacesForUser: obtained orgId from server API', orgId);
+                            // debug logging removed: obtained orgId from server API
                         }
                     } else {
-                        console.debug('getWorkspacesForUser: server fallback /api/users returned', resp.status);
+                        // debug logging removed: server fallback returned non-ok status
                     }
                 } catch (serverErr) {
-                    console.debug('getWorkspacesForUser: server fallback failed', serverErr);
+                    // debug logging removed: server fallback failed
                 }
             }
         }
@@ -318,10 +316,10 @@ export async function getWorkspacesForUser(userId: string, orgIdOverride?: strin
                     return data.workspaces.map((w: any) => ({ id: w.id, name: w.name, ownerId: w.ownerId, members: w.members || [], organisationId: w.organisationId || null, folders: w.folders || [] }));
                 }
             } else {
-                console.debug('getWorkspacesForUser: admin fetch returned', resp.status);
+                // debug logging removed: admin fetch returned non-ok status
             }
         } catch (adminErr) {
-            console.debug('getWorkspacesForUser: admin fetch failed', adminErr);
+            // debug logging removed: admin fetch failed
         }
 
         // If the user-specific endpoint returned no workspaces, attempt a conservative
@@ -335,7 +333,7 @@ export async function getWorkspacesForUser(userId: string, orgIdOverride?: strin
                 if (resp2.ok) {
                     const data2 = await resp2.json();
                     if (data2 && Array.isArray(data2.workspaces)) {
-                        console.debug('getWorkspacesForUser: admin org listing returned', data2.workspaces.length, 'workspaces');
+                        // debug logging removed: admin org listing returned workspaces
                         const filtered = data2.workspaces.filter((w: any) => {
                             const members = Array.isArray(w.members) ? w.members : [];
                             return members.includes(userId) || w.ownerId === userId;
@@ -343,10 +341,10 @@ export async function getWorkspacesForUser(userId: string, orgIdOverride?: strin
                         if (filtered.length > 0) return filtered;
                     }
                 } else {
-                    console.debug('getWorkspacesForUser: admin org listing returned', resp2.status);
+                    // debug logging removed: admin org listing returned non-ok status
                 }
             } catch (e) {
-                console.debug('getWorkspacesForUser: admin org listing failed', e);
+                // debug logging removed: admin org listing failed
             }
         }
 
@@ -392,7 +390,7 @@ export async function getAllWorkspaces(orgId?: string): Promise<Workspace[]> {
                     return data.workspaces as Workspace[];
                 }
             } else {
-                console.debug('getAllWorkspaces: admin API returned', resp.status);
+                // debug logging removed: getAllWorkspaces admin API returned non-ok status
             }
         } catch (e) {
             console.error('Error fetching all workspaces from admin API', e);
@@ -448,7 +446,7 @@ export async function saveAudit(data: any, workspaceId?: string, orgId?: string 
                         }
                     };
                     await setDoc(latestRef, updateData, { merge: true });
-                    console.log('Mirrored audit score to dashboard:', data.auditType, data.scorePercent);
+                    // Debug logging removed: mirrored audit score to dashboard
                 }
             } catch (mirrorErr) {
                 console.warn('Failed to mirror latest audit score to workspace settings', mirrorErr);
@@ -678,7 +676,8 @@ export async function markAuditCompletedWithSnapshot(workspaceId: string, auditT
         // Mirror the audit score to workspace settings for dashboard display
         try {
             if (auditData && typeof auditData.scorePercent === 'number' && typeof auditType === 'string') {
-                const latestRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'settings')), 'audit_latest_scores');
+                const orgId = auditData?.organisationId || auditData?.orgId || null;
+                const latestRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'settings', orgId)), 'audit_latest_scores');
                 const updateData = {
                     [auditType]: {
                         scorePercent: auditData.scorePercent,
@@ -688,7 +687,7 @@ export async function markAuditCompletedWithSnapshot(workspaceId: string, auditT
                     }
                 };
                 await setDoc(latestRef, updateData, { merge: true });
-                console.log('Mirrored audit score to dashboard from completion:', auditType, auditData.scorePercent);
+                // Debug logging removed: mirrored audit score to dashboard from completion
             }
         } catch (mirrorErr) {
             console.warn('Failed to mirror latest audit score to workspace settings', mirrorErr);
@@ -1310,18 +1309,18 @@ export async function saveFolder(folder: Omit<Folder, 'id' | 'items'>): Promise<
     }
 }
 
-async function deleteFolderRecursive(workspaceId: string, folderId: string) {
+async function deleteFolderRecursive(workspaceId: string, folderId: string, orgId?: string | null) {
     // First, recursively delete all subfolders
-    const subfoldersQuery = query(collection(db, workspaceCollectionPath(workspaceId, 'folders')), where("parentId", "==", folderId));
+    const subfoldersQuery = query(collection(db, workspaceCollectionPath(workspaceId, 'folders', orgId || null)), where("parentId", "==", folderId));
     const subfoldersSnap = await getDocs(subfoldersQuery);
 
     // Recursively delete subfolders first (depth-first)
     for (const subfolderSnap of subfoldersSnap.docs) {
-        await deleteFolderRecursive(workspaceId, subfolderSnap.id);
+        await deleteFolderRecursive(workspaceId, subfolderSnap.id, orgId);
     }
 
     // Now delete documents in the current folder in chunks to avoid transaction size limits
-    const docsQuery = query(collection(db, workspaceCollectionPath(workspaceId, 'documents')), where("folderId", "==", folderId));
+    const docsQuery = query(collection(db, workspaceCollectionPath(workspaceId, 'documents', orgId || null)), where("folderId", "==", folderId));
     const docsSnap = await getDocs(docsQuery);
 
     // Process documents in chunks of 400 to stay under Firebase's 500 operation batch limit
@@ -1357,14 +1356,14 @@ async function deleteFolderRecursive(workspaceId: string, folderId: string) {
     }
 
     // Finally, delete the folder itself
-    const folderRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'folders')), folderId);
+    const folderRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'folders', orgId || null)), folderId);
     await deleteDoc(folderRef);
 }
 
 
-export async function deleteFolder(workspaceId: string, folderId: string): Promise<void> {
+export async function deleteFolder(workspaceId: string, folderId: string, orgId?: string | null): Promise<void> {
     try {
-        await deleteFolderRecursive(workspaceId, folderId);
+        await deleteFolderRecursive(workspaceId, folderId, orgId);
     } catch (error) {
         console.error("Error deleting folder and its contents:", error);
         throw error;
@@ -1435,7 +1434,6 @@ export async function ensureOrgUserRecord(userId: string, organisationId: string
             createdAt: serverTimestamp()
         };
         await setDoc(ref, payload, { merge: true });
-        console.debug('ensureOrgUserRecord: created org user record', userId, organisationId);
         return true;
     } catch (e) {
         console.error('ensureOrgUserRecord failed', e);
@@ -1488,7 +1486,6 @@ async function resolveWorkspaceOrgId(workspaceId: string): Promise<string | null
         const data = await resp.json();
         return data?.organisationId ?? null;
     } catch (e) {
-        console.debug('resolveWorkspaceOrgId: admin API lookup failed', e);
         return null;
     }
 }

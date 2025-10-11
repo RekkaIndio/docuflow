@@ -1,20 +1,22 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Users, TrendingUp, TrendingDown, Minus, Calendar, BarChart3, Clock, Target } from 'lucide-react';
-import { collection, query, orderBy, limit, onSnapshot, where } from 'firebase/firestore';
+import { collection, query, orderBy, limit, onSnapshot, where, doc, getDoc } from 'firebase/firestore';
 import { getWorkspaceCollectionRef } from '@/lib/firestore';
-import { workspaceCollectionPath } from '@/lib/paths';
+import { workspaceCollectionPath, workspaceDocPath } from '@/lib/paths';
 import { db } from '@/lib/firebase';
+import { format, startOfWeek, addDays } from 'date-fns';
 
 interface StaffingTrendsModalProps {
   isOpen: boolean;
   onClose: () => void;
   workspaceId?: string;
+  organisationId?: string | null;
 }
 
 interface StaffingEntry {
@@ -22,65 +24,178 @@ interface StaffingEntry {
   staffingDay: number;
   staffingNight: number;
   staffingTeams?: any;
+  // optional hour estimates derived from rotas when available
+  staffingDayHours?: number;
+  staffingNightHours?: number;
+  totalHours?: number;
   createdAt: Date;
   recordedAt: Date;
 }
 
-const StaffingTrendsModal = ({ isOpen, onClose, workspaceId }: StaffingTrendsModalProps) => {
+const StaffingTrendsModal = ({ isOpen, onClose, workspaceId, organisationId }: StaffingTrendsModalProps) => {
   const [staffingHistory, setStaffingHistory] = useState<StaffingEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState<'7d' | '30d' | '90d'>('30d');
+  const [permissionDenied, setPermissionDenied] = useState(false);
+  const [fallbackLoading, setFallbackLoading] = useState(false);
 
   // Load staffing history
   useEffect(() => {
     if (!workspaceId || !isOpen) return;
+    let unsub: any = null;
 
-    setLoading(true);
-    try {
-  const orgId = null as string | null;
-  const colRef = getWorkspaceCollectionRef(workspaceId, 'daily-checkins', orgId);
-  if (!colRef) {
-    setLoading(false);
-    return;
+    const load = async () => {
+      setLoading(true);
+      try {
+        const now = new Date();
+        const periodDays = selectedPeriod === '7d' ? 7 : selectedPeriod === '30d' ? 30 : 90;
+        const startDate = new Date(now.getTime() - (periodDays * 24 * 60 * 60 * 1000));
+
+        // Try rotas first
+        const rotaEntries = await fetchRotaEntries(startDate, now);
+        if (rotaEntries.length > 0) {
+          setStaffingHistory(rotaEntries);
+          setLoading(false);
+          return;
+        }
+
+        // If no rotas, subscribe to daily-checkins
+        const orgId = organisationId ?? null;
+        const colRef = getWorkspaceCollectionRef(workspaceId, 'daily-checkins', orgId);
+        if (!colRef) {
+          setLoading(false);
+          return;
+        }
+
+        const q = query(
+          colRef,
+          where('createdAt', '>=', startDate),
+          orderBy('createdAt', 'desc')
+        );
+
+        unsub = onSnapshot(q, (snap) => {
+          const entries = snap.docs.map((d: any) => ({
+            id: d.id,
+            ...d.data(),
+            createdAt: d.data().createdAt?.toDate?.() || new Date(d.data().createdAt),
+            recordedAt: d.data().recordedAt?.toDate?.() || new Date(d.data().recordedAt)
+          })) as StaffingEntry[];
+
+          setStaffingHistory(entries);
+          setLoading(false);
+        }, (err) => {
+          console.error('Failed to load staffing history', err);
+          // If we've been denied permission to read daily-checkins, attempt rota-derived entries as fallback
+          if ((err && (err.code === 'permission-denied' || String(err).toLowerCase().includes('insufficient permissions'))) && !permissionDenied) {
+            setPermissionDenied(true);
+            fetchRotaEntries(startDate, now).then(entries => {
+              if (entries.length > 0) setStaffingHistory(entries);
+            }).catch(e => console.error('Rota fallback failed', e)).finally(() => setLoading(false));
+          } else {
+            setLoading(false);
+          }
+        });
+      } catch (e) {
+        console.error('Failed to set up staffing history listener', e);
+        setLoading(false);
+      }
+    };
+
+    load();
+
+    return () => {
+      if (unsub) unsub();
+    };
+  }, [workspaceId, isOpen, selectedPeriod]);
+
+  // Helper: calculate hours between two HH:mm strings (handles overnight)
+  function calculateShiftHours(startTime?: string, endTime?: string) {
+    if (!startTime || !endTime) return 0;
+    const [sH, sM] = startTime.split(':').map(Number);
+    const [eH, eM] = endTime.split(':').map(Number);
+    if (Number.isNaN(sH) || Number.isNaN(sM) || Number.isNaN(eH) || Number.isNaN(eM)) return 0;
+    let hours = eH - sH;
+    let minutes = eM - sM;
+    if (hours < 0) hours += 24;
+    const total = hours + (minutes / 60);
+    return isNaN(total) ? 0 : total;
   }
 
-      const now = new Date();
-      const periodDays = selectedPeriod === '7d' ? 7 : selectedPeriod === '30d' ? 30 : 90;
-      const startDate = new Date(now.getTime() - (periodDays * 24 * 60 * 60 * 1000));
+  // Rota-derived fallback: fetch rota docs covering the requested period and synthesise staffing entries
+  const fetchRotaEntries = async (startDate: Date, endDate: Date): Promise<StaffingEntry[]> => {
+    if (!workspaceId) return [];
+    setFallbackLoading(true);
+    try {
+      const firstWeekStart = startOfWeek(startDate, { weekStartsOn: 1 });
+      const weeks: string[] = [];
+      for (let d = new Date(firstWeekStart); d <= endDate; d = addDays(d, 7)) {
+        weeks.push(format(d, 'yyyy-MM-dd'));
+      }
 
-      const q = query(
-        colRef,
-        where('createdAt', '>=', startDate),
-        orderBy('createdAt', 'desc')
-      );
+      const entriesMap: Record<string, { date: string; staffingDay: number; staffingNight: number; dayHours: number; nightHours: number; createdAt: Date; recordedAt: Date }> = {};
 
-      const unsub = onSnapshot(q, (snap) => {
-        const entries = snap.docs.map((d: any) => ({
-          id: d.id,
-          ...d.data(),
-          createdAt: d.data().createdAt?.toDate?.() || new Date(d.data().createdAt),
-          recordedAt: d.data().recordedAt?.toDate?.() || new Date(d.data().recordedAt)
-        })) as StaffingEntry[];
+      for (const wk of weeks) {
+        try {
+          const rotaRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId ?? null), 'rotas', wk);
+          const rotaSnap = await getDoc(rotaRef as any);
+          if (!rotaSnap.exists()) continue;
+          const rotaData: any = rotaSnap.data();
+          const shifts = rotaData.shifts || [];
 
-        setStaffingHistory(entries);
-        setLoading(false);
-      }, (err) => {
-        console.error('Failed to load staffing history', err);
-        setLoading(false);
-      });
+          shifts.forEach((shift: any) => {
+            const date = shift.date;
+            if (!date) return;
+            if (!entriesMap[date]) {
+              entriesMap[date] = { date, staffingDay: 0, staffingNight: 0, dayHours: 0, nightHours: 0, createdAt: new Date(date), recordedAt: new Date(date) };
+            }
+            const startTime = shift.startTime;
+            const endTime = shift.endTime;
+            const hours = calculateShiftHours(startTime, endTime);
+            if (startTime) {
+              const startHour = parseInt((startTime || '').split(':')[0] || '0', 10);
+              if (!Number.isNaN(startHour) && startHour >= 6 && startHour < 18) {
+                entriesMap[date].staffingDay += 1;
+                entriesMap[date].dayHours += hours;
+              } else {
+                entriesMap[date].staffingNight += 1;
+                entriesMap[date].nightHours += hours;
+              }
+            } else {
+              entriesMap[date].staffingDay += 1;
+              entriesMap[date].dayHours += hours;
+            }
+          });
+        } catch (e) {
+          console.warn('Failed to fetch rota for week', wk, e);
+        }
+      }
 
-      return () => unsub();
-    } catch (e) {
-      console.error('Failed to set up staffing history listener', e);
-      setLoading(false);
+      const entries = Object.values(entriesMap)
+        .map(e => ({
+          id: e.date,
+          staffingDay: e.staffingDay,
+          staffingNight: e.staffingNight,
+          staffingDayHours: Math.round(e.dayHours * 100) / 100,
+          staffingNightHours: Math.round(e.nightHours * 100) / 100,
+          totalHours: Math.round((e.dayHours + e.nightHours) * 100) / 100,
+          staffingTeams: undefined,
+          createdAt: e.createdAt,
+          recordedAt: e.recordedAt
+        }))
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+      return entries;
+    } finally {
+      setFallbackLoading(false);
     }
-  }, [workspaceId, isOpen, selectedPeriod]);
+  };
 
   const calculateStats = () => {
     if (staffingHistory.length === 0) return null;
 
     const dayStaffing = staffingHistory.map(entry => entry.staffingDay || 0);
     const nightStaffing = staffingHistory.map(entry => entry.staffingNight || 0);
+    const totalHoursArray = staffingHistory.map(e => e.totalHours || 0);
     const totalStaffing = staffingHistory.map(entry => (entry.staffingDay || 0) + (entry.staffingNight || 0));
 
     const avgDay = dayStaffing.reduce((a, b) => a + b, 0) / dayStaffing.length;
@@ -100,6 +215,7 @@ const StaffingTrendsModal = ({ isOpen, onClose, workspaceId }: StaffingTrendsMod
       avgDay: Math.round(avgDay),
       avgNight: Math.round(avgNight),
       avgTotal: Math.round(avgTotal),
+      avgHours: Math.round((totalHoursArray.reduce((a, b) => a + b, 0) / (totalHoursArray.length || 1)) * 100) / 100,
       dayTrend,
       nightTrend,
       totalTrend,
@@ -136,7 +252,7 @@ const StaffingTrendsModal = ({ isOpen, onClose, workspaceId }: StaffingTrendsMod
               </div>
               <div>
                 <DialogTitle className="text-2xl font-bold">Staffing Trends & Analytics</DialogTitle>
-                <p className="text-slate-300 text-sm mt-1">Monitor staffing patterns and trends over time</p>
+                <DialogDescription className="text-slate-300 text-sm mt-1">Monitor staffing patterns and trends over time</DialogDescription>
               </div>
             </div>
           </div>
@@ -145,6 +261,11 @@ const StaffingTrendsModal = ({ isOpen, onClose, workspaceId }: StaffingTrendsMod
         <Card className="rounded-b-lg border-0 shadow-none max-h-[calc(90vh-120px)] overflow-y-auto">
           <CardContent className="p-6">
             <div className="space-y-6">
+              {permissionDenied && (
+                <div className="rounded-md bg-yellow-50 border border-yellow-200 p-3 text-sm text-yellow-800">
+                  We couldn't read daily staffing records due to permissions. Showing rota-derived estimates where available. <button onClick={() => window.dispatchEvent(new CustomEvent('navigate-to-rotas'))} className="underline font-medium ml-2">View rotas</button>
+                </div>
+              )}
               {/* Period Selector */}
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-gray-600">Period:</span>
@@ -172,6 +293,8 @@ const StaffingTrendsModal = ({ isOpen, onClose, workspaceId }: StaffingTrendsMod
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
                   <p className="text-gray-600">Loading staffing data...</p>
                 </div>
+              ) : (permissionDenied && fallbackLoading) ? (
+                <div className="text-center py-8 text-gray-600">Loading rota-derived estimates...</div>
               ) : stats ? (
                 <>
                   {/* Summary Cards */}
@@ -239,9 +362,7 @@ const StaffingTrendsModal = ({ isOpen, onClose, workspaceId }: StaffingTrendsMod
                       </CardHeader>
                       <CardContent>
                         <div className="text-2xl font-bold text-gray-900">{stats.totalEntries}</div>
-                        <div className="text-sm text-gray-600 mt-1">
-                          Records in period
-                        </div>
+                        <div className="text-sm text-gray-600 mt-1">Records in period</div>
                       </CardContent>
                     </Card>
                   </div>
@@ -363,11 +484,23 @@ const StaffingTrendsModal = ({ isOpen, onClose, workspaceId }: StaffingTrendsMod
                   )}
                 </>
               ) : (
-                <div className="text-center py-12">
-                  <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600 font-medium">No staffing data available for the selected period</p>
-                  <p className="text-sm text-gray-500 mt-1">Start recording daily staffing to see trends</p>
-                </div>
+                // If we fell back to rota estimates but still have no entries, explain the situation
+                (permissionDenied && staffingHistory.length === 0) ? (
+                  <div className="text-center py-12">
+                    <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600 font-medium">We couldn't access daily staffing records and no rota data was found for the selected period.</p>
+                    <p className="text-sm text-gray-500 mt-1">Ask your workspace administrator for access, or create rotas in the Rotas page to allow estimated staffing to be shown here.</p>
+                    <div className="mt-4">
+                      <Button variant="outline" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('navigate-to-rotas'))}>Open Rotas</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600 font-medium">No staffing data available for the selected period</p>
+                    <p className="text-sm text-gray-500 mt-1">Start recording daily staffing to see trends</p>
+                  </div>
+                )
               )}
             </div>
           </CardContent>

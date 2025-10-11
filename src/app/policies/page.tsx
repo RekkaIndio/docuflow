@@ -210,7 +210,7 @@ export default function PoliciesPage() {
                     documentData: documentData
                   }
                 }));
-                console.log('Set active document:', policyData.name);
+                // Debug logging removed: active document set from policy
               } catch (e) {
                 console.error('Error setting active document:', e);
               }
@@ -360,14 +360,6 @@ export default function PoliciesPage() {
                             }
                           } catch (e) {
                             // ignore
-                          }
-
-                          // Debug: log extractedJson size so we can detect empty content issues
-                          try {
-                            const len = (policyData.extractedJson && policyData.extractedJson.content) ? (policyData.extractedJson.content.length) : 0;
-                            console.log('Set active document (click):', policyData.name, 'extractedJson.length=', len);
-                          } catch (e) {
-                            console.log('Set active document (click):', policyData.name);
                           }
                         } catch (e) {
                           console.error('Error dispatching set-active-document on click:', e);

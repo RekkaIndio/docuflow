@@ -8,7 +8,8 @@ interface ResidentAssessmentEditModalProps {
   resident: Resident | null;
   communities: Community[];
   onSave: (updatedResident: Resident) => void;
-  FIELDS: Array<{ key: string; label: string; section: string; maxScore: number }>;
+  FIELDS: Array<{ key: string; label: string; section: string; maxScore: number; description?: string }>;
+  allResidents: Resident[];
 }
 
 export function ResidentAssessmentEditModal({
@@ -17,10 +18,12 @@ export function ResidentAssessmentEditModal({
   resident,
   communities,
   onSave,
-  FIELDS
+  FIELDS,
+  allResidents
 }: ResidentAssessmentEditModalProps) {
   const [formData, setFormData] = useState<Partial<Resident>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [roomError, setRoomError] = useState<string>("");
 
   useEffect(() => {
     if (resident && isOpen) {
@@ -30,31 +33,38 @@ export function ResidentAssessmentEditModal({
 
   if (!isOpen || !resident) return null;
 
-  const handleSave = async () => {
-    if (!formData.name?.trim() || !formData.room?.trim()) {
-      alert("Name and room are required");
-      return;
-    }
-
+    const handleSave = () => {
+    if (!formData.name || !resident?.id) return;
+    if (roomError) return; // Prevent save if room number is duplicate
+    
     setIsSaving(true);
-    try {
-      const updatedResident: Resident = {
-        ...resident,
-        ...formData,
-        updatedAt: Date.now(),
-      };
-      onSave(updatedResident);
-      onClose();
-    } catch (error) {
-      console.error("Error saving resident:", error);
-      alert("Failed to save changes");
-    } finally {
-      setIsSaving(false);
-    }
+    
+    const updatedResident: Resident = {
+      ...resident,
+      ...formData,
+      name: formData.name,
+      room: formData.room || "",
+    } as Resident;
+    
+    onSave(updatedResident);
+    setIsSaving(false);
+    onClose();
   };
 
   const handleChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    
+    // Check for duplicate room numbers
+    if (field === "room" && value) {
+      const isDuplicate = allResidents.some(
+        r => r.id !== resident?.id && r.room === value
+      );
+      if (isDuplicate) {
+        setRoomError(`Room ${value} is already assigned to another resident`);
+      } else {
+        setRoomError("");
+      }
+    }
   };
 
   // Calculate completion progress
@@ -81,7 +91,7 @@ export function ResidentAssessmentEditModal({
       textColor: "text-blue-800"
     },
     SNN: {
-      title: "Special Nursing Needs",
+      title: "Special Needs",
       description: "Medical and specialized care requirements",
       icon: "🏥",
       color: "red",
@@ -182,13 +192,33 @@ export function ResidentAssessmentEditModal({
                     type="text"
                     value={formData.room || ""}
                     onChange={(e) => handleChange("room", e.target.value)}
-                    className="w-full pl-8 pr-2 py-2 text-sm border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all bg-white"
+                    className={`w-full pl-8 pr-2 py-2 text-sm border rounded-lg focus:ring-2 transition-all bg-white ${
+                      roomError 
+                        ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' 
+                        : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500/20'
+                    }`}
                     placeholder="Room number"
                   />
                   <svg className="w-4 h-4 text-gray-400 absolute left-2 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                   </svg>
                 </div>
+                {roomError && (
+                  <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                    {roomError}
+                  </p>
+                )}
+                {roomError && (
+                  <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                    {roomError}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1">
@@ -251,9 +281,20 @@ export function ResidentAssessmentEditModal({
                       const isCompleted = !!value;
 
                       return (
-                        <div key={field.key} className="bg-white rounded-lg p-2 border border-gray-200 hover:border-gray-300 transition-colors">
-                          <label className="block text-xs font-medium text-gray-700 mb-1 leading-tight">
-                            {field.label}
+                        <div key={field.key} className="bg-white rounded-lg p-2 border border-gray-200 hover:border-gray-300 transition-colors group relative">
+                          <label className="block text-xs font-medium text-gray-700 mb-1 leading-tight flex items-center justify-between">
+                            <span>{field.label}</span>
+                            {field.description && (
+                              <div className="relative group/tooltip">
+                                <svg className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover/tooltip:block z-10 w-48 p-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg">
+                                  {field.description}
+                                  <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                                </div>
+                              </div>
+                            )}
                           </label>
                           <select
                             value={value || ""}
@@ -263,19 +304,29 @@ export function ResidentAssessmentEditModal({
                                 ? 'border-green-300 focus:border-green-500 focus:ring-1 focus:ring-green-500/20'
                                 : 'border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20'
                             }`}
+                            title={`${field.description || field.label} - 0=Independent, 5=Totally Dependent`}
                           >
                             <option value="">Select...</option>
-                            <option value="None">No Needs</option>
-                            <option value="Low">Low</option>
-                            <option value="Medium">Medium</option>
-                            <option value="High">High</option>
+                            <option value="0">0 - Independent</option>
+                            <option value="1">1 - Minimal Help</option>
+                            <option value="2">2 - Some Help</option>
+                            <option value="3">3 - Moderate Help</option>
+                            <option value="4">4 - Extensive Help</option>
+                            <option value="5">5 - Totally Dependent</option>
                           </select>
                           {isCompleted && (
                             <div className="flex items-center gap-1 mt-0.5">
                               <svg className="w-2.5 h-2.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                               </svg>
-                              <span className="text-xs text-green-600 font-medium">{value}</span>
+                              <span className="text-xs text-green-600 font-medium">
+                                {value === "0" ? "Independent" : 
+                                 value === "1" ? "Minimal" :
+                                 value === "2" ? "Some Help" :
+                                 value === "3" ? "Moderate" :
+                                 value === "4" ? "Extensive" :
+                                 "Dependent"}
+                              </span>
                             </div>
                           )}
                         </div>
@@ -311,7 +362,7 @@ export function ResidentAssessmentEditModal({
             </button>
             <button
               onClick={handleSave}
-              disabled={isSaving}
+              disabled={isSaving || !formData.name || !!roomError}
               className="px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium shadow-sm"
             >
               {isSaving ? (

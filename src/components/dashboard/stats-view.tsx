@@ -3,13 +3,14 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '@/components/ui/card';
 import OccupancyPie from '@/components/admin/occupancy-pie';
-import { doc, onSnapshot, collection, query, orderBy, limit, where } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, orderBy, limit, where, getDocs, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { workspaceCollectionPath } from '@/lib/paths';
-import { TrendingUp, TrendingDown, Minus, FileText, Shield, Wrench, Lock, Flame, Biohazard, Utensils, Moon, Users, Soup, AlertTriangle, BarChart3, Target, CheckCircle, CheckCircle2, Clock, Award, Activity } from 'lucide-react';
+import { workspaceCollectionPath, workspaceDocPath } from '@/lib/paths';
+import { TrendingUp, TrendingDown, Minus, FileText, Shield, Wrench, Lock, Flame, Biohazard, Utensils, Moon, Users, Soup, AlertTriangle, BarChart3, Target, CheckCircle, CheckCircle2, Clock, Award, Activity, Folder, Calendar, Bell, ClipboardCheck, UserCheck, Building2, Bed, Briefcase, TrendingUpIcon, ArrowUp, ArrowDown } from 'lucide-react';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Area, AreaChart } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Area, AreaChart, RadialBarChart, RadialBar, Legend } from 'recharts';
 import PageHeader from '../page-header';
+import { Badge } from '@/components/ui/badge';
 
 export function StatsView({ workspaceId, organisationId }: { workspaceId?: string, organisationId?: string }) {
   const [carePlanScore, setCarePlanScore] = useState<number | null>(null);
@@ -70,6 +71,29 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
   // Historical data for trend calculation
   const [historicalData, setHistoricalData] = useState<Record<string, any>>({});
   const [trends, setTrends] = useState<Record<string, { direction: 'up' | 'down' | 'stable', change: number }>>({});
+
+  // Additional dashboard metrics
+  const [documentsCount, setDocumentsCount] = useState<number>(0);
+  const [documentsByType, setDocumentsByType] = useState<Record<string, number>>({});
+  const [recentDocuments, setRecentDocuments] = useState<any[]>([]);
+  
+  const [actionPlansStats, setActionPlansStats] = useState<{ total: number; completed: number; pending: number; overdue: number }>({ total: 0, completed: 0, pending: 0, overdue: 0 });
+  
+  const [teamStats, setTeamStats] = useState<{ managers: number; nurses: number; carers: number; domestics: number; kitchen: number; activities: number; maintenance: number }>({ 
+    managers: 0, nurses: 0, carers: 0, domestics: 0, kitchen: 0, activities: 0, maintenance: 0 
+  });
+  
+  const [notificationsCount, setNotificationsCount] = useState<{ total: number; unread: number }>({ total: 0, unread: 0 });
+  
+  const [dailyCheckInsStats, setDailyCheckInsStats] = useState<{ thisWeek: number; thisMonth: number; avgCompletionTime: number }>({ 
+    thisWeek: 0, thisMonth: 0, avgCompletionTime: 0 
+  });
+
+  const [workspaceInfo, setWorkspaceInfo] = useState<{ name: string; totalBeds?: number; occupiedBeds?: number; occupancyRate?: number }>({ 
+    name: '', totalBeds: undefined, occupiedBeds: undefined, occupancyRate: undefined 
+  });
+
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
 
   useEffect(() => {
     if (!workspaceId) return;
@@ -235,6 +259,185 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
       console.error('Failed to listen for audit_latest_scores', e);
     }
   }, [workspaceId]);
+
+  // Fetch documents statistics
+  useEffect(() => {
+    if (!workspaceId || !organisationId) return;
+    
+    const unsubscribers: (() => void)[] = [];
+    
+    try {
+      // Listen to documents collection
+      const docsRef = collection(db, workspaceCollectionPath(workspaceId, 'documents', organisationId));
+      const docsQuery = query(docsRef, orderBy('createdAt', 'desc'), limit(100));
+      
+      const unsub = onSnapshot(docsQuery, (snapshot) => {
+        const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setDocumentsCount(docs.length);
+        
+        // Count by file type
+        const byType: Record<string, number> = {};
+        docs.forEach((doc: any) => {
+          const type = doc.fileType || 'other';
+          byType[type] = (byType[type] || 0) + 1;
+        });
+        setDocumentsByType(byType);
+        
+        // Recent documents (last 5)
+        setRecentDocuments(docs.slice(0, 5));
+      }, (err) => console.error('Failed to fetch documents', err));
+      
+      unsubscribers.push(unsub);
+    } catch (e) {
+      console.error('Failed to setup documents listener', e);
+    }
+    
+    return () => unsubscribers.forEach(unsub => unsub());
+  }, [workspaceId, organisationId]);
+
+  // Fetch action plans statistics
+  useEffect(() => {
+    if (!workspaceId || !organisationId) return;
+    
+    const fetchActionPlans = async () => {
+      try {
+        const plansRef = collection(db, workspaceCollectionPath(workspaceId, 'action-plans', organisationId));
+        const snapshot = await getDocs(plansRef);
+        
+        let total = 0;
+        let completed = 0;
+        let pending = 0;
+        let overdue = 0;
+        
+        snapshot.docs.forEach(doc => {
+          const data = doc.data();
+          const items = Array.isArray(data.items) ? data.items : [];
+          
+          items.forEach((item: any) => {
+            total++;
+            if (item.status === 'completed' || item.completed) {
+              completed++;
+            } else {
+              pending++;
+              // Check if overdue (dueDate in the past)
+              if (item.dueDate) {
+                const dueDate = new Date(item.dueDate);
+                if (dueDate < new Date()) {
+                  overdue++;
+                }
+              }
+            }
+          });
+        });
+        
+        setActionPlansStats({ total, completed, pending, overdue });
+      } catch (e) {
+        console.error('Failed to fetch action plans', e);
+      }
+    };
+    
+    fetchActionPlans();
+  }, [workspaceId, organisationId]);
+
+  // Fetch team statistics
+  useEffect(() => {
+    if (!workspaceId || !organisationId) return;
+    
+    const fetchTeamStats = async () => {
+      try {
+        const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId));
+        const workspaceSnap = await getDoc(workspaceRef);
+        
+        if (workspaceSnap.exists()) {
+          const data = workspaceSnap.data();
+          
+          setTeamStats({
+            managers: Array.isArray(data.managers) ? data.managers.length : 0,
+            nurses: Array.isArray(data.nurses) ? data.nurses.length : 0,
+            carers: Array.isArray(data.carers) ? data.carers.length : 0,
+            domestics: Array.isArray(data.domestics) ? data.domestics.length : 0,
+            kitchen: Array.isArray(data.kitchens) ? data.kitchens.length : 0,
+            activities: Array.isArray(data.activities) ? data.activities.length : 0,
+            maintenance: Array.isArray(data.maintenances) ? data.maintenances.length : 0,
+          });
+          
+          // Workspace info
+          setWorkspaceInfo({
+            name: data.name || 'Workspace',
+            totalBeds: data.totalBeds,
+            occupiedBeds: data.occupiedBeds,
+            occupancyRate: data.totalBeds && data.occupiedBeds ? (data.occupiedBeds / data.totalBeds) * 100 : undefined
+          });
+        }
+      } catch (e) {
+        console.error('Failed to fetch team stats', e);
+      }
+    };
+    
+    fetchTeamStats();
+  }, [workspaceId, organisationId]);
+
+  // Fetch notifications statistics
+  useEffect(() => {
+    if (!workspaceId || !organisationId) return;
+    
+    try {
+      const notifsRef = collection(db, workspaceCollectionPath(workspaceId, 'notifications', organisationId));
+      const notifsQuery = query(notifsRef, orderBy('createdAt', 'desc'), limit(50));
+      
+      const unsub = onSnapshot(notifsQuery, (snapshot) => {
+        const total = snapshot.size;
+        const unread = snapshot.docs.filter(doc => !doc.data().read).length;
+        setNotificationsCount({ total, unread });
+        
+        // Set recent activity from notifications
+        const activities = snapshot.docs.slice(0, 10).map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setRecentActivity(activities);
+      }, (err) => console.error('Failed to fetch notifications', err));
+      
+      return () => unsub();
+    } catch (e) {
+      console.error('Failed to setup notifications listener', e);
+    }
+  }, [workspaceId, organisationId]);
+
+  // Fetch daily check-ins statistics
+  useEffect(() => {
+    if (!workspaceId || !organisationId) return;
+    
+    const fetchDailyCheckIns = async () => {
+      try {
+        const checkInsRef = collection(db, workspaceCollectionPath(workspaceId, 'daily-checkins', organisationId));
+        
+        // This week
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        
+        const weekQuery = query(checkInsRef, where('createdAt', '>=', weekAgo), orderBy('createdAt', 'desc'));
+        const weekSnapshot = await getDocs(weekQuery);
+        
+        // This month
+        const monthAgo = new Date();
+        monthAgo.setDate(monthAgo.getDate() - 30);
+        
+        const monthQuery = query(checkInsRef, where('createdAt', '>=', monthAgo), orderBy('createdAt', 'desc'));
+        const monthSnapshot = await getDocs(monthQuery);
+        
+        setDailyCheckInsStats({
+          thisWeek: weekSnapshot.size,
+          thisMonth: monthSnapshot.size,
+          avgCompletionTime: 0 // Could calculate from data if timestamps available
+        });
+      } catch (e) {
+        console.error('Failed to fetch daily check-ins', e);
+      }
+    };
+    
+    fetchDailyCheckIns();
+  }, [workspaceId, organisationId]);
 
   // Function to calculate trends
   const calculateTrends = (currentData: any) => {
@@ -628,68 +831,209 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
       <PageHeader
-        title="Audit Performance Dashboard"
-        subtitle="Monitor compliance scores and track audit performance across all care home standards"
+        title="Analytics & Performance Dashboard"
+        subtitle="Comprehensive insights across audits, documents, teams, and operations"
         leading={(
-          <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <BarChart3 />
-          </svg>
+          <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+            <BarChart3 className="w-6 h-6 text-white" />
+          </div>
         )}
         actions={(
           <div className="flex items-center gap-3">
-            <div className="inline-flex items-center gap-2 px-3 py-0.5 rounded-full bg-white/10 text-white text-sm">
-              <FileText className="w-4 h-4 text-white/90" />
-              <span className="font-medium">Audits: {overallStats.auditsCompleted}</span>
-            </div>
-            <div className="inline-flex items-center gap-2 px-3 py-0.5 rounded-full bg-white/10 text-white text-sm">
-              <Target className="w-4 h-4 text-white/90" />
-              <span className="font-medium">Score: {overallStats.overallPercentage ?? 'N/A'}%</span>
-            </div>
+            <Badge variant="secondary" className="bg-white/10 text-white border-white/20 hover:bg-white/20">
+              <Clock className="w-3 h-3 mr-1" />
+              Last updated: {new Date().toLocaleTimeString()}
+            </Badge>
+            <Badge variant="secondary" className="bg-white/10 text-white border-white/20 hover:bg-white/20">
+              <Target className="w-3 h-3 mr-1" />
+              Overall: {overallStats.overallPercentage ?? 'N/A'}%
+            </Badge>
           </div>
         )}
       />
       
-      {/* Reintroduce the larger KPI grid below the header so it doesn't force the header to grow */}
-      <div className="mt-2 hidden xl:grid grid-cols-4 gap-6 w-full max-w-5xl mx-auto">
-        {/* Reused KPI tiles from previous header actions (kept visually identical) */}
-        <div className="group relative p-6 bg-white/90 rounded-2xl shadow-lg border border-slate-200 flex flex-col items-center transition-all hover:scale-[1.03] focus-within:ring-2 ring-blue-400" tabIndex={0} aria-label="Total Audits">
-          <div className="mb-2 flex items-center justify-center w-14 h-14 rounded-full bg-blue-100">
-            <FileText className="w-7 h-7 text-blue-500" />
-          </div>
-          <div className="text-4xl font-extrabold text-blue-700">
-            {overallStats.totalAudits !== undefined && overallStats.totalAudits !== null ? overallStats.totalAudits : <span className="text-base text-slate-400">No data</span>}
-          </div>
-          <div className="text-sm text-blue-700 font-medium">Total Audits</div>
-        </div>
-        <div className="group relative p-6 bg-white/90 rounded-2xl shadow-lg border border-slate-200 flex flex-col items-center transition-all hover:scale-[1.03] focus-within:ring-2 ring-emerald-400" tabIndex={0} aria-label="Completed">
-          <div className="mb-2 flex items-center justify-center w-14 h-14 rounded-full bg-emerald-50">
-            <CheckCircle className="w-7 h-7 text-emerald-400" />
-          </div>
-          <div className="text-4xl font-extrabold text-emerald-600">{overallStats.totalAudits ? overallStats.auditsCompleted : '—'}</div>
-          <div className="text-sm text-emerald-600 font-medium">Completed</div>
-        </div>
-        <div className="group relative p-6 bg-white/90 rounded-2xl shadow-lg border border-slate-200 flex flex-col items-center transition-all hover:scale-[1.03] focus-within:ring-2 ring-teal-400" tabIndex={0} aria-label="Overall Score">
-          <div className="mb-2 flex items-center justify-center w-14 h-14 rounded-full bg-teal-50">
-            <Target className="w-7 h-7 text-teal-400" />
-          </div>
-          <div className="text-4xl font-extrabold text-teal-700">{overallStats.overallPercentage !== null ? `${overallStats.overallPercentage}%` : 'N/A'}</div>
-          <div className="text-sm text-teal-600 font-medium">Overall Score</div>
-        </div>
-        <div className="group relative p-6 bg-white/90 rounded-2xl shadow-lg border border-slate-200 flex flex-col items-center transition-all hover:scale-[1.03] focus-within:ring-2 ring-amber-400" tabIndex={0} aria-label="Questions">
-          <div className="mb-2 flex items-center justify-center w-14 h-14 rounded-full bg-amber-50">
-            <Clock className="w-7 h-7 text-amber-400" />
-          </div>
-          <div className="text-4xl font-extrabold text-amber-700">0/0</div>
-          <div className="text-sm text-amber-600 font-medium">Questions</div>
-        </div>
-      </div>
-
       {/* Content */}
-      <div className="p-6">
-        {/* Performance Overview */}
+      <div className="p-6 space-y-8">
+        
+        {/* Key Performance Indicators */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Overall Compliance Score */}
+          <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                  <Target className="w-6 h-6 text-white" />
+                </div>
+                {trends['overall'] && (
+                  <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                    trends['overall'].direction === 'up' ? 'bg-green-500/20' : 
+                    trends['overall'].direction === 'down' ? 'bg-red-500/20' : 'bg-white/10'
+                  }`}>
+                    {trends['overall'].direction === 'up' ? <ArrowUp className="w-3 h-3" /> : 
+                     trends['overall'].direction === 'down' ? <ArrowDown className="w-3 h-3" /> : 
+                     <Minus className="w-3 h-3" />}
+                    {trends['overall'].change}%
+                  </div>
+                )}
+              </div>
+              <div className="text-4xl font-bold mb-2">
+                {overallStats.overallPercentage !== null ? `${overallStats.overallPercentage}%` : 'N/A'}
+              </div>
+              <div className="text-sm text-white/80">Overall Compliance</div>
+              <div className="text-xs text-white/60 mt-1">
+                {overallStats.auditsCompleted}/{overallStats.totalAudits} audits completed
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Documents */}
+          <Card className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                  <FileText className="w-6 h-6 text-white" />
+                </div>
+                <Badge variant="secondary" className="bg-white/20 text-white border-0">
+                  +{recentDocuments.length} recent
+                </Badge>
+              </div>
+              <div className="text-4xl font-bold mb-2">{documentsCount}</div>
+              <div className="text-sm text-white/80">Total Documents</div>
+              <div className="text-xs text-white/60 mt-1">
+                {Object.keys(documentsByType).length} document types
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Team Members */}
+          <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                  <Users className="w-6 h-6 text-white" />
+                </div>
+                <Badge variant="secondary" className="bg-white/20 text-white border-0">
+                  7 roles
+                </Badge>
+              </div>
+              <div className="text-4xl font-bold mb-2">
+                {Object.values(teamStats).reduce((a, b) => a + b, 0)}
+              </div>
+              <div className="text-sm text-white/80">Team Members</div>
+              <div className="text-xs text-white/60 mt-1">
+                Across all departments
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Action Plans */}
+          <Card className="bg-gradient-to-br from-amber-500 to-amber-600 text-white border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                  <ClipboardCheck className="w-6 h-6 text-white" />
+                </div>
+                {actionPlansStats.overdue > 0 && (
+                  <Badge variant="secondary" className="bg-red-500/80 text-white border-0">
+                    {actionPlansStats.overdue} overdue
+                  </Badge>
+                )}
+              </div>
+              <div className="text-4xl font-bold mb-2">
+                {actionPlansStats.completed}/{actionPlansStats.total}
+              </div>
+              <div className="text-sm text-white/80">Action Plans</div>
+              <div className="text-xs text-white/60 mt-1">
+                {actionPlansStats.total > 0 ? Math.round((actionPlansStats.completed / actionPlansStats.total) * 100) : 0}% completion rate
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Workspace Info & Occupancy */}
+        {(workspaceInfo.totalBeds || workspaceInfo.occupancyRate !== undefined) && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-lg">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Building2 className="h-5 w-5 text-indigo-600" />
+                  Facility Overview
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Facility Name</span>
+                    <span className="font-semibold">{workspaceInfo.name}</span>
+                  </div>
+                  {workspaceInfo.totalBeds && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Total Beds</span>
+                      <span className="font-semibold">{workspaceInfo.totalBeds}</span>
+                    </div>
+                  )}
+                  {workspaceInfo.occupiedBeds !== undefined && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Occupied</span>
+                      <span className="font-semibold">{workspaceInfo.occupiedBeds}</span>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {workspaceInfo.occupancyRate !== undefined && (
+              <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-lg lg:col-span-2">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Bed className="h-5 w-5 text-pink-600" />
+                    Occupancy Rate
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-8">
+                    <div className="w-32 h-32">
+                      <OccupancyPie
+                        percent={Math.round(workspaceInfo.occupancyRate)}
+                        size={128}
+                        strokeWidth={12}
+                        gradientColors={{ start: '#ec4899', end: '#db2777' }}
+                        centerFontSize={24}
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-3xl font-bold text-pink-600 mb-2">
+                        {Math.round(workspaceInfo.occupancyRate)}%
+                      </div>
+                      <div className="text-sm text-gray-600 mb-4">
+                        {workspaceInfo.occupiedBeds} of {workspaceInfo.totalBeds} beds occupied
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="text-center p-3 bg-pink-50 rounded-lg">
+                          <div className="text-2xl font-bold text-pink-600">{workspaceInfo.occupiedBeds}</div>
+                          <div className="text-xs text-gray-600">Occupied</div>
+                        </div>
+                        <div className="text-center p-3 bg-gray-50 rounded-lg">
+                          <div className="text-2xl font-bold text-gray-600">
+                            {workspaceInfo.totalBeds && workspaceInfo.occupiedBeds 
+                              ? workspaceInfo.totalBeds - workspaceInfo.occupiedBeds 
+                              : 0}
+                          </div>
+                          <div className="text-xs text-gray-600">Available</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+
+        {/* Audit Performance Overview */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Audit Performance Chart */}
-          <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-xl">
+          <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Activity className="h-5 w-5 text-blue-600" />
@@ -702,7 +1046,7 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
                 score: { label: "Score", color: "#3b82f6" }
               }} className="h-80">
                 <BarChart data={getAuditChartData()}>
-                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                  <XAxis dataKey="name" tick={{ fontSize: 11 }} angle={-45} textAnchor="end" height={100} />
                   <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <Bar dataKey="score" fill="var(--color-score)" radius={[4, 4, 0, 0]} />
@@ -712,7 +1056,7 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
           </Card>
 
           {/* Audit Status Grid */}
-          <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-xl">
+          <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Award className="h-5 w-5 text-green-600" />
@@ -721,14 +1065,17 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
               <CardDescription>Quick overview of all audit categories</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 {getAuditStatusData().map((audit) => (
-                  <div key={audit.key} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
-                    <div className={`w-3 h-3 rounded-full ${audit.status === 'completed' ? 'bg-green-500' : audit.status === 'in-progress' ? 'bg-yellow-500' : 'bg-gray-400'}`}></div>
+                  <div key={audit.key} className="flex items-center gap-2 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+                    <div className={`w-3 h-3 rounded-full flex-shrink-0 ${
+                      audit.status === 'completed' ? 'bg-green-500' : 
+                      audit.status === 'in-progress' ? 'bg-yellow-500' : 'bg-gray-400'
+                    }`}></div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{audit.name}</p>
+                      <p className="text-xs font-medium truncate">{audit.name}</p>
                       <p className="text-xs text-gray-600">
-                        {audit.score !== null ? `${audit.score}%` : 'Not started'}
+                        {audit.score !== null ? `${audit.score}%` : 'Pending'}
                       </p>
                     </div>
                   </div>
@@ -738,8 +1085,107 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
           </Card>
         </div>
 
+        {/* Team Distribution & Document Stats */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Team Distribution */}
+          <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-xl">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-purple-600" />
+                Team Distribution
+              </CardTitle>
+              <CardDescription>Staff members across departments</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {[
+                  { label: 'Managers', count: teamStats.managers, color: 'bg-blue-500', icon: Briefcase },
+                  { label: 'Nurses', count: teamStats.nurses, color: 'bg-green-500', icon: UserCheck },
+                  { label: 'Care Staff', count: teamStats.carers, color: 'bg-purple-500', icon: Users },
+                  { label: 'Domestic', count: teamStats.domestics, color: 'bg-pink-500', icon: Users },
+                  { label: 'Kitchen', count: teamStats.kitchen, color: 'bg-orange-500', icon: Utensils },
+                  { label: 'Activities', count: teamStats.activities, color: 'bg-cyan-500', icon: Activity },
+                  { label: 'Maintenance', count: teamStats.maintenance, color: 'bg-yellow-500', icon: Wrench },
+                ].map((dept) => {
+                  const Icon = dept.icon;
+                  const totalStaff = Object.values(teamStats).reduce((a, b) => a + b, 0);
+                  const percentage = totalStaff > 0 ? (dept.count / totalStaff) * 100 : 0;
+                  
+                  return (
+                    <div key={dept.label} className="space-y-1">
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2">
+                          <Icon className="w-4 h-4 text-gray-500" />
+                          <span className="font-medium">{dept.label}</span>
+                        </div>
+                        <span className="text-gray-600">{dept.count}</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div
+                          className={`${dept.color} h-2 rounded-full transition-all duration-500`}
+                          style={{ width: `${percentage}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Document Statistics */}
+          <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-xl">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Folder className="h-5 w-5 text-emerald-600" />
+                Document Statistics
+              </CardTitle>
+              <CardDescription>Document types and distribution</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                  <div className="text-center p-3 bg-emerald-50 rounded-lg">
+                    <div className="text-2xl font-bold text-emerald-600">{documentsCount}</div>
+                    <div className="text-xs text-gray-600">Total Docs</div>
+                  </div>
+                  <div className="text-center p-3 bg-blue-50 rounded-lg">
+                    <div className="text-2xl font-bold text-blue-600">{documentsByType['pdf'] || 0}</div>
+                    <div className="text-xs text-gray-600">PDFs</div>
+                  </div>
+                  <div className="text-center p-3 bg-purple-50 rounded-lg">
+                    <div className="text-2xl font-bold text-purple-600">{Object.keys(documentsByType).length}</div>
+                    <div className="text-xs text-gray-600">Types</div>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold text-gray-700">Recent Documents</h4>
+                  {recentDocuments.length === 0 ? (
+                    <p className="text-sm text-gray-500 text-center py-4">No recent documents</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {recentDocuments.slice(0, 5).map((doc: any) => (
+                        <div key={doc.id} className="flex items-center gap-2 p-2 bg-gray-50 rounded hover:bg-gray-100 transition-colors">
+                          <FileText className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{doc.name || 'Untitled'}</p>
+                            <p className="text-xs text-gray-500">
+                              {doc.createdAt ? new Date(doc.createdAt).toLocaleDateString() : 'Unknown date'}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Trend Analysis */}
-        <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-xl">
+        <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-xl">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-purple-600" />
@@ -785,9 +1231,107 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
           </CardContent>
         </Card>
 
+        {/* Activity & Notifications */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Recent Activity */}
+          <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-xl">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="h-5 w-5 text-indigo-600" />
+                Recent Activity
+              </CardTitle>
+              <CardDescription>Latest updates and changes</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {recentActivity.length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-8">No recent activity</p>
+                ) : (
+                  recentActivity.slice(0, 6).map((activity: any) => (
+                    <div key={activity.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                      <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                        <Bell className="w-4 h-4 text-indigo-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{activity.title || 'Activity'}</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {activity.createdAt?.toDate?.() 
+                            ? activity.createdAt.toDate().toLocaleString() 
+                            : 'Recent'}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* System Stats */}
+          <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-xl">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-teal-600" />
+                System Activity
+              </CardTitle>
+              <CardDescription>Daily operations and check-ins</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center p-4 bg-teal-50 rounded-lg">
+                    <div className="text-3xl font-bold text-teal-600">{dailyCheckInsStats.thisWeek}</div>
+                    <div className="text-sm text-gray-600 mt-1">Check-ins This Week</div>
+                  </div>
+                  <div className="text-center p-4 bg-blue-50 rounded-lg">
+                    <div className="text-3xl font-bold text-blue-600">{dailyCheckInsStats.thisMonth}</div>
+                    <div className="text-sm text-gray-600 mt-1">Check-ins This Month</div>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-gray-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-gray-700">Notifications</span>
+                    <Badge variant="secondary">
+                      {notificationsCount.unread} unread
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <Bell className="w-4 h-4" />
+                    <span>{notificationsCount.total} total notifications</span>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-gray-200">
+                  <div className="text-sm font-medium text-gray-700 mb-3">Quick Stats</div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">Pending Actions</span>
+                      <span className="font-semibold text-amber-600">{actionPlansStats.pending}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">Completed Actions</span>
+                      <span className="font-semibold text-green-600">{actionPlansStats.completed}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">Overdue Actions</span>
+                      <span className="font-semibold text-red-600">{actionPlansStats.overdue}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Detailed Audit Cards */}
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Detailed Audit Results</h2>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-gray-900">Detailed Audit Results</h2>
+            <Badge variant="outline" className="text-sm">
+              {overallStats.auditsCompleted} of {overallStats.totalAudits} completed
+            </Badge>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {getDetailedAuditCards()}
           </div>

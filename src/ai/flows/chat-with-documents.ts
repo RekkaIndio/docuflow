@@ -1,4 +1,3 @@
-
 'use server';
 
 /**
@@ -22,7 +21,7 @@ const webSearch = ai.defineTool(
     outputSchema: z.string(),
   },
   async ({ query }) => {
-    console.log(`[Web Search] Searching for: ${query}`);
+    // Debug logging removed
     // This is a mock response.
     if (query.toLowerCase().includes('genkit')) {
         return 'Genkit is an open source framework from Google that helps you build, deploy, and monitor production-ready AI applications.';

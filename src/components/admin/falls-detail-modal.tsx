@@ -131,7 +131,7 @@ export default function FallsDetailModal({
       // Add header
       pdf.setFontSize(20);
       pdf.setFont('helvetica', 'bold');
-      pdf.text('Falls Prevention - Detailed Analysis', 20, 25);
+      pdf.text('Falls - Detailed Analysis', 20, 25);
 
       pdf.setFontSize(12);
       pdf.setFont('helvetica', 'normal');
@@ -230,7 +230,7 @@ export default function FallsDetailModal({
             <div>
               <DialogTitle className="print-title">
                 <Target className="w-5 h-5 text-orange-500" />
-                Falls Prevention - Detailed Analysis
+                Falls - Detailed Analysis
               </DialogTitle>
               <DialogDescription className="print-description">
                 Comprehensive overview of fall incidents and prevention metrics

@@ -1,4 +1,4 @@
-export type DependencyLevel = "None" | "Low" | "Medium" | "High" | "";
+export type DependencyLevel = "" | "0" | "1" | "2" | "3" | "4" | "5";
 export type Shift = "Day" | "Night";
 export type ViewMode = "dashboard" | "residents" | "communities" | "analytics" | "reports";
 
@@ -23,6 +23,11 @@ export interface Resident {
   additionalNeeds: DependencyLevel;
   cognition: DependencyLevel;
   nightNeeds: DependencyLevel;
+  
+  // Therapy Needs (organizational extension)
+  therapy_communication: DependencyLevel;
+  therapy_cognitive: DependencyLevel;
+  therapy_behaviour: DependencyLevel;
 }
 
 export interface Community {

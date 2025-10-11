@@ -41,6 +41,14 @@ export default function AdminSettings({ workspaces = [] }: AdminSettingsProps) {
   const [isSaving, setIsSaving] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(true);
   
+  // Get organisationId from workspaces - use first workspace's organisationId
+  // In a multi-org setup, you might want to add org selection UI here
+  const organisationId = React.useMemo(() => {
+    const firstWorkspace = workspaces.find(w => w.organisationId);
+    const orgId = firstWorkspace?.organisationId || user?.organisationId;
+    return orgId;
+  }, [workspaces, user?.organisationId]);
+  
   // Owner profile state
   const [ownerProfile, setOwnerProfile] = React.useState<OwnerProfile>({
     name: '',
@@ -359,7 +367,7 @@ export default function AdminSettings({ workspaces = [] }: AdminSettingsProps) {
         </TabsContent>
 
         <TabsContent value="features" className="space-y-6">
-          <FeatureManagement organisationId={user?.organisationId} />
+          <FeatureManagement organisationId={organisationId} />
         </TabsContent>
       </Tabs>
     </div>

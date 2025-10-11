@@ -120,7 +120,7 @@ export function HistoricalTrendsChart({
               </div>
 
               <div className="text-xs text-gray-600 text-center">
-                Historical data shows trends over the last 6 months with variation based on current resident profiles
+                Current month shows actual data. Previous months show estimated trends based on current resident profile.
               </div>
             </div>
           );

@@ -6,10 +6,17 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { 
   Zap, 
   Search, 
-  Save, 
   Loader2, 
   Shield, 
   Info,
@@ -34,7 +41,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { DEFAULT_FEATURE_FLAGS } from '@/hooks/use-feature-flags';
 import type { OrganisationFeatureFlags, FeatureModuleKey, FeatureModule } from '@/lib/types';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -75,15 +82,24 @@ const CATEGORY_COLORS: Record<string, string> = {
 export default function FeatureManagement({ organisationId }: FeatureManagementProps) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [localFlags, setLocalFlags] = useState<OrganisationFeatureFlags>(DEFAULT_FEATURE_FLAGS);
-  const [hasChanges, setHasChanges] = useState(false);
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    featureKey: FeatureModuleKey | null;
+    featureName: string;
+    action: 'enable' | 'disable';
+  }>({ isOpen: false, featureKey: null, featureName: '', action: 'disable' });
 
   // Load feature flags on mount
   React.useEffect(() => {
     const loadFeatureFlags = async () => {
-      if (!organisationId) return;
+      if (!organisationId) {
+        // No organisation id - cannot load feature flags
+        return;
+      }
 
       try {
         const featureFlagsRef = doc(db, 'organisations', organisationId, 'settings', 'feature-flags');
@@ -91,17 +107,20 @@ export default function FeatureManagement({ organisationId }: FeatureManagementP
         
         if (snapshot.exists()) {
           const data = snapshot.data() as OrganisationFeatureFlags;
-          setLocalFlags({
-            ...DEFAULT_FEATURE_FLAGS,
-            ...data,
-            modules: {
-              ...DEFAULT_FEATURE_FLAGS.modules,
-              ...data.modules,
-            }
-          });
-        }
+           setLocalFlags({
+             ...DEFAULT_FEATURE_FLAGS,
+             ...data,
+             modules: {
+               ...DEFAULT_FEATURE_FLAGS.modules,
+               ...data.modules,
+             }
+           });
+         } else {
+          // Use defaults when document does not exist
+         }
       } catch (error) {
-        console.error('Failed to load feature flags:', error);
+        // Loading failed; show toast to alert admin
+        toast({ title: 'Error', description: 'Failed to load feature flags', variant: 'destructive' });
       }
     };
 
@@ -112,77 +131,136 @@ export default function FeatureManagement({ organisationId }: FeatureManagementP
     const feature = localFlags.modules[featureKey];
     
     // Prevent disabling core features
-    if (feature.isCore) {
+    if (feature.enabled && feature.isCore) {
       toast({
         title: 'Cannot Disable Core Feature',
-        description: `${feature.name} is a core feature and cannot be disabled.`,
+        description: `"${feature.name}" is a core feature required for system operation and cannot be disabled.`,
         variant: 'destructive',
       });
       return;
     }
 
+    // Show confirmation modal
+    const action = feature.enabled ? 'disable' : 'enable';
+    setConfirmModal({
+      isOpen: true,
+      featureKey,
+      featureName: feature.name,
+      action,
+    });
+  };
+
+  const confirmToggle = async () => {
+    if (!confirmModal.featureKey) return;
+
+    const featureKey = confirmModal.featureKey;
+    const newEnabledState = confirmModal.action === 'enable';
+
+    // toggling feature; UI will update optimistically
     setLocalFlags(prev => ({
       ...prev,
       modules: {
         ...prev.modules,
         [featureKey]: {
           ...prev.modules[featureKey],
-          enabled: !prev.modules[featureKey].enabled,
+          enabled: newEnabledState
         }
       }
     }));
-    setHasChanges(true);
+
+    // Close modal
+    setConfirmModal({ isOpen: false, featureKey: null, featureName: '', action: 'disable' });
+
+    // Save immediately to Firestore
+    await saveFeatureFlag(featureKey, newEnabledState);
   };
 
-  const saveFeatureFlags = async () => {
+  const cancelToggle = () => {
+    setConfirmModal({ isOpen: false, featureKey: null, featureName: '', action: 'disable' });
+  };
+
+  const saveFeatureFlag = async (featureKey: FeatureModuleKey, enabled: boolean) => {
     if (!organisationId || !user?.id) {
+      const errorMsg = !organisationId ? 'No organisation ID' : 'No user ID';
       toast({
         title: 'Error',
-        description: 'Missing organisation ID or user information',
+        description: `Cannot save: ${errorMsg}`,
         variant: 'destructive',
       });
       return;
     }
 
     setIsSaving(true);
+    
     try {
       const featureFlagsRef = doc(db, 'organisations', organisationId, 'settings', 'feature-flags');
       
-      await setDoc(featureFlagsRef, {
-        ...localFlags,
-        updatedAt: serverTimestamp(),
-        updatedBy: user.id,
-      });
+      // Get current document first
+      const currentDoc = await getDoc(featureFlagsRef);
+      
+      if (!currentDoc.exists()) {
+        // Document doesn't exist, create it with all defaults
+        const newData = {
+          ...DEFAULT_FEATURE_FLAGS,
+          modules: {
+            ...DEFAULT_FEATURE_FLAGS.modules,
+            [featureKey]: {
+              ...DEFAULT_FEATURE_FLAGS.modules[featureKey],
+              enabled: enabled
+            }
+          },
+          updatedAt: serverTimestamp(),
+          updatedBy: user.id,
+        };
+        await setDoc(featureFlagsRef, newData);
+      } else {
+        // Document exists - prepare updated modules and write
+        const currentData = currentDoc.data() as OrganisationFeatureFlags;
+        const updatedModules = {
+          ...currentData.modules,
+          [featureKey]: {
+            ...currentData.modules[featureKey],
+            enabled: enabled
+          }
+        };
+        await updateDoc(featureFlagsRef, {
+          modules: updatedModules,
+          updatedAt: serverTimestamp(),
+          updatedBy: user.id,
+        });
+      }
 
+      // Save succeeded
+      
+      const featureName = localFlags.modules[featureKey].name;
       toast({
-        title: 'Success',
-        description: 'Feature flags updated successfully',
+        title: enabled ? 'Feature Enabled' : 'Feature Disabled',
+        description: `"${featureName}" has been ${enabled ? 'enabled' : 'disabled'} for all workspaces.`,
       });
-      setHasChanges(false);
     } catch (error) {
-      console.error('Failed to save feature flags:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to save feature flags',
-        variant: 'destructive',
-      });
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save feature';
+      
+      // Revert local state on error
+      setLocalFlags(prev => ({
+        ...prev,
+        modules: {
+          ...prev.modules,
+          [featureKey]: {
+            ...prev.modules[featureKey],
+            enabled: !enabled
+          }
+        }
+      }));
+      
+      toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
   };
 
-  const resetToDefaults = () => {
-    setLocalFlags(DEFAULT_FEATURE_FLAGS);
-    setHasChanges(true);
-    toast({
-      title: 'Reset to Defaults',
-      description: 'All features have been enabled',
-    });
-  };
-
   // Filter features based on search
   const filteredFeatures = Object.entries(localFlags.modules).filter(([key, feature]) => {
-    const searchLower = searchQuery.toLowerCase();
+    const searchLower = searchTerm.toLowerCase();
     return (
       feature.name.toLowerCase().includes(searchLower) ||
       feature.description?.toLowerCase().includes(searchLower) ||
@@ -204,10 +282,17 @@ export default function FeatureManagement({ organisationId }: FeatureManagementP
   if (!organisationId) {
     return (
       <div className="space-y-6">
-        <Alert>
+        <Alert variant="destructive">
           <Info className="w-4 h-4" />
           <AlertDescription>
-            Please select an organisation to manage feature flags.
+            <strong>No Organisation ID Available</strong>
+            <br />
+            Cannot manage feature flags without an organisation ID. Please ensure:
+            <ul className="list-disc ml-4 mt-2">
+              <li>You have at least one workspace created</li>
+              <li>Your workspaces have an organisationId field</li>
+              <li>You are logged in as an admin user</li>
+            </ul>
           </AlertDescription>
         </Alert>
       </div>
@@ -216,6 +301,14 @@ export default function FeatureManagement({ organisationId }: FeatureManagementP
 
   return (
     <div className="space-y-6">
+      {/* Debug Info - Shows current organisation ID */}
+      <Alert>
+        <Info className="w-4 h-4" />
+        <AlertDescription>
+          <strong>Managing features for Organisation:</strong> <code className="ml-2 px-2 py-1 bg-muted rounded">{organisationId}</code>
+        </AlertDescription>
+      </Alert>
+      
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -229,24 +322,8 @@ export default function FeatureManagement({ organisationId }: FeatureManagementP
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={resetToDefaults} disabled={isSaving}>
-            Reset to Defaults
-          </Button>
-          <Button onClick={saveFeatureFlags} disabled={!hasChanges || isSaving}>
-            {isSaving ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4 mr-2" />
-                Save Changes
-              </>
-            )}
-          </Button>
-        </div>
+        {/* Organisation info */}
+        <div />
       </div>
 
       {/* Stats & Search */}
@@ -257,8 +334,8 @@ export default function FeatureManagement({ organisationId }: FeatureManagementP
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder="Search features..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
               />
             </div>
@@ -355,6 +432,53 @@ export default function FeatureManagement({ organisationId }: FeatureManagementP
           </Card>
         ))}
       </div>
+
+      {/* Confirmation Modal */}
+      <Dialog open={confirmModal.isOpen} onOpenChange={(open) => !open && cancelToggle()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {confirmModal.action === 'disable' ? 'Disable' : 'Enable'} Feature?
+            </DialogTitle>
+            <DialogDescription>
+              {confirmModal.action === 'disable' ? (
+                <>
+                  Are you sure you want to disable <strong>{confirmModal.featureName}</strong>?
+                  <br /><br />
+                  This will immediately hide this feature from the sidebar and make it inaccessible 
+                  to all users across all workspaces in your organisation.
+                </>
+              ) : (
+                <>
+                  Are you sure you want to enable <strong>{confirmModal.featureName}</strong>?
+                  <br /><br />
+                  This will immediately make this feature available to all users across 
+                  all workspaces in your organisation.
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={cancelToggle} disabled={isSaving}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={confirmToggle} 
+              disabled={isSaving}
+              variant={confirmModal.action === 'disable' ? 'destructive' : 'default'}
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                confirmModal.action === 'disable' ? 'Disable Feature' : 'Enable Feature'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

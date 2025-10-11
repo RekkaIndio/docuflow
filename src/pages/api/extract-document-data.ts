@@ -28,7 +28,6 @@ async function extractAllDataWithOpenAI(text: string, filename: string, mimetype
   const openai = new OpenAI({ apiKey: process.env.OPEN_API_KEY });
   // Split by page using form feed '\f' (common PDF page delimiter)
   const pages = text.split('\f');
-  console.log('Extracted text length:', text.length, 'Total pages:', pages.length);
   const structuredPages: any[] = [];
   const openaiStructuredPages: any[] = [];
   const openaiRawPages: any[] = [];
@@ -50,7 +49,6 @@ async function extractAllDataWithOpenAI(text: string, filename: string, mimetype
         temperature: 0.0,
       });
       openaiRaw = response.choices[0].message.content || undefined;
-      console.log(`OpenAI response for page ${i+1}:`, openaiRaw);
       try {
         openaiStructured = JSON.parse(openaiRaw || '{}');
         structuredPages.push(openaiStructured);

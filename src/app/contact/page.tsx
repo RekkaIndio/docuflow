@@ -25,7 +25,6 @@ export default function ContactPage() {
         <nav className="ml-auto hidden lg:flex gap-4 sm:gap-6 items-center">
           <Link href="/" className="text-sm font-medium hover:underline">Home</Link>
           <Link href="/about" className="text-sm font-medium hover:underline">About</Link>
-          <Link href="/login" className="text-sm font-medium hover:underline">Sign In</Link>
           <Button asChild className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20">
             <button onClick={openCalendlyModal}>Book Demo</button>
           </Button>
@@ -253,8 +252,7 @@ export default function ContactPage() {
                   </CardHeader>
                   <CardContent>
                     <p className="text-slate-600">
-                      Yes, you can cancel your subscription at any time. We offer flexible
-                      pricing with no long-term contracts or hidden fees.
+                      We offer a 14 day cancellation policy. After that our minimum term is 12 months.
                     </p>
                   </CardContent>
                 </Card>
