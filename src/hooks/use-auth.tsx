@@ -70,7 +70,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 }
               } catch (e) {
                 // Non-fatal; proceed without blocking auth hydration
-                console.debug('ensureOrgUserRecord during auth hydration failed', e);
               }
             }
           } catch (e) {

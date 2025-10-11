@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Sun, Moon, Save, X } from 'lucide-react';
 import { doc, setDoc, collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { DialogDescription } from '@/components/ui/dialog';
 import { workspaceCollectionPath } from '@/lib/paths';
 import { getWorkspaceCollectionRef, getWorkspaceDocRef } from '@/lib/firestore';
 import { db } from '@/lib/firebase';
@@ -16,6 +17,7 @@ interface StaffingTeamsModalProps {
   isOpen: boolean;
   onClose: () => void;
   workspaceId?: string;
+  organisationId?: string | null;
 }
 
 interface TeamStaffing {
@@ -36,7 +38,7 @@ const teamCategories = [
   { key: 'maintenance', label: 'Maintenance', icon: Users },
 ] as const;
 
-export function StaffingTeamsModal({ isOpen, onClose, workspaceId }: StaffingTeamsModalProps) {
+export function StaffingTeamsModal({ isOpen, onClose, workspaceId, organisationId }: StaffingTeamsModalProps) {
   const [staffingData, setStaffingData] = useState<TeamStaffing>({
     management: { day: 0, night: 0 },
     nurses: { day: 0, night: 0 },
@@ -48,6 +50,7 @@ export function StaffingTeamsModal({ isOpen, onClose, workspaceId }: StaffingTea
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [permissionDenied, setPermissionDenied] = useState(false);
 
   // Load existing staffing data
   useEffect(() => {
@@ -82,6 +85,9 @@ export function StaffingTeamsModal({ isOpen, onClose, workspaceId }: StaffingTea
         setLoading(false);
       }, (err) => {
         console.error('Failed to load staffing teams data', err);
+        if (err && (err.code === 'permission-denied' || String(err).toLowerCase().includes('insufficient permissions'))) {
+          setPermissionDenied(true);
+        }
         setLoading(false);
       });
       return () => unsub();
@@ -155,7 +161,7 @@ export function StaffingTeamsModal({ isOpen, onClose, workspaceId }: StaffingTea
               </div>
               <div>
                 <h2 className="text-2xl font-bold">Staffing Teams Breakdown</h2>
-                <p className="text-slate-300 text-sm mt-1">Detailed staffing breakdown by team and shift</p>
+                <DialogDescription className="text-slate-300 text-sm mt-1">Detailed staffing breakdown by team and shift</DialogDescription>
               </div>
             </div>
           </div>
@@ -166,6 +172,11 @@ export function StaffingTeamsModal({ isOpen, onClose, workspaceId }: StaffingTea
             <div className="space-y-6">
               {loading ? (
                 <div className="text-center py-8">Loading staffing data...</div>
+              ) : permissionDenied ? (
+                <div className="text-center py-8">
+                  <div className="text-sm text-amber-700 font-medium">You don't have permission to view historical staffing teams data.</div>
+                  <div className="text-xs text-amber-600 mt-2">Ask your workspace administrator to grant access or record today&apos;s staffing using the button below.</div>
+                </div>
               ) : (
                 <>
                   {/* Summary Card */}

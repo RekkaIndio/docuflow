@@ -25,12 +25,12 @@ export default function AdminDashboardHeader({
   onRefresh
 }: AdminDashboardHeaderProps) {
   return (
-  <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-blue-600 to-purple-700 text-white rounded-b-[64px] shadow-2xl">
+  <div className="relative overflow-hidden bg-gradient-to-br from-primary to-accent text-primary-foreground rounded-b-[64px] shadow-2xl">
       {/* Animated background elements */}
       <div className="absolute inset-0">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-white/10 to-transparent rounded-full -translate-y-48 translate-x-48 animate-pulse"></div>
-        <div className="absolute bottom-0 left-0 w-80 h-80 bg-gradient-to-tr from-purple-400/20 to-transparent rounded-full translate-y-40 -translate-x-40"></div>
-        <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-gradient-to-br from-blue-300/10 to-transparent rounded-full -translate-x-1/2 -translate-y-1/2 animate-pulse delay-1000"></div>
+        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-primary/10 to-transparent rounded-full -translate-y-48 translate-x-48 animate-pulse"></div>
+        <div className="absolute bottom-0 left-0 w-80 h-80 bg-gradient-to-tr from-accent/20 to-transparent rounded-full translate-y-40 -translate-x-40"></div>
+        <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-gradient-to-br from-primary/10 to-transparent rounded-full -translate-x-1/2 -translate-y-1/2 animate-pulse delay-1000"></div>
       </div>
 
       <div className="relative z-10 py-6 sm:py-8 lg:py-10 px-8 md:px-12 lg:px-16">
@@ -48,12 +48,12 @@ export default function AdminDashboardHeader({
               {/* Workspaces */}
               <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
                 <div className="flex items-center gap-2 lg:gap-3 h-full">
-                  <div className="p-2 bg-blue-500/20 rounded-xl group-hover:bg-blue-500/30 transition-colors duration-300">
-                    <Building2 className="w-4 h-4 lg:w-5 lg:h-5 text-blue-400" />
+                  <div className="p-2 bg-primary/20 rounded-xl group-hover:bg-primary/30 transition-colors duration-300">
+                    <Building2 className="w-4 h-4 lg:w-5 lg:h-5 text-primary-foreground" />
                   </div>
                   <div>
                     <div className="text-xl lg:text-2xl font-bold text-white">{workspaceCount}</div>
-                    <div className="text-xs text-blue-200 font-medium uppercase tracking-wide">Workspaces</div>
+                    <div className="text-xs text-primary/80 font-medium uppercase tracking-wide">Workspaces</div>
                   </div>
                 </div>
               </div>

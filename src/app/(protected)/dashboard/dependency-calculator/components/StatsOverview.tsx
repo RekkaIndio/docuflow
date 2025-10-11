@@ -14,13 +14,13 @@ interface StatsOverviewProps {
   openAddModal?: () => void;
 }
 
-// Helper function to get NDPS band from score
+// Helper function to get NDPS band from score (based on 100-point scale)
 function getNDPSBand(score: number): { band: number; name: string } {
-  if (score <= 5) return { band: 1, name: "Independent" };
-  if (score <= 10) return { band: 2, name: "Low Dependency" };
-  if (score <= 15) return { band: 3, name: "Medium Dependency" };
-  if (score <= 20) return { band: 4, name: "High Dependency" };
-  return { band: 5, name: "Very High Dependency" };
+  if (score <= 20) return { band: 1, name: "Low Dependency" };
+  if (score <= 40) return { band: 2, name: "Moderate Dependency" };
+  if (score <= 60) return { band: 3, name: "High Dependency" };
+  if (score <= 80) return { band: 4, name: "Very High Dependency" };
+  return { band: 5, name: "Maximum Dependency" };
 }
 
 export function StatsOverview({
@@ -330,47 +330,52 @@ export function StatsOverview({
                 <div className="p-4 bg-green-50 rounded-lg border border-green-200">
                   <div className="flex items-center gap-3 mb-2">
                     <div className="w-4 h-4 bg-green-500 rounded-full"></div>
-                    <span className="font-semibold text-green-800">Band 1: Independent</span>
+                    <span className="font-semibold text-green-800">Band 1: Low Dependency</span>
                   </div>
-                  <p className="text-sm text-green-700">No assistance required</p>
+                  <p className="text-sm text-green-700 mb-1">NPDS Score: 0-20</p>
+                  <p className="text-sm text-green-600">Minimal assistance - prompt/supervision or occasional help of 1 person</p>
                 </div>
 
                 <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
                   <div className="flex items-center gap-3 mb-2">
                     <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
-                    <span className="font-semibold text-blue-800">Band 2: Low Dependency</span>
+                    <span className="font-semibold text-blue-800">Band 2: Moderate Dependency</span>
                   </div>
-                  <p className="text-sm text-blue-700">Prompt/supervision/occasional assistance of 1</p>
+                  <p className="text-sm text-blue-700 mb-1">NPDS Score: 21-40</p>
+                  <p className="text-sm text-blue-600">Regular assistance of 1 person for most daily tasks</p>
                 </div>
 
                 <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
                   <div className="flex items-center gap-3 mb-2">
                     <div className="w-4 h-4 bg-yellow-500 rounded-full"></div>
-                    <span className="font-semibold text-yellow-800">Band 3: Medium Dependency</span>
+                    <span className="font-semibold text-yellow-800">Band 3: High Dependency</span>
                   </div>
-                  <p className="text-sm text-yellow-700">Full assistance of 1 for all of the task and can not complete any of the task independently</p>
+                  <p className="text-sm text-yellow-700 mb-1">NPDS Score: 41-60</p>
+                  <p className="text-sm text-yellow-600">Full assistance of 1 person or assistance of 2 for some tasks</p>
                 </div>
 
                 <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
                   <div className="flex items-center gap-3 mb-2">
                     <div className="w-4 h-4 bg-orange-500 rounded-full"></div>
-                    <span className="font-semibold text-orange-800">Band 4: High Dependency</span>
+                    <span className="font-semibold text-orange-800">Band 4: Very High Dependency</span>
                   </div>
-                  <p className="text-sm text-orange-700">Assistance of 2 required but can complete some of the task with prompt/encouragement</p>
+                  <p className="text-sm text-orange-700 mb-1">NPDS Score: 61-80</p>
+                  <p className="text-sm text-orange-600">Assistance of 2 people for most tasks; complex care needs</p>
                 </div>
 
                 <div className="p-4 bg-red-50 rounded-lg border border-red-200">
                   <div className="flex items-center gap-3 mb-2">
                     <div className="w-4 h-4 bg-red-500 rounded-full"></div>
-                    <span className="font-semibold text-red-800">Band 5: Very High Dependency</span>
+                    <span className="font-semibold text-red-800">Band 5: Maximum Dependency</span>
                   </div>
-                  <p className="text-sm text-red-700">Full assistance of 2 and can not complete any of the task</p>
+                  <p className="text-sm text-red-700 mb-1">NPDS Score: 81-100</p>
+                  <p className="text-sm text-red-600">Full assistance of 2+ people for all tasks; extensive medical/nursing needs</p>
                 </div>
               </div>
 
               <div className="mt-6 p-4 bg-gray-50 rounded-lg">
                 <p className="text-xs text-gray-600">
-                  <strong>Note:</strong> The NDPS (National Dependency Projection System) provides an evidence-based approach to assessing resident dependency levels and calculating required staffing ratios.
+                  <strong>Note:</strong> This system uses NPDS methodology (0-5 scale per item) extended with Therapy needs. Total score: BCN (60) + SNN (25) + Therapy (15) = 100 points maximum.
                 </p>
               </div>
             </div>

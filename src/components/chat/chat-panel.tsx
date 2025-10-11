@@ -2141,7 +2141,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
           for (const docSnap of snapshot.docs) {
             const data = docSnap.data();
             if (data.status === 'active') {
-              await updateDoc(doc(db, workspaceCollectionPath(workspaceId, 'workflows', orgId || null), docSnap.id), {
+              await updateDoc(doc(db, workspaceId, 'workflows', orgId || null, docSnap.id), {
                 status: 'inactive'
               });
               deactivatedCount++;
@@ -2756,10 +2756,6 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         if (stored) {
           const parsed = JSON.parse(stored);
           if (parsed && parsed.extractedJson) {
-            try {
-              const len = parsed.extractedJson.content ? parsed.extractedJson.content.length : 0;
-              console.debug('[ChatPanel] Restored active document from sessionStorage', { id: parsed.id, name: parsed.name, extractedLength: len });
-            } catch (e) {}
             setActiveDoc(parsed);
             setLastContext({ doc: parsed });
           }
@@ -2773,19 +2769,11 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
       const { documentId, documentName, documentData } = event.detail;
       try {
         if (documentData) {
-          // Debug: log presence and size of extractedJson so we can detect empty-content issues
-          try {
-            const len = documentData?.extractedJson?.content ? documentData.extractedJson.content.length : 0;
-            console.debug('[ChatPanel] set-active-document received', { documentId, documentName, extractedLength: len, preview: (documentData?.extractedJson?.content || '').slice(0, 200) });
-          } catch (e) {
-            console.debug('[ChatPanel] set-active-document received', { documentId, documentName });
-          }
-
           // Set the active document for chat interactions
           setActiveDoc(documentData);
           setLastContext({ doc: documentData });
         } else {
-          console.debug('[ChatPanel] set-active-document received with empty documentData', { documentId, documentName });
+          // Debug logging removed: set-active-document received with empty documentData
         }
       } catch (e) {
         console.error('[ChatPanel] Error handling set-active-document', e);

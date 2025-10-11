@@ -17,8 +17,8 @@ export default function PageHeader({
   subtitle,
   actions,
   leading,
-  gradientClass = 'from-blue-600 to-indigo-600',
-  textClass = 'text-white',
+  gradientClass = 'from-primary to-accent',
+  textClass = 'text-primary-foreground',
   className = '',
   subtitleClass = 'text-slate-200 text-sm sm:text-base leading-relaxed',
 }: PageHeaderProps) {
@@ -27,8 +27,8 @@ export default function PageHeader({
     // Use exact heights so every PageHeader renders the same size across the app.
     <div className={`bg-gradient-to-r ${gradientClass} ${textClass} px-6 h-20 sm:h-28 rounded-b-2xl shadow-lg relative overflow-hidden mb-6 ${className}`}>
       <div className="absolute inset-0 opacity-5 pointer-events-none select-none">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full -translate-y-48 translate-x-48" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-400 rounded-full translate-y-32 -translate-x-32" />
+        <div className="absolute top-0 right-0 w-96 h-96 bg-primary/10 rounded-full -translate-y-48 translate-x-48" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-accent/10 rounded-full translate-y-32 -translate-x-32" />
       </div>
 
       <div className="relative z-10 w-full mx-auto flex items-center justify-between gap-8 h-full">

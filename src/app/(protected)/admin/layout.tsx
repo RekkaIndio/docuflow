@@ -31,7 +31,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         const orgQuery = (user as any)?.organisationId ? `?orgId=${encodeURIComponent((user as any).organisationId)}` : '';
         const wsUrl = `/api/admin/workspaces${orgQuery}`;
-        console.debug('AdminLayout fetching workspaces from', wsUrl);
         const wsResp = await fetch(wsUrl);
         if (wsResp && wsResp.ok) {
           const data = await wsResp.json();

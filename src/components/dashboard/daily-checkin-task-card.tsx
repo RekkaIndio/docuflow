@@ -11,6 +11,7 @@ import { getWorkspaceDocRef } from '@/lib/firestore';
 
 export default function DailyCheckinTaskCard({ workspaceId }: { workspaceId: string }) {
   const [completed, setCompleted] = useState<boolean | null>(null);
+  const cardRef = React.useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
   const todayKey = new Date().toISOString().split('T')[0];
 
@@ -34,15 +35,33 @@ export default function DailyCheckinTaskCard({ workspaceId }: { workspaceId: str
     return () => { mounted = false; };
   }, [workspaceId, todayKey]);
 
+  // Debug the glow/class application so we can verify the state in the console
+  useEffect(() => {
+    if (!cardRef.current) return;
+    console.debug('DailyCheckinTaskCard: completed=', completed, 'has glow class=', cardRef.current.classList.contains('glow-red'));
+  }, [completed]);
+
   return (
     <>
-      <Card className="h-full flex flex-col hover:shadow-lg transition-shadow border border-blue-200 bg-white/80 backdrop-blur-md rounded-xl">
+      <Card
+        ref={cardRef}
+        className={`relative h-full flex flex-col hover:shadow-lg transition-shadow border border-blue-200 bg-white/80 backdrop-blur-md rounded-xl ${completed === false ? 'glow-red border-l-4 border-red-500' : ''}`}
+        {...(completed === false ? { 'data-pending': 'true' } : {})}
+      >
         <CardHeader className="pb-2 border-b border-blue-100 bg-gradient-to-r from-blue-50/60 to-transparent rounded-t-xl">
           <div className="flex items-center justify-between">
+            {completed === false && (
+              <span className="absolute right-4 top-4 h-3 w-3 rounded-full bg-red-500 shadow-md animate-pulse" aria-hidden="true" />
+            )}
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-blue-600" />
               <div>
-                <CardTitle className="text-sm font-medium text-blue-900">Daily Check-in</CardTitle>
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-sm font-medium text-blue-900">Daily Check-in</CardTitle>
+                  {completed === false && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-red-600 text-white">Pending</span>
+                  )}
+                </div>
                 <CardDescription className="text-xs text-muted-foreground">Complete a short daily check-in for {todayKey}</CardDescription>
               </div>
             </div>
@@ -60,6 +79,9 @@ export default function DailyCheckinTaskCard({ workspaceId }: { workspaceId: str
         </CardHeader>
         <CardContent className="pt-3 flex-1 flex flex-col justify-between">
           <div className="text-sm text-muted-foreground">A quick guided form for today's essentials</div>
+          {completed === false && (
+            <span className="sr-only" aria-live="polite">Daily check-in is pending</span>
+          )}
           <div className="mt-3 flex justify-end">
             <Button size="sm" onClick={() => setOpen(true)}>
               {completed ? 'Edit' : 'Start'}

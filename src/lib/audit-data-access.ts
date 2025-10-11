@@ -19,9 +19,9 @@ interface AuditData {
 /**
  * Get audit trends for a specific audit type or all audits
  */
-export async function getAuditTrends(workspaceId: string, auditType?: string): Promise<string> {
+export async function getAuditTrends(workspaceId: string, auditType?: string, orgId?: string | null): Promise<string> {
   try {
-  const auditsCol = collection(db, workspaceCollectionPath(workspaceId, 'audits'));
+  const auditsCol = collection(db, workspaceCollectionPath(workspaceId, 'audits', orgId || null));
 
     let q;
     if (auditType && auditType !== 'all') {
@@ -105,9 +105,9 @@ export async function getAuditTrends(workspaceId: string, auditType?: string): P
 /**
  * Get audit comments for a specific audit type or all audits
  */
-export async function getAuditComments(workspaceId: string, auditType?: string): Promise<string> {
+export async function getAuditComments(workspaceId: string, auditType?: string, orgId?: string | null): Promise<string> {
   try {
-  const auditsCol = collection(db, workspaceCollectionPath(workspaceId, 'audits'));
+  const auditsCol = collection(db, workspaceCollectionPath(workspaceId, 'audits', orgId || null));
 
     let q;
     if (auditType && auditType !== 'all') {
@@ -180,9 +180,9 @@ export async function getAuditComments(workspaceId: string, auditType?: string):
 /**
  * Get general audit data for a specific audit type or all audits
  */
-export async function getAuditData(workspaceId: string, auditType?: string, dataType?: string): Promise<string> {
+export async function getAuditData(workspaceId: string, auditType?: string, dataType?: string, orgId?: string | null): Promise<string> {
   try {
-  const auditsCol = collection(db, workspaceCollectionPath(workspaceId, 'audits'));
+  const auditsCol = collection(db, workspaceCollectionPath(workspaceId, 'audits', orgId || null));
 
     let q;
     if (auditType && auditType !== 'all') {
@@ -305,9 +305,9 @@ export async function getAuditData(workspaceId: string, auditType?: string, data
 /**
  * Get monthly audit completion status
  */
-export async function getMonthlyAuditCompletionStatus(workspaceId: string): Promise<Record<string, boolean>> {
+export async function getMonthlyAuditCompletionStatus(workspaceId: string, orgId?: string | null): Promise<Record<string, boolean>> {
   try {
-  const auditsCol = collection(db, workspaceCollectionPath(workspaceId, 'audits'));
+  const auditsCol = collection(db, workspaceCollectionPath(workspaceId, 'audits', orgId || null));
 
     // Get audits from current month
     const now = new Date();
@@ -347,9 +347,9 @@ export async function getMonthlyAuditCompletionStatus(workspaceId: string): Prom
 /**
  * Get latest audit data for a specific audit type
  */
-export async function getLatestAuditData(workspaceId: string, auditType: string): Promise<any> {
+export async function getLatestAuditData(workspaceId: string, auditType: string, orgId?: string | null): Promise<any> {
   try {
-  const auditsCol = collection(db, workspaceCollectionPath(workspaceId, 'audits'));
+  const auditsCol = collection(db, workspaceCollectionPath(workspaceId, 'audits', orgId || null));
 
     const q = query(
       auditsCol,

@@ -283,7 +283,7 @@ export default function AdminOverviewCards({
               <div className="p-2 bg-orange-500/10 rounded-xl group-hover:bg-orange-500/20 transition-colors duration-300">
                 <Target className="h-5 w-5 text-orange-500" />
               </div>
-              <div className="text-sm font-semibold text-gray-700">Falls Prevention</div>
+              <div className="text-sm font-semibold text-gray-700">Falls</div>
             </div>
             <Button
               size="sm"

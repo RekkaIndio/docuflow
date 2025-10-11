@@ -207,7 +207,7 @@ export const WORKFLOW_TEMPLATES = {
 /**
  * Create a new agentic workflow
  */
-export async function createWorkflow(workspaceId: string, workflow: Omit<AgenticWorkflow, 'id' | 'createdAt' | 'updatedAt' | 'executionCount' | 'successCount' | 'workspaceId'>): Promise<string> {
+export async function createWorkflow(workspaceId: string, workflow: Omit<AgenticWorkflow, 'id' | 'createdAt' | 'updatedAt' | 'executionCount' | 'successCount' | 'workspaceId'>, orgId?: string | null): Promise<string> {
   try {
     const workflowData: AgenticWorkflow = {
       ...workflow,
@@ -219,7 +219,7 @@ export async function createWorkflow(workspaceId: string, workflow: Omit<Agentic
       workspaceId
     };
 
-  const workflowsCol = collection(db, workspaceCollectionPath(workspaceId, 'agentic-workflows'));
+  const workflowsCol = collection(db, workspaceCollectionPath(workspaceId, 'agentic-workflows', orgId || null));
   await setDoc(doc(workflowsCol, workflowData.id), workflowData);
 
     return workflowData.id;
@@ -232,9 +232,9 @@ export async function createWorkflow(workspaceId: string, workflow: Omit<Agentic
 /**
  * Get all workflows for a workspace
  */
-export async function getWorkflows(workspaceId: string): Promise<AgenticWorkflow[]> {
+export async function getWorkflows(workspaceId: string, orgId?: string | null): Promise<AgenticWorkflow[]> {
   try {
-  const workflowsCol = collection(db, workspaceCollectionPath(workspaceId, 'agentic-workflows'));
+  const workflowsCol = collection(db, workspaceCollectionPath(workspaceId, 'agentic-workflows', orgId || null));
   const snapshot = await getDocs(workflowsCol);
 
     return snapshot.docs.map(doc => doc.data() as AgenticWorkflow);
@@ -247,9 +247,9 @@ export async function getWorkflows(workspaceId: string): Promise<AgenticWorkflow
 /**
  * Update workflow status
  */
-export async function updateWorkflowStatus(workspaceId: string, workflowId: string, isActive: boolean): Promise<void> {
+export async function updateWorkflowStatus(workspaceId: string, workflowId: string, isActive: boolean, orgId?: string | null): Promise<void> {
   try {
-  const workflowRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'agentic-workflows')), workflowId);
+  const workflowRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'agentic-workflows', orgId || null)), workflowId);
     await updateDoc(workflowRef, {
       isActive,
       updatedAt: new Date().toISOString()
@@ -263,9 +263,9 @@ export async function updateWorkflowStatus(workspaceId: string, workflowId: stri
 /**
  * Execute a workflow
  */
-export async function executeWorkflow(workspaceId: string, workflowId: string, triggerData?: any): Promise<WorkflowExecution> {
+export async function executeWorkflow(workspaceId: string, workflowId: string, triggerData?: any, orgId?: string | null): Promise<WorkflowExecution> {
   try {
-  const workflowRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'agentic-workflows')), workflowId);
+  const workflowRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'agentic-workflows', orgId || null)), workflowId);
   const workflowSnap = await getDoc(workflowRef);
 
     if (!workflowSnap.exists()) {
@@ -309,7 +309,7 @@ export async function executeWorkflow(workspaceId: string, workflowId: string, t
     execution.completedAt = new Date().toISOString();
 
     // Save execution record
-  const executionsCol = collection(db, workspaceCollectionPath(workspaceId, 'workflow-executions'));
+  const executionsCol = collection(db, workspaceCollectionPath(workspaceId, 'workflow-executions', orgId || null));
   await setDoc(doc(executionsCol, execution.id), execution);
 
     // Update workflow statistics
@@ -362,8 +362,7 @@ async function executeAction(workspaceId: string, action: WorkflowAction, trigge
  * Send workflow notification
  */
 async function sendWorkflowNotification(workspaceId: string, config: any, triggerData?: any): Promise<{ message: string }> {
-  // Implementation would integrate with notification system
-  console.log('Sending notification:', config.message);
+  // Debug logging removed
   return { message: `Notification sent: ${config.message}` };
 }
 
@@ -371,8 +370,7 @@ async function sendWorkflowNotification(workspaceId: string, config: any, trigge
  * Generate workflow report
  */
 async function generateWorkflowReport(workspaceId: string, config: any, triggerData?: any): Promise<{ message: string; data: any }> {
-  // Implementation would generate the specified report type
-  console.log('Generating report:', config.reportType);
+  // Debug logging removed
   return {
     message: `Report generated: ${config.reportType}`,
     data: { reportType: config.reportType, generatedAt: new Date().toISOString() }
@@ -383,8 +381,7 @@ async function generateWorkflowReport(workspaceId: string, config: any, triggerD
  * Create workflow task
  */
 async function createWorkflowTask(workspaceId: string, config: any, triggerData?: any): Promise<{ message: string; data: any }> {
-  // Implementation would create a task in the action plans system
-  console.log('Creating task:', config.message);
+  // Debug logging removed
   return {
     message: `Task created: ${config.message}`,
     data: { taskId: `task_${Date.now()}`, assignee: config.assignee }
@@ -395,8 +392,7 @@ async function createWorkflowTask(workspaceId: string, config: any, triggerData?
  * Send workflow email
  */
 async function sendWorkflowEmail(workspaceId: string, config: any, triggerData?: any): Promise<{ message: string }> {
-  // Implementation would send email using the email system
-  console.log('Sending email to:', config.recipients);
+  // Debug logging removed
   return { message: `Email sent to ${config.recipients?.length || 0} recipients` };
 }
 
@@ -404,8 +400,7 @@ async function sendWorkflowEmail(workspaceId: string, config: any, triggerData?:
  * Update status action
  */
 async function updateWorkflowStatusAction(workspaceId: string, config: any, triggerData?: any): Promise<{ message: string }> {
-  // Implementation would update status of relevant items
-  console.log('Updating status:', config);
+  // Debug logging removed
   return { message: 'Status updated successfully' };
 }
 
@@ -413,8 +408,7 @@ async function updateWorkflowStatusAction(workspaceId: string, config: any, trig
  * Schedule workflow audit
  */
 async function scheduleWorkflowAudit(workspaceId: string, config: any, triggerData?: any): Promise<{ message: string; data: any }> {
-  // Implementation would schedule an audit
-  console.log('Scheduling audit:', config.auditType);
+  // Debug logging removed
   return {
     message: `Audit scheduled: ${config.auditType}`,
     data: { auditType: config.auditType, scheduledAt: new Date().toISOString() }
@@ -425,24 +419,23 @@ async function scheduleWorkflowAudit(workspaceId: string, config: any, triggerDa
  * Escalate workflow issue
  */
 async function escalateWorkflowIssue(workspaceId: string, config: any, triggerData?: any): Promise<{ message: string }> {
-  // Implementation would escalate the issue
-  console.log('Escalating issue:', config);
+  // Debug logging removed
   return { message: 'Issue escalated successfully' };
 }
 
 /**
  * Check and trigger workflows based on conditions
  */
-export async function checkWorkflowTriggers(workspaceId: string): Promise<void> {
+export async function checkWorkflowTriggers(workspaceId: string, orgId?: string | null): Promise<void> {
   try {
-    const workflows = await getWorkflows(workspaceId);
+    const workflows = await getWorkflows(workspaceId, orgId);
     const activeWorkflows = workflows.filter(w => w.isActive);
 
     for (const workflow of activeWorkflows) {
       if (workflow.trigger.type === 'condition') {
         const shouldTrigger = await evaluateCondition(workspaceId, workflow.trigger.condition!);
         if (shouldTrigger) {
-          await executeWorkflow(workspaceId, workflow.id);
+          await executeWorkflow(workspaceId, workflow.id, undefined, orgId);
         }
       }
     }
@@ -472,9 +465,9 @@ async function evaluateCondition(workspaceId: string, condition: NonNullable<Wor
 /**
  * Get workflow execution history
  */
-export async function getWorkflowExecutionHistory(workspaceId: string, workflowId?: string, limitCount: number = 50): Promise<WorkflowExecution[]> {
+export async function getWorkflowExecutionHistory(workspaceId: string, workflowId?: string, limitCount: number = 50, orgId?: string | null): Promise<WorkflowExecution[]> {
   try {
-  const executionsCol = collection(db, workspaceCollectionPath(workspaceId, 'workflow-executions'));
+  const executionsCol = collection(db, workspaceCollectionPath(workspaceId, 'workflow-executions', orgId || null));
     let q = query(executionsCol, orderBy('triggeredAt', 'desc'), limit(limitCount));
 
     if (workflowId) {
@@ -492,7 +485,7 @@ export async function getWorkflowExecutionHistory(workspaceId: string, workflowI
 /**
  * Create workflow from template
  */
-export async function createWorkflowFromTemplate(workspaceId: string, templateKey: keyof typeof WORKFLOW_TEMPLATES): Promise<string> {
+export async function createWorkflowFromTemplate(workspaceId: string, templateKey: keyof typeof WORKFLOW_TEMPLATES, orgId?: string | null): Promise<string> {
   const template = WORKFLOW_TEMPLATES[templateKey];
-  return await createWorkflow(workspaceId, template);
+  return await createWorkflow(workspaceId, template, orgId);
 }

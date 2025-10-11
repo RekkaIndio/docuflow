@@ -90,7 +90,7 @@ export default function AdminPolicyEditPage({ params }: { params: Promise<{ poli
     try {
       const metaWithTeams = { ...filledMeta, assignedTeams: assignedTeams || [] };
       if (typeof window !== 'undefined') {
-        console.debug('[AdminPolicyEdit] Saving policy to Firebase', { policyName, contentLength: filledPolicy?.length || 0, preview: (filledPolicy || '').slice(0, 200), meta: metaWithTeams });
+        // Debug logging removed: saving policy to Firebase
       }
   // If workspace.organisationId is not present, try a server-side derive to get an org id
   // Prefer workspace.organisationId when present, otherwise fall back to authenticated user's organisationId
@@ -123,7 +123,7 @@ export default function AdminPolicyEditPage({ params }: { params: Promise<{ poli
 
       // Debug: show workspace and organisation being sent
       try {
-        console.debug('[AdminPolicyEdit] save: workspaceId, workspace.organisationId, orgToSend', { workspaceId: workspace?.id || null, workspaceOrg: (workspace as any)?.organisationId || null, orgToSend });
+        // Debug logging removed: workspace and organisation being sent for save
       } catch (e) {}
 
       const response = await fetch(`/api/policies/${encodeURIComponent(policyName)}/save`, {
@@ -147,8 +147,7 @@ export default function AdminPolicyEditPage({ params }: { params: Promise<{ poli
         const orgUsed = response.headers.get('X-Org-Used');
         const workspaceSaved = response.headers.get('X-Workspace-Doc-Saved');
         const workspacePath = response.headers.get('X-Workspace-Policy-Path') || saveJson?.publishedPath || null;
-        console.debug('[AdminPolicyEdit] save response headers:', { orgUsed, workspaceSaved, workspacePath });
-        console.debug('[AdminPolicyEdit] save response json:', saveJson);
+        // Debug logging removed: save response headers and json
 
         if ((orgUsed && orgUsed !== 'none') || saveJson?.debug?.usedOrgId) {
           const used = orgUsed && orgUsed !== 'none' ? orgUsed : saveJson?.debug?.usedOrgId;
@@ -178,7 +177,7 @@ export default function AdminPolicyEditPage({ params }: { params: Promise<{ poli
   const handleGeneratePDF = async (filledPolicy: string, filledMeta: PolicyMeta) => {
     try {
       if (typeof window !== 'undefined') {
-        console.debug('[AdminPolicyEdit] Generating PDF / publishing policy', { policyName, contentLength: filledPolicy?.length || 0, preview: (filledPolicy || '').slice(0, 200), meta: filledMeta });
+        // Debug logging removed: generating PDF / publishing policy
       }
 
   // If workspace.organisationId missing, attempt server derive so we can publish into org scope
@@ -212,7 +211,7 @@ export default function AdminPolicyEditPage({ params }: { params: Promise<{ poli
 
       // Debug: show workspace and organisation being sent for generate
       try {
-        console.debug('[AdminPolicyEdit] generate: workspaceId, workspace.organisationId, orgToSend', { workspaceId: workspace?.id || null, workspaceOrg: (workspace as any)?.organisationId || null, orgToSend });
+        // Debug logging removed: workspace and organisation being sent for generate
       } catch (e) {}
 
       const response = await fetch(`/api/policies/${encodeURIComponent(policyName)}/generate-pdf`, {

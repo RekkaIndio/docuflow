@@ -1,4 +1,3 @@
-
 'use server';
 
 /**
@@ -24,8 +23,7 @@ async function extractAllTextFromPdf(buffer: Buffer): Promise<string> {
   const lastPage = Math.min(pdf.numPages, maxPages);
   for (let i = 1; i <= lastPage; i++) {
     try {
-      // eslint-disable-next-line no-console
-      console.log(`Extracting page ${i} of ${lastPage}`);
+      // Debug logging removed: previously logged progress per extracted page
       const page = await pdf.getPage(i);
       const content = await page.getTextContent();
       const pageText = content.items.map((item: any) => item.str).join(' ');

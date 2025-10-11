@@ -281,7 +281,8 @@ export function Dashboard() {
           await ensureOrgUserRecord(user.id, organisationId, user as any);
         }
       } catch (e) {
-        console.debug('Failed to ensure org user record before attaching listeners', e);
+        // Non-fatal; proceed without blocking attaching listeners
+        // Debug logging removed
       }
     })();
     if (workspaceId && organisationId) {
@@ -479,7 +480,9 @@ export function Dashboard() {
       let assignedWorkspaceId: string | null = null;
       try { if (typeof window !== 'undefined') assignedWorkspaceId = window.localStorage.getItem('assignedWorkspaceId'); } catch (e) { assignedWorkspaceId = null; }
 
-  try { console.debug('Dashboard: fetched userWorkspaces', userWorkspaces && userWorkspaces.length ? userWorkspaces.map(w=>w.id) : userWorkspaces); } catch(e) {}
+  try {
+    // Debug logging removed: previously logged fetched workspace ids for debugging
+  } catch(e) {}
   setWorkspaces(userWorkspaces);
       if (assignedWorkspaceId) {
         const found = userWorkspaces.find(ws => ws.id === assignedWorkspaceId) || null;
@@ -709,6 +712,13 @@ export function Dashboard() {
 
       window.addEventListener('navigate-to-audits', handleAuditsNavigation as EventListener);
 
+      // Listen for navigate-to-rotas events from staffing card
+      const handleRotasNavigation = (ev: CustomEvent) => {
+        setView('rotas');
+      };
+
+      window.addEventListener('navigate-to-rotas', handleRotasNavigation as EventListener);
+
       // Listen for navigate-to-appraisals events from chat
       const handleAppraisalsNavigation = (ev: CustomEvent) => {
         setView('appraisals');
@@ -748,6 +758,7 @@ export function Dashboard() {
         window.removeEventListener('navigate-to-document', navListener as EventListener);
         window.removeEventListener('navigate-to-workspace', handleWorkspaceNavigation as EventListener);
         window.removeEventListener('navigate-to-audits', handleAuditsNavigation as EventListener);
+        window.removeEventListener('navigate-to-rotas', handleRotasNavigation as EventListener);
         window.removeEventListener('navigate-to-appraisals', handleAppraisalsNavigation as EventListener);
         window.removeEventListener('navigate-to-action-plans', handleActionPlansNavigation as EventListener);
         window.removeEventListener('navigate-to-admin', handleAdminNavigation as EventListener);
@@ -982,7 +993,7 @@ export function Dashboard() {
     // All folders can now be deleted
 
     try {
-        await deleteFolder(activeWorkspace.id, folder.id);
+        await deleteFolder(activeWorkspace.id, folder.id, organisationId);
     // Update workspace and selection together so UI removes the folder immediately.
     setActiveWorkspace(prev => {
       if (!prev) return null;
@@ -1320,72 +1331,73 @@ export function Dashboard() {
             <div className={cn(
               "flex-1 w-full",
               // Add bottom padding on mobile when chat is closed to ensure content isn't hidden behind chat button
-              isMobile && !isChatOpen && "pb-20"
+              isMobile && !isChatOpen && isEnabled('chatPanel') && "pb-20"
             )}>
                 {renderContent()}
             </div>
         </SidebarInset>
 
-        <div
-          className={cn(
-            "fixed z-50 transition-all duration-300 ease-in-out",
-            // Mobile positioning - always visible, safer positioning
-            isMobile
-              ? isChatOpen && selected
-                ? "bottom-0 right-0 left-0 h-[70vh] max-h-[600px]"
-                : "bottom-4 right-4 w-auto h-auto"
-              : // Desktop positioning 
-                isChatOpen && selected
-                ? "bottom-4 right-4 w-[500px] h-[650px]"
-                : "bottom-4 right-4 w-auto h-auto"
-          )}
-        >
-          {isChatOpen && selected ? (
-            <Card className={cn(
-              "h-full flex flex-col shadow-2xl",
-              isMobile && "rounded-t-lg rounded-b-none border-b-0"
-            )}>
-              <div className="flex items-center justify-between p-2 border-b">
-                <h3 className="font-semibold px-2 truncate">Chat with {selected?.name}</h3>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setIsChatOpen(false)}
-                  className={cn(isMobile && "h-8 w-8")}
-                >
-                  <X className={cn("w-5 h-5", isMobile && "w-4 h-4")} />
-                </Button>
-              </div>
-              {(selected !== null) && isEnabled('chatPanel') && (
-                <ChatPanel 
-                  selectedItem={selected!}
-                  onFolderAdd={async (folderName: string) => {
-                          if (!workspaceId) return;
-                          const currentSelected = selected;
-                          // parentId: if selected is folder, use its id, else root
-                          const parentId = currentSelected && currentSelected.type === 'folder' ? currentSelected.id : 'root';
-                          // Simulate folder creation as in FileBrowser/NewFolderDialog
-                          const newFolderData = {
-                            name: folderName,
-                            type: 'folder' as const,
-                            workspaceId: workspaceId,
-                            parentId: parentId === 'root' ? null : parentId,
-                          };
-                          // saveFolder returns id, but we want to use handleFolderAdd for state
-                          const { saveFolder } = await import("@/lib/firestore");
-                          const folderId = await saveFolder(newFolderData);
-                          const newFolder = {
-                            ...newFolderData,
-                            id: folderId,
-                            items: [],
-                          } as Folder;
-                          handleFolderAdd(newFolder);
-                        }}
-                />
-              )}
-            </Card>
-          ) : (
-            isEnabled('chatPanel') && (
+        {/* Chat Panel - Only render if feature is enabled */}
+        {isEnabled('chatPanel') && (
+          <div
+            className={cn(
+              "fixed z-50 transition-all duration-300 ease-in-out",
+              // Mobile positioning - always visible, safer positioning
+              isMobile
+                ? isChatOpen && selected
+                  ? "bottom-0 right-0 left-0 h-[70vh] max-h-[600px]"
+                  : "bottom-4 right-4 w-auto h-auto"
+                : // Desktop positioning 
+                  isChatOpen && selected
+                  ? "bottom-4 right-4 w-[500px] h-[650px]"
+                  : "bottom-4 right-4 w-auto h-auto"
+            )}
+          >
+            {isChatOpen && selected ? (
+              <Card className={cn(
+                "h-full flex flex-col shadow-2xl",
+                isMobile && "rounded-t-lg rounded-b-none border-b-0"
+              )}>
+                <div className="flex items-center justify-between p-2 border-b">
+                  <h3 className="font-semibold px-2 truncate">Chat with {selected?.name}</h3>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setIsChatOpen(false)}
+                    className={cn(isMobile && "h-8 w-8")}
+                  >
+                    <X className={cn("w-5 h-5", isMobile && "w-4 h-4")} />
+                  </Button>
+                </div>
+                {selected !== null && (
+                  <ChatPanel 
+                    selectedItem={selected!}
+                    onFolderAdd={async (folderName: string) => {
+                            if (!workspaceId) return;
+                            const currentSelected = selected;
+                            // parentId: if selected is folder, use its id, else root
+                            const parentId = currentSelected && currentSelected.type === 'folder' ? currentSelected.id : 'root';
+                            // Simulate folder creation as in FileBrowser/NewFolderDialog
+                            const newFolderData = {
+                              name: folderName,
+                              type: 'folder' as const,
+                              workspaceId: workspaceId,
+                              parentId: parentId === 'root' ? null : parentId,
+                            };
+                            // saveFolder returns id, but we want to use handleFolderAdd for state
+                            const { saveFolder } = await import("@/lib/firestore");
+                            const folderId = await saveFolder(newFolderData);
+                            const newFolder = {
+                              ...newFolderData,
+                              id: folderId,
+                              items: [],
+                            } as Folder;
+                            handleFolderAdd(newFolder);
+                          }}
+                  />
+                )}
+              </Card>
+            ) : (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div
@@ -1417,9 +1429,9 @@ export function Dashboard() {
                 </TooltipContent>
               )}
             </Tooltip>
-            )
-          )}
-        </div>
+            )}
+          </div>
+        )}
         </TooltipProvider>
       </SidebarProvider>
     </WorkspaceContext.Provider>

@@ -58,12 +58,12 @@ export default function AuditDonut({
         </g>
 
         {/* Inner label */}
-        <text x="50%" y="50%" dominantBaseline="middle" textAnchor="middle" fontSize={Math.round(size * 0.18)} fontWeight={700} fill="#0f172a">
+        <text x="50%" y="50%" dominantBaseline="middle" textAnchor="middle" fontSize={Math.round(size * 0.18)} fontWeight={700} fill="#ffffff">
           {clampedTotal > 0 ? `${clampedCompleted}/${clampedTotal}` : '--'}
         </text>
 
         {/* small percent label below */}
-        <text x="50%" y={size * 0.72} dominantBaseline="middle" textAnchor="middle" fontSize={12} fill="#6b7280">
+        <text x="50%" y={size * 0.72} dominantBaseline="middle" textAnchor="middle" fontSize={12} fill="#ffffff" fillOpacity="0.75">
           {clampedTotal > 0 ? `${percent}%` : ''}
         </text>
       </svg>
@@ -72,13 +72,13 @@ export default function AuditDonut({
       <div className="flex flex-col text-sm">
         <div className="flex items-center gap-2">
           <span className="w-3 h-3 rounded-full" style={{ background: completedColor }} aria-hidden />
-          <span className="text-gray-900 font-medium">Completed</span>
-          <span className="text-gray-500 ml-2">{clampedCompleted}</span>
+          <span className="text-white font-medium">Completed</span>
+          <span className="text-white/75 ml-2">{clampedCompleted}</span>
         </div>
         <div className="flex items-center gap-2 mt-2">
           <span className="w-3 h-3 rounded-full" style={{ background: incompleteColor }} aria-hidden />
-          <span className="text-gray-900 font-medium">Incomplete</span>
-          <span className="text-gray-500 ml-2">{clampedTotal - clampedCompleted}</span>
+          <span className="text-white font-medium">Incomplete</span>
+          <span className="text-white/75 ml-2">{clampedTotal - clampedCompleted}</span>
         </div>
       </div>
     </div>

@@ -163,7 +163,7 @@ export default function DailyCheckinModal({ workspaceId, open: controlledOpen, o
       try {
   const orgId = effectiveOrgId;
   const docRef = getWorkspaceDocRef(effectiveWorkspaceId, 'daily-checkins', todayKey, orgId || null);
-    console.debug('[DailyCheckinModal] loading from', workspaceCollectionPath(effectiveWorkspaceId, 'daily-checkins', orgId || null), todayKey);
+    // Debug logging removed: loading location and key
     const snap = docRef ? await getDoc(docRef) : null;
         if (!mounted) return;
         if (snap?.exists()) {
@@ -224,7 +224,7 @@ export default function DailyCheckinModal({ workspaceId, open: controlledOpen, o
       const now = new Date();
   const orgId = effectiveOrgId;
   const docRef = getWorkspaceDocRef(effectiveWorkspaceId, 'daily-checkins', todayKey, orgId || null);
-      console.debug('[DailyCheckinModal] saving to', workspaceCollectionPath(effectiveWorkspaceId, 'daily-checkins', orgId || null), todayKey);
+      // debug logging removed: saving destination
       if (!docRef) {
         console.error('Cannot determine daily-checkins path');
         setLoading(false);
@@ -277,7 +277,7 @@ export default function DailyCheckinModal({ workspaceId, open: controlledOpen, o
   const handleTriggerClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log('[DailyCheckinModal] Trigger clicked!');
+    // Debug logging removed: trigger clicked handler
     setOpen(true);
     onOpenChange?.(true);
   };

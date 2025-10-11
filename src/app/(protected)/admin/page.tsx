@@ -141,18 +141,18 @@ const AdminDashboardHero = ({
       text:
         aggregateInfectionsTotal > 0
           ? `${aggregateInfectionsTotal} infections logged recently.`
-          : 'Infection control remains clear across workspaces.',
+          : 'Infection remains clear across workspaces.',
     },
   ];
 
   const todayLabel = new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
 
   return (
-    <section className="relative overflow-hidden rounded-3xl border border-slate-200/50 bg-gradient-to-br from-slate-950 via-indigo-950 to-violet-950 text-white shadow-2xl">
+    <section className="relative overflow-hidden rounded-3xl border border-border/50 bg-gradient-to-br from-primary to-accent text-primary-foreground shadow-2xl">
       <div className="pointer-events-none absolute inset-0 opacity-60">
-        <div className="absolute -top-24 -right-20 h-80 w-80 rounded-full bg-cyan-500/30 blur-3xl animate-pulse" />
-        <div className="absolute bottom-[-6rem] left-[-4rem] h-96 w-96 rounded-full bg-violet-500/25 blur-3xl" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[600px] rounded-full bg-indigo-500/10 blur-3xl" />
+        <div className="absolute -top-24 -right-20 h-80 w-80 rounded-full bg-primary/30 blur-3xl animate-pulse" />
+        <div className="absolute bottom-[-6rem] left-[-4rem] h-96 w-96 rounded-full bg-accent/25 blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[600px] rounded-full bg-primary/10 blur-3xl" />
       </div>
 
       <div className="relative z-10 grid gap-10 p-8 lg:grid-cols-[minmax(0,1.2fr),minmax(0,0.9fr)] lg:p-12">
@@ -162,9 +162,9 @@ const AdminDashboardHero = ({
               <Building2 className="h-8 w-8 text-white/85" />
             </div>
             <div className="space-y-2">
-              <p className="text-xs uppercase tracking-[0.3em] text-white/60">Admin overview</p>
+              <p className="text-xs uppercase tracking-[0.3em] text-primary-foreground/60">Admin overview</p>
               <h1 className="text-3xl font-semibold sm:text-4xl">Admin control centre</h1>
-              <p className="max-w-3xl text-base text-white/70">
+              <p className="max-w-3xl text-base text-primary-foreground/70">
                 Orchestrate compliance, care performance, and organisational health across every workspace with a consolidated command view.
               </p>
             </div>
@@ -174,7 +174,7 @@ const AdminDashboardHero = ({
             <Button
               variant="secondary"
               size="lg"
-              className="border-white/40 bg-white/15 text-white hover:bg-white/25 hover:border-white/60 backdrop-blur-sm shadow-md transition-all"
+              className="border-white/40 bg-white/15 text-primary-foreground hover:bg-white/25 hover:border-white/60 backdrop-blur-sm shadow-md transition-all"
               onClick={onManageWorkspaces}
             >
               Manage workspaces
@@ -182,7 +182,7 @@ const AdminDashboardHero = ({
             <Button
               variant="outline"
               size="lg"
-              className="border-white/30 bg-transparent text-white hover:bg-white/10 hover:border-white/40 backdrop-blur-sm"
+              className="border-white/30 bg-transparent text-primary-foreground hover:bg-white/10 hover:border-white/40 backdrop-blur-sm"
               onClick={onOpenAnalytics}
             >
               Open analytics
@@ -196,13 +196,13 @@ const AdminDashboardHero = ({
                 className="group relative overflow-hidden rounded-2xl border border-white/15 bg-white/10 p-5 backdrop-blur-md shadow-lg transition-all duration-300 hover:shadow-xl"
               >
                 <div className="flex items-center gap-3">
-                  <div className="rounded-xl bg-white/15 p-3 text-white/80">
+                  <div className="rounded-xl bg-white/15 p-3 text-primary-foreground/80">
                     <Icon className="h-5 w-5" />
                   </div>
                   <div className="flex-1">
-                    <div className="text-xs font-semibold uppercase tracking-wider text-white/60">{label}</div>
-                    <div className="text-xl font-bold text-white">{value}</div>
-                    <div className="text-xs text-white/60">{helper}</div>
+                    <div className="text-xs font-semibold uppercase tracking-wider text-primary-foreground/60">{label}</div>
+                    <div className="text-xl font-bold text-primary-foreground">{value}</div>
+                    <div className="text-xs text-primary-foreground/60">{helper}</div>
                   </div>
                 </div>
               </div>
@@ -213,7 +213,7 @@ const AdminDashboardHero = ({
         <div className="flex flex-col justify-between gap-6 rounded-2xl border border-white/20 bg-gradient-to-br from-white/15 to-white/5 p-7 backdrop-blur-md shadow-lg">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-bold uppercase tracking-wider text-white">Signal board</span>
+              <span className="text-sm font-bold uppercase tracking-wider text-primary-foreground">Signal board</span>
               <Badge className="bg-emerald-500/25 border-emerald-400/60 text-emerald-100 backdrop-blur-sm">
                 {todayLabel}
               </Badge>

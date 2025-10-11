@@ -9,10 +9,6 @@ export async function POST(
   const { content, meta, workspaceId, organisationId: bodyOrganisationId } = await request.json();
     const resolvedParams = await params;
     const policyName = resolvedParams.policyName;
-    // Dev debug: log incoming request body to server terminal for diagnosis
-    try {
-      console.log('[SAVE] incoming request body', { policyName: policyName, workspaceId, bodyOrganisationId, contentLength: (content || '').length });
-    } catch (e) {}
     
     // Sanitize the policy name to prevent issues
     const sanitizedName = policyName.replace(/[^a-zA-Z0-9-_]/g, '');
@@ -159,9 +155,6 @@ export async function POST(
               .collection('policies')
               .doc(documentId)
               .set(workspacePolicyDocument, { merge: true });
-            console.log(`Saved policy to organisations/${orgId}/policies/${documentId}`);
-            workspacePublishedDocument = { ...workspacePolicyDocument, updatedAt: new Date().toISOString() };
-            console.log(`org-level write succeeded for workspace ${workspaceId} under org ${orgId}`);
           } catch (e) {
             console.warn('Failed to write policy into organisation-scoped policies path:', e);
             writeErrorMessage = (e && (e as any).message) ? (e as any).message : String(e);
@@ -193,20 +186,6 @@ export async function POST(
         // ignore
       }
     }
-
-    // Dev debug: log derivation attempts and result to server terminal
-    try {
-      console.log('[SAVE] derivation', { candidateOrgFromBody, candidateOrgFromWorkspaceDoc, candidateOrgFromCollectionGroup, usedOrgId, writeErrorMessage });
-    } catch (e) {}
-
-    // Attach a small debug object (dev-only) explaining the attempts made to derive an org id
-    resp.debug = {
-      candidateOrgFromBody,
-      candidateOrgFromWorkspaceDoc,
-      candidateOrgFromCollectionGroup,
-      usedOrgId,
-      writeErrorMessage,
-    };
 
     return NextResponse.json(resp, { headers });
 
