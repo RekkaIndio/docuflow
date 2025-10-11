@@ -131,7 +131,7 @@ export default function PrivacyPage() {
 
           <section className="mb-6">
             <h2 className="text-xl font-semibold mb-2">8. Cookies and Tracking</h2>
-            <p className="text-sm text-slate-700">We use cookies and similar tracking technologies to operate the Service and provide analytics:</p>
+            <p className="text-sm text-slate-700">We use cookies and similar tracking technologies to operate the Service and provide analytics. We use Google Analytics (GA4) to understand how people use the Service; you can opt-out by disabling analytics cookies or using your browser's tracking prevention features.</p>
             <ul className="list-disc pl-6 mt-2 text-sm text-slate-700 space-y-1">
               <li><strong>Essential cookies:</strong> Required for platform functionality, authentication, and security.</li>
               <li><strong>Analytics cookies:</strong> Help us understand how you use the Service to improve performance.</li>

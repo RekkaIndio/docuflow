@@ -4,9 +4,11 @@ import Link from 'next/link';
 import { Logo } from '@/components/icons/logo';
 import { Linkedin } from 'lucide-react';
 import { useCalendly } from '@/context/calendly-context';
+import { useCookieConsent } from '@/context/cookie-consent';
 
 export function Footer() {
   const { openCalendlyModal } = useCalendly();
+  const { openPreferences } = useCookieConsent();
 
   return (
     <footer className="w-full bg-white border-t border-border/50 text-slate-700">
@@ -69,9 +71,12 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="border-t border-border/20 mt-8 pt-6 text-sm text-muted-foreground flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="border-t border-border/20 mt-8 pt-6 text-sm text-muted-foreground flex flex-col md:flex-row items-center justify-between gap-4">
           <div>© {new Date().getFullYear()} CG-360. All rights reserved.</div>
-          <div>Registered in the UK • Data processed in accordance with applicable laws.</div>
+          <div className="flex items-center gap-4">
+            <div>Registered in the UK • Data processed in accordance with applicable laws.</div>
+            <button onClick={() => openPreferences()} className="text-sm underline">Cookie preferences</button>
+          </div>
         </div>
       </div>
     </footer>
