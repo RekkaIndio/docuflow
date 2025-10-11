@@ -1,9 +1,13 @@
 import type { Metadata } from 'next';
 import './globals.css';
+// Google Analytics removed in favour of Vercel Analytics
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from '@/hooks/use-auth';
 import { ThemeProvider } from '@/components/theme-provider';
 import { CalendlyProvider } from '@/context/calendly-context';
+import { CookieConsentProvider } from '@/context/cookie-consent';
+import { CookieBanner } from '@/components/cookie-banner';
+import VercelAnalytics from '@/components/VercelAnalytics';
 
 export const metadata: Metadata = {
   title: 'CG-360',
@@ -29,15 +33,20 @@ export default function RootLayout({
         <link rel="icon" href="/Neurodiversity_Symbol.png" type="image/png" />
         <link rel="shortcut icon" href="/Neurodiversity_Symbol.png" type="image/png" />
         <link rel="apple-touch-icon" href="/Neurodiversity_Symbol.png" />
+        {/* Google Analytics will be injected client-side once the user grants consent via the cookie banner. */}
       </head>
-      <body className="font-body antialiased">
+    <body className="font-body antialiased">
   <ThemeProvider>
-            <AuthProvider>
+      <AuthProvider>
+        <CookieConsentProvider>
                 <CalendlyProvider>
-                    {children}
-                </CalendlyProvider>
-            </AuthProvider>
-            <Toaster />
+                      {children}
+                  </CalendlyProvider>
+                  <CookieBanner />
+                  <VercelAnalytics />
+        </CookieConsentProvider>
+      </AuthProvider>
+  <Toaster />
   </ThemeProvider>
       </body>
     </html>
