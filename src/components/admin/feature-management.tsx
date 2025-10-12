@@ -39,7 +39,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { DEFAULT_FEATURE_FLAGS } from '@/hooks/use-feature-flags';
+import { DEFAULT_FEATURE_FLAGS } from '@/lib/feature-flags';
 import type { OrganisationFeatureFlags, FeatureModuleKey, FeatureModule } from '@/lib/types';
 import { doc, setDoc, serverTimestamp, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';

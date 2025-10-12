@@ -344,7 +344,7 @@ export default function AdminPage() {
         // behaviour which also accepts the cookie when firebase-admin isn't
         // configured locally.
         const hasDevAdminCookie = typeof document !== 'undefined' && document.cookie.includes('isAdmin=1');
-        if (userData?.role === 'Admin' || hasDevAdminCookie) {
+  if (userData?.role === 'Admin' || hasDevAdminCookie) {
           await fetchData();
         } else {
           // not an admin

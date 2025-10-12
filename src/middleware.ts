@@ -6,7 +6,10 @@ import type { NextRequest } from 'next/server';
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  if (!pathname.startsWith('/admin')) return NextResponse.next();
+  const isAdminPath = pathname.startsWith('/admin');
+  const isOwnerPath = pathname.startsWith('/owner');
+
+  if (!isAdminPath && !isOwnerPath) return NextResponse.next();
 
   // Try to verify Firebase ID token if possible by delegating verification
   // to a server-side API route so we avoid importing `firebase-admin` in
@@ -33,8 +36,9 @@ export async function middleware(req: NextRequest) {
 
         if (res.ok) {
           const data = await res.json();
-          if (data?.isAdmin) return NextResponse.next();
-          // Not admin -> redirect
+          if ((isAdminPath && data?.isAdmin) || (isOwnerPath && data?.isOwner)) {
+            return NextResponse.next();
+          }
           const url = req.nextUrl.clone();
           url.pathname = '/';
           return NextResponse.redirect(url);
@@ -48,9 +52,16 @@ export async function middleware(req: NextRequest) {
     console.warn('Middleware verification error:', e?.toString?.() ?? e);
   }
 
-  // Fallback dev check: cookie 'isAdmin' === '1'
-  const isAdminCookie = req.cookies.get('isAdmin')?.value === '1';
-  if (isAdminCookie) return NextResponse.next();
+  // Fallback dev check: cookie-based override
+  if (isAdminPath) {
+    const isAdminCookie = req.cookies.get('isAdmin')?.value === '1';
+    if (isAdminCookie) return NextResponse.next();
+  }
+
+  if (isOwnerPath) {
+    const isOwnerCookie = req.cookies.get('isOwner')?.value === '1' || req.cookies.get('isAdmin')?.value === '1';
+    if (isOwnerCookie) return NextResponse.next();
+  }
 
   const url = req.nextUrl.clone();
   url.pathname = '/';
@@ -58,5 +69,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*'],
+  matcher: ['/admin/:path*', '/owner/:path*'],
 };
