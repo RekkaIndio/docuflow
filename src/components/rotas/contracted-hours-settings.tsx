@@ -32,6 +32,7 @@ interface StaffHoursConfig {
 export function ContractedHoursSettings({ staff, workspaceId, organisationId, onUpdate }: ContractedHoursSettingsProps) {
   const [hoursConfig, setHoursConfig] = useState<StaffHoursConfig>({});
   const [editingStaff, setEditingStaff] = useState<string | null>(null);
+  const [hourInputs, setHourInputs] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
@@ -72,8 +73,24 @@ export function ContractedHoursSettings({ staff, workspaceId, organisationId, on
     setSaveMessage(null);
 
     try {
+      const nextConfig: StaffHoursConfig = { ...hoursConfig };
+
+      Object.entries(hourInputs).forEach(([staffId, raw]) => {
+        const existing = nextConfig[staffId] || { contractedHours: 40, hoursType: 'weekly' as const };
+        const parsed = raw.trim() === '' ? existing.contractedHours : clampHours(Number(raw));
+        nextConfig[staffId] = {
+          contractedHours: parsed,
+          hoursType: existing.hoursType,
+        };
+        onUpdate(staffId, parsed, existing.hoursType);
+      });
+
+      setHoursConfig(nextConfig);
+      setEditingStaff(null);
+      setHourInputs({});
+
       const hoursRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId), 'rotas', 'contracted-hours');
-      await setDoc(hoursRef, hoursConfig);
+      await setDoc(hoursRef, nextConfig);
 
       setSaveMessage('Contracted hours saved successfully!');
       setTimeout(() => setSaveMessage(null), 3000);
@@ -95,6 +112,51 @@ export function ContractedHoursSettings({ staff, workspaceId, organisationId, on
 
   const getHoursForStaff = (staffId: string) => {
     return hoursConfig[staffId] || { contractedHours: 40, hoursType: 'weekly' as const };
+  };
+
+  const handleHoursInputChange = (staffId: string, rawValue: string) => {
+    if (/^\d*$/.test(rawValue)) {
+      setHourInputs(prev => ({
+        ...prev,
+        [staffId]: rawValue,
+      }));
+    }
+  };
+
+  const clampHours = (value: number) => {
+    if (Number.isNaN(value)) return 40;
+    return Math.min(Math.max(value, 1), 168);
+  };
+
+  const commitHoursChange = (staffId: string) => {
+    const currentConfig = getHoursForStaff(staffId);
+    const raw = hourInputs[staffId];
+    const parsed = raw === undefined || raw.trim() === ''
+      ? currentConfig.contractedHours
+      : clampHours(Number(raw));
+  updateStaffHours(staffId, parsed, currentConfig.hoursType);
+    setHourInputs(prev => {
+      const next = { ...prev };
+      delete next[staffId];
+      return next;
+    });
+    setEditingStaff(null);
+  };
+
+  const handlePeriodChange = (staffId: string, nextType: 'weekly' | 'monthly') => {
+    const currentConfig = getHoursForStaff(staffId);
+    const raw = hourInputs[staffId];
+    const parsedValue = raw === undefined || raw.trim() === ''
+      ? currentConfig.contractedHours
+      : clampHours(Number(raw));
+    updateStaffHours(staffId, parsedValue, nextType);
+    if (raw !== undefined) {
+      setHourInputs(prev => {
+        const next = { ...prev };
+        next[staffId] = parsedValue.toString();
+        return next;
+      });
+    }
   };
 
   return (
@@ -137,6 +199,9 @@ export function ContractedHoursSettings({ staff, workspaceId, organisationId, on
               staff.map((member) => {
                 const config = getHoursForStaff(member.id);
                 const isEditing = editingStaff === member.id;
+                const inputValue = isEditing
+                  ? hourInputs[member.id] ?? config.contractedHours.toString()
+                  : config.contractedHours.toString();
 
                 return (
                   <Card key={member.id} className="overflow-hidden">
@@ -160,11 +225,12 @@ export function ContractedHoursSettings({ staff, workspaceId, organisationId, on
                             <div className="space-y-1">
                               <Label className="text-xs">Hours</Label>
                               <Input
-                                type="number"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
                                 min="1"
                                 max="168"
-                                value={config.contractedHours}
-                                onChange={(e) => updateStaffHours(member.id, parseFloat(e.target.value) || 40, config.hoursType)}
+                                value={inputValue}
+                                onChange={(e) => handleHoursInputChange(member.id, e.target.value)}
                                 className="w-24"
                               />
                             </div>
@@ -172,7 +238,7 @@ export function ContractedHoursSettings({ staff, workspaceId, organisationId, on
                               <Label className="text-xs">Period</Label>
                               <Select
                                 value={config.hoursType}
-                                onValueChange={(value: 'weekly' | 'monthly') => updateStaffHours(member.id, config.contractedHours, value)}
+                                onValueChange={(value: 'weekly' | 'monthly') => handlePeriodChange(member.id, value)}
                               >
                                 <SelectTrigger className="w-28">
                                   <SelectValue />
@@ -186,7 +252,7 @@ export function ContractedHoursSettings({ staff, workspaceId, organisationId, on
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => setEditingStaff(null)}
+                              onClick={() => commitHoursChange(member.id)}
                             >
                               Done
                             </Button>
@@ -200,7 +266,13 @@ export function ContractedHoursSettings({ staff, workspaceId, organisationId, on
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => setEditingStaff(member.id)}
+                              onClick={() => {
+                                setEditingStaff(member.id);
+                                setHourInputs(prev => ({
+                                  ...prev,
+                                  [member.id]: config.contractedHours?.toString() ?? '',
+                                }));
+                              }}
                             >
                               Edit
                             </Button>

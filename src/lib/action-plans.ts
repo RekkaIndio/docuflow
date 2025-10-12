@@ -6,7 +6,7 @@ import { finalizeActionPlan as finalizeActionPlanServer, sendActionPlanAssignmen
 /**
  * Resolve assignee keys (emails, user ids, team-<id>, category-<id>) to an array of email addresses.
  */
-async function resolveAssigneeEmails(workspaceId: string, assigneeKey?: string): Promise<string[]> {
+async function resolveAssigneeEmails(workspaceId: string, assigneeKey?: string, organisationId?: string | null): Promise<string[]> {
   if (!assigneeKey) return [];
 
   // Direct email
@@ -16,7 +16,7 @@ async function resolveAssigneeEmails(workspaceId: string, assigneeKey?: string):
   if (assigneeKey.startsWith('team-')) {
     const teamId = assigneeKey.replace('team-', '');
     try {
-    const teamRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'teams')), teamId);
+  const teamRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'teams', organisationId)), teamId);
       const teamSnap = await getDoc(teamRef);
       if (teamSnap.exists()) {
         const t = teamSnap.data() as any;
@@ -73,7 +73,7 @@ async function resolveAssigneeEmails(workspaceId: string, assigneeKey?: string):
     const dashIndex = assigneeKey.indexOf('-');
     if (dashIndex > 0) {
       const possibleUserId = assigneeKey.slice(dashIndex + 1);
-    const workspaceRef = doc(db, workspaceDocPath(workspaceId));
+  const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId));
       const wsSnap = await getDoc(workspaceRef);
       if (wsSnap.exists()) {
         const ws = wsSnap.data() as any;
@@ -1375,10 +1375,11 @@ export async function updateActionPlanItemStatus(
   assignedTo?: string,
   dueDate?: string,
   ragRating?: 'red' | 'amber' | 'green',
-  assignedTeam?: string
+  assignedTeam?: string,
+  organisationId?: string | null
 ): Promise<void> {
   try {
-  const actionPlanRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'action-plans')), monthKey);
+  const actionPlanRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'action-plans', organisationId)), monthKey);
     const actionPlanSnap = await getDoc(actionPlanRef);
 
     if (!actionPlanSnap.exists()) {
@@ -1449,12 +1450,12 @@ export async function updateActionPlanItemStatus(
         const newAssigned = updatedItem.assignedTo || updatedItem.assignedTeam;
         if (newAssigned && newAssigned !== prevAssigned) {
           // Resolve assignee to emails (handles team-*, user ids, direct emails)
-          const emails = await resolveAssigneeEmails(workspaceId, newAssigned);
+          const emails = await resolveAssigneeEmails(workspaceId, newAssigned, organisationId);
 
           if (emails.length > 0) {
             const itemsSummaryHtml = `<ul><li><b>${updatedItem.auditType}</b>: ${updatedItem.issue} (${updatedItem.priority.toUpperCase()})</li></ul>`;
             // fire-and-forget
-            sendActionPlanAssignmentEmail({ workspaceId, recipientEmails: emails, assignedBy: 'System', monthKey, itemsSummaryHtml }).catch(e => console.error('Failed to send assignment email', e));
+            sendActionPlanAssignmentEmail({ workspaceId, recipientEmails: emails, assignedBy: 'System', monthKey, itemsSummaryHtml, organisationId }).catch(e => console.error('Failed to send assignment email', e));
           }
         }
       }
@@ -1465,7 +1466,7 @@ export async function updateActionPlanItemStatus(
     // If all items completed, finalize the action plan (generate PDF, mark isComplete)
     if (completedItems === actionPlan.totalItems && actionPlan.totalItems > 0) {
       try {
-        await finalizeActionPlanServer(workspaceId, monthKey);
+  await finalizeActionPlanServer(workspaceId, monthKey, organisationId);
       } catch (e) {
         console.error('Failed to finalize action plan after all items completed:', e);
       }
