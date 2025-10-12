@@ -656,7 +656,7 @@ export default function ManagersWeeklyAuditPage() {
           alert('Audit saved — monthly weekly audit complete (snapshot, PDF and action plans generated)');
         } catch (err) {
           // Fallback to marking completed if the withSnapshot helper fails
-          await markAuditCompleted(activeWorkspace.id, 'managers-weekly', completedAt);
+          await markAuditCompleted(activeWorkspace.id, 'managers-weekly', completedAt, activeWorkspace.organisationId || null);
           alert('Audit saved and marked completed (with errors generating snapshot/pdf/action plans)');
         }
       } else {
