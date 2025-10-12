@@ -22,7 +22,7 @@ export async function POST(req: Request) {
       try {
         const decoded = await adminAuth.verifyIdToken(idToken);
         // Basic check: if token has admin claim or the user exists in users collection with role Admin
-        if (decoded.admin === true) {
+        if (decoded.admin === true || decoded.owner === true) {
           isAdmin = true;
         } else {
           // Check users collection for role
@@ -30,7 +30,9 @@ export async function POST(req: Request) {
             const udoc = await adminDb.collection('users').doc(decoded.uid).get();
             if (udoc.exists) {
               const ud = udoc.data() as any;
-              if (ud && (ud.role === 'Admin' || (Array.isArray(ud.roles) && ud.roles.includes('Admin')))) isAdmin = true;
+              if (ud && (ud.role === 'Admin' || ud.role === 'Owner' || (Array.isArray(ud.roles) && (ud.roles.includes('Admin') || ud.roles.includes('Owner'))))) {
+                isAdmin = true;
+              }
             }
           } catch (e) {
             // continue

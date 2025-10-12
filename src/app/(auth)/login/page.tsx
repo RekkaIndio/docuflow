@@ -197,11 +197,8 @@ export default function LoginPage() {
             </div>
           )}
         </form>
-         <div className="mt-4 text-center text-sm">
-          Don't have an account?{' '}
-          <Link href="/signup" className="underline">
-            Sign up
-          </Link>
+         <div className="mt-4 text-center text-sm text-muted-foreground">
+          Accounts are provisioned by Docuflow. Contact your onboarding representative if you need access.
         </div>
       </CardContent>
     </Card>
