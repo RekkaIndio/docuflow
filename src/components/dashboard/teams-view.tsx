@@ -23,7 +23,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { mockUser } from "@/lib/data";
-import { ArrowLeft, MoreVertical, Plus, Trash2, Edit, FolderLock, Users, UserCheck, Phone, Mail, Save, X, AlertTriangle } from "lucide-react";
+import { ArrowLeft, MoreVertical, Plus, Trash2, Edit, FolderLock, Users, UserCheck, Phone, Mail, Save, X, AlertTriangle, Clock } from "lucide-react";
 import type { Workspace, Team } from "@/lib/types";
 import { ManageFolderAccessDialog } from "./manage-folder-access-dialog";
 import { NewTeamDialog } from "./new-team-dialog";
@@ -31,15 +31,16 @@ import { SidebarTrigger } from "../ui/sidebar";
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import {
-  collection,
-  getDocs,
-  doc,
-  setDoc,
-  updateDoc,
-  deleteDoc,
-  arrayUnion,
-  arrayRemove,
-  getDoc,
+    collection,
+    getDocs,
+    doc,
+    setDoc,
+    updateDoc,
+    deleteDoc,
+    arrayUnion,
+    arrayRemove,
+    getDoc,
+    deleteField,
 } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { useToast } from '@/hooks/use-toast';
@@ -61,6 +62,8 @@ interface Manager {
   roles: string;
   email: string;
   phone: string;
+  contractedHours?: number;
+  hoursType?: 'weekly' | 'monthly';
   createdAt?: string;
   updatedAt?: string;
 }
@@ -71,6 +74,8 @@ interface Nurse {
   roles: string;
   email: string;
   phone: string;
+  contractedHours?: number;
+  hoursType?: 'weekly' | 'monthly';
   createdAt?: string;
   updatedAt?: string;
 }
@@ -81,6 +86,8 @@ interface CTM {
   roles: string;
   email: string;
   phone: string;
+  contractedHours?: number;
+  hoursType?: 'weekly' | 'monthly';
   createdAt?: string;
   updatedAt?: string;
 }
@@ -91,6 +98,8 @@ interface Domestic {
   roles: string;
   email: string;
   phone: string;
+  contractedHours?: number;
+  hoursType?: 'weekly' | 'monthly';
   createdAt?: string;
   updatedAt?: string;
 }
@@ -101,6 +110,8 @@ interface Maintenance {
   roles: string;
   email: string;
   phone: string;
+  contractedHours?: number;
+  hoursType?: 'weekly' | 'monthly';
   createdAt?: string;
   updatedAt?: string;
 }
@@ -111,6 +122,8 @@ interface Kitchen {
   roles: string;
   email: string;
   phone: string;
+  contractedHours?: number;
+  hoursType?: 'weekly' | 'monthly';
   createdAt?: string;
   updatedAt?: string;
 }
@@ -121,6 +134,8 @@ interface Activities {
   roles: string;
   email: string;
   phone: string;
+  contractedHours?: number;
+  hoursType?: 'weekly' | 'monthly';
   createdAt?: string;
   updatedAt?: string;
 }
@@ -164,49 +179,49 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
   const [inviteDurations, setInviteDurations] = useState<Record<string, number>>({});
   const { toast } = useToast();
   const [editingManager, setEditingManager] = useState<string | null>(null);
-  const [newManager, setNewManager] = useState({ name: '', roles: '', email: '', phone: '' });
+  const [newManager, setNewManager] = useState({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' as 'weekly' | 'monthly' });
   const [managersError, setManagersError] = useState<string | null>(null);
 
   // Nurses state
   const [nurses, setNurses] = useState<Nurse[]>([]);
   const [nursesLoading, setNursesLoading] = useState(false);
   const [editingNurse, setEditingNurse] = useState<string | null>(null);
-  const [newNurse, setNewNurse] = useState({ name: '', roles: '', email: '', phone: '' });
+  const [newNurse, setNewNurse] = useState({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' as 'weekly' | 'monthly' });
   const [nursesError, setNursesError] = useState<string | null>(null);
 
   // CTMs state
   const [ctms, setCTMs] = useState<CTM[]>([]);
   const [ctmsLoading, setCTMsLoading] = useState(false);
   const [editingCTM, setEditingCTM] = useState<string | null>(null);
-  const [newCTM, setNewCTM] = useState({ name: '', roles: '', email: '', phone: '' });
+  const [newCTM, setNewCTM] = useState({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' as 'weekly' | 'monthly' });
   const [ctmsError, setCTMsError] = useState<string | null>(null);
 
   // Domestic state
   const [domestics, setDomestics] = useState<Domestic[]>([]);
   const [domesticsLoading, setDomesticsLoading] = useState(false);
   const [editingDomestic, setEditingDomestic] = useState<string | null>(null);
-  const [newDomestic, setNewDomestic] = useState({ name: '', roles: '', email: '', phone: '' });
+  const [newDomestic, setNewDomestic] = useState({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' as 'weekly' | 'monthly' });
   const [domesticsError, setDomesticsError] = useState<string | null>(null);
 
   // Maintenance state
   const [maintenances, setMaintenances] = useState<Maintenance[]>([]);
   const [maintenancesLoading, setMaintenancesLoading] = useState(false);
   const [editingMaintenance, setEditingMaintenance] = useState<string | null>(null);
-  const [newMaintenance, setNewMaintenance] = useState({ name: '', roles: '', email: '', phone: '' });
+  const [newMaintenance, setNewMaintenance] = useState({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' as 'weekly' | 'monthly' });
   const [maintenancesError, setMaintenancesError] = useState<string | null>(null);
 
   // Kitchen state
   const [kitchens, setKitchens] = useState<Kitchen[]>([]);
   const [kitchensLoading, setKitchensLoading] = useState(false);
   const [editingKitchen, setEditingKitchen] = useState<string | null>(null);
-  const [newKitchen, setNewKitchen] = useState({ name: '', roles: '', email: '', phone: '' });
+  const [newKitchen, setNewKitchen] = useState({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' as 'weekly' | 'monthly' });
   const [kitchensError, setKitchensError] = useState<string | null>(null);
 
   // Activities state
   const [activities, setActivities] = useState<Activities[]>([]);
   const [activitiesLoading, setActivitiesLoading] = useState(false);
   const [editingActivity, setEditingActivity] = useState<string | null>(null);
-  const [newActivity, setNewActivity] = useState({ name: '', roles: '', email: '', phone: '' });
+  const [newActivity, setNewActivity] = useState({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' as 'weekly' | 'monthly' });
   const [activitiesError, setActivitiesError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -813,6 +828,41 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     }
   };
 
+  // Persist contracted hours mapping for a staff member in rotas/contracted-hours doc
+  const setContractedHoursForStaff = async (staffId: string, hours: number, hoursType: 'weekly' | 'monthly') => {
+    if (!workspaceId) return false;
+    try {
+      const hoursRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId), 'rotas', 'contracted-hours');
+      // Use a merge-enabled set to atomically upsert only this staff's field to avoid overwriting other entries
+      await setDoc(hoursRef, { [staffId]: { contractedHours: hours, hoursType } }, { merge: true });
+      return true;
+    } catch (error) {
+      console.error('Failed to set contracted hours for staff:', error);
+      return false;
+    }
+  };
+
+  const removeContractedHoursForStaff = async (staffId: string) => {
+    if (!workspaceId) return false;
+    try {
+      const hoursRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId), 'rotas', 'contracted-hours');
+      // Atomically delete the specific staff field. If the document doesn't exist, treat as success.
+      try {
+        await updateDoc(hoursRef, { [staffId]: deleteField() });
+      } catch (e: any) {
+        // updateDoc will throw if the document doesn't exist; in that case, nothing to remove
+        if (e && typeof e.message === 'string' && e.message.includes('No document to update')) {
+          return true;
+        }
+        throw e;
+      }
+      return true;
+    } catch (error) {
+      console.error('Failed to remove contracted hours for staff:', error);
+      return false;
+    }
+  };
+
   // Update activity in Firebase
   const updateActivityInFirebase = async (oldActivity: Activities, newActivity: Activities) => {
     if (!workspaceId) return false;
@@ -862,15 +912,21 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     
     // Optimistically update UI
     setManagers(prev => [...prev, managerToAdd]);
-    setNewManager({ name: '', roles: '', email: '', phone: '' });
+  setNewManager({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' });
     setManagersError(null);
     
   // Save to Firebase
-  const success = await addManagerToFirebase(managerToAdd);
+    const success = await addManagerToFirebase(managerToAdd);
     if (!success) {
       // Revert optimistic update on failure
       setManagers(prev => prev.filter(m => m.id !== managerToAdd.id));
     } else {
+      // Persist contracted hours mapping for rotas
+      try {
+        await setContractedHoursForStaff(managerToAdd.id, managerToAdd.contractedHours ?? 40, managerToAdd.hoursType ?? 'weekly');
+      } catch (e) {
+        console.warn('Failed to persist contracted hours mapping after adding manager', e);
+      }
       // On success, create/send an invite token via server API (magic-link)
       try {
         const inviterName = (window as any)?.CURRENT_USER_NAME || 'Workspace Manager';
@@ -936,6 +992,9 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
       // Revert optimistic update on failure
       setManagers(prev => prev.map(m => m.id === managerId ? originalManager : m));
     }
+    else {
+      try { await setContractedHoursForStaff(updatedManager.id, updatedManager.contractedHours ?? 40, updatedManager.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to update contracted hours mapping for manager', e); }
+    }
   };
 
   const handleDeleteManager = async (manager: Manager) => {
@@ -948,6 +1007,9 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     if (!success) {
       // Revert optimistic update on failure
       setManagers(prev => [...prev, manager]);
+    }
+    else {
+      try { await removeContractedHoursForStaff(manager.id); } catch (e) { console.warn('Failed to remove contracted hours mapping for manager', e); }
     }
   };
 
@@ -1113,13 +1175,15 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     
     // Optimistically update UI
     setNurses(prev => [...prev, nurseToAdd]);
-    setNewNurse({ name: '', roles: '', email: '', phone: '' });
+  setNewNurse({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' });
     setNursesError(null);
     
     const success = await addNurseToFirebase(nurseToAdd);
     if (!success) {
       // Revert optimistic update
       setNurses(prev => prev.filter(n => n.id !== nurseToAdd.id));
+    } else {
+      try { await setContractedHoursForStaff(nurseToAdd.id, nurseToAdd.contractedHours ?? 40, nurseToAdd.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to persist contracted hours mapping after adding nurse', e); }
     }
   };
 
@@ -1143,6 +1207,8 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     if (!success) {
       // Revert optimistic update on failure
       setNurses(prev => prev.map(n => n.id === nurseId ? originalNurse : n));
+    } else {
+      try { await setContractedHoursForStaff(updatedNurse.id, updatedNurse.contractedHours ?? 40, updatedNurse.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to update contracted hours mapping for nurse', e); }
     }
   };
 
@@ -1158,13 +1224,16 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     
     // Optimistically update UI
     setCTMs(prev => [...prev, ctmToAdd]);
-    setNewCTM({ name: '', roles: '', email: '', phone: '' });
+  setNewCTM({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' });
     setCTMsError(null);
     
     const success = await addCTMToFirebase(ctmToAdd);
     if (!success) {
       // Revert optimistic update
       setCTMs(prev => prev.filter(c => c.id !== ctmToAdd.id));
+    }
+    else {
+      try { await setContractedHoursForStaff(ctmToAdd.id, ctmToAdd.contractedHours ?? 40, ctmToAdd.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to persist contracted hours mapping after adding ctm', e); }
     }
   };
 
@@ -1189,6 +1258,9 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
       // Revert optimistic update on failure
       setCTMs(prev => prev.map(c => c.id === ctmId ? originalCTM : c));
     }
+    else {
+      try { await setContractedHoursForStaff(updatedCTM.id, updatedCTM.contractedHours ?? 40, updatedCTM.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to update contracted hours mapping for CTM', e); }
+    }
   };
 
   const handleAddDomestic = async () => {
@@ -1203,13 +1275,16 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     
     // Optimistically update UI
     setDomestics(prev => [...prev, domesticToAdd]);
-    setNewDomestic({ name: '', roles: '', email: '', phone: '' });
+  setNewDomestic({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' });
     setDomesticsError(null);
     
     const success = await addDomesticToFirebase(domesticToAdd);
     if (!success) {
       // Revert optimistic update
       setDomestics(prev => prev.filter(d => d.id !== domesticToAdd.id));
+    }
+    else {
+      try { await setContractedHoursForStaff(domesticToAdd.id, domesticToAdd.contractedHours ?? 40, domesticToAdd.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to persist contracted hours mapping after adding domestic', e); }
     }
   };
 
@@ -1234,6 +1309,9 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
       // Revert optimistic update on failure
       setDomestics(prev => prev.map(d => d.id === domesticId ? originalDomestic : d));
     }
+    else {
+      try { await setContractedHoursForStaff(updatedDomestic.id, updatedDomestic.contractedHours ?? 40, updatedDomestic.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to update contracted hours mapping for domestic', e); }
+    }
   };
 
   const handleAddMaintenance = async () => {
@@ -1248,13 +1326,16 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     
     // Optimistically update UI
     setMaintenances(prev => [...prev, maintenanceToAdd]);
-    setNewMaintenance({ name: '', roles: '', email: '', phone: '' });
+  setNewMaintenance({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' });
     setMaintenancesError(null);
     
     const success = await addMaintenanceToFirebase(maintenanceToAdd);
     if (!success) {
       // Revert optimistic update
       setMaintenances(prev => prev.filter(m => m.id !== maintenanceToAdd.id));
+    }
+    else {
+      try { await setContractedHoursForStaff(maintenanceToAdd.id, maintenanceToAdd.contractedHours ?? 40, maintenanceToAdd.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to persist contracted hours mapping after adding maintenance', e); }
     }
   };
 
@@ -1279,6 +1360,9 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
       // Revert optimistic update on failure
       setMaintenances(prev => prev.map(m => m.id === maintenanceId ? originalMaintenance : m));
     }
+    else {
+      try { await setContractedHoursForStaff(updatedMaintenance.id, updatedMaintenance.contractedHours ?? 40, updatedMaintenance.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to update contracted hours mapping for maintenance', e); }
+    }
   };
 
   const handleAddKitchen = async () => {
@@ -1293,13 +1377,16 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     
     // Optimistically update UI
     setKitchens(prev => [...prev, kitchenToAdd]);
-    setNewKitchen({ name: '', roles: '', email: '', phone: '' });
+  setNewKitchen({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' });
     setKitchensError(null);
     
     const success = await addKitchenToFirebase(kitchenToAdd);
     if (!success) {
       // Revert optimistic update
       setKitchens(prev => prev.filter(k => k.id !== kitchenToAdd.id));
+    }
+    else {
+      try { await setContractedHoursForStaff(kitchenToAdd.id, kitchenToAdd.contractedHours ?? 40, kitchenToAdd.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to persist contracted hours mapping after adding kitchen', e); }
     }
   };
 
@@ -1324,6 +1411,9 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
       // Revert optimistic update on failure
       setKitchens(prev => prev.map(k => k.id === kitchenId ? originalKitchen : k));
     }
+    else {
+      try { await setContractedHoursForStaff(updatedKitchen.id, updatedKitchen.contractedHours ?? 40, updatedKitchen.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to update contracted hours mapping for kitchen', e); }
+    }
   };
 
   const handleAddActivity = async () => {
@@ -1338,13 +1428,16 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     
     // Optimistically update UI
     setActivities(prev => [...prev, activityToAdd]);
-    setNewActivity({ name: '', roles: '', email: '', phone: '' });
+  setNewActivity({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' });
     setActivitiesError(null);
     
     const success = await addActivityToFirebase(activityToAdd);
     if (!success) {
       // Revert optimistic update
       setActivities(prev => prev.filter(a => a.id !== activityToAdd.id));
+    }
+    else {
+      try { await setContractedHoursForStaff(activityToAdd.id, activityToAdd.contractedHours ?? 40, activityToAdd.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to persist contracted hours mapping after adding activity', e); }
     }
   };
 
@@ -1368,6 +1461,9 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     if (!success) {
       // Revert optimistic update on failure
       setActivities(prev => prev.map(a => a.id === activityId ? originalActivity : a));
+    }
+    else {
+      try { await setContractedHoursForStaff(updatedActivity.id, updatedActivity.contractedHours ?? 40, updatedActivity.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to update contracted hours mapping for activity', e); }
     }
   };
 
@@ -1600,7 +1696,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                       )}
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">Name</label>
                       <Input
@@ -1638,6 +1734,29 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                         value={newManager.phone}
                         onChange={(e) => setNewManager(prev => ({ ...prev, phone: e.target.value }))}
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Contracted Hours</label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={168}
+                        value={String(newManager.contractedHours)}
+                        onChange={(e) => setNewManager(prev => ({ ...prev, contractedHours: parseInt(e.target.value, 10) || 40 }))}
+                        placeholder="e.g. 40"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Hours Type</label>
+                      <Select value={newManager.hoursType} onValueChange={(v: 'weekly' | 'monthly') => setNewManager(prev => ({ ...prev, hoursType: v }))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                   <div className="mt-4">
@@ -1732,7 +1851,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                   </h3>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">Name</label>
                       <Input
@@ -1766,6 +1885,22 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                         value={newNurse.phone}
                         onChange={(e) => setNewNurse(prev => ({ ...prev, phone: e.target.value }))}
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Contracted Hours</label>
+                      <Input type="number" min={1} max={168} value={String(newNurse.contractedHours)} onChange={(e) => setNewNurse(prev => ({ ...prev, contractedHours: parseInt(e.target.value, 10) || 40 }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Hours Type</label>
+                      <Select value={newNurse.hoursType} onValueChange={(v: 'weekly' | 'monthly') => setNewNurse(prev => ({ ...prev, hoursType: v }))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                   <div className="mt-4">
@@ -1817,6 +1952,8 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                             if (!success) {
                               // Revert optimistic update on failure
                               setNurses(prev => [...prev, nurse]);
+                            } else {
+                              try { await removeContractedHoursForStaff(nurse.id); } catch (e) { console.warn('Failed to remove contracted hours mapping for nurse', e); }
                             }
                           }}
                           disabled={nursesLoading}
@@ -1859,7 +1996,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                   </h3>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">Name</label>
                       <Input
@@ -1893,6 +2030,22 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                         value={newCTM.phone}
                         onChange={(e) => setNewCTM(prev => ({ ...prev, phone: e.target.value }))}
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Contracted Hours</label>
+                      <Input type="number" min={1} max={168} value={String(newCTM.contractedHours)} onChange={(e) => setNewCTM(prev => ({ ...prev, contractedHours: parseInt(e.target.value, 10) || 40 }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Hours Type</label>
+                      <Select value={newCTM.hoursType} onValueChange={(v: 'weekly' | 'monthly') => setNewCTM(prev => ({ ...prev, hoursType: v }))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                   <div className="mt-4">
@@ -1944,6 +2097,8 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                             if (!success) {
                               // Revert optimistic update on failure
                               setCTMs(prev => [...prev, ctm]);
+                            } else {
+                              try { await removeContractedHoursForStaff(ctm.id); } catch (e) { console.warn('Failed to remove contracted hours mapping for ctm', e); }
                             }
                           }}
                           disabled={ctmsLoading}
@@ -1986,7 +2141,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                   </h3>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">Name</label>
                       <Input
@@ -2071,6 +2226,8 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                             if (!success) {
                               // Revert optimistic update on failure
                               setDomestics(prev => [...prev, domestic]);
+                            } else {
+                              try { await removeContractedHoursForStaff(domestic.id); } catch (e) { console.warn('Failed to remove contracted hours mapping for domestic', e); }
                             }
                           }}
                           disabled={domesticsLoading}
@@ -2113,7 +2270,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                   </h3>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">Name</label>
                       <Input
@@ -2147,6 +2304,22 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                         value={newMaintenance.phone}
                         onChange={(e) => setNewMaintenance(prev => ({ ...prev, phone: e.target.value }))}
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Contracted Hours</label>
+                      <Input type="number" min={1} max={168} value={String(newMaintenance.contractedHours)} onChange={(e) => setNewMaintenance(prev => ({ ...prev, contractedHours: parseInt(e.target.value, 10) || 40 }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Hours Type</label>
+                      <Select value={newMaintenance.hoursType} onValueChange={(v: 'weekly' | 'monthly') => setNewMaintenance(prev => ({ ...prev, hoursType: v }))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                   <div className="mt-4">
@@ -2198,6 +2371,8 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                             if (!success) {
                               // Revert optimistic update on failure
                               setMaintenances(prev => [...prev, maintenance]);
+                            } else {
+                              try { await removeContractedHoursForStaff(maintenance.id); } catch (e) { console.warn('Failed to remove contracted hours mapping for maintenance', e); }
                             }
                           }}
                           disabled={maintenancesLoading}
@@ -2240,7 +2415,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                   </h3>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">Name</label>
                       <Input
@@ -2274,6 +2449,22 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                         value={newKitchen.phone}
                         onChange={(e) => setNewKitchen(prev => ({ ...prev, phone: e.target.value }))}
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Contracted Hours</label>
+                      <Input type="number" min={1} max={168} value={String(newKitchen.contractedHours)} onChange={(e) => setNewKitchen(prev => ({ ...prev, contractedHours: parseInt(e.target.value, 10) || 40 }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Hours Type</label>
+                      <Select value={newKitchen.hoursType} onValueChange={(v: 'weekly' | 'monthly') => setNewKitchen(prev => ({ ...prev, hoursType: v }))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                   <div className="mt-4">
@@ -2325,6 +2516,8 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                             if (!success) {
                               // Revert optimistic update on failure
                               setKitchens(prev => [...prev, kitchen]);
+                            } else {
+                              try { await removeContractedHoursForStaff(kitchen.id); } catch (e) { console.warn('Failed to remove contracted hours mapping for kitchen', e); }
                             }
                           }}
                           disabled={kitchensLoading}
@@ -2452,6 +2645,8 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                             if (!success) {
                               // Revert optimistic update on failure
                               setActivities(prev => [...prev, activity]);
+                            } else {
+                              try { await removeContractedHoursForStaff(activity.id); } catch (e) { console.warn('Failed to remove contracted hours mapping for activity', e); }
                             }
                           }}
                           disabled={activitiesLoading}
@@ -2487,6 +2682,8 @@ function ManagerCard({ manager, isEditing, onEdit, onCancelEdit, onSave, onDelet
     roles: manager.roles,
     email: manager.email,
     phone: manager.phone,
+    contractedHours: manager.contractedHours ?? 40,
+    hoursType: manager.hoursType ?? 'weekly' as 'weekly' | 'monthly',
   });
 
   const handleSave = () => {
@@ -2501,14 +2698,16 @@ function ManagerCard({ manager, isEditing, onEdit, onCancelEdit, onSave, onDelet
       roles: manager.roles,
       email: manager.email,
       phone: manager.phone,
+      contractedHours: manager.contractedHours ?? 40,
+      hoursType: manager.hoursType ?? 'weekly',
     });
     onCancelEdit();
   };
 
-  if (isEditing) {
+    if (isEditing) {
     return (
       <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4">
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">Name</label>
             <Input
@@ -2547,6 +2746,29 @@ function ManagerCard({ manager, isEditing, onEdit, onCancelEdit, onSave, onDelet
               placeholder="+44 123 456 7890"
             />
           </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">Contracted Hours</label>
+            <Input
+              type="number"
+              min={1}
+              max={168}
+              value={String(editForm.contractedHours)}
+              onChange={(e) => setEditForm(prev => ({ ...prev, contractedHours: parseInt(e.target.value, 10) || 40 }))}
+              placeholder="e.g. 40"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">Hours Type</label>
+            <Select value={editForm.hoursType} onValueChange={(v: 'weekly' | 'monthly') => setEditForm(prev => ({ ...prev, hoursType: v }))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="weekly">Weekly</SelectItem>
+                <SelectItem value="monthly">Monthly</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <div className="flex justify-end gap-2">
           <Button
@@ -2560,7 +2782,18 @@ function ManagerCard({ manager, isEditing, onEdit, onCancelEdit, onSave, onDelet
           </Button>
           <Button
             size="sm"
-            onClick={handleSave}
+            onClick={() => {
+              if (editForm.name && editForm.email && editForm.phone) {
+                onSave({
+                  name: editForm.name,
+                  roles: editForm.roles,
+                  email: editForm.email,
+                  phone: editForm.phone,
+                  contractedHours: editForm.contractedHours,
+                  hoursType: editForm.hoursType,
+                });
+              }
+            }}
             disabled={!editForm.name || !editForm.roles || !editForm.email || !editForm.phone || disabled}
             className="bg-green-600 hover:bg-green-700"
           >
@@ -2574,7 +2807,7 @@ function ManagerCard({ manager, isEditing, onEdit, onCancelEdit, onSave, onDelet
 
   return (
     <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
+  <div className="flex-1 grid grid-cols-1 md:grid-cols-6 gap-4">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-blue-100 rounded-full">
             <UserCheck className="w-5 h-5 text-blue-600" />
@@ -2609,6 +2842,15 @@ function ManagerCard({ manager, isEditing, onEdit, onCancelEdit, onSave, onDelet
           <div>
             <p className="text-sm font-medium text-gray-900">{manager.phone}</p>
             <p className="text-xs text-gray-500">Phone number</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <Clock className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{manager.contractedHours ?? 40}h/{(manager.hoursType || 'weekly') === 'weekly' ? 'wk' : 'mo'}</p>
+            <p className="text-xs text-gray-500">Contracted</p>
           </div>
         </div>
       </div>
@@ -2653,6 +2895,8 @@ function NurseCard({ nurse, isEditing, onEdit, onCancelEdit, onSave, onDelete, d
     roles: nurse.roles,
     email: nurse.email,
     phone: nurse.phone,
+    contractedHours: nurse.contractedHours ?? 40,
+    hoursType: nurse.hoursType ?? 'weekly' as 'weekly' | 'monthly',
   });
 
   const handleSave = () => {
@@ -2665,6 +2909,8 @@ function NurseCard({ nurse, isEditing, onEdit, onCancelEdit, onSave, onDelete, d
       roles: nurse.roles,
       email: nurse.email,
       phone: nurse.phone,
+      contractedHours: nurse.contractedHours ?? 40,
+      hoursType: nurse.hoursType ?? 'weekly',
     });
     onCancelEdit();
   };
@@ -2672,7 +2918,7 @@ function NurseCard({ nurse, isEditing, onEdit, onCancelEdit, onSave, onDelete, d
   if (isEditing) {
     return (
       <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+  <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
             <Input
@@ -2698,19 +2944,44 @@ function NurseCard({ nurse, isEditing, onEdit, onCancelEdit, onSave, onDelete, d
               placeholder="nurse@example.com"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
-            <Input
-              type="tel"
-              value={editForm.phone}
-              onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
-              placeholder="+44 123 456 7890"
-            />
-          </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+                      <Input
+                        type="tel"
+                        value={editForm.phone}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
+                        placeholder="+44 123 456 7890"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Contracted Hours</label>
+                      <Input type="number" min={1} max={168} value={String(editForm.contractedHours ?? 40)} onChange={(e) => setEditForm(prev => ({ ...prev, contractedHours: parseInt(e.target.value, 10) || 40 }))} placeholder="e.g. 40" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Hours Type</label>
+                      <Select value={editForm.hoursType ?? 'weekly'} onValueChange={(v: 'weekly' | 'monthly') => setEditForm(prev => ({ ...prev, hoursType: v }))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
         </div>
         <div className="flex gap-2">
           <Button
-            onClick={handleSave}
+            onClick={() => {
+              onSave({
+                name: editForm.name,
+                roles: editForm.roles,
+                email: editForm.email,
+                phone: editForm.phone,
+                contractedHours: editForm.contractedHours,
+                hoursType: editForm.hoursType,
+              });
+            }}
             disabled={!editForm.name || !editForm.roles || !editForm.email || !editForm.phone || disabled}
             className="bg-green-600 hover:bg-green-700"
             size="sm"
@@ -2813,10 +3084,19 @@ function CTMCard({ ctm, isEditing, onEdit, onCancelEdit, onSave, onDelete, disab
     roles: ctm.roles,
     email: ctm.email,
     phone: ctm.phone,
+    contractedHours: ctm.contractedHours ?? 40,
+    hoursType: ctm.hoursType ?? 'weekly' as 'weekly' | 'monthly',
   });
 
   const handleSave = () => {
-    onSave(editForm);
+    onSave({
+      name: editForm.name,
+      roles: editForm.roles,
+      email: editForm.email,
+      phone: editForm.phone,
+      contractedHours: editForm.contractedHours,
+      hoursType: editForm.hoursType,
+    });
   };
 
   const handleCancel = () => {
@@ -2825,6 +3105,8 @@ function CTMCard({ ctm, isEditing, onEdit, onCancelEdit, onSave, onDelete, disab
       roles: ctm.roles,
       email: ctm.email,
       phone: ctm.phone,
+      contractedHours: ctm.contractedHours ?? 40,
+      hoursType: ctm.hoursType ?? 'weekly',
     });
     onCancelEdit();
   };
@@ -2832,60 +3114,46 @@ function CTMCard({ ctm, isEditing, onEdit, onCancelEdit, onSave, onDelete, disab
   if (isEditing) {
     return (
       <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
-            <Input
-              value={editForm.name}
-              onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
-              placeholder="CTM name"
-            />
+            <Input value={editForm.name} onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))} placeholder="CTM name" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Roles</label>
-            <Input
-              value={editForm.roles}
-              onChange={(e) => setEditForm(prev => ({ ...prev, roles: e.target.value }))}
-              placeholder="e.g. Care Team Manager, Senior CTM"
-            />
+            <Input value={editForm.roles} onChange={(e) => setEditForm(prev => ({ ...prev, roles: e.target.value }))} placeholder="e.g. Care Team Manager" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-            <Input
-              type="email"
-              value={editForm.email}
-              onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
-              placeholder="ctm@example.com"
-            />
+            <Input type="email" value={editForm.email} onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))} placeholder="ctm@example.com" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
-            <Input
-              type="tel"
-              value={editForm.phone}
-              onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
-              placeholder="+44 123 456 7890"
-            />
+            <Input type="tel" value={editForm.phone} onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))} placeholder="+44 123 456 7890" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Contracted Hours</label>
+            <Input type="number" min={1} max={168} value={String(editForm.contractedHours)} onChange={(e) => setEditForm(prev => ({ ...prev, contractedHours: parseInt(e.target.value, 10) || 40 }))} placeholder="e.g. 40" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Hours Type</label>
+            <Select value={editForm.hoursType} onValueChange={(v: 'weekly' | 'monthly') => setEditForm(prev => ({ ...prev, hoursType: v }))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="weekly">Weekly</SelectItem>
+                <SelectItem value="monthly">Monthly</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
         <div className="flex gap-2">
-          <Button
-            onClick={handleSave}
-            disabled={!editForm.name || !editForm.roles || !editForm.email || !editForm.phone || disabled}
-            className="bg-green-600 hover:bg-green-700"
-            size="sm"
-          >
-            <Save className="w-4 h-4 mr-2" />
-            Save Changes
+          <Button onClick={handleSave} disabled={!editForm.name || !editForm.roles || !editForm.email || !editForm.phone || disabled} className="bg-green-600 hover:bg-green-700" size="sm">
+            <Save className="w-4 h-4 mr-2" /> Save Changes
           </Button>
-          <Button
-            variant="ghost"
-            onClick={handleCancel}
-            disabled={disabled}
-            size="sm"
-          >
-            <X className="w-4 h-4 mr-2" />
-            Cancel
+          <Button variant="ghost" onClick={handleCancel} disabled={disabled} size="sm">
+            <X className="w-4 h-4 mr-2" /> Cancel
           </Button>
         </div>
       </div>
