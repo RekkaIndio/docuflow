@@ -1,9 +1,10 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Users, FileText, FileSpreadsheet, FileIcon, FileX2, Briefcase, Clock, User, TrendingUp, TrendingDown, Minus, Calendar, BarChart3, Edit3, FileCheck, CheckCircle, AlertCircle, ClipboardList, ChevronRight, Shield, Heart } from "lucide-react";
+import { Users, FileText, FileSpreadsheet, FileIcon, FileX2, Briefcase, Clock, User, TrendingUp, TrendingDown, Minus, Calendar, CalendarCheck2, BarChart3, Edit3, FileCheck, CheckCircle, AlertCircle, ClipboardList, ClipboardCheck, ChevronRight, Shield, Heart, Tag } from "lucide-react";
 import type { Workspace, Document, Folder as FolderType } from "@/lib/types";
-import { useMemo } from "react";
+import type { ReactNode } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { useAuth } from '@/hooks/use-auth';
 import {
   Table,
@@ -19,12 +20,11 @@ import { Badge } from "../ui/badge";
 import { UploadButton } from "./upload-button";
 import { NewFolderDialog } from "./new-folder-dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useEffect, useState } from "react";
 import { doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query as fsQuery, orderBy, limit, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { workspaceDocPath, workspaceCollectionPath, workspaceBasePath } from '@/lib/paths';
 import { getWorkspaceCollectionRef, getWorkspaceDocRef, getMonthlyAuditCompletionStatus } from '@/lib/firestore';
-import { AUDIT_TYPES, AuditType } from '@/lib/audit-types';
+import { AUDIT_TYPES, AUDIT_DISPLAY_NAMES, AuditType } from '@/lib/audit-types';
 import OccupancyPie from '@/components/admin/occupancy-pie';
 import OverviewCards from './overview-cards';
 // consolidated imports above
@@ -71,18 +71,18 @@ const PendingPulseStyles = () => (
 
         /* Enhanced pulsing animation with red glow for pending daily check-in */
         @keyframes pulse-red {
-            0% { 
-                transform: scale(1); 
+            0% {
+                transform: scale(1);
                 box-shadow: 0 0 24px 6px rgba(239, 68, 68, 0.28), 0 0 48px 12px rgba(239, 68, 68, 0.18);
                 border-color: rgba(239, 68, 68, 0.6);
             }
-            50% { 
-                transform: scale(1.02); 
+            50% {
+                transform: scale(1.02);
                 box-shadow: 0 0 36px 12px rgba(239, 68, 68, 0.46), 0 0 72px 22px rgba(239, 68, 68, 0.22);
                 border-color: rgba(239, 68, 68, 0.85);
             }
-            100% { 
-                transform: scale(1); 
+            100% {
+                transform: scale(1);
                 box-shadow: 0 0 24px 6px rgba(239, 68, 68, 0.28), 0 0 48px 12px rgba(239, 68, 68, 0.18);
                 border-color: rgba(239, 68, 68, 0.6);
             }
@@ -90,18 +90,18 @@ const PendingPulseStyles = () => (
 
         /* Purple glow animation for occupancy */
         @keyframes pulse-purple {
-            0% { 
-                transform: scale(1); 
+            0% {
+                transform: scale(1);
                 box-shadow: 0 0 20px 4px rgba(168, 85, 247, 0.4), 0 0 40px 8px rgba(168, 85, 247, 0.2);
                 border-color: rgba(168, 85, 247, 0.6);
             }
-            50% { 
-                transform: scale(1.02); 
+            50% {
+                transform: scale(1.02);
                 box-shadow: 0 0 30px 8px rgba(168, 85, 247, 0.6), 0 0 60px 15px rgba(168, 85, 247, 0.3);
                 border-color: rgba(168, 85, 247, 0.8);
             }
-            100% { 
-                transform: scale(1); 
+            100% {
+                transform: scale(1);
                 box-shadow: 0 0 20px 4px rgba(168, 85, 247, 0.4), 0 0 40px 8px rgba(168, 85, 247, 0.2);
                 border-color: rgba(168, 85, 247, 0.6);
             }
@@ -109,56 +109,24 @@ const PendingPulseStyles = () => (
 
         /* Blue glow animation for staffing */
         @keyframes pulse-blue {
-            0% { 
-                transform: scale(1); 
+            0% {
+                transform: scale(1);
                 box-shadow: 0 0 20px 4px rgba(59, 130, 246, 0.4), 0 0 40px 8px rgba(59, 130, 246, 0.2);
                 border-color: rgba(59, 130, 246, 0.6);
             }
-            50% { 
-                transform: scale(1.02); 
+            50% {
+                transform: scale(1.02);
                 box-shadow: 0 0 30px 8px rgba(59, 130, 246, 0.6), 0 0 60px 15px rgba(59, 130, 246, 0.3);
                 border-color: rgba(59, 130, 246, 0.8);
             }
-            100% { 
-                transform: scale(1); 
+            100% {
+                transform: scale(1);
                 box-shadow: 0 0 20px 4px rgba(59, 130, 246, 0.4), 0 0 40px 8px rgba(59, 130, 246, 0.2);
                 border-color: rgba(59, 130, 246, 0.6);
             }
         }
     `}</style>
 );
-
-const TrendIndicator = ({ auditType, trends }: { auditType: string, trends: Record<string, { direction: 'up' | 'down' | 'stable', change: number }> }) => {
-    const trend = trends[auditType];
-    if (!trend) return null;
-
-    const { direction, change } = trend;
-    const isPositive = direction === 'up';
-    const isNegative = direction === 'down';
-    
-    return (
-        <div className="flex items-center gap-1 text-xs">
-            {isPositive && (
-                <>
-                    <TrendingUp className="h-3 w-3 text-green-600" />
-                    <span className="text-green-600">+{change}%</span>
-                </>
-            )}
-            {isNegative && (
-                <>
-                    <TrendingDown className="h-3 w-3 text-red-600" />
-                    <span className="text-red-600">{change}%</span>
-                </>
-            )}
-            {direction === 'stable' && (
-                <>
-                    <Minus className="h-3 w-3 text-gray-500" />
-                    <span className="text-gray-500">No change</span>
-                </>
-            )}
-        </div>
-    );
-};
 
 type AuditScoreEntry = {
     scorePercent: number | null;
@@ -185,6 +153,17 @@ type ActionableItems = {
     untaggedCount: number;
     recentDocs: Document[];
     docsThisWeekCount: number;
+};
+
+type FocusItem = {
+    id: string;
+    title: string;
+    description: string;
+    icon: ReactNode;
+    iconWrapperClass: string;
+    badge?: { label: string; variant?: "default" | "secondary" | "outline" | "destructive" };
+    meta?: string;
+    onClick?: () => void;
 };
 
 type OverallStats = {
@@ -227,6 +206,8 @@ const DashboardHero = ({
     onOccupancyTrendsClick,
     onStaffingTeamsClick,
     onStaffingTrendsClick,
+    isDailyCheckinOpen,
+    onDailyModalChange,
 }: {
     workspace?: Workspace | null;
     headerLogo: string | null;
@@ -243,6 +224,8 @@ const DashboardHero = ({
     onOccupancyTrendsClick?: () => void;
     onStaffingTeamsClick?: () => void;
     onStaffingTrendsClick?: () => void;
+    isDailyCheckinOpen?: boolean;
+    onDailyModalChange?: (open: boolean) => void;
 }) => {
     const metrics = [
         {
@@ -326,6 +309,8 @@ const DashboardHero = ({
                         <DailyCheckinModal
                             workspaceId={workspaceId || ""}
                             onEntryUpdate={onDailyEntryUpdate}
+                            open={isDailyCheckinOpen}
+                            onOpenChange={onDailyModalChange}
                             trigger={
                                 <div
                                     className={`group relative rounded-2xl border p-5 backdrop-blur-md transition-all duration-300 cursor-pointer min-h-[140px] flex flex-col justify-between ${
@@ -862,15 +847,14 @@ function MiniStaffingCard({ workspaceId, orgId, dailyEntry, onTeamsClick, onTren
 
 type ExecutiveSummaryProps = {
     documents: Document[];
-    actionableItems: ActionableItems;
     onSelect: (doc: Document) => void;
     workspaceId?: string;
     orgId?: string | null;
     overallStats: OverallStats;
     getGradientColors: (score: number | null) => { start: string; end: string };
-    trends: Record<string, { direction: 'up' | 'down' | 'stable'; change: number }>;
+    trends: Record<string, { direction: "up" | "down" | "stable"; change: number }>;
     dailyEntry?: any;
-    onDailyEntryUpdate?: (entry: any) => void;
+    onDailyEntryUpdate: (entry: any) => void;
     carePlanScore: number | null;
     hsScore: number | null;
     maintenanceScore: number | null;
@@ -881,114 +865,104 @@ type ExecutiveSummaryProps = {
     nightScore: number | null;
     staffFileScore: number | null;
     kitchenScore: number | null;
-    handleAuditCardClick: (auditKey: string) => void;
-    onStaffingTeamsClick?: () => void;
-    onStaffingTrendsClick?: () => void;
-    onOccupancyTrendsClick?: () => void;
-    onComplianceOverviewClick?: () => void;
+    handleAuditCardClick: (auditType: AuditType) => void;
+    onStaffingTeamsClick: () => void;
+    onStaffingTrendsClick: () => void;
+    onOccupancyTrendsClick: () => void;
+    onComplianceOverviewClick: () => void;
     navigateToAuditForm: (auditKey: string) => void;
     isTodayCompleted: boolean;
+    actionableItems: ActionableItems;
+    focusItems: FocusItem[];
 };
 
-const PriorityPanel = ({ actionableItems, onSelect }: { actionableItems: ActionableItems; onSelect: (doc: Document) => void }) => {
-    const { untaggedDocs, untaggedCount, recentDocs } = actionableItems;
-    const remainingUntagged = Math.max(untaggedCount - untaggedDocs.length, 0);
+const PriorityPanel = ({ items, className }: { items: FocusItem[]; className?: string }) => {
+    const tasksRemaining = items.length;
 
     return (
-        <Card className="group relative overflow-hidden border-0 shadow-xl bg-gradient-to-br from-slate-50 to-white hover:shadow-2xl transition-all duration-300">
+    <Card className={`group relative flex h-full flex-col overflow-hidden border-0 bg-gradient-to-br from-slate-50 to-white shadow-xl transition-all duration-300 hover:shadow-2xl ${className ?? ""}`}>
             <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500" />
             <CardHeader className="pb-4 pt-5">
-                <div className="flex items-center gap-2 mb-2">
-                    <div className="p-2 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg shadow-md">
-                        <ClipboardList className="h-4 w-4 text-white" />
+                <div className="mb-2 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-blue-600">
+                            <ClipboardList className="h-4 w-4" />
+                        </div>
+                        <CardTitle className="text-base font-semibold text-slate-900">Focus Queue</CardTitle>
                     </div>
-                    <CardTitle className="text-lg font-bold text-slate-900">Focus queue</CardTitle>
+                    <Badge variant={tasksRemaining > 0 ? "destructive" : "secondary"} className="rounded-full">
+                        {tasksRemaining > 0 ? `${tasksRemaining} to action` : "All caught up"}
+                    </Badge>
                 </div>
-                <CardDescription className="text-sm text-slate-600 leading-relaxed">
+                <CardDescription className="text-sm text-slate-500">
                     Quick wins and outstanding actions to keep the workspace inspection-ready.
                 </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-5">
-                <div>
-                    <div className="mb-3 flex items-center justify-between">
-                        <span className="text-sm font-semibold text-slate-700">Documents needing tags</span>
-                        <Badge variant={untaggedCount > 0 ? "destructive" : "secondary"} className="rounded-full">
-                            {untaggedCount > 0 ? `${untaggedCount} pending` : "All clear"}
-                        </Badge>
-                    </div>
-                    {untaggedDocs.length > 0 ? (
-                        <div className="space-y-2">
-                            {untaggedDocs.map((doc) => (
-                                <button
-                                    type="button"
-                                    key={doc.id}
-                                    className="flex w-full items-center justify-between rounded-xl border border-slate-200/60 bg-gradient-to-r from-slate-50 to-white px-4 py-3 text-left transition-all hover:border-blue-300 hover:from-blue-50 hover:to-white hover:shadow-md group"
-                                    onClick={() => onSelect(doc)}
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className="rounded-lg bg-white p-2.5 shadow-md border border-slate-100 group-hover:border-blue-200 group-hover:shadow-lg transition-all">
-                                            {getFileIcon(doc.fileType)}
-                                        </div>
-                                        <div>
-                                            <p className="max-w-[180px] truncate text-sm font-semibold text-slate-800">{doc.name}</p>
-                                            <p className="text-xs text-slate-500">Uploaded {new Date(doc.createdAt).toLocaleDateString()}</p>
-                                        </div>
-                                    </div>
-                                    <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-blue-500 transition-colors" />
-                                </button>
-                            ))}
-                            {remainingUntagged > 0 && (
-                                <p className="text-xs text-slate-500 pl-2">+{remainingUntagged} more documents waiting for tags</p>
-                            )}
-                        </div>
-                    ) : (
-                        <p className="rounded-xl border border-slate-100 bg-gradient-to-r from-emerald-50 to-white px-4 py-4 text-sm text-slate-600 shadow-sm">
-                            All documents are tagged. Great work!
-                        </p>
-                    )}
-                </div>
+            <CardContent className="flex flex-1 flex-col space-y-4 overflow-hidden">
+                {tasksRemaining > 0 ? (
+                    <div className="flex-1 space-y-3 overflow-y-auto pr-1">
+                        {items.map((item) => {
+                            const isClickable = typeof item.onClick === "function";
+                            const sharedClasses = "w-full flex items-start gap-3 rounded-xl border border-slate-200/60 bg-gradient-to-r from-white to-slate-50 px-4 py-3";
+                            const interactiveClasses = isClickable
+                                ? " text-left transition-all hover:border-blue-300 hover:shadow-md hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                                : "";
 
-                <div className="border-t border-slate-100 pt-4">
-                    <div className="mb-3 flex items-center justify-between">
-                        <span className="text-sm font-semibold text-slate-700">Recent uploads</span>
-                        <Badge variant="outline" className="rounded-full text-xs">Last 72 hours</Badge>
-                    </div>
-                    {recentDocs.length > 0 ? (
-                        <div className="space-y-2">
-                            {recentDocs.map((doc) => (
+                            const content = (
+                                <div className="flex items-start gap-3 w-full">
+                                    <div className={`flex-shrink-0 rounded-xl border ${item.iconWrapperClass} p-2.5`}> 
+                                        {item.icon}
+                                    </div>
+                                    <div className="flex-1 min-w-0 space-y-1">
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="min-w-0">
+                                                <p className="text-sm font-semibold text-slate-900 truncate">{item.title}</p>
+                                                <p className="text-xs text-slate-600 mt-0.5 line-clamp-2">{item.description}</p>
+                                            </div>
+                                            {item.badge && (
+                                                <Badge variant={item.badge.variant ?? "outline"} className="rounded-full whitespace-nowrap">
+                                                    {item.badge.label}
+                                                </Badge>
+                                            )}
+                                        </div>
+                                        {item.meta && (
+                                            <p className="text-xs text-slate-400">{item.meta}</p>
+                                        )}
+                                    </div>
+                                    {isClickable && (
+                                        <ChevronRight className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                                    )}
+                                </div>
+                            );
+
+                            return isClickable ? (
                                 <button
                                     type="button"
-                                    key={`recent-${doc.id}`}
-                                    onClick={() => onSelect(doc)}
-                                    className="flex w-full items-center justify-between rounded-xl border border-slate-200/60 bg-gradient-to-r from-white to-slate-50 px-4 py-3 text-left transition-all hover:border-cyan-300 hover:from-cyan-50 hover:to-white hover:shadow-md group"
+                                    key={item.id}
+                                    onClick={item.onClick}
+                                    className={sharedClasses + interactiveClasses}
                                 >
-                                    <div className="flex items-center gap-3">
-                                        <div className="rounded-full bg-gradient-to-br from-cyan-100 to-blue-100 p-2.5 shadow-md border border-cyan-200 group-hover:from-cyan-200 group-hover:to-blue-200 transition-all">
-                                            <Clock className="h-4 w-4 text-cyan-600" />
-                                        </div>
-                                        <div>
-                                            <p className="max-w-[180px] truncate text-sm font-semibold text-slate-800">{doc.name}</p>
-                                            <p className="text-xs text-slate-500">By {doc.owner?.name ?? "Unknown"}</p>
-                                        </div>
-                                    </div>
-                                    <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-cyan-500 transition-colors" />
+                                    {content}
                                 </button>
-                            ))}
-                        </div>
-                    ) : (
-                        <p className="rounded-xl border border-slate-100 bg-gradient-to-r from-slate-50 to-white px-4 py-4 text-sm text-slate-600 shadow-sm">
-                            No new uploads in the last few days.
-                        </p>
-                    )}
-                </div>
+                            ) : (
+                                <div key={item.id} className={sharedClasses}>
+                                    {content}
+                                </div>
+                            );
+                        })}
+                    </div>
+                ) : (
+                    <div className="rounded-xl border border-slate-100 bg-gradient-to-r from-emerald-50 to-white px-4 py-4 text-sm text-slate-600 shadow-sm">
+                        Nothing urgent right now. Keep capturing daily check-ins, completing audits, and tagging new uploads to stay inspection-ready.
+                    </div>
+                )}
             </CardContent>
         </Card>
     );
 };
 
-const ExecutiveSummary = ({
-    documents,
-    actionableItems,
+function ExecutiveSummary({
+        documents,
     onSelect,
     workspaceId,
     orgId,
@@ -1014,7 +988,9 @@ const ExecutiveSummary = ({
     onComplianceOverviewClick,
     navigateToAuditForm,
     isTodayCompleted,
-}: ExecutiveSummaryProps) => {
+    actionableItems,
+    focusItems,
+}: ExecutiveSummaryProps) {
     return (
         <section className="space-y-8">
             <PendingPulseStyles />
@@ -1041,8 +1017,8 @@ const ExecutiveSummary = ({
                 </div>
             </div>
 
-            <div className="grid gap-6 2xl:grid-cols-5">
-                <div className="space-y-6 2xl:col-span-3">
+            <div className="grid gap-x-6 gap-y-4 2xl:auto-rows-fr 2xl:grid-cols-5">
+                <div className="2xl:col-span-3">
                     <StaffingOverviewCard
                         workspaceId={workspaceId}
                         orgId={orgId}
@@ -1051,24 +1027,31 @@ const ExecutiveSummary = ({
                                 window.dispatchEvent(new CustomEvent("navigate-to-rotas"));
                             }
                         }}
+                        className="h-full min-h-[480px] max-h-[480px]"
                     />
+                </div>
 
+                <div className="2xl:col-span-2">
+                    <PriorityPanel items={focusItems} className="h-full min-h-[480px] max-h-[480px]" />
+                </div>
+
+                <div className="2xl:col-span-3">
                     <ActionPlansCard
                         workspaceId={workspaceId}
                         orgId={orgId}
                         documents={documents}
                         onSelect={onSelect}
+                        className="h-full"
                     />
                 </div>
 
-                <div className="space-y-6 2xl:col-span-2">
-                    <PriorityPanel actionableItems={actionableItems} onSelect={onSelect} />
-                    <ResidentCareCard workspaceId={workspaceId} orgId={orgId} />
+                <div className="2xl:col-span-2">
+                    <ResidentCareCard workspaceId={workspaceId} orgId={orgId} className="h-full" />
                 </div>
             </div>
         </section>
     );
-};
+}
 
 type OccupancyData = { totalBeds: number; occupiedBeds: number };
 
@@ -1333,11 +1316,12 @@ function OccupancyCard({ workspaceId, orgId, dailyEntry, onTrendsClick }: { work
 
 // Use shared OccupancyPie for staffing visual
 
-function ActionPlansCard({ workspaceId, orgId, documents, onSelect }: { 
+function ActionPlansCard({ workspaceId, orgId, documents, onSelect, className }: { 
     workspaceId?: string,
     orgId?: string | null,
     documents: Document[], 
-    onSelect: (item: Document) => void 
+    onSelect: (item: Document) => void,
+    className?: string,
 }) {
     const [actionPlans, setActionPlans] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
@@ -1396,40 +1380,40 @@ function ActionPlansCard({ workspaceId, orgId, documents, onSelect }: {
     const totalActionPlans = actionPlans.length + actionPlansFolders.length;
 
     return (
-        <Card className="group relative overflow-hidden hover:shadow-2xl transition-all duration-300 border-0 bg-gradient-to-br from-emerald-50 to-white rounded-2xl shadow-xl">
+        <Card className={`group relative flex h-full flex-col overflow-hidden rounded-2xl border-0 bg-gradient-to-br from-emerald-50 to-white shadow-xl transition-all duration-300 hover:shadow-2xl ${className ?? ""}`}>
             <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-emerald-500 via-green-500 to-teal-500 shadow-md" />
             <CardHeader className="pb-4 pt-5">
                 <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm font-semibold flex items-center gap-2 text-gray-900">
-                        <ClipboardList className="h-4 w-4 text-green-600" />
-                        Action Plans
-                    </CardTitle>
-                    <div className="text-sm text-gray-600">{totalActionPlans} items</div>
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-600">
+                            <ClipboardList className="h-4 w-4" />
+                        </div>
+                        <CardTitle className="text-base font-semibold text-slate-900">Action Plans</CardTitle>
+                    </div>
+                    <div className="text-sm text-slate-500">{totalActionPlans} items</div>
                 </div>
-                 <CardDescription className="text-xs text-gray-600 font-medium">
+                 <CardDescription className="text-sm text-slate-500">
                      Active plans and recent documents
                  </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3 pt-4">
+            <CardContent className="flex flex-1 flex-col space-y-3 pt-4">
                 {loading ? (
-                    <div className="text-sm text-gray-600">Loading...</div>
-                ) : (
-                    <>
-                        {totalActionPlans > 0 ? (
-                            <div className="space-y-3">
+                    <div className="text-sm text-slate-500">Loading...</div>
+                ) : totalActionPlans > 0 ? (
+                    <div className="space-y-3">
                                 {/* Show recent action plan audits */}
                                 {actionPlans.slice(0, 2).map(plan => (
-                                    <div key={plan.id} className="flex items-center justify-between p-3 hover:bg-green-50/50 rounded-xl cursor-pointer transition-colors duration-200 border border-green-100/40">
-                                        <div className="flex items-center gap-3 min-w-0">
-                                            <FileCheck className="h-4 w-4 text-green-600 flex-shrink-0" />
-                                            <span className="text-sm font-medium truncate text-gray-700">
+                                    <div key={plan.id} className="flex items-center justify-between rounded-xl border border-emerald-100/60 bg-white/40 p-3 transition-colors duration-200 hover:bg-emerald-50/70">
+                                        <div className="flex min-w-0 items-center gap-3">
+                                            <FileCheck className="h-4 w-4 flex-shrink-0 text-emerald-600" />
+                                            <span className="truncate text-sm font-medium text-slate-700">
                                                 {plan.auditType ? 
                                                     `${plan.auditType.replace(/-/g, ' ')} audit` : 
                                                     'Audit action plan'
                                                 }
                                             </span>
                                         </div>
-                                        <Badge variant="secondary" className="rounded-full text-xs bg-green-100 text-green-700">
+                                        <Badge variant="secondary" className="rounded-full bg-emerald-100 text-xs text-emerald-700">
                                             {plan.createdAt ? 
                                                 new Date(plan.createdAt).toLocaleDateString() : 
                                                 'Recent'
@@ -1440,38 +1424,36 @@ function ActionPlansCard({ workspaceId, orgId, documents, onSelect }: {
                                 
                                 {/* Show action plan documents */}
                                 {actionPlansFolders.map(doc => (
-                                    <div key={doc.id} className="flex items-center justify-between p-3 hover:bg-green-50/50 rounded-xl cursor-pointer transition-colors duration-200 border border-green-100/40" onClick={() => onSelect(doc)}>
-                                        <div className="flex items-center gap-3 min-w-0">
+                                    <div key={doc.id} className="flex items-center justify-between rounded-xl border border-emerald-100/60 bg-white/40 p-3 transition-colors duration-200 hover:bg-emerald-50/70" onClick={() => onSelect(doc)}>
+                                        <div className="flex min-w-0 items-center gap-3">
                                             {getFileIcon(doc.fileType)}
-                                            <span className="text-sm font-medium truncate text-gray-700">{doc.name}</span>
+                                            <span className="truncate text-sm font-medium text-slate-700">{doc.name}</span>
                                         </div>
-                                        <Badge variant="outline" className="text-xs font-medium px-2 py-1 border-green-200 text-green-700">
+                                        <Badge variant="outline" className="border-emerald-200 px-2 py-1 text-xs font-medium text-emerald-700">
                                             {doc.fileType?.toUpperCase()}
                                         </Badge>
                                     </div>
                                 ))}
                                 
                                 {totalActionPlans > 3 && (
-                                    <div className="text-xs text-gray-500 text-center pt-2 font-medium">
+                                    <div className="pt-2 text-center text-xs font-medium text-slate-500">
                                         +{totalActionPlans - 3} more action plans
                                     </div>
                                 )}
-                            </div>
-                        ) : (
-                            <div className="text-center py-6">
-                                <ClipboardList className="h-10 w-10 text-gray-400 mx-auto mb-3" />
-                                <p className="text-sm text-gray-600 font-medium">No active action plans</p>
-                                <p className="text-xs text-gray-500 mt-1">Complete an audit to create action plans</p>
-                            </div>
-                        )}
-                    </>
+                    </div>
+                ) : (
+                    <div className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-green-200 bg-green-50/40 py-6 text-center">
+                        <ClipboardList className="mx-auto mb-3 h-10 w-10 text-slate-400" />
+                        <p className="text-sm font-medium text-slate-600">No active action plans</p>
+                        <p className="mt-1 text-xs text-slate-500">Complete an audit to create action plans</p>
+                    </div>
                 )}
             </CardContent>
         </Card>
     );
 }
 
-function ResidentCareCard({ workspaceId, orgId }: { workspaceId?: string, orgId?: string | null }) {
+function ResidentCareCard({ workspaceId, orgId, className }: { workspaceId?: string, orgId?: string | null, className?: string }) {
     const [loading, setLoading] = useState(true);
     const [residents, setResidents] = useState<any[]>([]);
     const [bandCounts, setBandCounts] = useState<Record<number, number>>({1:0,2:0,3:0,4:0,5:0});
@@ -1589,50 +1571,56 @@ function ResidentCareCard({ workspaceId, orgId }: { workspaceId?: string, orgId?
     const bandLabels = ['Independent', 'Low', 'Medium', 'High', 'Very High'];
 
     return (
-        <Card className="group relative overflow-hidden border-0 shadow-xl bg-gradient-to-br from-cyan-500 via-teal-500 to-emerald-600 hover:shadow-2xl text-white transition-all duration-300">
-            {/* Animated background effects */}
-            <div className="pointer-events-none absolute inset-0 opacity-30">
-                <div className="absolute -top-20 -right-20 h-60 w-60 rounded-full bg-white/20 blur-3xl" />
-                <div className="absolute bottom-[-4rem] left-[-3rem] h-52 w-52 rounded-full bg-cyan-300/30 blur-3xl" />
-            </div>
+        <Card className={`group relative flex h-full flex-col overflow-hidden rounded-2xl border border-teal-100 bg-gradient-to-br from-teal-50 via-emerald-50/70 to-white shadow-lg transition-all duration-300 hover:shadow-xl ${className ?? ""}`}>
+            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-teal-500 via-emerald-500 to-lime-400" />
 
-            <CardHeader className="pb-4 relative z-20">
-                <div className="flex items-center justify-between mb-3">
-                    <div className="p-3 bg-white/20 backdrop-blur-sm rounded-2xl border border-white/30 shadow-lg">
-                        <Heart className="h-6 w-6 text-white" />
+            <CardHeader className="relative z-10 pb-4 pt-6">
+                <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-teal-100 bg-teal-50 text-teal-600">
+                            <Heart className="h-4 w-4" />
+                        </div>
+                        <div>
+                            <CardTitle className="text-base font-semibold text-slate-900">Dependency Overview</CardTitle>
+                            <CardDescription className="text-sm text-slate-500">
+                                Resident care levels and staffing insights
+                            </CardDescription>
+                        </div>
                     </div>
-                    <Badge className="bg-white/20 border-white/30 text-white font-semibold px-4 py-1.5 rounded-full backdrop-blur-sm shadow-md">
+                    <Badge className="rounded-full border border-teal-200 bg-white/80 text-teal-700 shadow-sm">
                         {residents.length} residents
                     </Badge>
                 </div>
-                <CardTitle className="text-xl font-bold text-white mb-1">Dependency Overview</CardTitle>
-                <CardDescription className="text-cyan-50">Resident care levels and staffing insights</CardDescription>
             </CardHeader>
 
-            <CardContent className="space-y-5 relative z-20">
+            <CardContent className="relative z-10 flex flex-1 flex-col space-y-5 pb-6">
                 {/* Visual Dependency Distribution */}
-                <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-5 shadow-md">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                            <BarChart3 className="h-4 w-4 text-cyan-200" />
-                            Dependency Distribution
+                <div className="rounded-2xl border border-teal-100 bg-white/90 p-5 shadow-sm">
+                    <div className="mb-4 flex items-center justify-between">
+                        <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                            <BarChart3 className="h-4 w-4 text-teal-500" />
+                            Dependency distribution
                         </h3>
-                        <span className="text-xs text-cyan-100 bg-white/10 px-2 py-1 rounded-full border border-white/20">
-                            NDPS Bands
+                        <span className="rounded-full border border-teal-100 bg-teal-50 px-2 py-1 text-xs font-medium text-teal-700">
+                            NPDS bands
                         </span>
                     </div>
-                    
+
                     {/* Horizontal stacked bar */}
-                    <div className="flex h-8 rounded-full overflow-hidden mb-4 shadow-inner bg-white/5">
+                    <div className="mb-4 flex h-8 overflow-hidden rounded-full bg-slate-100 shadow-inner">
                         {[1,2,3,4,5].map(b => {
                             const width = bandPercentages[b-1];
                             return width > 0 ? (
-                                <div 
-                                    key={b} 
-                                    className={`${bandColors[b-1].bg} flex items-center justify-center transition-all duration-300 hover:opacity-80`}
+                                <div
+                                    key={b}
+                                    className={`${bandColors[b-1].bg} flex items-center justify-center text-white transition-all duration-300 hover:opacity-90`}
                                     style={{ width: `${width}%` }}
                                 >
-                                    {width > 8 && <span className="text-xs font-bold text-white">{bandCounts[b]}</span>}
+                                    {width > 12 && (
+                                        <span className="text-[11px] font-semibold">
+                                            {bandCounts[b]}
+                                        </span>
+                                    )}
                                 </div>
                             ) : null;
                         })}
@@ -1642,69 +1630,85 @@ function ResidentCareCard({ workspaceId, orgId }: { workspaceId?: string, orgId?
                     <div className="grid grid-cols-5 gap-2">
                         {[1,2,3,4,5].map(b => (
                             <div key={b} className="text-center">
-                                <div className={`h-2 ${bandColors[b-1].bg} rounded-full mb-1.5 shadow-sm`} />
-                                <div className="text-xs font-semibold text-white">{bandCounts[b] ?? 0}</div>
-                                <div className="text-[10px] text-cyan-100 leading-tight">{bandLabels[b-1]}</div>
+                                <div className={`mb-1.5 h-2 rounded-full ${bandColors[b-1].bg}`} />
+                                <div className="text-xs font-semibold text-slate-700">
+                                    {bandCounts[b] ?? 0}
+                                </div>
+                                <div className="text-[10px] text-slate-500 leading-tight">
+                                    {bandLabels[b-1]}
+                                </div>
                             </div>
                         ))}
                     </div>
                 </div>
 
                 {/* Staffing Requirements Grid */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     {/* Day Shift */}
-                    <div className="bg-gradient-to-br from-amber-400/20 to-orange-400/20 backdrop-blur-sm border border-amber-300/30 rounded-xl p-4 shadow-md hover:shadow-lg transition-shadow">
-                        <div className="flex items-center gap-2 mb-3">
-                            <div className="p-2 bg-amber-400/30 rounded-lg">
-                                <Sun className="h-4 w-4 text-amber-100" />
+                    <div className="rounded-xl border border-amber-100 bg-gradient-to-br from-amber-50 to-white p-4 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="mb-3 flex items-center gap-3">
+                            <div className="rounded-lg border border-amber-100 bg-amber-50 p-2 text-amber-500">
+                                <Sun className="h-4 w-4" />
                             </div>
                             <div>
-                                <div className="text-sm font-bold text-white">Day Shift</div>
-                                <div className="text-xs text-amber-100">Required staff</div>
+                                <div className="text-sm font-semibold text-slate-800">Day shift</div>
+                                <div className="text-xs text-slate-500">Required staff</div>
                             </div>
                         </div>
-                        <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                                <span className="text-xs text-amber-100">CTMs</span>
-                                <span className="text-lg font-bold text-white">{staffBreakdown.Day?.ctms ?? 0}</span>
+                        <div className="space-y-2 text-slate-700">
+                            <div className="flex items-center justify-between text-xs uppercase tracking-wide text-slate-500">
+                                <span>CTMs</span>
+                                <span className="text-lg font-semibold text-slate-900">
+                                    {staffBreakdown.Day?.ctms ?? 0}
+                                </span>
                             </div>
-                            <div className="flex items-center justify-between">
-                                <span className="text-xs text-amber-100">Carers</span>
-                                <span className="text-lg font-bold text-white">{staffBreakdown.Day?.carers ?? 0}</span>
+                            <div className="flex items-center justify-between text-xs uppercase tracking-wide text-slate-500">
+                                <span>Carers</span>
+                                <span className="text-lg font-semibold text-slate-900">
+                                    {staffBreakdown.Day?.carers ?? 0}
+                                </span>
                             </div>
-                            <div className="border-t border-amber-300/30 pt-2 mt-2">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-xs font-semibold text-amber-50">Total</span>
-                                    <span className="text-2xl font-bold text-white">{staffBreakdown.Day?.total ?? 0}</span>
+                            <div className="mt-3 border-t border-amber-100 pt-2">
+                                <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
+                                    <span>Total</span>
+                                    <span className="text-2xl font-bold text-slate-900">
+                                        {staffBreakdown.Day?.total ?? 0}
+                                    </span>
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     {/* Night Shift */}
-                    <div className="bg-gradient-to-br from-indigo-400/20 to-blue-400/20 backdrop-blur-sm border border-indigo-300/30 rounded-xl p-4 shadow-md hover:shadow-lg transition-shadow">
-                        <div className="flex items-center gap-2 mb-3">
-                            <div className="p-2 bg-indigo-400/30 rounded-lg">
-                                <Moon className="h-4 w-4 text-indigo-100" />
+                    <div className="rounded-xl border border-indigo-100 bg-gradient-to-br from-indigo-50 to-white p-4 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="mb-3 flex items-center gap-3">
+                            <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-2 text-indigo-500">
+                                <Moon className="h-4 w-4" />
                             </div>
                             <div>
-                                <div className="text-sm font-bold text-white">Night Shift</div>
-                                <div className="text-xs text-indigo-100">Required staff</div>
+                                <div className="text-sm font-semibold text-slate-800">Night shift</div>
+                                <div className="text-xs text-slate-500">Required staff</div>
                             </div>
                         </div>
-                        <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                                <span className="text-xs text-indigo-100">CTMs</span>
-                                <span className="text-lg font-bold text-white">{staffBreakdown.Night?.ctms ?? 0}</span>
+                        <div className="space-y-2 text-slate-700">
+                            <div className="flex items-center justify-between text-xs uppercase tracking-wide text-slate-500">
+                                <span>CTMs</span>
+                                <span className="text-lg font-semibold text-slate-900">
+                                    {staffBreakdown.Night?.ctms ?? 0}
+                                </span>
                             </div>
-                            <div className="flex items-center justify-between">
-                                <span className="text-xs text-indigo-100">Carers</span>
-                                <span className="text-lg font-bold text-white">{staffBreakdown.Night?.carers ?? 0}</span>
+                            <div className="flex items-center justify-between text-xs uppercase tracking-wide text-slate-500">
+                                <span>Carers</span>
+                                <span className="text-lg font-semibold text-slate-900">
+                                    {staffBreakdown.Night?.carers ?? 0}
+                                </span>
                             </div>
-                            <div className="border-t border-indigo-300/30 pt-2 mt-2">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-xs font-semibold text-indigo-50">Total</span>
-                                    <span className="text-2xl font-bold text-white">{staffBreakdown.Night?.total ?? 0}</span>
+                            <div className="mt-3 border-t border-indigo-100 pt-2">
+                                <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
+                                    <span>Total</span>
+                                    <span className="text-2xl font-bold text-slate-900">
+                                        {staffBreakdown.Night?.total ?? 0}
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -1712,30 +1716,32 @@ function ResidentCareCard({ workspaceId, orgId }: { workspaceId?: string, orgId?
                 </div>
 
                 {/* Key Metrics Row */}
-                <div className="grid grid-cols-3 gap-3">
-                    <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-3 text-center shadow-sm">
-                        <div className="text-2xl font-bold text-white">{(staffBreakdown.Day?.total || 0) + (staffBreakdown.Night?.total || 0)}</div>
-                        <div className="text-xs text-cyan-100 mt-1 flex items-center justify-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            Total Staff
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div className="rounded-xl border border-teal-100 bg-white/90 p-3 text-center shadow-sm">
+                        <div className="text-2xl font-semibold text-slate-900">
+                            {(staffBreakdown.Day?.total || 0) + (staffBreakdown.Night?.total || 0)}
+                        </div>
+                        <div className="mt-1 flex items-center justify-center gap-1 text-xs text-slate-500">
+                            <Clock className="h-3 w-3 text-teal-500" />
+                            Total staff
                         </div>
                     </div>
-                    <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-3 text-center shadow-sm">
-                        <div className="text-2xl font-bold text-white">
-                            {residents.length > 0 ? `${Math.round((residents.length / Math.max(1, calculateNDPSStaffing(residents).Day)) * 10) / 10}:1` : '—'}
+                    <div className="rounded-xl border border-teal-100 bg-white/90 p-3 text-center shadow-sm">
+                        <div className="text-2xl font-semibold text-slate-900">
+                            {residents.length > 0 ? `${Math.round((residents.length / Math.max(1, calculateNDPSStaffing(residents).Day)) * 10) / 10}:1` : "—"}
                         </div>
-                        <div className="text-xs text-cyan-100 mt-1 flex items-center justify-center gap-1">
-                            <Users className="h-3 w-3" />
-                            Day Ratio
+                        <div className="mt-1 flex items-center justify-center gap-1 text-xs text-slate-500">
+                            <Users className="h-3 w-3 text-teal-500" />
+                            Day ratio
                         </div>
                     </div>
-                    <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-3 text-center shadow-sm">
-                        <div className="text-2xl font-bold text-white">
-                            {residents.length > 0 ? `${Math.round((residents.length / Math.max(1, calculateNDPSStaffing(residents).Night)) * 10) / 10}:1` : '—'}
+                    <div className="rounded-xl border border-teal-100 bg-white/90 p-3 text-center shadow-sm">
+                        <div className="text-2xl font-semibold text-slate-900">
+                            {residents.length > 0 ? `${Math.round((residents.length / Math.max(1, calculateNDPSStaffing(residents).Night)) * 10) / 10}:1` : "—"}
                         </div>
-                        <div className="text-xs text-cyan-100 mt-1 flex items-center justify-center gap-1">
-                            <Users className="h-3 w-3" />
-                            Night Ratio
+                        <div className="mt-1 flex items-center justify-center gap-1 text-xs text-slate-500">
+                            <Users className="h-3 w-3 text-teal-500" />
+                            Night ratio
                         </div>
                     </div>
                 </div>
@@ -2231,6 +2237,10 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
     // Latest daily checkin entry for the workspace (used to feed Occupancy/Staffing cards)
     const [dailyEntry, setDailyEntry] = useState<any | null>(null);
 
+    // Central control for the daily check-in modal so other widgets (e.g. Focus queue)
+    // can open it without re-implementing the modal logic.
+    const [isDailyCheckinModalOpen, setIsDailyCheckinModalOpen] = useState(false);
+
     // Staffing teams modal state
     const [isStaffingModalOpen, setIsStaffingModalOpen] = useState(false);
 
@@ -2343,6 +2353,82 @@ const navigateToAuditForm = (auditKey: string) => {
         return dailyEntry.id === todayKey;
     }, [dailyEntry]);
 
+    const focusItems = useMemo<FocusItem[]>(() => {
+        const items: FocusItem[] = [];
+        const seenDocIds = new Set<string>();
+
+        if (!isTodayCompleted) {
+            items.push({
+                id: "daily-checkin",
+                title: "Complete today's daily check-in",
+                description: "Log occupancy, staffing, incidents and safeguards so leadership has today's snapshot.",
+                badge: { label: "Due today", variant: "destructive" },
+                icon: <CalendarCheck2 className="h-4 w-4" />,
+                iconWrapperClass: "bg-red-100/80 border-red-200 text-red-600",
+                onClick: () => setIsDailyCheckinModalOpen(true),
+            });
+        }
+
+        if (actionableItems.untaggedCount > 0) {
+            actionableItems.untaggedDocs.slice(0, 2).forEach((doc) => {
+                seenDocIds.add(doc.id);
+                items.push({
+                    id: `doc-${doc.id}`,
+                    title: `Tag “${doc.name}”`,
+                    description: "Add tags so inspectors and the wider team can surface it instantly.",
+                    badge: { label: "Document", variant: "outline" },
+                    meta: `Uploaded ${new Date(doc.createdAt).toLocaleDateString()}`,
+                    icon: <Tag className="h-4 w-4" />,
+                    iconWrapperClass: "bg-blue-50 border-blue-200 text-blue-600",
+                    onClick: () => onSelect(doc),
+                });
+            });
+        }
+
+        actionableItems.recentDocs.slice(0, 2).forEach((doc) => {
+            if (seenDocIds.has(doc.id)) return;
+            items.push({
+                id: `recent-${doc.id}`,
+                title: `Review “${doc.name}”`,
+                description: "Give this fresh upload a once-over and share any follow-up actions.",
+                badge: { label: "New upload", variant: "secondary" },
+                meta: `Uploaded ${new Date(doc.createdAt).toLocaleDateString()} by ${doc.owner?.name ?? "Unknown"}`,
+                icon: <Clock className="h-4 w-4" />,
+                iconWrapperClass: "bg-cyan-50 border-cyan-200 text-cyan-600",
+                onClick: () => onSelect(doc),
+            });
+        });
+
+        const outstandingAuditKeys = (monthlyStatusLoaded
+            ? AUDIT_TYPES.filter((type) => !monthlyAuditStatus[type])
+            : AUDIT_TYPES.filter((type) => auditScoreMap[type].scorePercent === null)
+        ).slice(0, 2);
+
+        outstandingAuditKeys.forEach((type) => {
+            const displayName = AUDIT_DISPLAY_NAMES[type] ?? type.replace(/-/g, ' ');
+            items.push({
+                id: `audit-${type}`,
+                title: `Complete the ${displayName} audit`,
+                description: "Record this month's responses to keep compliance reporting current.",
+                badge: { label: monthlyStatusLoaded ? "Due this month" : "Missing data", variant: "destructive" },
+                icon: <ClipboardCheck className="h-4 w-4" />,
+                iconWrapperClass: "bg-amber-100 border-amber-200 text-amber-700",
+                onClick: () => navigateToAuditForm(type),
+            });
+        });
+
+        return items.slice(0, 5);
+    }, [
+        actionableItems,
+        auditScoreMap,
+        isTodayCompleted,
+        monthlyAuditStatus,
+        monthlyStatusLoaded,
+        navigateToAuditForm,
+        onSelect,
+        setIsDailyCheckinModalOpen,
+    ]);
+
 
     return (
         <div className="flex flex-col h-full min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 pointer-events-auto">
@@ -2365,9 +2451,11 @@ const navigateToAuditForm = (auditKey: string) => {
                 onOccupancyTrendsClick={() => setIsOccupancyModalOpen(true)}
                 onStaffingTeamsClick={() => setIsStaffingModalOpen(true)}
                 onStaffingTrendsClick={() => setIsStaffingTrendsModalOpen(true)}
-            />                        <ExecutiveSummary
+                isDailyCheckinOpen={isDailyCheckinModalOpen}
+                onDailyModalChange={setIsDailyCheckinModalOpen}
+            />
+            <ExecutiveSummary
                             documents={documents}
-                            actionableItems={actionableItems}
                             onSelect={onSelect}
                             workspaceId={workspace?.id || ''}
                             orgId={(workspace as any)?.organisationId || null}
@@ -2393,143 +2481,9 @@ const navigateToAuditForm = (auditKey: string) => {
                             onComplianceOverviewClick={() => setIsComplianceModalOpen(true)}
                             navigateToAuditForm={navigateToAuditForm}
                             isTodayCompleted={isTodayCompleted}
-                        />
-
-                        {/* Recent Activity Timeline */}
-                        <div>
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="p-2 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg">
-                                    <Clock className="h-5 w-5 text-white" />
-                                </div>
-                                <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Recent Activity</h2>
-                            </div>
-
-                            <Card className="border-0 shadow-xl bg-gradient-to-br from-white via-blue-50/30 to-indigo-50/20 overflow-hidden">
-                                <div className="absolute inset-0 bg-gradient-to-br from-transparent via-blue-50/10 to-indigo-50/20"></div>
-                                <CardContent className="relative p-6">
-                                    <div className="space-y-6">
-                                        {/* Timeline items */}
-                                        {recentDocuments.slice(0, 4).map((doc: Document, index: number) => (
-                                            <div key={doc.id} className="flex items-start gap-4 group cursor-pointer" onClick={() => onSelect(doc)}>
-                                                {/* Timeline connector */}
-                                                <div className="flex flex-col items-center">
-                                                    <div className="w-3 h-3 bg-blue-500 rounded-full shadow-lg group-hover:bg-blue-600 transition-colors duration-300"></div>
-                                                    {index < recentDocuments.slice(0, 4).length - 1 && (
-                                                        <div className="w-0.5 h-16 bg-gradient-to-b from-blue-300 to-transparent mt-2"></div>
-                                                    )}
-                                                </div>
-
-                                                {/* Content */}
-                                                <div className="flex-1 pb-6">
-                                                    <Card className="p-4 bg-white/80 backdrop-blur-sm border border-blue-100/50 hover:shadow-lg hover:bg-white/90 transition-all duration-300 group-hover:scale-[1.02]">
-                                                        <div className="flex items-center gap-4">
-                                                            <div className="p-2 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors duration-300">
-                                                                {getFileIcon(doc.fileType)}
-                                                            </div>
-                                                            <div className="flex-1 min-w-0">
-                                                                <div className="flex items-center gap-3 mb-1">
-                                                                    <h3 className="font-semibold text-gray-900 truncate group-hover:text-blue-700 transition-colors duration-300">
-                                                                        {doc.name}
-                                                                    </h3>
-                                                                    <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">
-                                                                        {doc.fileType?.toUpperCase()}
-                                                                    </Badge>
-                                                                </div>
-                                                                <div className="flex items-center gap-4 text-sm text-gray-600">
-                                                                    <span className="flex items-center gap-1">
-                                                                        <User className="h-3 w-3" />
-                                                                        {doc.owner.name}
-                                                                    </span>
-                                                                    <span className="flex items-center gap-1">
-                                                                        <Calendar className="h-3 w-3" />
-                                                                        {new Date(doc.createdAt).toLocaleDateString()}
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                            <div className="text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                                                <ChevronRight className="h-4 w-4" />
-                                                            </div>
-                                                        </div>
-                                                    </Card>
-                                                </div>
-                                            </div>
-                                        ))}
-
-                                        {/* Audit completion activity */}
-                                        {overallStats.auditsCompleted > 0 && (
-                                            <div className="flex items-start gap-4">
-                                                <div className="flex flex-col items-center">
-                                                    <div className="w-3 h-3 bg-green-500 rounded-full shadow-lg"></div>
-                                                    {recentDocuments.length > 0 && (
-                                                        <div className="w-0.5 h-16 bg-gradient-to-b from-green-300 to-transparent mt-2"></div>
-                                                    )}
-                                                </div>
-                                                <div className="flex-1">
-                                                    <Card className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200/50 hover:shadow-lg transition-all duration-300">
-                                                        <div className="flex items-center gap-4">
-                                                            <div className="p-2 bg-green-500 rounded-lg">
-                                                                <CheckCircle className="h-5 w-5 text-white" />
-                                                            </div>
-                                                            <div className="flex-1">
-                                                                <h3 className="font-semibold text-green-800 mb-1">
-                                                                    {overallStats.auditsCompleted} audit{overallStats.auditsCompleted > 1 ? 's' : ''} completed
-                                                                </h3>
-                                                                <div className="flex items-center gap-4 text-sm text-green-700">
-                                                                    <span className="flex items-center gap-1">
-                                                                        <BarChart3 className="h-3 w-3" />
-                                                                        Overall score: {overallStats.overallPercentage}%
-                                                                    </span>
-                                                                    <span className="flex items-center gap-1">
-                                                                        <TrendingUp className="h-3 w-3" />
-                                                                        {overallStats.auditsCompleted}/{overallStats.totalAudits} completed
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                            <div className="text-green-500">
-                                                                <ChevronRight className="h-4 w-4" />
-                                                            </div>
-                                                        </div>
-                                                    </Card>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Empty state */}
-                                        {recentDocuments.length === 0 && overallStats.auditsCompleted === 0 && (
-                                            <div className="text-center py-12">
-                                                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                                    <Clock className="h-8 w-8 text-gray-400" />
-                                                </div>
-                                                <h3 className="text-lg font-semibold text-gray-900 mb-2">No recent activity</h3>
-                                                <p className="text-gray-600 max-w-md mx-auto">
-                                                    Start by uploading a document or completing an audit to see your activity timeline here.
-                                                </p>
-                                                <div className="mt-6 flex justify-center gap-3">
-                                                    <Button variant="outline" className="gap-2">
-                                                        <FileText className="h-4 w-4" />
-                                                        Upload Document
-                                                    </Button>
-                                                    <Button variant="outline" className="gap-2">
-                                                        <FileCheck className="h-4 w-4" />
-                                                        Start Audit
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* View more link */}
-                                        {(recentDocuments.length > 4 || overallStats.auditsCompleted > 0) && (
-                                            <div className="text-center pt-4">
-                                                <Button variant="ghost" className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 gap-2">
-                                                    View All Activity
-                                                    <ChevronRight className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        )}
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </div>
+                            actionableItems={actionableItems}
+                            focusItems={focusItems}
+                        />      
                     </div>
                 </div>
             </main>

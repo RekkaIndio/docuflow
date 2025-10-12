@@ -79,7 +79,7 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
       <header className="border-b bg-white/70 backdrop-blur">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Docuflow owner</p>
+            <p className="text-xs uppercase tracking-[0.3em] text-slate-400">CG360 owner</p>
             <h1 className="text-lg font-semibold text-slate-800">Platform Control Centre</h1>
           </div>
           <div className="flex items-center gap-4">

@@ -39,8 +39,6 @@ export function Footer() {
             <h4 className="font-semibold mb-3">Product</h4>
             <ul className="space-y-2">
               <li><Link href="#features" className="text-sm text-muted-foreground hover:text-primary">Features</Link></li>
-              <li><Link href="#pricing" className="text-sm text-muted-foreground hover:text-primary">Pricing</Link></li>
-              <li><Link href="/pitch-deck" className="text-sm text-muted-foreground hover:text-primary">Pitch Deck</Link></li>
               <li><Link href="#" className="text-sm text-muted-foreground hover:text-primary">Request a Demo</Link></li>
             </ul>
           </div>

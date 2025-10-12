@@ -21,7 +21,7 @@ import { getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { workspaceCollectionPath } from '@/lib/paths';
 import { formatDistanceToNow } from 'date-fns';
-import { SidebarTrigger } from '@/components/ui/sidebar';
+import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { getWorkspaceCollectionRef, getWorkspaceDocRef } from '@/lib/firestore';
 
@@ -37,6 +37,7 @@ export function TopNav({ onSettingsClick, onNotificationsClick, unreadCount = 0,
   const { user, signOut } = useAuth();
   const pathname = usePathname();
   const isMobile = useIsMobile();
+  const { state: sidebarState } = useSidebar();
   const [recent, setRecent] = useState<any[]>([]);
   const [profilePicture, setProfilePicture] = useState<string | null>(null);
 
@@ -98,12 +99,11 @@ export function TopNav({ onSettingsClick, onNotificationsClick, unreadCount = 0,
 
   return (
     <header className="flex h-16 items-center justify-between gap-4 border-b bg-background px-4 md:px-6 rounded-bl-lg rounded-br-lg relative z-[9999]">
-      {/* Mobile hamburger menu */}
-      {isMobile && (
-        <div className="flex items-center">
+      <div className="flex items-center">
+        {(isMobile || sidebarState === "collapsed") && (
           <SidebarTrigger className="h-8 w-8" />
-        </div>
-      )}
+        )}
+      </div>
       
       {/* Right side items */}
       <div className="flex items-center gap-4 ml-auto">

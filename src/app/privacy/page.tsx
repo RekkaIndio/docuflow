@@ -15,9 +15,6 @@ export default function PrivacyPage() {
           <Link href="/" className="text-sm font-medium hover:underline">Home</Link>
           <Link href="/contact" className="text-sm font-medium hover:underline">Contact</Link>
           <Link href="/login" className="text-sm font-medium hover:underline">Sign In</Link>
-          <Button asChild className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20">
-            <Link href="/signup">Start Free Trial</Link>
-          </Button>
         </nav>
       </header>
 
