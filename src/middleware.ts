@@ -53,13 +53,19 @@ export async function middleware(req: NextRequest) {
   }
 
   // Fallback dev check: cookie-based override
+  // - Admin pages: accept either an admin cookie OR an owner cookie as owners
+  //   are privileged and should be able to access admin pages during local/dev flows.
   if (isAdminPath) {
-    const isAdminCookie = req.cookies.get('isAdmin')?.value === '1';
+    const isAdminCookie = req.cookies.get('isAdmin')?.value === '1' || req.cookies.get('isOwner')?.value === '1';
     if (isAdminCookie) return NextResponse.next();
   }
 
+  // - Owner pages: only allow explicit owner cookie. Do NOT allow a generic
+  //   admin cookie to grant owner access via the fallback, because admin users
+  //   are not necessarily owners and owner pages may expose higher-privilege
+  //   operations.
   if (isOwnerPath) {
-    const isOwnerCookie = req.cookies.get('isOwner')?.value === '1' || req.cookies.get('isAdmin')?.value === '1';
+    const isOwnerCookie = req.cookies.get('isOwner')?.value === '1';
     if (isOwnerCookie) return NextResponse.next();
   }
 
