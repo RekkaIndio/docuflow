@@ -15,9 +15,10 @@ interface AssignmentEmailProps {
   assignedBy: string;
   monthKey: string;
   itemsSummaryHtml: string;
+  organisationId?: string | null;
 }
 
-export async function sendActionPlanAssignmentEmail({ workspaceId, recipientEmails, assignedBy, monthKey, itemsSummaryHtml }: AssignmentEmailProps) {
+export async function sendActionPlanAssignmentEmail({ workspaceId, recipientEmails, assignedBy, monthKey, itemsSummaryHtml, organisationId }: AssignmentEmailProps) {
   if (!recipientEmails || recipientEmails.length === 0) return;
   // Create a short-lived login token per recipient so the email button can open a filtered view
   const mailCollectionRef = collection(db, 'mail');
@@ -33,6 +34,7 @@ export async function sendActionPlanAssignmentEmail({ workspaceId, recipientEmai
         email,
         workspaceId,
         monthKey,
+        organisationId: organisationId ?? null,
         createdAt: new Date().toISOString(),
         expiresAt: new Date(Date.now() + 1000 * 60 * 60).toISOString() // 1 hour
       });
@@ -71,9 +73,9 @@ export async function sendActionPlanAssignmentEmail({ workspaceId, recipientEmai
  * Finalize an action plan: mark isComplete, generate a PDF snapshot and save as a document.
  * This will be called when all action plan items are completed.
  */
-export async function finalizeActionPlan(workspaceId: string, monthKey: string) {
+export async function finalizeActionPlan(workspaceId: string, monthKey: string, organisationId?: string | null) {
   try {
-    const plan = await getMonthlyActionPlan(workspaceId, monthKey);
+    const plan = await getMonthlyActionPlan(workspaceId, monthKey, organisationId);
     if (!plan) throw new Error('Action plan not found');
     if (plan.isComplete) return;
 
@@ -119,7 +121,7 @@ export async function finalizeActionPlan(workspaceId: string, monthKey: string) 
     const docId = await saveDocument(document);
 
     // Mark action plan as complete in Firestore
-  const planCol = collection(db, workspaceCollectionPath(workspaceId, 'action-plans'));
+  const planCol = collection(db, workspaceCollectionPath(workspaceId, 'action-plans', organisationId));
   const planRef = doc(planCol, monthKey);
   await updateDoc(planRef, { isComplete: true, completedAt: new Date().toISOString(), finalizedDocumentId: docId });
 
@@ -133,10 +135,10 @@ export async function finalizeActionPlan(workspaceId: string, monthKey: string) 
 /**
  * Send assignment emails for an action plan: groups items by assignedTo/assignedTeam and sends email to each recipient
  */
-export async function sendAssignmentsForPlan(workspaceId: string, monthKey: string, assignedBy: string) {
+export async function sendAssignmentsForPlan(workspaceId: string, monthKey: string, assignedBy: string, organisationId?: string | null) {
   try {
     const { getMonthlyActionPlan } = await import('@/lib/action-plans');
-  const planCol = collection(db, workspaceCollectionPath(workspaceId, 'action-plans'));
+  const planCol = collection(db, workspaceCollectionPath(workspaceId, 'action-plans', organisationId));
   const planRef = doc(planCol, monthKey);
   const planSnap = await getDoc(planRef);
     if (!planSnap.exists()) return;
@@ -196,10 +198,11 @@ export async function sendAssignmentsForPlan(workspaceId: string, monthKey: stri
       for (const toEmail of emails) {
         let tokenId: string | null = null;
         try {
-          const t = await addDoc(collection(db, 'loginTokens'), {
+            const t = await addDoc(collection(db, 'loginTokens'), {
             email: toEmail,
             workspaceId,
             monthKey,
+              organisationId: organisationId ?? null,
             createdAt: new Date().toISOString(),
             expiresAt: new Date(Date.now() + 1000 * 60 * 60).toISOString()
           });

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Download, Printer, Users, Plus, Clock } from "lucide-react";
+import { useState, useEffect, useTransition } from "react";
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Download, Mail, Printer, Users, Plus, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -18,6 +18,9 @@ import { format, startOfWeek, addWeeks, subWeeks, addDays, startOfMonth, endOfMo
 import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { workspaceDocPath } from "@/lib/paths";
+import { useToast } from "@/hooks/use-toast";
+import { sendRotaEmails } from "@/actions/rotas";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export interface StaffMember {
   id: string;
@@ -116,6 +119,10 @@ export function RotasView({ workspace }: RotasViewProps) {
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
   const [activeTab, setActiveTab] = useState<'schedule' | 'hours'>('schedule');
   const [contractedHoursConfig, setContractedHoursConfig] = useState<Record<string, { contractedHours: number; hoursType: 'weekly' | 'monthly' }>>({});
+  const { toast } = useToast();
+  const [isEmailing, startEmailRotaTransition] = useTransition();
+  const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
+  const [emailWeeksToSend, setEmailWeeksToSend] = useState<number>(1);
 
   const workspaceId = workspace?.id || '';
   const organisationId = (workspace as any)?.organisationId || '';
@@ -361,6 +368,83 @@ export function RotasView({ workspace }: RotasViewProps) {
   // Get all shifts for the current period
   const allShifts = rotaData.flatMap(r => r.shifts);
 
+  const handleOpenEmailDialog = () => {
+    if (!workspaceId) {
+      toast({
+        title: 'Workspace not available',
+        description: 'Please select a workspace before emailing the rota.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (allShifts.length === 0) {
+      toast({
+        title: 'No shifts to email',
+        description: 'Assign at least one shift before emailing the rota to staff.',
+      });
+      return;
+    }
+
+    setEmailWeeksToSend(Math.max(1, weeksToShow));
+    setIsEmailDialogOpen(true);
+  };
+
+  const handleEmailRota = (weeksCount: number) => {
+    if (!workspaceId) {
+      toast({
+        title: 'Workspace not available',
+        description: 'Please select a workspace before emailing the rota.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    startEmailRotaTransition(async () => {
+      try {
+        const result = await sendRotaEmails({
+          workspaceId,
+          organisationId: organisationId || null,
+          workspaceName: workspace.name || 'Workspace',
+          weekStartIso: currentWeekStart.toISOString(),
+          weeksToShow: weeksCount,
+        });
+
+        setIsEmailDialogOpen(false);
+
+        if (result.successCount === 0) {
+          toast({
+            title: 'No rota emails sent',
+            description: 'No staff had shifts in the selected period.',
+          });
+          return;
+        }
+
+        const detailParts: string[] = [];
+        if (result.skippedWithoutEmail > 0) {
+          detailParts.push(`${result.skippedWithoutEmail} missing email`);
+        }
+        if (result.failureCount > 0) {
+          detailParts.push(`${result.failureCount} failed to queue`);
+        }
+
+        toast({
+          title: 'Rota emails sent',
+          description: detailParts.length > 0
+            ? `Notified ${result.successCount} staff; ${detailParts.join(', ')}.`
+            : `Notified ${result.successCount} staff successfully.`,
+        });
+      } catch (error) {
+        console.error('Failed to send rota emails', error);
+        toast({
+          title: 'Failed to email rota',
+          description: error instanceof Error ? error.message : 'Something went wrong while emailing the rota.',
+          variant: 'destructive',
+        });
+      }
+    });
+  };
+
   return (
     <div className="flex flex-col h-full bg-muted/20">
       <PageHeader
@@ -368,17 +452,36 @@ export function RotasView({ workspace }: RotasViewProps) {
         subtitle="Manage and schedule staff shifts"
         leading={<CalendarIcon className="text-white w-6 h-6" />}
         actions={
-          <>
-            <Button variant="outline" size="sm" className="h-8 sm:h-10 bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-sm px-3" onClick={handleExportPDF}>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 sm:h-10 bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-sm px-3"
+              onClick={handleOpenEmailDialog}
+              disabled={isEmailing}
+            >
+              <Mail className="mr-2 h-4 w-4" />
+              {isEmailing ? 'Emailing...' : 'Email Rota'}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 sm:h-10 bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-sm px-3"
+              onClick={handleExportPDF}
+            >
               <Printer className="mr-2 h-4 w-4" />
               Print
             </Button>
-            <Button variant="outline" size="sm" className="h-8 sm:h-10 bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-sm px-3">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 sm:h-10 bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-sm px-3"
+            >
               <Download className="mr-2 h-4 w-4" />
               Export
             </Button>
             <SidebarTrigger />
-          </>
+          </div>
         }
       />
 
@@ -507,6 +610,45 @@ export function RotasView({ workspace }: RotasViewProps) {
         shifts={allShifts}
         workspaceName={workspace.name || 'Care Home'}
       />
+
+      <Dialog open={isEmailDialogOpen} onOpenChange={(open) => !isEmailing && setIsEmailDialogOpen(open)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Email rota</DialogTitle>
+            <DialogDescription>Select how many weeks to include in the emails.</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-3 gap-3 py-2">
+            {[1, 2, 4].map((option) => (
+              <Button
+                key={option}
+                type="button"
+                variant={emailWeeksToSend === option ? 'default' : 'outline'}
+                onClick={() => setEmailWeeksToSend(option)}
+                disabled={isEmailing}
+              >
+                {option} Week{option > 1 ? 's' : ''}
+              </Button>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsEmailDialogOpen(false)}
+              disabled={isEmailing}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => handleEmailRota(emailWeeksToSend)}
+              disabled={isEmailing}
+            >
+              {isEmailing ? 'Sending...' : 'Send emails'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
