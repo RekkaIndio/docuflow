@@ -27,6 +27,16 @@ import WeightMonitoringAuditPage from "./weight-monitoring/page";
 import WoundMonitoringAuditPage from "./wound-monitoring/page";
 import RiskRegisterAuditPage from "./risk-register/page";
 import PageHeader from '@/components/page-header';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 export default function AuditsPage() {
   const activeWorkspace = useWorkspace();
@@ -34,6 +44,8 @@ export default function AuditsPage() {
   const [auditStatusMap, setAuditStatusMap] = useState<Record<string, string>>({});
   const [monthlyCompletionStatus, setMonthlyCompletionStatus] = useState<Record<string, boolean>>({});
   const [monthlySnapshotsCount, setMonthlySnapshotsCount] = useState<Record<string, number>>({});
+  const [pendingCreateAuditType, setPendingCreateAuditType] = useState<string | null>(null);
+  const [accidentAuditStartFresh, setAccidentAuditStartFresh] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -123,18 +135,18 @@ export default function AuditsPage() {
     }
   }, []);
 
-  const handleAuditCardClick = (auditType: string) => {
+  const handleAuditCardClick = (auditType: string, options?: { bypassCompletionCheck?: boolean; startFresh?: boolean }) => {
     const isCompleted = monthlyCompletionStatus[auditType];
-    if (isCompleted) {
-      // Show message that audit is completed for this month
+    if (isCompleted && !options?.bypassCompletionCheck) {
       alert('This audit has already been completed for this month. You can edit it if needed.');
       return;
     }
-    // Allow opening if not completed
+    setAccidentAuditStartFresh(auditType === 'accident-incident' ? !!options?.startFresh : false);
     setCurrentView(auditType as any);
   };
 
   const handleEditAudit = (auditType: string) => {
+    setAccidentAuditStartFresh(false);
     setCurrentView(auditType as any);
   };
 
@@ -179,13 +191,15 @@ export default function AuditsPage() {
     title, 
     description, 
     colorClass,
-    onClick 
+    onClick,
+    onCreateNew,
   }: { 
     auditType: string;
     title: string;
     description: string;
     colorClass: string;
     onClick: () => void;
+    onCreateNew?: () => void;
   }) => {
     const isCompleted = monthlyCompletionStatus[auditType];
     const snapshotCount = monthlySnapshotsCount[auditType] ?? 0;
@@ -246,18 +260,45 @@ export default function AuditsPage() {
                   >
                     Edit
                   </button>
+                  {onCreateNew && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onCreateNew();
+                      }}
+                      className="px-4 py-2 text-sm font-medium text-blue-600 bg-white border border-blue-200 rounded-lg hover:bg-blue-50 transition-all duration-200 shadow-sm"
+                    >
+                      Create New
+                    </button>
+                  )}
                 </div>
               ) : (
-                <button
-                  onClick={onClick}
-                  className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-all duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-0.5 ${
-                    isUrgent 
-                      ? 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700' 
-                      : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700'
-                  }`}
-                >
-                  Start Audit
-                </button>
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onClick();
+                    }}
+                    className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-all duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-0.5 ${
+                      isUrgent 
+                        ? 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700' 
+                        : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700'
+                    }`}
+                  >
+                    Start Audit
+                  </button>
+                  {onCreateNew && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onCreateNew();
+                      }}
+                      className="px-4 py-2 text-sm font-medium text-blue-600 bg-white border border-blue-200 rounded-lg hover:bg-blue-50 transition-all duration-200 shadow-sm"
+                    >
+                      Create New
+                    </button>
+                  )}
+                </div>
               )}
               {/* Show progress bar for managers-weekly */}
               {auditType === 'managers-weekly' && !isCompleted && (
@@ -453,8 +494,15 @@ export default function AuditsPage() {
   if (currentView === 'accident-incident') {
     return (
       <div>
-        <AuditHeader title="Accident and Incident Audit" subtitle="Record and review accidents and incidents" onBack={() => setCurrentView('list')} />
-        <AccidentIncidentAuditPage />
+        <AuditHeader
+          title="Accident and Incident Audit"
+          subtitle="Record and review accidents and incidents"
+          onBack={() => {
+            setAccidentAuditStartFresh(false);
+            setCurrentView('list');
+          }}
+        />
+        <AccidentIncidentAuditPage startFresh={accidentAuditStartFresh} />
       </div>
     );
   }
@@ -494,6 +542,7 @@ export default function AuditsPage() {
           description="Record and review accidents and incidents"
           colorClass="bg-blue-600"
           onClick={() => handleAuditCardClick('accident-incident')}
+          onCreateNew={() => setPendingCreateAuditType('accident-incident')}
         />
 
         <AuditCard
@@ -652,6 +701,29 @@ export default function AuditsPage() {
       {/* Audit schedule cards removed as requested */}
       <p className="mt-8 text-muted-foreground">Select an audit type to begin.</p>
       </div>
+      <AlertDialog open={!!pendingCreateAuditType} onOpenChange={(open) => { if (!open) setPendingCreateAuditType(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Start a new Accident/Incident Audit?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Beginning a fresh audit clears the current form so you can capture a brand new incident report.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingCreateAuditType) {
+                  handleAuditCardClick(pendingCreateAuditType, { bypassCompletionCheck: true, startFresh: true });
+                }
+                setPendingCreateAuditType(null);
+              }}
+            >
+              Create New
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -574,8 +574,16 @@ export async function saveAuditSnapshot(workspaceId: string, auditType: string, 
         const monthKey = `${year}-${month}`;
         
         // Check for existing snapshot and delete it to avoid duplicates
-    const orgId = auditData?.organisationId || auditData?.orgId || null;
-    const snapshotCollectionRef = collection(db, workspaceCollectionPath(workspaceId, `audit-snapshots/${monthKey}/${auditType}`, orgId));
+        let orgId = auditData?.organisationId || auditData?.orgId || null;
+        if (!orgId) {
+            try {
+                orgId = await resolveWorkspaceOrgId(workspaceId);
+            } catch (resolveErr) {
+                console.warn('Failed to resolve organisationId for audit snapshot; defaulting to workspace scope', resolveErr);
+            }
+        }
+
+        const snapshotCollectionRef = collection(db, workspaceCollectionPath(workspaceId, `audit-snapshots/${monthKey}/${auditType}`, orgId || null));
         try {
             const existingSnapshots = await getDocs(snapshotCollectionRef);
             // Delete all existing snapshots for this audit type in this month
@@ -650,6 +658,18 @@ export async function isAuditCompletedThisMonth(workspaceId: string, auditType: 
  */
 export async function markAuditCompletedWithSnapshot(workspaceId: string, auditType: string, auditData: any, completedAtIso?: string): Promise<{ snapshotId: string; pdfDocId?: string }> {
     try {
+        let resolvedOrgId: string | null = auditData?.organisationId || auditData?.orgId || null;
+        if (!resolvedOrgId) {
+            try {
+                resolvedOrgId = await resolveWorkspaceOrgId(workspaceId);
+            } catch (resolveErr) {
+                console.warn('markAuditCompletedWithSnapshot: failed to resolve organisationId; defaulting to workspace scope', resolveErr);
+            }
+        }
+        if (!auditData?.organisationId && resolvedOrgId) {
+            auditData.organisationId = resolvedOrgId;
+        }
+
         // Save the snapshot first
         const snapshotId = await saveAuditSnapshot(workspaceId, auditType, auditData);
 
@@ -667,7 +687,12 @@ export async function markAuditCompletedWithSnapshot(workspaceId: string, auditT
             const actionItems = generateActionPlanItemsFromAudit(auditData, auditType, snapshotId);
             if (actionItems.length > 0) {
                 const monthKey = getCurrentMonthKey();
-                await saveActionPlanItems(workspaceId, monthKey, actionItems);
+                await saveActionPlanItems(
+                    workspaceId,
+                    monthKey,
+                    actionItems,
+                    resolvedOrgId || null
+                );
             }
         } catch (actionPlanError) {
             console.error('[markAuditCompletedWithSnapshot] Failed to generate action plan items:', actionPlanError);
@@ -676,8 +701,7 @@ export async function markAuditCompletedWithSnapshot(workspaceId: string, auditT
         // Mirror the audit score to workspace settings for dashboard display
         try {
             if (auditData && typeof auditData.scorePercent === 'number' && typeof auditType === 'string') {
-                const orgId = auditData?.organisationId || auditData?.orgId || null;
-                const latestRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'settings', orgId)), 'audit_latest_scores');
+                const latestRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'settings', resolvedOrgId || null)), 'audit_latest_scores');
                 const updateData = {
                     [auditType]: {
                         scorePercent: auditData.scorePercent,
@@ -694,7 +718,7 @@ export async function markAuditCompletedWithSnapshot(workspaceId: string, auditT
         }
 
         // Then mark as completed in the status map
-        await markAuditCompleted(workspaceId, auditType, completedAtIso, auditData?.organisationId || auditData?.orgId || null);
+    await markAuditCompleted(workspaceId, auditType, completedAtIso, resolvedOrgId || null);
 
         return { snapshotId, pdfDocId };
     } catch (e) {
@@ -779,8 +803,15 @@ async function generateAndSaveAuditPDF(workspaceId: string, auditType: string, a
         const filename = getAuditPDFFilename(auditType, homeName, pdfData.auditDate);
         
         // Save to Audits folder (pass organisationId if present so storage and firestore use org-scoped paths)
-        const orgId = auditData?.organisationId || auditData?.orgId || null;
-        const docId = await saveAuditPDFToFolder(workspaceId, auditType, pdfBuffer, filename, pdfData.auditDate, orgId);
+        let orgId = auditData?.organisationId || auditData?.orgId || null;
+        if (!orgId) {
+            try {
+                orgId = await resolveWorkspaceOrgId(workspaceId);
+            } catch (resolveErr) {
+                console.warn('Failed to resolve organisationId for audit PDF save; defaulting to workspace scope', resolveErr);
+            }
+        }
+        const docId = await saveAuditPDFToFolder(workspaceId, auditType, pdfBuffer, filename, pdfData.auditDate, orgId || null);
         return docId;
     } catch (e) {
         console.error('Failed to generate and save audit PDF', e);

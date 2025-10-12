@@ -334,10 +334,17 @@ export default function FireSafetyAuditPage() {
   // Load existing audit data when component mounts
   useEffect(() => {
     const loadExistingAuditData = async () => {
-      if (!activeWorkspace?.id) return;
-      
+      if (!activeWorkspace?.id) {
+        return;
+      }
+
       try {
-        const existingData = await getLatestAuditData(activeWorkspace.id, 'fire-safety');
+        const existingData = await getLatestAuditData(
+          activeWorkspace.id,
+          'fire-safety',
+          undefined,
+          activeWorkspace.organisationId || null
+        );
         if (existingData) {
           // Remove metadata fields and populate form
           const { id, createdAt, snapshotCreatedAt, monthKey, year, month, ...formData } = existingData;
@@ -345,21 +352,18 @@ export default function FireSafetyAuditPage() {
             ...prevData,
             ...formData
           }));
-          
-          // Load final comments if available
+
           if (existingData.comments) {
             setFinalComments(existingData.comments);
           }
-        } else {
-          // No existing data found
         }
       } catch (error) {
-        console.error('Failed to load existing audit data:', error);
+        console.error('Failed to load existing fire-safety audit data:', error);
       }
     };
 
     loadExistingAuditData();
-  }, [activeWorkspace?.id]);
+  }, [activeWorkspace?.id, activeWorkspace?.organisationId]);
 
   const handleInputChange = (field: keyof FireSafetyAuditData, value: string) => {
     setAuditData(prev => ({

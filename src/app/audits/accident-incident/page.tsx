@@ -1,65 +1,76 @@
-
-
 "use client";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useAuth } from '@/hooks/use-auth';
-import { saveAudit, updateAudit, markAuditCompleted, markAuditCompletedWithSnapshot } from '@/lib/firestore';
+import { saveAudit, updateAudit, markAuditCompletedWithSnapshot, getLatestAuditData } from '@/lib/firestore';
 import { useWorkspace } from '@/context/workspace';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
-export default function AccidentIncidentAuditPage() {
+type AccidentIncidentReport = {
+  home: string;
+  auditDate: string;
+  completedBy: string;
+  incidentDate: string;
+  incidentTime: string;
+  residentName: string;
+  accidentOrIncident: string;
+  details: string;
+  actionsTaken: string;
+  preventative: string;
+  cqcNotification: string;
+  safeguardNotification: string;
+};
+
+const createEmptyReport = (): AccidentIncidentReport => ({
+  home: "",
+  auditDate: "",
+  completedBy: "",
+  incidentDate: "",
+  incidentTime: "",
+  residentName: "",
+  accidentOrIncident: "",
+  details: "",
+  actionsTaken: "",
+  preventative: "",
+  cqcNotification: "",
+  safeguardNotification: "",
+});
+
+export default function AccidentIncidentAuditPage({ startFresh = false }: { startFresh?: boolean }) {
   const [currentReportIndex, setCurrentReportIndex] = useState(0);
-  const [reports, setReports] = useState([{
-    home: "",
-    auditDate: "",
-    completedBy: "",
-    incidentDate: "",
-    incidentTime: "",
-    residentName: "",
-    accidentOrIncident: "",
-    details: "",
-    actionsTaken: "",
-    preventative: "",
-    cqcNotification: "",
-    safeguardNotification: "",
-  }]);
+  const [reports, setReports] = useState<AccidentIncidentReport[]>([createEmptyReport()]);
   const [showModal, setShowModal] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
-  const currentReport = reports[currentReportIndex];
+  const currentReport = reports[currentReportIndex] ?? createEmptyReport();
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
-    const { name, value, type } = e.target;
+  const updateReportField = (field: keyof AccidentIncidentReport, value: string) => {
     setReports(prev => {
       const updated = [...prev];
+      const existing = updated[currentReportIndex] ?? createEmptyReport();
       updated[currentReportIndex] = {
-        ...updated[currentReportIndex],
-        [name]: type === "radio" ? value : value,
+        ...existing,
+        [field]: value,
       };
       return updated;
     });
+  };
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
+    const { name, value } = e.target;
+    if (name in currentReport) {
+      updateReportField(name as keyof AccidentIncidentReport, value);
+    }
   }
 
   function addNewReport() {
-    const newReport = {
-      home: "",
-      auditDate: "",
-      completedBy: "",
-      incidentDate: "",
-      incidentTime: "",
-      residentName: "",
-      accidentOrIncident: "",
-      details: "",
-      actionsTaken: "",
-      preventative: "",
-      cqcNotification: "",
-      safeguardNotification: "",
-    };
-    setReports(prev => [...prev, newReport]);
-    setCurrentReportIndex(reports.length);
+    setReports(prev => {
+      const updated = [...prev, createEmptyReport()];
+      setCurrentReportIndex(updated.length - 1);
+      return updated;
+    });
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -124,8 +135,8 @@ export default function AccidentIncidentAuditPage() {
       
       // Mark this audit type as completed for the month and save snapshot
       try {
-  const completedAt = currentReport.auditDate || new Date().toISOString();
-  const result = await markAuditCompletedWithSnapshot(workspaceId, 'accident-incident', auditPayload, completedAt);
+        const completedAt = currentReport.auditDate || new Date().toISOString();
+        await markAuditCompletedWithSnapshot(workspaceId, 'accident-incident', auditPayload, completedAt);
       } catch (e) {
         console.warn('Failed to mark audit completed with snapshot', e);
       }
@@ -168,6 +179,66 @@ export default function AccidentIncidentAuditPage() {
   const activeWorkspace = useWorkspace();
   const [savedAuditId, setSavedAuditId] = useState<string | null>(null);
   const [finalComments, setFinalComments] = useState('');
+
+  useEffect(() => {
+    const resetFormState = () => {
+      setReports([createEmptyReport()]);
+      setCurrentReportIndex(0);
+      setFinalComments('');
+      setSavedAuditId(null);
+      setValidationErrors([]);
+    };
+
+    if (!activeWorkspace?.id) {
+      resetFormState();
+      return;
+    }
+
+    if (startFresh) {
+      resetFormState();
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadExistingAudit = async () => {
+      try {
+        const existing = await getLatestAuditData(
+          activeWorkspace.id,
+          'accident-incident',
+          undefined,
+          activeWorkspace.organisationId || null
+        );
+
+        if (cancelled) return;
+
+        if (existing) {
+          const { id, createdAt, updatedAt, comments, ...formData } = existing as Record<string, any>;
+          const mergedReport: AccidentIncidentReport = {
+            ...createEmptyReport(),
+            ...formData,
+          };
+          setReports([mergedReport]);
+          setCurrentReportIndex(0);
+          setSavedAuditId(typeof id === 'string' ? id : null);
+          setFinalComments(typeof comments === 'string' ? comments : '');
+        } else {
+          resetFormState();
+        }
+        setValidationErrors([]);
+      } catch (error) {
+        if (!cancelled) {
+          console.warn('Failed to load accident/incident audit data', error);
+        }
+      }
+    };
+
+    loadExistingAudit();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeWorkspace?.id, activeWorkspace?.organisationId, startFresh]);
 
   // Collapsible state for each section
   const [openSections, setOpenSections] = useState(() => Array(4).fill(true));
@@ -217,6 +288,11 @@ export default function AccidentIncidentAuditPage() {
     return hasError(fieldName) 
       ? `${baseClassName} border-red-500 bg-red-50 focus:ring-red-500 focus:border-red-500` 
       : baseClassName;
+  };
+
+  const handleOccurrenceSelection = (choice: "Accident" | "Incident") => {
+    updateReportField('accidentOrIncident', choice);
+    setValidationErrors(prev => prev.filter(field => field !== 'accidentOrIncident'));
   };
 
   return (
@@ -333,6 +409,22 @@ export default function AccidentIncidentAuditPage() {
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             Type of Occurrence {hasError('accidentOrIncident') && <span className="text-red-500">*</span>}
                           </label>
+                          <div className="flex flex-wrap gap-2 mb-2">
+                            {(['Accident', 'Incident'] as const).map(option => {
+                              const isSelected = currentReport.accidentOrIncident?.toLowerCase() === option.toLowerCase();
+                              return (
+                                <Button
+                                  key={option}
+                                  type="button"
+                                  variant={isSelected ? 'default' : 'outline'}
+                                  className={`${isSelected ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'border-blue-200 text-blue-700 hover:bg-blue-50'} rounded-lg px-4 py-2`}
+                                  onClick={() => handleOccurrenceSelection(option)}
+                                >
+                                  {option}
+                                </Button>
+                              );
+                            })}
+                          </div>
                           <Input
                             type="text"
                             className={getFieldClassName('accidentOrIncident', "w-full bg-slate-50 border border-slate-200 rounded-lg")}

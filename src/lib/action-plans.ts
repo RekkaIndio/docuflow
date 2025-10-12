@@ -1297,12 +1297,15 @@ function determinePriority(auditType: string, fieldKey: string): 'high' | 'mediu
 /**
  * Save action plan items to Firestore
  */
-export async function saveActionPlanItems(workspaceId: string, monthKey: string, items: ActionPlanItem[]): Promise<void> {
+export async function saveActionPlanItems(workspaceId: string, monthKey: string, items: ActionPlanItem[], organisationId: string | null = null): Promise<void> {
   try {
-  const actionPlanRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'action-plans')), monthKey);
+    const actionPlanRef = doc(
+      collection(db, workspaceCollectionPath(workspaceId, 'action-plans', organisationId || null)),
+      monthKey
+    );
 
     // Get existing action plan or create new one
-    const existingPlan = await getMonthlyActionPlan(workspaceId, monthKey);
+    const existingPlan = await getMonthlyActionPlan(workspaceId, monthKey, organisationId || null);
     const existingItems = existingPlan?.items || [];
 
     // Merge new items with existing ones (avoid duplicates)
