@@ -23,7 +23,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { mockUser } from "@/lib/data";
-import { ArrowLeft, MoreVertical, Plus, Trash2, Edit, FolderLock, Users, UserCheck, Phone, Mail, Save, X, AlertTriangle } from "lucide-react";
+import { ArrowLeft, MoreVertical, Plus, Trash2, Edit, FolderLock, Users, UserCheck, Phone, Mail, Save, X, AlertTriangle, Clock } from "lucide-react";
 import type { Workspace, Team } from "@/lib/types";
 import { ManageFolderAccessDialog } from "./manage-folder-access-dialog";
 import { NewTeamDialog } from "./new-team-dialog";
@@ -31,15 +31,16 @@ import { SidebarTrigger } from "../ui/sidebar";
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import {
-  collection,
-  getDocs,
-  doc,
-  setDoc,
-  updateDoc,
-  deleteDoc,
-  arrayUnion,
-  arrayRemove,
-  getDoc,
+    collection,
+    getDocs,
+    doc,
+    setDoc,
+    updateDoc,
+    deleteDoc,
+    arrayUnion,
+    arrayRemove,
+    getDoc,
+    deleteField,
 } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { useToast } from '@/hooks/use-toast';
@@ -61,6 +62,8 @@ interface Manager {
   roles: string;
   email: string;
   phone: string;
+  contractedHours?: number;
+  hoursType?: 'weekly' | 'monthly';
   createdAt?: string;
   updatedAt?: string;
 }
@@ -71,6 +74,8 @@ interface Nurse {
   roles: string;
   email: string;
   phone: string;
+  contractedHours?: number;
+  hoursType?: 'weekly' | 'monthly';
   createdAt?: string;
   updatedAt?: string;
 }
@@ -81,6 +86,8 @@ interface CTM {
   roles: string;
   email: string;
   phone: string;
+  contractedHours?: number;
+  hoursType?: 'weekly' | 'monthly';
   createdAt?: string;
   updatedAt?: string;
 }
@@ -91,6 +98,8 @@ interface Domestic {
   roles: string;
   email: string;
   phone: string;
+  contractedHours?: number;
+  hoursType?: 'weekly' | 'monthly';
   createdAt?: string;
   updatedAt?: string;
 }
@@ -101,6 +110,8 @@ interface Maintenance {
   roles: string;
   email: string;
   phone: string;
+  contractedHours?: number;
+  hoursType?: 'weekly' | 'monthly';
   createdAt?: string;
   updatedAt?: string;
 }
@@ -111,6 +122,8 @@ interface Kitchen {
   roles: string;
   email: string;
   phone: string;
+  contractedHours?: number;
+  hoursType?: 'weekly' | 'monthly';
   createdAt?: string;
   updatedAt?: string;
 }
@@ -121,6 +134,8 @@ interface Activities {
   roles: string;
   email: string;
   phone: string;
+  contractedHours?: number;
+  hoursType?: 'weekly' | 'monthly';
   createdAt?: string;
   updatedAt?: string;
 }
@@ -164,49 +179,49 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
   const [inviteDurations, setInviteDurations] = useState<Record<string, number>>({});
   const { toast } = useToast();
   const [editingManager, setEditingManager] = useState<string | null>(null);
-  const [newManager, setNewManager] = useState({ name: '', roles: '', email: '', phone: '' });
+  const [newManager, setNewManager] = useState<{ name: string; roles: string; email: string; phone: string; contractedHours: number | ''; hoursType: 'weekly' | 'monthly' }>({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' });
   const [managersError, setManagersError] = useState<string | null>(null);
 
   // Nurses state
   const [nurses, setNurses] = useState<Nurse[]>([]);
   const [nursesLoading, setNursesLoading] = useState(false);
   const [editingNurse, setEditingNurse] = useState<string | null>(null);
-  const [newNurse, setNewNurse] = useState({ name: '', roles: '', email: '', phone: '' });
+  const [newNurse, setNewNurse] = useState<{ name: string; roles: string; email: string; phone: string; contractedHours: number | ''; hoursType: 'weekly' | 'monthly' }>({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' });
   const [nursesError, setNursesError] = useState<string | null>(null);
 
   // CTMs state
   const [ctms, setCTMs] = useState<CTM[]>([]);
   const [ctmsLoading, setCTMsLoading] = useState(false);
   const [editingCTM, setEditingCTM] = useState<string | null>(null);
-  const [newCTM, setNewCTM] = useState({ name: '', roles: '', email: '', phone: '' });
+  const [newCTM, setNewCTM] = useState<{ name: string; roles: string; email: string; phone: string; contractedHours: number | ''; hoursType: 'weekly' | 'monthly' }>({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' });
   const [ctmsError, setCTMsError] = useState<string | null>(null);
 
   // Domestic state
   const [domestics, setDomestics] = useState<Domestic[]>([]);
   const [domesticsLoading, setDomesticsLoading] = useState(false);
   const [editingDomestic, setEditingDomestic] = useState<string | null>(null);
-  const [newDomestic, setNewDomestic] = useState({ name: '', roles: '', email: '', phone: '' });
+  const [newDomestic, setNewDomestic] = useState<{ name: string; roles: string; email: string; phone: string; contractedHours: number | ''; hoursType: 'weekly' | 'monthly' }>({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' });
   const [domesticsError, setDomesticsError] = useState<string | null>(null);
 
   // Maintenance state
   const [maintenances, setMaintenances] = useState<Maintenance[]>([]);
   const [maintenancesLoading, setMaintenancesLoading] = useState(false);
   const [editingMaintenance, setEditingMaintenance] = useState<string | null>(null);
-  const [newMaintenance, setNewMaintenance] = useState({ name: '', roles: '', email: '', phone: '' });
+  const [newMaintenance, setNewMaintenance] = useState<{ name: string; roles: string; email: string; phone: string; contractedHours: number | ''; hoursType: 'weekly' | 'monthly' }>({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' });
   const [maintenancesError, setMaintenancesError] = useState<string | null>(null);
 
   // Kitchen state
   const [kitchens, setKitchens] = useState<Kitchen[]>([]);
   const [kitchensLoading, setKitchensLoading] = useState(false);
   const [editingKitchen, setEditingKitchen] = useState<string | null>(null);
-  const [newKitchen, setNewKitchen] = useState({ name: '', roles: '', email: '', phone: '' });
+  const [newKitchen, setNewKitchen] = useState<{ name: string; roles: string; email: string; phone: string; contractedHours: number | ''; hoursType: 'weekly' | 'monthly' }>({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' });
   const [kitchensError, setKitchensError] = useState<string | null>(null);
 
   // Activities state
   const [activities, setActivities] = useState<Activities[]>([]);
   const [activitiesLoading, setActivitiesLoading] = useState(false);
   const [editingActivity, setEditingActivity] = useState<string | null>(null);
-  const [newActivity, setNewActivity] = useState({ name: '', roles: '', email: '', phone: '' });
+  const [newActivity, setNewActivity] = useState<{ name: string; roles: string; email: string; phone: string; contractedHours: number | ''; hoursType: 'weekly' | 'monthly' }>({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' });
   const [activitiesError, setActivitiesError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -813,6 +828,41 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     }
   };
 
+  // Persist contracted hours mapping for a staff member in rotas/contracted-hours doc
+  const setContractedHoursForStaff = async (staffId: string, hours: number, hoursType: 'weekly' | 'monthly') => {
+    if (!workspaceId) return false;
+    try {
+      const hoursRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId), 'rotas', 'contracted-hours');
+      // Use a merge-enabled set to atomically upsert only this staff's field to avoid overwriting other entries
+      await setDoc(hoursRef, { [staffId]: { contractedHours: hours, hoursType } }, { merge: true });
+      return true;
+    } catch (error) {
+      console.error('Failed to set contracted hours for staff:', error);
+      return false;
+    }
+  };
+
+  const removeContractedHoursForStaff = async (staffId: string) => {
+    if (!workspaceId) return false;
+    try {
+      const hoursRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId), 'rotas', 'contracted-hours');
+      // Atomically delete the specific staff field. If the document doesn't exist, treat as success.
+      try {
+        await updateDoc(hoursRef, { [staffId]: deleteField() });
+      } catch (e: any) {
+        // updateDoc will throw if the document doesn't exist; in that case, nothing to remove
+        if (e && typeof e.message === 'string' && e.message.includes('No document to update')) {
+          return true;
+        }
+        throw e;
+      }
+      return true;
+    } catch (error) {
+      console.error('Failed to remove contracted hours for staff:', error);
+      return false;
+    }
+  };
+
   // Update activity in Firebase
   const updateActivityInFirebase = async (oldActivity: Activities, newActivity: Activities) => {
     if (!workspaceId) return false;
@@ -855,22 +905,33 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     
     const managerToAdd: Manager = {
       id: Date.now().toString(),
-      ...newManager,
+      name: newManager.name,
+      roles: newManager.roles,
+      email: newManager.email,
+      phone: newManager.phone,
+      contractedHours: typeof newManager.contractedHours === 'number' && !isNaN(newManager.contractedHours) ? newManager.contractedHours : 40,
+      hoursType: newManager.hoursType || 'weekly',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
     
     // Optimistically update UI
     setManagers(prev => [...prev, managerToAdd]);
-    setNewManager({ name: '', roles: '', email: '', phone: '' });
+  setNewManager({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' });
     setManagersError(null);
     
   // Save to Firebase
-  const success = await addManagerToFirebase(managerToAdd);
+    const success = await addManagerToFirebase(managerToAdd);
     if (!success) {
       // Revert optimistic update on failure
       setManagers(prev => prev.filter(m => m.id !== managerToAdd.id));
     } else {
+      // Persist contracted hours mapping for rotas
+      try {
+        await setContractedHoursForStaff(managerToAdd.id, managerToAdd.contractedHours ?? 40, managerToAdd.hoursType ?? 'weekly');
+      } catch (e) {
+        console.warn('Failed to persist contracted hours mapping after adding manager', e);
+      }
       // On success, create/send an invite token via server API (magic-link)
       try {
         const inviterName = (window as any)?.CURRENT_USER_NAME || 'Workspace Manager';
@@ -936,6 +997,9 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
       // Revert optimistic update on failure
       setManagers(prev => prev.map(m => m.id === managerId ? originalManager : m));
     }
+    else {
+      try { await setContractedHoursForStaff(updatedManager.id, updatedManager.contractedHours ?? 40, updatedManager.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to update contracted hours mapping for manager', e); }
+    }
   };
 
   const handleDeleteManager = async (manager: Manager) => {
@@ -948,6 +1012,9 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     if (!success) {
       // Revert optimistic update on failure
       setManagers(prev => [...prev, manager]);
+    }
+    else {
+      try { await removeContractedHoursForStaff(manager.id); } catch (e) { console.warn('Failed to remove contracted hours mapping for manager', e); }
     }
   };
 
@@ -1106,20 +1173,27 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     
     const nurseToAdd: Nurse = {
       id: Date.now().toString(),
-      ...newNurse,
+      name: newNurse.name,
+      roles: newNurse.roles,
+      email: newNurse.email,
+      phone: newNurse.phone,
+      contractedHours: typeof newNurse.contractedHours === 'number' && !isNaN(newNurse.contractedHours) ? newNurse.contractedHours : 40,
+      hoursType: newNurse.hoursType || 'weekly',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
     
     // Optimistically update UI
     setNurses(prev => [...prev, nurseToAdd]);
-    setNewNurse({ name: '', roles: '', email: '', phone: '' });
+  setNewNurse({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' });
     setNursesError(null);
     
     const success = await addNurseToFirebase(nurseToAdd);
     if (!success) {
       // Revert optimistic update
       setNurses(prev => prev.filter(n => n.id !== nurseToAdd.id));
+    } else {
+      try { await setContractedHoursForStaff(nurseToAdd.id, nurseToAdd.contractedHours ?? 40, nurseToAdd.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to persist contracted hours mapping after adding nurse', e); }
     }
   };
 
@@ -1143,6 +1217,8 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     if (!success) {
       // Revert optimistic update on failure
       setNurses(prev => prev.map(n => n.id === nurseId ? originalNurse : n));
+    } else {
+      try { await setContractedHoursForStaff(updatedNurse.id, updatedNurse.contractedHours ?? 40, updatedNurse.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to update contracted hours mapping for nurse', e); }
     }
   };
 
@@ -1151,20 +1227,28 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     
     const ctmToAdd: CTM = {
       id: Date.now().toString(),
-      ...newCTM,
+      name: newCTM.name,
+      roles: newCTM.roles,
+      email: newCTM.email,
+      phone: newCTM.phone,
+      contractedHours: typeof newCTM.contractedHours === 'number' && !isNaN(newCTM.contractedHours) ? newCTM.contractedHours : 40,
+      hoursType: newCTM.hoursType || 'weekly',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
     
     // Optimistically update UI
     setCTMs(prev => [...prev, ctmToAdd]);
-    setNewCTM({ name: '', roles: '', email: '', phone: '' });
+  setNewCTM({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' });
     setCTMsError(null);
     
     const success = await addCTMToFirebase(ctmToAdd);
     if (!success) {
       // Revert optimistic update
       setCTMs(prev => prev.filter(c => c.id !== ctmToAdd.id));
+    }
+    else {
+      try { await setContractedHoursForStaff(ctmToAdd.id, ctmToAdd.contractedHours ?? 40, ctmToAdd.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to persist contracted hours mapping after adding ctm', e); }
     }
   };
 
@@ -1189,6 +1273,9 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
       // Revert optimistic update on failure
       setCTMs(prev => prev.map(c => c.id === ctmId ? originalCTM : c));
     }
+    else {
+      try { await setContractedHoursForStaff(updatedCTM.id, updatedCTM.contractedHours ?? 40, updatedCTM.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to update contracted hours mapping for CTM', e); }
+    }
   };
 
   const handleAddDomestic = async () => {
@@ -1196,20 +1283,28 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     
     const domesticToAdd: Domestic = {
       id: Date.now().toString(),
-      ...newDomestic,
+      name: newDomestic.name,
+      roles: newDomestic.roles,
+      email: newDomestic.email,
+      phone: newDomestic.phone,
+      contractedHours: typeof newDomestic.contractedHours === 'number' && !isNaN(newDomestic.contractedHours) ? newDomestic.contractedHours : 40,
+      hoursType: newDomestic.hoursType || 'weekly',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
     
     // Optimistically update UI
     setDomestics(prev => [...prev, domesticToAdd]);
-    setNewDomestic({ name: '', roles: '', email: '', phone: '' });
+  setNewDomestic({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' });
     setDomesticsError(null);
     
     const success = await addDomesticToFirebase(domesticToAdd);
     if (!success) {
       // Revert optimistic update
       setDomestics(prev => prev.filter(d => d.id !== domesticToAdd.id));
+    }
+    else {
+      try { await setContractedHoursForStaff(domesticToAdd.id, domesticToAdd.contractedHours ?? 40, domesticToAdd.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to persist contracted hours mapping after adding domestic', e); }
     }
   };
 
@@ -1234,6 +1329,9 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
       // Revert optimistic update on failure
       setDomestics(prev => prev.map(d => d.id === domesticId ? originalDomestic : d));
     }
+    else {
+      try { await setContractedHoursForStaff(updatedDomestic.id, updatedDomestic.contractedHours ?? 40, updatedDomestic.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to update contracted hours mapping for domestic', e); }
+    }
   };
 
   const handleAddMaintenance = async () => {
@@ -1241,20 +1339,28 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     
     const maintenanceToAdd: Maintenance = {
       id: Date.now().toString(),
-      ...newMaintenance,
+      name: newMaintenance.name,
+      roles: newMaintenance.roles,
+      email: newMaintenance.email,
+      phone: newMaintenance.phone,
+      contractedHours: typeof newMaintenance.contractedHours === 'number' && !isNaN(newMaintenance.contractedHours) ? newMaintenance.contractedHours : 40,
+      hoursType: newMaintenance.hoursType || 'weekly',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
     
     // Optimistically update UI
     setMaintenances(prev => [...prev, maintenanceToAdd]);
-    setNewMaintenance({ name: '', roles: '', email: '', phone: '' });
+  setNewMaintenance({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' });
     setMaintenancesError(null);
     
     const success = await addMaintenanceToFirebase(maintenanceToAdd);
     if (!success) {
       // Revert optimistic update
       setMaintenances(prev => prev.filter(m => m.id !== maintenanceToAdd.id));
+    }
+    else {
+      try { await setContractedHoursForStaff(maintenanceToAdd.id, maintenanceToAdd.contractedHours ?? 40, maintenanceToAdd.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to persist contracted hours mapping after adding maintenance', e); }
     }
   };
 
@@ -1279,6 +1385,9 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
       // Revert optimistic update on failure
       setMaintenances(prev => prev.map(m => m.id === maintenanceId ? originalMaintenance : m));
     }
+    else {
+      try { await setContractedHoursForStaff(updatedMaintenance.id, updatedMaintenance.contractedHours ?? 40, updatedMaintenance.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to update contracted hours mapping for maintenance', e); }
+    }
   };
 
   const handleAddKitchen = async () => {
@@ -1286,20 +1395,28 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     
     const kitchenToAdd: Kitchen = {
       id: Date.now().toString(),
-      ...newKitchen,
+      name: newKitchen.name,
+      roles: newKitchen.roles,
+      email: newKitchen.email,
+      phone: newKitchen.phone,
+      contractedHours: typeof newKitchen.contractedHours === 'number' && !isNaN(newKitchen.contractedHours) ? newKitchen.contractedHours : 40,
+      hoursType: newKitchen.hoursType || 'weekly',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
     
     // Optimistically update UI
     setKitchens(prev => [...prev, kitchenToAdd]);
-    setNewKitchen({ name: '', roles: '', email: '', phone: '' });
+  setNewKitchen({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' });
     setKitchensError(null);
     
     const success = await addKitchenToFirebase(kitchenToAdd);
     if (!success) {
       // Revert optimistic update
       setKitchens(prev => prev.filter(k => k.id !== kitchenToAdd.id));
+    }
+    else {
+      try { await setContractedHoursForStaff(kitchenToAdd.id, kitchenToAdd.contractedHours ?? 40, kitchenToAdd.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to persist contracted hours mapping after adding kitchen', e); }
     }
   };
 
@@ -1324,6 +1441,9 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
       // Revert optimistic update on failure
       setKitchens(prev => prev.map(k => k.id === kitchenId ? originalKitchen : k));
     }
+    else {
+      try { await setContractedHoursForStaff(updatedKitchen.id, updatedKitchen.contractedHours ?? 40, updatedKitchen.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to update contracted hours mapping for kitchen', e); }
+    }
   };
 
   const handleAddActivity = async () => {
@@ -1331,20 +1451,28 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     
     const activityToAdd: Activities = {
       id: Date.now().toString(),
-      ...newActivity,
+      name: newActivity.name,
+      roles: newActivity.roles,
+      email: newActivity.email,
+      phone: newActivity.phone,
+      contractedHours: typeof newActivity.contractedHours === 'number' && !isNaN(newActivity.contractedHours) ? newActivity.contractedHours : 40,
+      hoursType: newActivity.hoursType || 'weekly',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
     
     // Optimistically update UI
     setActivities(prev => [...prev, activityToAdd]);
-    setNewActivity({ name: '', roles: '', email: '', phone: '' });
+  setNewActivity({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' });
     setActivitiesError(null);
     
     const success = await addActivityToFirebase(activityToAdd);
     if (!success) {
       // Revert optimistic update
       setActivities(prev => prev.filter(a => a.id !== activityToAdd.id));
+    }
+    else {
+      try { await setContractedHoursForStaff(activityToAdd.id, activityToAdd.contractedHours ?? 40, activityToAdd.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to persist contracted hours mapping after adding activity', e); }
     }
   };
 
@@ -1368,6 +1496,9 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     if (!success) {
       // Revert optimistic update on failure
       setActivities(prev => prev.map(a => a.id === activityId ? originalActivity : a));
+    }
+    else {
+      try { await setContractedHoursForStaff(updatedActivity.id, updatedActivity.contractedHours ?? 40, updatedActivity.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to update contracted hours mapping for activity', e); }
     }
   };
 
@@ -1600,7 +1731,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                       )}
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">Name</label>
                       <Input
@@ -1638,6 +1769,29 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                         value={newManager.phone}
                         onChange={(e) => setNewManager(prev => ({ ...prev, phone: e.target.value }))}
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Contracted Hours</label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={168}
+                        value={newManager.contractedHours === '' ? '' : String(newManager.contractedHours)}
+                        onChange={(e) => setNewManager(prev => ({ ...prev, contractedHours: e.target.value === '' ? '' : parseInt(e.target.value, 10) }))}
+                        placeholder="e.g. 40"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Hours Type</label>
+                      <Select value={newManager.hoursType} onValueChange={(v: 'weekly' | 'monthly') => setNewManager(prev => ({ ...prev, hoursType: v }))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                   <div className="mt-4">
@@ -1732,7 +1886,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                   </h3>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">Name</label>
                       <Input
@@ -1766,6 +1920,22 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                         value={newNurse.phone}
                         onChange={(e) => setNewNurse(prev => ({ ...prev, phone: e.target.value }))}
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Contracted Hours</label>
+                      <Input type="number" min={1} max={168} value={newNurse.contractedHours === '' ? '' : String(newNurse.contractedHours)} onChange={(e) => setNewNurse(prev => ({ ...prev, contractedHours: e.target.value === '' ? '' : parseInt(e.target.value, 10) }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Hours Type</label>
+                      <Select value={newNurse.hoursType} onValueChange={(v: 'weekly' | 'monthly') => setNewNurse(prev => ({ ...prev, hoursType: v }))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                   <div className="mt-4">
@@ -1817,6 +1987,8 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                             if (!success) {
                               // Revert optimistic update on failure
                               setNurses(prev => [...prev, nurse]);
+                            } else {
+                              try { await removeContractedHoursForStaff(nurse.id); } catch (e) { console.warn('Failed to remove contracted hours mapping for nurse', e); }
                             }
                           }}
                           disabled={nursesLoading}
@@ -1859,7 +2031,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                   </h3>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">Name</label>
                       <Input
@@ -1893,6 +2065,22 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                         value={newCTM.phone}
                         onChange={(e) => setNewCTM(prev => ({ ...prev, phone: e.target.value }))}
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Contracted Hours</label>
+                      <Input type="number" min={1} max={168} value={newCTM.contractedHours === '' ? '' : String(newCTM.contractedHours)} onChange={(e) => setNewCTM(prev => ({ ...prev, contractedHours: e.target.value === '' ? '' : parseInt(e.target.value, 10) }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Hours Type</label>
+                      <Select value={newCTM.hoursType} onValueChange={(v: 'weekly' | 'monthly') => setNewCTM(prev => ({ ...prev, hoursType: v }))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                   <div className="mt-4">
@@ -1944,6 +2132,8 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                             if (!success) {
                               // Revert optimistic update on failure
                               setCTMs(prev => [...prev, ctm]);
+                            } else {
+                              try { await removeContractedHoursForStaff(ctm.id); } catch (e) { console.warn('Failed to remove contracted hours mapping for ctm', e); }
                             }
                           }}
                           disabled={ctmsLoading}
@@ -1986,7 +2176,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                   </h3>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">Name</label>
                       <Input
@@ -2020,6 +2210,22 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                         value={newDomestic.phone}
                         onChange={(e) => setNewDomestic(prev => ({ ...prev, phone: e.target.value }))}
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Contracted Hours</label>
+                      <Input type="number" min={1} max={168} value={newDomestic.contractedHours === '' ? '' : String(newDomestic.contractedHours)} onChange={(e) => setNewDomestic(prev => ({ ...prev, contractedHours: e.target.value === '' ? '' : parseInt(e.target.value, 10) }))} placeholder="e.g. 40" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Hours Type</label>
+                      <Select value={newDomestic.hoursType} onValueChange={(v: 'weekly' | 'monthly') => setNewDomestic(prev => ({ ...prev, hoursType: v }))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                   <div className="mt-4">
@@ -2071,6 +2277,8 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                             if (!success) {
                               // Revert optimistic update on failure
                               setDomestics(prev => [...prev, domestic]);
+                            } else {
+                              try { await removeContractedHoursForStaff(domestic.id); } catch (e) { console.warn('Failed to remove contracted hours mapping for domestic', e); }
                             }
                           }}
                           disabled={domesticsLoading}
@@ -2113,7 +2321,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                   </h3>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">Name</label>
                       <Input
@@ -2147,6 +2355,22 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                         value={newMaintenance.phone}
                         onChange={(e) => setNewMaintenance(prev => ({ ...prev, phone: e.target.value }))}
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Contracted Hours</label>
+                      <Input type="number" min={1} max={168} value={newMaintenance.contractedHours === '' ? '' : String(newMaintenance.contractedHours)} onChange={(e) => setNewMaintenance(prev => ({ ...prev, contractedHours: e.target.value === '' ? '' : parseInt(e.target.value, 10) }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Hours Type</label>
+                      <Select value={newMaintenance.hoursType} onValueChange={(v: 'weekly' | 'monthly') => setNewMaintenance(prev => ({ ...prev, hoursType: v }))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                   <div className="mt-4">
@@ -2198,6 +2422,8 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                             if (!success) {
                               // Revert optimistic update on failure
                               setMaintenances(prev => [...prev, maintenance]);
+                            } else {
+                              try { await removeContractedHoursForStaff(maintenance.id); } catch (e) { console.warn('Failed to remove contracted hours mapping for maintenance', e); }
                             }
                           }}
                           disabled={maintenancesLoading}
@@ -2240,7 +2466,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                   </h3>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">Name</label>
                       <Input
@@ -2274,6 +2500,22 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                         value={newKitchen.phone}
                         onChange={(e) => setNewKitchen(prev => ({ ...prev, phone: e.target.value }))}
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Contracted Hours</label>
+                      <Input type="number" min={1} max={168} value={newKitchen.contractedHours === '' ? '' : String(newKitchen.contractedHours)} onChange={(e) => setNewKitchen(prev => ({ ...prev, contractedHours: e.target.value === '' ? '' : parseInt(e.target.value, 10) }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Hours Type</label>
+                      <Select value={newKitchen.hoursType} onValueChange={(v: 'weekly' | 'monthly') => setNewKitchen(prev => ({ ...prev, hoursType: v }))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                   <div className="mt-4">
@@ -2325,6 +2567,8 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                             if (!success) {
                               // Revert optimistic update on failure
                               setKitchens(prev => [...prev, kitchen]);
+                            } else {
+                              try { await removeContractedHoursForStaff(kitchen.id); } catch (e) { console.warn('Failed to remove contracted hours mapping for kitchen', e); }
                             }
                           }}
                           disabled={kitchensLoading}
@@ -2367,7 +2611,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                   </h3>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">Name</label>
                       <Input
@@ -2401,6 +2645,22 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                         value={newActivity.phone}
                         onChange={(e) => setNewActivity(prev => ({ ...prev, phone: e.target.value }))}
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Contracted Hours</label>
+                      <Input type="number" min={1} max={168} value={newActivity.contractedHours === '' ? '' : String(newActivity.contractedHours)} onChange={(e) => setNewActivity(prev => ({ ...prev, contractedHours: e.target.value === '' ? '' : parseInt(e.target.value, 10) }))} placeholder="e.g. 40" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Hours Type</label>
+                      <Select value={newActivity.hoursType} onValueChange={(v: 'weekly' | 'monthly') => setNewActivity(prev => ({ ...prev, hoursType: v }))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                   <div className="mt-4">
@@ -2452,6 +2712,8 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                             if (!success) {
                               // Revert optimistic update on failure
                               setActivities(prev => [...prev, activity]);
+                            } else {
+                              try { await removeContractedHoursForStaff(activity.id); } catch (e) { console.warn('Failed to remove contracted hours mapping for activity', e); }
                             }
                           }}
                           disabled={activitiesLoading}
@@ -2482,16 +2744,25 @@ interface ManagerCardProps {
 }
 
 function ManagerCard({ manager, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: ManagerCardProps) {
-  const [editForm, setEditForm] = useState({
+  const [editForm, setEditForm] = useState<{ name: string; roles: string; email: string; phone: string; contractedHours: number | ''; hoursType: 'weekly' | 'monthly' }>({
     name: manager.name,
     roles: manager.roles,
     email: manager.email,
     phone: manager.phone,
+    contractedHours: manager.contractedHours ?? 40,
+    hoursType: manager.hoursType ?? 'weekly',
   });
 
   const handleSave = () => {
     if (editForm.name && editForm.email && editForm.phone) {
-      onSave(editForm);
+      onSave({
+        name: editForm.name,
+        roles: editForm.roles,
+        email: editForm.email,
+        phone: editForm.phone,
+        contractedHours: typeof editForm.contractedHours === 'number' && !isNaN(editForm.contractedHours) ? editForm.contractedHours : (manager.contractedHours ?? 40),
+        hoursType: editForm.hoursType,
+      });
     }
   };
 
@@ -2501,14 +2772,16 @@ function ManagerCard({ manager, isEditing, onEdit, onCancelEdit, onSave, onDelet
       roles: manager.roles,
       email: manager.email,
       phone: manager.phone,
+      contractedHours: manager.contractedHours ?? 40,
+      hoursType: manager.hoursType ?? 'weekly',
     });
     onCancelEdit();
   };
 
-  if (isEditing) {
+    if (isEditing) {
     return (
       <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4">
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">Name</label>
             <Input
@@ -2547,6 +2820,29 @@ function ManagerCard({ manager, isEditing, onEdit, onCancelEdit, onSave, onDelet
               placeholder="+44 123 456 7890"
             />
           </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">Contracted Hours</label>
+            <Input
+              type="number"
+              min={1}
+              max={168}
+              value={editForm.contractedHours === '' ? '' : String(editForm.contractedHours)}
+              onChange={(e) => setEditForm(prev => ({ ...prev, contractedHours: e.target.value === '' ? '' : parseInt(e.target.value, 10) }))}
+              placeholder="e.g. 40"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">Hours Type</label>
+            <Select value={editForm.hoursType} onValueChange={(v: 'weekly' | 'monthly') => setEditForm(prev => ({ ...prev, hoursType: v }))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="weekly">Weekly</SelectItem>
+                <SelectItem value="monthly">Monthly</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <div className="flex justify-end gap-2">
           <Button
@@ -2560,7 +2856,18 @@ function ManagerCard({ manager, isEditing, onEdit, onCancelEdit, onSave, onDelet
           </Button>
           <Button
             size="sm"
-            onClick={handleSave}
+            onClick={() => {
+              if (editForm.name && editForm.email && editForm.phone) {
+                onSave({
+                  name: editForm.name,
+                  roles: editForm.roles,
+                  email: editForm.email,
+                  phone: editForm.phone,
+                  contractedHours: typeof editForm.contractedHours === 'number' && !isNaN(editForm.contractedHours) ? editForm.contractedHours : (manager.contractedHours ?? 40),
+                  hoursType: editForm.hoursType,
+                });
+              }
+            }}
             disabled={!editForm.name || !editForm.roles || !editForm.email || !editForm.phone || disabled}
             className="bg-green-600 hover:bg-green-700"
           >
@@ -2574,7 +2881,7 @@ function ManagerCard({ manager, isEditing, onEdit, onCancelEdit, onSave, onDelet
 
   return (
     <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
+  <div className="flex-1 grid grid-cols-1 md:grid-cols-6 gap-4">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-blue-100 rounded-full">
             <UserCheck className="w-5 h-5 text-blue-600" />
@@ -2609,6 +2916,15 @@ function ManagerCard({ manager, isEditing, onEdit, onCancelEdit, onSave, onDelet
           <div>
             <p className="text-sm font-medium text-gray-900">{manager.phone}</p>
             <p className="text-xs text-gray-500">Phone number</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <Clock className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{manager.contractedHours ?? 40}h/{(manager.hoursType || 'weekly') === 'weekly' ? 'wk' : 'mo'}</p>
+            <p className="text-xs text-gray-500">Contracted</p>
           </div>
         </div>
       </div>
@@ -2648,15 +2964,24 @@ interface NurseCardProps {
 }
 
 function NurseCard({ nurse, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: NurseCardProps) {
-  const [editForm, setEditForm] = useState({
+  const [editForm, setEditForm] = useState<{ name: string; roles: string; email: string; phone: string; contractedHours: number | ''; hoursType: 'weekly' | 'monthly' }>({
     name: nurse.name,
     roles: nurse.roles,
     email: nurse.email,
     phone: nurse.phone,
+    contractedHours: nurse.contractedHours ?? 40,
+    hoursType: nurse.hoursType ?? 'weekly',
   });
 
   const handleSave = () => {
-    onSave(editForm);
+    onSave({
+      name: editForm.name,
+      roles: editForm.roles,
+      email: editForm.email,
+      phone: editForm.phone,
+      contractedHours: typeof editForm.contractedHours === 'number' && !isNaN(editForm.contractedHours) ? editForm.contractedHours : (nurse.contractedHours ?? 40),
+      hoursType: editForm.hoursType,
+    });
   };
 
   const handleCancel = () => {
@@ -2665,6 +2990,8 @@ function NurseCard({ nurse, isEditing, onEdit, onCancelEdit, onSave, onDelete, d
       roles: nurse.roles,
       email: nurse.email,
       phone: nurse.phone,
+      contractedHours: nurse.contractedHours ?? 40,
+      hoursType: nurse.hoursType ?? 'weekly',
     });
     onCancelEdit();
   };
@@ -2672,7 +2999,7 @@ function NurseCard({ nurse, isEditing, onEdit, onCancelEdit, onSave, onDelete, d
   if (isEditing) {
     return (
       <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+  <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
             <Input
@@ -2698,19 +3025,44 @@ function NurseCard({ nurse, isEditing, onEdit, onCancelEdit, onSave, onDelete, d
               placeholder="nurse@example.com"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
-            <Input
-              type="tel"
-              value={editForm.phone}
-              onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
-              placeholder="+44 123 456 7890"
-            />
-          </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+                      <Input
+                        type="tel"
+                        value={editForm.phone}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
+                        placeholder="+44 123 456 7890"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Contracted Hours</label>
+                      <Input type="number" min={1} max={168} value={editForm.contractedHours === '' ? '' : String(editForm.contractedHours)} onChange={(e) => setEditForm(prev => ({ ...prev, contractedHours: e.target.value === '' ? '' : parseInt(e.target.value, 10) }))} placeholder="e.g. 40" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Hours Type</label>
+                      <Select value={editForm.hoursType ?? 'weekly'} onValueChange={(v: 'weekly' | 'monthly') => setEditForm(prev => ({ ...prev, hoursType: v }))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
         </div>
         <div className="flex gap-2">
           <Button
-            onClick={handleSave}
+            onClick={() => {
+              onSave({
+                name: editForm.name,
+                roles: editForm.roles,
+                email: editForm.email,
+                phone: editForm.phone,
+                contractedHours: typeof editForm.contractedHours === 'number' && !isNaN(editForm.contractedHours) ? editForm.contractedHours : (nurse.contractedHours ?? 40),
+                hoursType: editForm.hoursType,
+              });
+            }}
             disabled={!editForm.name || !editForm.roles || !editForm.email || !editForm.phone || disabled}
             className="bg-green-600 hover:bg-green-700"
             size="sm"
@@ -2734,7 +3086,7 @@ function NurseCard({ nurse, isEditing, onEdit, onCancelEdit, onSave, onDelete, d
 
   return (
     <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-100">
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-green-100 rounded-full">
             <UserCheck className="w-5 h-5 text-green-600" />
@@ -2808,15 +3160,24 @@ interface CTMCardProps {
 }
 
 function CTMCard({ ctm, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: CTMCardProps) {
-  const [editForm, setEditForm] = useState({
+  const [editForm, setEditForm] = useState<{ name: string; roles: string; email: string; phone: string; contractedHours: number | ''; hoursType: 'weekly' | 'monthly' }>({
     name: ctm.name,
     roles: ctm.roles,
     email: ctm.email,
     phone: ctm.phone,
+    contractedHours: ctm.contractedHours ?? 40,
+    hoursType: ctm.hoursType ?? 'weekly',
   });
 
   const handleSave = () => {
-    onSave(editForm);
+    onSave({
+      name: editForm.name,
+      roles: editForm.roles,
+      email: editForm.email,
+      phone: editForm.phone,
+      contractedHours: typeof editForm.contractedHours === 'number' && !isNaN(editForm.contractedHours) ? editForm.contractedHours : (ctm.contractedHours ?? 40),
+      hoursType: editForm.hoursType,
+    });
   };
 
   const handleCancel = () => {
@@ -2825,6 +3186,8 @@ function CTMCard({ ctm, isEditing, onEdit, onCancelEdit, onSave, onDelete, disab
       roles: ctm.roles,
       email: ctm.email,
       phone: ctm.phone,
+      contractedHours: ctm.contractedHours ?? 40,
+      hoursType: ctm.hoursType ?? 'weekly',
     });
     onCancelEdit();
   };
@@ -2832,60 +3195,46 @@ function CTMCard({ ctm, isEditing, onEdit, onCancelEdit, onSave, onDelete, disab
   if (isEditing) {
     return (
       <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
-            <Input
-              value={editForm.name}
-              onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
-              placeholder="CTM name"
-            />
+            <Input value={editForm.name} onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))} placeholder="CTM name" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Roles</label>
-            <Input
-              value={editForm.roles}
-              onChange={(e) => setEditForm(prev => ({ ...prev, roles: e.target.value }))}
-              placeholder="e.g. Care Team Manager, Senior CTM"
-            />
+            <Input value={editForm.roles} onChange={(e) => setEditForm(prev => ({ ...prev, roles: e.target.value }))} placeholder="e.g. Care Team Manager" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-            <Input
-              type="email"
-              value={editForm.email}
-              onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
-              placeholder="ctm@example.com"
-            />
+            <Input type="email" value={editForm.email} onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))} placeholder="ctm@example.com" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
-            <Input
-              type="tel"
-              value={editForm.phone}
-              onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
-              placeholder="+44 123 456 7890"
-            />
+            <Input type="tel" value={editForm.phone} onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))} placeholder="+44 123 456 7890" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Contracted Hours</label>
+            <Input type="number" min={1} max={168} value={editForm.contractedHours === '' ? '' : String(editForm.contractedHours)} onChange={(e) => setEditForm(prev => ({ ...prev, contractedHours: e.target.value === '' ? '' : parseInt(e.target.value, 10) }))} placeholder="e.g. 40" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Hours Type</label>
+            <Select value={editForm.hoursType} onValueChange={(v: 'weekly' | 'monthly') => setEditForm(prev => ({ ...prev, hoursType: v }))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="weekly">Weekly</SelectItem>
+                <SelectItem value="monthly">Monthly</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
         <div className="flex gap-2">
-          <Button
-            onClick={handleSave}
-            disabled={!editForm.name || !editForm.roles || !editForm.email || !editForm.phone || disabled}
-            className="bg-green-600 hover:bg-green-700"
-            size="sm"
-          >
-            <Save className="w-4 h-4 mr-2" />
-            Save Changes
+          <Button onClick={handleSave} disabled={!editForm.name || !editForm.roles || !editForm.email || !editForm.phone || disabled} className="bg-green-600 hover:bg-green-700" size="sm">
+            <Save className="w-4 h-4 mr-2" /> Save Changes
           </Button>
-          <Button
-            variant="ghost"
-            onClick={handleCancel}
-            disabled={disabled}
-            size="sm"
-          >
-            <X className="w-4 h-4 mr-2" />
-            Cancel
+          <Button variant="ghost" onClick={handleCancel} disabled={disabled} size="sm">
+            <X className="w-4 h-4 mr-2" /> Cancel
           </Button>
         </div>
       </div>
@@ -2894,7 +3243,7 @@ function CTMCard({ ctm, isEditing, onEdit, onCancelEdit, onSave, onDelete, disab
 
   return (
     <div className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-50 to-violet-50 rounded-lg border border-purple-100">
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
+  <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-purple-100 rounded-full">
             <UserCheck className="w-5 h-5 text-purple-600" />
@@ -2929,6 +3278,15 @@ function CTMCard({ ctm, isEditing, onEdit, onCancelEdit, onSave, onDelete, disab
           <div>
             <p className="text-sm font-medium text-gray-900">{ctm.phone}</p>
             <p className="text-xs text-gray-500">Phone number</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <Clock className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{ctm.contractedHours ?? 40}h/{(ctm.hoursType || 'weekly') === 'weekly' ? 'wk' : 'mo'}</p>
+            <p className="text-xs text-gray-500">Contracted</p>
           </div>
         </div>
       </div>
@@ -2969,15 +3327,24 @@ interface DomesticCardProps {
 }
 
 function DomesticCard({ domestic, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: DomesticCardProps) {
-  const [editForm, setEditForm] = useState({
+  const [editForm, setEditForm] = useState<{ name: string; roles: string; email: string; phone: string; contractedHours: number | ''; hoursType: 'weekly' | 'monthly' }>({
     name: domestic.name,
     roles: domestic.roles,
     email: domestic.email,
     phone: domestic.phone,
+    contractedHours: domestic.contractedHours ?? 40,
+    hoursType: domestic.hoursType ?? 'weekly',
   });
 
   const handleSave = () => {
-    onSave(editForm);
+    onSave({
+      name: editForm.name,
+      roles: editForm.roles,
+      email: editForm.email,
+      phone: editForm.phone,
+      contractedHours: typeof editForm.contractedHours === 'number' && !isNaN(editForm.contractedHours) ? editForm.contractedHours : (domestic.contractedHours ?? 40),
+      hoursType: editForm.hoursType,
+    });
   };
 
   const handleCancel = () => {
@@ -2986,14 +3353,16 @@ function DomesticCard({ domestic, isEditing, onEdit, onCancelEdit, onSave, onDel
       roles: domestic.roles,
       email: domestic.email,
       phone: domestic.phone,
+      contractedHours: domestic.contractedHours ?? 40,
+      hoursType: domestic.hoursType ?? 'weekly',
     });
     onCancelEdit();
   };
 
-  if (isEditing) {
-    return (
-      <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+    if (isEditing) {
+      return (
+        <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
             <Input
@@ -3028,6 +3397,22 @@ function DomesticCard({ domestic, isEditing, onEdit, onCancelEdit, onSave, onDel
               placeholder="+44 123 456 7890"
             />
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Contracted Hours</label>
+            <Input type="number" min={1} max={168} value={editForm.contractedHours === '' ? '' : String(editForm.contractedHours)} onChange={(e) => setEditForm(prev => ({ ...prev, contractedHours: e.target.value === '' ? '' : parseInt(e.target.value, 10) }))} placeholder="e.g. 40" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Hours Type</label>
+            <Select value={editForm.hoursType} onValueChange={(v: 'weekly' | 'monthly') => setEditForm(prev => ({ ...prev, hoursType: v }))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="weekly">Weekly</SelectItem>
+                <SelectItem value="monthly">Monthly</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <div className="flex gap-2">
           <Button
@@ -3055,7 +3440,7 @@ function DomesticCard({ domestic, isEditing, onEdit, onCancelEdit, onSave, onDel
 
   return (
     <div className="flex items-center justify-between p-4 bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg border border-orange-100">
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-orange-100 rounded-full">
             <UserCheck className="w-5 h-5 text-orange-600" />
@@ -3090,6 +3475,15 @@ function DomesticCard({ domestic, isEditing, onEdit, onCancelEdit, onSave, onDel
           <div>
             <p className="text-sm font-medium text-gray-900">{domestic.phone}</p>
             <p className="text-xs text-gray-500">Phone number</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <Clock className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{domestic.contractedHours ?? 40}h/{(domestic.hoursType || 'weekly') === 'weekly' ? 'wk' : 'mo'}</p>
+            <p className="text-xs text-gray-500">Contracted</p>
           </div>
         </div>
       </div>
@@ -3129,15 +3523,24 @@ interface MaintenanceCardProps {
 }
 
 function MaintenanceCard({ maintenance, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: MaintenanceCardProps) {
-  const [editForm, setEditForm] = useState({
+  const [editForm, setEditForm] = useState<{ name: string; roles: string; email: string; phone: string; contractedHours: number | ''; hoursType: 'weekly' | 'monthly' }>({
     name: maintenance.name,
     roles: maintenance.roles,
     email: maintenance.email,
     phone: maintenance.phone,
+    contractedHours: maintenance.contractedHours ?? 40,
+    hoursType: maintenance.hoursType ?? 'weekly',
   });
 
   const handleSave = () => {
-    onSave(editForm);
+    onSave({
+      name: editForm.name,
+      roles: editForm.roles,
+      email: editForm.email,
+      phone: editForm.phone,
+      contractedHours: typeof editForm.contractedHours === 'number' && !isNaN(editForm.contractedHours) ? editForm.contractedHours : (maintenance.contractedHours ?? 40),
+      hoursType: editForm.hoursType,
+    });
   };
 
   const handleCancel = () => {
@@ -3146,6 +3549,8 @@ function MaintenanceCard({ maintenance, isEditing, onEdit, onCancelEdit, onSave,
       roles: maintenance.roles,
       email: maintenance.email,
       phone: maintenance.phone,
+      contractedHours: maintenance.contractedHours ?? 40,
+      hoursType: maintenance.hoursType ?? 'weekly',
     });
     onCancelEdit();
   };
@@ -3153,7 +3558,7 @@ function MaintenanceCard({ maintenance, isEditing, onEdit, onCancelEdit, onSave,
   if (isEditing) {
     return (
       <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+  <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
             <Input
@@ -3188,6 +3593,22 @@ function MaintenanceCard({ maintenance, isEditing, onEdit, onCancelEdit, onSave,
               placeholder="+44 123 456 7890"
             />
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Contracted Hours</label>
+            <Input type="number" min={1} max={168} value={editForm.contractedHours === '' ? '' : String(editForm.contractedHours)} onChange={(e) => setEditForm(prev => ({ ...prev, contractedHours: e.target.value === '' ? '' : parseInt(e.target.value, 10) }))} placeholder="e.g. 40" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Hours Type</label>
+            <Select value={editForm.hoursType} onValueChange={(v: 'weekly' | 'monthly') => setEditForm(prev => ({ ...prev, hoursType: v }))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="weekly">Weekly</SelectItem>
+                <SelectItem value="monthly">Monthly</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <div className="flex gap-2">
           <Button
@@ -3213,9 +3634,9 @@ function MaintenanceCard({ maintenance, isEditing, onEdit, onCancelEdit, onSave,
     );
   }
 
-  return (
-    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-slate-50 rounded-lg border border-gray-100">
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
+    return (
+      <div className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-slate-50 rounded-lg border border-gray-100">
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-gray-100 rounded-full">
             <UserCheck className="w-5 h-5 text-gray-600" />
@@ -3250,6 +3671,15 @@ function MaintenanceCard({ maintenance, isEditing, onEdit, onCancelEdit, onSave,
           <div>
             <p className="text-sm font-medium text-gray-900">{maintenance.phone}</p>
             <p className="text-xs text-gray-500">Phone number</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <Clock className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{maintenance.contractedHours ?? 40}h/{(maintenance.hoursType || 'weekly') === 'weekly' ? 'wk' : 'mo'}</p>
+            <p className="text-xs text-gray-500">Contracted</p>
           </div>
         </div>
       </div>
@@ -3289,15 +3719,24 @@ interface KitchenCardProps {
 }
 
 function KitchenCard({ kitchen, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: KitchenCardProps) {
-  const [editForm, setEditForm] = useState({
+  const [editForm, setEditForm] = useState<{ name: string; roles: string; email: string; phone: string; contractedHours: number | ''; hoursType: 'weekly' | 'monthly' }>({
     name: kitchen.name,
     roles: kitchen.roles,
     email: kitchen.email,
     phone: kitchen.phone,
+    contractedHours: kitchen.contractedHours ?? 40,
+    hoursType: kitchen.hoursType ?? 'weekly',
   });
 
   const handleSave = () => {
-    onSave(editForm);
+    onSave({
+      name: editForm.name,
+      roles: editForm.roles,
+      email: editForm.email,
+      phone: editForm.phone,
+      contractedHours: typeof editForm.contractedHours === 'number' && !isNaN(editForm.contractedHours) ? editForm.contractedHours : (kitchen.contractedHours ?? 40),
+      hoursType: editForm.hoursType,
+    });
   };
 
   const handleCancel = () => {
@@ -3306,6 +3745,8 @@ function KitchenCard({ kitchen, isEditing, onEdit, onCancelEdit, onSave, onDelet
       roles: kitchen.roles,
       email: kitchen.email,
       phone: kitchen.phone,
+      contractedHours: kitchen.contractedHours ?? 40,
+      hoursType: kitchen.hoursType ?? 'weekly',
     });
     onCancelEdit();
   };
@@ -3313,7 +3754,7 @@ function KitchenCard({ kitchen, isEditing, onEdit, onCancelEdit, onSave, onDelet
   if (isEditing) {
     return (
       <div className="p-4 bg-red-50 rounded-lg border border-red-200">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+  <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
             <Input
@@ -3347,6 +3788,22 @@ function KitchenCard({ kitchen, isEditing, onEdit, onCancelEdit, onSave, onDelet
               onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
               placeholder="+44 123 456 7890"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Contracted Hours</label>
+            <Input type="number" min={1} max={168} value={editForm.contractedHours === '' ? '' : String(editForm.contractedHours)} onChange={(e) => setEditForm(prev => ({ ...prev, contractedHours: e.target.value === '' ? '' : parseInt(e.target.value, 10) }))} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Hours Type</label>
+            <Select value={editForm.hoursType} onValueChange={(v: 'weekly' | 'monthly') => setEditForm(prev => ({ ...prev, hoursType: v }))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="weekly">Weekly</SelectItem>
+                <SelectItem value="monthly">Monthly</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
         <div className="flex gap-2">
@@ -3412,6 +3869,15 @@ function KitchenCard({ kitchen, isEditing, onEdit, onCancelEdit, onSave, onDelet
             <p className="text-xs text-gray-500">Phone number</p>
           </div>
         </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <Clock className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{kitchen.contractedHours ?? 40}h/{(kitchen.hoursType || 'weekly') === 'weekly' ? 'wk' : 'mo'}</p>
+            <p className="text-xs text-gray-500">Contracted</p>
+          </div>
+        </div>
       </div>
       <div className="flex items-center gap-2 ml-4">
         <Button
@@ -3449,15 +3915,24 @@ interface ActivityCardProps {
 }
 
 function ActivityCard({ activity, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: ActivityCardProps) {
-  const [editForm, setEditForm] = useState({
+  const [editForm, setEditForm] = useState<{ name: string; roles: string; email: string; phone: string; contractedHours: number | ''; hoursType: 'weekly' | 'monthly' }>({
     name: activity.name,
     roles: activity.roles,
     email: activity.email,
     phone: activity.phone,
+    contractedHours: activity.contractedHours ?? 40,
+    hoursType: activity.hoursType ?? 'weekly',
   });
 
   const handleSave = () => {
-    onSave(editForm);
+    onSave({
+      name: editForm.name,
+      roles: editForm.roles,
+      email: editForm.email,
+      phone: editForm.phone,
+      contractedHours: typeof editForm.contractedHours === 'number' && !isNaN(editForm.contractedHours) ? editForm.contractedHours : (activity.contractedHours ?? 40),
+      hoursType: editForm.hoursType,
+    });
   };
 
   const handleCancel = () => {
@@ -3466,6 +3941,8 @@ function ActivityCard({ activity, isEditing, onEdit, onCancelEdit, onSave, onDel
       roles: activity.roles,
       email: activity.email,
       phone: activity.phone,
+      contractedHours: activity.contractedHours ?? 40,
+      hoursType: activity.hoursType ?? 'weekly',
     });
     onCancelEdit();
   };
@@ -3473,7 +3950,7 @@ function ActivityCard({ activity, isEditing, onEdit, onCancelEdit, onSave, onDel
   if (isEditing) {
     return (
       <div className="p-4 bg-pink-50 rounded-lg border border-pink-200">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+  <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
             <Input
@@ -3508,6 +3985,22 @@ function ActivityCard({ activity, isEditing, onEdit, onCancelEdit, onSave, onDel
               placeholder="+44 123 456 7890"
             />
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Contracted Hours</label>
+            <Input type="number" min={1} max={168} value={editForm.contractedHours === '' ? '' : String(editForm.contractedHours)} onChange={(e) => setEditForm(prev => ({ ...prev, contractedHours: e.target.value === '' ? '' : parseInt(e.target.value, 10) }))} placeholder="e.g. 40" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Hours Type</label>
+            <Select value={editForm.hoursType} onValueChange={(v: 'weekly' | 'monthly') => setEditForm(prev => ({ ...prev, hoursType: v }))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="weekly">Weekly</SelectItem>
+                <SelectItem value="monthly">Monthly</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <div className="flex gap-2">
           <Button
@@ -3535,7 +4028,7 @@ function ActivityCard({ activity, isEditing, onEdit, onCancelEdit, onSave, onDel
 
   return (
     <div className="flex items-center justify-between p-4 bg-gradient-to-r from-pink-50 to-rose-50 rounded-lg border border-pink-100">
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
+  <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-pink-100 rounded-full">
             <UserCheck className="w-5 h-5 text-pink-600" />
@@ -3570,6 +4063,15 @@ function ActivityCard({ activity, isEditing, onEdit, onCancelEdit, onSave, onDel
           <div>
             <p className="text-sm font-medium text-gray-900">{activity.phone}</p>
             <p className="text-xs text-gray-500">Phone number</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <Clock className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{activity.contractedHours ?? 40}h/{(activity.hoursType || 'weekly') === 'weekly' ? 'wk' : 'mo'}</p>
+            <p className="text-xs text-gray-500">Contracted</p>
           </div>
         </div>
       </div>

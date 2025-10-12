@@ -15,7 +15,7 @@ import { StaffSummary } from "./staff-summary";
 import { ContractedHoursSettings } from "./contracted-hours-settings";
 import { PrintRota } from "./print-rota";
 import { format, startOfWeek, addWeeks, subWeeks, addDays, startOfMonth, endOfMonth } from "date-fns";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { workspaceDocPath } from "@/lib/paths";
 
@@ -120,24 +120,22 @@ export function RotasView({ workspace }: RotasViewProps) {
   const workspaceId = workspace?.id || '';
   const organisationId = (workspace as any)?.organisationId || '';
 
-  // Load contracted hours settings
+  // Load contracted hours settings and subscribe for realtime updates so
+  // changes made from the Teams view are reflected immediately in Rotas.
   useEffect(() => {
-    const loadContractedHours = async () => {
-      if (!workspaceId) return;
-      
-      try {
-        const configRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId), 'rotas', 'contracted-hours');
-        const configSnap = await getDoc(configRef);
-        
-        if (configSnap.exists()) {
-          setContractedHoursConfig(configSnap.data() as Record<string, { contractedHours: number; hoursType: 'weekly' | 'monthly' }>);
-        }
-      } catch (error) {
-        console.error('Failed to load contracted hours:', error);
+    if (!workspaceId) return;
+    const configRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId), 'rotas', 'contracted-hours');
+    const unsub = onSnapshot(configRef, (snap) => {
+      if (snap.exists()) {
+        setContractedHoursConfig(snap.data() as Record<string, { contractedHours: number; hoursType: 'weekly' | 'monthly' }>);
+      } else {
+        setContractedHoursConfig({});
       }
-    };
-    
-    loadContractedHours();
+    }, (err) => {
+      console.error('Failed to listen to contracted hours:', err);
+    });
+
+    return () => unsub();
   }, [workspaceId, organisationId]);
 
   // Load staff from workspace
@@ -343,13 +341,16 @@ export function RotasView({ workspace }: RotasViewProps) {
     window.print();
   };
 
-  // Merge contracted hours config with staff data
+  // Merge contracted hours config with staff data.
+  // Preference order: explicit rota config (contracted-hours doc) -> staff record on workspace -> default 40/week.
   const staffWithContractedHours = allStaff.map(staff => {
     const config = contractedHoursConfig[staff.id];
+    const contractedHours = config?.contractedHours ?? staff.contractedHours ?? 40;
+    const hoursType = (config?.hoursType ?? staff.hoursType) || ('weekly' as const);
     return {
       ...staff,
-      contractedHours: config?.contractedHours || 40,
-      hoursType: config?.hoursType || 'weekly' as const,
+      contractedHours,
+      hoursType,
     };
   });
 
