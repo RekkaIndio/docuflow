@@ -17,6 +17,7 @@ import PageHeader from '../../../components/page-header';
 
 export default function ActionPlansPage() {
   const activeWorkspace = useWorkspace();
+  const organisationId = activeWorkspace?.organisationId || null;
   const [actionPlan, setActionPlan] = useState<MonthlyActionPlan | null>(null);
   const [auditCompletionStatus, setAuditCompletionStatus] = useState<Record<string, boolean>>({});
   const [allAuditsCompleted, setAllAuditsCompleted] = useState(false);
@@ -61,15 +62,15 @@ export default function ActionPlansPage() {
     setLoading(true);
     try {
       // Load action plan
-  const plan = await getMonthlyActionPlan(activeWorkspace.id, currentMonthKey, activeWorkspace.organisationId || null);
+  const plan = await getMonthlyActionPlan(activeWorkspace.id, currentMonthKey, organisationId);
       setActionPlan(plan);
 
       // Load audit completion status
-      const auditStatus = await getMonthlyAuditCompletionStatus(activeWorkspace.id, activeWorkspace.organisationId || null);
+  const auditStatus = await getMonthlyAuditCompletionStatus(activeWorkspace.id, organisationId);
       setAuditCompletionStatus(auditStatus);
 
       // Check if all audits are completed
-  const allCompleted = await areAllAuditsCompleted(activeWorkspace.id, currentMonthKey, activeWorkspace.organisationId || null);
+  const allCompleted = await areAllAuditsCompleted(activeWorkspace.id, currentMonthKey, organisationId);
       setAllAuditsCompleted(allCompleted);
 
       // Initialize expanded sections - expand sections with high priority items by default
@@ -102,7 +103,7 @@ export default function ActionPlansPage() {
     setLoadingTeams(true);
     try {
       // Load teams
-  const teamsCollection = collection(db, workspaceCollectionPath(activeWorkspace.id, 'teams', (activeWorkspace as any).organisationId));
+  const teamsCollection = collection(db, workspaceCollectionPath(activeWorkspace.id, 'teams', organisationId));
       const teamsSnapshot = await getDocs(teamsCollection);
       const teamsData = teamsSnapshot.docs.map(doc => ({
         id: doc.id,
@@ -112,7 +113,7 @@ export default function ActionPlansPage() {
       setTeams(teamsData);
 
       // Load staff data from workspace
-  const workspaceRef = doc(db, workspaceDocPath(activeWorkspace.id, undefined, (activeWorkspace as any).organisationId));
+  const workspaceRef = doc(db, workspaceDocPath(activeWorkspace.id, undefined, organisationId));
   const workspaceSnap = await getDoc(workspaceRef);
       
       if (workspaceSnap.exists()) {
@@ -169,7 +170,17 @@ export default function ActionPlansPage() {
     });
 
     try {
-      await updateActionPlanItemStatus(activeWorkspace.id, currentMonthKey, itemId, status);
+      await updateActionPlanItemStatus(
+        activeWorkspace.id,
+        currentMonthKey,
+        itemId,
+        status,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        organisationId
+      );
     } catch (error) {
       console.error('Failed to update item status:', error);
       // Rollback optimistic update
@@ -194,7 +205,8 @@ export default function ActionPlansPage() {
           item.assignedTo,
           item.dueDate,
           ragRating,
-          item.assignedTeam
+          item.assignedTeam,
+          organisationId
         );
 
         // Update local state optimistically
@@ -240,7 +252,8 @@ export default function ActionPlansPage() {
           item.assignedTo,
           item.dueDate,
           item.ragRating,
-          assignedTeam
+          assignedTeam,
+          organisationId
         );
 
         // Update local state optimistically
