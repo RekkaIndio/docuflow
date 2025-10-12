@@ -26,7 +26,7 @@ export function LandingPage() {
       <header className="px-4 lg:px-6 h-16 flex items-center sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur-sm">
         <Link href="#" className="flex items-center justify-center gap-2">
           <Logo className="h-6 w-6 text-primary" />
-          <span className="text-xl font-semibold font-headline">CG-360 AI</span>
+          <span className="text-xl font-semibold font-headline">CG-360</span>
         </Link>
         <nav className="ml-auto hidden lg:flex gap-4 sm:gap-6 items-center">
           <Link href="#" className="text-sm font-medium hover:underline underline-offset-4 text-foreground/80">
@@ -44,9 +44,6 @@ export function LandingPage() {
           <Link href="/login" className="text-sm font-medium hover:underline underline-offset-4 text-foreground/80">
             Sign In
           </Link>
-          <Button asChild className="bg-primary hover:bg-primary/90 animate-pulse focus:animate-none shadow-lg shadow-primary/20">
-            <Link href="/signup">Start Free Trial</Link>
-          </Button>
         </nav>
       </header>
       <main className="flex-1">
@@ -77,10 +74,6 @@ export function LandingPage() {
                 </p>
                 <div className="flex flex-col gap-4 min-[400px]:flex-row">
                   <Button size="lg" asChild className="bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20 animate-glow">
-                    <Link href="/signup">
-                      Start Free Trial
-                      <ArrowRight className="ml-2 h-5 w-5 animate-bounce-x" />
-                    </Link>
                   </Button>
                   <Button size="lg" variant="outline" asChild>
                     <Link href="#">

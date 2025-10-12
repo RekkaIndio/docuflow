@@ -8,12 +8,14 @@ import { Users, Calendar, Clock, TrendingUp, AlertCircle } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
 import { workspaceDocPath, workspaceCollectionPath } from "@/lib/paths";
-import { format, startOfWeek, addDays, endOfWeek } from "date-fns";
+import { format, startOfWeek, addDays } from "date-fns";
+import { cn } from "@/lib/utils";
 
 interface StaffingOverviewCardProps {
   workspaceId?: string;
   orgId?: string | null;
   onNavigateToRotas?: () => void;
+  className?: string;
 }
 
 interface StaffMember {
@@ -52,7 +54,7 @@ function calculateShiftHours(startTime: string, endTime: string): number {
   return isNaN(totalHours) ? 0 : totalHours;
 }
 
-export function StaffingOverviewCard({ workspaceId, orgId, onNavigateToRotas }: StaffingOverviewCardProps) {
+export function StaffingOverviewCard({ workspaceId, orgId, onNavigateToRotas, className }: StaffingOverviewCardProps) {
   const [loading, setLoading] = useState(true);
   const [totalStaff, setTotalStaff] = useState(0);
   const [shiftsThisWeek, setShiftsThisWeek] = useState(0);
@@ -161,23 +163,29 @@ export function StaffingOverviewCard({ workspaceId, orgId, onNavigateToRotas }: 
 
   return (
     <Card
-      className="group relative overflow-hidden rounded-2xl border-0 bg-gradient-to-br from-blue-50 to-white shadow-xl hover:shadow-2xl transition-all duration-300 cursor-pointer"
+      className={cn(
+        "group relative flex h-full flex-col overflow-hidden rounded-2xl border-0 bg-gradient-to-br from-blue-50 to-white shadow-xl transition-all duration-300 hover:shadow-2xl cursor-pointer",
+        className,
+      )}
       onClick={handleNavigate}
     >
       <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500 shadow-md" />
       <CardHeader className="pb-4 pt-5">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-slate-500">
-            <Users className="h-4 w-4" />
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-blue-600">
+              <Users className="h-4 w-4" />
+            </div>
             <CardTitle className="text-base font-semibold text-slate-900">Staffing Overview</CardTitle>
           </div>
           <Button
             size="sm"
-            variant="outline"
+            variant="default"
             onClick={(e) => {
               e.stopPropagation();
               handleNavigate();
             }}
+            className="ml-2"
           >
             View rotas
           </Button>
@@ -186,7 +194,7 @@ export function StaffingOverviewCard({ workspaceId, orgId, onNavigateToRotas }: 
           This week's rota summary and staffing levels at a glance.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="flex flex-1 flex-col gap-4 overflow-hidden">
         {loading ? (
           <div className="text-center py-8 text-slate-500">Loading staffing data...</div>
         ) : totalStaff === 0 ? (
@@ -196,7 +204,7 @@ export function StaffingOverviewCard({ workspaceId, orgId, onNavigateToRotas }: 
             <p className="text-xs text-slate-500">Add staff in the Teams section to start scheduling rotas.</p>
           </div>
         ) : (
-          <>
+          <div className="flex flex-1 flex-col space-y-4 overflow-hidden">
             {/* Quick Stats Grid */}
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-xl bg-gradient-to-br from-blue-50 to-blue-100/50 p-4 border border-blue-200/50">
@@ -261,7 +269,7 @@ export function StaffingOverviewCard({ workspaceId, orgId, onNavigateToRotas }: 
                 <span className="text-sm font-semibold">All days adequately staffed this week</span>
               </div>
             )}
-          </>
+          </div>
         )}
       </CardContent>
     </Card>

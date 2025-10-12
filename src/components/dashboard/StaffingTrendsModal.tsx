@@ -263,7 +263,10 @@ const StaffingTrendsModal = ({ isOpen, onClose, workspaceId, organisationId }: S
             <div className="space-y-6">
               {permissionDenied && (
                 <div className="rounded-md bg-yellow-50 border border-yellow-200 p-3 text-sm text-yellow-800">
-                  We couldn't read daily staffing records due to permissions. Showing rota-derived estimates where available. <button onClick={() => window.dispatchEvent(new CustomEvent('navigate-to-rotas'))} className="underline font-medium ml-2">View rotas</button>
+                  We couldn't read daily staffing records due to permissions. Showing rota-derived estimates where available.
+                  <Button size="sm" variant="default" className="ml-3" onClick={() => window.dispatchEvent(new CustomEvent('navigate-to-rotas'))}>
+                    View rotas
+                  </Button>
                 </div>
               )}
               {/* Period Selector */}
@@ -491,7 +494,7 @@ const StaffingTrendsModal = ({ isOpen, onClose, workspaceId, organisationId }: S
                     <p className="text-gray-600 font-medium">We couldn't access daily staffing records and no rota data was found for the selected period.</p>
                     <p className="text-sm text-gray-500 mt-1">Ask your workspace administrator for access, or create rotas in the Rotas page to allow estimated staffing to be shown here.</p>
                     <div className="mt-4">
-                      <Button variant="outline" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('navigate-to-rotas'))}>Open Rotas</Button>
+                      <Button variant="default" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('navigate-to-rotas'))}>Open Rotas</Button>
                     </div>
                   </div>
                 ) : (

@@ -92,7 +92,7 @@ export function ResidentAssessmentEditModal({
     },
     SNN: {
       title: "Special Needs",
-      description: "Medical and specialized care requirements",
+      description: "Medical and specialised care requirements",
       icon: "🏥",
       color: "red",
       bgColor: "bg-red-50",

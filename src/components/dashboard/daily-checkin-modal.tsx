@@ -1,34 +1,59 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { doc, getDoc, setDoc, collection } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { Clock } from 'lucide-react';
+import { getDoc, setDoc } from 'firebase/firestore';
 import { useWorkspace } from '@/context/workspace';
-import { workspaceCollectionPath } from '@/lib/paths';
-import { Users, Briefcase, Clock } from 'lucide-react';
-import { getWorkspaceCollectionRef, getWorkspaceDocRef } from '@/lib/firestore';
+import { getWorkspaceDocRef } from '@/lib/firestore';
 
-// Simple step indicator component
-function StepIndicator({ steps, current }: { steps: string[]; current: number }) {
+// Lightweight wrapper that keeps each modal section visually consistent
+function SectionCard({
+  title,
+  subtitle,
+  children,
+  footer,
+  className = '',
+}: {
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+  className?: string;
+}) {
   return (
-    <div className="flex items-center gap-3 mb-3">
-      {steps.map((s, i) => (
-        <div key={s} className="flex items-center gap-2">
-          <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold ${i === current ? 'bg-blue-600 text-white' : i < current ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-700'}`}>
-            {i + 1}
-          </div>
-          <div className={`text-sm ${i === current ? 'text-blue-800' : 'text-muted-foreground'}`}>{s}</div>
+    <div className={`rounded-xl border border-slate-200 bg-white/90 shadow-sm backdrop-blur-sm ${className}`}>
+      <div className="flex items-start justify-between gap-2 px-4 pt-4 pb-3">
+        <div>
+          <div className="text-sm font-semibold text-slate-900">{title}</div>
+          {subtitle ? <p className="mt-1 text-xs text-slate-500">{subtitle}</p> : null}
         </div>
-      ))}
+        {footer ? <div className="text-xs text-slate-500">{footer}</div> : null}
+      </div>
+      <div className="space-y-3 px-4 pb-4">{children}</div>
     </div>
   );
 }
+
+type FallEntry = {
+  id: number;
+  count: number;
+  injuries: string;
+  witnessed: string;
+  time: string;
+};
+
+type WoundTypes = {
+  pressure: number;
+  break: number;
+  fracture: number;
+  bruise: number;
+  skintear: number;
+};
 
 type Props = {
   workspaceId: string;
@@ -39,495 +64,803 @@ type Props = {
 };
 
 export default function DailyCheckinModal({ workspaceId, open: controlledOpen, onOpenChange, onEntryUpdate, trigger }: Props) {
-  const [open, setOpen] = useState<boolean>(false);
-  const activeWorkspace = useWorkspace();
-  // If the caller didn't pass a workspaceId (or passed empty string), prefer the
-  // workspace from context so saving/loading still works when the parent
-  // doesn't have a stable id at mount time.
-  const effectiveWorkspaceId = workspaceId || (activeWorkspace as any)?.id || '';
-  const effectiveOrgId = (activeWorkspace as any)?.organisationId ?? null;
-  useEffect(() => { if (typeof controlledOpen === 'boolean') setOpen(controlledOpen); }, [controlledOpen]);
+  const [open, setOpen] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
+  const workspaceContext = useWorkspace() as any;
+  const effectiveWorkspaceId = workspaceId || workspaceContext?.id || '';
+  const organisationId = workspaceContext?.organisationId ?? null;
+
+  const steps = useMemo(
+    () => [
+      { title: 'Occupancy & staffing', description: "Capture today's cover and bed use" },
+      { title: 'Incidents & pipeline', description: 'Safeguards, CQC notifications and admissions' },
+      { title: 'Falls', description: 'Log individual falls and summaries' },
+      { title: 'Wounds', description: 'Update wound counts and notes' },
+      { title: 'Infections', description: 'Record infections by type' },
+      { title: 'Other updates', description: 'Capture any extra notes for today' },
+      { title: 'Review & submit', description: 'Confirm details before saving' },
+    ],
+    [],
+  );
+
+  useEffect(() => {
+    if (typeof controlledOpen === 'boolean') {
+      setOpen(controlledOpen);
+      if (controlledOpen) {
+        setCurrentStep(0);
+      }
+    }
+  }, [controlledOpen]);
+
   const todayKey = new Date().toISOString().split('T')[0];
 
   const [loading, setLoading] = useState(false);
   const [exists, setExists] = useState(false);
-  const [staffDay, setStaffDay] = useState<string>('');
-  const [staffNight, setStaffNight] = useState<string>('');
-  const [occupancy, setOccupancy] = useState<string>('');
-  // validation helpers
-  const validateOccupancy = (v: string) => {
-    if (!v || v.trim() === '') return false;
-    // accept either 'num/num' or percentage or number
-    if (v.includes('/')) {
-      const parts = v.split('/').map(p => p.trim());
-      const a = parseFloat(parts[0]);
-      const b = parseFloat(parts[1]);
-      return !isNaN(a) && !isNaN(b) && b > 0;
-    }
-    // try percent '60%' or number
-    const asNum = parseFloat(v.replace('%',''));
-    return !isNaN(asNum);
-  };
-
-  const validateStaffing = (day: string, night: string) => {
-    const d = parseInt(day || '0', 10);
-    const n = parseInt(night || '0', 10);
-    return !isNaN(d) && !isNaN(n) && d >= 0 && n >= 0;
-  };
-
-  // Additional fields from DailyPage
+  const [staffDay, setStaffDay] = useState('');
+  const [staffNight, setStaffNight] = useState('');
+  const [occupancy, setOccupancy] = useState('');
   const [fallsCount, setFallsCount] = useState<number | ''>('');
-  const [fallsEntries, setFallsEntries] = useState<Array<any>>([]);
-  const [fallsInjuries, setFallsInjuries] = useState<string>('');
-  const [fallsWitnessed, setFallsWitnessed] = useState<string>('');
-  const [fallsTime, setFallsTime] = useState<string>('');
-
+  const [fallsEntries, setFallsEntries] = useState<FallEntry[]>([]);
+  const [fallsInjuries, setFallsInjuries] = useState('');
+  const [fallsWitnessed, setFallsWitnessed] = useState('');
+  const [fallsTime, setFallsTime] = useState('');
   const [cqcNotifications, setCqcNotifications] = useState<number | ''>('');
   const [safeguards, setSafeguards] = useState<number | ''>('');
-
   const [preAdmissionsCount, setPreAdmissionsCount] = useState<number | ''>('');
-  const [showarounds, setShowarounds] = useState<string>('');
-
-  // parsed pills for showarounds (comma-separated)
-  const parsedShowarounds = (showarounds || '').split(',').map(s => s.trim()).filter(Boolean);
-
-  const removeShowaround = (name: string) => {
-    const next = parsedShowarounds.filter(s => s !== name);
-    setShowarounds(next.join(', '));
-  };
-
-  const [woundsDetail, setWoundsDetail] = useState<string>('');
-  const [woundTypes, setWoundTypes] = useState<{ [k:string]: number }>({ pressure: 0, break: 0, fracture: 0, bruise: 0, skintear: 0 });
-
+  const [showarounds, setShowarounds] = useState('');
+  const [woundsDetail, setWoundsDetail] = useState('');
+  const [woundTypes, setWoundTypes] = useState<WoundTypes>({ pressure: 0, break: 0, fracture: 0, bruise: 0, skintear: 0 });
   const [infectionsUti, setInfectionsUti] = useState<number | ''>('');
   const [infectionsChest, setInfectionsChest] = useState<number | ''>('');
   const [infectionsWound, setInfectionsWound] = useState<number | ''>('');
+  const [infectionsOther, setInfectionsOther] = useState<number | ''>('');
+  const [infectionsOtherDetail, setInfectionsOtherDetail] = useState('');
+  const [otherUpdates, setOtherUpdates] = useState('');
 
-  // Controlled accordion state: only one section open at a time
-  const [openSection, setOpenSection] = useState<string | null>(null);
+  const parsedShowarounds = useMemo(
+    () =>
+      (showarounds || '')
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean),
+    [showarounds],
+  );
 
-  const toggleSection = (name: string) => {
-    setOpenSection((prev) => (prev === name ? null : name));
+  const validateOccupancy = (value: string) => {
+    if (!value.trim()) return false;
+    if (value.includes('/')) {
+      const [currentStr, totalStr] = value.split('/');
+      const current = Number(currentStr.trim());
+      const total = Number(totalStr.trim());
+      return Number.isFinite(current) && Number.isFinite(total) && total > 0;
+    }
+    const percent = Number(value.replace('%', '').trim());
+    return Number.isFinite(percent);
   };
 
-  // Progress calculation: consider key top-level sections as completed when they have meaningful values
-  const progress = useMemo(() => {
-    const checks = [
-      validateOccupancy(occupancy), // occupancy
-      validateStaffing(staffDay, staffNight), // staffing
-      Boolean((cqcNotifications !== '' && cqcNotifications !== null) || (safeguards !== '' && safeguards !== null)), // safeguards/CQC
-      Boolean((preAdmissionsCount !== '' && preAdmissionsCount !== null) || (showarounds && showarounds.trim() !== '')), // pre-admissions/showarounds
-      Boolean((fallsCount !== '' && Number(fallsCount) > 0) || (fallsEntries && fallsEntries.length > 0)), // falls
-      Boolean(Object.values(woundTypes || {}).reduce((s, v) => s + (Number(v) || 0), 0) > 0 || (woundsDetail && woundsDetail.trim() !== '')), // wounds
-      Boolean((infectionsUti !== '' && Number(infectionsUti) > 0) || (infectionsChest !== '' && Number(infectionsChest) > 0) || (infectionsWound !== '' && Number(infectionsWound) > 0)), // infections
+  const validateStaffing = (day: string, night: string) => {
+    const dayCount = Number(day.trim() || 0);
+    const nightCount = Number(night.trim() || 0);
+    return Number.isFinite(dayCount) && Number.isFinite(nightCount) && dayCount >= 0 && nightCount >= 0;
+  };
+
+  const dataCompletion = useMemo(() => {
+    const checkpoints = [
+      validateOccupancy(occupancy),
+      validateStaffing(staffDay, staffNight),
+      Boolean(cqcNotifications !== '' || safeguards !== ''),
+      Boolean(preAdmissionsCount !== '' || parsedShowarounds.length > 0),
+      Boolean((fallsCount !== '' && Number(fallsCount) > 0) || fallsEntries.length > 0),
+      Boolean(Object.values(woundTypes).some((value) => Number(value) > 0) || woundsDetail.trim()),
+      Boolean(
+        (infectionsUti !== '' && Number(infectionsUti) > 0) ||
+          (infectionsChest !== '' && Number(infectionsChest) > 0) ||
+          (infectionsWound !== '' && Number(infectionsWound) > 0) ||
+          (infectionsOther !== '' && Number(infectionsOther) > 0) ||
+          infectionsOtherDetail.trim(),
+      ),
     ];
-    const completed = checks.filter(Boolean).length;
-    const total = checks.length || 1;
-    return Math.round((completed / total) * 100);
-  }, [occupancy, staffDay, staffNight, cqcNotifications, safeguards, preAdmissionsCount, showarounds, fallsCount, fallsEntries, woundTypes, woundsDetail, infectionsUti, infectionsChest, infectionsWound]);
+
+    const completed = checkpoints.filter(Boolean).length;
+    return Math.round((completed / checkpoints.length) * 100);
+  }, [
+    occupancy,
+    staffDay,
+    staffNight,
+    cqcNotifications,
+    safeguards,
+    preAdmissionsCount,
+    parsedShowarounds,
+    fallsCount,
+    fallsEntries,
+    woundTypes,
+    woundsDetail,
+    infectionsUti,
+    infectionsChest,
+    infectionsWound,
+    infectionsOther,
+    infectionsOtherDetail,
+  ]);
+
+  const totalSteps = steps.length;
+  const stepProgress = Math.round(((currentStep + 1) / totalSteps) * 100);
+  const currentStepMeta = steps[currentStep] ?? steps[0];
+  const coreInfoComplete = validateOccupancy(occupancy) && validateStaffing(staffDay, staffNight);
+
+  const canProceedFromStep = (stepIndex: number) => {
+    if (stepIndex === 0) {
+      return coreInfoComplete;
+    }
+    return true;
+  };
+
+  const goToNextStep = () => {
+    if (!canProceedFromStep(currentStep)) {
+      return;
+    }
+    if (currentStep < totalSteps - 1) {
+      setCurrentStep((previous) => Math.min(previous + 1, totalSteps - 1));
+    }
+  };
+
+  const goToPreviousStep = () => {
+    if (currentStep > 0) {
+      setCurrentStep((previous) => Math.max(previous - 1, 0));
+    }
+  };
+
+  const dashIfEmpty = (value: string | number | null | undefined) => {
+    const asString = value === null || typeof value === 'undefined' ? '' : String(value);
+    return asString.trim() === '' ? '—' : asString;
+  };
+
+  const renderReviewSummary = (title = 'Review', subtitle = 'Confirm the key details before saving') => (
+    <SectionCard title={title} subtitle={subtitle}>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-slate-500">Occupancy</p>
+          <p className="text-sm text-slate-800">{dashIfEmpty(occupancy)}</p>
+        </div>
+        <div>
+          <p className="text-xs uppercase tracking-wide text-slate-500">Staffing (day / night)</p>
+          <p className="text-sm text-slate-800">
+            {dashIfEmpty(staffDay)} / {dashIfEmpty(staffNight)}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs uppercase tracking-wide text-slate-500">CQC notifications</p>
+          <p className="text-sm text-slate-800">{dashIfEmpty(cqcNotifications)}</p>
+        </div>
+        <div>
+          <p className="text-xs uppercase tracking-wide text-slate-500">Safeguards</p>
+          <p className="text-sm text-slate-800">{dashIfEmpty(safeguards)}</p>
+        </div>
+        <div>
+          <p className="text-xs uppercase tracking-wide text-slate-500">Pre-admissions</p>
+          <p className="text-sm text-slate-800">{dashIfEmpty(preAdmissionsCount)}</p>
+        </div>
+        <div>
+          <p className="text-xs uppercase tracking-wide text-slate-500">Showarounds</p>
+          <p className="text-sm text-slate-800">{parsedShowarounds.length > 0 ? parsedShowarounds.join(', ') : '—'}</p>
+        </div>
+        <div>
+          <p className="text-xs uppercase tracking-wide text-slate-500">Falls summary</p>
+          <p className="text-sm text-slate-800">{dashIfEmpty(fallsCount)}</p>
+        </div>
+        <div>
+          <p className="text-xs uppercase tracking-wide text-slate-500">Wound detail</p>
+          <p className="text-sm text-slate-800">{dashIfEmpty(woundsDetail)}</p>
+        </div>
+      </div>
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-slate-500">Infections (UTI / Chest)</p>
+          <p className="text-sm text-slate-800">
+            {dashIfEmpty(infectionsUti)} / {dashIfEmpty(infectionsChest)}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs uppercase tracking-wide text-slate-500">Infections (Wound / Other)</p>
+          <p className="text-sm text-slate-800">
+            {dashIfEmpty(infectionsWound)} / {dashIfEmpty(infectionsOther)}
+          </p>
+        </div>
+      </div>
+      <div className="mt-4">
+        <p className="text-xs uppercase tracking-wide text-slate-500">Other infection detail</p>
+        <p className="text-sm text-slate-800">{dashIfEmpty(infectionsOtherDetail)}</p>
+      </div>
+      <div className="mt-4">
+        <p className="text-xs uppercase tracking-wide text-slate-500">Others notes</p>
+        <p className="text-sm text-slate-800">{dashIfEmpty(otherUpdates)}</p>
+      </div>
+    </SectionCard>
+  );
+
+  const renderCompletionCard = () => (
+    <SectionCard title="Completion" subtitle="Optional data completeness">
+      <p className="text-sm text-slate-600">{dataCompletion}% of tracked fields completed.</p>
+    </SectionCard>
+  );
+
+  const renderStepContent = () => {
+    switch (currentStep) {
+      case 0:
+        return (
+          <div className="space-y-4">
+            <SectionCard title="Occupancy" subtitle="Bed count or percentage capacity">
+              <Input className="h-10 text-sm" value={occupancy} onChange={(event) => setOccupancy(event.target.value)} placeholder="e.g. 12/20 or 60%" />
+              {!validateOccupancy(occupancy) && <div className="text-xs text-red-500">Please enter occupancy (e.g. 12/20 or 60%).</div>}
+            </SectionCard>
+
+            <SectionCard title="Staffing" subtitle="Headcount on duty">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <Label className="mb-1">Day staff</Label>
+                  <Input type="number" min={0} className="h-10 text-sm" value={staffDay} onChange={(event) => setStaffDay(event.target.value)} />
+                </div>
+                <div>
+                  <Label className="mb-1">Night staff</Label>
+                  <Input type="number" min={0} className="h-10 text-sm" value={staffNight} onChange={(event) => setStaffNight(event.target.value)} />
+                </div>
+              </div>
+            </SectionCard>
+          </div>
+        );
+      case 1:
+        return (
+          <div className="space-y-4">
+            <SectionCard title="Safeguards & CQC" subtitle="Incidents raised in last 24h">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <Label className="mb-1">CQC notifications</Label>
+                  <Input
+                    type="number"
+                    className="h-10 text-sm"
+                    value={cqcNotifications === '' ? '' : Number(cqcNotifications)}
+                    onChange={(event) => setCqcNotifications(event.target.value === '' ? '' : Number(event.target.value))}
+                  />
+                </div>
+                <div>
+                  <Label className="mb-1">Safeguards raised</Label>
+                  <Input
+                    type="number"
+                    className="h-10 text-sm"
+                    value={safeguards === '' ? '' : Number(safeguards)}
+                    onChange={(event) => setSafeguards(event.target.value === '' ? '' : Number(event.target.value))}
+                  />
+                </div>
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Admissions & showarounds" subtitle="Pipeline visibility">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <Label className="mb-1">Pre-admissions (count)</Label>
+                  <Input
+                    type="number"
+                    className="h-10 text-sm"
+                    value={preAdmissionsCount === '' ? '' : Number(preAdmissionsCount)}
+                    onChange={(event) => setPreAdmissionsCount(event.target.value === '' ? '' : Number(event.target.value))}
+                  />
+                </div>
+                <div>
+                  <Label className="mb-1">Showarounds (comma separated)</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {parsedShowarounds.length === 0 && <div className="text-sm text-slate-500">No showarounds</div>}
+                    {parsedShowarounds.map((name) => (
+                      <button
+                        key={name}
+                        type="button"
+                        onClick={() => setShowarounds(parsedShowarounds.filter((value) => value !== name).join(', '))}
+                        className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm text-emerald-700 transition hover:bg-emerald-100"
+                      >
+                        <span>{name}</span>
+                        <span className="text-xs">✕</span>
+                      </button>
+                    ))}
+                  </div>
+                  <Textarea className="text-sm" rows={2} value={showarounds} onChange={(event) => setShowarounds(event.target.value)} placeholder="e.g. John Doe, Jane Smith" />
+                </div>
+              </div>
+            </SectionCard>
+          </div>
+        );
+      case 2:
+        return (
+          <SectionCard title="Falls" subtitle="Individual incidents and summaries" footer={`Total: ${fallsCount || 0}`}>
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-slate-600">Track each fall so patterns surface quickly.</p>
+                <Button size="sm" variant="outline" onClick={addFallEntry} className="border-emerald-200 text-emerald-700 hover:bg-emerald-50">
+                  Add entry
+                </Button>
+              </div>
+              {fallsEntries.length === 0 && <div className="text-sm text-slate-500">No fall entries yet. Add one or capture a summary below.</div>}
+              <div className="space-y-3">
+                {fallsEntries.map((entry) => (
+                  <div key={entry.id} className="grid grid-cols-12 gap-2 rounded-lg border border-slate-200 bg-white px-3 py-3">
+                    <div className="col-span-12 sm:col-span-2">
+                      <Label className="mb-1">Count</Label>
+                      <Input
+                        type="number"
+                        className="h-10 text-sm"
+                        value={entry.count}
+                        onChange={(event) => updateFallEntry(entry.id, { count: Number(event.target.value || 0) })}
+                      />
+                    </div>
+                    <div className="col-span-12 sm:col-span-4">
+                      <Label className="mb-1">Injuries</Label>
+                      <Input className="h-10 text-sm" value={entry.injuries} onChange={(event) => updateFallEntry(entry.id, { injuries: event.target.value })} />
+                    </div>
+                    <div className="col-span-12 sm:col-span-3">
+                      <Label className="mb-1">Witnessed by</Label>
+                      <Input className="h-10 text-sm" value={entry.witnessed} onChange={(event) => updateFallEntry(entry.id, { witnessed: event.target.value })} />
+                    </div>
+                    <div className="col-span-12 sm:col-span-2">
+                      <Label className="mb-1">Time</Label>
+                      <Input className="h-10 text-sm" value={entry.time} onChange={(event) => updateFallEntry(entry.id, { time: event.target.value })} />
+                    </div>
+                    <div className="col-span-12 sm:col-span-1 flex items-end">
+                      <Button variant="destructive" size="sm" className="w-full" onClick={() => removeFallEntry(entry.id)}>
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+                <div>
+                  <Label className="mb-1">Aggregate count</Label>
+                  <Input
+                    type="number"
+                    className="h-10 text-sm"
+                    value={fallsCount === '' ? '' : Number(fallsCount)}
+                    onChange={(event) => setFallsCount(event.target.value === '' ? '' : Number(event.target.value))}
+                  />
+                </div>
+                <div>
+                  <Label className="mb-1">Injuries summary</Label>
+                  <Input className="h-10 text-sm" value={fallsInjuries} onChange={(event) => setFallsInjuries(event.target.value)} />
+                </div>
+                <div>
+                  <Label className="mb-1">Witnessed summary</Label>
+                  <Input className="h-10 text-sm" value={fallsWitnessed} onChange={(event) => setFallsWitnessed(event.target.value)} />
+                </div>
+                <div>
+                  <Label className="mb-1">Time summary</Label>
+                  <Input className="h-10 text-sm" value={fallsTime} onChange={(event) => setFallsTime(event.target.value)} />
+                </div>
+              </div>
+            </div>
+          </SectionCard>
+        );
+      case 3:
+        return (
+          <SectionCard title="Wounds" subtitle="Types recorded in the last 24h">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <div>
+                <Label className="mb-1">Pressure</Label>
+                <Input
+                  type="number"
+                  className="h-10 text-sm"
+                  value={woundTypes.pressure}
+                  onChange={(event) => setWoundCount('pressure', event.target.value === '' ? 0 : Number(event.target.value))}
+                />
+              </div>
+              <div>
+                <Label className="mb-1">Break</Label>
+                <Input
+                  type="number"
+                  className="h-10 text-sm"
+                  value={woundTypes.break}
+                  onChange={(event) => setWoundCount('break', event.target.value === '' ? 0 : Number(event.target.value))}
+                />
+              </div>
+              <div>
+                <Label className="mb-1">Fracture</Label>
+                <Input
+                  type="number"
+                  className="h-10 text-sm"
+                  value={woundTypes.fracture}
+                  onChange={(event) => setWoundCount('fracture', event.target.value === '' ? 0 : Number(event.target.value))}
+                />
+              </div>
+              <div>
+                <Label className="mb-1">Bruise</Label>
+                <Input
+                  type="number"
+                  className="h-10 text-sm"
+                  value={woundTypes.bruise}
+                  onChange={(event) => setWoundCount('bruise', event.target.value === '' ? 0 : Number(event.target.value))}
+                />
+              </div>
+              <div>
+                <Label className="mb-1">Skin tear</Label>
+                <Input
+                  type="number"
+                  className="h-10 text-sm"
+                  value={woundTypes.skintear}
+                  onChange={(event) => setWoundCount('skintear', event.target.value === '' ? 0 : Number(event.target.value))}
+                />
+              </div>
+            </div>
+            <div>
+              <Label className="mb-1">Details / counts</Label>
+              <Textarea className="text-sm" rows={3} value={woundsDetail} onChange={(event) => setWoundsDetail(event.target.value)} />
+            </div>
+          </SectionCard>
+        );
+      case 4:
+        return (
+          <SectionCard title="Infections" subtitle="Cases reported in the last 24h">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+              <div>
+                <Label className="mb-1">UTI</Label>
+                <Input
+                  type="number"
+                  className="h-10 text-sm"
+                  value={infectionsUti === '' ? '' : Number(infectionsUti)}
+                  onChange={(event) => setInfectionsUti(event.target.value === '' ? '' : Number(event.target.value))}
+                />
+              </div>
+              <div>
+                <Label className="mb-1">Chest</Label>
+                <Input
+                  type="number"
+                  className="h-10 text-sm"
+                  value={infectionsChest === '' ? '' : Number(infectionsChest)}
+                  onChange={(event) => setInfectionsChest(event.target.value === '' ? '' : Number(event.target.value))}
+                />
+              </div>
+              <div>
+                <Label className="mb-1">Wound</Label>
+                <Input
+                  type="number"
+                  className="h-10 text-sm"
+                  value={infectionsWound === '' ? '' : Number(infectionsWound)}
+                  onChange={(event) => setInfectionsWound(event.target.value === '' ? '' : Number(event.target.value))}
+                />
+              </div>
+              <div>
+                <Label className="mb-1">Other</Label>
+                <Input
+                  type="number"
+                  className="h-10 text-sm"
+                  value={infectionsOther === '' ? '' : Number(infectionsOther)}
+                  onChange={(event) => setInfectionsOther(event.target.value === '' ? '' : Number(event.target.value))}
+                />
+              </div>
+            </div>
+            <div>
+              <Label className="mb-1">Other infections detail</Label>
+              <Textarea className="text-sm" rows={3} value={infectionsOtherDetail} onChange={(event) => setInfectionsOtherDetail(event.target.value)} />
+            </div>
+          </SectionCard>
+        );
+      case 5:
+        return (
+          <div className="space-y-4">
+            <SectionCard title="Others" subtitle="Optional notes, reminders or context">
+              <Textarea
+                className="text-sm"
+                rows={4}
+                value={otherUpdates}
+                onChange={(event) => setOtherUpdates(event.target.value)}
+                placeholder="Share anything else worth noting for today"
+              />
+              <p className="mt-2 text-xs text-slate-500">You can add any final context here. The next step lets you review everything before saving.</p>
+            </SectionCard>
+          </div>
+        );
+      case 6:
+        return (
+          <div className="space-y-4">
+            {renderReviewSummary('Review & submit', 'Confirm the key details before saving')}
+            {renderCompletionCard()}
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
 
   const addFallEntry = () => {
-    const newEntry = { id: Date.now(), count: 0, injuries: '', witnessed: '', time: '' };
-    setFallsEntries(prev => {
-      const next = [...prev, newEntry];
-      setFallsCount(next.reduce((s, it) => s + (Number(it.count) || 0), 0));
-      return next;
-    });
+    const entry: FallEntry = { id: Date.now(), count: 0, injuries: '', witnessed: '', time: '' };
+    setFallsEntries((previous) => [...previous, entry]);
   };
 
-  const updateFallEntry = (id: number, changes: Partial<{ count: number; injuries?: string; witnessed?: string; time?: string }>) => {
-    setFallsEntries(prev => {
-      const next = prev.map(e => e.id === id ? { ...e, ...changes } : e);
-      setFallsCount(next.reduce((s, it) => s + (Number(it.count) || 0), 0));
+  const updateFallEntry = (id: number, changes: Partial<FallEntry>) => {
+    setFallsEntries((previous) => {
+      const next = previous.map((entry) => (entry.id === id ? { ...entry, ...changes } : entry));
+      const total = next.reduce((sum, item) => sum + (Number(item.count) || 0), 0);
+      setFallsCount(total);
       return next;
     });
   };
 
   const removeFallEntry = (id: number) => {
-    setFallsEntries(prev => {
-      const next = prev.filter(e => e.id !== id);
-      setFallsCount(next.reduce((s, it) => s + (Number(it.count) || 0), 0));
+    setFallsEntries((previous) => {
+      const next = previous.filter((entry) => entry.id !== id);
+      const total = next.reduce((sum, item) => sum + (Number(item.count) || 0), 0);
+      setFallsCount(next.length === 0 ? '' : total);
       return next;
     });
   };
 
-  const setWoundCount = (key: string, val: number) => {
-    setWoundTypes(prev => ({ ...prev, [key]: val }));
+  const setWoundCount = (key: keyof WoundTypes, value: number) => {
+    setWoundTypes((previous) => ({ ...previous, [key]: value }));
   };
 
   useEffect(() => {
     if (!effectiveWorkspaceId) return;
-    let mounted = true;
-    (async () => {
+    let active = true;
+
+    const load = async () => {
       setLoading(true);
       try {
-  const orgId = effectiveOrgId;
-  const docRef = getWorkspaceDocRef(effectiveWorkspaceId, 'daily-checkins', todayKey, orgId || null);
-    // Debug logging removed: loading location and key
-    const snap = docRef ? await getDoc(docRef) : null;
-        if (!mounted) return;
-        if (snap?.exists()) {
-          const d = snap.data() as any;
+        const docRef = getWorkspaceDocRef(effectiveWorkspaceId, 'daily-checkins', todayKey, organisationId);
+        const snapshot = docRef ? await getDoc(docRef) : null;
+
+        if (!active) return;
+
+        if (snapshot?.exists()) {
+          const data = snapshot.data() as any;
           setExists(true);
-          setStaffDay(d.staffingDay ? String(d.staffingDay) : '');
-          setStaffNight(d.staffingNight ? String(d.staffingNight) : '');
-          setOccupancy(d.occupancy ? String(d.occupancy) : '');
-          // Load additional fields
-          setFallsCount(d.falls?.count ?? '');
-          setFallsEntries(Array.isArray(d.falls?.entries) ? d.falls.entries.map((e:any,i:number) => ({ id: e.id ?? i, count: Number(e.count) || 0, injuries: e.injuries || '', witnessed: e.witnessed || '', time: e.time || '' })) : []);
-          setFallsInjuries(d.falls?.injuries || '');
-          setFallsWitnessed(d.falls?.witnessed || '');
-          setFallsTime(d.falls?.time || '');
 
-          setCqcNotifications(d.cqcNotifications ?? '');
-          setSafeguards(d.safeguards ?? '');
+          setStaffDay(data.staffingDay ? String(data.staffingDay) : String(data.staffing?.day ?? ''));
+          setStaffNight(data.staffingNight ? String(data.staffingNight) : String(data.staffing?.night ?? ''));
+          setOccupancy(data.occupancy ? String(data.occupancy) : '');
 
-          setPreAdmissionsCount(d.preAdmissions?.count ?? '');
-          setShowarounds(Array.isArray(d.preAdmissions?.scheduled) ? (d.preAdmissions.scheduled || []).join(', ') : (d.showarounds || ''));
+          const loadedFallsEntries: FallEntry[] = Array.isArray(data.falls?.entries)
+            ? data.falls.entries.map((entry: any, index: number) => ({
+                id: entry.id ?? index,
+                count: Number(entry.count) || 0,
+                injuries: entry.injuries || '',
+                witnessed: entry.witnessed || '',
+                time: entry.time || '',
+              }))
+            : [];
 
-          setWoundsDetail(d.wounds?.detail || '');
+          setFallsEntries(loadedFallsEntries);
+          setFallsCount(
+            loadedFallsEntries.length
+              ? loadedFallsEntries.reduce((sum, item) => sum + (Number(item.count) || 0), 0)
+              : data.falls?.count ?? '',
+          );
+          setFallsInjuries(data.falls?.injuries || '');
+          setFallsWitnessed(data.falls?.witnessed || '');
+          setFallsTime(data.falls?.time || '');
+
+          setCqcNotifications(data.cqcNotifications ?? '');
+          setSafeguards(data.safeguards ?? '');
+
+          setPreAdmissionsCount(data.preAdmissions?.count ?? '');
+          setShowarounds(
+            Array.isArray(data.preAdmissions?.scheduled)
+              ? (data.preAdmissions.scheduled as string[]).join(', ')
+              : data.showarounds || '',
+          );
+
+          setWoundsDetail(data.wounds?.detail || '');
           setWoundTypes({
-            pressure: Number((d.wounds && d.wounds.types && d.wounds.types.pressure) ?? 0),
-            break: Number((d.wounds && d.wounds.types && d.wounds.types.break) ?? 0),
-            fracture: Number((d.wounds && d.wounds.types && d.wounds.types.fracture) ?? 0),
-            bruise: Number((d.wounds && d.wounds.types && d.wounds.types.bruise) ?? 0),
-            skintear: Number((d.wounds && d.wounds.types && d.wounds.types.skintear) ?? 0),
+            pressure: Number(data.wounds?.types?.pressure ?? 0),
+            break: Number(data.wounds?.types?.break ?? 0),
+            fracture: Number(data.wounds?.types?.fracture ?? 0),
+            bruise: Number(data.wounds?.types?.bruise ?? 0),
+            skintear: Number(data.wounds?.types?.skintear ?? 0),
           });
 
-          setInfectionsUti(d.infections?.uti ?? '');
-          setInfectionsChest(d.infections?.chest ?? '');
-          setInfectionsWound(d.infections?.wound ?? '');
-          // no step navigation in single-modal view; we simply load values
+          setInfectionsUti(data.infections?.uti ?? '');
+          setInfectionsChest(data.infections?.chest ?? '');
+          setInfectionsWound(data.infections?.wound ?? '');
+          setInfectionsOther(data.infections?.other ?? '');
+          setInfectionsOtherDetail(data.infections?.otherDetail ?? '');
+          const loadedOther = data.otherUpdates ?? data.otherNotes ?? data.other ?? '';
+          setOtherUpdates(typeof loadedOther === 'string' ? loadedOther : '');
         } else {
           setExists(false);
           setStaffDay('');
           setStaffNight('');
           setOccupancy('');
+          setFallsEntries([]);
+          setFallsCount('');
+          setFallsInjuries('');
+          setFallsWitnessed('');
+          setFallsTime('');
+          setCqcNotifications('');
+          setSafeguards('');
+          setPreAdmissionsCount('');
+          setShowarounds('');
+          setWoundsDetail('');
+          setWoundTypes({ pressure: 0, break: 0, fracture: 0, bruise: 0, skintear: 0 });
+          setInfectionsUti('');
+          setInfectionsChest('');
+          setInfectionsWound('');
+          setInfectionsOther('');
+          setInfectionsOtherDetail('');
+          setOtherUpdates('');
         }
-      } catch (e) {
-        console.error('Failed to load today checkin', e);
+      } catch (error) {
+        console.error('Failed to load daily check-in', error);
       } finally {
-        if (mounted) setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
-    })();
-    return () => { mounted = false; };
-  }, [workspaceId, todayKey, (activeWorkspace as any)?.id]);
+    };
+
+    load();
+    return () => {
+      active = false;
+    };
+  }, [effectiveWorkspaceId, organisationId, todayKey]);
 
   const save = async () => {
-    // Require an effective workspace id (either prop or context)
     if (!effectiveWorkspaceId) return;
-    // Re-validate everything before saving
     if (!validateOccupancy(occupancy)) return;
     if (!validateStaffing(staffDay, staffNight)) return;
+
     setLoading(true);
     try {
-      const now = new Date();
-  const orgId = effectiveOrgId;
-  const docRef = getWorkspaceDocRef(effectiveWorkspaceId, 'daily-checkins', todayKey, orgId || null);
-      // debug logging removed: saving destination
+      const docRef = getWorkspaceDocRef(effectiveWorkspaceId, 'daily-checkins', todayKey, organisationId);
       if (!docRef) {
-        console.error('Cannot determine daily-checkins path');
-        setLoading(false);
+        console.error('Unable to resolve daily check-in path');
         return;
       }
-      const fallsPayload: any = { count: fallsCount, injuries: fallsInjuries, witnessed: fallsWitnessed, time: fallsTime };
-      if (fallsEntries && fallsEntries.length > 0) fallsPayload.entries = fallsEntries;
+
+      const now = new Date();
+
+      const fallsPayload: any = {
+        count: fallsCount === '' ? 0 : Number(fallsCount),
+        injuries: fallsInjuries,
+        witnessed: fallsWitnessed,
+        time: fallsTime,
+      };
+
+      if (fallsEntries.length > 0) {
+        fallsPayload.entries = fallsEntries.map((entry) => ({
+          id: entry.id,
+          count: Number(entry.count) || 0,
+          injuries: entry.injuries,
+          witnessed: entry.witnessed,
+          time: entry.time,
+        }));
+      }
+
       const payload = {
         occupancy,
-        staffing: { day: staffDay, night: staffNight },
+        staffing: { day: Number(staffDay) || 0, night: Number(staffNight) || 0 },
         staffingDay: Number(staffDay) || 0,
         staffingNight: Number(staffNight) || 0,
         falls: fallsPayload,
-        preAdmissions: { count: Number(preAdmissionsCount) || 0, scheduled: (showarounds || '').split(',').map((s:string)=>s.trim()).filter(Boolean) },
-        cqcNotifications,
-        safeguards,
-        wounds: { detail: woundsDetail, types: woundTypes },
-        infections: { uti: infectionsUti, chest: infectionsChest, wound: infectionsWound },
+        preAdmissions: {
+          count: preAdmissionsCount === '' ? 0 : Number(preAdmissionsCount),
+          scheduled: parsedShowarounds,
+        },
+        showarounds: parsedShowarounds,
+        cqcNotifications: cqcNotifications === '' ? 0 : Number(cqcNotifications),
+        safeguards: safeguards === '' ? 0 : Number(safeguards),
+        wounds: {
+          detail: woundsDetail,
+          types: {
+            pressure: Number(woundTypes.pressure) || 0,
+            break: Number(woundTypes.break) || 0,
+            fracture: Number(woundTypes.fracture) || 0,
+            bruise: Number(woundTypes.bruise) || 0,
+            skintear: Number(woundTypes.skintear) || 0,
+          },
+        },
+        infections: {
+          uti: infectionsUti === '' ? 0 : Number(infectionsUti),
+          chest: infectionsChest === '' ? 0 : Number(infectionsChest),
+          wound: infectionsWound === '' ? 0 : Number(infectionsWound),
+          other: infectionsOther === '' ? 0 : Number(infectionsOther),
+          otherDetail: infectionsOtherDetail.trim(),
+        },
+        otherUpdates: otherUpdates.trim(),
         recordedAt: now.toISOString(),
       };
 
-      await setDoc(docRef, { ...payload, updatedAt: now, createdAt: now }, { merge: true });
+      const docData = {
+        ...payload,
+        updatedAt: now,
+        ...(exists ? {} : { createdAt: now }),
+      };
+
+      await setDoc(docRef, docData, { merge: true });
+
       setExists(true);
-      
-      // Call the callback to update parent component
-      if (onEntryUpdate) {
-        onEntryUpdate({ ...payload, id: todayKey });
-      }
-      
+      onEntryUpdate?.({ ...payload, id: todayKey });
       setOpen(false);
       onOpenChange?.(false);
-    } catch (e) {
-      console.error('Failed to save checkin', e);
+    } catch (error) {
+      console.error('Failed to save daily check-in', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const canProceedFromStep = (s: number) => {
-    if (s === 0) return validateOccupancy(occupancy);
-    if (s === 1) return validateStaffing(staffDay, staffNight);
-    return true;
+  const handleOpenChange = (value: boolean) => {
+    setOpen(value);
+    if (value) {
+      setCurrentStep(0);
+    }
+    onOpenChange?.(value);
   };
 
-  const handleOpenChange = (v: boolean) => {
-    setOpen(v);
-    onOpenChange?.(v);
-  };
-
-  const handleTriggerClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    // Debug logging removed: trigger clicked handler
+  const handleTriggerClick = (event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
     setOpen(true);
+    setCurrentStep(0);
     onOpenChange?.(true);
   };
 
   return (
     <>
-      <div 
-        onClick={handleTriggerClick}
-        onMouseDown={(e) => e.stopPropagation()}
-        style={{ position: 'relative', zIndex: 10 }}
-      >
+      <div onClick={handleTriggerClick} onMouseDown={(event) => event.stopPropagation()} style={{ position: 'relative', zIndex: 10 }}>
         {trigger || (
           <Button className="w-full" type="button">
-            {exists ? "Update check-in" : "Complete check-in"}
+            {exists ? 'Update check-in' : 'Complete check-in'}
           </Button>
         )}
       </div>
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="w-full sm:max-w-6xl p-0 max-h-[calc(100vh-3.5rem)] mx-auto my-6">
-        {/* Visually prominent header inspired by ResidentAssessmentEditModal */}
-        <div className="bg-gradient-to-r from-emerald-600 to-teal-600 px-8 py-4 rounded-t-2xl text-white relative">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
-                <Clock className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <DialogTitle className="text-lg font-semibold">Daily Check-in — {todayKey}</DialogTitle>
-                <p className="text-white/90 text-sm mt-1">Record occupancy, staffing, safeguards and clinical metrics</p>
-              </div>
-            </div>
-            <div className="flex flex-col items-end gap-2">
-              <div className="w-48">
-                <div className="text-right text-xs text-white/90 mb-1">{progress}% Complete</div>
-                <div className="w-full h-2 bg-white/20 rounded-full overflow-hidden">
-                  <div className="h-2 bg-white/90" style={{ width: `${progress}%` }} />
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="text-sm text-white/90">{exists ? 'Entry exists for today' : 'New entry'}</div>
-                <DialogClose asChild>
-                  <Button variant="ghost" className="text-white/90">Close</Button>
-                </DialogClose>
-              </div>
-            </div>
-          </div>
-          
-        </div>
-
-        <div className="bg-transparent rounded-b-2xl max-h-[calc(100vh-12rem)] overflow-hidden flex flex-col">
-          <div className="p-4 overflow-y-auto flex-1" style={{ WebkitOverflowScrolling: 'touch' }}>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-              {/* Occupancy card */}
-              <div className="col-span-2 bg-slate-50 rounded-xl p-3 border border-gray-100">
-                <div className="flex items-center justify-between mb-2">
+  <DialogContent className="mx-auto my-6 w-full overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-0 shadow-xl sm:max-w-5xl">
+          <div className="bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 px-6 py-5 text-white">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex items-start gap-3">
+                <div className="rounded-xl border border-white/25 bg-white/15 p-2 backdrop-blur-sm">
+                  <Clock className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <Label className="mb-1">Occupancy</Label>
-                  <input className="w-full bg-white rounded-md px-3 py-2 border border-gray-200 shadow-sm text-sm h-10" value={occupancy} onChange={(e) => setOccupancy(e.target.value)} placeholder="e.g. 12/20 or 60%" />
-                  {!validateOccupancy(occupancy) && <div className="text-xs text-red-500 mt-1">Please enter occupancy (e.g. 12/20 or 60%).</div>}
+                  <DialogTitle className="text-lg font-semibold">Daily check-in</DialogTitle>
+                  <p className="mt-1 text-sm text-white/90">Step {currentStep + 1} of {totalSteps} · {currentStepMeta.title}</p>
+                  <p className="mt-1 text-xs text-white/80">{currentStepMeta.description}</p>
                 </div>
               </div>
-
-              {/* Staffing & operational metrics in a compact grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 col-span-2">
-                <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
-                  <h4 className="text-sm font-semibold text-gray-900 mb-2">Staffing</h4>
-                  <div className="grid grid-cols-1 gap-2">
-                    <div>
-                      <Label className="mb-1">Day staff</Label>
-                      <Input value={staffDay} onChange={(e) => setStaffDay(e.target.value)} type="number" min={0} className="text-sm h-10" />
-                    </div>
-                    <div>
-                      <Label className="mb-1">Night staff</Label>
-                      <Input value={staffNight} onChange={(e) => setStaffNight(e.target.value)} type="number" min={0} className="text-sm h-10" />
-                    </div>
+              <div className="flex flex-col gap-2 sm:items-end">
+                <div className="w-48">
+                  <div className="mb-1 text-right text-xs text-white/85">Step progress</div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-white/25">
+                    <div className="h-2 bg-white" style={{ width: `${stepProgress}%` }} />
                   </div>
                 </div>
-
-                <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                  <h4 className="text-sm font-semibold text-gray-900 mb-2">Safeguards & CQC</h4>
-                  <div className="grid grid-cols-1 gap-2">
-                    <div>
-                      <Label className="mb-1">CQC Notifications</Label>
-                      <input className="w-full bg-white rounded-md px-3 py-2 border border-gray-200 shadow-sm text-sm h-10" type="number" value={cqcNotifications as any} onChange={(e) => setCqcNotifications(e.target.value === '' ? '' : Number(e.target.value))} />
-                    </div>
-                    <div>
-                      <Label className="mb-1">Safeguards Raised</Label>
-                      <input className="w-full bg-white rounded-md px-3 py-2 border border-gray-200 shadow-sm text-sm h-10" type="number" value={safeguards as any} onChange={(e) => setSafeguards(e.target.value === '' ? '' : Number(e.target.value))} />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                  <h4 className="text-sm font-semibold text-gray-900 mb-2">Admissions & Showarounds</h4>
-                  <div className="grid grid-cols-1 gap-2">
-                    <div>
-                      <Label className="mb-1">Pre-admissions (count)</Label>
-                      <input className="w-full bg-white rounded-md px-3 py-2 border border-gray-200 shadow-sm text-sm h-10" type="number" value={preAdmissionsCount as any} onChange={(e) => setPreAdmissionsCount(e.target.value === '' ? '' : Number(e.target.value))} />
-                    </div>
-                    <div>
-                      <Label className="mb-1">Showarounds (comma separated)</Label>
-                      <div className="flex flex-wrap gap-2 mb-2">
-                        {parsedShowarounds.length === 0 && <div className="text-sm text-gray-500">No showarounds</div>}
-                        {parsedShowarounds.map(name => (
-                          <div key={name} className="inline-flex items-center bg-white/90 border border-gray-200 rounded-full px-3 py-1 text-sm">
-                            <span className="mr-2">{name}</span>
-                            <button type="button" onClick={() => removeShowaround(name)} className="text-xs text-gray-500 hover:text-gray-700">✕</button>
-                          </div>
-                        ))}
-                      </div>
-                      <textarea className="w-full bg-white rounded-md px-3 py-2 border border-gray-200 shadow-sm text-sm h-10" value={showarounds} onChange={(e) => setShowarounds(e.target.value)} placeholder="e.g. John Doe, Jane Smith" />
-                    </div>
-                  </div>
+                <div className="text-xs text-white/80">Data completion {dataCompletion}%</div>
+                <div className="flex items-center gap-3">
+                  <div className="text-sm text-white/90">{exists ? "Editing today's entry" : 'New entry for today'}</div>
+                  <DialogClose asChild>
+                    <Button variant="ghost" className="text-white/90 hover:bg-white/15 hover:text-white">
+                      Close
+                    </Button>
+                  </DialogClose>
                 </div>
               </div>
-
-              <div className="col-span-2">
-                <div role="button" tabIndex={0} aria-expanded={openSection === 'falls'} onClick={() => toggleSection('falls')} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSection('falls'); } }} className="cursor-pointer bg-slate-50 rounded-xl p-3 border border-slate-100">
-                  <div className="flex items-center justify-between"><span className="font-medium text-sm">Falls</span><span className="text-sm text-gray-600">Total: {fallsCount || 0}</span></div>
-                </div>
-                {openSection === 'falls' && (
-                  <div className="bg-slate-50 rounded-b-xl p-3 border border-slate-100 mt-0">
-                  <div className="mb-3">
-                      <Button variant="ghost" size="sm" onClick={addFallEntry}>Add entry</Button>
-                  </div>
-                  {fallsEntries.length === 0 && <div className="text-sm text-gray-500 mb-2">No individual fall entries. Add one or enter an aggregate count.</div>}
-                  <div className="space-y-3">
-                    {fallsEntries.map(entry => (
-                      <div key={entry.id} className="grid grid-cols-12 gap-2 items-center">
-                        <div className="col-span-2">
-                          <Label className="mb-1">Count</Label>
-                  <Input type="number" value={entry.count} onChange={(e) => updateFallEntry(entry.id, { count: Number(e.target.value || 0) })} className="text-sm h-10" />
-                        </div>
-                        <div className="col-span-4">
-                          <Label className="mb-1">Injuries</Label>
-                          <Input value={entry.injuries} onChange={(e) => updateFallEntry(entry.id, { injuries: e.target.value })} className="text-sm h-10" />
-                        </div>
-                        <div className="col-span-3">
-                          <Label className="mb-1">Witnessed</Label>
-                          <Input value={entry.witnessed} onChange={(e) => updateFallEntry(entry.id, { witnessed: e.target.value })} className="text-sm h-10" />
-                        </div>
-                        <div className="col-span-2">
-                          <Label className="mb-1">Time</Label>
-                          <Input value={entry.time} onChange={(e) => updateFallEntry(entry.id, { time: e.target.value })} className="text-sm h-10" />
-                        </div>
-                        <div className="col-span-1 flex items-end">
-                          <Button variant="destructive" size="sm" onClick={() => removeFallEntry(entry.id)}>Remove</Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mt-3">
-                    <div>
-                      <label className="text-xs text-gray-600">Aggregate count (optional)</label>
-                      <input type="number" value={fallsCount as any} onChange={(e) => setFallsCount(e.target.value === '' ? '' : Number(e.target.value))} className="w-full border rounded px-3 py-2 text-sm h-10" />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-600">Injuries (summary)</label>
-                      <input value={fallsInjuries} onChange={(e) => setFallsInjuries(e.target.value)} className="w-full border rounded px-3 py-2 text-sm h-10" />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-600">Witnessed (summary)</label>
-                      <input value={fallsWitnessed} onChange={(e) => setFallsWitnessed(e.target.value)} className="w-full border rounded px-3 py-2 text-sm h-10" />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-600">Time (summary)</label>
-                      <input value={fallsTime} onChange={(e) => setFallsTime(e.target.value)} className="w-full border rounded px-3 py-2 text-sm h-10" />
-                    </div>
-                  </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Wounds */}
-              <div className="col-span-2">
-                <div role="button" tabIndex={0} aria-expanded={openSection === 'wounds'} onClick={() => toggleSection('wounds')} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSection('wounds'); } }} className="cursor-pointer bg-slate-50 rounded-xl p-3 border border-slate-100">
-                  <div className="font-medium text-sm">Wounds</div>
-                </div>
-                {openSection === 'wounds' && (
-                  <div className="bg-slate-50 rounded-b-xl p-3 border border-slate-100 mt-0">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="text-xs text-gray-600">Pressure</label>
-                      <input type="number" value={woundTypes.pressure as any} onChange={(e) => setWoundCount('pressure', e.target.value === '' ? 0 : Number(e.target.value))} className="w-full border rounded px-3 py-2 text-sm h-10" />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-600">Break</label>
-                      <input type="number" value={woundTypes.break as any} onChange={(e) => setWoundCount('break', e.target.value === '' ? 0 : Number(e.target.value))} className="w-full border rounded px-3 py-2 text-sm h-10" />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-600">Fracture</label>
-                      <input type="number" value={woundTypes.fracture as any} onChange={(e) => setWoundCount('fracture', e.target.value === '' ? 0 : Number(e.target.value))} className="w-full border rounded px-3 py-2 text-sm h-10" />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-600">Bruise</label>
-                      <input type="number" value={woundTypes.bruise as any} onChange={(e) => setWoundCount('bruise', e.target.value === '' ? 0 : Number(e.target.value))} className="w-full border rounded px-3 py-2 text-sm h-10" />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-600">Skin tear</label>
-                      <input type="number" value={woundTypes.skintear as any} onChange={(e) => setWoundCount('skintear', e.target.value === '' ? 0 : Number(e.target.value))} className="w-full border rounded px-3 py-2 text-sm h-10" />
-                    </div>
-                  </div>
-                  <div className="mt-3">
-                    <label className="text-xs text-gray-600">Details / counts</label>
-                    <textarea className="w-full bg-white rounded-md px-3 py-2 border border-gray-200 shadow-sm text-sm h-10" value={woundsDetail} onChange={(e) => setWoundsDetail(e.target.value)} />
-                  </div>
-                </div>
-              )}
-              </div>
-
-              {/* Infections */}
-              <div className="col-span-2">
-                <div role="button" tabIndex={0} aria-expanded={openSection === 'infections'} onClick={() => toggleSection('infections')} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSection('infections'); } }} className="cursor-pointer bg-slate-50 rounded-xl p-3 border border-slate-100">
-                  <div className="font-medium text-sm">Infections</div>
-                </div>
-                {openSection === 'infections' && (
-                  <div className="bg-slate-50 rounded-b-xl p-3 border border-slate-100 mt-0">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="text-xs text-gray-600">UTI</label>
-                      <input className="w-full bg-white rounded-md px-3 py-2 border border-gray-200 shadow-sm text-sm h-10" type="number" value={infectionsUti as any} onChange={(e) => setInfectionsUti(e.target.value === '' ? '' : Number(e.target.value))} />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-600">Chest</label>
-                      <input className="w-full bg-white rounded-md px-3 py-2 border border-gray-200 shadow-sm text-sm h-10" type="number" value={infectionsChest as any} onChange={(e) => setInfectionsChest(e.target.value === '' ? '' : Number(e.target.value))} />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-600">Wound</label>
-                      <input className="w-full bg-white rounded-md px-3 py-2 border border-gray-200 shadow-sm text-sm h-10" type="number" value={infectionsWound as any} onChange={(e) => setInfectionsWound(e.target.value === '' ? '' : Number(e.target.value))} />
-                    </div>
-                  </div>
-                </div>
-              )}
-              </div>
-
-              {/* Review removed per request */}
             </div>
           </div>
 
-          {/* Footer */}
-          <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 flex justify-end items-center gap-3 flex-shrink-0">
+          <div className="bg-slate-50 p-4 sm:p-6">{renderStepContent()}</div>
+
+          <div className="flex flex-shrink-0 items-center justify-between gap-3 border-t border-slate-200 bg-white px-4 py-4 sm:px-6">
             <DialogClose asChild>
               <Button variant="ghost">Cancel</Button>
             </DialogClose>
-            <Button onClick={save} disabled={loading || !validateOccupancy(occupancy) || !validateStaffing(staffDay, staffNight)} className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white">
-              {loading ? 'Saving...' : exists ? 'Save changes' : 'Save today'}
-            </Button>
+            <div className="flex items-center gap-2">
+              {currentStep > 0 && (
+                <Button variant="outline" onClick={goToPreviousStep} disabled={loading}>
+                  Back
+                </Button>
+              )}
+              <Button
+                className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white"
+                onClick={currentStep === totalSteps - 1 ? save : goToNextStep}
+                disabled={currentStep === totalSteps - 1 ? loading || !coreInfoComplete : loading || !canProceedFromStep(currentStep)}
+              >
+                {currentStep === totalSteps - 1 ? (loading ? 'Saving...' : exists ? 'Save changes' : 'Save today') : 'Next'}
+              </Button>
+            </div>
           </div>
-        </div>
         </DialogContent>
       </Dialog>
     </>
