@@ -179,49 +179,49 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
   const [inviteDurations, setInviteDurations] = useState<Record<string, number>>({});
   const { toast } = useToast();
   const [editingManager, setEditingManager] = useState<string | null>(null);
-  const [newManager, setNewManager] = useState({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' as 'weekly' | 'monthly' });
+  const [newManager, setNewManager] = useState<{ name: string; roles: string; email: string; phone: string; contractedHours: number | ''; hoursType: 'weekly' | 'monthly' }>({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' });
   const [managersError, setManagersError] = useState<string | null>(null);
 
   // Nurses state
   const [nurses, setNurses] = useState<Nurse[]>([]);
   const [nursesLoading, setNursesLoading] = useState(false);
   const [editingNurse, setEditingNurse] = useState<string | null>(null);
-  const [newNurse, setNewNurse] = useState({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' as 'weekly' | 'monthly' });
+  const [newNurse, setNewNurse] = useState<{ name: string; roles: string; email: string; phone: string; contractedHours: number | ''; hoursType: 'weekly' | 'monthly' }>({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' });
   const [nursesError, setNursesError] = useState<string | null>(null);
 
   // CTMs state
   const [ctms, setCTMs] = useState<CTM[]>([]);
   const [ctmsLoading, setCTMsLoading] = useState(false);
   const [editingCTM, setEditingCTM] = useState<string | null>(null);
-  const [newCTM, setNewCTM] = useState({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' as 'weekly' | 'monthly' });
+  const [newCTM, setNewCTM] = useState<{ name: string; roles: string; email: string; phone: string; contractedHours: number | ''; hoursType: 'weekly' | 'monthly' }>({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' });
   const [ctmsError, setCTMsError] = useState<string | null>(null);
 
   // Domestic state
   const [domestics, setDomestics] = useState<Domestic[]>([]);
   const [domesticsLoading, setDomesticsLoading] = useState(false);
   const [editingDomestic, setEditingDomestic] = useState<string | null>(null);
-  const [newDomestic, setNewDomestic] = useState({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' as 'weekly' | 'monthly' });
+  const [newDomestic, setNewDomestic] = useState<{ name: string; roles: string; email: string; phone: string; contractedHours: number | ''; hoursType: 'weekly' | 'monthly' }>({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' });
   const [domesticsError, setDomesticsError] = useState<string | null>(null);
 
   // Maintenance state
   const [maintenances, setMaintenances] = useState<Maintenance[]>([]);
   const [maintenancesLoading, setMaintenancesLoading] = useState(false);
   const [editingMaintenance, setEditingMaintenance] = useState<string | null>(null);
-  const [newMaintenance, setNewMaintenance] = useState({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' as 'weekly' | 'monthly' });
+  const [newMaintenance, setNewMaintenance] = useState<{ name: string; roles: string; email: string; phone: string; contractedHours: number | ''; hoursType: 'weekly' | 'monthly' }>({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' });
   const [maintenancesError, setMaintenancesError] = useState<string | null>(null);
 
   // Kitchen state
   const [kitchens, setKitchens] = useState<Kitchen[]>([]);
   const [kitchensLoading, setKitchensLoading] = useState(false);
   const [editingKitchen, setEditingKitchen] = useState<string | null>(null);
-  const [newKitchen, setNewKitchen] = useState({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' as 'weekly' | 'monthly' });
+  const [newKitchen, setNewKitchen] = useState<{ name: string; roles: string; email: string; phone: string; contractedHours: number | ''; hoursType: 'weekly' | 'monthly' }>({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' });
   const [kitchensError, setKitchensError] = useState<string | null>(null);
 
   // Activities state
   const [activities, setActivities] = useState<Activities[]>([]);
   const [activitiesLoading, setActivitiesLoading] = useState(false);
   const [editingActivity, setEditingActivity] = useState<string | null>(null);
-  const [newActivity, setNewActivity] = useState({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' as 'weekly' | 'monthly' });
+  const [newActivity, setNewActivity] = useState<{ name: string; roles: string; email: string; phone: string; contractedHours: number | ''; hoursType: 'weekly' | 'monthly' }>({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' });
   const [activitiesError, setActivitiesError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -905,7 +905,12 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     
     const managerToAdd: Manager = {
       id: Date.now().toString(),
-      ...newManager,
+      name: newManager.name,
+      roles: newManager.roles,
+      email: newManager.email,
+      phone: newManager.phone,
+      contractedHours: typeof newManager.contractedHours === 'number' && !isNaN(newManager.contractedHours) ? newManager.contractedHours : 40,
+      hoursType: newManager.hoursType || 'weekly',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -1168,7 +1173,12 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     
     const nurseToAdd: Nurse = {
       id: Date.now().toString(),
-      ...newNurse,
+      name: newNurse.name,
+      roles: newNurse.roles,
+      email: newNurse.email,
+      phone: newNurse.phone,
+      contractedHours: typeof newNurse.contractedHours === 'number' && !isNaN(newNurse.contractedHours) ? newNurse.contractedHours : 40,
+      hoursType: newNurse.hoursType || 'weekly',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -1217,7 +1227,12 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     
     const ctmToAdd: CTM = {
       id: Date.now().toString(),
-      ...newCTM,
+      name: newCTM.name,
+      roles: newCTM.roles,
+      email: newCTM.email,
+      phone: newCTM.phone,
+      contractedHours: typeof newCTM.contractedHours === 'number' && !isNaN(newCTM.contractedHours) ? newCTM.contractedHours : 40,
+      hoursType: newCTM.hoursType || 'weekly',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -1268,7 +1283,12 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     
     const domesticToAdd: Domestic = {
       id: Date.now().toString(),
-      ...newDomestic,
+      name: newDomestic.name,
+      roles: newDomestic.roles,
+      email: newDomestic.email,
+      phone: newDomestic.phone,
+      contractedHours: typeof newDomestic.contractedHours === 'number' && !isNaN(newDomestic.contractedHours) ? newDomestic.contractedHours : 40,
+      hoursType: newDomestic.hoursType || 'weekly',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -1319,7 +1339,12 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     
     const maintenanceToAdd: Maintenance = {
       id: Date.now().toString(),
-      ...newMaintenance,
+      name: newMaintenance.name,
+      roles: newMaintenance.roles,
+      email: newMaintenance.email,
+      phone: newMaintenance.phone,
+      contractedHours: typeof newMaintenance.contractedHours === 'number' && !isNaN(newMaintenance.contractedHours) ? newMaintenance.contractedHours : 40,
+      hoursType: newMaintenance.hoursType || 'weekly',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -1370,7 +1395,12 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     
     const kitchenToAdd: Kitchen = {
       id: Date.now().toString(),
-      ...newKitchen,
+      name: newKitchen.name,
+      roles: newKitchen.roles,
+      email: newKitchen.email,
+      phone: newKitchen.phone,
+      contractedHours: typeof newKitchen.contractedHours === 'number' && !isNaN(newKitchen.contractedHours) ? newKitchen.contractedHours : 40,
+      hoursType: newKitchen.hoursType || 'weekly',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -1421,7 +1451,12 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     
     const activityToAdd: Activities = {
       id: Date.now().toString(),
-      ...newActivity,
+      name: newActivity.name,
+      roles: newActivity.roles,
+      email: newActivity.email,
+      phone: newActivity.phone,
+      contractedHours: typeof newActivity.contractedHours === 'number' && !isNaN(newActivity.contractedHours) ? newActivity.contractedHours : 40,
+      hoursType: newActivity.hoursType || 'weekly',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -1741,8 +1776,8 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                         type="number"
                         min={1}
                         max={168}
-                        value={String(newManager.contractedHours)}
-                        onChange={(e) => setNewManager(prev => ({ ...prev, contractedHours: parseInt(e.target.value, 10) || 40 }))}
+                        value={newManager.contractedHours === '' ? '' : String(newManager.contractedHours)}
+                        onChange={(e) => setNewManager(prev => ({ ...prev, contractedHours: e.target.value === '' ? '' : parseInt(e.target.value, 10) }))}
                         placeholder="e.g. 40"
                       />
                     </div>
@@ -1888,7 +1923,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">Contracted Hours</label>
-                      <Input type="number" min={1} max={168} value={String(newNurse.contractedHours)} onChange={(e) => setNewNurse(prev => ({ ...prev, contractedHours: parseInt(e.target.value, 10) || 40 }))} />
+                      <Input type="number" min={1} max={168} value={newNurse.contractedHours === '' ? '' : String(newNurse.contractedHours)} onChange={(e) => setNewNurse(prev => ({ ...prev, contractedHours: e.target.value === '' ? '' : parseInt(e.target.value, 10) }))} />
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">Hours Type</label>
@@ -2033,7 +2068,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">Contracted Hours</label>
-                      <Input type="number" min={1} max={168} value={String(newCTM.contractedHours)} onChange={(e) => setNewCTM(prev => ({ ...prev, contractedHours: parseInt(e.target.value, 10) || 40 }))} />
+                      <Input type="number" min={1} max={168} value={newCTM.contractedHours === '' ? '' : String(newCTM.contractedHours)} onChange={(e) => setNewCTM(prev => ({ ...prev, contractedHours: e.target.value === '' ? '' : parseInt(e.target.value, 10) }))} />
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">Hours Type</label>
@@ -2176,6 +2211,22 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                         onChange={(e) => setNewDomestic(prev => ({ ...prev, phone: e.target.value }))}
                       />
                     </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Contracted Hours</label>
+                      <Input type="number" min={1} max={168} value={newDomestic.contractedHours === '' ? '' : String(newDomestic.contractedHours)} onChange={(e) => setNewDomestic(prev => ({ ...prev, contractedHours: e.target.value === '' ? '' : parseInt(e.target.value, 10) }))} placeholder="e.g. 40" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Hours Type</label>
+                      <Select value={newDomestic.hoursType} onValueChange={(v: 'weekly' | 'monthly') => setNewDomestic(prev => ({ ...prev, hoursType: v }))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                   <div className="mt-4">
                     <Button 
@@ -2307,7 +2358,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">Contracted Hours</label>
-                      <Input type="number" min={1} max={168} value={String(newMaintenance.contractedHours)} onChange={(e) => setNewMaintenance(prev => ({ ...prev, contractedHours: parseInt(e.target.value, 10) || 40 }))} />
+                      <Input type="number" min={1} max={168} value={newMaintenance.contractedHours === '' ? '' : String(newMaintenance.contractedHours)} onChange={(e) => setNewMaintenance(prev => ({ ...prev, contractedHours: e.target.value === '' ? '' : parseInt(e.target.value, 10) }))} />
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">Hours Type</label>
@@ -2452,7 +2503,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">Contracted Hours</label>
-                      <Input type="number" min={1} max={168} value={String(newKitchen.contractedHours)} onChange={(e) => setNewKitchen(prev => ({ ...prev, contractedHours: parseInt(e.target.value, 10) || 40 }))} />
+                      <Input type="number" min={1} max={168} value={newKitchen.contractedHours === '' ? '' : String(newKitchen.contractedHours)} onChange={(e) => setNewKitchen(prev => ({ ...prev, contractedHours: e.target.value === '' ? '' : parseInt(e.target.value, 10) }))} />
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">Hours Type</label>
@@ -2560,7 +2611,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                   </h3>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">Name</label>
                       <Input
@@ -2594,6 +2645,22 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                         value={newActivity.phone}
                         onChange={(e) => setNewActivity(prev => ({ ...prev, phone: e.target.value }))}
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Contracted Hours</label>
+                      <Input type="number" min={1} max={168} value={newActivity.contractedHours === '' ? '' : String(newActivity.contractedHours)} onChange={(e) => setNewActivity(prev => ({ ...prev, contractedHours: e.target.value === '' ? '' : parseInt(e.target.value, 10) }))} placeholder="e.g. 40" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Hours Type</label>
+                      <Select value={newActivity.hoursType} onValueChange={(v: 'weekly' | 'monthly') => setNewActivity(prev => ({ ...prev, hoursType: v }))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                   <div className="mt-4">
@@ -2677,18 +2744,25 @@ interface ManagerCardProps {
 }
 
 function ManagerCard({ manager, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: ManagerCardProps) {
-  const [editForm, setEditForm] = useState({
+  const [editForm, setEditForm] = useState<{ name: string; roles: string; email: string; phone: string; contractedHours: number | ''; hoursType: 'weekly' | 'monthly' }>({
     name: manager.name,
     roles: manager.roles,
     email: manager.email,
     phone: manager.phone,
     contractedHours: manager.contractedHours ?? 40,
-    hoursType: manager.hoursType ?? 'weekly' as 'weekly' | 'monthly',
+    hoursType: manager.hoursType ?? 'weekly',
   });
 
   const handleSave = () => {
     if (editForm.name && editForm.email && editForm.phone) {
-      onSave(editForm);
+      onSave({
+        name: editForm.name,
+        roles: editForm.roles,
+        email: editForm.email,
+        phone: editForm.phone,
+        contractedHours: typeof editForm.contractedHours === 'number' && !isNaN(editForm.contractedHours) ? editForm.contractedHours : (manager.contractedHours ?? 40),
+        hoursType: editForm.hoursType,
+      });
     }
   };
 
@@ -2752,8 +2826,8 @@ function ManagerCard({ manager, isEditing, onEdit, onCancelEdit, onSave, onDelet
               type="number"
               min={1}
               max={168}
-              value={String(editForm.contractedHours)}
-              onChange={(e) => setEditForm(prev => ({ ...prev, contractedHours: parseInt(e.target.value, 10) || 40 }))}
+              value={editForm.contractedHours === '' ? '' : String(editForm.contractedHours)}
+              onChange={(e) => setEditForm(prev => ({ ...prev, contractedHours: e.target.value === '' ? '' : parseInt(e.target.value, 10) }))}
               placeholder="e.g. 40"
             />
           </div>
@@ -2789,7 +2863,7 @@ function ManagerCard({ manager, isEditing, onEdit, onCancelEdit, onSave, onDelet
                   roles: editForm.roles,
                   email: editForm.email,
                   phone: editForm.phone,
-                  contractedHours: editForm.contractedHours,
+                  contractedHours: typeof editForm.contractedHours === 'number' && !isNaN(editForm.contractedHours) ? editForm.contractedHours : (manager.contractedHours ?? 40),
                   hoursType: editForm.hoursType,
                 });
               }
@@ -2890,17 +2964,24 @@ interface NurseCardProps {
 }
 
 function NurseCard({ nurse, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: NurseCardProps) {
-  const [editForm, setEditForm] = useState({
+  const [editForm, setEditForm] = useState<{ name: string; roles: string; email: string; phone: string; contractedHours: number | ''; hoursType: 'weekly' | 'monthly' }>({
     name: nurse.name,
     roles: nurse.roles,
     email: nurse.email,
     phone: nurse.phone,
     contractedHours: nurse.contractedHours ?? 40,
-    hoursType: nurse.hoursType ?? 'weekly' as 'weekly' | 'monthly',
+    hoursType: nurse.hoursType ?? 'weekly',
   });
 
   const handleSave = () => {
-    onSave(editForm);
+    onSave({
+      name: editForm.name,
+      roles: editForm.roles,
+      email: editForm.email,
+      phone: editForm.phone,
+      contractedHours: typeof editForm.contractedHours === 'number' && !isNaN(editForm.contractedHours) ? editForm.contractedHours : (nurse.contractedHours ?? 40),
+      hoursType: editForm.hoursType,
+    });
   };
 
   const handleCancel = () => {
@@ -2955,7 +3036,7 @@ function NurseCard({ nurse, isEditing, onEdit, onCancelEdit, onSave, onDelete, d
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Contracted Hours</label>
-                      <Input type="number" min={1} max={168} value={String(editForm.contractedHours ?? 40)} onChange={(e) => setEditForm(prev => ({ ...prev, contractedHours: parseInt(e.target.value, 10) || 40 }))} placeholder="e.g. 40" />
+                      <Input type="number" min={1} max={168} value={editForm.contractedHours === '' ? '' : String(editForm.contractedHours)} onChange={(e) => setEditForm(prev => ({ ...prev, contractedHours: e.target.value === '' ? '' : parseInt(e.target.value, 10) }))} placeholder="e.g. 40" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Hours Type</label>
@@ -2978,7 +3059,7 @@ function NurseCard({ nurse, isEditing, onEdit, onCancelEdit, onSave, onDelete, d
                 roles: editForm.roles,
                 email: editForm.email,
                 phone: editForm.phone,
-                contractedHours: editForm.contractedHours,
+                contractedHours: typeof editForm.contractedHours === 'number' && !isNaN(editForm.contractedHours) ? editForm.contractedHours : (nurse.contractedHours ?? 40),
                 hoursType: editForm.hoursType,
               });
             }}
@@ -3005,7 +3086,7 @@ function NurseCard({ nurse, isEditing, onEdit, onCancelEdit, onSave, onDelete, d
 
   return (
     <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-100">
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-green-100 rounded-full">
             <UserCheck className="w-5 h-5 text-green-600" />
@@ -3079,13 +3160,13 @@ interface CTMCardProps {
 }
 
 function CTMCard({ ctm, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: CTMCardProps) {
-  const [editForm, setEditForm] = useState({
+  const [editForm, setEditForm] = useState<{ name: string; roles: string; email: string; phone: string; contractedHours: number | ''; hoursType: 'weekly' | 'monthly' }>({
     name: ctm.name,
     roles: ctm.roles,
     email: ctm.email,
     phone: ctm.phone,
     contractedHours: ctm.contractedHours ?? 40,
-    hoursType: ctm.hoursType ?? 'weekly' as 'weekly' | 'monthly',
+    hoursType: ctm.hoursType ?? 'weekly',
   });
 
   const handleSave = () => {
@@ -3094,7 +3175,7 @@ function CTMCard({ ctm, isEditing, onEdit, onCancelEdit, onSave, onDelete, disab
       roles: editForm.roles,
       email: editForm.email,
       phone: editForm.phone,
-      contractedHours: editForm.contractedHours,
+      contractedHours: typeof editForm.contractedHours === 'number' && !isNaN(editForm.contractedHours) ? editForm.contractedHours : (ctm.contractedHours ?? 40),
       hoursType: editForm.hoursType,
     });
   };
@@ -3133,7 +3214,7 @@ function CTMCard({ ctm, isEditing, onEdit, onCancelEdit, onSave, onDelete, disab
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Contracted Hours</label>
-            <Input type="number" min={1} max={168} value={String(editForm.contractedHours)} onChange={(e) => setEditForm(prev => ({ ...prev, contractedHours: parseInt(e.target.value, 10) || 40 }))} placeholder="e.g. 40" />
+            <Input type="number" min={1} max={168} value={editForm.contractedHours === '' ? '' : String(editForm.contractedHours)} onChange={(e) => setEditForm(prev => ({ ...prev, contractedHours: e.target.value === '' ? '' : parseInt(e.target.value, 10) }))} placeholder="e.g. 40" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Hours Type</label>
@@ -3162,7 +3243,7 @@ function CTMCard({ ctm, isEditing, onEdit, onCancelEdit, onSave, onDelete, disab
 
   return (
     <div className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-50 to-violet-50 rounded-lg border border-purple-100">
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
+  <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-purple-100 rounded-full">
             <UserCheck className="w-5 h-5 text-purple-600" />
@@ -3197,6 +3278,15 @@ function CTMCard({ ctm, isEditing, onEdit, onCancelEdit, onSave, onDelete, disab
           <div>
             <p className="text-sm font-medium text-gray-900">{ctm.phone}</p>
             <p className="text-xs text-gray-500">Phone number</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <Clock className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{ctm.contractedHours ?? 40}h/{(ctm.hoursType || 'weekly') === 'weekly' ? 'wk' : 'mo'}</p>
+            <p className="text-xs text-gray-500">Contracted</p>
           </div>
         </div>
       </div>
@@ -3237,15 +3327,24 @@ interface DomesticCardProps {
 }
 
 function DomesticCard({ domestic, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: DomesticCardProps) {
-  const [editForm, setEditForm] = useState({
+  const [editForm, setEditForm] = useState<{ name: string; roles: string; email: string; phone: string; contractedHours: number | ''; hoursType: 'weekly' | 'monthly' }>({
     name: domestic.name,
     roles: domestic.roles,
     email: domestic.email,
     phone: domestic.phone,
+    contractedHours: domestic.contractedHours ?? 40,
+    hoursType: domestic.hoursType ?? 'weekly',
   });
 
   const handleSave = () => {
-    onSave(editForm);
+    onSave({
+      name: editForm.name,
+      roles: editForm.roles,
+      email: editForm.email,
+      phone: editForm.phone,
+      contractedHours: typeof editForm.contractedHours === 'number' && !isNaN(editForm.contractedHours) ? editForm.contractedHours : (domestic.contractedHours ?? 40),
+      hoursType: editForm.hoursType,
+    });
   };
 
   const handleCancel = () => {
@@ -3254,14 +3353,16 @@ function DomesticCard({ domestic, isEditing, onEdit, onCancelEdit, onSave, onDel
       roles: domestic.roles,
       email: domestic.email,
       phone: domestic.phone,
+      contractedHours: domestic.contractedHours ?? 40,
+      hoursType: domestic.hoursType ?? 'weekly',
     });
     onCancelEdit();
   };
 
-  if (isEditing) {
-    return (
-      <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+    if (isEditing) {
+      return (
+        <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
             <Input
@@ -3296,6 +3397,22 @@ function DomesticCard({ domestic, isEditing, onEdit, onCancelEdit, onSave, onDel
               placeholder="+44 123 456 7890"
             />
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Contracted Hours</label>
+            <Input type="number" min={1} max={168} value={editForm.contractedHours === '' ? '' : String(editForm.contractedHours)} onChange={(e) => setEditForm(prev => ({ ...prev, contractedHours: e.target.value === '' ? '' : parseInt(e.target.value, 10) }))} placeholder="e.g. 40" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Hours Type</label>
+            <Select value={editForm.hoursType} onValueChange={(v: 'weekly' | 'monthly') => setEditForm(prev => ({ ...prev, hoursType: v }))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="weekly">Weekly</SelectItem>
+                <SelectItem value="monthly">Monthly</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <div className="flex gap-2">
           <Button
@@ -3323,7 +3440,7 @@ function DomesticCard({ domestic, isEditing, onEdit, onCancelEdit, onSave, onDel
 
   return (
     <div className="flex items-center justify-between p-4 bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg border border-orange-100">
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-orange-100 rounded-full">
             <UserCheck className="w-5 h-5 text-orange-600" />
@@ -3358,6 +3475,15 @@ function DomesticCard({ domestic, isEditing, onEdit, onCancelEdit, onSave, onDel
           <div>
             <p className="text-sm font-medium text-gray-900">{domestic.phone}</p>
             <p className="text-xs text-gray-500">Phone number</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <Clock className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{domestic.contractedHours ?? 40}h/{(domestic.hoursType || 'weekly') === 'weekly' ? 'wk' : 'mo'}</p>
+            <p className="text-xs text-gray-500">Contracted</p>
           </div>
         </div>
       </div>
@@ -3397,15 +3523,24 @@ interface MaintenanceCardProps {
 }
 
 function MaintenanceCard({ maintenance, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: MaintenanceCardProps) {
-  const [editForm, setEditForm] = useState({
+  const [editForm, setEditForm] = useState<{ name: string; roles: string; email: string; phone: string; contractedHours: number | ''; hoursType: 'weekly' | 'monthly' }>({
     name: maintenance.name,
     roles: maintenance.roles,
     email: maintenance.email,
     phone: maintenance.phone,
+    contractedHours: maintenance.contractedHours ?? 40,
+    hoursType: maintenance.hoursType ?? 'weekly',
   });
 
   const handleSave = () => {
-    onSave(editForm);
+    onSave({
+      name: editForm.name,
+      roles: editForm.roles,
+      email: editForm.email,
+      phone: editForm.phone,
+      contractedHours: typeof editForm.contractedHours === 'number' && !isNaN(editForm.contractedHours) ? editForm.contractedHours : (maintenance.contractedHours ?? 40),
+      hoursType: editForm.hoursType,
+    });
   };
 
   const handleCancel = () => {
@@ -3414,6 +3549,8 @@ function MaintenanceCard({ maintenance, isEditing, onEdit, onCancelEdit, onSave,
       roles: maintenance.roles,
       email: maintenance.email,
       phone: maintenance.phone,
+      contractedHours: maintenance.contractedHours ?? 40,
+      hoursType: maintenance.hoursType ?? 'weekly',
     });
     onCancelEdit();
   };
@@ -3421,7 +3558,7 @@ function MaintenanceCard({ maintenance, isEditing, onEdit, onCancelEdit, onSave,
   if (isEditing) {
     return (
       <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+  <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
             <Input
@@ -3456,6 +3593,22 @@ function MaintenanceCard({ maintenance, isEditing, onEdit, onCancelEdit, onSave,
               placeholder="+44 123 456 7890"
             />
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Contracted Hours</label>
+            <Input type="number" min={1} max={168} value={editForm.contractedHours === '' ? '' : String(editForm.contractedHours)} onChange={(e) => setEditForm(prev => ({ ...prev, contractedHours: e.target.value === '' ? '' : parseInt(e.target.value, 10) }))} placeholder="e.g. 40" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Hours Type</label>
+            <Select value={editForm.hoursType} onValueChange={(v: 'weekly' | 'monthly') => setEditForm(prev => ({ ...prev, hoursType: v }))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="weekly">Weekly</SelectItem>
+                <SelectItem value="monthly">Monthly</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <div className="flex gap-2">
           <Button
@@ -3481,9 +3634,9 @@ function MaintenanceCard({ maintenance, isEditing, onEdit, onCancelEdit, onSave,
     );
   }
 
-  return (
-    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-slate-50 rounded-lg border border-gray-100">
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
+    return (
+      <div className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-slate-50 rounded-lg border border-gray-100">
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-gray-100 rounded-full">
             <UserCheck className="w-5 h-5 text-gray-600" />
@@ -3518,6 +3671,15 @@ function MaintenanceCard({ maintenance, isEditing, onEdit, onCancelEdit, onSave,
           <div>
             <p className="text-sm font-medium text-gray-900">{maintenance.phone}</p>
             <p className="text-xs text-gray-500">Phone number</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <Clock className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{maintenance.contractedHours ?? 40}h/{(maintenance.hoursType || 'weekly') === 'weekly' ? 'wk' : 'mo'}</p>
+            <p className="text-xs text-gray-500">Contracted</p>
           </div>
         </div>
       </div>
@@ -3557,15 +3719,24 @@ interface KitchenCardProps {
 }
 
 function KitchenCard({ kitchen, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: KitchenCardProps) {
-  const [editForm, setEditForm] = useState({
+  const [editForm, setEditForm] = useState<{ name: string; roles: string; email: string; phone: string; contractedHours: number | ''; hoursType: 'weekly' | 'monthly' }>({
     name: kitchen.name,
     roles: kitchen.roles,
     email: kitchen.email,
     phone: kitchen.phone,
+    contractedHours: kitchen.contractedHours ?? 40,
+    hoursType: kitchen.hoursType ?? 'weekly',
   });
 
   const handleSave = () => {
-    onSave(editForm);
+    onSave({
+      name: editForm.name,
+      roles: editForm.roles,
+      email: editForm.email,
+      phone: editForm.phone,
+      contractedHours: typeof editForm.contractedHours === 'number' && !isNaN(editForm.contractedHours) ? editForm.contractedHours : (kitchen.contractedHours ?? 40),
+      hoursType: editForm.hoursType,
+    });
   };
 
   const handleCancel = () => {
@@ -3574,6 +3745,8 @@ function KitchenCard({ kitchen, isEditing, onEdit, onCancelEdit, onSave, onDelet
       roles: kitchen.roles,
       email: kitchen.email,
       phone: kitchen.phone,
+      contractedHours: kitchen.contractedHours ?? 40,
+      hoursType: kitchen.hoursType ?? 'weekly',
     });
     onCancelEdit();
   };
@@ -3581,7 +3754,7 @@ function KitchenCard({ kitchen, isEditing, onEdit, onCancelEdit, onSave, onDelet
   if (isEditing) {
     return (
       <div className="p-4 bg-red-50 rounded-lg border border-red-200">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+  <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
             <Input
@@ -3615,6 +3788,22 @@ function KitchenCard({ kitchen, isEditing, onEdit, onCancelEdit, onSave, onDelet
               onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
               placeholder="+44 123 456 7890"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Contracted Hours</label>
+            <Input type="number" min={1} max={168} value={editForm.contractedHours === '' ? '' : String(editForm.contractedHours)} onChange={(e) => setEditForm(prev => ({ ...prev, contractedHours: e.target.value === '' ? '' : parseInt(e.target.value, 10) }))} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Hours Type</label>
+            <Select value={editForm.hoursType} onValueChange={(v: 'weekly' | 'monthly') => setEditForm(prev => ({ ...prev, hoursType: v }))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="weekly">Weekly</SelectItem>
+                <SelectItem value="monthly">Monthly</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
         <div className="flex gap-2">
@@ -3680,6 +3869,15 @@ function KitchenCard({ kitchen, isEditing, onEdit, onCancelEdit, onSave, onDelet
             <p className="text-xs text-gray-500">Phone number</p>
           </div>
         </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <Clock className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{kitchen.contractedHours ?? 40}h/{(kitchen.hoursType || 'weekly') === 'weekly' ? 'wk' : 'mo'}</p>
+            <p className="text-xs text-gray-500">Contracted</p>
+          </div>
+        </div>
       </div>
       <div className="flex items-center gap-2 ml-4">
         <Button
@@ -3717,15 +3915,24 @@ interface ActivityCardProps {
 }
 
 function ActivityCard({ activity, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: ActivityCardProps) {
-  const [editForm, setEditForm] = useState({
+  const [editForm, setEditForm] = useState<{ name: string; roles: string; email: string; phone: string; contractedHours: number | ''; hoursType: 'weekly' | 'monthly' }>({
     name: activity.name,
     roles: activity.roles,
     email: activity.email,
     phone: activity.phone,
+    contractedHours: activity.contractedHours ?? 40,
+    hoursType: activity.hoursType ?? 'weekly',
   });
 
   const handleSave = () => {
-    onSave(editForm);
+    onSave({
+      name: editForm.name,
+      roles: editForm.roles,
+      email: editForm.email,
+      phone: editForm.phone,
+      contractedHours: typeof editForm.contractedHours === 'number' && !isNaN(editForm.contractedHours) ? editForm.contractedHours : (activity.contractedHours ?? 40),
+      hoursType: editForm.hoursType,
+    });
   };
 
   const handleCancel = () => {
@@ -3734,6 +3941,8 @@ function ActivityCard({ activity, isEditing, onEdit, onCancelEdit, onSave, onDel
       roles: activity.roles,
       email: activity.email,
       phone: activity.phone,
+      contractedHours: activity.contractedHours ?? 40,
+      hoursType: activity.hoursType ?? 'weekly',
     });
     onCancelEdit();
   };
@@ -3741,7 +3950,7 @@ function ActivityCard({ activity, isEditing, onEdit, onCancelEdit, onSave, onDel
   if (isEditing) {
     return (
       <div className="p-4 bg-pink-50 rounded-lg border border-pink-200">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+  <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
             <Input
@@ -3776,6 +3985,22 @@ function ActivityCard({ activity, isEditing, onEdit, onCancelEdit, onSave, onDel
               placeholder="+44 123 456 7890"
             />
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Contracted Hours</label>
+            <Input type="number" min={1} max={168} value={editForm.contractedHours === '' ? '' : String(editForm.contractedHours)} onChange={(e) => setEditForm(prev => ({ ...prev, contractedHours: e.target.value === '' ? '' : parseInt(e.target.value, 10) }))} placeholder="e.g. 40" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Hours Type</label>
+            <Select value={editForm.hoursType} onValueChange={(v: 'weekly' | 'monthly') => setEditForm(prev => ({ ...prev, hoursType: v }))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="weekly">Weekly</SelectItem>
+                <SelectItem value="monthly">Monthly</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <div className="flex gap-2">
           <Button
@@ -3803,7 +4028,7 @@ function ActivityCard({ activity, isEditing, onEdit, onCancelEdit, onSave, onDel
 
   return (
     <div className="flex items-center justify-between p-4 bg-gradient-to-r from-pink-50 to-rose-50 rounded-lg border border-pink-100">
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
+  <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-pink-100 rounded-full">
             <UserCheck className="w-5 h-5 text-pink-600" />
@@ -3838,6 +4063,15 @@ function ActivityCard({ activity, isEditing, onEdit, onCancelEdit, onSave, onDel
           <div>
             <p className="text-sm font-medium text-gray-900">{activity.phone}</p>
             <p className="text-xs text-gray-500">Phone number</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <Clock className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{activity.contractedHours ?? 40}h/{(activity.hoursType || 'weekly') === 'weekly' ? 'wk' : 'mo'}</p>
+            <p className="text-xs text-gray-500">Contracted</p>
           </div>
         </div>
       </div>
