@@ -7,7 +7,10 @@ interface StatsOverviewProps {
   calculateNDPSScore: (resident: Resident) => number;
   calculateResidentCareMinutes: (resident: Resident) => { Day: number; Night: number };
   calculateNDPSStaffing: (residents: Resident[]) => { Day: number; Night: number };
-  calculateStaffBreakdown: (residents: Resident[]) => { 
+  calculateStaffBreakdown: (
+    residents: Resident[],
+    options?: { includeNurses?: boolean }
+  ) => { 
     Day: { nurses: number; ctms: number; carers: number; total: number }; 
     Night: { nurses: number; ctms: number; carers: number; total: number } 
   };
@@ -32,30 +35,32 @@ export function StatsOverview({
   openAddModal
 }: StatsOverviewProps) {
   const [showBandInfo, setShowBandInfo] = useState(false);
+  const [includeNurses, setIncludeNurses] = useState(true);
+  const [staffView, setStaffView] = useState<'total' | 'shift'>('total');
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6 mb-8">
+  <div className="grid grid-cols-1 md:grid-cols-4 gap-3 md:gap-4 mb-6">
       {/* Total Residents */}
       <div className="group relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-blue-500 to-blue-600 hover:shadow-xl text-white transition-all duration-300 rounded-2xl">
-        <div className="p-4 h-full flex flex-col">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="p-3 bg-white/15 backdrop-blur-sm rounded-2xl border border-white/20">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="p-3 h-full flex flex-col">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="p-2.5 bg-white/15 backdrop-blur-sm rounded-2xl border border-white/20">
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
             </div>
-            <div className="text-lg font-bold text-white">Total Residents</div>
+            <div className="text-base font-semibold text-white">Total Residents</div>
           </div>
           
           <div className="flex-1 flex flex-col justify-center">
-            <div className="text-center mb-4">
-              <div className="text-4xl font-bold text-white mb-2">{residents.length}</div>
-              <div className="text-sm text-blue-100">Active assessments</div>
+            <div className="text-center mb-3">
+              <div className="text-3xl font-bold text-white mb-1">{residents.length}</div>
+              <div className="text-xs text-blue-100 uppercase tracking-wide">Active assessments</div>
             </div>
             
             {/* Resident Status Breakdown */}
-            <div className="space-y-2 mb-4">
+            <div className="space-y-1.5 mb-3 text-sm">
               <div className="flex justify-between items-center">
-                <span className="text-xs text-blue-200">High Dependency:</span>
+                <span className="text-xs text-blue-200">High Dependency</span>
                 <span className="text-sm font-semibold text-white">
                   {residents.filter(r => {
                     const score = calculateNDPSScore(r);
@@ -75,7 +80,7 @@ export function StatsOverview({
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-xs text-blue-200">Low Dependency:</span>
+                <span className="text-xs text-blue-200">Low Dependency</span>
                 <span className="text-sm font-semibold text-white">
                   {residents.filter(r => {
                     const score = calculateNDPSScore(r);
@@ -89,7 +94,7 @@ export function StatsOverview({
             {openAddModal && (
               <button
                 onClick={openAddModal}
-                className="w-full bg-white/20 hover:bg-white/30 text-white border-white/30 hover:border-white/50 transition-colors duration-200 text-sm font-medium flex items-center justify-center gap-2 px-3 py-2 rounded-lg backdrop-blur-sm"
+                className="w-full bg-white/20 hover:bg-white/30 text-white border-white/30 hover:border-white/50 transition-colors duration-200 text-sm font-medium flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg backdrop-blur-sm"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -103,29 +108,29 @@ export function StatsOverview({
 
       {/* NDPS Banding Key */}
       <div className="group relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-emerald-500 to-green-600 hover:shadow-xl text-white transition-all duration-300 rounded-2xl">
-        <div className="p-4 h-full flex flex-col">
-          <div className="flex items-center justify-between mb-4">
+        <div className="p-3 h-full flex flex-col">
+          <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <div className="p-3 bg-white/15 backdrop-blur-sm rounded-2xl border border-white/20">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="p-2.5 bg-white/15 backdrop-blur-sm rounded-2xl border border-white/20">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <div className="text-lg font-bold text-white">Banding Key</div>
+              <div className="text-base font-semibold text-white">Banding Key</div>
             </div>
             <button
               onClick={() => setShowBandInfo(true)}
-              className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center hover:bg-white/20 transition-colors duration-200"
+              className="w-7 h-7 bg-white/10 rounded-lg flex items-center justify-center hover:bg-white/20 transition-colors duration-200"
               title="More information about bands"
             >
-              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </button>
           </div>
           
           <div className="flex-1 flex flex-col justify-center">
-            <div className="space-y-3 mb-4">
+            <div className="space-y-2.5 mb-3 text-sm">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 bg-green-300 rounded-full"></div>
@@ -173,7 +178,7 @@ export function StatsOverview({
               </div>
             </div>
             
-            <div className="pt-3 border-t border-white/20">
+            <div className="pt-2 border-t border-white/20">
               <div className="text-xs text-emerald-100 font-medium text-center">NDPS Dependency Bands</div>
             </div>
           </div>
@@ -182,20 +187,20 @@ export function StatsOverview({
 
       {/* Staff Ratios */}
       <div className="group relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-purple-500 to-purple-600 hover:shadow-xl text-white transition-all duration-300 rounded-2xl">
-        <div className="p-4 h-full flex flex-col">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="p-3 bg-white/15 backdrop-blur-sm rounded-2xl border border-white/20">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="p-3 h-full flex flex-col">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="p-2.5 bg-white/15 backdrop-blur-sm rounded-2xl border border-white/20">
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
             </div>
-            <div className="text-lg font-bold text-white">Staff Ratios</div>
+            <div className="text-base font-semibold text-white">Staff Ratios</div>
           </div>
           
           <div className="flex-1 flex flex-col justify-center">
-            <div className="grid grid-cols-2 gap-4 text-center mb-4">
-              <div className="bg-white/10 rounded-lg p-3">
-                <div className="text-2xl font-bold text-white mb-1">
+            <div className="grid grid-cols-2 gap-3 text-center mb-3">
+              <div className="bg-white/10 rounded-lg p-2.5">
+                <div className="text-xl font-bold text-white mb-1">
                   {(() => {
                     const dayStaff = calculateNDPSStaffing(residents).Day;
                     return residents.length > 0 && dayStaff > 0 ? (Math.round((residents.length / dayStaff) * 100) / 100) : 0;
@@ -203,8 +208,8 @@ export function StatsOverview({
                 </div>
                 <div className="text-xs text-purple-200 font-medium">Day Ratio</div>
               </div>
-              <div className="bg-white/10 rounded-lg p-3">
-                <div className="text-2xl font-bold text-white mb-1">
+              <div className="bg-white/10 rounded-lg p-2.5">
+                <div className="text-xl font-bold text-white mb-1">
                   {(() => {
                     const nightStaff = calculateNDPSStaffing(residents).Night;
                     return residents.length > 0 && nightStaff > 0 ? (Math.round((residents.length / nightStaff) * 100) / 100) : 0;
@@ -215,7 +220,7 @@ export function StatsOverview({
             </div>
             
             {/* Additional Ratio Information */}
-            <div className="space-y-2">
+            <div className="space-y-1.5 text-sm">
               <div className="flex justify-between items-center">
                 <span className="text-xs text-purple-200">Total Care Hours:</span>
                 <span className="text-sm font-semibold text-white">
@@ -241,69 +246,128 @@ export function StatsOverview({
 
       {/* Recommended Staff */}
       <div className="group relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-amber-500 to-orange-600 hover:shadow-xl text-white transition-all duration-300 rounded-2xl">
-        <div className="pb-3">
-          <div className="flex items-center gap-2 p-4">
-            <div className="p-3 bg-white/15 backdrop-blur-sm rounded-2xl border border-white/20">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="pb-2.5">
+          <div className="flex items-center gap-2 p-3">
+            <div className="p-2.5 bg-white/15 backdrop-blur-sm rounded-2xl border border-white/20">
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
               </svg>
             </div>
-            <div className="text-lg font-bold text-white mb-2">Staff Required</div>
+            <div className="text-base font-semibold text-white mb-1">Staff Required</div>
+            <div className="ml-auto flex items-center gap-2">
+              <div className="bg-white/10 rounded-full flex text-xs font-semibold overflow-hidden border border-white/20">
+                <button
+                  type="button"
+                  onClick={() => setStaffView('total')}
+                  className={`px-2.5 py-0.5 transition-colors duration-200 ${
+                    staffView === 'total' ? 'bg-white/30 text-white' : 'text-white/70 hover:text-white'
+                  }`}
+                  aria-pressed={staffView === 'total'}
+                >
+                  24h
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStaffView('shift')}
+                  className={`px-2.5 py-0.5 transition-colors duration-200 ${
+                    staffView === 'shift' ? 'bg-white/30 text-white' : 'text-white/70 hover:text-white'
+                  }`}
+                  aria-pressed={staffView === 'shift'}
+                >
+                  12h
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIncludeNurses((prev) => !prev)}
+                className={`px-2.5 py-0.5 text-xs font-semibold rounded-full border transition-colors duration-200 ${
+                  includeNurses ? 'bg-white/20 border-white/30 text-white hover:bg-white/30' : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+                }`}
+                aria-pressed={includeNurses}
+              >
+                Nurses {includeNurses ? 'On' : 'Off'}
+              </button>
+            </div>
           </div>
         </div>
-        <div className="p-4">
+        <div className="p-3">
           {(() => {
-            const breakdown = calculateStaffBreakdown(residents);
+            const breakdown = calculateStaffBreakdown(residents, { includeNurses });
+            const showNurses = includeNurses;
+            const totals = {
+              nurses: breakdown.Day.nurses + breakdown.Night.nurses,
+              ctms: breakdown.Day.ctms + breakdown.Night.ctms,
+              carers: breakdown.Day.carers + breakdown.Night.carers,
+              total: breakdown.Day.total + breakdown.Night.total,
+            };
+            if (staffView === 'total') {
+              const totalStats = [
+                showNurses ? { key: 'nurses', value: totals.nurses, label: 'Nurses (24h)' } : null,
+                { key: 'ctms', value: totals.ctms, label: 'CTMs (24h)' },
+                { key: 'carers', value: totals.carers, label: 'Carers (24h)' },
+              ].filter(Boolean) as { key: string; value: number; label: string }[];
+
+              return (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-1.5 text-center text-sm">
+                    {totalStats.map((stat) => (
+                      <div key={stat.key} className="bg-white/10 rounded-lg p-2">
+                        <div className="text-sm font-bold text-white">{stat.value}</div>
+                        <div className="text-xs text-amber-200">{stat.label}</div>
+                      </div>
+                    ))}
+                    <div className="bg-white/10 rounded-lg p-2 col-span-2">
+                      <div className="text-base font-bold text-white">{totals.total}</div>
+                      <div className="text-xs text-amber-200 font-medium">Total Staff (24h){includeNurses ? '' : ' • Nurses off'}</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
             return (
-              <>
-                {/* Day Shift Breakdown (no nurses) */}
-                <div className="mb-3">
-                  <div className="text-sm font-semibold text-amber-200 mb-2">Day Shift</div>
-                  <div className="grid grid-cols-3 gap-1 text-center">
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-1.5 text-center text-sm">
+                  {showNurses && (
                     <div className="bg-white/10 rounded-lg p-2">
-                      <div className="text-sm font-bold text-white">{breakdown.Day.ctms}</div>
-                      <div className="text-xs text-amber-200">CTMs</div>
+                      <div className="text-sm font-bold text-white">{breakdown.Day.nurses}</div>
+                      <div className="text-xs text-amber-200">Nurses (Day)</div>
                     </div>
-                    <div className="bg-white/10 rounded-lg p-2">
-                      <div className="text-sm font-bold text-white">{breakdown.Day.carers}</div>
-                      <div className="text-xs text-amber-200">Carers</div>
-                    </div>
-                    <div className="bg-white/10 rounded-lg p-2">
-                      <div className="text-sm font-bold text-white">{breakdown.Day.total}</div>
-                      <div className="text-xs text-amber-200">Total</div>
-                    </div>
+                  )}
+                  <div className="bg-white/10 rounded-lg p-2">
+                    <div className="text-sm font-bold text-white">{breakdown.Day.ctms}</div>
+                    <div className="text-xs text-amber-200">CTMs (Day)</div>
+                  </div>
+                  <div className="bg-white/10 rounded-lg p-2">
+                    <div className="text-sm font-bold text-white">{breakdown.Day.carers}</div>
+                    <div className="text-xs text-amber-200">Carers (Day)</div>
+                  </div>
+                  <div className={`bg-white/10 rounded-lg p-2 ${showNurses ? '' : 'col-span-2'}`}>
+                    <div className="text-sm font-bold text-white">{breakdown.Day.total}</div>
+                    <div className="text-xs text-amber-200">Total (Day)</div>
                   </div>
                 </div>
-
-                {/* Night Shift Breakdown (no nurses) */}
-                <div className="mb-3">
-                  <div className="text-sm font-semibold text-amber-200 mb-2">Night Shift</div>
-                  <div className="grid grid-cols-3 gap-1 text-center">
+                <div className="grid grid-cols-2 gap-1.5 text-center text-sm">
+                  {showNurses && (
                     <div className="bg-white/10 rounded-lg p-2">
-                      <div className="text-sm font-bold text-white">{breakdown.Night.ctms}</div>
-                      <div className="text-xs text-amber-200">CTMs</div>
+                      <div className="text-sm font-bold text-white">{breakdown.Night.nurses}</div>
+                      <div className="text-xs text-amber-200">Nurses (Night)</div>
                     </div>
-                    <div className="bg-white/10 rounded-lg p-2">
-                      <div className="text-sm font-bold text-white">{breakdown.Night.carers}</div>
-                      <div className="text-xs text-amber-200">Carers</div>
-                    </div>
-                    <div className="bg-white/10 rounded-lg p-2">
-                      <div className="text-sm font-bold text-white">{breakdown.Night.total}</div>
-                      <div className="text-xs text-amber-200">Total</div>
-                    </div>
+                  )}
+                  <div className="bg-white/10 rounded-lg p-2">
+                    <div className="text-sm font-bold text-white">{breakdown.Night.ctms}</div>
+                    <div className="text-xs text-amber-200">CTMs (Night)</div>
+                  </div>
+                  <div className="bg-white/10 rounded-lg p-2">
+                    <div className="text-sm font-bold text-white">{breakdown.Night.carers}</div>
+                    <div className="text-xs text-amber-200">Carers (Night)</div>
+                  </div>
+                  <div className={`bg-white/10 rounded-lg p-2 ${showNurses ? '' : 'col-span-2'}`}>
+                    <div className="text-sm font-bold text-white">{breakdown.Night.total}</div>
+                    <div className="text-xs text-amber-200">Total (Night)</div>
                   </div>
                 </div>
-
-                {/* Overall Totals */}
-                <div className="pt-2 border-t border-white/20">
-                  <div className="text-center">
-                    <div className="text-sm font-bold text-white">
-                      {breakdown.Day.total + breakdown.Night.total}
-                    </div>
-                    <div className="text-xs text-amber-200 font-medium">Total Staff (24h)</div>
-                  </div>
-                </div>
-              </>
+              </div>
             );
           })()}
         </div>

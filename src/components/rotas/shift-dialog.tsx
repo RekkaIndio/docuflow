@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -8,17 +8,26 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import type { StaffMember } from "./rotas-view";
-import { format } from "date-fns";
-import { Clock, User, AlertTriangle, CheckCircle } from "lucide-react";
+import type { StaffMember, Shift, ShiftPattern } from "./rotas-view";
+import { format, parseISO } from "date-fns";
+import { Clock, User, AlertTriangle, CheckCircle, Plane, Sparkles } from "lucide-react";
 
 interface ShiftDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   staff: StaffMember[];
-  onAddShift: (staffId: string, staffName: string, type: 'AM' | 'PM' | 'Night' | 'Full', startTime?: string, endTime?: string) => void;
+  onAddShift: (
+    date: string,
+    staffId: string,
+    staffName: string,
+    type: Shift['type'],
+    startTime?: string,
+    endTime?: string,
+    leaveMeta?: Shift['leave'],
+  ) => Promise<void> | void;
   date: string;
   calculateStaffHours?: (staffId: string) => number;
+  patterns: ShiftPattern[];
 }
 
 const defaultShiftTimes = {
@@ -28,14 +37,29 @@ const defaultShiftTimes = {
   Full: { start: '07:00', end: '23:00' },
 };
 
-export function ShiftDialog({ open, onOpenChange, staff, onAddShift, date, calculateStaffHours }: ShiftDialogProps) {
+export function ShiftDialog({ open, onOpenChange, staff, onAddShift, date, calculateStaffHours, patterns }: ShiftDialogProps) {
   const [selectedStaffId, setSelectedStaffId] = useState('');
-  const [shiftType, setShiftType] = useState<'AM' | 'PM' | 'Night' | 'Full'>('AM');
+  const [shiftType, setShiftType] = useState<string>('');
   const [customTimes, setCustomTimes] = useState(false);
   const [startTime, setStartTime] = useState(defaultShiftTimes.AM.start);
   const [endTime, setEndTime] = useState(defaultShiftTimes.AM.end);
+  const [mode, setMode] = useState<'shift' | 'annualLeave'>('shift');
+  const [leaveDate, setLeaveDate] = useState(() => date || format(new Date(), 'yyyy-MM-dd'));
+  const [leaveHours, setLeaveHours] = useState('7.5');
 
   const selectedStaff = staff.find(s => s.id === selectedStaffId);
+  const patternOptions = useMemo(() => {
+    if (patterns.length > 0) {
+      return patterns;
+    }
+    return [
+      { id: 'AM', label: 'Morning', startTime: defaultShiftTimes.AM.start, endTime: defaultShiftTimes.AM.end, color: 'blue' as const },
+      { id: 'PM', label: 'Afternoon', startTime: defaultShiftTimes.PM.start, endTime: defaultShiftTimes.PM.end, color: 'amber' as const },
+      { id: 'Night', label: 'Night', startTime: defaultShiftTimes.Night.start, endTime: defaultShiftTimes.Night.end, color: 'indigo' as const },
+      { id: 'Full', label: 'Full Day', startTime: defaultShiftTimes.Full.start, endTime: defaultShiftTimes.Full.end, color: 'green' as const },
+    ];
+  }, [patterns]);
+  const selectedPattern = useMemo(() => patternOptions.find((pattern) => pattern.id === shiftType), [patternOptions, shiftType]);
 
   // Calculate hours for this shift
   const calculateShiftHours = (start: string, end: string): number => {
@@ -75,45 +99,117 @@ export function ShiftDialog({ open, onOpenChange, staff, onAddShift, date, calcu
     return hours.toFixed(1);
   };
 
-  const handleShiftTypeChange = (type: 'AM' | 'PM' | 'Night' | 'Full') => {
+  const handleShiftTypeChange = (type: string) => {
     setShiftType(type);
+    const pattern = patternOptions.find((option) => option.id === type);
     if (!customTimes) {
-      setStartTime(defaultShiftTimes[type].start);
-      setEndTime(defaultShiftTimes[type].end);
+      const fallback = defaultShiftTimes[type as keyof typeof defaultShiftTimes];
+      setStartTime(pattern?.startTime ?? fallback?.start ?? startTime);
+      setEndTime(pattern?.endTime ?? fallback?.end ?? endTime);
+    } else if (!pattern) {
+      const fallback = defaultShiftTimes[type as keyof typeof defaultShiftTimes];
+      setStartTime(fallback?.start ?? startTime);
+      setEndTime(fallback?.end ?? endTime);
     }
   };
 
-  const handleSubmit = () => {
-    if (!selectedStaffId || !selectedStaff) return;
-    
-    onAddShift(
-      selectedStaffId,
-      selectedStaff.name,
-      shiftType,
-      startTime,
-      endTime
-    );
+  const parsedLeaveDate = leaveDate ? parseISO(leaveDate) : null;
+  const leaveDateValid = parsedLeaveDate ? !Number.isNaN(parsedLeaveDate.getTime()) : false;
+  const leaveHoursValue = (() => {
+    const numeric = Number.parseFloat(leaveHours);
+    if (!Number.isFinite(numeric) || numeric <= 0) {
+      return NaN;
+    }
+    return Math.min(numeric, 24);
+  })();
 
-    // Reset form
+  useEffect(() => {
+    if (open) {
+      setMode('shift');
+      setCustomTimes(false);
+      const initialPattern = patternOptions[0];
+      setShiftType(initialPattern?.id ?? '');
+      setStartTime(initialPattern?.startTime ?? defaultShiftTimes.AM.start);
+      setEndTime(initialPattern?.endTime ?? defaultShiftTimes.AM.end);
+      setLeaveDate(date || format(new Date(), 'yyyy-MM-dd'));
+      setLeaveHours('7.5');
+    }
+  }, [open, date, patternOptions]);
+
+  useEffect(() => {
+    if (mode === 'shift' && patternOptions.length > 0) {
+      if (!patternOptions.some((pattern) => pattern.id === shiftType)) {
+        const fallback = patternOptions[0];
+        setShiftType(fallback.id);
+        setStartTime(fallback.startTime);
+        setEndTime(fallback.endTime);
+        setCustomTimes(false);
+      }
+    }
+  }, [patternOptions, shiftType, mode]);
+
+  const handleSubmit = async () => {
+    if (!selectedStaffId || !selectedStaff) return;
+
+    if (mode === 'annualLeave') {
+      if (!leaveDateValid || !Number.isFinite(leaveHoursValue)) return;
+
+      await onAddShift(
+        leaveDate,
+        selectedStaffId,
+        selectedStaff.name,
+        'AnnualLeave',
+        undefined,
+        undefined,
+        {
+          groupId: `${selectedStaffId}-${leaveDate}-${Date.now()}`,
+          totalHours: leaveHoursValue,
+        }
+      );
+    } else {
+      const targetDate = date || format(new Date(), 'yyyy-MM-dd');
+      await onAddShift(
+        targetDate,
+        selectedStaffId,
+        selectedStaff.name,
+        shiftType,
+        startTime,
+        endTime
+      );
+    }
+
     setSelectedStaffId('');
-    setShiftType('AM');
+    const fallbackPattern = patternOptions[0];
+    setShiftType(fallbackPattern?.id ?? '');
     setCustomTimes(false);
-    setStartTime(defaultShiftTimes.AM.start);
-    setEndTime(defaultShiftTimes.AM.end);
+    setStartTime(fallbackPattern?.startTime ?? defaultShiftTimes.AM.start);
+    setEndTime(fallbackPattern?.endTime ?? defaultShiftTimes.AM.end);
+    setMode('shift');
+    setLeaveDate(date || format(new Date(), 'yyyy-MM-dd'));
+    setLeaveHours('7.5');
+    onOpenChange(false);
   };
 
   const formattedDate = date ? format(new Date(date), 'EEEE, MMMM d, yyyy') : '';
+  const leaveDateLabel = leaveDateValid ? format(parsedLeaveDate!, 'EEEE, MMMM d, yyyy') : 'Select a date';
+  const canSubmit = Boolean(selectedStaffId && (mode === 'shift' ? canAddShift : (leaveDateValid && Number.isFinite(leaveHoursValue))));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Clock className="w-5 h-5" />
-            Add Shift
+            {mode === 'annualLeave' ? <Plane className="w-5 h-5" /> : <Clock className="w-5 h-5" />}
+            {mode === 'annualLeave' ? 'Record Annual Leave' : 'Add Shift'}
           </DialogTitle>
-          <p className="text-sm text-muted-foreground mt-2">
-            {formattedDate}
+          <p className="text-sm text-muted-foreground mt-2 flex items-center gap-2">
+            {mode === 'shift' ? formattedDate : leaveDateLabel}
+            {mode === 'shift' && selectedPattern?.description && (
+              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                <Sparkles className="h-3 w-3" />
+                {selectedPattern.description}
+              </span>
+            )}
           </p>
         </DialogHeader>
 
@@ -152,8 +248,33 @@ export function ShiftDialog({ open, onOpenChange, staff, onAddShift, date, calcu
             </Select>
           </div>
 
+          {/* Entry type */}
+          <div className="space-y-2">
+            <Label>Entry Type</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                variant={mode === 'shift' ? 'default' : 'outline'}
+                onClick={() => setMode('shift')}
+                className="h-auto py-3 flex items-center justify-center gap-2"
+              >
+                <Clock className="w-4 h-4" />
+                Shift
+              </Button>
+              <Button
+                type="button"
+                variant={mode === 'annualLeave' ? 'default' : 'outline'}
+                onClick={() => setMode('annualLeave')}
+                className="h-auto py-3 flex items-center justify-center gap-2"
+              >
+                <Plane className="w-4 h-4" />
+                Annual Leave
+              </Button>
+            </div>
+          </div>
+
           {/* Hours Warning/Info */}
-          {selectedStaff && selectedStaff.contractedHours && (
+          {mode === 'shift' && selectedStaff && selectedStaff.contractedHours && (
             <Alert className={isAtLimit ? "border-destructive bg-destructive/10" : isNearLimit ? "border-amber-500 bg-amber-50" : "border-green-500 bg-green-50"}>
               <div className="flex items-start gap-3">
                 {isAtLimit ? (
@@ -202,124 +323,161 @@ export function ShiftDialog({ open, onOpenChange, staff, onAddShift, date, calcu
             </Alert>
           )}
 
-          {/* Shift Type Selection */}
-          <div className="space-y-2">
-            <Label>Shift Type</Label>
-            <div className="grid grid-cols-4 gap-2">
-              <Button
-                type="button"
-                variant={shiftType === 'AM' ? 'default' : 'outline'}
-                onClick={() => handleShiftTypeChange('AM')}
-                className="h-auto py-3 flex flex-col items-center"
-              >
-                <span className="font-semibold">AM</span>
-                <span className="text-xs mt-1">Morning</span>
-              </Button>
-              <Button
-                type="button"
-                variant={shiftType === 'PM' ? 'default' : 'outline'}
-                onClick={() => handleShiftTypeChange('PM')}
-                className="h-auto py-3 flex flex-col items-center"
-              >
-                <span className="font-semibold">PM</span>
-                <span className="text-xs mt-1">Afternoon</span>
-              </Button>
-              <Button
-                type="button"
-                variant={shiftType === 'Night' ? 'default' : 'outline'}
-                onClick={() => handleShiftTypeChange('Night')}
-                className="h-auto py-3 flex flex-col items-center"
-              >
-                <span className="font-semibold">Night</span>
-                <span className="text-xs mt-1">Overnight</span>
-              </Button>
-              <Button
-                type="button"
-                variant={shiftType === 'Full' ? 'default' : 'outline'}
-                onClick={() => handleShiftTypeChange('Full')}
-                className="h-auto py-3 flex flex-col items-center"
-              >
-                <span className="font-semibold">Full</span>
-                <span className="text-xs mt-1">All Day</span>
-              </Button>
-            </div>
-          </div>
+          {mode === 'shift' ? (
+            <>
+              {/* Shift Type Selection */}
+              <div className="space-y-2">
+                <Label>Shift Type</Label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {patternOptions.map((pattern) => (
+                    <Button
+                      key={pattern.id}
+                      type="button"
+                      variant={shiftType === pattern.id ? 'default' : 'outline'}
+                      onClick={() => handleShiftTypeChange(pattern.id)}
+                      className="h-auto py-3 flex flex-col items-center"
+                    >
+                      <span className="font-semibold">{pattern.id}</span>
+                      <span className="text-xs mt-1">{pattern.label}</span>
+                    </Button>
+                  ))}
+                </div>
+              </div>
 
-          {/* Time Selection */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Shift Times</Label>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setCustomTimes(!customTimes);
-                  if (customTimes) {
-                    setStartTime(defaultShiftTimes[shiftType].start);
-                    setEndTime(defaultShiftTimes[shiftType].end);
-                  }
-                }}
-              >
-                {customTimes ? 'Use Default' : 'Custom Times'}
-              </Button>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
+              {/* Time Selection */}
               <div className="space-y-2">
-                <Label htmlFor="startTime" className="text-xs text-muted-foreground">
-                  Start Time
+                <div className="flex items-center justify-between">
+                  <Label>Shift Times</Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      const nextState = !customTimes;
+                      setCustomTimes(nextState);
+                      if (!nextState) {
+                        if (selectedPattern) {
+                          setStartTime(selectedPattern.startTime);
+                          setEndTime(selectedPattern.endTime);
+                        } else {
+                          const fallback = defaultShiftTimes[shiftType as keyof typeof defaultShiftTimes] ?? defaultShiftTimes.AM;
+                          setStartTime(fallback.start);
+                          setEndTime(fallback.end);
+                        }
+                      }
+                    }}
+                  >
+                    {customTimes ? 'Use Default' : 'Custom Times'}
+                  </Button>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="startTime" className="text-xs text-muted-foreground">
+                      Start Time
+                    </Label>
+                    <Input
+                      id="startTime"
+                      type="time"
+                      value={startTime}
+                      onChange={(e) => {
+                        setStartTime(e.target.value);
+                        setCustomTimes(true);
+                      }}
+                      className="font-mono"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="endTime" className="text-xs text-muted-foreground">
+                      End Time
+                    </Label>
+                    <Input
+                      id="endTime"
+                      type="time"
+                      value={endTime}
+                      onChange={(e) => {
+                        setEndTime(e.target.value);
+                        setCustomTimes(true);
+                      }}
+                      className="font-mono"
+                    />
+                  </div>
+                </div>
+                {!customTimes && selectedPattern && (
+                  <p className="text-xs text-muted-foreground">
+                    Using default times for the {selectedPattern.label} shift
+                  </p>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="leaveDate" className="text-xs text-muted-foreground">
+                  Leave date
                 </Label>
                 <Input
-                  id="startTime"
-                  type="time"
-                  value={startTime}
-                  onChange={(e) => {
-                    setStartTime(e.target.value);
-                    setCustomTimes(true);
-                  }}
-                  className="font-mono"
+                  id="leaveDate"
+                  type="date"
+                  value={leaveDate}
+                  onChange={(event) => setLeaveDate(event.target.value)}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="endTime" className="text-xs text-muted-foreground">
-                  End Time
+                <Label htmlFor="leaveHours" className="text-xs text-muted-foreground">
+                  Hours away (max 24)
                 </Label>
                 <Input
-                  id="endTime"
-                  type="time"
-                  value={endTime}
-                  onChange={(e) => {
-                    setEndTime(e.target.value);
-                    setCustomTimes(true);
-                  }}
-                  className="font-mono"
+                  id="leaveHours"
+                  type="number"
+                  min={0.5}
+                  step={0.5}
+                  max={24}
+                  value={leaveHours}
+                  onChange={(event) => setLeaveHours(event.target.value)}
                 />
+                <p className="text-xs text-muted-foreground">
+                  These hours will be recorded as annual leave on the selected day.
+                </p>
               </div>
             </div>
-            {!customTimes && (
-              <p className="text-xs text-muted-foreground">
-                Using default times for {shiftType} shift
-              </p>
-            )}
-          </div>
+          )}
 
           {/* Summary */}
           {selectedStaff && (
             <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-              <p className="text-sm font-medium">Shift Summary</p>
+              <p className="text-sm font-medium">{mode === 'annualLeave' ? 'Annual Leave Summary' : 'Shift Summary'}</p>
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Staff:</span>
                   <span className="font-medium">{selectedStaff.name}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Shift:</span>
-                  <span className="font-medium">{shiftType}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Hours:</span>
-                  <span className="font-medium">{startTime} - {endTime}</span>
-                </div>
+                {mode === 'annualLeave' ? (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Type:</span>
+                      <span className="font-medium">Annual Leave</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Date:</span>
+                      <span className="font-medium">{leaveDateLabel}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Hours away:</span>
+                      <span className="font-medium">{Number.isFinite(leaveHoursValue) ? formatHours(leaveHoursValue) : '0.0'}h</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Shift:</span>
+                      <span className="font-medium">{selectedPattern?.label ?? shiftType}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Hours:</span>
+                      <span className="font-medium">{startTime} - {endTime}</span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -331,9 +489,9 @@ export function ShiftDialog({ open, onOpenChange, staff, onAddShift, date, calcu
           </Button>
           <Button 
             onClick={handleSubmit} 
-            disabled={!selectedStaffId || !canAddShift}
+            disabled={!canSubmit}
           >
-            Add Shift
+            {mode === 'annualLeave' ? 'Save Leave' : 'Add Shift'}
           </Button>
         </DialogFooter>
       </DialogContent>

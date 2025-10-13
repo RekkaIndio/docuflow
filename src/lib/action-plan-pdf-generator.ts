@@ -1,284 +1,146 @@
-import jsPDF from 'jspdf';
+import { StandardPdfBuilder, StandardPdfMetaItem } from '@/lib/pdf/standard-layout';
 
 export interface ActionPlanPDFData {
   workspaceName: string;
   monthLabel: string;
   generatedBy: string;
-  items: Array<{ auditType: string; issue: string; assigned?: string; ragRating?: string; status?: string; completedAt?: string }>;
+  items: Array<{
+    auditType: string;
+    issue: string;
+    assigned?: string;
+    ragRating?: string;
+    status?: string;
+    completedAt?: string;
+  }>;
 }
 
-export function getActionPlanPDFFilename(workspaceName: string, monthLabel: string, year: number = new Date().getFullYear()): string {
+export function getActionPlanPDFFilename(
+  workspaceName: string,
+  monthLabel: string,
+  year: number = new Date().getFullYear()
+): string {
   const safeName = workspaceName.replace(/[^a-zA-Z0-9]/g, '_');
   const safeMonth = monthLabel.replace(/[^a-zA-Z0-9]/g, '_');
   return `action-plan_${safeName}_${safeMonth}_${year}.pdf`;
 }
+
 export async function generateActionPlanPDF(data: ActionPlanPDFData): Promise<Uint8Array> {
-  // Create landscape document for wider table
-  const doc = new jsPDF({ orientation: 'landscape' });
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 18;
-  const contentWidth = pageWidth - margin * 2;
+  const generatedAt = new Date().toLocaleString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 
-  // Try to load logo from public assets
-  let logoImageData: string | null = null;
-  try {
-    const resp = await fetch('/Neurodiversity_Symbol.png');
-    if (resp.ok) {
-      const blob = await resp.blob();
-      logoImageData = await new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.readAsDataURL(blob);
-      });
-    }
-  } catch (e) {
-    console.warn('Could not load logo for Action Plan PDF', e);
+  const meta: StandardPdfMetaItem[] = [
+    { label: 'Workspace', value: data.workspaceName },
+    { label: 'Month', value: data.monthLabel },
+    { label: 'Created By', value: data.generatedBy },
+    { label: 'Total Actions', value: data.items.length },
+    { label: 'Generated', value: generatedAt },
+  ];
+
+  const builder = new StandardPdfBuilder({
+    title: 'Action Plan',
+    subtitle: 'Audit Remediation Summary',
+    orientation: 'landscape',
+    meta,
+  });
+
+  builder.doc.setProperties({
+    title: `Action Plan - ${data.workspaceName}`,
+    subject: `Action Plan (${data.monthLabel})`,
+    creator: 'CG360 Action Plan Generator',
+  });
+
+  if (data.items.length === 0) {
+    builder.addSection('Overview');
+    builder.addParagraph('No outstanding action plan items were found for the selected period.');
+    builder.addFooter();
+    return builder.doc.output('arraybuffer') as Uint8Array;
   }
 
-  // Try to render a landing-hero-style background (canvas blobs) for the header so
-  // action-plan PDFs match the dependency-calculator header. If that fails, fall
-  // back to the previous two-rectangle gradient header.
-  let headerBgAdded = false;
-  try {
-    const canvas = (typeof document !== 'undefined') ? document.createElement('canvas') as HTMLCanvasElement : null;
-    if (canvas) {
-      canvas.width = 1200;
-      canvas.height = 600;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        const c = ctx;
-        c.clearRect(0, 0, canvas.width, canvas.height);
+  const ragCounts = data.items.reduce(
+    (acc, item) => {
+      const ragKey = (item.ragRating || 'unknown').toLowerCase();
+      if (ragKey === 'red') acc.red += 1;
+      else if (ragKey === 'amber' || ragKey === 'orange') acc.amber += 1;
+      else if (ragKey === 'green') acc.green += 1;
+      else acc.unknown += 1;
+      return acc;
+    },
+    { red: 0, amber: 0, green: 0, unknown: 0 }
+  );
 
-        function drawBlob(x: number, y: number, r: number, color1: string, color2: string, alpha = 0.9) {
-          const g = c.createRadialGradient(x, y, r * 0.2, x, y, r);
-          g.addColorStop(0, color1);
-          g.addColorStop(0.5, color2);
-          g.addColorStop(1, color2 + '00');
-          c.globalCompositeOperation = 'screen';
-          c.globalAlpha = alpha * 0.12;
-          c.fillStyle = g as any;
-          c.beginPath();
-          c.ellipse(x, y, r, r * 0.75, 0, 0, Math.PI * 2);
-          c.fill();
-          c.globalCompositeOperation = 'source-over';
-        }
+  builder.addSection('Executive Summary');
+  builder.addInfoGrid(
+    [
+      { label: 'Critical (Red)', value: ragCounts.red },
+      { label: 'Medium (Amber)', value: ragCounts.amber },
+      { label: 'On Track (Green)', value: ragCounts.green },
+      { label: 'Unrated', value: ragCounts.unknown },
+    ],
+    { columns: 4 }
+  );
 
-        // position blobs towards the top so the header strip shows them
-        drawBlob(canvas.width * 0.15, canvas.height * 0.18, 420, '#f472b6', '#a78bfa', 0.95);
-        drawBlob(canvas.width * 0.85, canvas.height * 0.16, 480, '#06b6d4', '#3b82f6', 0.95);
-        drawBlob(canvas.width * 0.45, canvas.height * 0.42, 380, '#f59e0b', '#f472b6', 0.9);
+  builder.addParagraph(
+    'This action plan consolidates outstanding follow-up items from recent audits. Use the prioritisation bands above to assign owners and schedule completion dates.'
+  );
 
-        c.globalAlpha = 0.06;
-        c.fillStyle = '#ffffff';
-        c.beginPath();
-        c.moveTo(0, canvas.height * 0.75);
-        c.bezierCurveTo(canvas.width * 0.25, canvas.height * 0.6, canvas.width * 0.5, canvas.height * 0.9, canvas.width, canvas.height * 0.7);
-        c.lineTo(canvas.width, canvas.height);
-        c.lineTo(0, canvas.height);
-        c.closePath();
-        c.fill();
+  const groupedByAudit = data.items.reduce<Record<string, number>>((acc, item) => {
+    const key = item.auditType || 'Unknown';
+    acc[key] = (acc[key] ?? 0) + 1;
+    return acc;
+  }, {});
 
-        // Attempt to embed canvas as header image into the PDF (scaled to headerHeight)
-        const headerHeight = 120;
-        const bgDataUrl = canvas.toDataURL('image/png');
-        try {
-          doc.addImage(bgDataUrl, 'PNG', 0, 0, pageWidth, headerHeight);
-          headerBgAdded = true;
-        } catch (e) {
-          console.warn('Failed to add header background image to Action Plan PDF:', e);
-          headerBgAdded = false;
-        }
-      }
-    }
-  } catch (err) {
-    console.warn('Could not render canvas header for Action Plan PDF:', err);
-  }
+  builder.addSubheading('Actions by audit area', { marginTop: 12 });
+  builder.addBulletList(
+    Object.entries(groupedByAudit).map(([audit, count]) => `${formatAuditName(audit)} — ${count} item${count === 1 ? '' : 's'}`)
+  );
 
-  // If canvas background wasn't added, fall back to the old two-rectangle header
-  if (!headerBgAdded) {
-    const themeBlue = [59, 130, 246];
-    const themeIndigo = [79, 70, 229];
-    doc.setFillColor(themeBlue[0], themeBlue[1], themeBlue[2]);
-    doc.rect(0, 0, pageWidth / 2, 60, 'F');
-    doc.setFillColor(themeIndigo[0], themeIndigo[1], themeIndigo[2]);
-    doc.rect(pageWidth / 2, 0, pageWidth / 2, 60, 'F');
-  }
+  builder.addSection('Detailed Actions', { marginTop: 16 });
 
-  // Add logo if available, otherwise draw placeholder box with icon
-  if (logoImageData) {
-    try {
-      // draw a single crisp logo on the left overlay
-      doc.addImage(logoImageData, 'PNG', margin, 12, 44, 44);
-    } catch (e) {
-      doc.setFillColor(255, 255, 255);
-      doc.rect(margin, 12, 44, 36, 'F');
-      doc.setFontSize(18);
-      doc.setTextColor(59, 130, 246);
-      doc.text('🧠', margin + 14, 36);
-    }
-  } else {
-    doc.setFillColor(255, 255, 255);
-    doc.rect(margin, 12, 44, 36, 'F');
-    doc.setFontSize(18);
-    doc.setTextColor(59, 130, 246);
-    doc.text('🧠', margin + 14, 36);
-  }
+  const rows = data.items.map((item, index) => ({
+    index: `#${index + 1}`,
+    auditType: formatAuditName(item.auditType),
+    issue: item.issue || 'Not specified',
+    assigned: item.assigned || 'Unassigned',
+    rag: (item.ragRating || 'Unknown').toUpperCase(),
+    status: item.status || 'Open',
+    completedAt: item.completedAt || '—',
+  }));
 
-  // Title in header (use black text to match landing hero overlay)
-  doc.setFontSize(20);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(0, 0, 0);
-  doc.text('Action Plan', margin + 56, 30);
+  builder.addTable({
+    columns: [
+      { key: 'index', header: '#', width: 20, align: 'center' },
+      { key: 'auditType', header: 'Audit Type', width: 70 },
+      { key: 'issue', header: 'Issue / Required Action', width: 160 },
+      { key: 'assigned', header: 'Owner', width: 60 },
+      { key: 'rag', header: 'RAG', width: 35, align: 'center' },
+      { key: 'status', header: 'Status', width: 60 },
+      { key: 'completedAt', header: 'Completed', width: 55 },
+    ],
+    rows,
+    stripe: true,
+  });
 
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`${data.workspaceName} — ${data.monthLabel}`, margin + 56, 40);
-  doc.text(`Generated by: ${data.generatedBy}`, margin + 56, 46);
+  builder.addSection('Next Steps', { marginTop: 10 });
+  builder.addBulletList([
+    'Assign owners to high-priority actions and set due dates in the dashboard.',
+    'Document resolutions and upload supporting evidence where required.',
+    'Schedule follow-up audits for any recurring issues or overdue actions.',
+  ]);
 
-  let y = 80;
-
-  // Column layout (anchor RAG/Status to the right so Issue gets the flexible middle space)
-  const auditW = 60;
-  // bring Assigned closer to Audit by starting with a modest width
-  let assignedW = 70;
-  // make RAG much smaller so it sits inline
-  const ragW = 28;
-
-  const colAudit = margin;
-  const colAssigned = colAudit + auditW;
-
-  // right content edge (no Status column now)
-  const rightEdge = margin + contentWidth;
-
-  // small left shift to nudge columns left to fit better
-  const shiftLeft = 12;
-
-  // place RAG immediately after Assigned (shifted left)
-  const colRag = colAssigned + assignedW + 8 - shiftLeft;
-  // Issue sits after RAG and expands to rightEdge (with small padding, shifted left)
-  const colIssue = colRag + ragW + 8 - shiftLeft;
-  const issueW = Math.max(140, rightEdge - colIssue - 12);
-
-  const lineHeight = 6; // slightly larger for safety
-  const ragColors: Record<string, [number, number, number]> = {
-    red: [239, 68, 68],
-    amber: [245, 158, 11],
-    green: [34, 197, 94]
-  };
-
-  // helper: wrap text to a maximum width (uses current font/size)
-  function wrapTextToWidth(d: any, text: string, maxWidth: number) {
-    if (!text) return [''];
-    const words = text.split(/\s+/);
-    const lines: string[] = [];
-    let current = '';
-    for (const w of words) {
-      const tentative = current ? `${current} ${w}` : w;
-      const tw = d.getTextWidth(tentative);
-      if (tw > maxWidth && current) {
-        lines.push(current);
-        current = w;
-      } else {
-        current = tentative;
-      }
-    }
-    if (current) lines.push(current);
-    return lines;
-  }
-
-  // helper: draw table header (call on new page)
-  function drawTableHeader(startY: number) {
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(31, 41, 55);
-    doc.text('Audit Type', colAudit, startY);
-    doc.text('Assigned', colAssigned, startY);
-    doc.text('RAG', colRag, startY);
-    doc.text('Issue', colIssue, startY);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    return startY + 8;
-  }
-
-  // draw initial header
-  y = drawTableHeader(y);
-
-  for (const item of data.items) {
-    // Prepare wrapped lines for each column that may wrap
-    const auditLines = wrapTextToWidth(doc, item.auditType.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()), auditW);
-    const assignedLines = wrapTextToWidth(doc, item.assigned || 'Unassigned', assignedW);
-    const issueLines = wrapTextToWidth(doc, item.issue || '', issueW);
-
-    const maxLines = Math.max(auditLines.length, assignedLines.length, issueLines.length, 1);
-    const rowHeight = maxLines * lineHeight + 6;
-
-    // Page break if needed
-    if (y + rowHeight > pageHeight - 30) {
-      doc.addPage();
-      y = 20;
-      y = drawTableHeader(y);
-    }
-
-    // Draw Audit lines
-    for (let i = 0; i < auditLines.length; i++) {
-      doc.text(auditLines[i], colAudit, y + i * lineHeight);
-    }
-
-    // Draw Assigned lines
-    for (let i = 0; i < assignedLines.length; i++) {
-      doc.text(assignedLines[i], colAssigned, y + i * lineHeight);
-    }
-
-    // Draw Issue lines
-    for (let i = 0; i < issueLines.length; i++) {
-      doc.text(issueLines[i], colIssue, y + i * lineHeight);
-    }
-
-    // RAG - small colored circle + short label, placed inline with first line
-    const rag = (item.ragRating || '').toLowerCase();
-    if (rag && ragColors[rag]) {
-      const c = ragColors[rag];
-      const cx = colRag + 6;
-      // Align circle to the first line baseline (text is drawn at y), place circle slightly above baseline
-      const cy = y - 2;
-      doc.setFillColor(c[0], c[1], c[2]);
-      // even smaller circle to fit inline
-      doc.circle(cx, cy, 2.4, 'F');
-      doc.setTextColor(31, 41, 55);
-      // draw label on the same baseline as the first line of text
-      doc.text(rag.toUpperCase(), colRag + 12, y);
-    }
-
-    // Advance y by computed row height
-    y += rowHeight;
-  }
-
-  // Footer
-  const pageCount = doc.internal.getNumberOfPages();
-  for (let i = 1; i <= pageCount; i++) {
-    doc.setPage(i);
-    doc.setFontSize(8);
-    doc.setTextColor(107, 114, 128);
-    doc.text(`Generated by CG360 — Page ${i} of ${pageCount}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
-  }
-
-  return doc.output('arraybuffer') as Uint8Array;
+  builder.addFooter();
+  return builder.doc.output('arraybuffer') as Uint8Array;
 }
 
-function splitText(text: string, maxCharsPerLine: number) {
-  if (!text) return [''];
-  const words = text.split(' ');
-  const lines: string[] = [];
-  let current = '';
-  words.forEach(w => {
-    if ((current + ' ' + w).trim().length > maxCharsPerLine) {
-      lines.push(current.trim());
-      current = w;
-    } else {
-      current = (current + ' ' + w).trim();
-    }
-  });
-  if (current) lines.push(current.trim());
-  return lines;
+function formatAuditName(auditType: string): string {
+  return auditType
+    .replace(/-/g, ' ')
+    .split(' ')
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
 }

@@ -1,6 +1,4 @@
-import jsPDF from 'jspdf';
-// Fallback: simple word wrap for jsPDF v3+
-import splitTextToSize from 'jspdf/dist/plugins/split_text_to_size';
+import { StandardPdfBuilder, StandardPdfMetaItem } from '@/lib/pdf/standard-layout';
 
 /**
  * PDF Generator for Audit Reports
@@ -20,257 +18,141 @@ export interface AuditPDFData {
 }
 
 export function generateAuditPDF(auditData: AuditPDFData): Uint8Array {
-  const doc = new jsPDF();
-  
-  // Set up document properties
-  doc.setProperties({
-    title: `${auditData.auditType} Audit Report`,
-    subject: `Monthly Audit Report - ${auditData.home}`,
-    author: auditData.completedBy,
-    creator: 'CG360 Audit System'
-  });
-
-  let yPosition = 20;
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const margin = 20;
-  const contentWidth = pageWidth - (margin * 2);
-
-  // Helper function to add text with automatic line wrapping
-  // Simple word wrap fallback for jsPDF v3+
-  const addWrappedText = (text: string, x: number, y: number, maxWidth: number, fontSize: number = 10): number => {
-    doc.setFontSize(fontSize);
-    // Ensure text is a string
-    const safeText = (typeof text === 'string') ? text : (text == null ? '' : String(text));
-    const words = safeText.split(' ');
-    const lines: string[] = [];
-    let currentLine = '';
-    words.forEach(word => {
-      const testLine = currentLine ? currentLine + ' ' + word : word;
-      const testWidth = doc.getTextWidth(testLine);
-      if (testWidth > maxWidth && currentLine) {
-        lines.push(currentLine);
-        currentLine = word;
-      } else {
-        currentLine = testLine;
-      }
-    });
-    if (currentLine) lines.push(currentLine);
-    doc.text(lines, x, y);
-    return y + (lines.length * (fontSize * 0.4));
-  };
-
-  // Header
-  doc.setFillColor(59, 130, 246); // Blue background
-  doc.rect(0, 0, pageWidth, 35, 'F');
-  
-  doc.setTextColor(255, 255, 255); // White text
-  doc.setFontSize(20);
-  doc.setFont('helvetica', 'bold');
-  doc.text('AUDIT REPORT', pageWidth / 2, 20, { align: 'center' });
-  
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'normal');
-  doc.text(formatAuditTypeName(auditData.auditType), pageWidth / 2, 30, { align: 'center' });
-
-  // Reset text color for body
-  doc.setTextColor(0, 0, 0);
-  yPosition = 50;
-
-  // Audit Information Section
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Audit Information', margin, yPosition);
-  yPosition += 10;
-
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  
-  const auditInfo = [
-    { label: 'Care Home/Facility:', value: auditData.home },
-    { label: 'Audit Date:', value: formatDate(auditData.auditDate) },
-    { label: 'Completed By:', value: auditData.completedBy },
-    { label: 'Report Generated:', value: formatDate(new Date().toISOString()) }
+  const meta: StandardPdfMetaItem[] = [
+    { label: 'Facility', value: auditData.home },
+    { label: 'Audit Date', value: formatDate(auditData.auditDate) },
+    { label: 'Completed By', value: auditData.completedBy },
+    { label: 'Report Generated', value: formatDate(new Date().toISOString()) },
   ];
 
-  auditInfo.forEach(info => {
-    doc.setFont('helvetica', 'bold');
-    doc.text(info.label, margin, yPosition);
-    doc.setFont('helvetica', 'normal');
-    doc.text(info.value, margin + 40, yPosition);
-    yPosition += 7;
-  });
-
-  yPosition += 10;
-
-  // Score Section (if available)
-  if (auditData.scorePercent !== undefined && auditData.yesCount !== undefined && auditData.totalCount !== undefined) {
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Audit Score', margin, yPosition);
-    yPosition += 10;
-
-    // Score box
-    const scoreColor = auditData.scorePercent >= 80 ? [34, 197, 94] : auditData.scorePercent >= 60 ? [251, 191, 36] : [239, 68, 68];
-    doc.setFillColor(scoreColor[0], scoreColor[1], scoreColor[2]);
-    doc.rect(margin, yPosition - 5, 60, 20, 'F');
-    
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`${auditData.scorePercent}%`, margin + 30, yPosition + 8, { align: 'center' });
-    
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`${auditData.yesCount} out of ${auditData.totalCount} criteria met`, margin + 70, yPosition + 5);
-    
-    yPosition += 30;
+  if (typeof auditData.scorePercent === 'number') {
+    meta.push({ label: 'Score', value: `${auditData.scorePercent}%` });
   }
 
-  // Audit Details Section
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Audit Details', margin, yPosition);
-  yPosition += 10;
+  if (typeof auditData.yesCount === 'number' && typeof auditData.totalCount === 'number') {
+    meta.push({ label: 'Criteria Met', value: `${auditData.yesCount}/${auditData.totalCount}` });
+  }
 
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
+  const builder = new StandardPdfBuilder({
+    title: 'Audit Report',
+    subtitle: formatAuditTypeName(auditData.auditType),
+    meta,
+  });
 
-  // Format audit data based on type
+  builder.doc.setProperties({
+    title: `${auditData.auditType} Audit Report`,
+    subject: `Audit Report - ${auditData.home}`,
+    author: auditData.completedBy,
+    creator: 'CG360 Audit System',
+  });
+
   const formattedData = formatAuditDataForPDF(auditData.auditType, auditData.data);
-  
-  formattedData.forEach(section => {
-    // Check if we need a new page
-    if (yPosition > 250) {
-      doc.addPage();
-      yPosition = 20;
+  const embeddedImages = extractEmbeddedImages(auditData.data);
+
+  const renderImages = (label: string) => {
+    if (!embeddedImages) return;
+
+    const normalizedKeys = [
+      label.replace(/[^a-zA-Z0-9]/g, '').toLowerCase(),
+      label.replace(/\s+/g, '').toLowerCase(),
+      label.toLowerCase(),
+    ];
+
+    let images: { dataUrl: string; name?: string }[] | undefined;
+
+    for (const key of Object.keys(embeddedImages)) {
+      const lowerKey = key.toLowerCase();
+      if (normalizedKeys.includes(lowerKey) || lowerKey.includes(label.toLowerCase()) || label.toLowerCase().includes(lowerKey)) {
+        images = embeddedImages[key];
+        break;
+      }
     }
 
-    // Section header
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(12);
-    yPosition = addWrappedText(section.title, margin, yPosition, contentWidth, 12);
-    yPosition += 5;
+    if (!images && embeddedImages[label]) {
+      images = embeddedImages[label];
+    }
 
-    // Section content
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    
-    section.items.forEach(item => {
-      if (yPosition > 270) {
-        doc.addPage();
-        yPosition = 20;
+    if (!images || images.length === 0) {
+      return;
+    }
+
+    const doc = builder.doc;
+    const thumbWidth = Math.min(70, builder.contentWidth / 3);
+    const thumbHeight = thumbWidth * 0.75;
+    const gap = 8;
+
+    builder.ensureSpace(thumbHeight + 14);
+    let cursorY = builder.getCursorY();
+    let x = builder.margin;
+    let rowHeight = 0;
+
+    images.forEach((img) => {
+      if (cursorY + thumbHeight > doc.internal.pageSize.getHeight() - builder.margin) {
+        builder.addPage();
+        cursorY = builder.getCursorY();
+        x = builder.margin;
+        rowHeight = 0;
       }
 
-      if (item.type === 'field') {
-        doc.setFont('helvetica', 'bold');
-        yPosition = addWrappedText(`${item.label}:`, margin + 5, yPosition, contentWidth - 5, 10);
-        doc.setFont('helvetica', 'normal');
-        yPosition = addWrappedText(item.value || 'Not specified', margin + 10, yPosition + 3, contentWidth - 10, 10);
-        yPosition += 5;
-      } else if (item.type === 'yes-no') {
-        const answer = item.value === 'Yes' ? '✓ Yes' : item.value === 'No' ? '✗ No' : 'Not answered';
-        const color = item.value === 'Yes' ? [34, 197, 94] : item.value === 'No' ? [239, 68, 68] : [107, 114, 128];
-        
-        doc.setFont('helvetica', 'normal');
-        doc.text(`${item.label}:`, margin + 5, yPosition);
-        
-        doc.setTextColor(color[0], color[1], color[2]);
-        doc.setFont('helvetica', 'bold');
-        doc.text(answer, margin + 100, yPosition);
-        doc.setTextColor(0, 0, 0);
-        
-        yPosition += 7;
-      }
-      // If there are embedded images for this item key, render them below the item
       try {
-        const embedded = (auditData.data && (auditData.data as any)._embeddedImages) ? (auditData.data as any)._embeddedImages : null;
-        // The item.label is human readable, but attachments were keyed by field name; we try both label and a normalized key
-        const possibleKeys = [
-          // normalized label: lowercase, remove non-word
-          item.label.replace(/[^a-zA-Z0-9]/g, '').toLowerCase(),
-          item.label.replace(/\s+/g, '').toLowerCase(),
-          item.label.toLowerCase()
-        ];
-        if (embedded) {
-          let imagesForItem: { dataUrl: string; name?: string }[] | undefined = undefined;
-          for (const k of Object.keys(embedded)) {
-            if (possibleKeys.includes(k.toLowerCase()) || k.toLowerCase().includes(item.label.toLowerCase()) || item.label.toLowerCase().includes(k.toLowerCase())) {
-              imagesForItem = embedded[k];
-              break;
-            }
-          }
-
-          if (!imagesForItem && embedded[item.label]) imagesForItem = embedded[item.label];
-
-          if (imagesForItem && imagesForItem.length > 0) {
-            // Render thumbnails across the page, scale down if needed
-            const maxImgWidth = Math.min(80, contentWidth - 20);
-            const imgGap = 5;
-            let x = margin + 10;
-            let maxRowHeight = 0;
-            for (const img of imagesForItem) {
-              try {
-                // Determine width/height of the image by creating a temporary Image object (not available in Node), so we'll assume a square thumbnail
-                const w = 60;
-                const h = 60;
-                if (yPosition + h > 270) {
-                  doc.addPage();
-                  yPosition = 20;
-                }
-                // jsPDF addImage accepts dataURL
-                doc.addImage(img.dataUrl, 'PNG', x, yPosition, w, h);
-                x += w + imgGap;
-                maxRowHeight = Math.max(maxRowHeight, h);
-                // wrap to next line
-                if (x + w > margin + contentWidth) {
-                  x = margin + 10;
-                  yPosition += maxRowHeight + imgGap;
-                }
-              } catch (imgErr) {
-                console.warn('Failed to add embedded image to PDF', imgErr);
-                continue;
-              }
-            }
-            yPosition += maxRowHeight + 8;
-          }
+        doc.roundedRect(x - 2, cursorY - 2, thumbWidth + 4, thumbHeight + 12, 2, 2, 'S');
+        doc.addImage(img.dataUrl, 'PNG', x, cursorY, thumbWidth, thumbHeight);
+        if (img.name) {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8);
+          doc.setTextColor(107, 114, 128);
+          doc.text(img.name, x + thumbWidth / 2, cursorY + thumbHeight + 6, { align: 'center' });
         }
-      } catch (e) {
-        // ignore image embedding failures
+      } catch (error) {
+        console.warn('Failed to add embedded image to PDF', error);
+      }
+
+      rowHeight = Math.max(rowHeight, thumbHeight + 12);
+
+      if (x + thumbWidth + gap > builder.margin + builder.contentWidth) {
+        x = builder.margin;
+        cursorY += rowHeight + gap;
+        rowHeight = 0;
+        builder.ensureSpace(thumbHeight + 14);
+        cursorY = builder.getCursorY();
+      } else {
+        x += thumbWidth + gap;
       }
     });
-    
-    yPosition += 10;
+
+    builder.setCursorY(cursorY + rowHeight + 10);
+  };
+
+  formattedData.forEach((section) => {
+    builder.addSection(section.title);
+
+    section.items.forEach((item) => {
+      if (item.type === 'yes-no') {
+        const chip = item.value === 'Yes' ? 'yes' : item.value === 'No' ? 'no' : undefined;
+        builder.addField(item.label, item.value ?? 'Not answered', chip ? { chip } : undefined);
+      } else {
+        builder.addField(item.label, item.value || 'Not specified');
+      }
+
+      renderImages(item.label);
+    });
   });
 
-  // Comments Section
   if (auditData.comments) {
-    if (yPosition > 230) {
-      doc.addPage();
-      yPosition = 20;
-    }
-
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Comments', margin, yPosition);
-    yPosition += 10;
-
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    yPosition = addWrappedText(auditData.comments, margin, yPosition, contentWidth, 10);
+    builder.addSection('Comments');
+    builder.addParagraph(auditData.comments);
   }
 
-  // Footer
-  const pageCount = doc.internal.getNumberOfPages();
-  for (let i = 1; i <= pageCount; i++) {
-    doc.setPage(i);
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(107, 114, 128);
-    doc.text(`Generated by CG360 - Page ${i} of ${pageCount}`, pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
+  builder.addFooter();
+  return builder.doc.output('arraybuffer') as Uint8Array;
+}
+function extractEmbeddedImages(data: Record<string, any> | null | undefined) {
+  if (!data) return undefined;
+  const embedded = (data as any)._embeddedImages;
+  if (!embedded || typeof embedded !== 'object') {
+    return undefined;
   }
-
-  return doc.output('arraybuffer') as Uint8Array;
+  return embedded as Record<string, { dataUrl: string; name?: string }[]>;
 }
 
 function formatAuditTypeName(auditType: string): string {

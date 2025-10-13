@@ -1,10 +1,27 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useWorkspace } from '@/context/workspace';
-import { saveAudit, updateAudit, markAuditCompleted, markAuditCompletedWithSnapshot } from '@/lib/firestore';
+import { saveAudit, updateAudit, markAuditCompletedWithSnapshot } from '@/lib/firestore';
 import { useAuth } from '@/hooks/use-auth';
 import AuditFooter from '@/components/audit-footer';
 import { ChevronDown, ChevronUp, FileText } from 'lucide-react';
+import { storage } from '@/lib/firebase';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+
+type AttachmentItem = {
+  id: string;
+  name: string;
+  url: string;
+  file?: File;
+  storagePath?: string;
+  downloadUrl?: string;
+};
+
+type AttachmentMetadata = {
+  name: string;
+  storagePath: string;
+  downloadUrl?: string;
+};
 
 export default function CallBellMonitoringAuditPage() {
   const [currentReportIndex, setCurrentReportIndex] = useState(0);
@@ -29,6 +46,23 @@ export default function CallBellMonitoringAuditPage() {
   }]);
   const [showModal, setShowModal] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [attachments, setAttachments] = useState<Record<number, Record<string, AttachmentItem[]>>>({});
+  const [attachmentsToDelete, setAttachmentsToDelete] = useState<Record<number, string[]>>({});
+  const [previewImage, setPreviewImage] = useState<{ url: string; name: string } | null>(null);
+  const createdObjectUrls = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    return () => {
+      createdObjectUrls.current.forEach(url => {
+        try {
+          URL.revokeObjectURL(url);
+        } catch (err) {
+          console.warn('Failed to revoke object URL on cleanup', err);
+        }
+      });
+      createdObjectUrls.current.clear();
+    };
+  }, []);
 
   const activeWorkspace = useWorkspace();
   const { user } = useAuth();
@@ -104,7 +138,147 @@ export default function CallBellMonitoringAuditPage() {
     };
     setReports(prev => [...prev, newReport]);
     setCurrentReportIndex(reports.length);
+    setAttachments(prev => ({ ...prev, [reports.length]: {} }));
+    setAttachmentsToDelete(prev => ({ ...prev, [reports.length]: [] }));
   }
+
+  const getAttachmentsForField = (fieldName: string): AttachmentItem[] => {
+    return attachments[currentReportIndex]?.[fieldName] ?? [];
+  };
+
+  const setAttachmentsForCurrentReport = (updater: (current: Record<string, AttachmentItem[]>) => Record<string, AttachmentItem[]>) => {
+    setAttachments(prev => {
+      const current = prev[currentReportIndex] ? { ...prev[currentReportIndex] } : {};
+      const updated = updater(current);
+      return { ...prev, [currentReportIndex]: updated };
+    });
+  };
+
+  const handleAddAttachments = (fieldName: string, files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const fileArray = Array.from(files);
+    setAttachmentsForCurrentReport(current => {
+      const existing = current[fieldName] ?? [];
+      const added = fileArray.map(file => {
+        const url = URL.createObjectURL(file);
+        createdObjectUrls.current.add(url);
+        const id = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${fieldName}-${Date.now()}-${file.name}`;
+        return { id, name: file.name, url, file } as AttachmentItem;
+      });
+      return { ...current, [fieldName]: [...existing, ...added] };
+    });
+  };
+
+  const handleRemoveAttachment = (fieldName: string, id: string) => {
+    const currentList = getAttachmentsForField(fieldName);
+    const target = currentList.find(item => item.id === id);
+    if (!target) return;
+
+    if (target.url && target.url.startsWith('blob:')) {
+      try {
+        URL.revokeObjectURL(target.url);
+      } catch (err) {
+        console.warn('Failed to revoke object URL', err);
+      }
+      createdObjectUrls.current.delete(target.url);
+    }
+
+    if (target.storagePath) {
+      setAttachmentsToDelete(prev => {
+        const current = prev[currentReportIndex] ?? [];
+        return { ...prev, [currentReportIndex]: [...current, target.storagePath as string] };
+      });
+    }
+
+    if (previewImage && previewImage.url === target.url) {
+      setPreviewImage(null);
+    }
+
+    setAttachmentsForCurrentReport(current => {
+      const list = current[fieldName] ?? [];
+      const remaining = list.filter(item => item.id !== id);
+      const updated = { ...current };
+      if (remaining.length > 0) {
+        updated[fieldName] = remaining;
+      } else {
+        delete updated[fieldName];
+      }
+      return updated;
+    });
+  };
+
+  const uploadAttachmentFile = async (fieldName: string, file: File) => {
+    if (!activeWorkspace?.id) {
+      throw new Error('Workspace not available for attachment upload');
+    }
+    const orgId = activeWorkspace.organisationId || null;
+    const fieldSegment = fieldName.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase() || 'field';
+    const safeName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_');
+    const auditDateSegment = (currentReport.auditDate || new Date().toISOString().split('T')[0]).replace(/[^0-9-]/g, '');
+    const timestamp = Date.now();
+    const basePath = orgId ? `organisations/${orgId}/workspaces/${activeWorkspace.id}` : `workspaces/${activeWorkspace.id}`;
+    const storagePath = `${basePath}/audit-attachments/call-bell-monitoring/${auditDateSegment}/${fieldSegment}/${timestamp}-${safeName}`;
+    const storageRef = ref(storage, storagePath);
+    await uploadBytes(storageRef, file);
+    const downloadUrl = await getDownloadURL(storageRef);
+    return { storagePath, downloadUrl };
+  };
+
+  const getAttachmentCount = (fieldName: string) => getAttachmentsForField(fieldName).length;
+
+  const renderAttachmentButton = (fieldName: string) => (
+    <div className="ml-4 relative">
+      {getAttachmentCount(fieldName) > 0 && (
+        <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">
+          {getAttachmentCount(fieldName)}
+        </span>
+      )}
+      <label
+        title="Add attachment"
+        className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100"
+      >
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => {
+            handleAddAttachments(fieldName, e.target.files);
+            e.currentTarget.value = '';
+          }}
+          className="hidden"
+        />
+        <span className="text-xl font-bold">+</span>
+      </label>
+    </div>
+  );
+
+  const renderAttachmentPreview = (fieldName: string) => {
+    const list = getAttachmentsForField(fieldName);
+    if (!list || list.length === 0) return null;
+    return (
+      <div className="mt-3 flex flex-wrap gap-2">
+        {list.map(att => (
+          <div key={att.id} className="relative w-24 h-24 rounded overflow-hidden border border-gray-200">
+            <button
+              type="button"
+              onClick={() => setPreviewImage({ url: att.url, name: att.name })}
+              className="w-full h-full"
+              title={att.name}
+            >
+              <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+            </button>
+            <button
+              type="button"
+              onClick={() => handleRemoveAttachment(fieldName, att.id)}
+              className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-gray-200 shadow-sm"
+              title="Remove"
+            >
+              ×
+            </button>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -156,16 +330,69 @@ export default function CallBellMonitoringAuditPage() {
 
     const workspaceId = activeWorkspace.id;
     const orgId = activeWorkspace.organisationId || null;
-    const payload = {
-      ...currentReport,
-      comments: currentReport.comments || finalComments,
-      createActionPlan: false,
-      createdBy: user?.id ?? null,
-      organisationId: orgId,
-    };
-
     try {
       setSaving(true);
+      const indexAttachments = attachments[currentReportIndex] ?? {};
+      const attachmentsMetadata: Record<string, AttachmentMetadata[]> = {};
+      const nextAttachmentState: Record<string, AttachmentItem[]> = {};
+
+      for (const [fieldName, items] of Object.entries(indexAttachments)) {
+        if (!items || items.length === 0) continue;
+        const processed: AttachmentItem[] = [];
+        for (const item of items) {
+          if (item.file) {
+            const { storagePath, downloadUrl } = await uploadAttachmentFile(fieldName, item.file);
+            if (item.url && item.url.startsWith('blob:')) {
+              try {
+                URL.revokeObjectURL(item.url);
+              } catch (err) {
+                console.warn('Failed to revoke object URL during upload', err);
+              }
+              createdObjectUrls.current.delete(item.url);
+            }
+            processed.push({ id: item.id, name: item.name, url: downloadUrl, storagePath, downloadUrl });
+            if (!attachmentsMetadata[fieldName]) {
+              attachmentsMetadata[fieldName] = [];
+            }
+            attachmentsMetadata[fieldName].push({ name: item.name, storagePath, downloadUrl });
+          } else if (item.storagePath) {
+            const downloadUrl = item.downloadUrl || item.url;
+            processed.push({ id: item.id, name: item.name, url: downloadUrl, storagePath: item.storagePath, downloadUrl });
+            if (!attachmentsMetadata[fieldName]) {
+              attachmentsMetadata[fieldName] = [];
+            }
+            attachmentsMetadata[fieldName].push({ name: item.name, storagePath: item.storagePath, downloadUrl });
+          }
+        }
+        if (processed.length > 0) {
+          nextAttachmentState[fieldName] = processed;
+        }
+      }
+
+      const deleteList = attachmentsToDelete[currentReportIndex] ?? [];
+      if (deleteList.length > 0) {
+        const uniquePaths = Array.from(new Set(deleteList));
+        for (const storagePath of uniquePaths) {
+          try {
+            await deleteObject(ref(storage, storagePath));
+          } catch (err) {
+            console.warn('Failed to delete removed attachment from storage', err);
+          }
+        }
+      }
+
+      const attachmentsPayload = Object.keys(attachmentsMetadata).length > 0 ? attachmentsMetadata : undefined;
+
+      const payload = {
+        ...currentReport,
+        ...(attachmentsPayload ? { attachments: attachmentsPayload } : {}),
+        comments: currentReport.comments || finalComments,
+        createActionPlan: false,
+        createdBy: user?.id ?? null,
+        organisationId: orgId,
+        workspaceId: workspaceId,
+      };
+
       const id = await saveAudit(payload, workspaceId, orgId);
       setSavedAuditId(id);
       // Mark audit as completed and save snapshot
@@ -175,8 +402,11 @@ export default function CallBellMonitoringAuditPage() {
       } catch (e) {
         console.warn('Failed to mark audit completed with snapshot', e);
       }
-      setSaving(false);
-      setShowModal(true);
+  setAttachments(prev => ({ ...prev, [currentReportIndex]: nextAttachmentState }));
+  setAttachmentsToDelete(prev => ({ ...prev, [currentReportIndex]: [] }));
+  setPreviewImage(null);
+  setSaving(false);
+  setShowModal(true);
     } catch (e) {
       setSaving(false);
       console.error('Failed to save call bell audit', e);
@@ -469,7 +699,12 @@ export default function CallBellMonitoringAuditPage() {
                         <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
                           <div className="space-y-4">
                             <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Trends identified</label>
+                              <div className="flex items-start justify-between mb-2">
+                                <label className="block text-sm font-medium text-gray-700">
+                                  Trends identified
+                                </label>
+                                {renderAttachmentButton('trendsIdentified')}
+                              </div>
                               <textarea
                                 className={getFieldClassName('trendsIdentified', "w-full p-3 border border-slate-200 rounded-lg resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-slate-50")}
                                 name="trendsIdentified"
@@ -480,6 +715,7 @@ export default function CallBellMonitoringAuditPage() {
                                 required
                               />
                               {hasError('trendsIdentified') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
+                              {renderAttachmentPreview('trendsIdentified')}
                             </div>
                           </div>
                         </div>
@@ -489,7 +725,10 @@ export default function CallBellMonitoringAuditPage() {
                           <div className="space-y-4">
                             <div className="grid grid-cols-4 gap-3">
                               <div className="col-span-3">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Resident 1 Feedback</label>
+                                <div className="flex items-start justify-between mb-2">
+                                  <label className="block text-sm font-medium text-gray-700">Resident 1 Feedback</label>
+                                  {renderAttachmentButton('residentFeedback1')}
+                                </div>
                                 <textarea
                                   className={getFieldClassName('residentFeedback1', "w-full p-3 border border-slate-200 rounded-lg resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-slate-50")}
                                   name="residentFeedback1"
@@ -500,6 +739,7 @@ export default function CallBellMonitoringAuditPage() {
                                   required
                                 />
                                 {hasError('residentFeedback1') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
+                                {renderAttachmentPreview('residentFeedback1')}
                               </div>
                               <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Initial</label>
@@ -519,7 +759,10 @@ export default function CallBellMonitoringAuditPage() {
 
                             <div className="grid grid-cols-4 gap-3">
                               <div className="col-span-3">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Resident 2 Feedback</label>
+                                <div className="flex items-start justify-between mb-2">
+                                  <label className="block text-sm font-medium text-gray-700">Resident 2 Feedback</label>
+                                  {renderAttachmentButton('residentFeedback2')}
+                                </div>
                                 <textarea
                                   className={getFieldClassName('residentFeedback2', "w-full p-3 border border-slate-200 rounded-lg resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-slate-50")}
                                   name="residentFeedback2"
@@ -530,6 +773,7 @@ export default function CallBellMonitoringAuditPage() {
                                   required
                                 />
                                 {hasError('residentFeedback2') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
+                                {renderAttachmentPreview('residentFeedback2')}
                               </div>
                               <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Initial</label>
@@ -549,7 +793,10 @@ export default function CallBellMonitoringAuditPage() {
 
                             <div className="grid grid-cols-4 gap-3">
                               <div className="col-span-3">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Resident 3 Feedback</label>
+                                <div className="flex items-start justify-between mb-2">
+                                  <label className="block text-sm font-medium text-gray-700">Resident 3 Feedback</label>
+                                  {renderAttachmentButton('residentFeedback3')}
+                                </div>
                                 <textarea
                                   className={getFieldClassName('residentFeedback3', "w-full p-3 border border-slate-200 rounded-lg resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-slate-50")}
                                   name="residentFeedback3"
@@ -560,6 +807,7 @@ export default function CallBellMonitoringAuditPage() {
                                   required
                                 />
                                 {hasError('residentFeedback3') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
+                                {renderAttachmentPreview('residentFeedback3')}
                               </div>
                               <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Initial</label>
@@ -587,7 +835,10 @@ export default function CallBellMonitoringAuditPage() {
 
             {/* Final Comments section */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-md p-8">
-              <h3 className="text-lg font-semibold text-blue-900 mb-4">Final Comments</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-blue-900">Final Comments</h3>
+                {renderAttachmentButton('comments')}
+              </div>
               <textarea
                 name="comments"
                 value={currentReport.comments}
@@ -597,6 +848,7 @@ export default function CallBellMonitoringAuditPage() {
                 required
               />
               {hasError('comments') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
+              {renderAttachmentPreview('comments')}
             </div>
 
             {/* Complete Audit Button */}
@@ -628,6 +880,27 @@ export default function CallBellMonitoringAuditPage() {
               >
                 Yes, Create Action Plan
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {previewImage && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black bg-opacity-60" onClick={() => setPreviewImage(null)} />
+          <div className="relative z-70 max-w-3xl w-full mx-4">
+            <div className="bg-white rounded-lg overflow-hidden shadow-xl">
+              <div className="flex justify-between items-start p-2 border-b">
+                <div className="px-3 py-1 text-sm text-gray-700 truncate max-w-[80%]" title={previewImage.name}>{previewImage.name}</div>
+                <button
+                  onClick={() => setPreviewImage(null)}
+                  className="m-2 bg-white rounded-full p-1 text-gray-700 border"
+                >
+                  Close
+                </button>
+              </div>
+              <div className="p-4 bg-black flex items-center justify-center">
+                <img src={previewImage.url} alt={previewImage.name} className="max-h-[80vh] w-auto object-contain" />
+              </div>
             </div>
           </div>
         </div>

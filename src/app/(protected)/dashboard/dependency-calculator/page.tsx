@@ -6,7 +6,7 @@ import { doc, getDoc, setDoc, serverTimestamp, collection } from "firebase/fires
 import { db } from "@/lib/firebase";
 import { workspaceCollectionPath } from "@/lib/paths";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import jsPDF from 'jspdf';
+import { StandardPdfBuilder, StandardPdfMetaItem } from '@/lib/pdf/standard-layout';
 import PageHeader from '@/components/page-header';
 
 import {
@@ -83,496 +83,222 @@ async function generatePDFReport(
   calculateNDPSStaffing: (residents: Resident[]) => { Day: number; Night: number },
   generateChartData: (residents: Resident[], months: number) => ChartData[]
 ) {
-  const doc = new jsPDF();
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  let yPosition = 20;
+  const workspaceName = workspace?.name ?? 'Workspace';
+  const communityName = selectedCommunity
+    ? communities.find((c) => c.id === selectedCommunity)?.name ?? 'Selected Community'
+    : 'All Communities';
 
-  // Helper function to add text with word wrapping
-  const addWrappedText = (text: string, x: number, y: number, maxWidth: number, fontSize: number = 10) => {
-    doc.setFontSize(fontSize);
-    const lines = doc.splitTextToSize(text, maxWidth);
-    doc.text(lines, x, y);
-    return y + (lines.length * fontSize * 0.4);
-  };
-
-  // Helper function to check if we need a new page
-  const checkNewPage = (requiredSpace: number) => {
-    if (yPosition + requiredSpace > pageHeight - 20) {
-      doc.addPage();
-      yPosition = 20;
-    }
-  };
-
-  // Helper function to draw a simple bar chart
-  const drawBarChart = (data: { label: string; value: number; color: string }[], x: number, y: number, width: number, height: number) => {
-    const maxValue = Math.max(...data.map(d => d.value));
-    const barWidth = width / data.length;
-    const scale = height / maxValue;
-
-    // Draw bars
-    data.forEach((item, index) => {
-      const barHeight = item.value * scale;
-      const barX = x + (index * barWidth) + 2;
-      const barY = y + height - barHeight;
-
-      doc.setFillColor(item.color);
-      doc.rect(barX, barY, barWidth - 4, barHeight, 'F');
-
-      // Label
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      doc.text(item.label, barX + (barWidth - 4) / 2, y + height + 8, { align: 'center' });
-
-      // Value
-      doc.text(item.value.toString(), barX + (barWidth - 4) / 2, barY - 2, { align: 'center' });
-    });
-  };
-
-  // Header with Logo and Company Info
-  // Try to include a subtle hero background and logo (landing hero style)
-  let headerBgAdded = false;
-  try {
-  // Create a landing-hero-like background by drawing large blurred gradient blobs
-  // Use a shorter canvas height so the top header strip contains the blobs
-  const canvas = document.createElement('canvas');
-  canvas.width = 1200;
-  canvas.height = 600;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      const c = ctx; // non-null alias for TypeScript
-      // Clear and draw multiple radial gradients similar to the landing hero blobs
-      c.clearRect(0, 0, canvas.width, canvas.height);
-
-      function drawBlob(x: number, y: number, r: number, color1: string, color2: string, alpha = 0.9) {
-        const g = c.createRadialGradient(x, y, r * 0.2, x, y, r);
-        g.addColorStop(0, `${color1}`);
-        g.addColorStop(0.5, `${color2}`);
-        g.addColorStop(1, `${color2}00`);
-        c.globalCompositeOperation = 'screen';
-        c.globalAlpha = alpha * 0.12; // subtle overall
-        c.fillStyle = g as any;
-        c.beginPath();
-        c.ellipse(x, y, r, r * 0.75, 0, 0, Math.PI * 2);
-        c.fill();
-        c.globalCompositeOperation = 'source-over';
-      }
-
-  // Position blobs so they overlap the top portion (the PDF header strip)
-  drawBlob(canvas.width * 0.15, canvas.height * 0.18, 420, '#f472b6', '#a78bfa', 0.95);
-  drawBlob(canvas.width * 0.85, canvas.height * 0.16, 480, '#06b6d4', '#3b82f6', 0.95);
-  drawBlob(canvas.width * 0.45, canvas.height * 0.42, 380, '#f59e0b', '#f472b6', 0.9);
-
-      // Slight white wavy overlay (very subtle)
-      c.globalAlpha = 0.06;
-      c.fillStyle = '#ffffff';
-      c.beginPath();
-      c.moveTo(0, canvas.height * 0.75);
-      c.bezierCurveTo(canvas.width * 0.25, canvas.height * 0.6, canvas.width * 0.5, canvas.height * 0.9, canvas.width, canvas.height * 0.7);
-      c.lineTo(canvas.width, canvas.height);
-      c.lineTo(0, canvas.height);
-      c.closePath();
-      c.fill();
-
-      // (Removed) Right-side logo watermark — we want a single logo in the PDF header overlay
-
-      // Embed the canvas as the PDF header background only (keep rest of page clean)
-  const headerHeight = 120; // larger header so the hero strip is visible
-      // Scale canvas to header dimensions while preserving quality
-      const bgDataUrl = canvas.toDataURL('image/png');
-      try {
-        // draw the hero-style background into the top header area
-        doc.addImage(bgDataUrl, 'PNG', 0, 0, pageWidth, headerHeight);
-        headerBgAdded = true;
-      } catch (e) {
-        console.warn('Failed to add header background image to PDF:', e);
-        headerBgAdded = false;
-      }
-    }
-  } catch (e) {
-    console.warn('Could not embed hero background into PDF (continuing):', e);
-  }
-
-  // Header (overlayed) with Logo and Company Info
-  // Draw a fallback header bar only if we failed to add the hero background.
-  if (!headerBgAdded) {
-    try {
-      doc.setFillColor(41, 128, 185); // solid blue fallback
-      doc.rect(0, 0, pageWidth, 40, 'F');
-    } catch (e) {
-      // ignore
-    }
-  }
-
-  // Try to draw a crisp logo from the public SVG as a PNG into the header
-  try {
-    const resp2 = await fetch('/Neurodiversity_Symbol.png');
-    if (resp2.ok) {
-      const blob2 = await resp2.blob();
-      const url2 = URL.createObjectURL(blob2);
-      const logoImg = new Image();
-      logoImg.crossOrigin = 'anonymous';
-      logoImg.src = url2;
-      await new Promise<void>((resolve) => {
-        logoImg.onload = () => resolve();
-        logoImg.onerror = () => resolve();
-      });
-
-      const logoCanvas = document.createElement('canvas');
-      const lw = 200;
-      const lh = Math.round((logoImg.height / (logoImg.width || 1)) * lw) || 60;
-      logoCanvas.width = lw;
-      logoCanvas.height = lh;
-      const lctx = logoCanvas.getContext('2d');
-      if (lctx) {
-        lctx.clearRect(0, 0, lw, lh);
-        lctx.drawImage(logoImg, 0, 0, lw, lh);
-        const logoPng = logoCanvas.toDataURL('image/png');
-        try {
-          doc.addImage(logoPng, 'PNG', 15, 8, 30, 22);
-        } catch (e) {
-          doc.setFillColor(255, 255, 255);
-          doc.roundedRect(15, 10, 25, 20, 3, 3, 'F');
-          doc.setFontSize(12);
-          doc.setFont('helvetica', 'bold');
-          doc.setTextColor(41, 128, 185);
-          doc.text('DF', 22, 22);
-        }
-      }
-
-      try { URL.revokeObjectURL(url2); } catch {}
-    }
-  } catch (e) {
-    doc.setFillColor(255, 255, 255);
-    doc.roundedRect(15, 10, 25, 20, 3, 3, 'F');
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(41, 128, 185);
-    doc.text('DF', 22, 22);
-  }
-
-  // Company header text
-  doc.setFontSize(18);
-  doc.setFont('helvetica', 'bold');
-  // Make header text black to match landing hero styling
-  doc.setTextColor(0, 0, 0);
-  doc.text('CG-360', 50, 20);
-
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Professional Care Documentation Platform', 50, 30);
-
-  yPosition = 50;
-
-  // Workspace/Home Name
-  doc.setTextColor(0, 0, 0);
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Workspace:', 20, yPosition);
-  doc.setFont('helvetica', 'normal');
-  doc.text(workspace?.name || 'Default Workspace', 70, yPosition);
-  yPosition += 10;
-
-  // Report Title
-  doc.setFontSize(20);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Dependency Calculator Report', pageWidth / 2, yPosition, { align: 'center' });
-  yPosition += 15;
-
-  // Date and Community
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'normal');
-  const reportDate = new Date().toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric'
+  const generatedAt = new Date();
+  const generatedLabel = generatedAt.toLocaleString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   });
-  doc.text(`Generated: ${reportDate}`, pageWidth / 2, yPosition, { align: 'center' });
-  yPosition += 10;
 
-  if (selectedCommunity) {
-    const communityName = communities.find(c => c.id === selectedCommunity)?.name;
-    doc.text(`Community: ${communityName}`, pageWidth / 2, yPosition, { align: 'center' });
-    yPosition += 15;
-  } else {
-    doc.text('All Communities', pageWidth / 2, yPosition, { align: 'center' });
-    yPosition += 15;
-  }
-
-  // Executive Summary
-  checkNewPage(80);
-  doc.setFontSize(16);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Executive Summary', 20, yPosition);
-  yPosition += 15;
-
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'normal');
-  const totalResidents = residents.length;
-  const filteredResidents = selectedCommunity ? residents.filter(r => r.communityId === selectedCommunity) : residents;
-  const avgNDPSScore = filteredResidents.length > 0
-    ? filteredResidents.reduce((sum, r) => sum + calculateNDPSScore(r), 0) / filteredResidents.length
+  const targetResidents = residents;
+  const totalResidents = targetResidents.length;
+  const averageNdps = totalResidents > 0
+    ? targetResidents.reduce((sum, resident) => sum + calculateNDPSScore(resident), 0) / totalResidents
     : 0;
 
-  const staffing = calculateNDPSStaffing(filteredResidents);
+  const staffing = calculateNDPSStaffing(targetResidents);
+  const totalDayMinutes = targetResidents.reduce((acc, resident) => acc + calculateResidentCareMinutes(resident).Day, 0);
+  const totalNightMinutes = targetResidents.reduce((acc, resident) => acc + calculateResidentCareMinutes(resident).Night, 0);
+  const totalCareMinutes = totalDayMinutes + totalNightMinutes;
 
-  // Summary metrics in a nice layout
-  const summaryMetrics = [
-    { label: 'Total Residents:', value: filteredResidents.length.toString() },
-    { label: 'Average NDPS Score:', value: avgNDPSScore.toFixed(1) },
-    { label: 'Recommended Day Staff:', value: staffing.Day.toString() },
-    { label: 'Recommended Night Staff:', value: staffing.Night.toString() },
+  const meta: StandardPdfMetaItem[] = [
+    { label: 'Workspace', value: workspaceName },
+    { label: 'Scope', value: communityName },
+    { label: 'Residents', value: totalResidents },
+    { label: 'Average NDPS', value: totalResidents ? averageNdps.toFixed(1) : '0.0' },
+    { label: 'Generated', value: generatedLabel },
   ];
 
-  summaryMetrics.forEach((metric, index) => {
-    const colX = index % 2 === 0 ? 20 : pageWidth / 2;
-    const colY = yPosition + Math.floor(index / 2) * 8;
-    doc.text(`${metric.label} ${metric.value}`, colX, colY);
+  const builder = new StandardPdfBuilder({
+    title: 'Dependency Calculator Report',
+    subtitle: communityName,
+    meta,
   });
 
-  yPosition += 25;
+  builder.doc.setProperties({
+    title: `Dependency Report - ${workspaceName}`,
+    subject: `Dependency Profile (${communityName})`,
+    creator: 'CG360 Dependency Calculator',
+  });
 
-  //Band Distribution Chart
-  checkNewPage(80);
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Band Distribution', 20, yPosition);
-  yPosition += 10;
+  if (totalResidents === 0) {
+    builder.addSection('Overview');
+    builder.addParagraph('No resident dependency data was available for the selected scope.');
+    builder.addFooter();
+    const emptyFile = selectedCommunity
+      ? `dependency-report-${communityName}-${generatedAt.toISOString().split('T')[0]}.pdf`
+      : `dependency-report-all-communities-${generatedAt.toISOString().split('T')[0]}.pdf`;
+    builder.doc.save(emptyFile);
+    return;
+  }
 
-  // Calculate band distribution
-  const bandCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-  filteredResidents.forEach(resident => {
+  builder.addSection('Executive Summary');
+  builder.addInfoGrid(
+    [
+      { label: 'Total Residents', value: totalResidents },
+      { label: 'Average NDPS Score', value: averageNdps.toFixed(1) },
+      { label: 'Recommended Day Staff', value: staffing.Day },
+      { label: 'Recommended Night Staff', value: staffing.Night },
+      { label: 'Total Weekly Care Hours', value: (totalCareMinutes / 60).toFixed(1) },
+      { label: 'Resident to Staff Ratio', value: staffing.Day + staffing.Night > 0 ? `${Math.round(totalResidents / (staffing.Day + staffing.Night))}:1` : '—' },
+    ],
+    { columns: 3 }
+  );
+  builder.addParagraph(
+    'This report summarises resident dependency levels using the National Dependency Projection System (NDPS) to support evidence-based staffing decisions.'
+  );
+
+  const bandSummary = {
+    1: { count: 0, name: '' },
+    2: { count: 0, name: '' },
+    3: { count: 0, name: '' },
+    4: { count: 0, name: '' },
+    5: { count: 0, name: '' },
+  } as Record<number, { count: number; name: string }>;
+
+  targetResidents.forEach((resident) => {
+    const { band, name } = getNDPSBand(calculateNDPSScore(resident));
+    bandSummary[band].count += 1;
+    bandSummary[band].name = name;
+  });
+
+  const bandRows = (Object.entries(bandSummary) as Array<[string, { count: number; name: string }]>)
+    .map(([bandKey, info]) => {
+      const bandNumber = Number(bandKey);
+      const percentage = totalResidents > 0 ? `${Math.round((info.count / totalResidents) * 100)}%` : '0%';
+      return {
+        band: `Band ${bandNumber}`,
+        description: info.name || '—',
+        residents: info.count,
+        percentage,
+      };
+    });
+
+  builder.addSection('Band Distribution', { marginTop: 16 });
+  builder.addTable({
+    columns: [
+      { key: 'band', header: 'Band' },
+      { key: 'description', header: 'Description' },
+      { key: 'residents', header: 'Residents', align: 'right' },
+      { key: 'percentage', header: 'Population Share', align: 'right' },
+    ],
+    rows: bandRows,
+    stripe: true,
+  });
+
+  const residentsByCommunity = targetResidents.reduce<Record<string, { name: string; count: number; average: number }>>((acc, resident) => {
+    const id = resident.communityId || 'unassigned';
+    const community = communities.find((c) => c.id === resident.communityId);
+    const name = community?.name ?? 'Unassigned';
+    const current = acc[id] ?? { name, count: 0, average: 0 };
     const score = calculateNDPSScore(resident);
-    const band = getNDPSBand(score).band;
-    bandCounts[band as keyof typeof bandCounts]++;
-  });
+    const totalScore = current.average * current.count + score;
+    const updatedCount = current.count + 1;
+    acc[id] = { name, count: updatedCount, average: totalScore / updatedCount };
+    return acc;
+  }, {});
 
-  const bandData = [
-    { label: 'Band 1', value: bandCounts[1], color: '#10B981' },
-    { label: 'Band 2', value: bandCounts[2], color: '#3B82F6' },
-    { label: 'Band 3', value: bandCounts[3], color: '#F59E0B' },
-    { label: 'Band 4', value: bandCounts[4], color: '#F97316' },
-    { label: 'Band 5', value: bandCounts[5], color: '#EF4444' },
-  ];
-
-  drawBarChart(bandData, 20, yPosition, pageWidth - 40, 60);
-  yPosition += 80;
-
-  // Community Breakdown
-  if (communities.length > 0) {
-    checkNewPage(60);
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Community Breakdown', 20, yPosition);
-    yPosition += 10;
-
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-
-    communities.forEach(community => {
-      const communityResidents = residents.filter(r => r.communityId === community.id);
-      if (communityResidents.length > 0) {
-        checkNewPage(15);
-        doc.text(`${community.name}: ${communityResidents.length} residents`, 20, yPosition);
-        yPosition += 6;
-
-        // Show NDPS distribution for this community
-        const communityBands = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-        communityResidents.forEach(resident => {
-          const score = calculateNDPSScore(resident);
-          const band = getNDPSBand(score).band;
-          communityBands[band as keyof typeof communityBands]++;
-        });
-
-        const bandSummary = Object.entries(communityBands)
-          .filter(([_, count]) => count > 0)
-          .map(([band, count]) => `Band ${band}: ${count}`)
-          .join(', ');
-
-        doc.setFontSize(8);
-        doc.text(`NDPS Distribution: ${bandSummary}`, 30, yPosition);
-        yPosition += 6;
-        doc.setFontSize(10);
-      }
-    });
-    yPosition += 10;
+  if (Object.keys(residentsByCommunity).length > 0) {
+    builder.addSection('Community Breakdown', { marginTop: 16 });
+    const items = Object.values(residentsByCommunity).map((entry) => ({
+      label: entry.name,
+      value: `${entry.count} residents • Avg NDPS ${entry.average.toFixed(1)}`,
+    }));
+    builder.addInfoGrid(items, { columns: 2 });
   }
 
-  // Care Time Analysis
-  checkNewPage(60);
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Care Time Analysis', 20, yPosition);
-  yPosition += 10;
+  builder.addSection('Care Time Analysis', { marginTop: 16 });
+  const averageDayHours = totalResidents ? (totalDayMinutes / 60) / totalResidents : 0;
+  const averageNightHours = totalResidents ? (totalNightMinutes / 60) / totalResidents : 0;
+  builder.addInfoGrid(
+    [
+      { label: 'Total Day Care (hrs)', value: (totalDayMinutes / 60).toFixed(1) },
+      { label: 'Total Night Care (hrs)', value: (totalNightMinutes / 60).toFixed(1) },
+      { label: 'Average Day Care / Resident', value: averageDayHours.toFixed(1) },
+      { label: 'Average Night Care / Resident', value: averageNightHours.toFixed(1) },
+    ],
+    { columns: 2 }
+  );
 
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-
-  const totalDayMinutes = filteredResidents.reduce((s, r) => s + calculateResidentCareMinutes(r).Day, 0);
-  const totalNightMinutes = filteredResidents.reduce((s, r) => s + calculateResidentCareMinutes(r).Night, 0);
-  const totalDayHours = Math.round((totalDayMinutes / 60) * 100) / 100;
-  const totalNightHours = Math.round((totalNightMinutes / 60) * 100) / 100;
-
-  doc.text(`Total Day Care Time: ${totalDayHours} hours`, 20, yPosition);
-  yPosition += 6;
-  doc.text(`Total Night Care Time: ${totalNightHours} hours`, 20, yPosition);
-  yPosition += 6;
-  doc.text(`Average Day Care per Resident: ${(totalDayHours / filteredResidents.length).toFixed(1)} hours`, 20, yPosition);
-  yPosition += 6;
-  doc.text(`Average Night Care per Resident: ${(totalNightHours / filteredResidents.length).toFixed(1)} hours`, 20, yPosition);
-  yPosition += 15;
-
-  // Resident Details Table
-  checkNewPage(100);
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Resident Details', 20, yPosition);
-  yPosition += 10;
-
-  // Table headers
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
-  const headers = ['Name', 'Room', 'NDPS Score', 'Band', 'Day Care (h)', 'Night Care (h)'];
-  const colWidths = [35, 20, 25, 30, 30, 30];
-  let xPos = 20;
-
-  headers.forEach((header, index) => {
-    doc.text(header, xPos, yPosition);
-    xPos += colWidths[index];
-  });
-
-  yPosition += 8;
-
-  // Table rows
-  doc.setFont('helvetica', 'normal');
-  filteredResidents.forEach(resident => {
-    checkNewPage(12);
-    xPos = 20;
-
-    const ndpsScore = calculateNDPSScore(resident);
-    const ndpsBand = getNDPSBand(ndpsScore);
-    const careTime = calculateResidentCareMinutes(resident);
-
-    const rowData = [
-      resident.name || 'Unnamed',
-      resident.room || '-',
-      ndpsScore.toString(),
-      `Band ${ndpsBand.band}`,
-      (careTime.Day / 60).toFixed(1),
-      (careTime.Night / 60).toFixed(1)
-    ];
-
-    rowData.forEach((data, index) => {
-      // Truncate long names if necessary
-      const displayText = data.length > 15 ? data.substring(0, 12) + '...' : data;
-      doc.text(displayText, xPos, yPosition);
-      xPos += colWidths[index];
-    });
-
-    yPosition += 6;
-  });
-
-  yPosition += 10;
-
-  // Historical Trends (last 6 months)
-  checkNewPage(80);
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Historical Trends (Last 6 Months)', 20, yPosition);
-  yPosition += 10;
-
-  const historicalData = generateChartData(filteredResidents, 6);
-  if (historicalData.length > 0) {
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-
-    // Simple trend table
-    const trendHeaders = ['Month', 'Avg NDPS', 'Care Hours', 'Staff Required'];
-    xPos = 20;
-
-    trendHeaders.forEach((header, index) => {
-      doc.text(header, xPos, yPosition);
-      xPos += 35;
-    });
-
-    yPosition += 8;
-
-    historicalData.slice(-6).forEach(data => {
-      checkNewPage(12);
-      xPos = 20;
-      const rowData = [
-        data.date,
-        data.ndpsScore.toFixed(1),
-        data.careHours.toFixed(1),
-        data.staffRequired.toString()
-      ];
-
-      rowData.forEach((data, index) => {
-        doc.text(data, xPos, yPosition);
-        xPos += 35;
-      });
-
-      yPosition += 6;
-    });
-  }
-
-  // Methodology Section
-  checkNewPage(60);
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(0, 0, 0);
-  doc.text('Assessment Methodology', 20, yPosition);
-  yPosition += 10;
-
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  const methodologyText = 'This report uses the National Dependency Projection System (NDPS) methodology, which provides an evidence-based approach to assessing resident dependency levels and calculating required staffing ratios. The NDPS system categorizes residents into five dependency bands based on their care needs and activities of daily living.';
-  const methodologyLines = doc.splitTextToSize(methodologyText, pageWidth - 40);
-  doc.text(methodologyLines, 20, yPosition);
-  yPosition += methodologyLines.length * 5 + 10;
-
-  // Recommendations Section
-  checkNewPage(60);
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Staffing Recommendations', 20, yPosition);
-  yPosition += 10;
-
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  const totalCareHours = filteredResidents.reduce((total, resident) => {
+  builder.addSection('Resident Details', { marginTop: 16 });
+  const residentRows = targetResidents.map((resident) => {
+    const score = calculateNDPSScore(resident);
+    const { band, name } = getNDPSBand(score);
     const care = calculateResidentCareMinutes(resident);
-    return total + (care.Day + care.Night) / 60;
-  }, 0);
-  const recommendedStaffing = calculateNDPSStaffing(filteredResidents);
+    return {
+      name: resident.name || 'Unnamed',
+      room: resident.room || '—',
+      ndps: score.toFixed(0),
+      band: `Band ${band} – ${name}`,
+      day: (care.Day / 60).toFixed(1),
+      night: (care.Night / 60).toFixed(1),
+    };
+  });
+  builder.addTable({
+    columns: [
+      { key: 'name', header: 'Resident' },
+      { key: 'room', header: 'Room', width: 30 },
+      { key: 'ndps', header: 'NDPS', align: 'center', width: 30 },
+      { key: 'band', header: 'Dependency Band' },
+      { key: 'day', header: 'Day Care (hrs)', align: 'right', width: 45 },
+      { key: 'night', header: 'Night Care (hrs)', align: 'right', width: 50 },
+    ],
+    rows: residentRows,
+    stripe: true,
+  });
 
-  const recommendationsText = `Based on the current resident dependency profile, the following staffing recommendations are suggested:
+  builder.addSection('Historical Trends (Last 6 Months)', { marginTop: 16 });
+  const historicalData = generateChartData(targetResidents, 6).slice(-6);
+  if (historicalData.length > 0) {
+    builder.addTable({
+      columns: [
+        { key: 'date', header: 'Month' },
+        { key: 'ndpsScore', header: 'Avg NDPS', align: 'right' },
+        { key: 'careHours', header: 'Care Hours', align: 'right' },
+        { key: 'staffRequired', header: 'Staff Required', align: 'right' },
+        { key: 'residentCount', header: 'Residents', align: 'right' },
+      ],
+      rows: historicalData.map((item) => ({
+        date: item.date,
+        ndpsScore: item.ndpsScore.toFixed(1),
+        careHours: item.careHours.toFixed(1),
+        staffRequired: item.staffRequired,
+        residentCount: item.residentCount,
+      })),
+      stripe: true,
+    });
+  } else {
+    builder.addParagraph('Not enough historical snapshots were available to display trend data.');
+  }
 
-• Total Required Care Hours: ${totalCareHours.toFixed(1)} hours per week
-• Recommended Day Staff: ${recommendedStaffing.Day} carers (12-hour shifts)
-• Recommended Night Staff: ${recommendedStaffing.Night} carers (12-hour shifts)
-• Resident-to-Staff Ratio: ${Math.round(filteredResidents.length / (recommendedStaffing.Day + recommendedStaffing.Night))}:1
+  builder.addSection('Assessment Methodology', { marginTop: 16 });
+  builder.addParagraph(
+    'NDPS evaluates twelve basic care needs, five special nursing requirements, and organisational therapy factors. Scores range from 0 (independent) to 5 (totally dependent) per domain, creating a comprehensive profile of resident support requirements.'
+  );
 
-These recommendations should be reviewed in conjunction with local policies and regulatory requirements. The NDPS methodology provides evidence-based staffing calculations that ensure appropriate care levels for all dependency bands.`;
-  const recommendationLines = doc.splitTextToSize(recommendationsText, pageWidth - 40);
-  doc.text(recommendationLines, 20, yPosition);
-  yPosition += recommendationLines.length * 5 + 10;
+  builder.addSection('Staffing Recommendations', { marginTop: 16 });
+  const recommendations = calculateNDPSStaffing(targetResidents);
+  builder.addBulletList([
+    `Total required care: ${(totalCareMinutes / 60).toFixed(1)} hours per week across day and night shifts.`,
+    `Recommended day staffing: ${recommendations.Day} carers (12-hour shifts).`,
+    `Recommended night staffing: ${recommendations.Night} carers (12-hour shifts).`,
+    'Review ratios alongside local policy and regulatory requirements to confirm safe workforce levels.',
+  ]);
 
-  // Footer with generation info
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(128, 128, 128);
-  doc.text(`Generated by CG-360- ${workspace?.name || 'Default Workspace'}`, 20, pageHeight - 15);
-  doc.text(`Report Date: ${reportDate}`, 20, pageHeight - 10);
-  doc.text(`Total Residents: ${filteredResidents.length}`, pageWidth - 60, pageHeight - 15);
-  doc.text(`NDPS Methodology v2.0`, pageWidth - 60, pageHeight - 10);
+  builder.addFooter();
 
-  // Save the PDF
   const fileName = selectedCommunity
-    ? `dependency-report-${communities.find(c => c.id === selectedCommunity)?.name}-${new Date().toISOString().split('T')[0]}.pdf`
-    : `dependency-report-all-communities-${new Date().toISOString().split('T')[0]}.pdf`;
+    ? `dependency-report-${communityName}-${generatedAt.toISOString().split('T')[0]}.pdf`
+    : `dependency-report-all-communities-${generatedAt.toISOString().split('T')[0]}.pdf`;
 
-  doc.save(fileName);
+  builder.doc.save(fileName);
 }
 
 // Generate chart data for historical trends
@@ -834,10 +560,14 @@ function calculateNDPSStaffing(residents: Resident[]): { Day: number; Night: num
 }
 
 // Calculate breakdown of nurses and CTMs from total staff
-function calculateStaffBreakdown(residents: Resident[]): { 
+function calculateStaffBreakdown(
+  residents: Resident[],
+  options?: { includeNurses?: boolean }
+): { 
   Day: { nurses: number; ctms: number; carers: number; total: number }; 
   Night: { nurses: number; ctms: number; carers: number; total: number } 
 } {
+  const includeNurses = options?.includeNurses ?? true;
   // Return zeros if no residents
   if (residents.length === 0) {
     return {
@@ -909,6 +639,16 @@ function calculateStaffBreakdown(residents: Resident[]): {
       total: nightNurses + nightCTMs + nightCarers
     }
   };
+
+  if (!includeNurses) {
+    result.Day.carers += result.Day.nurses;
+    result.Day.nurses = 0;
+    result.Day.total = result.Day.ctms + result.Day.carers;
+
+    result.Night.carers += result.Night.nurses;
+    result.Night.nurses = 0;
+    result.Night.total = result.Night.ctms + result.Night.carers;
+  }
   return result;
 }
 
@@ -1964,6 +1704,7 @@ export default function DependencyCalculatorPage() {
             <CareTimeBreakdown
               residents={residents}
               calculateResidentCareMinutes={calculateResidentCareMinutes}
+              calculateNDPSStaffing={calculateNDPSStaffing}
             />
           </div>
 

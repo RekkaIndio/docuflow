@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useEffect, useTransition, useMemo } from "react";
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Download, Mail, Printer, Users, Plus, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +21,8 @@ import { workspaceDocPath } from "@/lib/paths";
 import { useToast } from "@/hooks/use-toast";
 import { sendRotaEmails } from "@/actions/rotas";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { getShiftColorTheme, ShiftColorKey, DEFAULT_SHIFT_COLOR } from "./shift-colors";
+import { ShiftPatternsDialog } from "./shift-patterns-dialog";
 
 export interface StaffMember {
   id: string;
@@ -33,15 +35,28 @@ export interface StaffMember {
   hoursType?: 'weekly' | 'monthly'; // default to weekly
 }
 
+export interface ShiftPattern {
+  id: string; // stored in shift.type for compatibility
+  label: string;
+  startTime: string;
+  endTime: string;
+  color: ShiftColorKey;
+  description?: string;
+}
+
 export interface Shift {
   id: string;
   staffId: string;
   staffName: string;
-  type: 'AM' | 'PM' | 'Night' | 'Full';
+  type: string; // pattern id or 'AnnualLeave'
   startTime?: string; // HH:mm format
   endTime?: string; // HH:mm format
   date: string; // YYYY-MM-DD format
   notes?: string;
+  leave?: {
+    groupId: string;
+    totalHours: number;
+  };
 }
 
 export interface RotaData {
@@ -57,33 +72,33 @@ interface RotasViewProps {
   workspace: Workspace;
 }
 
-const defaultShiftTimes = {
-  AM: { start: '07:00', end: '15:00' },
-  PM: { start: '15:00', end: '23:00' },
-  Night: { start: '23:00', end: '07:00' },
-  Full: { start: '07:00', end: '23:00' },
-};
+const defaultShiftPatterns: ShiftPattern[] = [
+  { id: 'AM', label: 'Morning', startTime: '07:00', endTime: '15:00', color: 'blue' },
+  { id: 'PM', label: 'Afternoon', startTime: '15:00', endTime: '23:00', color: 'amber' },
+  { id: 'Night', label: 'Night', startTime: '23:00', endTime: '07:00', color: 'indigo' },
+  { id: 'Full', label: 'Full Day', startTime: '07:00', endTime: '23:00', color: 'green' },
+];
 
 // Calculate hours between two time strings (HH:mm format)
 function calculateShiftHours(startTime: string, endTime: string): number {
   if (!startTime || !endTime) return 0;
-  
+
   const [startHour, startMin] = startTime.split(':').map(Number);
   const [endHour, endMin] = endTime.split(':').map(Number);
-  
+
   // Check for invalid numbers
   if (isNaN(startHour) || isNaN(startMin) || isNaN(endHour) || isNaN(endMin)) {
     return 0;
   }
-  
+
   let hours = endHour - startHour;
   let minutes = endMin - startMin;
-  
+
   // Handle overnight shifts (e.g., 23:00 to 07:00)
   if (hours < 0) {
     hours += 24;
   }
-  
+
   const totalHours = hours + (minutes / 60);
   return isNaN(totalHours) ? 0 : totalHours;
 }
@@ -123,9 +138,50 @@ export function RotasView({ workspace }: RotasViewProps) {
   const [isEmailing, startEmailRotaTransition] = useTransition();
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
   const [emailWeeksToSend, setEmailWeeksToSend] = useState<number>(1);
+  const [isPatternsDialogOpen, setIsPatternsDialogOpen] = useState(false);
+  const [shiftPatterns, setShiftPatterns] = useState<ShiftPattern[]>(defaultShiftPatterns);
 
   const workspaceId = workspace?.id || '';
   const organisationId = (workspace as any)?.organisationId || '';
+
+  const patternMap = useMemo(() => {
+    const map = new Map<string, ShiftPattern>();
+    shiftPatterns.forEach((pattern) => {
+      map.set(pattern.id, pattern);
+    });
+    return map;
+  }, [shiftPatterns]);
+  // Listen for shift pattern configuration updates
+  useEffect(() => {
+    if (!workspaceId) return;
+
+    const patternsRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId), 'rotas', 'shift-patterns');
+    const unsub = onSnapshot(
+      patternsRef,
+      (snap) => {
+        if (snap.exists()) {
+          const data = snap.data() as { patterns?: ShiftPattern[] };
+          if (Array.isArray(data?.patterns) && data.patterns.length > 0) {
+            const hydrated = data.patterns.map((pattern) => ({
+              ...pattern,
+              startTime: pattern.startTime || '07:00',
+              endTime: pattern.endTime || '15:00',
+              color: (pattern.color as ShiftColorKey) || DEFAULT_SHIFT_COLOR,
+            }));
+            setShiftPatterns(hydrated);
+            return;
+          }
+        }
+        setShiftPatterns(defaultShiftPatterns);
+      },
+      (error) => {
+        console.error('Failed to load shift patterns:', error);
+        setShiftPatterns(defaultShiftPatterns);
+      }
+    );
+
+    return () => unsub();
+  }, [workspaceId, organisationId]);
 
   // Load contracted hours settings and subscribe for realtime updates so
   // changes made from the Teams view are reflected immediately in Rotas.
@@ -227,17 +283,35 @@ export function RotasView({ workspace }: RotasViewProps) {
     setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }));
   };
 
-  const handleAddShift = async (date: string, staffId: string, staffName: string, type: 'AM' | 'PM' | 'Night' | 'Full', startTime?: string, endTime?: string) => {
+  const handleAddShift = async (
+    date: string,
+    staffId: string,
+    staffName: string,
+    type: Shift['type'],
+    startTime?: string,
+    endTime?: string,
+    leaveMeta?: Shift['leave'],
+  ) => {
+    const isStandardShift = type !== 'AnnualLeave';
     const shift: Shift = {
       id: `${staffId}-${date}-${type}-${Date.now()}`,
       staffId,
       staffName,
       type,
-      startTime: startTime || defaultShiftTimes[type].start,
-      endTime: endTime || defaultShiftTimes[type].end,
       date,
       notes: '',
     };
+
+    if (isStandardShift) {
+      const pattern = patternMap.get(type);
+      const fallback = defaultShiftPatterns.find((p) => p.id === type);
+      shift.startTime = startTime ?? pattern?.startTime ?? fallback?.startTime ?? '07:00';
+      shift.endTime = endTime ?? pattern?.endTime ?? fallback?.endTime ?? '15:00';
+    }
+
+    if (leaveMeta && type === 'AnnualLeave') {
+      shift.leave = leaveMeta;
+    }
 
     // Find the rota for this date
     const weekStart = startOfWeek(new Date(date), { weekStartsOn: 1 });
@@ -445,6 +519,30 @@ export function RotasView({ workspace }: RotasViewProps) {
     });
   };
 
+  const handleSaveShiftPatterns = async (patternsToSave: ShiftPattern[]) => {
+    setShiftPatterns(patternsToSave);
+
+    try {
+      const patternsRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId), 'rotas', 'shift-patterns');
+      await setDoc(patternsRef, {
+        patterns: patternsToSave,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+      toast({
+        title: 'Shift patterns updated',
+        description: 'New shift types are ready to use.',
+      });
+      setIsPatternsDialogOpen(false);
+    } catch (error) {
+      console.error('Failed to save shift patterns:', error);
+      toast({
+        title: 'Could not save patterns',
+        description: error instanceof Error ? error.message : 'Something went wrong while saving the shift types.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-muted/20">
       <PageHeader
@@ -563,18 +661,19 @@ export function RotasView({ workspace }: RotasViewProps) {
               </Card>
 
               {/* Shift Legend - Moved to top for easier access */}
-              <ShiftLegend />
+              <ShiftLegend patterns={shiftPatterns} onEdit={() => setIsPatternsDialogOpen(true)} />
 
               {/* Rota Grid and Staff Summary */}
               <div className="flex flex-col sm:flex-row gap-6">
                 <div className="flex-1">
-                  <RotaGrid 
+                  <RotaGrid
                     weekStart={currentWeekStart}
                     weeksToShow={weeksToShow}
                     staff={filteredStaff}
                     shifts={allShifts}
                     onAddShift={handleAddShift}
                     onDeleteShift={handleDeleteShift}
+                    patterns={shiftPatterns}
                     calculateStaffHours={(staffId: string) => calculateStaffWeeklyHours(staffId, currentWeekStart, allShifts)}
                   />
                 </div>
@@ -609,6 +708,7 @@ export function RotasView({ workspace }: RotasViewProps) {
         staff={filteredStaff}
         shifts={allShifts}
         workspaceName={workspace.name || 'Care Home'}
+        patterns={shiftPatterns}
       />
 
       <Dialog open={isEmailDialogOpen} onOpenChange={(open) => !isEmailing && setIsEmailDialogOpen(open)}>
@@ -649,6 +749,13 @@ export function RotasView({ workspace }: RotasViewProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ShiftPatternsDialog
+        open={isPatternsDialogOpen}
+        onOpenChange={setIsPatternsDialogOpen}
+        patterns={shiftPatterns}
+        onSave={handleSaveShiftPatterns}
+      />
     </div>
   );
 }

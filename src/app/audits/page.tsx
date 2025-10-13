@@ -44,6 +44,7 @@ export default function AuditsPage() {
   const [auditStatusMap, setAuditStatusMap] = useState<Record<string, string>>({});
   const [monthlyCompletionStatus, setMonthlyCompletionStatus] = useState<Record<string, boolean>>({});
   const [monthlySnapshotsCount, setMonthlySnapshotsCount] = useState<Record<string, number>>({});
+  const [latestAuditScores, setLatestAuditScores] = useState<Record<string, { scorePercent?: number | null; yesCount?: number | null; totalCount?: number | null }>>({});
   const [pendingCreateAuditType, setPendingCreateAuditType] = useState<string | null>(null);
   const [accidentAuditStartFresh, setAccidentAuditStartFresh] = useState(false);
 
@@ -73,18 +74,19 @@ export default function AuditsPage() {
     
     loadMonthlyStatus();
     
-  try {
-  const settingsCol = collection(db, workspaceCollectionPath(activeWorkspace.id, 'settings', activeWorkspace.organisationId));
-  const schedRef = doc(settingsCol, 'audit_schedule');
-  const statusRef = doc(settingsCol, 'audit_status');
+    try {
+      const settingsCol = collection(db, workspaceCollectionPath(activeWorkspace.id, 'settings', activeWorkspace.organisationId));
+      const schedRef = doc(settingsCol, 'audit_schedule');
+      const statusRef = doc(settingsCol, 'audit_status');
+      const scoresRef = doc(settingsCol, 'audit_latest_scores');
 
-  const unsubSched = onSnapshot(schedRef, (snap) => {
+      const unsubSched = onSnapshot(schedRef, (snap) => {
         if (!mounted) return;
         if (!snap.exists()) return setAuditScheduleMap({});
         setAuditScheduleMap(snap.data() as Record<string, string | null>);
       }, (err) => console.warn('Audit schedule snapshot error', err));
 
-  const unsubStatus = onSnapshot(statusRef, (snap) => {
+      const unsubStatus = onSnapshot(statusRef, (snap) => {
         if (!mounted) return;
         if (!snap.exists()) return setAuditStatusMap({});
         setAuditStatusMap(snap.data() as Record<string, string>);
@@ -92,15 +94,23 @@ export default function AuditsPage() {
         loadMonthlyStatus();
       }, (err) => console.warn('Audit status snapshot error', err));
 
+      const unsubScores = onSnapshot(scoresRef, (snap) => {
+        if (!mounted) return;
+        if (!snap.exists()) return setLatestAuditScores({});
+        const raw = snap.data() as Record<string, { scorePercent?: number; yesCount?: number; totalCount?: number }>;
+        setLatestAuditScores(raw);
+      }, (err) => console.warn('Audit score snapshot error', err));
+
       return () => {
         mounted = false;
         unsubSched();
         unsubStatus();
+        unsubScores();
       };
     } catch (e) {
-      console.warn('Failed to subscribe to audit schedules/status', e);
+      console.warn('Failed to subscribe to audit schedules/status/scores', e);
     }
-  }, [activeWorkspace?.id]);
+  }, [activeWorkspace?.id, activeWorkspace?.organisationId]);
   const [currentView, setCurrentView] = useState<'list' | 'accident-incident' | 'call-bell-monitoring' | 'care-plan' | 'medication' | 'equipment' | 'fire-safety' | 'hand-hygiene' | 'health-safety' | 'infection-control' | 'kitchen' | 'maintenance' | 'managers-weekly' | 'managers-monthly' | 'night-visit' | 'restrictive-practice' | 'staff-file' | 'weight-monitoring' | 'wound-monitoring' | 'mealtime' | 'risk-register'>('list');
 
   // Check if we should auto-open a specific audit (from compliance card clicks)
@@ -186,18 +196,64 @@ export default function AuditsPage() {
     return { text: 'text-destructive', bg: 'bg-destructive/10' };
   };
 
-  const AuditCard = ({ 
-    auditType, 
-    title, 
-    description, 
-    colorClass,
+  const getScoreDetails = (auditType: string) => {
+    const latest = latestAuditScores?.[auditType];
+    if (!latest) {
+      return { scorePercent: null, badgeBg: 'bg-gray-100', badgeText: 'text-gray-600', accent: { bar: 'from-blue-500 to-blue-600', iconBg: 'from-blue-100 to-blue-200', iconText: 'text-blue-600' }, ring: '', titleText: 'text-gray-900' };
+    }
+
+    const computedPercent = typeof latest.scorePercent === 'number'
+      ? Math.max(0, Math.min(100, latest.scorePercent))
+      : (typeof latest.yesCount === 'number' && typeof latest.totalCount === 'number' && latest.totalCount > 0
+        ? Math.round((latest.yesCount / latest.totalCount) * 100)
+        : null);
+
+    if (typeof computedPercent !== 'number') {
+      return { scorePercent: null, badgeBg: 'bg-gray-100', badgeText: 'text-gray-600', accent: { bar: 'from-blue-500 to-blue-600', iconBg: 'from-blue-100 to-blue-200', iconText: 'text-blue-600' }, ring: '', titleText: 'text-gray-900' };
+    }
+
+    if (computedPercent < 86) {
+      return {
+        scorePercent: computedPercent,
+        badgeBg: 'bg-red-100',
+        badgeText: 'text-red-700',
+        accent: { bar: 'from-red-500 to-red-600', iconBg: 'from-red-100 to-red-200', iconText: 'text-red-600' },
+        ring: 'ring-2 ring-red-200',
+        titleText: 'text-red-700'
+      };
+    }
+
+    if (computedPercent < 95) {
+      return {
+        scorePercent: computedPercent,
+        badgeBg: 'bg-amber-100',
+        badgeText: 'text-amber-700',
+        accent: { bar: 'from-amber-500 to-amber-600', iconBg: 'from-amber-100 to-amber-200', iconText: 'text-amber-600' },
+        ring: 'ring-2 ring-amber-200',
+        titleText: 'text-amber-700'
+      };
+    }
+
+    return {
+      scorePercent: computedPercent,
+      badgeBg: 'bg-emerald-100',
+      badgeText: 'text-emerald-700',
+      accent: { bar: 'from-emerald-500 to-emerald-600', iconBg: 'from-emerald-100 to-emerald-200', iconText: 'text-emerald-600' },
+      ring: 'ring-2 ring-emerald-200',
+      titleText: 'text-emerald-700'
+    };
+  };
+
+  const AuditCard = ({
+    auditType,
+    title,
+    description,
     onClick,
     onCreateNew,
-  }: { 
+  }: {
     auditType: string;
     title: string;
     description: string;
-    colorClass: string;
     onClick: () => void;
     onCreateNew?: () => void;
   }) => {
@@ -207,9 +263,16 @@ export default function AuditsPage() {
     // If there are fewer than 5 days remaining until reset and the audit is not completed,
     // mark it as urgent (red highlight)
     const isUrgent = !isCompleted && typeof daysRemaining === 'number' && daysRemaining < 5;
+    const score = getScoreDetails(auditType);
+    const topAccentGradient = score.accent.bar;
+    const iconGradient = score.accent.iconBg;
+    const iconColor = score.accent.iconText;
+    const ringClass = score.scorePercent === null
+      ? (isCompleted ? 'ring-2 ring-green-200' : isUrgent ? 'ring-2 ring-red-200' : '')
+      : score.ring;
 
     return (
-      <div className={`group relative overflow-hidden rounded-xl bg-gradient-to-br from-white to-gray-50/50 border border-gray-200/60 shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer ${isCompleted ? 'ring-2 ring-green-200' : isUrgent ? 'ring-2 ring-red-200' : ''} min-h-[170px] flex flex-col justify-between`}>
+      <div className={`group relative overflow-hidden rounded-xl bg-gradient-to-br from-white to-gray-50/50 border border-gray-200/60 shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer ${ringClass} min-h-[170px] flex flex-col justify-between`}>
         {/* Background pattern */}
         <div className="absolute inset-0 opacity-[0.02]">
           <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-gray-900 to-transparent rounded-full -translate-y-16 translate-x-16"></div>
@@ -217,22 +280,27 @@ export default function AuditsPage() {
         </div>
 
         {/* Top accent bar */}
-        <div className={`h-1 w-full bg-gradient-to-r ${isCompleted ? 'from-green-500 to-green-600' : isUrgent ? 'from-red-500 to-red-600' : 'from-blue-500 to-blue-600'}`}></div>
+        <div className={`h-1 w-full bg-gradient-to-r ${score.scorePercent === null ? (isCompleted ? 'from-green-500 to-green-600' : isUrgent ? 'from-red-500 to-red-600' : 'from-blue-500 to-blue-600') : topAccentGradient}`}></div>
 
         <div className="p-6 relative z-10 flex-1 flex">
           <div className="flex items-start gap-4 w-full">
             {/* Icon */}
-            <div className={`p-3 rounded-xl bg-gradient-to-br ${isCompleted ? 'from-green-100 to-green-200' : isUrgent ? 'from-red-100 to-red-200' : 'from-blue-100 to-blue-200'} shadow-sm`}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={`${isCompleted ? 'text-green-600' : isUrgent ? 'text-red-600' : 'text-blue-600'}`}>
+            <div className={`p-3 rounded-xl bg-gradient-to-br ${score.scorePercent === null ? (isCompleted ? 'from-green-100 to-green-200' : isUrgent ? 'from-red-100 to-red-200' : 'from-blue-100 to-blue-200') : iconGradient} shadow-sm`}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={`${score.scorePercent === null ? (isCompleted ? 'text-green-600' : isUrgent ? 'text-red-600' : 'text-blue-600') : iconColor}`}>
                 <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-3">
-                <h3 className={`text-lg font-semibold text-gray-900 ${isCompleted ? 'text-green-800' : ''} group-hover:text-gray-800 transition-colors`}>
+                <h3 className={`text-lg font-semibold transition-colors ${score.scorePercent === null ? (isCompleted ? 'text-green-800 group-hover:text-green-700' : 'text-gray-900 group-hover:text-gray-800') : `${score.titleText} group-hover:opacity-90`}`}>
                   {title}
                 </h3>
+                {typeof score.scorePercent === 'number' && (
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded ${score.badgeBg} ${score.badgeText} border border-white/40 shadow-sm`}>
+                    {score.scorePercent}%
+                  </span>
+                )}
                 {auditType === 'managers-weekly' && !isCompleted && typeof progressPercent === 'number' && (
                   <span className="text-xs font-medium px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100">{progressPercent}%</span>
                 )}
@@ -540,7 +608,6 @@ export default function AuditsPage() {
           auditType="accident-incident"
           title="Accident and Incident Audit"
           description="Record and review accidents and incidents"
-          colorClass="bg-blue-600"
           onClick={() => handleAuditCardClick('accident-incident')}
           onCreateNew={() => setPendingCreateAuditType('accident-incident')}
         />
@@ -549,7 +616,6 @@ export default function AuditsPage() {
           auditType="call-bell-monitoring"
           title="Call Bell Monitoring Audit"
           description="Monitor and log call bell responses"
-          colorClass="bg-purple-600"
           onClick={() => handleAuditCardClick('call-bell-monitoring')}
         />
 
@@ -557,7 +623,6 @@ export default function AuditsPage() {
           auditType="care-plan"
           title="Care Plan Audit"
           description="Review resident care plans"
-          colorClass="bg-green-600"
           onClick={() => handleAuditCardClick('care-plan')}
         />
 
@@ -565,7 +630,6 @@ export default function AuditsPage() {
           auditType="medication"
           title="Medication Audit"
           description="Medication management and safety"
-          colorClass="bg-emerald-600"
           onClick={() => handleAuditCardClick('medication')}
         />
 
@@ -573,7 +637,6 @@ export default function AuditsPage() {
           auditType="equipment"
           title="Equipment Audit"
           description="Check equipment safety and maintenance"
-          colorClass="bg-orange-600"
           onClick={() => handleAuditCardClick('equipment')}
         />
 
@@ -581,7 +644,6 @@ export default function AuditsPage() {
           auditType="fire-safety"
           title="Fire Safety Audit"
           description="Ensure fire safety compliance"
-          colorClass="bg-red-600"
           onClick={() => handleAuditCardClick('fire-safety')}
         />
 
@@ -589,7 +651,6 @@ export default function AuditsPage() {
           auditType="hand-hygiene"
           title="Hand Hygiene Audit"
           description="Track hand hygiene practices"
-          colorClass="bg-teal-600"
           onClick={() => handleAuditCardClick('hand-hygiene')}
         />
 
@@ -597,7 +658,6 @@ export default function AuditsPage() {
           auditType="health-safety"
           title="Health and Safety Audit"
           description="General health and safety checks"
-          colorClass="bg-fuchsia-600"
           onClick={() => handleAuditCardClick('health-safety')}
         />
 
@@ -605,7 +665,6 @@ export default function AuditsPage() {
           auditType="infection-control"
           title="Infection Control Audit"
           description="Procedures for infection prevention"
-          colorClass="bg-sky-600"
           onClick={() => handleAuditCardClick('infection-control')}
         />
 
@@ -613,7 +672,6 @@ export default function AuditsPage() {
           auditType="kitchen"
           title="Kitchen & Kitchenettes Audit"
           description="Food safety and kitchen cleanliness"
-          colorClass="bg-amber-600"
           onClick={() => handleAuditCardClick('kitchen')}
         />
 
@@ -621,7 +679,6 @@ export default function AuditsPage() {
           auditType="maintenance"
           title="Maintenance Audit"
           description="Building and facility maintenance checks"
-          colorClass="bg-emerald-600"
           onClick={() => handleAuditCardClick('maintenance')}
         />
 
@@ -629,7 +686,6 @@ export default function AuditsPage() {
           auditType="mealtime"
           title="Meal Time Audit"
           description="Monitor meal service quality"
-          colorClass="bg-sky-600"
           onClick={() => handleAuditCardClick('mealtime')}
         />
 
@@ -637,7 +693,6 @@ export default function AuditsPage() {
           auditType="weight-monitoring"
           title="Weight Monitoring Audit"
           description="Track resident weight changes"
-          colorClass="bg-amber-600"
           onClick={() => handleAuditCardClick('weight-monitoring')}
         />
 
@@ -645,7 +700,6 @@ export default function AuditsPage() {
           auditType="wound-monitoring"
           title="Wound Monitoring Audit"
           description="Record wound status and care"
-          colorClass="bg-pink-600"
           onClick={() => handleAuditCardClick('wound-monitoring')}
         />
 
@@ -653,7 +707,6 @@ export default function AuditsPage() {
           auditType="night-visit"
           title="Night Visit Audit"
           description="Night-time checks and observations"
-          colorClass="bg-rose-600"
           onClick={() => handleAuditCardClick('night-visit')}
         />
 
@@ -661,7 +714,6 @@ export default function AuditsPage() {
           auditType="managers-weekly"
           title="Weekly Managers Walkaround Audit"
           description="Weekly leadership checks"
-          colorClass="bg-slate-600"
           onClick={() => handleAuditCardClick('managers-weekly')}
         />
 
@@ -669,7 +721,6 @@ export default function AuditsPage() {
           auditType="managers-monthly"
           title="Managers Monthly Audit"
           description="Comprehensive monthly leadership checks"
-          colorClass="bg-slate-700"
           onClick={() => handleAuditCardClick('managers-monthly')}
         />
 
@@ -677,7 +728,6 @@ export default function AuditsPage() {
           auditType="restrictive-practice"
           title="Restrictive Practice Audit"
           description="Assess restrictive practice use"
-          colorClass="bg-violet-600"
           onClick={() => handleAuditCardClick('restrictive-practice')}
         />
 
@@ -685,7 +735,6 @@ export default function AuditsPage() {
           auditType="staff-file"
           title="Staff File Audit"
           description="Check staff records and training"
-          colorClass="bg-indigo-600"
           onClick={() => handleAuditCardClick('staff-file')}
         />
 
@@ -693,7 +742,6 @@ export default function AuditsPage() {
           auditType="risk-register"
           title="Risk Register"
           description="Overview of resident risks and mitigations"
-          colorClass="bg-stone-600"
           onClick={() => handleAuditCardClick('risk-register')}
         />
       </div>

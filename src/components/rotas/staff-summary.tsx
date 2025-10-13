@@ -15,9 +15,15 @@ interface StaffSummaryProps {
 }
 
 export function StaffSummary({ staff, shifts, weekStart, weeksToShow }: StaffSummaryProps) {
+  const workingShifts = shifts.filter((shift) => shift.type !== 'AnnualLeave');
+  const leaveShifts = shifts.filter((shift) => shift.type === 'AnnualLeave');
+
   // Calculate shifts per staff member
   const staffShiftCounts = staff.map(member => {
-    const memberShifts = shifts.filter(s => s.staffId === member.id);
+    const memberShifts = workingShifts.filter(s => s.staffId === member.id);
+    const memberLeaveHours = leaveShifts
+      .filter(s => s.staffId === member.id)
+      .reduce((total, leaveShift) => total + (leaveShift.leave?.totalHours ?? 0), 0);
     
     // Calculate total hours
     const totalHours = memberShifts.reduce((sum, shift) => {
@@ -44,14 +50,16 @@ export function StaffSummary({ staff, shifts, weekStart, weeksToShow }: StaffSum
       member,
       shiftCount: memberShifts.length,
       totalHours: Math.round(totalHours * 10) / 10,
+      leaveHours: Math.round(memberLeaveHours * 10) / 10,
     };
   });
 
   // Sort by shift count descending
   const sortedStaff = [...staffShiftCounts].sort((a, b) => b.shiftCount - a.shiftCount);
 
-  const totalShifts = shifts.length;
+  const totalShifts = workingShifts.length;
   const averageShiftsPerStaff = staff.length > 0 ? Math.round((totalShifts / staff.length) * 10) / 10 : 0;
+  const totalLeaveHours = leaveShifts.reduce((total, leaveShift) => total + (leaveShift.leave?.totalHours ?? 0), 0);
 
   // Calculate coverage for each day
   const allDates: Date[] = [];
@@ -64,7 +72,7 @@ export function StaffSummary({ staff, shifts, weekStart, weeksToShow }: StaffSum
 
   const dailyCoverage = allDates.map(date => {
     const dateStr = format(date, 'yyyy-MM-dd');
-    const dayShifts = shifts.filter(s => s.date === dateStr);
+    const dayShifts = workingShifts.filter(s => s.date === dateStr);
     return {
       date,
       shiftCount: dayShifts.length,
@@ -73,6 +81,7 @@ export function StaffSummary({ staff, shifts, weekStart, weeksToShow }: StaffSum
 
   const daysWithLowCoverage = dailyCoverage.filter(d => d.shiftCount < 3).length;
   const coveragePercentage = staff.length > 0 ? Math.min(100, Math.round((totalShifts / (staff.length * weeksToShow * 7)) * 100)) : 0;
+  const expectedShiftsPerStaff = staff.length > 0 ? totalShifts / staff.length : 0;
 
   return (
     <div className="space-y-4">
@@ -96,6 +105,10 @@ export function StaffSummary({ staff, shifts, weekStart, weeksToShow }: StaffSum
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Avg per Staff</span>
               <span className="font-semibold">{averageShiftsPerStaff}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">Annual Leave Hours</span>
+        <span className="font-semibold">{Math.round(totalLeaveHours * 10) / 10}</span>
             </div>
           </div>
 
@@ -129,7 +142,7 @@ export function StaffSummary({ staff, shifts, weekStart, weeksToShow }: StaffSum
             </div>
           ) : (
             <div className="space-y-3">
-              {sortedStaff.slice(0, 10).map(({ member, shiftCount, totalHours }) => (
+              {sortedStaff.slice(0, 10).map(({ member, shiftCount, totalHours, leaveHours }) => (
                 <div key={member.id} className="space-y-1">
                   <div className="flex items-center justify-between text-sm">
                     <div className="flex-1 min-w-0">
@@ -140,11 +153,13 @@ export function StaffSummary({ staff, shifts, weekStart, weeksToShow }: StaffSum
                       <Badge variant={shiftCount > averageShiftsPerStaff ? "default" : "secondary"} className="text-xs">
                         {shiftCount} shifts
                       </Badge>
-                      <div className="text-xs text-muted-foreground mt-1">{totalHours}h</div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {totalHours}h{leaveHours > 0 ? ` • ${leaveHours}h leave` : ''}
+                      </div>
                     </div>
                   </div>
                   <Progress 
-                    value={staff.length > 0 ? (shiftCount / (totalShifts / staff.length)) * 100 : 0} 
+                    value={expectedShiftsPerStaff > 0 ? Math.min(100, (shiftCount / expectedShiftsPerStaff) * 100) : 0} 
                     className="h-1"
                   />
                 </div>

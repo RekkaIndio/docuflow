@@ -22,6 +22,7 @@ import {
   BarChart2,
   Building2,
   Tag,
+  ClipboardCheck,
 } from "lucide-react";
 import Link from 'next/link';
 import { Logo } from "@/components/icons/logo";
@@ -34,7 +35,7 @@ interface AdminSidebarProps {
   workspaces: Workspace[];
   activeWorkspace: Workspace;
   onWorkspaceChange: (workspaceId: string) => void;
-  setView: (view: 'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'care-homes' | 'workspaces' | 'policies' | 'appraisals' | 'supervision') => void;
+  setView: (view: 'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'care-homes' | 'workspaces' | 'policies' | 'appraisals' | 'supervision' | 'rd-compliance-audit') => void;
   onGoToFiles: () => void;
 }
 
@@ -95,6 +96,12 @@ export function AdminSidebar({
             <SidebarMenuButton onClick={() => handleNavigation(() => setView('supervision'))} className={`text-lg h-14 ${isActive('/admin/supervision') ? 'bg-muted/50 rounded' : ''}`}>
               <FileText className="w-7 h-7 mr-2" />
               <span className="text-lg">Supervision</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton onClick={() => handleNavigation(() => setView('rd-compliance-audit'))} className={`text-lg h-14 ${isActive('/admin/rd-compliance-audit') ? 'bg-muted/50 rounded' : ''}`}>
+              <ClipboardCheck className="w-7 h-7 mr-2" />
+              <span className="text-lg">RD Compliance Audit</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>

@@ -198,7 +198,7 @@ export default function LoginPage() {
           )}
         </form>
          <div className="mt-4 text-center text-sm text-muted-foreground">
-          Accounts are provisioned by Docuflow. Contact your onboarding representative if you need access.
+          Accounts are provisioned by CG360. Contact your onboarding representative if you need access.
         </div>
       </CardContent>
     </Card>

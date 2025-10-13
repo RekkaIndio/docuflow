@@ -804,13 +804,21 @@ export default function ActionPlansPage() {
                               <th className="p-4 w-2/5">Issue</th>
                               <th className="p-4 w-1/4">Assigned</th>
                               <th className="p-4 w-1/6">RAG</th>
-                              <th className="p-4">Actions</th>
+                              <th className="p-4">Status</th>
                             </tr>
                           </thead>
                           <tbody>
                             {actionPlan.items.map((item, idx) => (
                               <tr key={item.id} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} border-b hover:bg-gray-100`}>
-                                <td className="p-4 align-top text-sm text-gray-800">{item.auditType.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}</td>
+                                <td className="p-4 align-top text-sm text-gray-800">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCurrentItemClick(item)}
+                                    className="text-left text-indigo-600 hover:text-indigo-700 hover:underline"
+                                  >
+                                    {item.auditType.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                  </button>
+                                </td>
                                 <td className="p-4 align-top text-sm text-gray-700">{item.issue}</td>
                                 <td className="p-4 align-top">
                                   <Select value={item.assignedTeam || ''} onValueChange={(v) => handleTeamAssignmentUpdate(item.id, v)} disabled={updatingItem === item.id || loadingTeams}>
@@ -874,14 +882,6 @@ export default function ActionPlansPage() {
                                 </td>
                                 <td className="p-4 align-top">
                                   <div className="flex items-center gap-3">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleCurrentItemClick(item)}
-                                      className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-indigo-200 bg-indigo-50 text-indigo-600 text-xs font-medium transition-colors hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                                    >
-                                      <FileText className="h-4 w-4" />
-                                      View audit
-                                    </button>
                                     {item.status !== 'completed' ? (
                                       <button
                                         onClick={() => handleItemStatusUpdate(item.id, 'completed')}

@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useWorkspace } from '@/context/workspace';
 import { useAuth } from '@/hooks/use-auth';
-import { saveAudit, markAuditCompletedWithSnapshot, getLatestAuditData } from '@/lib/firestore';
+import { saveAudit, markAuditCompletedWithSnapshot, getLatestAuditData, saveAuditSnapshot, markAuditCompleted } from '@/lib/firestore';
 
 interface KitchenAuditData {
   home: string;
@@ -122,9 +122,124 @@ interface KitchenAuditData {
   coshh_sheets_available_comment: string;
 }
 
+const createEmptyKitchenAuditData = (): KitchenAuditData => ({
+  home: '',
+  date: '',
+  personCompletingAudit: '',
+
+  surfaces_clean: '',
+  surfaces_clean_comment: '',
+  flooring_safe: '',
+  flooring_safe_comment: '',
+  walls_ceiling_good: '',
+  walls_ceiling_good_comment: '',
+  sinks_designated: '',
+  sinks_designated_comment: '',
+  bins_clean: '',
+  bins_clean_comment: '',
+
+  fridges_clean_temp: '',
+  fridges_clean_temp_comment: '',
+  temps_monitored_recorded: '',
+  temps_monitored_recorded_comment: '',
+  dry_goods_stored: '',
+  dry_goods_stored_comment: '',
+  opened_items_dated: '',
+  opened_items_dated_comment: '',
+  raw_stored_separately: '',
+  raw_stored_separately_comment: '',
+
+  equipment_clean_working: '',
+  equipment_clean_working_comment: '',
+  chopping_boards_coloured: '',
+  chopping_boards_coloured_comment: '',
+  knives_utensils_safe: '',
+  knives_utensils_safe_comment: '',
+  small_appliances_clean: '',
+  small_appliances_clean_comment: '',
+  dishwasher_effective: '',
+  dishwasher_effective_comment: '',
+
+  handwashing_sinks: '',
+  handwashing_sinks_comment: '',
+  staff_hand_hygiene_observed: '',
+  staff_hand_hygiene_observed_comment: '',
+  ppe_worn_where_appropriate: '',
+  ppe_worn_where_appropriate_comment: '',
+  ppe_changed_between_tasks: '',
+  ppe_changed_between_tasks_comment: '',
+  posters_displayed_food: '',
+  posters_displayed_food_comment: '',
+
+  kitchenettes_clean_hazard_free: '',
+  kitchenettes_clean_hazard_free_comment: '',
+  kitchenette_food_stored_safe: '',
+  kitchenette_food_stored_safe_comment: '',
+  cleaning_products_stored: '',
+  cleaning_products_stored_comment: '',
+  appliances_pat: '',
+  appliances_pat_comment: '',
+  resident_use_risk_assessed: '',
+  resident_use_risk_assessed_comment: '',
+
+  signs_of_pests: '',
+  signs_of_pests_comment: '',
+  doors_windows_sealed: '',
+  doors_windows_sealed_comment: '',
+  pest_contract_in_place: '',
+  pest_contract_in_place_comment: '',
+  pest_proof_storage: '',
+  pest_proof_storage_comment: '',
+
+  allergens_info_displayed: '',
+  allergens_info_displayed_comment: '',
+  special_diets_separated: '',
+  special_diets_separated_comment: '',
+  cross_contamination_avoided: '',
+  cross_contamination_avoided_comment: '',
+
+  cleaning_schedules_signed: '',
+  cleaning_schedules_signed_comment: '',
+  temp_logs_maintained: '',
+  temp_logs_maintained_comment: '',
+  deliveries_stock_rotation: '',
+  deliveries_stock_rotation_comment: '',
+  staff_food_training: '',
+  staff_food_training_comment: '',
+
+  food_waste_bins: '',
+  food_waste_bins_comment: '',
+  clinical_waste_separate: '',
+  clinical_waste_separate_comment: '',
+  recycling_managed: '',
+  recycling_managed_comment: '',
+
+  last_eho_actions_completed: '',
+  last_eho_actions_completed_comment: '',
+  food_hygiene_rating_displayed: '',
+  food_hygiene_rating_displayed_comment: '',
+  staff_food_safety_trained: '',
+  staff_food_safety_trained_comment: '',
+  cleaning_risk_assessment: '',
+  cleaning_risk_assessment_comment: '',
+  coshh_sheets_available: '',
+  coshh_sheets_available_comment: '',
+});
+
+const YES_NO_FIELDS: (keyof KitchenAuditData)[] = [
+  'surfaces_clean','flooring_safe','walls_ceiling_good','sinks_designated','bins_clean',
+  'fridges_clean_temp','temps_monitored_recorded','dry_goods_stored','opened_items_dated','raw_stored_separately',
+  'equipment_clean_working','chopping_boards_coloured','knives_utensils_safe','small_appliances_clean','dishwasher_effective',
+  'handwashing_sinks','staff_hand_hygiene_observed','ppe_worn_where_appropriate','ppe_changed_between_tasks','posters_displayed_food',
+  'kitchenettes_clean_hazard_free','kitchenette_food_stored_safe','cleaning_products_stored','appliances_pat','resident_use_risk_assessed',
+  'signs_of_pests','doors_windows_sealed','pest_contract_in_place','pest_proof_storage',
+  'allergens_info_displayed','special_diets_separated','cross_contamination_avoided',
+  'cleaning_schedules_signed','temp_logs_maintained','deliveries_stock_rotation','staff_food_training',
+  'food_waste_bins','clinical_waste_separate','recycling_managed',
+  'last_eho_actions_completed','food_hygiene_rating_displayed','staff_food_safety_trained','cleaning_risk_assessment','coshh_sheets_available'
+];
+
 export default function KitchenAuditPage() {
-  const [currentReport, setCurrentReport] = useState(1);
-  const [totalReports] = useState(1);
   const [showModal, setShowModal] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const { user } = useAuth();
@@ -220,109 +335,7 @@ export default function KitchenAuditPage() {
     }
   };
 
-  const [data, setData] = useState<KitchenAuditData>({
-    home: '',
-    date: '',
-    personCompletingAudit: '',
-
-    surfaces_clean: '',
-    surfaces_clean_comment: '',
-    flooring_safe: '',
-    flooring_safe_comment: '',
-    walls_ceiling_good: '',
-    walls_ceiling_good_comment: '',
-    sinks_designated: '',
-    sinks_designated_comment: '',
-    bins_clean: '',
-    bins_clean_comment: '',
-
-    fridges_clean_temp: '',
-    fridges_clean_temp_comment: '',
-    temps_monitored_recorded: '',
-    temps_monitored_recorded_comment: '',
-    dry_goods_stored: '',
-    dry_goods_stored_comment: '',
-    opened_items_dated: '',
-    opened_items_dated_comment: '',
-    raw_stored_separately: '',
-    raw_stored_separately_comment: '',
-
-    equipment_clean_working: '',
-    equipment_clean_working_comment: '',
-    chopping_boards_coloured: '',
-    chopping_boards_coloured_comment: '',
-    knives_utensils_safe: '',
-    knives_utensils_safe_comment: '',
-    small_appliances_clean: '',
-    small_appliances_clean_comment: '',
-    dishwasher_effective: '',
-    dishwasher_effective_comment: '',
-
-    handwashing_sinks: '',
-    handwashing_sinks_comment: '',
-    staff_hand_hygiene_observed: '',
-    staff_hand_hygiene_observed_comment: '',
-    ppe_worn_where_appropriate: '',
-    ppe_worn_where_appropriate_comment: '',
-    ppe_changed_between_tasks: '',
-    ppe_changed_between_tasks_comment: '',
-    posters_displayed_food: '',
-    posters_displayed_food_comment: '',
-
-    kitchenettes_clean_hazard_free: '',
-    kitchenettes_clean_hazard_free_comment: '',
-    kitchenette_food_stored_safe: '',
-    kitchenette_food_stored_safe_comment: '',
-    cleaning_products_stored: '',
-    cleaning_products_stored_comment: '',
-    appliances_pat: '',
-    appliances_pat_comment: '',
-    resident_use_risk_assessed: '',
-    resident_use_risk_assessed_comment: '',
-
-    signs_of_pests: '',
-    signs_of_pests_comment: '',
-    doors_windows_sealed: '',
-    doors_windows_sealed_comment: '',
-    pest_contract_in_place: '',
-    pest_contract_in_place_comment: '',
-    pest_proof_storage: '',
-    pest_proof_storage_comment: '',
-
-    allergens_info_displayed: '',
-    allergens_info_displayed_comment: '',
-    special_diets_separated: '',
-    special_diets_separated_comment: '',
-    cross_contamination_avoided: '',
-    cross_contamination_avoided_comment: '',
-
-    cleaning_schedules_signed: '',
-    cleaning_schedules_signed_comment: '',
-    temp_logs_maintained: '',
-    temp_logs_maintained_comment: '',
-    deliveries_stock_rotation: '',
-    deliveries_stock_rotation_comment: '',
-    staff_food_training: '',
-    staff_food_training_comment: '',
-
-    food_waste_bins: '',
-    food_waste_bins_comment: '',
-    clinical_waste_separate: '',
-    clinical_waste_separate_comment: '',
-    recycling_managed: '',
-    recycling_managed_comment: '',
-
-    last_eho_actions_completed: '',
-    last_eho_actions_completed_comment: '',
-    food_hygiene_rating_displayed: '',
-    food_hygiene_rating_displayed_comment: '',
-    staff_food_safety_trained: '',
-    staff_food_safety_trained_comment: '',
-    cleaning_risk_assessment: '',
-    cleaning_risk_assessment_comment: '',
-    coshh_sheets_available: '',
-    coshh_sheets_available_comment: '',
-  });
+  const [data, setData] = useState<KitchenAuditData>(createEmptyKitchenAuditData());
 
   const activeWorkspace = useWorkspace();
 
@@ -332,7 +345,7 @@ export default function KitchenAuditPage() {
       if (!activeWorkspace?.id) return;
       
       try {
-        const existingData = await getLatestAuditData(activeWorkspace.id, 'kitchen');
+  const existingData = await getLatestAuditData(activeWorkspace.id, 'kitchen', undefined, activeWorkspace.organisationId || null);
         if (existingData) {
           // Remove metadata fields and populate form
           const { id, createdAt, ...formData } = existingData;
@@ -352,7 +365,7 @@ export default function KitchenAuditPage() {
     };
 
     loadExistingAuditData();
-  }, [activeWorkspace?.id]);
+  }, [activeWorkspace?.id, activeWorkspace?.organisationId]);
 
   const handleChange = (field: keyof KitchenAuditData, value: string) => {
     setData(prev => ({ ...prev, [field]: value }));
@@ -430,7 +443,10 @@ export default function KitchenAuditPage() {
   };
 
   const handleModalCreate = async (createActionPlan: boolean) => {
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      alert('Please complete all required fields before saving this audit.');
+      return;
+    }
     if (!activeWorkspace?.id) {
       alert('No active workspace. Please select a workspace before saving.');
       return;
@@ -439,19 +455,6 @@ export default function KitchenAuditPage() {
     setSaving(true);
     try {
       // Compute yes/no score
-      const YES_NO_FIELDS = [
-        'surfaces_clean','flooring_safe','walls_ceiling_good','sinks_designated','bins_clean',
-        'fridges_clean_temp','temps_monitored_recorded','dry_goods_stored','opened_items_dated','raw_stored_separately',
-        'equipment_clean_working','chopping_boards_coloured','knives_utensils_safe','small_appliances_clean','dishwasher_effective',
-        'handwashing_sinks','staff_hand_hygiene_observed','ppe_worn_where_appropriate','ppe_changed_between_tasks','posters_displayed_food',
-        'kitchenettes_clean_hazard_free','kitchenette_food_stored_safe','cleaning_products_stored','appliances_pat','resident_use_risk_assessed',
-        'signs_of_pests','doors_windows_sealed','pest_contract_in_place','pest_proof_storage',
-        'allergens_info_displayed','special_diets_separated','cross_contamination_avoided',
-        'cleaning_schedules_signed','temp_logs_maintained','deliveries_stock_rotation','staff_food_training',
-        'food_waste_bins','clinical_waste_separate','recycling_managed',
-        'last_eho_actions_completed','food_hygiene_rating_displayed','staff_food_safety_trained','cleaning_risk_assessment','coshh_sheets_available'
-      ] as (keyof KitchenAuditData)[];
-
       const yesCount = YES_NO_FIELDS.reduce((acc, f) => acc + (data[f] === 'Yes' ? 1 : 0), 0);
       const totalCount = YES_NO_FIELDS.length;
       const scorePercent = totalCount > 0 ? Math.round((yesCount / totalCount) * 100) : 0;
@@ -471,10 +474,23 @@ export default function KitchenAuditPage() {
 
       const id = await saveAudit(payload, activeWorkspace.id, activeWorkspace.organisationId || null);
       const completedAt = data.date || new Date().toISOString();
-      const result = await markAuditCompletedWithSnapshot(activeWorkspace.id, 'kitchen', payload, completedAt);
+      try {
+        await markAuditCompletedWithSnapshot(activeWorkspace.id, 'kitchen', payload, completedAt);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('Failed to complete kitchen audit with snapshot helper', err);
+        try {
+          await saveAuditSnapshot(activeWorkspace.id, 'kitchen', payload);
+          await markAuditCompleted(activeWorkspace.id, 'kitchen', completedAt, activeWorkspace.organisationId || null);
+        } catch (fallbackErr) {
+          // eslint-disable-next-line no-console
+          console.error('Failed to persist kitchen audit via snapshot fallback', fallbackErr);
+        }
+      }
       setShowModal(false);
       alert('Audit saved');
     } catch (err) {
+      // eslint-disable-next-line no-console
       console.error('Failed to save audit', err);
       alert('Failed to save audit');
     } finally {
@@ -482,112 +498,12 @@ export default function KitchenAuditPage() {
     }
   };
 
-  const addNewReport = () => {
-    setData({
-      home: '',
-      date: '',
-      personCompletingAudit: '',
-
-      surfaces_clean: '',
-      surfaces_clean_comment: '',
-      flooring_safe: '',
-      flooring_safe_comment: '',
-      walls_ceiling_good: '',
-      walls_ceiling_good_comment: '',
-      sinks_designated: '',
-      sinks_designated_comment: '',
-      bins_clean: '',
-      bins_clean_comment: '',
-
-      fridges_clean_temp: '',
-      fridges_clean_temp_comment: '',
-      temps_monitored_recorded: '',
-      temps_monitored_recorded_comment: '',
-      dry_goods_stored: '',
-      dry_goods_stored_comment: '',
-      opened_items_dated: '',
-      opened_items_dated_comment: '',
-      raw_stored_separately: '',
-      raw_stored_separately_comment: '',
-
-      equipment_clean_working: '',
-      equipment_clean_working_comment: '',
-      chopping_boards_coloured: '',
-      chopping_boards_coloured_comment: '',
-      knives_utensils_safe: '',
-      knives_utensils_safe_comment: '',
-      small_appliances_clean: '',
-      small_appliances_clean_comment: '',
-      dishwasher_effective: '',
-      dishwasher_effective_comment: '',
-
-      handwashing_sinks: '',
-      handwashing_sinks_comment: '',
-      staff_hand_hygiene_observed: '',
-      staff_hand_hygiene_observed_comment: '',
-      ppe_worn_where_appropriate: '',
-      ppe_worn_where_appropriate_comment: '',
-      ppe_changed_between_tasks: '',
-      ppe_changed_between_tasks_comment: '',
-      posters_displayed_food: '',
-      posters_displayed_food_comment: '',
-
-      kitchenettes_clean_hazard_free: '',
-      kitchenettes_clean_hazard_free_comment: '',
-      kitchenette_food_stored_safe: '',
-      kitchenette_food_stored_safe_comment: '',
-      cleaning_products_stored: '',
-      cleaning_products_stored_comment: '',
-      appliances_pat: '',
-      appliances_pat_comment: '',
-      resident_use_risk_assessed: '',
-      resident_use_risk_assessed_comment: '',
-
-      signs_of_pests: '',
-      signs_of_pests_comment: '',
-      doors_windows_sealed: '',
-      doors_windows_sealed_comment: '',
-      pest_contract_in_place: '',
-      pest_contract_in_place_comment: '',
-      pest_proof_storage: '',
-      pest_proof_storage_comment: '',
-
-      allergens_info_displayed: '',
-      allergens_info_displayed_comment: '',
-      special_diets_separated: '',
-      special_diets_separated_comment: '',
-      cross_contamination_avoided: '',
-      cross_contamination_avoided_comment: '',
-
-      cleaning_schedules_signed: '',
-      cleaning_schedules_signed_comment: '',
-      temp_logs_maintained: '',
-      temp_logs_maintained_comment: '',
-      deliveries_stock_rotation: '',
-      deliveries_stock_rotation_comment: '',
-      staff_food_training: '',
-      staff_food_training_comment: '',
-
-      food_waste_bins: '',
-      food_waste_bins_comment: '',
-      clinical_waste_separate: '',
-      clinical_waste_separate_comment: '',
-      recycling_managed: '',
-      recycling_managed_comment: '',
-
-      last_eho_actions_completed: '',
-      last_eho_actions_completed_comment: '',
-      food_hygiene_rating_displayed: '',
-      food_hygiene_rating_displayed_comment: '',
-      staff_food_safety_trained: '',
-      staff_food_safety_trained_comment: '',
-      cleaning_risk_assessment: '',
-      cleaning_risk_assessment_comment: '',
-      coshh_sheets_available: '',
-      coshh_sheets_available_comment: '',
-    });
-
-    setErrors([]);
+  const handleComplete = () => {
+    if (!validateForm()) {
+      alert('Please complete all required fields before finishing the audit.');
+      return;
+    }
+    setShowModal(true);
   };
 
   return (
@@ -641,7 +557,7 @@ export default function KitchenAuditPage() {
 
         {/* Main form right column, scrollable */}
         <div className="flex-1 min-w-0 max-h-[calc(100vh-6rem)] overflow-y-auto pr-2">
-          <form onSubmit={(e) => { e.preventDefault(); setShowModal(true); }} className="flex flex-col gap-8">
+          <form onSubmit={(e) => { e.preventDefault(); handleComplete(); }} className="flex flex-col gap-8">
             {sections.map((section, idx) => (
               <div key={section.name} className="bg-white rounded-2xl border border-slate-200 shadow-md transition-shadow hover:shadow-lg">
                 <button
@@ -1176,6 +1092,7 @@ export default function KitchenAuditPage() {
               <button
                 onClick={() => handleModalCreate(false)}
                 className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                type="button"
                 disabled={saving}
               >
                 {saving ? 'Saving...' : 'No'}
@@ -1183,6 +1100,7 @@ export default function KitchenAuditPage() {
               <button
                 onClick={() => handleModalCreate(true)}
                 className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                type="button"
                 disabled={saving}
               >
                 {saving ? 'Saving...' : 'Save and Create Action Plan'}

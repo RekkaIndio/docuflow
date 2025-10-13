@@ -1,9 +1,11 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { ChevronDown, ChevronUp, FileText } from "lucide-react";
 import { useAuth } from '@/hooks/use-auth';
-import { saveAudit, markAuditCompletedWithSnapshot } from '@/lib/firestore';
+import { saveAudit, markAuditCompletedWithSnapshot, getLatestAuditData } from '@/lib/firestore';
 import { useWorkspace } from '@/context/workspace';
+import { storage } from '@/lib/firebase';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -160,11 +162,30 @@ interface HealthSafetyAuditData {
   residents_informed_comment: string;
 }
 
+type AttachmentItem = {
+  id: string;
+  name: string;
+  url: string;
+  file?: File;
+  storagePath?: string;
+  downloadUrl?: string;
+};
+
+type AttachmentMetadata = {
+  name: string;
+  storagePath: string;
+  downloadUrl?: string;
+};
+
 export default function HealthSafetyAuditPage() {
   const [showModal, setShowModal] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [finalComments, setFinalComments] = useState('');
+  const [attachments, setAttachments] = useState<Record<string, AttachmentItem[]>>({});
+  const [attachmentsToDelete, setAttachmentsToDelete] = useState<string[]>([]);
+  const [previewImage, setPreviewImage] = useState<{ url: string; name: string } | null>(null);
+  const createdObjectUrls = useRef<Set<string>>(new Set());
   
   // Collapsible sections state
   const [openSections, setOpenSections] = useState<string[]>(['audit-details']);
@@ -176,6 +197,8 @@ export default function HealthSafetyAuditPage() {
         : [...prev, sectionName]
     );
   };
+
+  // ...existing code...
 
   // Section definitions with guidance text
   const sections = [
@@ -449,6 +472,51 @@ export default function HealthSafetyAuditPage() {
   const activeWorkspace = useWorkspace();
   const { user } = useAuth();
 
+  // Load existing attachments for this audit type when workspace changes
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      if (!activeWorkspace?.id) {
+        setAttachments({});
+        setAttachmentsToDelete([]);
+        return;
+      }
+      try {
+        const existing = await getLatestAuditData(activeWorkspace.id, 'health-safety', undefined, activeWorkspace.organisationId || null);
+        if (!existing || cancelled) return;
+        const storedAttachments: Record<string, any[]> | undefined = existing.attachments && typeof existing.attachments === 'object' ? existing.attachments : undefined;
+        if (!storedAttachments) return;
+        const processedEntries: Array<[string, AttachmentItem[]]> = [];
+        for (const [fieldName, list] of Object.entries(storedAttachments)) {
+          if (!Array.isArray(list) || list.length === 0) continue;
+          const processed: AttachmentItem[] = [];
+          for (let i = 0; i < list.length; i++) {
+            const entry = list[i] as any;
+            if (!entry) continue;
+            const storagePath: string | undefined = entry.storagePath;
+            let downloadUrl: string | undefined = entry.downloadUrl;
+            if (!downloadUrl && storagePath) {
+              try {
+                downloadUrl = await getDownloadURL(ref(storage, storagePath));
+              } catch (err) {
+                console.error('Failed to fetch download URL for attachment', err);
+                continue;
+              }
+            }
+            if (!downloadUrl) continue;
+            processed.push({ id: `existing-${fieldName}-${i}-${storagePath ?? entry.name ?? 'attachment'}`, name: entry.name ?? `Attachment ${i + 1}`, url: downloadUrl, storagePath, downloadUrl });
+          }
+          if (processed.length > 0) processedEntries.push([fieldName, processed]);
+        }
+        if (!cancelled && processedEntries.length > 0) setAttachments(Object.fromEntries(processedEntries));
+      } catch (err) {
+        console.warn('Failed to load existing health-safety attachments', err);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [activeWorkspace?.id, activeWorkspace?.organisationId]);
+
   const handleInputChange = (field: keyof HealthSafetyAuditData, value: string) => {
     setAuditData(prev => ({
       ...prev,
@@ -458,6 +526,108 @@ export default function HealthSafetyAuditPage() {
     if (value.trim() !== '' && errors.includes(field)) {
       setErrors(prev => prev.filter(error => error !== field));
     }
+  };
+
+  const handleAddAttachments = (fieldName: string, files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const fileArray = Array.from(files);
+    setAttachments(prev => {
+      const existing = prev[fieldName] ?? [];
+      const added = fileArray.map(file => {
+        const url = URL.createObjectURL(file);
+        createdObjectUrls.current.add(url);
+        const id = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${fieldName}-${Date.now()}-${file.name}`;
+        return { id, name: file.name, url, file } as AttachmentItem;
+      });
+      return { ...prev, [fieldName]: [...existing, ...added] };
+    });
+  };
+
+  const handleRemoveAttachment = (fieldName: string, id: string) => {
+    setAttachments(prev => {
+      const list = prev[fieldName] ?? [];
+      const target = list.find(item => item.id === id);
+      if (!target) return prev;
+
+      if (target.url && target.url.startsWith('blob:')) {
+        try { URL.revokeObjectURL(target.url); } catch (e) { console.warn('Failed to revoke object URL', e); }
+        createdObjectUrls.current.delete(target.url);
+      }
+
+      if (target.storagePath) {
+        setAttachmentsToDelete(prev => [...prev, target.storagePath as string]);
+      }
+
+      if (previewImage && previewImage.url === target.url) setPreviewImage(null);
+
+      const remaining = list.filter(item => item.id !== id);
+      const next = { ...prev };
+      if (remaining.length > 0) next[fieldName] = remaining; else delete next[fieldName];
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setPreviewImage(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      createdObjectUrls.current.forEach((url) => {
+        try { URL.revokeObjectURL(url); } catch (err) { console.warn('Failed to revoke object URL', err); }
+      });
+      createdObjectUrls.current.clear();
+    };
+  }, []);
+
+  const uploadAttachmentFile = async (fieldName: string, file: File) => {
+    if (!activeWorkspace?.id) throw new Error('Workspace not available for attachment upload');
+    const orgId = activeWorkspace.organisationId || null;
+    const fieldSegment = fieldName.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase() || 'field';
+    const safeName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_');
+    const auditDateSegment = (auditData.date || new Date().toISOString().split('T')[0]).replace(/[^0-9-]/g, '');
+    const timestamp = Date.now();
+    const basePath = orgId ? `organisations/${orgId}/workspaces/${activeWorkspace.id}` : `workspaces/${activeWorkspace.id}`;
+    const storagePath = `${basePath}/audit-attachments/health-safety/${auditDateSegment}/${fieldSegment}/${timestamp}-${safeName}`;
+    const storageRef = ref(storage, storagePath);
+    await uploadBytes(storageRef, file);
+    const downloadUrl = await getDownloadURL(storageRef);
+    return { storagePath, downloadUrl };
+  };
+
+  const getAttachmentCount = (fieldName: string) => (attachments[fieldName]?.length ?? 0);
+
+  const renderAttachmentButton = (fieldName: string) => (
+    <div className="ml-4 relative">
+      {getAttachmentCount(fieldName) > 0 && (
+        <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">
+          {getAttachmentCount(fieldName)}
+        </span>
+      )}
+      <label title="Add attachment" className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100">
+        <input type="file" accept="image/*" onChange={(e) => { handleAddAttachments(fieldName, e.target.files); e.currentTarget.value = ''; }} className="hidden" />
+        <span className="text-xl font-bold">+</span>
+      </label>
+    </div>
+  );
+
+  const renderAttachmentPreview = (fieldName: string) => {
+    const list = attachments[fieldName] ?? [];
+    if (list.length === 0) return null;
+    return (
+      <div className="mt-3 flex flex-wrap gap-2">
+        {list.map(att => (
+          <div key={att.id} className="relative w-24 h-24 rounded overflow-hidden border border-gray-200">
+            <button type="button" onClick={() => setPreviewImage({ url: att.url, name: att.name })} className="w-full h-full" title={att.name}>
+              <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+            </button>
+            <button type="button" onClick={() => handleRemoveAttachment(fieldName, att.id)} className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-gray-200 shadow-sm" title="Remove">×</button>
+          </div>
+        ))}
+      </div>
+    );
   };
 
   const YesNoQuestion = ({
@@ -480,7 +650,10 @@ export default function HealthSafetyAuditPage() {
     <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
       <div className="space-y-3">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+          <div className="flex items-start justify-between mb-2">
+            <label className="block text-sm font-medium text-gray-700">{label}</label>
+            {renderAttachmentButton(commentField)}
+          </div>
           <div className="flex gap-4" data-field={yesNoField}>
             <label className="flex items-center cursor-pointer">
               <input
@@ -518,6 +691,7 @@ export default function HealthSafetyAuditPage() {
             rows={2}
             placeholder="Add any comments or observations..."
           />
+          {renderAttachmentPreview(commentField)}
         </div>
       </div>
     </div>
@@ -570,10 +744,49 @@ export default function HealthSafetyAuditPage() {
       const yesCount = YES_NO_FIELDS.reduce((acc, f) => acc + (auditData[f] === 'Yes' ? 1 : 0), 0);
       const totalCount = YES_NO_FIELDS.length;
       const scorePercent = totalCount > 0 ? Math.round((yesCount / totalCount) * 100) : 0;
+      const attachmentsMetadata: Record<string, AttachmentMetadata[]> = {};
+      const nextAttachmentState: Record<string, AttachmentItem[]> = {};
 
-  const payload = { auditType: 'health-safety', ...auditData, comments: finalComments, createActionPlan, createdBy: user?.id ?? null, workspaceId: activeWorkspace.id, yesCount, totalCount, scorePercent, organisationId: activeWorkspace.organisationId || null };
+      for (const [fieldName, items] of Object.entries(attachments)) {
+        if (!items || items.length === 0) continue;
+        const processed: AttachmentItem[] = [];
+        for (const item of items) {
+          if (item.file) {
+            const { storagePath, downloadUrl } = await uploadAttachmentFile(fieldName, item.file);
+            if (item.url && item.url.startsWith('blob:')) {
+              try { URL.revokeObjectURL(item.url); } catch (err) { console.warn('Failed to revoke object URL during upload', err); }
+              createdObjectUrls.current.delete(item.url);
+            }
+            const storedItem: AttachmentItem = { id: item.id, name: item.name, url: downloadUrl, storagePath, downloadUrl };
+            processed.push(storedItem);
+            if (!attachmentsMetadata[fieldName]) attachmentsMetadata[fieldName] = [];
+            attachmentsMetadata[fieldName].push({ name: item.name, storagePath, downloadUrl });
+          } else if (item.storagePath) {
+            const downloadUrl = item.downloadUrl || item.url;
+            processed.push({ id: item.id, name: item.name, url: downloadUrl, storagePath: item.storagePath, downloadUrl });
+            if (!attachmentsMetadata[fieldName]) attachmentsMetadata[fieldName] = [];
+            attachmentsMetadata[fieldName].push({ name: item.name, storagePath: item.storagePath, downloadUrl });
+          }
+        }
+        if (processed.length > 0) nextAttachmentState[fieldName] = processed;
+      }
+
+      if (attachmentsToDelete.length > 0) {
+        const uniqueDeletes = Array.from(new Set(attachmentsToDelete));
+        for (const storagePath of uniqueDeletes) {
+          try { await deleteObject(ref(storage, storagePath)); } catch (err) { console.warn('Failed to delete removed attachment from storage', err); }
+        }
+      }
+
+      const attachmentsPayload = Object.keys(attachmentsMetadata).length > 0 ? attachmentsMetadata : undefined;
+
+      const payload = { auditType: 'health-safety', ...auditData, ...(attachmentsPayload ? { attachments: attachmentsPayload } : {}), comments: finalComments, createActionPlan, createdBy: user?.id ?? null, workspaceId: activeWorkspace.id, yesCount, totalCount, scorePercent, organisationId: activeWorkspace.organisationId || null };
       const id = await saveAudit(payload, activeWorkspace.id, activeWorkspace.organisationId || null);
       const result = await markAuditCompletedWithSnapshot(activeWorkspace.id, 'health-safety', payload, auditData.date || new Date().toISOString());
+
+      setAttachments(nextAttachmentState);
+      setAttachmentsToDelete([]);
+      setPreviewImage(null);
       alert('Audit saved');
       setShowModal(false);
     } catch (e) {
@@ -1312,14 +1525,19 @@ export default function HealthSafetyAuditPage() {
                       <div className="bg-slate-50 p-6 rounded-lg">
                         <div className="space-y-4">
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Final Comments & Recommendations</label>
+                            <div className="flex items-start justify-between mb-2">
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Final Comments & Recommendations</label>
+                              {renderAttachmentButton('finalComments')}
+                            </div>
                             <Textarea
+                              data-field="finalComments"
                               value={finalComments}
                               onChange={(e) => setFinalComments(e.target.value)}
                               className="w-full p-3 border border-slate-200 rounded-lg resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-slate-50"
                               rows={6}
                               placeholder="Enter any additional comments or recommendations based on the health and safety audit findings..."
                             />
+                            {renderAttachmentPreview('finalComments')}
                           </div>
                         </div>
                       </div>
@@ -1358,6 +1576,23 @@ export default function HealthSafetyAuditPage() {
               >
                 {saving ? 'Saving...' : 'Save and Close'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Image preview modal */}
+      {previewImage && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black bg-opacity-60" onClick={() => setPreviewImage(null)} />
+          <div className="relative z-70 max-w-3xl w-full mx-4">
+            <div className="bg-white rounded-lg overflow-hidden shadow-xl">
+              <div className="flex justify-between items-start p-2 border-b">
+                <div className="px-3 py-1 text-sm text-gray-700">{previewImage.name}</div>
+                <button onClick={() => setPreviewImage(null)} className="m-2 bg-white rounded-full p-1 text-gray-700 border">Close</button>
+              </div>
+              <div className="p-4 bg-black flex items-center justify-center">
+                <img src={previewImage.url} alt={previewImage.name} className="max-h-[80vh] w-auto object-contain" />
+              </div>
             </div>
           </div>
         </div>

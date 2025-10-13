@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useAuth } from '@/hooks/use-auth';
 import { saveAudit, updateAudit, markAuditCompletedWithSnapshot, getLatestAuditData } from '@/lib/firestore';
@@ -7,6 +7,8 @@ import { useWorkspace } from '@/context/workspace';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { storage } from '@/lib/firebase';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 
 type AccidentIncidentReport = {
   home: string;
@@ -21,6 +23,21 @@ type AccidentIncidentReport = {
   preventative: string;
   cqcNotification: string;
   safeguardNotification: string;
+};
+
+type AttachmentItem = {
+  id: string;
+  name: string;
+  url: string;
+  file?: File;
+  storagePath?: string;
+  downloadUrl?: string;
+};
+
+type AttachmentMetadata = {
+  name: string;
+  storagePath: string;
+  downloadUrl?: string;
 };
 
 const createEmptyReport = (): AccidentIncidentReport => ({
@@ -43,6 +60,10 @@ export default function AccidentIncidentAuditPage({ startFresh = false }: { star
   const [reports, setReports] = useState<AccidentIncidentReport[]>([createEmptyReport()]);
   const [showModal, setShowModal] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [attachments, setAttachments] = useState<Record<string, AttachmentItem[]>>({});
+  const [attachmentsToDelete, setAttachmentsToDelete] = useState<string[]>([]);
+  const [previewImage, setPreviewImage] = useState<{ url: string; name: string } | null>(null);
+  const createdObjectUrls = useRef<Set<string>>(new Set());
 
   const currentReport = reports[currentReportIndex] ?? createEmptyReport();
 
@@ -72,6 +93,72 @@ export default function AccidentIncidentAuditPage({ startFresh = false }: { star
       return updated;
     });
   }
+
+  const handleAddAttachments = (fieldName: string, files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const fileArray = Array.from(files);
+    setAttachments(prev => {
+      const existing = prev[fieldName] ?? [];
+      const added = fileArray.map(file => {
+        const url = URL.createObjectURL(file);
+        createdObjectUrls.current.add(url);
+        const id = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${fieldName}-${Date.now()}-${file.name}`;
+        return { id, name: file.name, url, file } as AttachmentItem;
+      });
+      return { ...prev, [fieldName]: [...existing, ...added] };
+    });
+  };
+
+  const handleRemoveAttachment = (fieldName: string, id: string) => {
+    setAttachments(prev => {
+      const list = prev[fieldName] ?? [];
+      const target = list.find(item => item.id === id);
+      if (!target) return prev;
+
+      if (target.url && target.url.startsWith('blob:')) {
+        try {
+          URL.revokeObjectURL(target.url);
+        } catch (err) {
+          console.warn('Failed to revoke object URL', err);
+        }
+        createdObjectUrls.current.delete(target.url);
+      }
+
+      if (target.storagePath) {
+        setAttachmentsToDelete(prevDeletes => [...prevDeletes, target.storagePath as string]);
+      }
+
+      if (previewImage && previewImage.url === target.url) {
+        setPreviewImage(null);
+      }
+
+      const remaining = list.filter(item => item.id !== id);
+      const next = { ...prev };
+      if (remaining.length > 0) {
+        next[fieldName] = remaining;
+      } else {
+        delete next[fieldName];
+      }
+      return next;
+    });
+  };
+
+  const uploadAttachmentFile = async (fieldName: string, file: File) => {
+    if (!activeWorkspace?.id) {
+      throw new Error('Workspace not available for attachment upload');
+    }
+    const orgId = activeWorkspace.organisationId || null;
+    const fieldSegment = fieldName.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase() || 'field';
+    const safeName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_');
+    const auditDateSegment = (currentReport.auditDate || new Date().toISOString().split('T')[0]).replace(/[^0-9-]/g, '');
+    const timestamp = Date.now();
+    const basePath = orgId ? `organisations/${orgId}/workspaces/${activeWorkspace.id}` : `workspaces/${activeWorkspace.id}`;
+    const storagePath = `${basePath}/audit-attachments/accident-incident/${auditDateSegment}/${fieldSegment}/${timestamp}-${safeName}`;
+    const storageRef = ref(storage, storagePath);
+    await uploadBytes(storageRef, file);
+    const downloadUrl = await getDownloadURL(storageRef);
+    return { storagePath, downloadUrl };
+  };
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -122,14 +209,66 @@ export default function AccidentIncidentAuditPage({ startFresh = false }: { star
     // Save audit immediately to ensure it's stored under the active workspace
     try {
       setSaving(true);
+
+      const attachmentsMetadata: Record<string, AttachmentMetadata[]> = {};
+      const nextAttachmentState: Record<string, AttachmentItem[]> = {};
+
+      for (const [fieldName, items] of Object.entries(attachments)) {
+        if (!items || items.length === 0) continue;
+        const processed: AttachmentItem[] = [];
+        for (const item of items) {
+          if (item.file) {
+            const { storagePath, downloadUrl } = await uploadAttachmentFile(fieldName, item.file);
+            if (item.url && item.url.startsWith('blob:')) {
+              try {
+                URL.revokeObjectURL(item.url);
+              } catch (err) {
+                console.warn('Failed to revoke object URL during upload', err);
+              }
+              createdObjectUrls.current.delete(item.url);
+            }
+            processed.push({ id: item.id, name: item.name, url: downloadUrl, storagePath, downloadUrl });
+            if (!attachmentsMetadata[fieldName]) {
+              attachmentsMetadata[fieldName] = [];
+            }
+            attachmentsMetadata[fieldName].push({ name: item.name, storagePath, downloadUrl });
+          } else if (item.storagePath) {
+            const downloadUrl = item.downloadUrl || item.url;
+            processed.push({ id: item.id, name: item.name, url: downloadUrl, storagePath: item.storagePath, downloadUrl });
+            if (!attachmentsMetadata[fieldName]) {
+              attachmentsMetadata[fieldName] = [];
+            }
+            attachmentsMetadata[fieldName].push({ name: item.name, storagePath: item.storagePath, downloadUrl });
+          }
+        }
+        if (processed.length > 0) {
+          nextAttachmentState[fieldName] = processed;
+        }
+      }
+
+      if (attachmentsToDelete.length > 0) {
+        const uniquePaths = Array.from(new Set(attachmentsToDelete));
+        for (const storagePath of uniquePaths) {
+          try {
+            await deleteObject(ref(storage, storagePath));
+          } catch (err) {
+            console.warn('Failed to delete removed attachment from storage', err);
+          }
+        }
+      }
+
+      const attachmentsPayload = Object.keys(attachmentsMetadata).length > 0 ? attachmentsMetadata : undefined;
+
       const auditPayload = {
         ...currentReport,
+        ...(attachmentsPayload ? { attachments: attachmentsPayload } : {}),
         comments: finalComments,
         createActionPlan: false,
         createdBy: user?.id ?? null,
         workspaceId: workspaceId,
         organisationId: orgId,
       };
+
       const id = await saveAudit(auditPayload, workspaceId, orgId);
       setSavedAuditId(id);
       
@@ -141,8 +280,11 @@ export default function AccidentIncidentAuditPage({ startFresh = false }: { star
         console.warn('Failed to mark audit completed with snapshot', e);
       }
       
-      setSaving(false);
-      setShowModal(true);
+  setAttachments(nextAttachmentState);
+  setAttachmentsToDelete([]);
+  setPreviewImage(null);
+  setSaving(false);
+  setShowModal(true);
     } catch (err) {
       setSaving(false);
       console.error('Failed to save audit on submit', err);
@@ -187,6 +329,9 @@ export default function AccidentIncidentAuditPage({ startFresh = false }: { star
       setFinalComments('');
       setSavedAuditId(null);
       setValidationErrors([]);
+      setAttachments({});
+      setAttachmentsToDelete([]);
+      setPreviewImage(null);
     };
 
     if (!activeWorkspace?.id) {
@@ -213,15 +358,53 @@ export default function AccidentIncidentAuditPage({ startFresh = false }: { star
         if (cancelled) return;
 
         if (existing) {
-          const { id, createdAt, updatedAt, comments, ...formData } = existing as Record<string, any>;
+          const { id, createdAt, updatedAt, comments, attachments: storedAttachments, ...formData } = existing as Record<string, any>;
           const mergedReport: AccidentIncidentReport = {
             ...createEmptyReport(),
             ...formData,
           };
-          setReports([mergedReport]);
-          setCurrentReportIndex(0);
-          setSavedAuditId(typeof id === 'string' ? id : null);
-          setFinalComments(typeof comments === 'string' ? comments : '');
+          if (!cancelled) {
+            setReports([mergedReport]);
+            setCurrentReportIndex(0);
+            setSavedAuditId(typeof id === 'string' ? id : null);
+            setFinalComments(typeof comments === 'string' ? comments : '');
+          }
+
+          if (storedAttachments && typeof storedAttachments === 'object') {
+            const processedEntries: Array<[string, AttachmentItem[]]> = [];
+            for (const [fieldName, list] of Object.entries(storedAttachments)) {
+              if (!Array.isArray(list) || list.length === 0) continue;
+              const processed: AttachmentItem[] = [];
+              for (let i = 0; i < list.length; i++) {
+                const entry = list[i] as any;
+                if (!entry) continue;
+                const storagePath: string | undefined = entry.storagePath;
+                let downloadUrl: string | undefined = entry.downloadUrl;
+                if (!downloadUrl && storagePath) {
+                  try {
+                    downloadUrl = await getDownloadURL(ref(storage, storagePath));
+                  } catch (err) {
+                    console.error('Failed to fetch download URL for attachment', err);
+                    continue;
+                  }
+                }
+                if (!downloadUrl) continue;
+                processed.push({
+                  id: `existing-${fieldName}-${i}-${storagePath ?? entry.name ?? 'attachment'}`,
+                  name: entry.name ?? `Attachment ${i + 1}`,
+                  url: downloadUrl,
+                  storagePath,
+                  downloadUrl
+                });
+              }
+              if (processed.length > 0) {
+                processedEntries.push([fieldName, processed]);
+              }
+            }
+            if (!cancelled) {
+              setAttachments(processedEntries.length > 0 ? Object.fromEntries(processedEntries) : {});
+            }
+          }
         } else {
           resetFormState();
         }
@@ -239,6 +422,19 @@ export default function AccidentIncidentAuditPage({ startFresh = false }: { star
       cancelled = true;
     };
   }, [activeWorkspace?.id, activeWorkspace?.organisationId, startFresh]);
+
+  useEffect(() => {
+    return () => {
+      createdObjectUrls.current.forEach(url => {
+        try {
+          URL.revokeObjectURL(url);
+        } catch (err) {
+          console.warn('Failed to revoke object URL on cleanup', err);
+        }
+      });
+      createdObjectUrls.current.clear();
+    };
+  }, []);
 
   // Collapsible state for each section
   const [openSections, setOpenSections] = useState(() => Array(4).fill(true));
@@ -437,9 +633,33 @@ export default function AccidentIncidentAuditPage({ startFresh = false }: { star
                           {hasError('accidentOrIncident') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Details of Incident {hasError('details') && <span className="text-red-500">*</span>}
-                          </label>
+                          <div className="flex items-start justify-between mb-1">
+                            <label className="block text-sm font-medium text-gray-700">
+                              Details of Incident {hasError('details') && <span className="text-red-500">*</span>}
+                            </label>
+                            <div className="ml-4 relative">
+                              {(attachments['details']?.length ?? 0) > 0 && (
+                                <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">
+                                  {attachments['details']?.length}
+                                </span>
+                              )}
+                              <label
+                                title="Add attachment"
+                                className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100"
+                              >
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => {
+                                    handleAddAttachments('details', e.target.files);
+                                    e.currentTarget.value = '';
+                                  }}
+                                  className="hidden"
+                                />
+                                <span className="text-xl font-bold">+</span>
+                              </label>
+                            </div>
+                          </div>
                           <Textarea
                             className={getFieldClassName('details', "w-full bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-200")}
                             name="details"
@@ -449,15 +669,61 @@ export default function AccidentIncidentAuditPage({ startFresh = false }: { star
                             required
                           />
                           {hasError('details') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {(attachments['details'] ?? []).map(att => (
+                              <div key={att.id} className="relative w-24 h-24 rounded overflow-hidden border border-gray-200">
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewImage({ url: att.url, name: att.name })}
+                                  className="w-full h-full"
+                                  title={att.name}
+                                >
+                                  <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveAttachment('details', att.id)}
+                                  className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-gray-200 shadow-sm"
+                                  title="Remove"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     )}
                     {idx === 1 && (
                       <div className="space-y-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Actions Taken {hasError('actionsTaken') && <span className="text-red-500">*</span>}
-                          </label>
+                          <div className="flex items-start justify-between mb-1">
+                            <label className="block text-sm font-medium text-gray-700">
+                              Actions Taken {hasError('actionsTaken') && <span className="text-red-500">*</span>}
+                            </label>
+                            <div className="ml-4 relative">
+                              {(attachments['actionsTaken']?.length ?? 0) > 0 && (
+                                <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">
+                                  {attachments['actionsTaken']?.length}
+                                </span>
+                              )}
+                              <label
+                                title="Add attachment"
+                                className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100"
+                              >
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => {
+                                    handleAddAttachments('actionsTaken', e.target.files);
+                                    e.currentTarget.value = '';
+                                  }}
+                                  className="hidden"
+                                />
+                                <span className="text-xl font-bold">+</span>
+                              </label>
+                            </div>
+                          </div>
                           <Textarea
                             className={getFieldClassName('actionsTaken', "w-full bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-200")}
                             name="actionsTaken"
@@ -467,15 +733,61 @@ export default function AccidentIncidentAuditPage({ startFresh = false }: { star
                             required
                           />
                           {hasError('actionsTaken') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {(attachments['actionsTaken'] ?? []).map(att => (
+                              <div key={att.id} className="relative w-24 h-24 rounded overflow-hidden border border-gray-200">
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewImage({ url: att.url, name: att.name })}
+                                  className="w-full h-full"
+                                  title={att.name}
+                                >
+                                  <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveAttachment('actionsTaken', att.id)}
+                                  className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-gray-200 shadow-sm"
+                                  title="Remove"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     )}
                     {idx === 2 && (
                       <div className="space-y-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Preventative Measures {hasError('preventative') && <span className="text-red-500">*</span>}
-                          </label>
+                          <div className="flex items-start justify-between mb-1">
+                            <label className="block text-sm font-medium text-gray-700">
+                              Preventative Measures {hasError('preventative') && <span className="text-red-500">*</span>}
+                            </label>
+                            <div className="ml-4 relative">
+                              {(attachments['preventative']?.length ?? 0) > 0 && (
+                                <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">
+                                  {attachments['preventative']?.length}
+                                </span>
+                              )}
+                              <label
+                                title="Add attachment"
+                                className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100"
+                              >
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => {
+                                    handleAddAttachments('preventative', e.target.files);
+                                    e.currentTarget.value = '';
+                                  }}
+                                  className="hidden"
+                                />
+                                <span className="text-xl font-bold">+</span>
+                              </label>
+                            </div>
+                          </div>
                           <Textarea
                             className={getFieldClassName('preventative', "w-full bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-200")}
                             name="preventative"
@@ -485,6 +797,28 @@ export default function AccidentIncidentAuditPage({ startFresh = false }: { star
                             required
                           />
                           {hasError('preventative') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {(attachments['preventative'] ?? []).map(att => (
+                              <div key={att.id} className="relative w-24 h-24 rounded overflow-hidden border border-gray-200">
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewImage({ url: att.url, name: att.name })}
+                                  className="w-full h-full"
+                                  title={att.name}
+                                >
+                                  <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveAttachment('preventative', att.id)}
+                                  className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-gray-200 shadow-sm"
+                                  title="Remove"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     )}
@@ -595,6 +929,27 @@ export default function AccidentIncidentAuditPage({ startFresh = false }: { star
               >
                 {saving ? 'Saving...' : 'Yes, Create Action Plan'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {previewImage && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black bg-opacity-60" onClick={() => setPreviewImage(null)} />
+          <div className="relative z-70 max-w-3xl w-full mx-4">
+            <div className="bg-white rounded-lg overflow-hidden shadow-xl">
+              <div className="flex justify-between items-start p-2 border-b">
+                <div className="px-3 py-1 text-sm text-gray-700 truncate max-w-[80%]" title={previewImage.name}>{previewImage.name}</div>
+                <button
+                  onClick={() => setPreviewImage(null)}
+                  className="m-2 bg-white rounded-full p-1 text-gray-700 border"
+                >
+                  Close
+                </button>
+              </div>
+              <div className="p-4 bg-black flex items-center justify-center">
+                <img src={previewImage.url} alt={previewImage.name} className="max-h-[80vh] w-auto object-contain" />
+              </div>
             </div>
           </div>
         </div>

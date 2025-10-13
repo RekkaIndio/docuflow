@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,6 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { useWorkspace } from '@/context/workspace';
 import { useAuth } from '@/hooks/use-auth';
 import { saveAudit, markAuditCompletedWithSnapshot, getLatestAuditData } from '@/lib/firestore';
+import { storage } from '@/lib/firebase';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 
 interface InfectionControlData {
   home: string;
@@ -98,6 +100,10 @@ export default function InfectionControlAuditPage() {
   const [saving, setSaving] = useState(false);
   const [finalComments, setFinalComments] = useState('');
   const [openSections, setOpenSections] = useState<string[]>(['audit-details']);
+  const [attachments, setAttachments] = useState<Record<string, { id: string; name: string; url: string; file?: File; storagePath?: string; downloadUrl?: string }[]>>({});
+  const [attachmentsToDelete, setAttachmentsToDelete] = useState<string[]>([]);
+  const [previewImage, setPreviewImage] = useState<{ url: string; name: string } | null>(null);
+  const createdObjectUrls = useRef<Set<string>>(new Set());
 
   const sections = [
     {
@@ -249,6 +255,102 @@ export default function InfectionControlAuditPage() {
   const activeWorkspace = useWorkspace();
   const { user } = useAuth();
 
+  // Load existing audit data when component mounts (including attachments)
+  useEffect(() => {
+    const loadExistingAuditData = async () => {
+      if (!activeWorkspace?.id) return;
+      try {
+        const existingData = await getLatestAuditData(activeWorkspace.id, 'infection-control');
+        if (existingData) {
+          const { id, createdAt, attachments: storedAttachments, ...formData } = existingData as any;
+          setData(prevData => ({ ...prevData, ...formData }));
+          if (existingData.comments) setFinalComments(existingData.comments);
+          if (storedAttachments && typeof storedAttachments === 'object') {
+            const processedEntries: Array<[string, any[]]> = [];
+            for (const [fieldName, list] of Object.entries(storedAttachments)) {
+              if (!Array.isArray(list) || list.length === 0) continue;
+              const processed: any[] = [];
+              for (let i = 0; i < list.length; i++) {
+                const entry = list[i] as any;
+                if (!entry) continue;
+                const storagePath: string | undefined = entry.storagePath;
+                let downloadUrl: string | undefined = entry.downloadUrl;
+                if (!downloadUrl && storagePath) {
+                  try { downloadUrl = await getDownloadURL(ref(storage, storagePath)); } catch (err) { console.error('Failed to fetch download URL for attachment', err); continue; }
+                }
+                if (!downloadUrl) continue;
+                processed.push({ id: `existing-${fieldName}-${i}-${storagePath ?? entry.name ?? 'attachment'}`, name: entry.name ?? `Attachment ${i + 1}`, url: downloadUrl, storagePath, downloadUrl });
+              }
+              if (processed.length > 0) processedEntries.push([fieldName, processed]);
+            }
+            if (processedEntries.length > 0) setAttachments(Object.fromEntries(processedEntries));
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to load existing audit data:', error);
+      }
+    };
+    loadExistingAuditData();
+  }, [activeWorkspace?.id]);
+
+  const handleAddAttachments = (fieldName: string, files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const fileArray = Array.from(files);
+    setAttachments(prev => {
+      const existing = prev[fieldName] ?? [];
+      const added = fileArray.map(file => {
+        const url = URL.createObjectURL(file);
+        createdObjectUrls.current.add(url);
+        const id = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${fieldName}-${Date.now()}-${file.name}`;
+        return { id, name: file.name, url, file };
+      });
+      return { ...prev, [fieldName]: [...existing, ...added] };
+    });
+  };
+
+  const handleRemoveAttachment = (fieldName: string, id: string) => {
+    setAttachments(prev => {
+      const list = prev[fieldName] ?? [];
+      const target = list.find(item => item.id === id);
+      if (!target) return prev;
+      if (target.url && target.url.startsWith('blob:')) { try { URL.revokeObjectURL(target.url); } catch (e) { console.warn('Failed to revoke object URL', e); } createdObjectUrls.current.delete(target.url); }
+      if (target.storagePath) setAttachmentsToDelete(prev => [...prev, target.storagePath as string]);
+      if (previewImage && previewImage.url === target.url) setPreviewImage(null);
+      const remaining = list.filter(item => item.id !== id);
+      const next = { ...prev };
+      if (remaining.length > 0) next[fieldName] = remaining; else delete next[fieldName];
+      return next;
+    });
+  };
+
+  useEffect(() => { const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setPreviewImage(null); }; window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey); }, []);
+  useEffect(() => { return () => { createdObjectUrls.current.forEach((url) => { try { URL.revokeObjectURL(url); } catch (err) { console.warn('Failed to revoke object URL', err); } }); createdObjectUrls.current.clear(); }; }, []);
+
+  const uploadAttachmentFile = async (fieldName: string, file: File) => {
+    if (!activeWorkspace?.id) throw new Error('Workspace not available for attachment upload');
+    const orgId = activeWorkspace.organisationId || null;
+    const fieldSegment = fieldName.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase() || 'field';
+    const safeName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_');
+    const auditDateSegment = (data.date || new Date().toISOString().split('T')[0]).replace(/[^0-9-]/g, '');
+    const timestamp = Date.now();
+    const basePath = orgId ? `organisations/${orgId}/workspaces/${activeWorkspace.id}` : `workspaces/${activeWorkspace.id}`;
+    const storagePath = `${basePath}/audit-attachments/infection-control/${auditDateSegment}/${fieldSegment}/${timestamp}-${safeName}`;
+    const storageRef = ref(storage, storagePath);
+    await uploadBytes(storageRef, file);
+    const downloadUrl = await getDownloadURL(storageRef);
+    return { storagePath, downloadUrl };
+  };
+
+  const getAttachmentCount = (fieldName: string) => (attachments[fieldName]?.length ?? 0);
+  const renderAttachmentButton = (fieldName: string) => (
+    <div className="ml-4 relative">
+      {getAttachmentCount(fieldName) > 0 && (<span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">{getAttachmentCount(fieldName)}</span>)}
+      <label title="Add attachment" className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100"><input type="file" accept="image/*" onChange={(e) => { handleAddAttachments(fieldName, e.target.files); e.currentTarget.value = ''; }} className="hidden" /><span className="text-xl font-bold">+</span></label>
+    </div>
+  );
+  const renderAttachmentPreview = (fieldName: string) => { const list = attachments[fieldName] ?? []; if (list.length === 0) return null; return (<div className="mt-3 flex flex-wrap gap-2">{list.map(att => (<div key={att.id} className="relative w-24 h-24 rounded overflow-hidden border border-gray-200"><button type="button" onClick={() => setPreviewImage({ url: att.url, name: att.name })} className="w-full h-full" title={att.name}><img src={att.url} alt={att.name} className="w-full h-full object-cover" /></button><button type="button" onClick={() => handleRemoveAttachment(fieldName, att.id)} className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-gray-200 shadow-sm" title="Remove">×</button></div>))}</div>); };
+
+
   // Load existing audit data when component mounts
   useEffect(() => {
     const loadExistingAuditData = async () => {
@@ -302,7 +404,10 @@ export default function InfectionControlAuditPage() {
     onCommentChange: (v: string) => void;
   }) => (
     <div className="space-y-3 p-4 bg-white rounded-lg border border-slate-200 shadow-sm">
-      <label className="block text-sm font-semibold text-slate-800">{label}</label>
+      <div className="flex items-start justify-between mb-2">
+        <label className="block text-sm font-semibold text-slate-800">{label}</label>
+        {renderAttachmentButton(commentField)}
+      </div>
       <div className="flex gap-6 items-center" data-field={yesNoField}>
         <label className="flex items-center cursor-pointer">
           <input
@@ -328,6 +433,11 @@ export default function InfectionControlAuditPage() {
         </label>
       </div>
       {errors.includes(yesNoField) && <p className="text-red-600 text-sm font-medium">This field is required</p>}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Comments</label>
+        <textarea value={commentValue} onChange={(e) => onCommentChange(e.target.value)} className="w-full p-3 border border-slate-200 rounded-lg resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-slate-50" rows={2} placeholder="Add any comments or observations..." />
+        {renderAttachmentPreview(commentField)}
+      </div>
     </div>
   );
 
@@ -391,16 +501,50 @@ export default function InfectionControlAuditPage() {
       const totalCount = YES_NO_FIELDS.length;
       const scorePercent = totalCount > 0 ? Math.round((yesCount / totalCount) * 100) : 0;
 
-      const payload = { ...data, comments: finalComments, createActionPlan, createdBy: user?.id ?? null, workspaceId: activeWorkspace.id, auditType: 'infection-control', scorePercent, yesCount, totalCount, organisationId: activeWorkspace.organisationId || null };
-      
+      const attachmentsMetadata: Record<string, { name: string; storagePath: string; downloadUrl?: string }[]> = {};
+      const nextAttachmentState: Record<string, any[]> = {};
+      for (const [fieldName, items] of Object.entries(attachments)) {
+        if (!items || items.length === 0) continue;
+        const processed: any[] = [];
+        for (const item of items) {
+          if (item.file) {
+            const { storagePath, downloadUrl } = await uploadAttachmentFile(fieldName, item.file);
+            if (item.url && item.url.startsWith('blob:')) { try { URL.revokeObjectURL(item.url); } catch (err) { console.warn('Failed to revoke object URL during upload', err); } createdObjectUrls.current.delete(item.url); }
+            processed.push({ id: item.id, name: item.name, url: downloadUrl, storagePath, downloadUrl });
+            if (!attachmentsMetadata[fieldName]) attachmentsMetadata[fieldName] = [];
+            attachmentsMetadata[fieldName].push({ name: item.name, storagePath, downloadUrl });
+          } else if (item.storagePath) {
+            const downloadUrl = item.downloadUrl || item.url;
+            processed.push({ id: item.id, name: item.name, url: downloadUrl, storagePath: item.storagePath, downloadUrl });
+            if (!attachmentsMetadata[fieldName]) attachmentsMetadata[fieldName] = [];
+            attachmentsMetadata[fieldName].push({ name: item.name, storagePath: item.storagePath, downloadUrl });
+          }
+        }
+        if (processed.length > 0) nextAttachmentState[fieldName] = processed;
+      }
+
+      if (attachmentsToDelete.length > 0) {
+        const uniqueDeletes = Array.from(new Set(attachmentsToDelete));
+        for (const storagePath of uniqueDeletes) {
+          try { await deleteObject(ref(storage, storagePath)); } catch (err) { console.warn('Failed to delete removed attachment from storage', err); }
+        }
+      }
+
+      const attachmentsPayload = Object.keys(attachmentsMetadata).length > 0 ? attachmentsMetadata : undefined;
+
+      const payload = { ...data, ...(attachmentsPayload ? { attachments: attachmentsPayload } : {}), comments: finalComments, createActionPlan, createdBy: user?.id ?? null, workspaceId: activeWorkspace.id, auditType: 'infection-control', scorePercent, yesCount, totalCount, organisationId: activeWorkspace.organisationId || null };
+
       // Save to regular audits collection
       const id = await saveAudit(payload, activeWorkspace.id, activeWorkspace.organisationId || null);
-      
+
       // Save snapshot and mark as completed (also generates PDF)
       const result = await markAuditCompletedWithSnapshot(activeWorkspace.id, 'infection-control', payload, data.date || new Date().toISOString());
       if (result.pdfDocId) {
       }
 
+      setAttachments(nextAttachmentState);
+      setAttachmentsToDelete([]);
+      setPreviewImage(null);
       alert('Audit completed and saved for this month');
       setShowModal(false);
     } catch (e) {
@@ -832,13 +976,21 @@ export default function InfectionControlAuditPage() {
                     {section.name === 'final-comments' && (
                       <div className="bg-slate-50 p-6 rounded-lg">
                         <h4 className="text-lg font-semibold text-slate-900 mb-4">Final Comments & Recommendations</h4>
-                        <Textarea
-                          value={finalComments}
-                          onChange={(e) => setFinalComments(e.target.value)}
-                          className="w-full p-3 border border-slate-300 rounded-md resize-none"
-                          rows={6}
-                          placeholder="Enter any additional comments or recommendations based on the infection control audit findings..."
-                        />
+                        <div>
+                          <div className="flex items-start justify-between mb-2">
+                            <label className="sr-only">Final Comments</label>
+                            {renderAttachmentButton('finalComments')}
+                          </div>
+                          <Textarea
+                            data-field="finalComments"
+                            value={finalComments}
+                            onChange={(e) => setFinalComments(e.target.value)}
+                            className="w-full p-3 border border-slate-300 rounded-md resize-none"
+                            rows={6}
+                            placeholder="Enter any additional comments or recommendations based on the infection control audit findings..."
+                          />
+                          {renderAttachmentPreview('finalComments')}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -875,6 +1027,23 @@ export default function InfectionControlAuditPage() {
               >
                 {saving ? 'Saving...' : 'Save and Create Action Plan'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Image preview modal */}
+      {previewImage && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black bg-opacity-60" onClick={() => setPreviewImage(null)} />
+          <div className="relative z-70 max-w-3xl w-full mx-4">
+            <div className="bg-white rounded-lg overflow-hidden shadow-xl">
+              <div className="flex justify-between items-start p-2 border-b">
+                <div className="px-3 py-1 text-sm text-gray-700">{previewImage.name}</div>
+                <button onClick={() => setPreviewImage(null)} className="m-2 bg-white rounded-full p-1 text-gray-700 border">Close</button>
+              </div>
+              <div className="p-4 bg-black flex items-center justify-center">
+                <img src={previewImage.url} alt={previewImage.name} className="max-h-[80vh] w-auto object-contain" />
+              </div>
             </div>
           </div>
         </div>

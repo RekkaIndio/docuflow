@@ -17,11 +17,15 @@ interface RotaShift {
   id: string;
   staffId: string;
   staffName?: string;
-  type?: 'AM' | 'PM' | 'Night' | 'Full';
+  type?: string;
   startTime?: string;
   endTime?: string;
   date: string;
   notes?: string;
+  leave?: {
+    groupId?: string;
+    totalHours?: number;
+  };
 }
 
 interface StaffRecord {
@@ -110,6 +114,12 @@ function formatShiftLine(shift: RotaShift) {
       return shift.date;
     }
   })();
+
+  if (shift.type === 'AnnualLeave') {
+    const totalHours = shift.leave?.totalHours ?? 0;
+    const hoursText = totalHours > 0 ? ` for ${totalHours.toFixed(1)}h` : '';
+    return `<li><strong>${date}</strong>: Annual leave${hoursText}</li>`;
+  }
 
   const timeRange = shift.startTime && shift.endTime ? `${shift.startTime} - ${shift.endTime}` : 'Time TBC';
   const hours = shift.startTime && shift.endTime ? ` (${calculateShiftHours(shift.startTime, shift.endTime).toFixed(1)}h)` : '';
