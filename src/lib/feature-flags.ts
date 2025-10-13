@@ -20,5 +20,6 @@ export const DEFAULT_FEATURE_FLAGS: OrganisationFeatureFlags = {
     dailyCheckins: { enabled: true, name: 'Daily Check-ins', description: 'Daily status reports', category: 'operations' },
     accessibility: { enabled: true, name: 'Accessibility', description: 'Accessibility settings', category: 'core', isCore: true },
     settings: { enabled: true, name: 'Settings', description: 'Workspace settings', category: 'core', isCore: true },
+    lessonsRcas: { enabled: true, name: 'Lessons Learnt & RCA', description: 'Learnings and Root Cause Analysis', category: 'compliance' },
   },
 };
