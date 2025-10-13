@@ -1,4 +1,4 @@
-import { collection, doc, getDocs, getDoc, query, where, orderBy, limit, Timestamp, setDoc, updateDoc, collection as collectionFn } from 'firebase/firestore';
+import { collection, doc, getDocs, getDoc, query, where, orderBy, limit, Timestamp, setDoc, updateDoc, collection as collectionFn, QueryConstraint } from 'firebase/firestore';
 import { db } from './firebase';
 import { workspaceCollectionPath, workspaceDocPath } from './paths';
 import { finalizeActionPlan as finalizeActionPlanServer, sendActionPlanAssignmentEmail } from '@/actions/action-plans';
@@ -1345,21 +1345,96 @@ export async function saveActionPlanItems(workspaceId: string, monthKey: string,
 }
 
 /**
+ * List action plans for a workspace ordered by month (newest first)
+ */
+export async function listMonthlyActionPlans(
+  workspaceId: string,
+  organisationId?: string | null,
+  limitCount?: number
+): Promise<MonthlyActionPlan[]> {
+  try {
+    const plansCollection = collection(db, workspaceCollectionPath(workspaceId, 'action-plans', organisationId));
+    const queryConstraints: QueryConstraint[] = [orderBy('monthKey', 'desc')];
+    const plansQuery = limitCount
+      ? query(plansCollection, ...queryConstraints, limit(limitCount))
+      : query(plansCollection, ...queryConstraints);
+
+    const plansSnapshot = await getDocs(plansQuery);
+    return plansSnapshot.docs.map(planDoc => planDoc.data() as MonthlyActionPlan);
+  } catch (error) {
+    console.error('Failed to list monthly action plans:', error);
+    return [];
+  }
+}
+
+/**
  * Get monthly action plan for a workspace
  */
 export async function getMonthlyActionPlan(workspaceId: string, monthKey?: string, organisationId?: string | null): Promise<MonthlyActionPlan | null> {
   try {
     const targetMonth = monthKey || getCurrentMonthKey();
-    const actionPlanRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'action-plans', organisationId)), targetMonth);
-    const actionPlanSnap = await getDoc(actionPlanRef);
+    const scopedCollection = collection(db, workspaceCollectionPath(workspaceId, 'action-plans', organisationId));
+    let planRef = doc(scopedCollection, targetMonth);
+    let planSnap = await getDoc(planRef);
 
-    if (!actionPlanSnap.exists()) {
+    if (!planSnap.exists() && organisationId) {
+      const fallbackRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'action-plans', null)), targetMonth);
+      const fallbackSnap = await getDoc(fallbackRef);
+      if (fallbackSnap.exists()) {
+        planRef = fallbackRef;
+        planSnap = fallbackSnap;
+      }
+    }
+
+    if (!planSnap.exists()) {
       return null;
     }
 
-    return actionPlanSnap.data() as MonthlyActionPlan;
+    return planSnap.data() as MonthlyActionPlan;
   } catch (error) {
     console.error('Failed to get monthly action plan:', error);
+    return null;
+  }
+}
+
+export async function getAuditSnapshotById(
+  workspaceId: string,
+  monthKey: string,
+  auditType: string,
+  auditId: string,
+  organisationId?: string | null
+): Promise<(Record<string, any> & { id: string; auditType: string; monthKey: string }) | null> {
+  try {
+    const targetMonth = monthKey || getCurrentMonthKey();
+    const scopedPath = workspaceCollectionPath(workspaceId, `audit-snapshots/${targetMonth}/${auditType}`, organisationId);
+    if (!scopedPath) return null;
+
+    let snapshotRef = doc(collection(db, scopedPath), auditId);
+    let snapshotSnap = await getDoc(snapshotRef);
+
+    if (!snapshotSnap.exists() && organisationId) {
+      const fallbackPath = workspaceCollectionPath(workspaceId, `audit-snapshots/${targetMonth}/${auditType}`, null);
+      if (!fallbackPath) return null;
+      const fallbackRef = doc(collection(db, fallbackPath), auditId);
+      const fallbackSnap = await getDoc(fallbackRef);
+      if (fallbackSnap.exists()) {
+        snapshotRef = fallbackRef;
+        snapshotSnap = fallbackSnap;
+      }
+    }
+
+    if (!snapshotSnap.exists()) {
+      return null;
+    }
+
+    return {
+      id: snapshotSnap.id,
+      auditType,
+      monthKey: targetMonth,
+      ...snapshotSnap.data()
+    } as Record<string, any> & { id: string; auditType: string; monthKey: string };
+  } catch (error) {
+    console.error('Failed to get audit snapshot by id:', error);
     return null;
   }
 }
@@ -1434,12 +1509,13 @@ export async function updateActionPlanItemStatus(
 
     const completedItems = updatedItems.filter(item => item.status === 'completed').length;
     const progressPercent = actionPlan.totalItems > 0 ? Math.round((completedItems / actionPlan.totalItems) * 100) : 0;
+    const updatedAt = new Date().toISOString();
 
     await updateDoc(actionPlanRef, {
       items: updatedItems,
       completedItems,
       progressPercent,
-      updatedAt: new Date().toISOString()
+      updatedAt
     });
 
     // If assignment changed (assignedTo), send a per-recipient assignment email
@@ -1480,11 +1556,11 @@ export async function updateActionPlanItemStatus(
 /**
  * Helper to finalize action plan if fully completed. Public wrapper for other callers.
  */
-export async function finalizeActionPlanIfComplete(workspaceId: string, monthKey: string) {
-  const plan = await getMonthlyActionPlan(workspaceId, monthKey);
+export async function finalizeActionPlanIfComplete(workspaceId: string, monthKey: string, organisationId?: string | null) {
+  const plan = await getMonthlyActionPlan(workspaceId, monthKey, organisationId);
   if (!plan) return;
   if (plan.completedItems === plan.totalItems && plan.totalItems > 0 && !plan.isComplete) {
-    await finalizeActionPlanServer(workspaceId, monthKey);
+    await finalizeActionPlanServer(workspaceId, monthKey, organisationId);
   }
 }
 
