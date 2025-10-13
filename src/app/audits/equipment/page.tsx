@@ -1,9 +1,11 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { ChevronDown, ChevronUp, FileText } from "lucide-react";
 import { useAuth } from '@/hooks/use-auth';
 import { useWorkspace } from '@/context/workspace';
-import { saveAudit, markAuditCompleted } from '@/lib/firestore';
+import { saveAudit, markAuditCompletedWithSnapshot, getLatestAuditData } from '@/lib/firestore';
+import { storage } from '@/lib/firebase';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -57,11 +59,30 @@ interface EquipmentAuditData {
   comments: string;
 }
 
+type AttachmentItem = {
+  id: string;
+  name: string;
+  url: string;
+  file?: File;
+  storagePath?: string;
+  downloadUrl?: string;
+};
+
+type AttachmentMetadata = {
+  name: string;
+  storagePath: string;
+  downloadUrl?: string;
+};
+
 export default function EquipmentAuditPage() {
   const [currentReport, setCurrentReport] = useState(1);
   const [totalReports] = useState(1);
   const [showModal, setShowModal] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+  const [attachments, setAttachments] = useState<Record<string, AttachmentItem[]>>({});
+  const [attachmentsToDelete, setAttachmentsToDelete] = useState<string[]>([]);
+  const [previewImage, setPreviewImage] = useState<{ url: string; name: string } | null>(null);
+  const createdObjectUrls = React.useRef<Set<string>>(new Set());
   const { user } = useAuth();
   const activeWorkspace = useWorkspace();
   const [saving, setSaving] = useState(false);
@@ -73,6 +94,59 @@ export default function EquipmentAuditPage() {
   const toggleSection = (idx: number) => {
     setOpenSections((prev: boolean[]) => prev.map((open, i) => (i === idx ? !open : open)));
   };
+
+  // Load existing audit attachments if present (for editing existing saved audit)
+  React.useEffect(() => {
+    let cancelled = false;
+    const loadExisting = async () => {
+      if (!activeWorkspace?.id) {
+        setAttachments({});
+        setAttachmentsToDelete([]);
+        return;
+      }
+
+      try {
+        const existing = await getLatestAuditData(activeWorkspace.id, 'equipment', undefined, activeWorkspace.organisationId || null);
+        if (!existing || cancelled) return;
+        const storedAttachments: Record<string, any[]> | undefined = existing.attachments && typeof existing.attachments === 'object' ? existing.attachments : undefined;
+        if (!storedAttachments) return;
+        const processedEntries: Array<[string, AttachmentItem[]]> = [];
+        for (const [fieldName, list] of Object.entries(storedAttachments)) {
+          if (!Array.isArray(list) || list.length === 0) continue;
+          const processed: AttachmentItem[] = [];
+          for (let i = 0; i < list.length; i++) {
+            const entry = list[i] as any;
+            if (!entry) continue;
+            const storagePath: string | undefined = entry.storagePath;
+            let downloadUrl: string | undefined = entry.downloadUrl;
+            if (!downloadUrl && storagePath) {
+              try {
+                downloadUrl = await getDownloadURL(ref(storage, storagePath));
+              } catch (err) {
+                console.error('Failed to fetch download URL for attachment', err);
+                continue;
+              }
+            }
+            if (!downloadUrl) continue;
+            processed.push({
+              id: `existing-${fieldName}-${i}-${storagePath ?? entry.name ?? 'attachment'}`,
+              name: entry.name ?? `Attachment ${i + 1}`,
+              url: downloadUrl,
+              storagePath,
+              downloadUrl,
+            });
+          }
+          if (processed.length > 0) processedEntries.push([fieldName, processed]);
+        }
+        if (!cancelled && processedEntries.length > 0) setAttachments(Object.fromEntries(processedEntries));
+      } catch (err) {
+        console.warn('Failed to load existing equipment audit attachments', err);
+      }
+    };
+
+    loadExisting();
+    return () => { cancelled = true; };
+  }, [activeWorkspace?.id, activeWorkspace?.organisationId]);
 
   // Section definitions for collapsible form
   const sections = [
@@ -191,6 +265,108 @@ export default function EquipmentAuditPage() {
     }
   };
 
+  const handleAddAttachments = (fieldName: string, files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const fileArray = Array.from(files);
+    setAttachments(prev => {
+      const existing = prev[fieldName] ?? [];
+      const added = fileArray.map(file => {
+        const url = URL.createObjectURL(file);
+        createdObjectUrls.current.add(url);
+        const id = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${fieldName}-${Date.now()}-${file.name}`;
+        return { id, name: file.name, url, file } as AttachmentItem;
+      });
+      return { ...prev, [fieldName]: [...existing, ...added] };
+    });
+  };
+
+  const handleRemoveAttachment = (fieldName: string, id: string) => {
+    setAttachments(prev => {
+      const list = prev[fieldName] ?? [];
+      const target = list.find(item => item.id === id);
+      if (!target) return prev;
+
+      if (target.url && target.url.startsWith('blob:')) {
+        try { URL.revokeObjectURL(target.url); } catch (e) { console.warn('Failed to revoke object URL', e); }
+        createdObjectUrls.current.delete(target.url);
+      }
+
+      if (target.storagePath) {
+        setAttachmentsToDelete(prev => [...prev, target.storagePath as string]);
+      }
+
+      if (previewImage && previewImage.url === target.url) setPreviewImage(null);
+
+      const remaining = list.filter(item => item.id !== id);
+      const next = { ...prev };
+      if (remaining.length > 0) next[fieldName] = remaining; else delete next[fieldName];
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setPreviewImage(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      createdObjectUrls.current.forEach((url) => {
+        try { URL.revokeObjectURL(url); } catch (err) { console.warn('Failed to revoke object URL', err); }
+      });
+      createdObjectUrls.current.clear();
+    };
+  }, []);
+
+  const uploadAttachmentFile = async (fieldName: string, file: File) => {
+    if (!activeWorkspace?.id) throw new Error('Workspace not available for attachment upload');
+    const orgId = activeWorkspace.organisationId || null;
+    const fieldSegment = fieldName.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase() || 'field';
+    const safeName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_');
+    const auditDateSegment = (auditData.date || new Date().toISOString().split('T')[0]).replace(/[^0-9-]/g, '');
+    const timestamp = Date.now();
+    const basePath = orgId ? `organisations/${orgId}/workspaces/${activeWorkspace.id}` : `workspaces/${activeWorkspace.id}`;
+    const storagePath = `${basePath}/audit-attachments/equipment/${auditDateSegment}/${fieldSegment}/${timestamp}-${safeName}`;
+    const storageRef = ref(storage, storagePath);
+    await uploadBytes(storageRef, file);
+    const downloadUrl = await getDownloadURL(storageRef);
+    return { storagePath, downloadUrl };
+  };
+
+  const getAttachmentCount = (fieldName: string) => (attachments[fieldName]?.length ?? 0);
+
+  const renderAttachmentButton = (fieldName: string) => (
+    <div className="ml-4 relative">
+      {getAttachmentCount(fieldName) > 0 && (
+        <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">
+          {getAttachmentCount(fieldName)}
+        </span>
+      )}
+      <label title="Add attachment" className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100">
+        <input type="file" accept="image/*" onChange={(e) => { handleAddAttachments(fieldName, e.target.files); e.currentTarget.value = ''; }} className="hidden" />
+        <span className="text-xl font-bold">+</span>
+      </label>
+    </div>
+  );
+
+  const renderAttachmentPreview = (fieldName: string) => {
+    const list = attachments[fieldName] ?? [];
+    if (list.length === 0) return null;
+    return (
+      <div className="mt-3 flex flex-wrap gap-2">
+        {list.map(att => (
+          <div key={att.id} className="relative w-24 h-24 rounded overflow-hidden border border-gray-200">
+            <button type="button" onClick={() => setPreviewImage({ url: att.url, name: att.name })} className="w-full h-full" title={att.name}>
+              <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+            </button>
+            <button type="button" onClick={() => handleRemoveAttachment(fieldName, att.id)} className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-gray-200 shadow-sm" title="Remove">×</button>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   const validateForm = () => {
     const requiredFields: (keyof EquipmentAuditData)[] = [
       'home', 'date', 'personCompletingAudit',
@@ -234,17 +410,99 @@ export default function EquipmentAuditPage() {
 
     setSaving(true);
     try {
+      const SCORE_FIELDS: { field: keyof EquipmentAuditData; positive: string[] }[] = [
+        { field: 'hoistsLolerInDate', positive: ['Yes'] },
+        { field: 'standAidsLolerInDate', positive: ['Yes'] },
+        { field: 'profilingBedsWorkingOrder', positive: ['Yes'] },
+        { field: 'pressureCushion1Condition', positive: ['Good'] },
+        { field: 'pressureCushion2Condition', positive: ['Good'] },
+        { field: 'pressureCushion3Condition', positive: ['Good'] },
+        { field: 'pressureCushion4Condition', positive: ['Good'] },
+        { field: 'pressureCushion5Condition', positive: ['Good'] },
+        { field: 'airflowMattress1Condition', positive: ['Good'] },
+        { field: 'airflowMattress2Condition', positive: ['Good'] },
+        { field: 'airflowMattress3Condition', positive: ['Good'] },
+        { field: 'airflowMattress4Condition', positive: ['Good'] },
+        { field: 'airflowMattress5Condition', positive: ['Good'] },
+        { field: 'slingsAssigned', positive: ['Yes'] },
+        { field: 'slideSheetsAssigned', positive: ['Yes'] },
+        { field: 'wheelchairsWorkingOrder', positive: ['Yes'] },
+        { field: 'acousticMonitoringWorking', positive: ['Yes'] },
+      ];
+
+      const scoreTally = SCORE_FIELDS.reduce(
+        (acc, { field, positive }) => {
+          const value = (auditData as any)[field];
+          if (!value || value === 'N/A') return acc;
+          acc.totalCount += 1;
+          if (positive.includes(value)) acc.yesCount += 1;
+          return acc;
+        },
+        { yesCount: 0, totalCount: 0 }
+      );
+      const scorePercent = scoreTally.totalCount > 0
+        ? Math.round((scoreTally.yesCount / scoreTally.totalCount) * 100)
+        : null;
+
+      const attachmentsMetadata: Record<string, AttachmentMetadata[]> = {};
+      const nextAttachmentState: Record<string, AttachmentItem[]> = {};
+
+      for (const [fieldName, items] of Object.entries(attachments)) {
+        if (!items || items.length === 0) continue;
+        const processed: AttachmentItem[] = [];
+        for (const item of items) {
+          if (item.file) {
+            const { storagePath, downloadUrl } = await uploadAttachmentFile(fieldName, item.file);
+            if (item.url && item.url.startsWith('blob:')) {
+              try { URL.revokeObjectURL(item.url); } catch (err) { console.warn('Failed to revoke object URL during upload', err); }
+              createdObjectUrls.current.delete(item.url);
+            }
+            const storedItem: AttachmentItem = { id: item.id, name: item.name, url: downloadUrl, storagePath, downloadUrl };
+            processed.push(storedItem);
+            if (!attachmentsMetadata[fieldName]) attachmentsMetadata[fieldName] = [];
+            attachmentsMetadata[fieldName].push({ name: item.name, storagePath, downloadUrl });
+          } else if (item.storagePath) {
+            const downloadUrl = item.downloadUrl || item.url;
+            processed.push({ id: item.id, name: item.name, url: downloadUrl, storagePath: item.storagePath, downloadUrl });
+            if (!attachmentsMetadata[fieldName]) attachmentsMetadata[fieldName] = [];
+            attachmentsMetadata[fieldName].push({ name: item.name, storagePath: item.storagePath, downloadUrl });
+          }
+        }
+        if (processed.length > 0) nextAttachmentState[fieldName] = processed;
+      }
+
+      if (attachmentsToDelete.length > 0) {
+        const uniqueDeletes = Array.from(new Set(attachmentsToDelete));
+        for (const storagePath of uniqueDeletes) {
+          try { await deleteObject(ref(storage, storagePath)); } catch (err) { console.warn('Failed to delete removed attachment from storage', err); }
+        }
+      }
+
+      const attachmentsPayload = Object.keys(attachmentsMetadata).length > 0 ? attachmentsMetadata : undefined;
+
       const payload = {
         ...auditData,
+        ...(attachmentsPayload ? { attachments: attachmentsPayload } : {}),
         comments: finalComments,
         createActionPlan,
         createdBy: user?.id ?? null,
         organisationId: activeWorkspace.organisationId || null,
+        auditType: 'equipment',
+        yesCount: scoreTally.yesCount,
+        totalCount: scoreTally.totalCount,
+        scorePercent,
       };
 
       const auditId = await saveAudit(payload, activeWorkspace.id, activeWorkspace.organisationId || null);
       const completedAt = auditData.date || new Date().toISOString();
-      await markAuditCompleted(activeWorkspace.id, 'equipment', completedAt, activeWorkspace.organisationId || null);
+      try {
+        await markAuditCompletedWithSnapshot(activeWorkspace.id, 'equipment', payload, completedAt);
+      } catch (err) {
+        console.warn('Failed to complete equipment audit with snapshot', err);
+      }
+      setAttachments(nextAttachmentState);
+      setAttachmentsToDelete([]);
+      setPreviewImage(null);
       setShowModal(false);
       alert('Audit saved');
     } catch (err) {
@@ -323,8 +581,11 @@ export default function EquipmentAuditPage() {
     <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
       <div className="space-y-3">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
-          <div className="flex gap-4" data-field={field}>
+          <div className="flex items-start justify-between mb-2">
+            <label className="block text-sm font-medium text-gray-700">{label}</label>
+            {renderAttachmentButton(field + 'Comment')}
+          </div>
+      <div className="flex gap-4" data-field={field}>
             <label className="flex items-center cursor-pointer">
               <input
                 type="radio"
@@ -364,8 +625,10 @@ export default function EquipmentAuditPage() {
           )}
         </div>
       </div>
+      {renderAttachmentPreview(field + 'Comment')}
     </div>
   );
+
 
   const ConditionCheckField = ({ 
     label, 
@@ -388,7 +651,10 @@ export default function EquipmentAuditPage() {
       <div className="space-y-3">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+            <div className="flex items-start justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700">{label}</label>
+              {renderAttachmentButton(conditionField + 'Comment')}
+            </div>
             <input
               type="text"
               data-field={roomField}
@@ -437,6 +703,7 @@ export default function EquipmentAuditPage() {
               </label>
             </div>
             {errors.includes(conditionField) && <p className="text-red-500 text-sm mt-1">This field is required</p>}
+            {renderAttachmentPreview(conditionField + 'Comment')}
           </div>
         </div>
       </div>
@@ -548,7 +815,10 @@ export default function EquipmentAuditPage() {
                               {hasError('totalHoists') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
                             </div>
                             <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                              <label className="block text-sm font-medium text-gray-700 mb-2">LOLER Inspections in Date</label>
+                              <div className="flex items-start justify-between mb-2">
+                                <label className="block text-sm font-medium text-gray-700">LOLER Inspections in Date</label>
+                                {renderAttachmentButton('hoistsLolerInDate')}
+                              </div>
                               <div className="flex gap-4" data-field="hoistsLolerInDate">
                                 <label className="flex items-center cursor-pointer">
                                   <input
@@ -585,6 +855,7 @@ export default function EquipmentAuditPage() {
                                 </label>
                               </div>
                               {hasError('hoistsLolerInDate') && <p className="text-red-500 text-sm mt-1">Please select an option</p>}
+                              {renderAttachmentPreview('hoistsLolerInDate')}
                             </div>
                           </div>
                         </div>
@@ -607,7 +878,10 @@ export default function EquipmentAuditPage() {
                               {hasError('totalStandAids') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
                             </div>
                             <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                              <label className="block text-sm font-medium text-gray-700 mb-2">LOLER Inspections in Date</label>
+                              <div className="flex items-start justify-between mb-2">
+                                <label className="block text-sm font-medium text-gray-700">LOLER Inspections in Date</label>
+                                {renderAttachmentButton('standAidsLolerInDate')}
+                              </div>
                               <div className="flex gap-4" data-field="standAidsLolerInDate">
                                 <label className="flex items-center cursor-pointer">
                                   <input
@@ -644,6 +918,7 @@ export default function EquipmentAuditPage() {
                                 </label>
                               </div>
                               {hasError('standAidsLolerInDate') && <p className="text-red-500 text-sm mt-1">Please select an option</p>}
+                              {renderAttachmentPreview('standAidsLolerInDate')}
                             </div>
                           </div>
                         </div>
@@ -669,7 +944,10 @@ export default function EquipmentAuditPage() {
                               {hasError('totalProfilingBeds') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
                             </div>
                             <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Profiling Beds in Good Working Order</label>
+                              <div className="flex items-start justify-between mb-2">
+                                <label className="block text-sm font-medium text-gray-700">Profiling Beds in Good Working Order</label>
+                                {renderAttachmentButton('profilingBedsWorkingOrder')}
+                              </div>
                               <div className="flex gap-4" data-field="profilingBedsWorkingOrder">
                                 <label className="flex items-center cursor-pointer">
                                   <input
@@ -706,6 +984,7 @@ export default function EquipmentAuditPage() {
                                 </label>
                               </div>
                               {hasError('profilingBedsWorkingOrder') && <p className="text-red-500 text-sm mt-1">Please select an option</p>}
+                              {renderAttachmentPreview('profilingBedsWorkingOrder')}
                             </div>
                           </div>
                         </div>
@@ -825,7 +1104,10 @@ export default function EquipmentAuditPage() {
                           <h3 className="text-lg font-semibold text-teal-900 mb-4">Slings and Slide Sheets</h3>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Slings Assigned to Each Resident</label>
+                              <div className="flex items-start justify-between mb-2">
+                                <label className="block text-sm font-medium text-gray-700">Slings Assigned to Each Resident</label>
+                                {renderAttachmentButton('slingsAssignedComment')}
+                              </div>
                               <div className="flex gap-4" data-field="slingsAssigned">
                                 <label className="flex items-center cursor-pointer">
                                   <input
@@ -862,9 +1144,13 @@ export default function EquipmentAuditPage() {
                                 </label>
                               </div>
                               {hasError('slingsAssigned') && <p className="text-red-500 text-sm mt-1">Please select an option</p>}
+                              {renderAttachmentPreview('slingsAssignedComment')}
                             </div>
                             <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Slide Sheets Assigned to Each Resident</label>
+                              <div className="flex items-start justify-between mb-2">
+                                <label className="block text-sm font-medium text-gray-700">Slide Sheets Assigned to Each Resident</label>
+                                {renderAttachmentButton('slideSheetsAssignedComment')}
+                              </div>
                               <div className="flex gap-4" data-field="slideSheetsAssigned">
                                 <label className="flex items-center cursor-pointer">
                                   <input
@@ -901,6 +1187,7 @@ export default function EquipmentAuditPage() {
                                 </label>
                               </div>
                               {hasError('slideSheetsAssigned') && <p className="text-red-500 text-sm mt-1">Please select an option</p>}
+                              {renderAttachmentPreview('slideSheetsAssignedComment')}
                             </div>
                           </div>
                         </div>
@@ -923,7 +1210,10 @@ export default function EquipmentAuditPage() {
                               {hasError('totalWheelchairs') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
                             </div>
                             <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Wheelchairs in Good Working Order</label>
+                              <div className="flex items-start justify-between mb-2">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Wheelchairs in Good Working Order</label>
+                                {renderAttachmentButton('wheelchairsWorkingOrder')}
+                              </div>
                               <div className="flex gap-4" data-field="wheelchairsWorkingOrder">
                                 <label className="flex items-center cursor-pointer">
                                   <input
@@ -960,6 +1250,7 @@ export default function EquipmentAuditPage() {
                                 </label>
                               </div>
                               {hasError('wheelchairsWorkingOrder') && <p className="text-red-500 text-sm mt-1">Please select an option</p>}
+                              {renderAttachmentPreview('wheelchairsWorkingOrder')}
                             </div>
                           </div>
                         </div>
@@ -1011,7 +1302,10 @@ export default function EquipmentAuditPage() {
                               {hasError('totalRoomSensors') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
                             </div>
                             <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Acoustic Monitoring in Good Working Order</label>
+                              <div className="flex items-start justify-between mb-2">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Acoustic Monitoring in Good Working Order</label>
+                                {renderAttachmentButton('acousticMonitoringWorking')}
+                              </div>
                               <div className="flex gap-4" data-field="acousticMonitoringWorking">
                                 <label className="flex items-center cursor-pointer">
                                   <input
@@ -1048,6 +1342,7 @@ export default function EquipmentAuditPage() {
                                 </label>
                               </div>
                               {hasError('acousticMonitoringWorking') && <p className="text-red-500 text-sm mt-1">Please select an option</p>}
+                              {renderAttachmentPreview('acousticMonitoringWorking')}
                             </div>
                           </div>
                         </div>
@@ -1061,7 +1356,10 @@ export default function EquipmentAuditPage() {
             <div className="bg-white rounded-2xl border border-slate-200 shadow-md p-8">
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Final Comments & Recommendations</label>
+                  <div className="flex items-start justify-between">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Final Comments & Recommendations</label>
+                    {renderAttachmentButton('finalComments')}
+                  </div>
                   <Textarea
                     name="finalComments"
                     value={finalComments}
@@ -1070,6 +1368,7 @@ export default function EquipmentAuditPage() {
                     className="w-full p-3 border border-slate-200 rounded-lg resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-slate-50"
                     rows={6}
                   />
+                  {renderAttachmentPreview('finalComments')}
                 </div>
               </div>
             </div>
@@ -1108,6 +1407,23 @@ export default function EquipmentAuditPage() {
               >
                 {saving ? 'Saving...' : 'Save and Close'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Image preview modal */}
+      {previewImage && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black bg-opacity-60" onClick={() => setPreviewImage(null)} />
+          <div className="relative z-70 max-w-3xl w-full mx-4">
+            <div className="bg-white rounded-lg overflow-hidden shadow-xl">
+              <div className="flex justify-between items-start p-2 border-b">
+                <div className="px-3 py-1 text-sm text-gray-700">{previewImage.name}</div>
+                <button onClick={() => setPreviewImage(null)} className="m-2 bg-white rounded-full p-1 text-gray-700 border">Close</button>
+              </div>
+              <div className="p-4 bg-black flex items-center justify-center">
+                <img src={previewImage.url} alt={previewImage.name} className="max-h-[80vh] w-auto object-contain" />
+              </div>
             </div>
           </div>
         </div>

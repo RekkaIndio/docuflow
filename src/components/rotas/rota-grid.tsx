@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { addDays, format, addWeeks, isSameDay, isWeekend } from "date-fns";
-import { Plus, X, Clock, User, Users, ChevronRight, Calendar } from "lucide-react";
+import { Plus, X, Clock, User, Users, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,38 +14,51 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import type { StaffMember, Shift } from "./rotas-view";
+import type { StaffMember, Shift, ShiftPattern } from "./rotas-view";
 import { ShiftDialog } from "./shift-dialog";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { getShiftColorTheme, DEFAULT_SHIFT_COLOR } from "./shift-colors";
 
 interface RotaGridProps {
   weekStart: Date;
   weeksToShow: number;
   staff: StaffMember[];
   shifts: Shift[];
-  onAddShift: (date: string, staffId: string, staffName: string, type: 'AM' | 'PM' | 'Night' | 'Full', startTime?: string, endTime?: string) => void;
+  onAddShift: (
+    date: string,
+    staffId: string,
+    staffName: string,
+    type: Shift['type'],
+    startTime?: string,
+    endTime?: string,
+    leaveMeta?: Shift['leave'],
+  ) => Promise<void> | void;
   onDeleteShift: (shiftId: string, date: string) => void;
   calculateStaffHours?: (staffId: string) => number;
+  patterns: ShiftPattern[];
 }
 
-const shiftColors = {
-  AM: 'bg-blue-100 text-blue-800 border-blue-300',
-  PM: 'bg-amber-100 text-amber-800 border-amber-300',
-  Night: 'bg-indigo-100 text-indigo-800 border-indigo-300',
-  Full: 'bg-green-100 text-green-800 border-green-300',
+const ANNUAL_LEAVE_THEME = {
+  summaryContainer: "border bg-orange-50 border-orange-200",
+  summaryDot: "bg-orange-500",
+  detailContainer: "border border-orange-300 bg-orange-100 text-orange-800",
+  detailBadge: "border-orange-500 text-orange-700",
 };
 
-const shiftBadgeColors = {
-  AM: 'bg-blue-500',
-  PM: 'bg-amber-500',
-  Night: 'bg-indigo-500',
-  Full: 'bg-green-500',
-};
+interface ShiftGroup {
+  type: string;
+  label: string;
+  shifts: Shift[];
+  theme: {
+    summaryContainer: string;
+    summaryDot: string;
+    detailContainer: string;
+    detailBadge: string;
+  };
+  pattern?: ShiftPattern;
+  order: number;
+  isAnnualLeave?: boolean;
+}
 
 // Safe formatting function to prevent NaN display
 const formatHours = (hours: number): string => {
@@ -53,11 +66,27 @@ const formatHours = (hours: number): string => {
   return hours.toFixed(1);
 };
 
-export function RotaGrid({ weekStart, weeksToShow, staff, shifts, onAddShift, onDeleteShift, calculateStaffHours }: RotaGridProps) {
+export function RotaGrid({ weekStart, weeksToShow, staff, shifts, onAddShift, onDeleteShift, calculateStaffHours, patterns }: RotaGridProps) {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedDateObj, setSelectedDateObj] = useState<Date | null>(null);
+
+  const patternMeta = useMemo(() => {
+    return patterns.reduce<Map<string, { pattern: ShiftPattern; order: number; theme: ReturnType<typeof getShiftColorTheme> }>>(
+      (map, pattern, index) => {
+        map.set(pattern.id, {
+          pattern,
+          order: index,
+          theme: getShiftColorTheme(pattern.color ?? DEFAULT_SHIFT_COLOR),
+        });
+        return map;
+      },
+      new Map()
+    );
+  }, [patterns]);
+
+  const defaultTheme = useMemo(() => getShiftColorTheme(DEFAULT_SHIFT_COLOR), []);
 
   // Generate all dates for the period
   const allDates: Date[] = [];
@@ -79,14 +108,6 @@ export function RotaGrid({ weekStart, weeksToShow, staff, shifts, onAddShift, on
     setDetailsDialogOpen(true);
   };
 
-  const handleShiftAdded = (staffId: string, staffName: string, type: 'AM' | 'PM' | 'Night' | 'Full', startTime?: string, endTime?: string) => {
-    if (selectedDate) {
-      onAddShift(selectedDate, staffId, staffName, type, startTime, endTime);
-    }
-    setAddDialogOpen(false);
-    setSelectedDate(null);
-  };
-
   const isToday = (date: Date) => isSameDay(date, new Date());
 
   // Group shifts by date and type
@@ -94,13 +115,54 @@ export function RotaGrid({ weekStart, weeksToShow, staff, shifts, onAddShift, on
     return shifts.filter(s => s.date === dateStr);
   };
 
-  const groupShiftsByType = (dayShifts: Shift[]) => {
-    return {
-      AM: dayShifts.filter(s => s.type === 'AM'),
-      PM: dayShifts.filter(s => s.type === 'PM'),
-      Night: dayShifts.filter(s => s.type === 'Night'),
-      Full: dayShifts.filter(s => s.type === 'Full'),
-    };
+  const groupShiftsByType = (dayShifts: Shift[]): ShiftGroup[] => {
+    const bucket = new Map<string, Shift[]>();
+
+    dayShifts.forEach((shift) => {
+      const key = shift.type || 'Unknown';
+      if (!bucket.has(key)) {
+        bucket.set(key, []);
+      }
+      bucket.get(key)!.push(shift);
+    });
+
+    const groups: ShiftGroup[] = Array.from(bucket.entries()).map(([type, items]) => {
+      if (type === 'AnnualLeave') {
+        return {
+          type,
+          label: 'Annual Leave',
+          shifts: items,
+          pattern: undefined,
+          order: Number.MAX_SAFE_INTEGER,
+          isAnnualLeave: true,
+          theme: ANNUAL_LEAVE_THEME,
+        };
+      }
+
+      const meta = patternMeta.get(type);
+      const theme = meta?.theme ?? defaultTheme;
+
+      return {
+        type,
+        label: meta?.pattern.label ?? type,
+        shifts: items,
+        pattern: meta?.pattern,
+        order: meta?.order ?? Number.MAX_SAFE_INTEGER - 1,
+        theme: {
+          summaryContainer: `border ${theme.summaryContainer}`,
+          summaryDot: theme.summaryDot,
+          detailContainer: `border ${theme.detailContainer}`,
+          detailBadge: theme.detailBadge,
+        },
+      };
+    });
+
+    return groups.sort((a, b) => {
+      if (a.order === b.order) {
+        return a.label.localeCompare(b.label);
+      }
+      return a.order - b.order;
+    });
   };
 
   return (
@@ -114,7 +176,15 @@ export function RotaGrid({ weekStart, weeksToShow, staff, shifts, onAddShift, on
             const weekend = isWeekend(date);
             const dayShifts = getShiftsForDate(dateStr);
             const groupedShifts = groupShiftsByType(dayShifts);
-            const totalStaff = dayShifts.length;
+            const leaveGroup = groupedShifts.find(group => group.isAnnualLeave);
+            const workingGroups = groupedShifts.filter(group => !group.isAnnualLeave);
+            const leaveCount = leaveGroup?.shifts.length ?? 0;
+            const totalEntries = dayShifts.length;
+            const workingCount = totalEntries - leaveCount;
+            const hasEntries = totalEntries > 0;
+            const totalLeaveHours = leaveGroup
+              ? leaveGroup.shifts.reduce((sum, shift) => sum + (shift.leave?.totalHours ?? 0), 0)
+              : 0;
 
             return (
               <Card
@@ -124,7 +194,7 @@ export function RotaGrid({ weekStart, weeksToShow, staff, shifts, onAddShift, on
                   todayCard && "ring-2 ring-primary shadow-md",
                   weekend && "bg-muted/30"
                 )}
-                onClick={() => totalStaff > 0 && handleViewDetails(date, dateStr)}
+                onClick={() => hasEntries && handleViewDetails(date, dateStr)}
               >
                 <CardHeader className={cn(
                   "pb-3",
@@ -159,10 +229,10 @@ export function RotaGrid({ weekStart, weeksToShow, staff, shifts, onAddShift, on
                         )}
                       </div>
                     </div>
-                    {totalStaff > 0 && (
+                    {hasEntries && (
                       <Badge variant="secondary" className="ml-2">
                         <Users className="w-3 h-3 mr-1" />
-                        {totalStaff}
+                        {workingCount}
                       </Badge>
                     )}
                   </div>
@@ -173,54 +243,40 @@ export function RotaGrid({ weekStart, weeksToShow, staff, shifts, onAddShift, on
                   <div className="space-y-3">
                     {/* Shift type counts */}
                     <div className="grid grid-cols-2 gap-2">
-                      {groupedShifts.AM.length > 0 && (
-                        <div className="flex items-center justify-between p-2 rounded-md bg-blue-50 border border-blue-200">
+                      {workingGroups.map((group) => (
+                        <div
+                          key={group.type}
+                          className={cn("flex items-center justify-between p-2 rounded-md", group.theme.summaryContainer)}
+                        >
                           <div className="flex items-center gap-2">
-                            <div className={cn("w-2 h-2 rounded-full", shiftBadgeColors.AM)} />
-                            <span className="text-xs font-medium">AM</span>
+                            <div className={cn("w-2 h-2 rounded-full", group.theme.summaryDot)} />
+                            <span className="text-xs font-medium">{group.pattern?.id ?? group.type}</span>
                           </div>
                           <Badge variant="secondary" className="text-xs">
-                            {groupedShifts.AM.length}
+                            {group.shifts.length}
                           </Badge>
                         </div>
-                      )}
-                      {groupedShifts.PM.length > 0 && (
-                        <div className="flex items-center justify-between p-2 rounded-md bg-amber-50 border border-amber-200">
+                      ))}
+                      {leaveGroup && (
+                        <div
+                          className={cn(
+                            "flex items-center justify-between p-2 rounded-md col-span-2",
+                            leaveGroup.theme.summaryContainer
+                          )}
+                        >
                           <div className="flex items-center gap-2">
-                            <div className={cn("w-2 h-2 rounded-full", shiftBadgeColors.PM)} />
-                            <span className="text-xs font-medium">PM</span>
+                            <div className={cn("w-2 h-2 rounded-full", leaveGroup.theme.summaryDot)} />
+                            <span className="text-xs font-medium">{leaveGroup.label}</span>
                           </div>
                           <Badge variant="secondary" className="text-xs">
-                            {groupedShifts.PM.length}
-                          </Badge>
-                        </div>
-                      )}
-                      {groupedShifts.Night.length > 0 && (
-                        <div className="flex items-center justify-between p-2 rounded-md bg-indigo-50 border border-indigo-200">
-                          <div className="flex items-center gap-2">
-                            <div className={cn("w-2 h-2 rounded-full", shiftBadgeColors.Night)} />
-                            <span className="text-xs font-medium">Night</span>
-                          </div>
-                          <Badge variant="secondary" className="text-xs">
-                            {groupedShifts.Night.length}
-                          </Badge>
-                        </div>
-                      )}
-                      {groupedShifts.Full.length > 0 && (
-                        <div className="flex items-center justify-between p-2 rounded-md bg-green-50 border border-green-200">
-                          <div className="flex items-center gap-2">
-                            <div className={cn("w-2 h-2 rounded-full", shiftBadgeColors.Full)} />
-                            <span className="text-xs font-medium">Full</span>
-                          </div>
-                          <Badge variant="secondary" className="text-xs">
-                            {groupedShifts.Full.length}
+                            {totalLeaveHours.toFixed(1)}h
                           </Badge>
                         </div>
                       )}
                     </div>
 
                     {/* Empty state */}
-                    {totalStaff === 0 && (
+                    {!hasEntries && (
                       <div className="text-center py-6 text-muted-foreground text-sm">
                         No staff assigned yet
                       </div>
@@ -229,16 +285,16 @@ export function RotaGrid({ weekStart, weeksToShow, staff, shifts, onAddShift, on
                     {/* Action buttons */}
                     <div className="flex gap-2 pt-2">
                       <Button
-                        variant={totalStaff === 0 ? "default" : "outline"}
+                        variant={!hasEntries ? "default" : "outline"}
                         size="sm"
-                        className={cn("w-full", totalStaff === 0 && "border-dashed")}
+                        className={cn("w-full", !hasEntries && "border-dashed")}
                         onClick={(e) => {
                           e.stopPropagation();
                           handleAddClick(dateStr);
                         }}
                       >
                         <Plus className="w-4 h-4 mr-1" />
-                        Add Staff
+                        Add Entry
                       </Button>
                     </div>
                   </div>
@@ -252,11 +308,17 @@ export function RotaGrid({ weekStart, weeksToShow, staff, shifts, onAddShift, on
       {/* Add Staff Dialog */}
       <ShiftDialog
         open={addDialogOpen}
-        onOpenChange={setAddDialogOpen}
+        onOpenChange={(open) => {
+          setAddDialogOpen(open);
+          if (!open) {
+            setSelectedDate(null);
+          }
+        }}
         staff={staff}
-        onAddShift={handleShiftAdded}
+        onAddShift={onAddShift}
         date={selectedDate || ''}
         calculateStaffHours={calculateStaffHours}
+        patterns={patterns}
       />
 
       {/* Day Details Modal */}
@@ -275,270 +337,154 @@ export function RotaGrid({ weekStart, weeksToShow, staff, shifts, onAddShift, on
           {selectedDate && (() => {
             const dayShifts = getShiftsForDate(selectedDate);
             const grouped = groupShiftsByType(dayShifts);
+            const leaveGroup = grouped.find(group => group.isAnnualLeave);
+            const workingGroups = grouped.filter(group => !group.isAnnualLeave);
+            const totalLeaveHoursForDay = leaveGroup
+              ? leaveGroup.shifts.reduce((sum, shift) => sum + (shift.leave?.totalHours ?? 0), 0)
+              : 0;
 
             return (
               <div className="space-y-4 py-4">
-                {/* AM Shifts */}
-                {grouped.AM.length > 0 && (
-                  <div>
+                {workingGroups.map((group) => (
+                  <div key={group.type}>
                     <div className="flex items-center gap-2 mb-3 pb-2 border-b">
-                      <Badge className="bg-blue-500 text-white">AM</Badge>
-                      <span className="text-sm text-muted-foreground">Morning (07:00-15:00)</span>
-                      <Badge variant="secondary" className="ml-auto">{grouped.AM.length}</Badge>
+                      <Badge
+                        variant="outline"
+                        className={cn("text-xs font-semibold", group.theme.detailBadge)}
+                      >
+                        {group.pattern?.id ?? group.type}
+                      </Badge>
+                      <span className="text-sm text-muted-foreground">
+                        {group.pattern?.label ?? group.label}
+                        {group.pattern ? ` (${group.pattern.startTime} - ${group.pattern.endTime})` : ''}
+                      </span>
+                      <Badge variant="secondary" className="ml-auto">
+                        {group.shifts.length}
+                      </Badge>
                     </div>
                     <div className="space-y-2">
-                      {grouped.AM.map((shift) => {
+                      {group.shifts.map((shift) => {
                         const staffMember = staff.find(s => s.id === shift.staffId);
                         const staffHours = calculateStaffHours ? calculateStaffHours(shift.staffId) : 0;
                         const contractedHours = staffMember?.contractedHours || 40;
-                        const percentageUsed = (staffHours / contractedHours) * 100;
-                        const isAtLimit = staffHours >= contractedHours;
-                        const isNear = percentageUsed >= 90 && !isAtLimit;
-                        
+                        const percentageUsed = contractedHours ? (staffHours / contractedHours) * 100 : 0;
+                        const isAtLimit = contractedHours ? staffHours >= contractedHours : false;
+                        const isNear = contractedHours ? percentageUsed >= 90 && !isAtLimit : false;
+
                         return (
-                        <div
-                          key={shift.id}
-                          className={cn(
-                            "flex items-center justify-between p-3 rounded-md border",
-                            shiftColors.AM
-                          )}
-                        >
-                          <div className="flex items-center gap-3 flex-1">
-                            <User className="w-4 h-4 shrink-0" />
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">{shift.staffName}</span>
-                                {staffMember?.contractedHours && (
-                                  <Badge 
-                                    variant="outline" 
-                                    className={cn(
-                                      "text-xs",
-                                      isAtLimit ? "border-destructive text-destructive" : isNear ? "border-amber-500 text-amber-700" : "border-green-500 text-green-700"
-                                    )}
-                                  >
-                                    {formatHours(staffHours)}/{contractedHours}h
-                                  </Badge>
+                          <div
+                            key={shift.id}
+                            className={cn(
+                              "flex items-center justify-between p-3 rounded-md border",
+                              group.theme.detailContainer
+                            )}
+                          >
+                            <div className="flex items-center gap-3 flex-1">
+                              <User className="w-4 h-4 shrink-0" />
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">{shift.staffName}</span>
+                                  {staffMember?.contractedHours && (
+                                    <Badge
+                                      variant="outline"
+                                      className={cn(
+                                        "text-xs",
+                                        isAtLimit
+                                          ? "border-destructive text-destructive"
+                                          : isNear
+                                            ? "border-amber-500 text-amber-700"
+                                            : "border-green-500 text-green-700"
+                                      )}
+                                    >
+                                      {formatHours(staffHours)}/{contractedHours}h
+                                    </Badge>
+                                  )}
+                                </div>
+                                {staffMember && (
+                                  <div className="text-xs text-muted-foreground">{staffMember.roles}</div>
                                 )}
-                              </div>
-                              {staffMember && (
-                                <div className="text-xs text-muted-foreground">{staffMember.roles}</div>
-                              )}
-                              <div className="text-sm opacity-70 flex items-center gap-1 mt-0.5">
-                                <Clock className="w-3 h-3" />
-                                {shift.startTime} - {shift.endTime}
+                                <div className="text-sm opacity-70 flex items-center gap-1 mt-0.5">
+                                  <Clock className="w-3 h-3" />
+                                  {shift.startTime} - {shift.endTime}
+                                </div>
                               </div>
                             </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="hover:bg-red-500/20"
+                              onClick={() => onDeleteShift(shift.id, shift.date)}
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="hover:bg-red-500/20"
-                            onClick={() => onDeleteShift(shift.id, shift.date)}
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+
+                {leaveGroup && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-3 pb-2 border-b">
+                      <Badge
+                        variant="outline"
+                        className={cn("text-xs font-semibold", leaveGroup.theme.detailBadge)}
+                      >
+                        Leave
+                      </Badge>
+                      <span className="text-sm text-muted-foreground">
+                        Annual leave entries ({leaveGroup.shifts.length})
+                      </span>
+                      <Badge variant="secondary" className="ml-auto">
+                        {formatHours(totalLeaveHoursForDay)}h
+                      </Badge>
+                    </div>
+                    <div className="space-y-2">
+                      {leaveGroup.shifts.map((shift) => {
+                        const staffMember = staff.find(s => s.id === shift.staffId);
+
+                        return (
+                          <div
+                            key={shift.id}
+                            className={cn(
+                              "flex items-center justify-between p-3 rounded-md border",
+                              leaveGroup.theme.detailContainer
+                            )}
                           >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      );})}
+                            <div className="flex items-center gap-3 flex-1">
+                              <User className="w-4 h-4 shrink-0" />
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">{shift.staffName}</span>
+                                  <Badge variant="outline" className="text-xs">
+                                    {formatHours(shift.leave?.totalHours ?? 0)}h
+                                  </Badge>
+                                </div>
+                                {staffMember && (
+                                  <div className="text-xs text-muted-foreground">{staffMember.roles}</div>
+                                )}
+                                <div className="text-sm opacity-70 flex items-center gap-1 mt-0.5">
+                                  <Clock className="w-3 h-3" />
+                                  Recorded {formatHours(shift.leave?.totalHours ?? 0)} hours
+                                </div>
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="hover:bg-red-500/20"
+                              onClick={() => onDeleteShift(shift.id, shift.date)}
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
 
-                {/* PM Shifts */}
-                {grouped.PM.length > 0 && (
-                  <div>
-                    <div className="flex items-center gap-2 mb-3 pb-2 border-b">
-                      <Badge className="bg-amber-500 text-white">PM</Badge>
-                      <span className="text-sm text-muted-foreground">Afternoon (15:00-23:00)</span>
-                      <Badge variant="secondary" className="ml-auto">{grouped.PM.length}</Badge>
-                    </div>
-                    <div className="space-y-2">
-                      {grouped.PM.map((shift) => {
-                        const staffMember = staff.find(s => s.id === shift.staffId);
-                        const staffHours = calculateStaffHours ? calculateStaffHours(shift.staffId) : 0;
-                        const contractedHours = staffMember?.contractedHours || 40;
-                        const percentageUsed = (staffHours / contractedHours) * 100;
-                        const isAtLimit = staffHours >= contractedHours;
-                        const isNear = percentageUsed >= 90 && !isAtLimit;
-                        
-                        return (
-                        <div
-                          key={shift.id}
-                          className={cn(
-                            "flex items-center justify-between p-3 rounded-md border",
-                            shiftColors.PM
-                          )}
-                        >
-                          <div className="flex items-center gap-3 flex-1">
-                            <User className="w-4 h-4 shrink-0" />
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">{shift.staffName}</span>
-                                {staffMember?.contractedHours && (
-                                  <Badge 
-                                    variant="outline" 
-                                    className={cn(
-                                      "text-xs",
-                                      isAtLimit ? "border-destructive text-destructive" : isNear ? "border-amber-500 text-amber-700" : "border-green-500 text-green-700"
-                                    )}
-                                  >
-                                    {formatHours(staffHours)}/{contractedHours}h
-                                  </Badge>
-                                )}
-                              </div>
-                              {staffMember && (
-                                <div className="text-xs text-muted-foreground">{staffMember.roles}</div>
-                              )}
-                              <div className="text-sm opacity-70 flex items-center gap-1 mt-0.5">
-                                <Clock className="w-3 h-3" />
-                                {shift.startTime} - {shift.endTime}
-                              </div>
-                            </div>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="hover:bg-red-500/20"
-                            onClick={() => onDeleteShift(shift.id, shift.date)}
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      );})}
-                    </div>
-                  </div>
-                )}
-
-                {/* Night Shifts */}
-                {grouped.Night.length > 0 && (
-                  <div>
-                    <div className="flex items-center gap-2 mb-3 pb-2 border-b">
-                      <Badge className="bg-indigo-500 text-white">Night</Badge>
-                      <span className="text-sm text-muted-foreground">Night (23:00-07:00)</span>
-                      <Badge variant="secondary" className="ml-auto">{grouped.Night.length}</Badge>
-                    </div>
-                    <div className="space-y-2">
-                      {grouped.Night.map((shift) => {
-                        const staffMember = staff.find(s => s.id === shift.staffId);
-                        const staffHours = calculateStaffHours ? calculateStaffHours(shift.staffId) : 0;
-                        const contractedHours = staffMember?.contractedHours || 40;
-                        const percentageUsed = (staffHours / contractedHours) * 100;
-                        const isAtLimit = staffHours >= contractedHours;
-                        const isNear = percentageUsed >= 90 && !isAtLimit;
-                        
-                        return (
-                        <div
-                          key={shift.id}
-                          className={cn(
-                            "flex items-center justify-between p-3 rounded-md border",
-                            shiftColors.Night
-                          )}
-                        >
-                          <div className="flex items-center gap-3 flex-1">
-                            <User className="w-4 h-4 shrink-0" />
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">{shift.staffName}</span>
-                                {staffMember?.contractedHours && (
-                                  <Badge 
-                                    variant="outline" 
-                                    className={cn(
-                                      "text-xs",
-                                      isAtLimit ? "border-destructive text-destructive" : isNear ? "border-amber-500 text-amber-700" : "border-green-500 text-green-700"
-                                    )}
-                                  >
-                                    {formatHours(staffHours)}/{contractedHours}h
-                                  </Badge>
-                                )}
-                              </div>
-                              {staffMember && (
-                                <div className="text-xs text-muted-foreground">{staffMember.roles}</div>
-                              )}
-                              <div className="text-sm opacity-70 flex items-center gap-1 mt-0.5">
-                                <Clock className="w-3 h-3" />
-                                {shift.startTime} - {shift.endTime}
-                              </div>
-                            </div>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="hover:bg-red-500/20"
-                            onClick={() => onDeleteShift(shift.id, shift.date)}
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      );})}
-                    </div>
-                  </div>
-                )}
-
-                {/* Full Day Shifts */}
-                {grouped.Full.length > 0 && (
-                  <div>
-                    <div className="flex items-center gap-2 mb-3 pb-2 border-b">
-                      <Badge className="bg-green-500 text-white">Full</Badge>
-                      <span className="text-sm text-muted-foreground">Full Day (07:00-23:00)</span>
-                      <Badge variant="secondary" className="ml-auto">{grouped.Full.length}</Badge>
-                    </div>
-                    <div className="space-y-2">
-                      {grouped.Full.map((shift) => {
-                        const staffMember = staff.find(s => s.id === shift.staffId);
-                        const staffHours = calculateStaffHours ? calculateStaffHours(shift.staffId) : 0;
-                        const contractedHours = staffMember?.contractedHours || 40;
-                        const percentageUsed = (staffHours / contractedHours) * 100;
-                        const isAtLimit = staffHours >= contractedHours;
-                        const isNear = percentageUsed >= 90 && !isAtLimit;
-                        
-                        return (
-                        <div
-                          key={shift.id}
-                          className={cn(
-                            "flex items-center justify-between p-3 rounded-md border",
-                            shiftColors.Full
-                          )}
-                        >
-                          <div className="flex items-center gap-3 flex-1">
-                            <User className="w-4 h-4 shrink-0" />
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">{shift.staffName}</span>
-                                {staffMember?.contractedHours && (
-                                  <Badge 
-                                    variant="outline" 
-                                    className={cn(
-                                      "text-xs",
-                                      isAtLimit ? "border-destructive text-destructive" : isNear ? "border-amber-500 text-amber-700" : "border-green-500 text-green-700"
-                                    )}
-                                  >
-                                    {formatHours(staffHours)}/{contractedHours}h
-                                  </Badge>
-                                )}
-                              </div>
-                              {staffMember && (
-                                <div className="text-xs text-muted-foreground">{staffMember.roles}</div>
-                              )}
-                              <div className="text-sm opacity-70 flex items-center gap-1 mt-0.5">
-                                <Clock className="w-3 h-3" />
-                                {shift.startTime} - {shift.endTime}
-                              </div>
-                            </div>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="hover:bg-red-500/20"
-                            onClick={() => onDeleteShift(shift.id, shift.date)}
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      );})}
-                    </div>
-                  </div>
-                )}
-
-                {/* Add more staff button in modal */}
                 <Button
                   variant="outline"
                   className="w-full mt-4 border-dashed"
@@ -548,7 +494,7 @@ export function RotaGrid({ weekStart, weeksToShow, staff, shifts, onAddShift, on
                   }}
                 >
                   <Plus className="w-4 h-4 mr-2" />
-                  Add More Staff
+                  Add Another Entry
                 </Button>
               </div>
             );

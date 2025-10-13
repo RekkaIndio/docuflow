@@ -5,11 +5,13 @@ import { Resident } from "./types";
 interface CareTimeBreakdownProps {
   residents: Resident[];
   calculateResidentCareMinutes: (resident: Resident) => { Day: number; Night: number };
+  calculateNDPSStaffing: (residents: Resident[]) => { Day: number; Night: number };
 }
 
 export function CareTimeBreakdown({
   residents,
-  calculateResidentCareMinutes
+  calculateResidentCareMinutes,
+  calculateNDPSStaffing
 }: CareTimeBreakdownProps) {
   return (
     <div className="group hover:shadow-xl transition-all duration-300 border border-rose-200/60 bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-rose-100/50">
@@ -28,13 +30,15 @@ export function CareTimeBreakdown({
           const totalDayMinutes = residents.reduce((sum, r) => sum + calculateResidentCareMinutes(r).Day, 0);
           const totalNightMinutes = residents.reduce((sum, r) => sum + calculateResidentCareMinutes(r).Night, 0);
           const totalMinutes = totalDayMinutes + totalNightMinutes || 1;
+          const staffingRecommendation = calculateNDPSStaffing(residents);
 
           // Calculate staffing requirements for 12-hour shifts
           const totalDayHours = Math.round((totalDayMinutes / 60) * 100) / 100;
           const totalNightHours = Math.round((totalNightMinutes / 60) * 100) / 100;
-          const dayStaffNeeded = Math.ceil(totalDayHours / 12 * 4) / 4; // Round to quarter increments
-          const nightStaffNeeded = Math.ceil(totalNightHours / 12 * 4) / 4;
-          const totalStaffNeeded = dayStaffNeeded + nightStaffNeeded;
+          const dayStaffEquivalent = Math.round((totalDayHours / 12) * 100) / 100;
+          const nightStaffEquivalent = Math.round((totalNightHours / 12) * 100) / 100;
+          const totalStaffNeeded = staffingRecommendation.Day + staffingRecommendation.Night;
+          const totalStaffEquivalent = Math.round((dayStaffEquivalent + nightStaffEquivalent) * 100) / 100;
 
           const dayPercentage = Math.round((totalDayMinutes / totalMinutes) * 100);
           const nightPercentage = 100 - dayPercentage;
@@ -88,7 +92,9 @@ export function CareTimeBreakdown({
                     <div className="w-3 h-3 rounded-full bg-blue-500"></div>
                     <div className="flex flex-col">
                       <span className="text-sm font-medium text-blue-800">Day Shift (12h)</span>
-                      <span className="text-xs text-blue-600">{dayStaffNeeded} staff needed</span>
+                      <span className="text-xs text-blue-600">
+                        {staffingRecommendation.Day} staff recommended · care hours ≈ {dayStaffEquivalent}
+                      </span>
                     </div>
                   </div>
                   <div className="text-right">
@@ -102,7 +108,9 @@ export function CareTimeBreakdown({
                     <div className="w-3 h-3 rounded-full bg-purple-500"></div>
                     <div className="flex flex-col">
                       <span className="text-sm font-medium text-purple-800">Night Shift (12h)</span>
-                      <span className="text-xs text-purple-600">{nightStaffNeeded} staff needed</span>
+                      <span className="text-xs text-purple-600">
+                        {staffingRecommendation.Night} staff recommended · care hours ≈ {nightStaffEquivalent}
+                      </span>
                     </div>
                   </div>
                   <div className="text-right">
@@ -127,7 +135,8 @@ export function CareTimeBreakdown({
                     </div>
                     <div className="text-right">
                       <div className="text-lg font-bold text-emerald-900">{totalStaffNeeded}</div>
-                      <div className="text-xs text-emerald-600">staff per day</div>
+                      <div className="text-xs text-emerald-600">NDPS recommended total</div>
+                      <div className="text-xs text-emerald-500 mt-1">Care hour equivalent ≈ {totalStaffEquivalent}</div>
                     </div>
                   </div>
                 </div>

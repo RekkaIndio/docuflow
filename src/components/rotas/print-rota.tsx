@@ -1,8 +1,9 @@
 "use client";
 
-import { format, addDays, startOfWeek, endOfWeek } from "date-fns";
-import type { StaffMember, Shift } from "./rotas-view";
-import Image from "next/image";
+import { useMemo } from "react";
+import { format, addDays } from "date-fns";
+import type { StaffMember, Shift, ShiftPattern } from "./rotas-view";
+import { getShiftColorTheme, DEFAULT_SHIFT_COLOR } from "./shift-colors";
 
 interface PrintRotaProps {
   weekStart: Date;
@@ -10,9 +11,28 @@ interface PrintRotaProps {
   staff: StaffMember[];
   shifts: Shift[];
   workspaceName: string;
+  patterns: ShiftPattern[];
 }
 
-export function PrintRota({ weekStart, weeksToShow, staff, shifts, workspaceName }: PrintRotaProps) {
+const LEAVE_PRINT_STYLE = {
+  background: "#fed7aa",
+  text: "#9a3412",
+};
+
+export function PrintRota({ weekStart, weeksToShow, staff, shifts, workspaceName, patterns }: PrintRotaProps) {
+  const patternMap = useMemo(() => {
+    const entries = new Map<string, { pattern: ShiftPattern; theme: ReturnType<typeof getShiftColorTheme> }>();
+    patterns.forEach((pattern) => {
+      entries.set(pattern.id, {
+        pattern,
+        theme: getShiftColorTheme(pattern.color ?? DEFAULT_SHIFT_COLOR),
+      });
+    });
+    return entries;
+  }, [patterns]);
+
+  const defaultPrintTheme = useMemo(() => getShiftColorTheme(DEFAULT_SHIFT_COLOR), []);
+
   // Calculate hours for a shift
   const calculateShiftHours = (startTime: string, endTime: string): number => {
     if (!startTime || !endTime) return 0;
@@ -173,25 +193,51 @@ export function PrintRota({ weekStart, weeksToShow, staff, shifts, workspaceName
                         {dayShifts.length > 0 ? (
                           <div>
                             {dayShifts.map((shift, shiftIdx) => {
-                              const shiftHours = shift.startTime && shift.endTime 
+                              const isLeave = shift.type === 'AnnualLeave';
+                              const shiftHours = !isLeave && shift.startTime && shift.endTime 
                                 ? calculateShiftHours(shift.startTime, shift.endTime) 
                                 : 0;
-                              
-                              const bgColor = 
-                                shift.type === 'AM' ? '#dbeafe' :
-                                shift.type === 'PM' ? '#fef3c7' :
-                                shift.type === 'Night' ? '#e0e7ff' :
-                                '#dcfce7';
-                              
+
+                              const patternEntry = patternMap.get(shift.type);
+                              const theme = patternEntry?.theme;
+                              const label = isLeave
+                                ? 'Annual Leave'
+                                : patternEntry?.pattern.label ?? shift.type;
+                              const backgroundColor = isLeave
+                                ? LEAVE_PRINT_STYLE.background
+                                : theme?.printBackground ?? defaultPrintTheme.printBackground;
+                              const textColor = isLeave
+                                ? LEAVE_PRINT_STYLE.text
+                                : theme?.printText ?? defaultPrintTheme.printText;
+
                               return (
-                                <div key={shiftIdx} style={{ backgroundColor: bgColor, borderRadius: '4px', padding: '2px 4px', marginBottom: '2px' }}>
-                                  <div style={{ fontWeight: '600', fontSize: '11px' }}>{shift.type}</div>
-                                  <div style={{ fontSize: '9px', color: '#4b5563' }}>
-                                    {shift.startTime}-{shift.endTime}
+                                <div
+                                  key={shiftIdx}
+                                  style={{
+                                    backgroundColor,
+                                    borderRadius: '4px',
+                                    padding: '2px 4px',
+                                    marginBottom: '2px',
+                                    color: textColor,
+                                  }}
+                                >
+                                  <div style={{ fontWeight: 600, fontSize: '11px' }}>
+                                    {label}
                                   </div>
-                                  <div style={{ fontSize: '9px', fontWeight: '500' }}>
-                                    {shiftHours.toFixed(1)}h
-                                  </div>
+                                  {isLeave ? (
+                                    <div style={{ fontSize: '9px', color: LEAVE_PRINT_STYLE.text, fontWeight: 500 }}>
+                                      {(shift.leave?.totalHours ?? 0).toFixed(1)}h booked
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <div style={{ fontSize: '9px', color: '#4b5563' }}>
+                                        {shift.startTime}-{shift.endTime}
+                                      </div>
+                                      <div style={{ fontSize: '9px', fontWeight: '500' }}>
+                                        {shiftHours.toFixed(1)}h
+                                      </div>
+                                    </>
+                                  )}
                                 </div>
                               );
                             })}

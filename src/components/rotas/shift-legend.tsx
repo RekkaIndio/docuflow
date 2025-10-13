@@ -1,71 +1,98 @@
 "use client";
 
+import { Fragment } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Info } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Info, Pencil } from "lucide-react";
+import { cn } from "@/lib/utils";
+import type { ShiftPattern } from "./rotas-view";
+import { getShiftColorTheme, DEFAULT_SHIFT_COLOR } from "./shift-colors";
 
-export function ShiftLegend() {
+interface ShiftLegendProps {
+  patterns: ShiftPattern[];
+  onEdit?: () => void;
+}
+
+const ANNUAL_LEAVE_THEME = {
+  box: "border bg-orange-100 border-orange-300 text-orange-800",
+  description: "Log hours away",
+};
+
+export function ShiftLegend({ patterns, onEdit }: ShiftLegendProps) {
   return (
     <Card>
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <CardTitle className="flex items-center gap-2 text-base">
           <Info className="w-4 h-4" />
           Shift Types Key
         </CardTitle>
+        {onEdit && (
+          <Button variant="outline" size="sm" onClick={onEdit} className="flex items-center gap-2">
+            <Pencil className="w-3 h-3" />
+            Edit shift types
+          </Button>
+        )}
       </CardHeader>
       <CardContent>
-        <div className="flex flex-wrap gap-4 items-center">
-          <div className="flex items-center gap-2">
-            <div className="w-12 h-8 rounded bg-blue-100 border border-blue-300 flex items-center justify-center text-xs font-semibold text-blue-800">
-              AM
+        {patterns.length === 0 ? (
+          <div className="text-sm text-muted-foreground">
+            No shift patterns configured yet.
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-4">
+            {patterns.map((pattern, index) => {
+              const theme = getShiftColorTheme(pattern.color ?? DEFAULT_SHIFT_COLOR);
+              return (
+                <Fragment key={pattern.id}>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={cn(
+                        "w-12 h-8 rounded border text-xs font-semibold flex items-center justify-center",
+                        theme.legendBox,
+                        theme.legendBorder,
+                        theme.legendText
+                      )}
+                    >
+                      {pattern.id}
+                    </div>
+                    <div className="text-sm">
+                      <div className="font-medium">{pattern.label}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {pattern.startTime} - {pattern.endTime}
+                      </div>
+                    </div>
+                  </div>
+                  {index !== patterns.length - 1 && (
+                    <div className="h-8 w-px bg-border hidden sm:block" />
+                  )}
+                </Fragment>
+              );
+            })}
+
+            <div className="h-8 w-px bg-border hidden sm:block" />
+
+            <div className="flex items-center gap-2">
+              <div
+                className={cn(
+                  "w-12 h-8 rounded border text-[10px] font-semibold flex items-center justify-center",
+                  ANNUAL_LEAVE_THEME.box
+                )}
+              >
+                Leave
+              </div>
+              <div className="text-sm">
+                <div className="font-medium">Annual Leave</div>
+                <div className="text-xs text-muted-foreground">{ANNUAL_LEAVE_THEME.description}</div>
+              </div>
             </div>
-            <div className="text-sm">
-              <div className="font-medium">Morning</div>
-              <div className="text-xs text-muted-foreground">07:00 - 15:00</div>
+
+            <div className="h-8 w-px bg-border hidden lg:block" />
+
+            <div className="text-xs text-muted-foreground hidden lg:block">
+              💡 Click any day card to add shifts or annual leave hours
             </div>
           </div>
-          
-          <div className="h-8 w-px bg-border hidden sm:block" />
-          
-          <div className="flex items-center gap-2">
-            <div className="w-12 h-8 rounded bg-amber-100 border border-amber-300 flex items-center justify-center text-xs font-semibold text-amber-800">
-              PM
-            </div>
-            <div className="text-sm">
-              <div className="font-medium">Afternoon</div>
-              <div className="text-xs text-muted-foreground">15:00 - 23:00</div>
-            </div>
-          </div>
-          
-          <div className="h-8 w-px bg-border hidden sm:block" />
-          
-          <div className="flex items-center gap-2">
-            <div className="w-12 h-8 rounded bg-indigo-100 border border-indigo-300 flex items-center justify-center text-xs font-semibold text-indigo-800">
-              Night
-            </div>
-            <div className="text-sm">
-              <div className="font-medium">Night</div>
-              <div className="text-xs text-muted-foreground">23:00 - 07:00</div>
-            </div>
-          </div>
-          
-          <div className="h-8 w-px bg-border hidden sm:block" />
-          
-          <div className="flex items-center gap-2">
-            <div className="w-12 h-8 rounded bg-green-100 border border-green-300 flex items-center justify-center text-xs font-semibold text-green-800">
-              Full
-            </div>
-            <div className="text-sm">
-              <div className="font-medium">Full Day</div>
-              <div className="text-xs text-muted-foreground">07:00 - 23:00</div>
-            </div>
-          </div>
-          
-          <div className="h-8 w-px bg-border hidden lg:block" />
-          
-          <div className="text-xs text-muted-foreground hidden lg:block">
-            💡 Click any day card to add shifts
-          </div>
-        </div>
+        )}
       </CardContent>
     </Card>
   );

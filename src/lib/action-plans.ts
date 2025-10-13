@@ -1205,6 +1205,148 @@ export function generateActionPlanItemsFromAudit(auditData: any, auditType: stri
         question: 'Are contractors appropriately qualified and records retained?',
         correction: 'Ensure contractors are qualified and maintain records'
       }
+    },
+    'mealtime': {
+      'dining_area_set': {
+        question: 'Is the dining area clean, tidy, and set up appropriately before mealtime?',
+        correction: 'Prepare the dining area with clean tables, tidy surroundings, and appropriate place settings before meals'
+      },
+      'environment_calm': {
+        question: 'Is the dining environment calm and free from unnecessary noise?',
+        correction: 'Reduce background noise and create a calm, relaxed atmosphere during meals'
+      },
+      'adequate_seating': {
+        question: 'Is there adequate seating for all residents who wish to eat in the dining room?',
+        correction: 'Provide sufficient seating arrangements so every resident can dine comfortably'
+      },
+      'tables_well_presented': {
+        question: 'Are tables well presented with appropriate cutlery, crockery, and napkins?',
+        correction: 'Lay tables with appropriate tableware and ensure presentation meets dignity standards'
+      },
+      'room_well_lit': {
+        question: 'Is the dining room well lit and at a comfortable temperature?',
+        correction: 'Adjust lighting and heating so the dining room is bright and comfortable for residents'
+      },
+      'residents_offered_handwash': {
+        question: 'Are residents offered the chance to wash or sanitise their hands before eating?',
+        correction: 'Support residents to wash or sanitise their hands prior to each meal service'
+      },
+      'residents_offered_choice': {
+        question: 'Are residents clearly offered a choice of meals, including alternatives?',
+        correction: 'Offer clear meal choices and alternatives to every resident at each sitting'
+      },
+      'menus_accessible': {
+        question: 'Are menus available in an accessible format for residents?',
+        correction: 'Provide menus in accessible formats such as large print or pictorial versions'
+      },
+      'dietary_needs_identified': {
+        question: 'Are individual dietary needs, allergies, and preferences identified and catered for?',
+        correction: 'Update meal plans to reflect each resident’s dietary needs, allergies, and preferences'
+      },
+      'residents_encouraged_choice': {
+        question: 'Are residents encouraged to make independent choices where possible?',
+        correction: 'Prompt and support residents to make their own meal and drink choices where they can'
+      },
+      'dignity_maintained': {
+        question: 'Is resident dignity maintained throughout the mealtime?',
+        correction: 'Review mealtime routines to ensure residents are treated with dignity and privacy'
+      },
+      'staff_available_attentive': {
+        question: 'Are staff visible, available, and attentive during the meal?',
+        correction: 'Allocate staff to remain visible and attentive throughout each meal service'
+      },
+      'staff_support_sensitivity': {
+        question: 'Do staff support residents sensitively and without rushing them?',
+        correction: 'Coach staff to provide sensitive, unhurried assistance during meals'
+      },
+      'assistance_discreet': {
+        question: 'Is assistance offered discreetly when residents need help to eat or drink?',
+        correction: 'Train staff to offer discreet assistance such as cutting food or feeding without loss of dignity'
+      },
+      'staff_eye_level_engagement': {
+        question: 'Do staff engage with residents at eye level while providing assistance?',
+        correction: 'Remind staff to provide support at eye level and engage warmly with residents'
+      },
+      'iddsi_checked': {
+        question: 'Are IDDSI or texture levels confirmed before food and drink are served?',
+        correction: 'Verify IDDSI and texture requirements before serving each resident’s meal and drink'
+      },
+      'adequate_portions': {
+        question: 'Are portion sizes adequate and aligned with resident needs?',
+        correction: 'Review portion sizes and adjust so residents receive appropriate amounts of food'
+      },
+      'drinks_offered': {
+        question: 'Are drinks offered before, during, and after the meal?',
+        correction: 'Introduce prompts for staff to offer drinks repeatedly throughout the meal service'
+      },
+      'residents_encouraged_eat_drink': {
+        question: 'Are residents encouraged and supported to eat and drink enough?',
+        correction: 'Ensure staff actively encourage and support adequate food and fluid intake for each resident'
+      },
+      'fortified_correct': {
+        question: 'Are fortified meals, supplements, or modified diets delivered correctly?',
+        correction: 'Check fortified and modified diets are prepared and served exactly as prescribed'
+      },
+      'intake_monitored': {
+        question: 'Is food and fluid intake monitored where required?',
+        correction: 'Update monitoring tools so required residents have accurately completed food and fluid charts'
+      },
+      'residents_enjoying': {
+        question: 'Are residents enjoying their meals and the overall experience?',
+        correction: 'Gather feedback and adjust menus or support so residents enjoy their mealtime experience'
+      },
+      'social_interaction': {
+        question: 'Is there positive social interaction during the meal?',
+        correction: 'Facilitate conversation and social interaction between residents and staff at mealtimes'
+      },
+      'time_to_eat': {
+        question: 'Are residents given enough time to eat at their own pace?',
+        correction: 'Review staffing and routines so residents have unhurried time to finish meals'
+      },
+      'meals_served_correct_temp': {
+        question: 'Are meals served at the correct temperature?',
+        correction: 'Check service routines to ensure meals reach residents at safe, appetising temperatures'
+      },
+      'second_helpings_offered': {
+        question: 'Are second helpings or alternatives offered if a resident dislikes their meal?',
+        correction: 'Offer replacements or second helpings promptly when residents decline their first choice'
+      },
+      'staff_ppe_if_required': {
+        question: 'Are staff wearing correct PPE when required during meal service?',
+        correction: 'Reinforce PPE expectations for meal service and provide any missing equipment'
+      },
+      'hygienic_serving': {
+        question: 'Is food served hygienically using appropriate utensils?',
+        correction: 'Train staff to use appropriate utensils and hygienic serving techniques at all times'
+      },
+      'spills_cleaned': {
+        question: 'Are spills cleaned promptly and safely?',
+        correction: 'Equip staff to clean spills immediately using safe techniques and equipment'
+      },
+      'food_hygiene_followed': {
+        question: 'Are food hygiene standards followed throughout the meal service?',
+        correction: 'Audit meal service practices and retrain staff to follow food hygiene standards'
+      },
+      'kitchen_clean': {
+        question: 'Is the kitchen or servery clean and compliant with infection control?',
+        correction: 'Deep clean kitchen and servery areas and reinforce infection control routines'
+      },
+      'mouth_care_supported': {
+        question: 'Are residents supported with mouth care after meals when required?',
+        correction: 'Add prompts so staff support residents with post-meal mouth and denture care'
+      },
+      'areas_cleaned_promptly': {
+        question: 'Are dining areas cleared and cleaned promptly after meals?',
+        correction: 'Assign staff to clear and sanitise dining areas immediately after each meal'
+      },
+      'residents_choices_next': {
+        question: 'Are residents offered choices about what to do after the meal?',
+        correction: 'Plan follow-up options so residents can choose their preferred post-meal activity'
+      },
+      'feedback_gathered': {
+        question: 'Is feedback on meals gathered and acted upon?',
+        correction: 'Collect mealtime feedback routinely and act on suggestions or concerns'
+      }
     }
   };
 
@@ -1284,6 +1426,12 @@ function determinePriority(auditType: string, fieldKey: string): 'high' | 'mediu
     'maintenance': [
       'building_repairs', 'equipment_safety', 'electrical_safe',
       'fire_doors_ok', 'emergency_lighting_ok', 'lifts_serviced_loler'
+    ],
+    'mealtime': [
+      'dietary_needs_identified', 'iddsi_checked', 'fortified_correct',
+      'intake_monitored', 'staff_ppe_if_required', 'food_hygiene_followed',
+      'kitchen_clean', 'drinks_offered', 'residents_encouraged_eat_drink',
+      'meals_served_correct_temp'
     ]
   };
 

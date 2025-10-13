@@ -1,7 +1,9 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { saveAudit, updateAudit, markAuditCompleted } from '@/lib/firestore';
+import { saveAudit, markAuditCompletedWithSnapshot, getLatestAuditData } from '@/lib/firestore';
+import { storage } from '@/lib/firebase';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { useWorkspace } from '@/context/workspace';
 import { ChevronDown, ChevronUp, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -55,6 +57,21 @@ interface StaffFileData {
   comments: string;
 }
 
+type AttachmentItem = {
+  id: string;
+  name: string;
+  url: string;
+  file?: File;
+  storagePath?: string;
+  downloadUrl?: string;
+};
+
+type AttachmentMetadata = {
+  name: string;
+  storagePath: string;
+  downloadUrl?: string;
+};
+
 export default function StaffFileAuditPage() {
   const [currentReport, setCurrentReport] = useState(1);
   const [totalReports] = useState(1);
@@ -64,6 +81,10 @@ export default function StaffFileAuditPage() {
   const activeWorkspace = useWorkspace();
   const [saving, setSaving] = useState(false);
   const [savedAuditId, setSavedAuditId] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<Record<string, AttachmentItem[]>>({});
+  const [attachmentsToDelete, setAttachmentsToDelete] = useState<string[]>([]);
+  const [previewImage, setPreviewImage] = useState<{ url: string; name: string } | null>(null);
+  const createdObjectUrls = useRef<Set<string>>(new Set());
 
   // Collapsible sections state
   const [openSections, setOpenSections] = useState<{ [key: string]: boolean }>({
@@ -203,6 +224,99 @@ export default function StaffFileAuditPage() {
     if (value && errors.includes(field)) setErrors(prev => prev.filter(e => e !== field));
   };
 
+  // Load existing attachments when workspace changes
+  useEffect(() => {
+    let cancelled = false;
+    const loadExisting = async () => {
+      if (!activeWorkspace?.id) return;
+      setAttachments({});
+      setAttachmentsToDelete([]);
+      try {
+        const existing = await getLatestAuditData(activeWorkspace.id, 'staff-file', undefined, activeWorkspace.organisationId || null);
+        if (!existing) return;
+        const { attachments: storedAttachments, comments, ...formData } = existing as any;
+        if (!cancelled && formData) setData(prev => ({ ...prev, ...formData }));
+        if (!cancelled && comments) setData(prev => ({ ...prev, comments }));
+        if (storedAttachments && typeof storedAttachments === 'object') {
+          const processedEntries: Array<[string, AttachmentItem[]]> = [];
+          for (const [fieldName, list] of Object.entries(storedAttachments)) {
+            if (!Array.isArray(list) || list.length === 0) continue;
+            const processed: AttachmentItem[] = [];
+            for (let i = 0; i < list.length; i++) {
+              const entry = list[i] as any;
+              if (!entry) continue;
+              const storagePath: string | undefined = entry.storagePath;
+              let downloadUrl: string | undefined = entry.downloadUrl;
+              if (!downloadUrl && storagePath) {
+                try { downloadUrl = await getDownloadURL(ref(storage, storagePath)); } catch (err) { console.error('Failed to fetch download URL for attachment', err); continue; }
+              }
+              if (!downloadUrl) continue;
+              processed.push({ id: `existing-${fieldName}-${i}-${storagePath ?? entry.name ?? 'attachment'}`, name: entry.name ?? `Attachment ${i+1}`, url: downloadUrl, storagePath, downloadUrl });
+            }
+            if (processed.length > 0) processedEntries.push([fieldName, processed]);
+          }
+          if (!cancelled && processedEntries.length > 0) setAttachments(Object.fromEntries(processedEntries));
+        }
+      } catch (err) {
+        console.error('Failed to load existing staff-file audit data:', err);
+      }
+    };
+    loadExisting();
+    return () => { cancelled = true; };
+  }, [activeWorkspace?.id, activeWorkspace?.organisationId]);
+
+  // Attachment handlers
+  const handleAddAttachments = (fieldName: string, files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const fileArray = Array.from(files);
+    setAttachments(prev => {
+      const existing = prev[fieldName] ?? [];
+      const added = fileArray.map(file => {
+        const blobUrl = URL.createObjectURL(file);
+        createdObjectUrls.current.add(blobUrl);
+        const id = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? (crypto as any).randomUUID() : `${fieldName}-${Date.now()}-${file.name}`;
+        return { id, url: blobUrl, name: file.name, file } as AttachmentItem;
+      });
+      return { ...prev, [fieldName]: [...existing, ...added] };
+    });
+  };
+
+  const handleRemoveAttachment = (fieldName: string, id: string) => {
+    setAttachments(prev => {
+      const list = prev[fieldName] ?? [];
+      const removed = list.find(a => a.id === id);
+      if (!removed) return prev;
+      if (removed.url && removed.url.startsWith('blob:')) { try { URL.revokeObjectURL(removed.url); } catch (e) { /* ignore */ } createdObjectUrls.current.delete(removed.url); }
+      if (removed.storagePath) setAttachmentsToDelete(prev => [...prev, removed.storagePath as string]);
+      if (previewImage && previewImage.url === removed.url) setPreviewImage(null);
+      const remaining = list.filter(a => a.id !== id);
+      const next = { ...prev };
+      if (remaining.length > 0) next[fieldName] = remaining; else delete next[fieldName];
+      return next;
+    });
+  };
+
+  const uploadAttachmentFile = async (fieldName: string, file: File) => {
+    if (!activeWorkspace?.id) throw new Error('Workspace not available for attachment upload');
+    const orgId = activeWorkspace.organisationId || null;
+    const fieldSegment = fieldName.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase() || 'field';
+    const safeName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_');
+    const auditDateSegment = (data.date || new Date().toISOString().split('T')[0]).replace(/[^0-9-]/g, '');
+    const timestamp = Date.now();
+    const basePath = orgId ? `organisations/${orgId}/workspaces/${activeWorkspace.id}` : `workspaces/${activeWorkspace.id}`;
+    const storagePath = `${basePath}/audit-attachments/staff-file/${auditDateSegment}/${fieldSegment}/${timestamp}-${safeName}`;
+    const storageRef = ref(storage, storagePath);
+    await uploadBytes(storageRef, file);
+    const downloadUrl = await getDownloadURL(storageRef);
+    return { storagePath, downloadUrl };
+  };
+
+  // ESC to close preview
+  useEffect(() => { const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setPreviewImage(null); }; window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey); }, []);
+
+  // Revoke created object URLs on unmount
+  useEffect(() => { return () => { createdObjectUrls.current.forEach(u => { try { URL.revokeObjectURL(u); } catch (err) { /* ignore */ } }); createdObjectUrls.current.clear(); }; }, []);
+
   const OptionQuestion = ({ field, label }: { field: string; label: string }) => {
     const yesNoField = field as keyof StaffFileData;
     const commentField = `${field}_comment` as keyof StaffFileData;
@@ -212,40 +326,55 @@ export default function StaffFileAuditPage() {
         <div className="space-y-3">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
-            <div className="flex gap-4" data-field={field}>
-              <label className="flex items-center cursor-pointer">
-                <input
-                  type="radio"
-                  name={field}
-                  value="Yes"
-                  checked={data[yesNoField] === 'Yes'}
-                  onChange={() => handleChange(yesNoField, 'Yes')}
-                  className="mr-2 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-700">Yes</span>
-              </label>
-              <label className="flex items-center cursor-pointer">
-                <input
-                  type="radio"
-                  name={field}
-                  value="No"
-                  checked={data[yesNoField] === 'No'}
-                  onChange={() => handleChange(yesNoField, 'No')}
-                  className="mr-2 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-700">No</span>
-              </label>
-              <label className="flex items-center cursor-pointer">
-                <input
-                  type="radio"
-                  name={field}
-                  value="N/A"
-                  checked={data[yesNoField] === 'N/A'}
-                  onChange={() => handleChange(yesNoField, 'N/A')}
-                  className="mr-2 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-700">N/A</span>
-              </label>
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex gap-4" data-field={field}>
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="radio"
+                      name={field}
+                      value="Yes"
+                      checked={data[yesNoField] === 'Yes'}
+                      onChange={() => handleChange(yesNoField, 'Yes')}
+                      className="mr-2 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-700">Yes</span>
+                  </label>
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="radio"
+                      name={field}
+                      value="No"
+                      checked={data[yesNoField] === 'No'}
+                      onChange={() => handleChange(yesNoField, 'No')}
+                      className="mr-2 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-700">No</span>
+                  </label>
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="radio"
+                      name={field}
+                      value="N/A"
+                      checked={data[yesNoField] === 'N/A'}
+                      onChange={() => handleChange(yesNoField, 'N/A')}
+                      className="mr-2 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-700">N/A</span>
+                  </label>
+                </div>
+              </div>
+              <div className="ml-4 relative">
+                { (attachments[field]?.length ?? 0) > 0 && (
+                  <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">
+                    {attachments[field]?.length}
+                  </span>
+                )}
+                <label title="Add attachment" className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100">
+                  <input type="file" accept="image/*" data-field-input={field} onChange={(e) => { handleAddAttachments(field, e.target.files); e.currentTarget.value = ''; }} className="hidden" />
+                  <span className="text-xl font-bold">+</span>
+                </label>
+              </div>
             </div>
             {getFieldError(field) && <p className="text-red-500 text-sm mt-1">This field is required</p>}
           </div>
@@ -258,6 +387,19 @@ export default function StaffFileAuditPage() {
               placeholder="Add any comments or observations..."
               className="w-full p-3 border border-slate-200 rounded-lg resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-slate-50"
             />
+          </div>
+          {/* Attachments preview */}
+          <div>
+            <div className="flex flex-wrap gap-2">
+              {(attachments[field] ?? []).map(att => (
+                <div key={att.id} className="relative w-24 h-24 rounded overflow-hidden border border-gray-200">
+                  <button type="button" onClick={() => setPreviewImage({ url: att.url, name: att.name })} className="w-full h-full" title={att.name}>
+                    <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+                  </button>
+                  <button onClick={() => handleRemoveAttachment(field, att.id)} title="Remove" className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-gray-200 shadow-sm">×</button>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -294,8 +436,46 @@ export default function StaffFileAuditPage() {
     const totalCount = YES_NO_FIELDS.length;
     const scorePercent = totalCount > 0 ? Math.round((yesCount / totalCount) * 100) : null;
 
+    const orgId = activeWorkspace.organisationId || null;
+    const attachmentsMetadata: Record<string, AttachmentMetadata[]> = {};
+    const nextAttachmentState: Record<string, AttachmentItem[]> = {};
+
+    for (const [fieldName, items] of Object.entries(attachments)) {
+      if (!items || items.length === 0) continue;
+      const processed: AttachmentItem[] = [];
+      for (const item of items) {
+        if (item.file) {
+          const { storagePath, downloadUrl } = await uploadAttachmentFile(fieldName, item.file);
+          if (item.url && item.url.startsWith('blob:')) {
+            try { URL.revokeObjectURL(item.url); } catch (err) { /* ignore */ }
+            createdObjectUrls.current.delete(item.url);
+          }
+          const stored: AttachmentItem = { id: item.id, name: item.name, url: downloadUrl, storagePath, downloadUrl };
+          processed.push(stored);
+          if (!attachmentsMetadata[fieldName]) attachmentsMetadata[fieldName] = [];
+          attachmentsMetadata[fieldName].push({ name: item.name, storagePath, downloadUrl });
+        } else if (item.storagePath) {
+          const downloadUrl = item.downloadUrl || item.url;
+          if (!attachmentsMetadata[fieldName]) attachmentsMetadata[fieldName] = [];
+          attachmentsMetadata[fieldName].push({ name: item.name, storagePath: item.storagePath, downloadUrl });
+          processed.push({ id: item.id, name: item.name, url: downloadUrl, storagePath: item.storagePath, downloadUrl });
+        }
+      }
+      if (processed.length > 0) nextAttachmentState[fieldName] = processed;
+    }
+
+    if (attachmentsToDelete.length > 0) {
+      const uniquePaths = Array.from(new Set(attachmentsToDelete));
+      for (const storagePath of uniquePaths) {
+        try { await deleteObject(ref(storage, storagePath)); } catch (err) { console.warn('Failed to delete removed attachment from storage', err); }
+      }
+    }
+
+    const attachmentsPayload = Object.keys(attachmentsMetadata).length > 0 ? attachmentsMetadata : undefined;
+
     const payload = {
       ...data,
+      ...(attachmentsPayload ? { attachments: attachmentsPayload } : {}),
       createActionPlan: !!createActionPlan,
       createdBy: authUser?.id ?? null,
       workspaceId,
@@ -303,7 +483,7 @@ export default function StaffFileAuditPage() {
       yesCount,
       totalCount,
       scorePercent,
-      organisationId: activeWorkspace.organisationId || null,
+      organisationId: orgId,
     };
 
     try {
@@ -311,12 +491,16 @@ export default function StaffFileAuditPage() {
       const id = await saveAudit(payload, workspaceId, activeWorkspace.organisationId || null);
       setSavedAuditId(id);
       try {
-        await markAuditCompleted(workspaceId, 'staff-file', new Date().toISOString(), activeWorkspace.organisationId || null);
+        const completedAt = data.date || new Date().toISOString();
+        await markAuditCompletedWithSnapshot(workspaceId, 'staff-file', payload, completedAt);
       } catch (e) {
-        console.warn('Failed to mark audit completed', e);
+        console.warn('Failed to complete staff-file audit with snapshot', e);
       }
-      setSaving(false);
-      alert(`Audit completed and saved${createActionPlan ? '; an action plan will be created.' : '.'}`);
+  setSaving(false);
+  setAttachments(nextAttachmentState);
+  setAttachmentsToDelete([]);
+  setPreviewImage(null);
+  alert(`Audit completed and saved${createActionPlan ? '; an action plan will be created.' : '.'}`);
     } catch (e) {
       setSaving(false);
       console.error('Failed to save audit', e);
@@ -369,6 +553,13 @@ export default function StaffFileAuditPage() {
       comments: '',
     });
     setErrors([]);
+    // clear any staged attachments from previous report and revoke blob URLs
+    createdObjectUrls.current.forEach(u => {
+      try { URL.revokeObjectURL(u); } catch (err) { /* ignore */ }
+    });
+    createdObjectUrls.current.clear();
+    setAttachments({});
+    setAttachmentsToDelete([]);
   };
 
   return (
@@ -502,6 +693,23 @@ export default function StaffFileAuditPage() {
               <button onClick={() => handleModalCreate(false)} className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50" disabled={saving}>{saving ? 'Saving...' : 'No'}</button>
               <button onClick={() => handleModalCreate(true)} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700" disabled={saving}>{saving ? 'Saving...' : 'Yes, Create Action Plan'}</button>
               <button onClick={() => handleModalCreate(false)} className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700" disabled={saving}>{saving ? 'Saving...' : 'Save and Close'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Image preview modal */}
+      {previewImage && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black bg-opacity-60" onClick={() => setPreviewImage(null)} />
+          <div className="relative z-70 max-w-3xl w-full mx-4">
+            <div className="bg-white rounded-lg overflow-hidden shadow-xl">
+              <div className="flex justify-between items-start p-2 border-b">
+                <div className="px-3 py-1 text-sm text-gray-700">{previewImage.name}</div>
+                <button onClick={() => setPreviewImage(null)} className="m-2 bg-white rounded-full p-1 text-gray-700 border">Close</button>
+              </div>
+              <div className="p-4 bg-black flex items-center justify-center">
+                <img src={previewImage.url} alt={previewImage.name} className="max-h-[80vh] w-auto object-contain" />
+              </div>
             </div>
           </div>
         </div>

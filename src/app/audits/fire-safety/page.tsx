@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useWorkspace } from '@/context/workspace';
 import { ChevronDown, ChevronUp, FileText } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -9,7 +9,9 @@ import { Textarea } from '@/components/ui/textarea';
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
 import { useAuth } from '@/hooks/use-auth';
-import { saveAudit, markAuditCompleted, markAuditCompletedWithSnapshot, getLatestAuditData } from '@/lib/firestore';
+import { saveAudit, markAuditCompletedWithSnapshot, getLatestAuditData } from '@/lib/firestore';
+import { storage } from '@/lib/firebase';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 
 interface FireSafetyAuditData {
   home: string;
@@ -115,16 +117,33 @@ interface FireSafetyAuditData {
   staffAwareReportingHazardsComment: string;
 }
 
+type AttachmentItem = {
+  id: string;
+  name: string;
+  url: string;
+  file?: File;
+  storagePath?: string;
+  downloadUrl?: string;
+};
+
+type AttachmentMetadata = {
+  name: string;
+  storagePath: string;
+  downloadUrl?: string;
+};
+
 export default function FireSafetyAuditPage() {
   const [showModal, setShowModal] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [finalComments, setFinalComments] = useState('');
-  // attachments: map fieldName -> array of { id, url, name }
-  const [attachments, setAttachments] = useState<Record<string, { id: string; url: string; name: string }[]>>({});
+  // attachments: map fieldName -> array of metadata used for uploads and previews
+  const [attachments, setAttachments] = useState<Record<string, AttachmentItem[]>>({});
+  const [attachmentsToDelete, setAttachmentsToDelete] = useState<string[]>([]);
   const [previewImage, setPreviewImage] = useState<{ url: string; name: string } | null>(null);
   const activeWorkspace = useWorkspace();
   const { user } = useAuth();
+  const createdObjectUrls = useRef<Set<string>>(new Set());
   
   // Collapsible state for each section
   const [openSections, setOpenSections] = useState(() => Array(10).fill(true));
@@ -333,10 +352,14 @@ export default function FireSafetyAuditPage() {
 
   // Load existing audit data when component mounts
   useEffect(() => {
+    let cancelled = false;
     const loadExistingAuditData = async () => {
       if (!activeWorkspace?.id) {
         return;
       }
+
+      setAttachments({});
+      setAttachmentsToDelete([]);
 
       try {
         const existingData = await getLatestAuditData(
@@ -347,14 +370,52 @@ export default function FireSafetyAuditPage() {
         );
         if (existingData) {
           // Remove metadata fields and populate form
-          const { id, createdAt, snapshotCreatedAt, monthKey, year, month, ...formData } = existingData;
-          setAuditData(prevData => ({
-            ...prevData,
-            ...formData
-          }));
+          const { id, createdAt, snapshotCreatedAt, monthKey, year, month, attachments: storedAttachments, ...formData } = existingData as any;
+          if (!cancelled) {
+            setAuditData(prevData => ({
+              ...prevData,
+              ...formData
+            }));
+          }
 
-          if (existingData.comments) {
+          if (!cancelled && existingData.comments) {
             setFinalComments(existingData.comments);
+          }
+
+          if (storedAttachments && typeof storedAttachments === 'object') {
+            const processedEntries: Array<[string, AttachmentItem[]]> = [];
+            for (const [fieldName, list] of Object.entries(storedAttachments)) {
+              if (!Array.isArray(list) || list.length === 0) continue;
+              const processed: AttachmentItem[] = [];
+              for (let i = 0; i < list.length; i++) {
+                const entry = list[i] as any;
+                if (!entry) continue;
+                const storagePath: string | undefined = entry.storagePath;
+                let downloadUrl: string | undefined = entry.downloadUrl;
+                if (!downloadUrl && storagePath) {
+                  try {
+                    downloadUrl = await getDownloadURL(ref(storage, storagePath));
+                  } catch (err) {
+                    console.error('Failed to fetch download URL for attachment', err);
+                    continue;
+                  }
+                }
+                if (!downloadUrl) continue;
+                processed.push({
+                  id: `existing-${fieldName}-${i}-${storagePath ?? entry.name ?? 'attachment'}`,
+                  name: entry.name ?? `Attachment ${i + 1}`,
+                  url: downloadUrl,
+                  storagePath,
+                  downloadUrl
+                });
+              }
+              if (processed.length > 0) {
+                processedEntries.push([fieldName, processed]);
+              }
+            }
+            if (!cancelled && processedEntries.length > 0) {
+              setAttachments(Object.fromEntries(processedEntries));
+            }
           }
         }
       } catch (error) {
@@ -363,6 +424,9 @@ export default function FireSafetyAuditPage() {
     };
 
     loadExistingAuditData();
+    return () => {
+      cancelled = true;
+    };
   }, [activeWorkspace?.id, activeWorkspace?.organisationId]);
 
   const handleInputChange = (field: keyof FireSafetyAuditData, value: string) => {
@@ -383,7 +447,14 @@ export default function FireSafetyAuditPage() {
     const fileArray = Array.from(files);
     setAttachments(prev => {
       const existing = prev[fieldName] ?? [];
-      const added = fileArray.map(f => ({ id: `${fieldName}-${Date.now()}-${f.name}`, url: URL.createObjectURL(f), name: f.name }));
+      const added = fileArray.map(file => {
+        const blobUrl = URL.createObjectURL(file);
+        createdObjectUrls.current.add(blobUrl);
+        const id = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : `${fieldName}-${Date.now()}-${file.name}`;
+        return { id, url: blobUrl, name: file.name, file } as AttachmentItem;
+      });
       return { ...prev, [fieldName]: [...existing, ...added] };
     });
   };
@@ -391,12 +462,34 @@ export default function FireSafetyAuditPage() {
   const handleRemoveAttachment = (fieldName: string, id: string) => {
     setAttachments(prev => {
       const list = prev[fieldName] ?? [];
-      const remaining = list.filter(a => a.id !== id);
       const removed = list.find(a => a.id === id);
-      if (removed) {
-        try { URL.revokeObjectURL(removed.url); } catch (e) { /* ignore */ }
+      if (!removed) return prev;
+
+      if (removed.url && removed.url.startsWith('blob:')) {
+        try {
+          URL.revokeObjectURL(removed.url);
+        } catch (e) {
+          console.warn('Failed to revoke object URL', e);
+        }
+        createdObjectUrls.current.delete(removed.url);
       }
-      return { ...prev, [fieldName]: remaining };
+
+      if (removed.storagePath) {
+        setAttachmentsToDelete(prevDeletes => [...prevDeletes, removed.storagePath as string]);
+      }
+
+      if (previewImage && previewImage.url === removed.url) {
+        setPreviewImage(null);
+      }
+
+      const remaining = list.filter(a => a.id !== id);
+      const next = { ...prev };
+      if (remaining.length > 0) {
+        next[fieldName] = remaining;
+      } else {
+        delete next[fieldName];
+      }
+      return next;
     });
   };
 
@@ -407,6 +500,19 @@ export default function FireSafetyAuditPage() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      createdObjectUrls.current.forEach((url) => {
+        try {
+          URL.revokeObjectURL(url);
+        } catch (err) {
+          console.warn('Failed to revoke object URL', err);
+        }
+      });
+      createdObjectUrls.current.clear();
+    };
   }, []);
 
   const validateForm = () => {
@@ -443,6 +549,25 @@ export default function FireSafetyAuditPage() {
     }
   };
 
+  const uploadAttachmentFile = async (fieldName: string, file: File) => {
+    if (!activeWorkspace?.id) {
+      throw new Error('Workspace not available for attachment upload');
+    }
+    const orgId = activeWorkspace.organisationId || null;
+    const fieldSegment = fieldName.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase() || 'field';
+    const safeName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_');
+    const auditDateSegment = (auditData.date || new Date().toISOString().split('T')[0]).replace(/[^0-9-]/g, '');
+    const timestamp = Date.now();
+    const basePath = orgId
+      ? `organisations/${orgId}/workspaces/${activeWorkspace.id}`
+      : `workspaces/${activeWorkspace.id}`;
+    const storagePath = `${basePath}/audit-attachments/fire-safety/${auditDateSegment}/${fieldSegment}/${timestamp}-${safeName}`;
+    const storageRef = ref(storage, storagePath);
+    await uploadBytes(storageRef, file);
+    const downloadUrl = await getDownloadURL(storageRef);
+    return { storagePath, downloadUrl };
+  };
+
   const handleModalCreate = async (createActionPlan: boolean) => {
     if (!activeWorkspace?.id) {
       alert('Please select a workspace before saving');
@@ -468,10 +593,90 @@ export default function FireSafetyAuditPage() {
       const totalCount = YES_NO_FIELDS.length;
       const scorePercent = totalCount > 0 ? Math.round((yesCount / totalCount) * 100) : 0;
 
-      const payload = { ...auditData, comments: finalComments, createActionPlan, createdBy: user?.id ?? null, workspaceId: activeWorkspace.id, auditType: 'fire-safety', scorePercent, yesCount, totalCount, organisationId: activeWorkspace.organisationId || null };
-      const id = await saveAudit(payload, activeWorkspace.id, activeWorkspace.organisationId || null);
-      const result = await markAuditCompletedWithSnapshot(activeWorkspace.id, 'fire-safety', payload, auditData.date || new Date().toISOString());
-  alert('Audit completed and saved');
+      const orgId = activeWorkspace.organisationId || null;
+      const attachmentsMetadata: Record<string, AttachmentMetadata[]> = {};
+      const nextAttachmentState: Record<string, AttachmentItem[]> = {};
+
+      for (const [fieldName, items] of Object.entries(attachments)) {
+        if (!items || items.length === 0) continue;
+        const processed: AttachmentItem[] = [];
+        for (const item of items) {
+          if (item.file) {
+            const { storagePath, downloadUrl } = await uploadAttachmentFile(fieldName, item.file);
+            if (item.url && item.url.startsWith('blob:')) {
+              try {
+                URL.revokeObjectURL(item.url);
+              } catch (err) {
+                console.warn('Failed to revoke object URL during upload', err);
+              }
+              createdObjectUrls.current.delete(item.url);
+            }
+            const stored: AttachmentItem = {
+              id: item.id,
+              name: item.name,
+              url: downloadUrl,
+              storagePath,
+              downloadUrl
+            };
+            processed.push(stored);
+            if (!attachmentsMetadata[fieldName]) {
+              attachmentsMetadata[fieldName] = [];
+            }
+            attachmentsMetadata[fieldName].push({ name: item.name, storagePath, downloadUrl });
+          } else if (item.storagePath) {
+            const downloadUrl = item.downloadUrl || item.url;
+            if (!attachmentsMetadata[fieldName]) {
+              attachmentsMetadata[fieldName] = [];
+            }
+            attachmentsMetadata[fieldName].push({ name: item.name, storagePath: item.storagePath, downloadUrl });
+            processed.push({
+              id: item.id,
+              name: item.name,
+              url: downloadUrl,
+              storagePath: item.storagePath,
+              downloadUrl
+            });
+          }
+        }
+        if (processed.length > 0) {
+          nextAttachmentState[fieldName] = processed;
+        }
+      }
+
+      if (attachmentsToDelete.length > 0) {
+        const uniquePaths = Array.from(new Set(attachmentsToDelete));
+        for (const storagePath of uniquePaths) {
+          try {
+            await deleteObject(ref(storage, storagePath));
+          } catch (err) {
+            console.warn('Failed to delete removed attachment from storage', err);
+          }
+        }
+      }
+
+      const attachmentsPayload = Object.keys(attachmentsMetadata).length > 0 ? attachmentsMetadata : undefined;
+
+      const payload = {
+        ...auditData,
+        ...(attachmentsPayload ? { attachments: attachmentsPayload } : {}),
+        comments: finalComments,
+        createActionPlan,
+        createdBy: user?.id ?? null,
+        workspaceId: activeWorkspace.id,
+        auditType: 'fire-safety',
+        scorePercent,
+        yesCount,
+        totalCount,
+        organisationId: orgId
+      };
+
+      await saveAudit(payload, activeWorkspace.id, orgId);
+      await markAuditCompletedWithSnapshot(activeWorkspace.id, 'fire-safety', payload, auditData.date || new Date().toISOString());
+
+      setAttachments(nextAttachmentState);
+      setAttachmentsToDelete([]);
+  setPreviewImage(null);
+      alert('Audit completed and saved');
       setShowModal(false);
     } catch (e) {
       console.error('Failed to save audit', e);
@@ -507,7 +712,12 @@ export default function FireSafetyAuditPage() {
         <div>
           <div className="flex items-start justify-between">
             <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
-            <div className="ml-4">
+            <div className="ml-4 relative">
+              { (attachments[yesNoField]?.length ?? 0) > 0 && (
+                <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">
+                  {attachments[yesNoField]?.length}
+                </span>
+              )}
               <label
                 title="Add attachment"
                 className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100"

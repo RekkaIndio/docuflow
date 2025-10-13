@@ -1,11 +1,13 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useWorkspace } from '@/context/workspace';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
 import { useAuth } from '@/hooks/use-auth';
-import { saveAudit, markAuditCompleted, markAuditCompletedWithSnapshot, saveAuditSnapshot, getMonthlyAuditSnapshots } from '@/lib/firestore';
+import { saveAudit, markAuditCompletedWithSnapshot, saveAuditSnapshot, getMonthlyAuditSnapshots, getLatestAuditData } from '@/lib/firestore';
+import { storage } from '@/lib/firebase';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { ChevronDown, ChevronUp, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -238,6 +240,21 @@ export default function ManagersWeeklyAuditPage() {
   const [reports, setReports] = useState<ManagersWeeklyData[]>([emptyReport()]);
   const [showModal, setShowModal] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+
+  type AttachmentItem = {
+    id: string;
+    name: string;
+    url: string;
+    file?: File;
+    storagePath?: string;
+    downloadUrl?: string;
+  };
+
+  type AttachmentMetadata = {
+    name: string;
+    storagePath: string;
+    downloadUrl?: string;
+  };
 
   // Collapsible sections state
   const [openSections, setOpenSections] = useState<{ [key: string]: boolean }>({
@@ -494,6 +511,80 @@ export default function ManagersWeeklyAuditPage() {
   const [savedAuditId, setSavedAuditId] = useState<string | null>(null);
   const [finalComments, setFinalComments] = useState('');
   const [savedCount, setSavedCount] = useState(0);
+  // Attachments state: map fieldName -> AttachmentItem[]
+  const [attachments, setAttachments] = useState<Record<string, AttachmentItem[]>>({});
+  // Storage paths queued for deletion after save
+  const [attachmentsToDelete, setAttachmentsToDelete] = useState<string[]>([]);
+  const [previewImage, setPreviewImage] = useState<{ url: string; name: string } | null>(null);
+  const createdObjectUrls = useRef<Set<string>>(new Set());
+
+  // Load existing audit data and any stored attachments when workspace changes
+  useEffect(() => {
+    let cancelled = false;
+    const loadExistingAuditData = async () => {
+      if (!activeWorkspace?.id) return;
+
+      setAttachments({});
+      setAttachmentsToDelete([]);
+
+      try {
+        const existingData = await getLatestAuditData(
+          activeWorkspace.id,
+          'managers-weekly',
+          undefined,
+          activeWorkspace.organisationId || null
+        );
+        if (existingData) {
+          const { attachments: storedAttachments, comments, ...formData } = existingData as any;
+          // Populate the first report with the previously saved data
+          setReports(prev => {
+            const copy = [...prev];
+            const base = copy[0] ? { ...copy[0] } : emptyReport();
+            copy[0] = { ...base, ...formData } as ManagersWeeklyData;
+            return copy;
+          });
+          if (!cancelled && comments) setFinalComments(comments);
+
+          if (storedAttachments && typeof storedAttachments === 'object') {
+            const processedEntries: Array<[string, AttachmentItem[]]> = [];
+            for (const [fieldName, list] of Object.entries(storedAttachments)) {
+              if (!Array.isArray(list) || list.length === 0) continue;
+              const processed: AttachmentItem[] = [];
+              for (let i = 0; i < list.length; i++) {
+                const entry = list[i] as any;
+                if (!entry) continue;
+                const storagePath: string | undefined = entry.storagePath;
+                let downloadUrl: string | undefined = entry.downloadUrl;
+                if (!downloadUrl && storagePath) {
+                  try {
+                    downloadUrl = await getDownloadURL(ref(storage, storagePath));
+                  } catch (err) {
+                    console.error('Failed to fetch download URL for attachment', err);
+                    continue;
+                  }
+                }
+                if (!downloadUrl) continue;
+                processed.push({
+                  id: `existing-${fieldName}-${i}-${storagePath ?? entry.name ?? 'attachment'}`,
+                  name: entry.name ?? `Attachment ${i + 1}`,
+                  url: downloadUrl,
+                  storagePath,
+                  downloadUrl
+                });
+              }
+              if (processed.length > 0) processedEntries.push([fieldName, processed]);
+            }
+            if (!cancelled && processedEntries.length > 0) setAttachments(Object.fromEntries(processedEntries));
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load existing managers-weekly audit data:', error);
+      }
+    };
+
+    loadExistingAuditData();
+    return () => { cancelled = true; };
+  }, [activeWorkspace?.id, activeWorkspace?.organisationId]);
 
   // Helper functions
   const toggleSection = (sectionId: string) => {
@@ -527,6 +618,78 @@ export default function ManagersWeeklyAuditPage() {
     if (value.trim() !== '' && errors.includes(field)) setErrors(prev => prev.filter(e => e !== field));
   };
 
+  // Attachment handlers
+  const handleAddAttachments = (fieldName: string, files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const fileArray = Array.from(files);
+    setAttachments(prev => {
+      const existing = prev[fieldName] ?? [];
+      const added = fileArray.map(file => {
+        const blobUrl = URL.createObjectURL(file);
+        createdObjectUrls.current.add(blobUrl);
+        const id = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : `${fieldName}-${Date.now()}-${file.name}`;
+        return { id, url: blobUrl, name: file.name, file } as AttachmentItem;
+      });
+      return { ...prev, [fieldName]: [...existing, ...added] };
+    });
+  };
+
+  const handleRemoveAttachment = (fieldName: string, id: string) => {
+    setAttachments(prev => {
+      const list = prev[fieldName] ?? [];
+      const removed = list.find(a => a.id === id);
+      if (!removed) return prev;
+
+      if (removed.url && removed.url.startsWith('blob:')) {
+        try {
+          URL.revokeObjectURL(removed.url);
+        } catch (e) {
+          console.warn('Failed to revoke object URL', e);
+        }
+        createdObjectUrls.current.delete(removed.url);
+      }
+
+      if (removed.storagePath) {
+        setAttachmentsToDelete(prevDeletes => [...prevDeletes, removed.storagePath as string]);
+      }
+
+      if (previewImage && previewImage.url === removed.url) {
+        setPreviewImage(null);
+      }
+
+      const remaining = list.filter(a => a.id !== id);
+      const next = { ...prev };
+      if (remaining.length > 0) {
+        next[fieldName] = remaining;
+      } else {
+        delete next[fieldName];
+      }
+      return next;
+    });
+  };
+
+  const uploadAttachmentFile = async (fieldName: string, file: File) => {
+    if (!activeWorkspace?.id) {
+      throw new Error('Workspace not available for attachment upload');
+    }
+    const orgId = activeWorkspace.organisationId || null;
+    const fieldSegment = fieldName.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase() || 'field';
+    const safeName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_');
+  const report = reports[currentReport - 1] ?? data;
+  const auditDateSegment = (report?.date || data.date || new Date().toISOString().split('T')[0]).replace(/[^0-9-]/g, '');
+    const timestamp = Date.now();
+    const basePath = orgId
+      ? `organisations/${orgId}/workspaces/${activeWorkspace.id}`
+      : `workspaces/${activeWorkspace.id}`;
+    const storagePath = `${basePath}/audit-attachments/managers-weekly/${auditDateSegment}/${fieldSegment}/${timestamp}-${safeName}`;
+    const storageRef = ref(storage, storagePath);
+    await uploadBytes(storageRef, file);
+    const downloadUrl = await getDownloadURL(storageRef);
+    return { storagePath, downloadUrl };
+  };
+
   const YesNoQuestion = ({ field, label }: { field: string; label: string }) => {
     const yesNoField = field as keyof ManagersWeeklyData;
     const commentField = `${field}_comment` as keyof ManagersWeeklyData;
@@ -535,7 +698,32 @@ export default function ManagersWeeklyAuditPage() {
       <div className="bg-slate-50 p-4 rounded-lg border border-slate-200" data-field={field}>
         <div className="space-y-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+            <div className="flex items-start justify-between">
+              <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+              <div className="ml-4 relative">
+                { (attachments[field]?.length ?? 0) > 0 && (
+                  <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">
+                    {attachments[field]?.length}
+                  </span>
+                )}
+                <label
+                  title="Add attachment"
+                  className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100"
+                >
+                  <input
+                    type="file"
+                    accept="image/*"
+                    data-field-input={field}
+                    onChange={(e) => {
+                      handleAddAttachments(field, e.target.files);
+                      e.currentTarget.value = '';
+                    }}
+                    className="hidden"
+                  />
+                  <span className="text-xl font-bold">+</span>
+                </label>
+              </div>
+            </div>
             <div className="flex gap-4">
               <label className="flex items-center cursor-pointer">
                 <input
@@ -586,6 +774,30 @@ export default function ManagersWeeklyAuditPage() {
               placeholder="Add any comments or observations..."
             />
           </div>
+          {/* Attachments preview */}
+          <div>
+            <div className="flex flex-wrap gap-2">
+              {(attachments[field] ?? []).map(att => (
+                <div key={att.id} className="relative w-24 h-24 rounded overflow-hidden border border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewImage({ url: att.url, name: att.name })}
+                    className="w-full h-full"
+                    title={att.name}
+                  >
+                    <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+                  </button>
+                  <button
+                    onClick={() => handleRemoveAttachment(field, att.id)}
+                    title="Remove"
+                    className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-gray-200 shadow-sm"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -625,13 +837,91 @@ export default function ManagersWeeklyAuditPage() {
     setShowModal(false);
     if (!activeWorkspace?.id) return alert('No active workspace selected. Please choose a workspace before saving audits.');
 
+  const reportData = reports[currentReport - 1] ?? data;
+    const tally = Object.keys(reportData).reduce(
+      (acc, key) => {
+        const value = (reportData as any)[key];
+        if (value === 'Yes') {
+          acc.yesCount += 1;
+          acc.totalCount += 1;
+        } else if (value === 'No') {
+          acc.totalCount += 1;
+        }
+        return acc;
+      },
+      { yesCount: 0, totalCount: 0 }
+    );
+    const scorePercent = tally.totalCount > 0 ? Math.round((tally.yesCount / tally.totalCount) * 100) : null;
+
+    // Prepare attachments: upload new files and assemble metadata for the payload
+    const orgId = activeWorkspace.organisationId || null;
+    const attachmentsMetadata: Record<string, AttachmentMetadata[]> = {};
+    const nextAttachmentState: Record<string, AttachmentItem[]> = {};
+
+    for (const [fieldName, items] of Object.entries(attachments)) {
+      if (!items || items.length === 0) continue;
+      const processed: AttachmentItem[] = [];
+      for (const item of items) {
+        if (item.file) {
+          const { storagePath, downloadUrl } = await uploadAttachmentFile(fieldName, item.file);
+          if (item.url && item.url.startsWith('blob:')) {
+            try { URL.revokeObjectURL(item.url); } catch (err) { console.warn('Failed to revoke object URL during upload', err); }
+            createdObjectUrls.current.delete(item.url);
+          }
+          const stored: AttachmentItem = {
+            id: item.id,
+            name: item.name,
+            url: downloadUrl,
+            storagePath,
+            downloadUrl
+          };
+          processed.push(stored);
+          if (!attachmentsMetadata[fieldName]) attachmentsMetadata[fieldName] = [];
+          attachmentsMetadata[fieldName].push({ name: item.name, storagePath, downloadUrl });
+        } else if (item.storagePath) {
+          const downloadUrl = item.downloadUrl || item.url;
+          if (!attachmentsMetadata[fieldName]) attachmentsMetadata[fieldName] = [];
+          attachmentsMetadata[fieldName].push({ name: item.name, storagePath: item.storagePath, downloadUrl });
+          processed.push({
+            id: item.id,
+            name: item.name,
+            url: downloadUrl,
+            storagePath: item.storagePath,
+            downloadUrl
+          });
+        }
+      }
+      if (processed.length > 0) {
+        nextAttachmentState[fieldName] = processed;
+      }
+    }
+
+    if (attachmentsToDelete.length > 0) {
+      const uniquePaths = Array.from(new Set(attachmentsToDelete));
+      for (const storagePath of uniquePaths) {
+        try {
+          await deleteObject(ref(storage, storagePath));
+        } catch (err) {
+          console.warn('Failed to delete removed attachment from storage', err);
+        }
+      }
+    }
+
+    const attachmentsPayload = Object.keys(attachmentsMetadata).length > 0 ? attachmentsMetadata : undefined;
+
     const payload = {
-      ...(reports[currentReport - 1] ?? data),
+      ...reportData,
+      ...(attachmentsPayload ? { attachments: attachmentsPayload } : {}),
       comments: finalComments,
       createActionPlan: !!createActionPlan,
-  createdBy: user?.id ?? null,
+      createdBy: user?.id ?? null,
       workspaceId: activeWorkspace.id,
-      organisationId: activeWorkspace.organisationId || null,
+      organisationId: orgId,
+      auditType: 'managers-weekly',
+      yesCount: tally.yesCount,
+      totalCount: tally.totalCount,
+      scorePercent,
+      submittedReportNumber: currentReport,
     };
 
     try {
@@ -639,6 +929,11 @@ export default function ManagersWeeklyAuditPage() {
       // Save to audits collection
       const id = await saveAudit(payload, activeWorkspace.id, activeWorkspace.organisationId || null);
       setSavedAuditId(id);
+
+  // update attachment state after successful save
+  setAttachments(nextAttachmentState);
+  setAttachmentsToDelete([]);
+  setPreviewImage(null);
 
       // Also save a monthly snapshot for tracking weekly reports
       const snapshotId = await saveAuditSnapshot(activeWorkspace.id, 'managers-weekly', payload);
@@ -655,9 +950,9 @@ export default function ManagersWeeklyAuditPage() {
           await markAuditCompletedWithSnapshot(activeWorkspace.id, 'managers-weekly', payload, completedAt);
           alert('Audit saved — monthly weekly audit complete (snapshot, PDF and action plans generated)');
         } catch (err) {
-          // Fallback to marking completed if the withSnapshot helper fails
-          await markAuditCompleted(activeWorkspace.id, 'managers-weekly', completedAt, activeWorkspace.organisationId || null);
-          alert('Audit saved and marked completed (with errors generating snapshot/pdf/action plans)');
+          // eslint-disable-next-line no-console
+          console.warn('Failed to mark managers-weekly audit complete with snapshot', err);
+          alert('Audit saved but failed to generate snapshot/pdf/action plans');
         }
       } else {
         alert(`Audit saved — progress ${count}/4`);
@@ -780,7 +1075,10 @@ export default function ManagersWeeklyAuditPage() {
       communal_outdoor_safe: '',
       communal_outdoor_safe_comment: '',
     });
-    setErrors([]);
+  setAttachments({});
+  setAttachmentsToDelete([]);
+  setPreviewImage(null);
+  setErrors([]);
   };
 
   // Load saved snapshot count for this month
@@ -805,6 +1103,28 @@ export default function ManagersWeeklyAuditPage() {
     const active = reports[currentReport - 1] ?? emptyReport();
     setData(active);
   }, [currentReport, reports]);
+
+  // preview keyboard close (ESC)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPreviewImage(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      createdObjectUrls.current.forEach((url) => {
+        try {
+          URL.revokeObjectURL(url);
+        } catch (err) {
+          console.warn('Failed to revoke object URL', err);
+        }
+      });
+      createdObjectUrls.current.clear();
+    };
+  }, []);
 
   return (
     <div className="w-full p-10 bg-gradient-to-br from-slate-50 to-white rounded-3xl shadow-2xl mt-10 border border-slate-200">
@@ -938,6 +1258,28 @@ export default function ManagersWeeklyAuditPage() {
               <button onClick={() => handleModalCreate(false)} className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50" disabled={saving}>{saving ? 'Saving...' : 'No'}</button>
               <button onClick={() => handleModalCreate(true)} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700" disabled={saving}>{saving ? 'Saving...' : 'Yes, Create Action Plan'}</button>
               <button onClick={() => handleModalCreate(false)} className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700" disabled={saving}>{saving ? 'Saving...' : 'Save and Close'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Image preview modal */}
+      {previewImage && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black bg-opacity-60" onClick={() => setPreviewImage(null)} />
+          <div className="relative z-70 max-w-3xl w-full mx-4">
+            <div className="bg-white rounded-lg overflow-hidden shadow-xl">
+              <div className="flex justify-between items-start p-2 border-b">
+                <div className="px-3 py-1 text-sm text-gray-700">{previewImage.name}</div>
+                <button
+                  onClick={() => setPreviewImage(null)}
+                  className="m-2 bg-white rounded-full p-1 text-gray-700 border"
+                >
+                  Close
+                </button>
+              </div>
+              <div className="p-4 bg-black flex items-center justify-center">
+                <img src={previewImage.url} alt={previewImage.name} className="max-h-[80vh] w-auto object-contain" />
+              </div>
             </div>
           </div>
         </div>
