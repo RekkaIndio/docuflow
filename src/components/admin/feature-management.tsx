@@ -35,7 +35,8 @@ import {
   RefreshCw,
   Clock,
   Accessibility,
-  Settings
+  Settings,
+  NotebookPen
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
@@ -68,6 +69,7 @@ const FEATURE_ICONS: Record<FeatureModuleKey, React.ElementType> = {
   dailyCheckins: Clock,
   accessibility: Accessibility,
   settings: Settings,
+  lessonsRcas: NotebookPen,
 };
 
 // Category colors

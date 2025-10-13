@@ -167,6 +167,7 @@ const DASHBOARD_VIEWS = [
   "action-plans",
   "appraisals",
   "rotas",
+  "lessons-rcas",
 ] as const;
 
 type DashboardView = (typeof DASHBOARD_VIEWS)[number];
@@ -732,6 +733,20 @@ export function Dashboard() {
       };
 
       window.addEventListener('navigate-to-action-plans', handleActionPlansNavigation as EventListener);
+
+      // Listen for navigate-to-folder events (e.g. from the Lessons/RCA page)
+      const handleNavigateToFolder = (ev: CustomEvent) => {
+        const { folderId } = ev.detail || {};
+        if (!folderId || !activeWorkspace) return;
+        // Find the folder in the workspace and select it
+        const folder = findItemById(activeWorkspace.folders, folderId);
+        if (folder && folder.type === 'folder') {
+          setSelected(folder);
+          setView('files');
+        }
+      };
+
+      window.addEventListener('navigate-to-folder', handleNavigateToFolder as EventListener);
 
       // Listen for navigate-to-admin events from chat
       const handleAdminNavigation = (ev: CustomEvent) => {
@@ -1299,6 +1314,17 @@ export function Dashboard() {
                 )}
               </FeatureGuard>
             );
+      case 'lessons-rcas':
+        return (
+          <FeatureGuard feature="lessonsRcas" organisationId={organisationId} onNavigateBack={() => setView('home')}>
+            <React.Suspense fallback={<div>Loading...</div>}>
+              {(() => {
+                const LessonsPage = require('@/app/(protected)/lessons-rcas/page').default;
+                return <LessonsPage />;
+              })()}
+            </React.Suspense>
+          </FeatureGuard>
+        );
     default:
        return <DashboardHome 
             workspace={activeWorkspace} 

@@ -91,7 +91,8 @@ export type FeatureModuleKey =
   | 'renewals'
   | 'dailyCheckins'
   | 'accessibility'
-  | 'settings';
+  | 'settings'
+  | 'lessonsRcas';
 
 export type FeatureModule = {
   enabled: boolean;
