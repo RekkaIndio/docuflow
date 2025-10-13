@@ -1,19 +1,60 @@
 'use client';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useWorkspace } from '@/context/workspace';
-import { getMonthlyActionPlan, updateActionPlanItemStatus, areAllAuditsCompleted, getCurrentMonthKey, MonthlyActionPlan, ActionPlanItem } from '@/lib/action-plans';
+import { getMonthlyActionPlan, updateActionPlanItemStatus, areAllAuditsCompleted, getCurrentMonthKey, MonthlyActionPlan, ActionPlanItem, listMonthlyActionPlans, getAuditSnapshotById } from '@/lib/action-plans';
 import { getMonthlyAuditCompletionStatus } from '@/lib/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle, AlertCircle, Clock, FileCheck, ChevronDown, ChevronRight, Users, Timer } from "lucide-react";
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { CheckCircle, AlertCircle, Clock, FileCheck, ChevronDown, ChevronRight, Users, Timer, FileText, Loader2, Info } from "lucide-react";
 import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { workspaceCollectionPath, workspaceDocPath } from '@/lib/paths';
 import { generateActionPlanPDF, getActionPlanPDFFilename, ActionPlanPDFData } from '@/lib/action-plan-pdf-generator';
 import { db } from '@/lib/firebase';
-import { finalizeActionPlan } from '@/actions/action-plans';
 import { useToast } from '@/hooks/use-toast';
 import PageHeader from '../../../components/page-header';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+
+const MONTH_LABELS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December'
+];
+
+const MONTH_SHORT_LABELS = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec'
+];
+
+const getMonthLabelFromKey = (monthKey: string) => {
+  const [yearPart, monthPart] = monthKey.split('-');
+  const monthIndex = Number(monthPart) - 1;
+
+  if (!yearPart || Number.isNaN(monthIndex) || monthIndex < 0 || monthIndex > 11) {
+    return monthKey;
+  }
+
+  return `${MONTH_LABELS[monthIndex]} ${yearPart}`;
+};
 
 export default function ActionPlansPage() {
   const activeWorkspace = useWorkspace();
@@ -25,20 +66,58 @@ export default function ActionPlansPage() {
   const [updatingItem, setUpdatingItem] = useState<string | null>(null);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('table');
+  const [tab, setTab] = useState<'current' | 'tracker'>('current');
+  const [historicalPlans, setHistoricalPlans] = useState<MonthlyActionPlan[]>([]);
+  const [historicalLoading, setHistoricalLoading] = useState(false);
+  const [selectedHistoricalPlan, setSelectedHistoricalPlan] = useState<MonthlyActionPlan | null>(null);
   
   // Teams and staff data
   const [teams, setTeams] = useState<any[]>([]);
   const [staffData, setStaffData] = useState<any>({});
   const [loadingTeams, setLoadingTeams] = useState(false);
+  const [auditModalOpen, setAuditModalOpen] = useState(false);
+  const [auditModalLoading, setAuditModalLoading] = useState(false);
+  const [selectedAuditItem, setSelectedAuditItem] = useState<ActionPlanItem | null>(null);
+  const [selectedAuditSnapshot, setSelectedAuditSnapshot] = useState<Record<string, any> | null>(null);
+  const [auditError, setAuditError] = useState<string | null>(null);
   const { toast } = useToast();
 
   const currentMonthKey = getCurrentMonthKey();
   const currentMonthName = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const plansByYear = useMemo(() => {
+    return historicalPlans.reduce((acc, plan) => {
+      const year = plan.monthKey.slice(0, 4);
+      if (!acc[year]) {
+        acc[year] = {};
+      }
+      acc[year][plan.monthKey] = plan;
+      return acc;
+    }, {} as Record<string, Record<string, MonthlyActionPlan>>);
+  }, [historicalPlans]);
+
+  const availableYears = useMemo(() => {
+    const years = new Set<string>();
+    years.add(new Date().getFullYear().toString());
+    historicalPlans.forEach(plan => {
+      years.add(plan.monthKey.slice(0, 4));
+    });
+    return Array.from(years).sort((a, b) => Number(b) - Number(a));
+  }, [historicalPlans]);
 
   useEffect(() => {
     loadActionPlanData();
     loadTeamsAndStaffData();
+    loadHistoricalPlans();
+    setSelectedHistoricalPlan(null);
   }, [activeWorkspace?.id]);
+
+  useEffect(() => {
+    setAuditModalOpen(false);
+    setAuditModalLoading(false);
+    setSelectedAuditItem(null);
+    setSelectedAuditSnapshot(null);
+    setAuditError(null);
+  }, [selectedHistoricalPlan?.monthKey]);
 
   // Add event listeners for chat commands
   useEffect(() => {
@@ -97,13 +176,38 @@ export default function ActionPlansPage() {
     }
   };
 
+  const loadHistoricalPlans = async () => {
+    if (!activeWorkspace?.id) return;
+
+    setHistoricalLoading(true);
+    try {
+      const plans = await listMonthlyActionPlans(activeWorkspace.id, organisationId);
+      const sortedPlans = [...plans].sort((a, b) => b.monthKey.localeCompare(a.monthKey));
+      setHistoricalPlans(sortedPlans);
+      setSelectedHistoricalPlan(prev => {
+        if (!prev) {
+          return null;
+        }
+        return sortedPlans.find(plan => plan.monthKey === prev.monthKey) || null;
+      });
+    } catch (error) {
+      console.error('Failed to load historical action plans:', error);
+      toast({
+        title: 'Unable to load action plans',
+        description: 'Please refresh and try again.',
+        variant: 'destructive'
+      });
+    } finally {
+      setHistoricalLoading(false);
+    }
+  };
+
   const loadTeamsAndStaffData = async () => {
     if (!activeWorkspace?.id) return;
 
     setLoadingTeams(true);
     try {
-      // Load teams
-  const teamsCollection = collection(db, workspaceCollectionPath(activeWorkspace.id, 'teams', organisationId));
+      const teamsCollection = collection(db, workspaceCollectionPath(activeWorkspace.id, 'teams', organisationId));
       const teamsSnapshot = await getDocs(teamsCollection);
       const teamsData = teamsSnapshot.docs.map(doc => ({
         id: doc.id,
@@ -112,10 +216,9 @@ export default function ActionPlansPage() {
       }));
       setTeams(teamsData);
 
-      // Load staff data from workspace
-  const workspaceRef = doc(db, workspaceDocPath(activeWorkspace.id, undefined, organisationId));
-  const workspaceSnap = await getDoc(workspaceRef);
-      
+      const workspaceRef = doc(db, workspaceDocPath(activeWorkspace.id, undefined, organisationId));
+      const workspaceSnap = await getDoc(workspaceRef);
+
       if (workspaceSnap.exists()) {
         const data = workspaceSnap.data();
         const staff = {
@@ -134,7 +237,9 @@ export default function ActionPlansPage() {
     } finally {
       setLoadingTeams(false);
     }
-  };  const handleItemStatusUpdate = async (itemId: string, status: 'pending' | 'in-progress' | 'completed') => {
+  };
+
+  const handleItemStatusUpdate = async (itemId: string, status: 'pending' | 'in-progress' | 'completed') => {
     if (!activeWorkspace?.id || !actionPlan) return;
     // Keep a snapshot for rollback in case the server update fails
     const prevPlan = actionPlan;
@@ -181,6 +286,7 @@ export default function ActionPlansPage() {
         undefined,
         organisationId
       );
+      await loadHistoricalPlans();
     } catch (error) {
       console.error('Failed to update item status:', error);
       // Rollback optimistic update
@@ -208,6 +314,7 @@ export default function ActionPlansPage() {
           item.assignedTeam,
           organisationId
         );
+        await loadHistoricalPlans();
 
         // Update local state optimistically
         setActionPlan(prev => {
@@ -255,6 +362,7 @@ export default function ActionPlansPage() {
           assignedTeam,
           organisationId
         );
+        await loadHistoricalPlans();
 
         // Update local state optimistically
         setActionPlan(prev => {
@@ -284,12 +392,166 @@ export default function ActionPlansPage() {
     }
   };
 
+  const openAuditModalForItem = async (planMonthKey: string, item: ActionPlanItem) => {
+    if (!activeWorkspace?.id) return;
+
+    setSelectedAuditItem(item);
+    setAuditModalOpen(true);
+    setAuditModalLoading(true);
+    setAuditError(null);
+    setSelectedAuditSnapshot(null);
+
+    if (!item.auditId) {
+      const message = 'This action item was created manually and is not linked to a saved audit.';
+      setAuditError(message);
+      setAuditModalLoading(false);
+      return;
+    }
+
+    try {
+      const snapshot = await getAuditSnapshotById(
+        activeWorkspace.id,
+        planMonthKey,
+        item.auditType,
+        item.auditId,
+        organisationId
+      );
+
+      if (!snapshot) {
+        setAuditError('Audit record not found in the archive.');
+      } else {
+        setSelectedAuditSnapshot(snapshot);
+      }
+    } catch (error) {
+      console.error('Failed to load audit snapshot for action plan item:', error);
+      setAuditError('Unable to load audit details. Please try again.');
+    } finally {
+      setAuditModalLoading(false);
+    }
+  };
+
+  const handleHistoricalItemClick = async (item: ActionPlanItem) => {
+    if (!selectedHistoricalPlan) return;
+    await openAuditModalForItem(selectedHistoricalPlan.monthKey, item);
+  };
+
+  const handleCurrentItemClick = async (item: ActionPlanItem) => {
+    const monthKey = actionPlan?.monthKey || currentMonthKey;
+    await openAuditModalForItem(monthKey, item);
+  };
+
+  const handleAuditModalOpenChange = (open: boolean) => {
+    if (!open) {
+      setAuditModalOpen(false);
+      setAuditModalLoading(false);
+      setSelectedAuditItem(null);
+      setSelectedAuditSnapshot(null);
+      setAuditError(null);
+    }
+  };
+
+  const formatAuditTypeLabel = (type: string) => {
+    return type.replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
+
+  const formatFieldLabel = (label: string) => {
+    return label
+      .replace(/[-_]/g, ' ')
+      .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+      .replace(/\b\w/g, l => l.toUpperCase());
+  };
+
+  const formatFieldValue = (value: unknown): string => {
+    if (value === null || value === undefined || value === '') return 'Not provided';
+    if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+    if (typeof value === 'number') return value.toString();
+
+    if (value && typeof value === 'object') {
+      if (typeof (value as any).toDate === 'function') {
+        try {
+          return (value as any).toDate().toLocaleString();
+        } catch (error) {
+          return String((value as any).toDate());
+        }
+      }
+
+      if (Array.isArray(value)) {
+        if (value.length === 0) return 'None';
+        const mapped = value.map(item => {
+          if (item === null || item === undefined) return 'Not provided';
+          if (typeof item === 'object') {
+            return JSON.stringify(item, null, 2);
+          }
+          return String(item);
+        });
+        return mapped.join('\n');
+      }
+
+      return JSON.stringify(value, null, 2);
+    }
+
+    return String(value);
+  };
+
+  const renderFieldValue = (displayValue: string) => {
+    if (/\n/.test(displayValue)) {
+      return (
+        <pre className="whitespace-pre-wrap rounded-md border border-gray-100 bg-gray-50 p-3 text-sm text-gray-700">
+          {displayValue}
+        </pre>
+      );
+    }
+
+    return <span className="text-sm text-gray-700">{displayValue}</span>;
+  };
+
   const getRAGColor = (rating?: string) => {
     switch (rating) {
       case 'red': return 'bg-red-100 text-red-800 border-red-200';
       case 'amber': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'green': return 'bg-green-100 text-green-800 border-green-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
+  const downloadActionPlanPDF = async (plan: MonthlyActionPlan, monthLabel: string) => {
+    try {
+      const items = plan.items.map(it => {
+        const assignment = assignmentOptions.find(option => option.value === it.assignedTeam);
+        return {
+          auditType: it.auditType,
+          issue: it.issue,
+          assigned: assignment ? assignment.label : (it.assignedTeam || 'Unassigned'),
+          ragRating: it.ragRating,
+          status: it.status,
+          completedAt: it.completedAt
+        };
+      });
+
+      const pdfData: ActionPlanPDFData = {
+        workspaceName: activeWorkspace?.name || 'Workspace',
+        monthLabel,
+        generatedBy: activeWorkspace?.name || 'System',
+        items
+      };
+
+      const pdfBuf = await generateActionPlanPDF(pdfData);
+      const blob = new Blob([pdfBuf as any], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = getActionPlanPDFFilename(activeWorkspace?.name || 'workspace', monthLabel);
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error generating Action Plan PDF:', error);
+      toast({
+        title: 'Unable to generate PDF',
+        description: 'Please try again shortly.',
+        variant: 'destructive'
+      });
     }
   };
 
@@ -300,38 +562,6 @@ export default function ActionPlansPage() {
       case 'green': return 30;
       default: return null;
     }
-  };
-
-  const getAvailableTeamsAndStaff = () => {
-    const options: Array<{value: string, label: string, type: string}> = [];
-
-    // Add teams
-    teams.forEach(team => {
-      if (team.name) {
-        options.push({
-          value: `team-${team.id}`,
-          label: `${team.name} (Team)`,
-          type: 'team'
-        });
-      }
-    });
-
-    // Add staff from different categories
-    Object.entries(staffData).forEach(([category, staffList]) => {
-      if (Array.isArray(staffList)) {
-        staffList.forEach((staff: any) => {
-          if (staff.name) {
-            options.push({
-              value: `${category}-${staff.id}`,
-              label: `${staff.name} (${category.charAt(0).toUpperCase() + category.slice(1)})`,
-              type: category
-            });
-          }
-        });
-      }
-    });
-
-    return options;
   };
 
   const toggleSection = (auditType: string) => {
@@ -378,25 +608,133 @@ export default function ActionPlansPage() {
   const completedAuditsCount = Object.values(auditCompletionStatus).filter(Boolean).length;
   const totalAuditsCount = Object.keys(auditCompletionStatus).length;
 
-  const canFinalizePlan = actionPlan && actionPlan.items && actionPlan.items.length > 0 && actionPlan.items.every(it => it.status === 'completed');
+  const assignmentOptions = useMemo(() => {
+    const options: Array<{ value: string; label: string; type: string }> = [];
 
-  if (loading) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </div>
-    );
-  }
+    teams.forEach(team => {
+      if (team?.id && team.name) {
+        options.push({
+          value: `team-${team.id}`,
+          label: `${team.name} (Team)`,
+          type: 'team'
+        });
+      }
+    });
+
+    Object.entries(staffData || {}).forEach(([category, staffList]) => {
+      if (Array.isArray(staffList)) {
+        staffList.forEach((staff: any) => {
+          if (staff?.id && staff.name) {
+            options.push({
+              value: `${category}-${staff.id}`,
+              label: `${staff.name} (${category.charAt(0).toUpperCase() + category.slice(1)})`,
+              type: category
+            });
+          }
+        });
+      }
+    });
+
+    return options;
+  }, [teams, staffData]);
+
+  const auditSummary = useMemo(() => {
+    if (!selectedAuditSnapshot) return [] as Array<{ label: string; value: string }>;
+
+    const entries = [
+      { label: 'Audit Date', value: selectedAuditSnapshot.auditDate },
+      { label: 'Completed By', value: selectedAuditSnapshot.completedBy },
+      {
+        label: 'Home',
+        value: selectedAuditSnapshot.home || selectedAuditSnapshot.facility || selectedAuditSnapshot.location
+      },
+      selectedAuditSnapshot.scorePercent !== undefined && selectedAuditSnapshot.scorePercent !== null
+        ? { label: 'Score', value: `${selectedAuditSnapshot.scorePercent}%` }
+        : null,
+      selectedAuditSnapshot.yesCount !== undefined && selectedAuditSnapshot.totalCount !== undefined
+        ? { label: 'Responses', value: `${selectedAuditSnapshot.yesCount} / ${selectedAuditSnapshot.totalCount}` }
+        : null,
+      { label: 'Snapshot Created', value: selectedAuditSnapshot.snapshotCreatedAt }
+    ].filter(Boolean) as Array<{ label: string; value: unknown }>;
+
+    return entries.map(entry => ({
+      label: entry.label,
+      value: formatFieldValue(entry.value)
+    }));
+  }, [selectedAuditSnapshot]);
+
+  const topLevelDetails = useMemo(() => {
+    if (!selectedAuditSnapshot) return [] as Array<{ label: string; value: string }>;
+
+    const ignoreKeys = new Set([
+      'data',
+      'auditType',
+      'monthKey',
+      'snapshotCreatedAt',
+      'organisationId',
+      'orgId',
+      'workspaceId',
+      'id',
+      'scorePercent',
+      'yesCount',
+      'totalCount',
+      'completedBy',
+      'auditDate',
+      'home',
+      'facility',
+      'location'
+    ]);
+
+    return Object.entries(selectedAuditSnapshot)
+      .filter(([key, value]) => !ignoreKeys.has(key) && typeof value !== 'function')
+      .map(([key, value]) => ({
+        label: formatFieldLabel(key),
+        value: formatFieldValue(value)
+      }));
+  }, [selectedAuditSnapshot]);
+
+  const auditResponses = useMemo(() => {
+    if (!selectedAuditSnapshot || !selectedAuditSnapshot.data || typeof selectedAuditSnapshot.data !== 'object') {
+      return [] as Array<{ key: string; label: string; value: string }>;
+    }
+
+    return Object.entries(selectedAuditSnapshot.data as Record<string, unknown>)
+      .filter(([key]) => key !== '_embeddedImages')
+      .map(([key, value]) => ({
+        key,
+        label: formatFieldLabel(key),
+        value: formatFieldValue(value)
+      }));
+  }, [selectedAuditSnapshot]);
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Header */}
       <PageHeader title="Monthly Action Plans" subtitle={currentMonthName} />
 
-  {/* Main Content Container */}
-  <div className="pt-6 px-4">
+      <div className="px-4 pt-6 pb-12">
+        <div className="flex gap-2 border-b border-gray-200 mb-6">
+          <button
+            className={`px-4 py-2 font-medium border-b-2 transition-colors ${tab === 'current' ? 'border-blue-600 text-blue-800 bg-blue-50' : 'border-transparent text-gray-500 hover:text-blue-700'}`}
+            onClick={() => setTab('current')}
+          >
+            Current Plan
+          </button>
+          <button
+            className={`px-4 py-2 font-medium border-b-2 transition-colors ${tab === 'tracker' ? 'border-blue-600 text-blue-800 bg-blue-50' : 'border-transparent text-gray-500 hover:text-blue-700'}`}
+            onClick={() => setTab('tracker')}
+          >
+            History & Tracker
+          </button>
+        </div>
+
+        {tab === 'current' && (
+          <>
+            {loading ? (
+              <div className="flex items-center justify-center py-16">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+              </div>
+            ) : (
+              <>
         {/* Action Plan Status */}
         <div className="w-full mb-6">
           {!allAuditsCompleted && (
@@ -444,41 +782,7 @@ export default function ActionPlansPage() {
                             <button
                               onClick={async () => {
                                 if (!actionPlan) return;
-                                try {
-                                  const items = actionPlan.items.map(it => ({
-                                    auditType: it.auditType,
-                                    issue: it.issue,
-                                    assigned: (() => {
-                                      const opt = getAvailableTeamsAndStaff().find(o => o.value === it.assignedTeam);
-                                      return opt ? opt.label : (it.assignedTeam || 'Unassigned');
-                                    })(),
-                                    ragRating: it.ragRating,
-                                    status: it.status,
-                                    completedAt: it.completedAt
-                                  }));
-
-                                  const pdfData: ActionPlanPDFData = {
-                                    workspaceName: activeWorkspace?.name || 'Workspace',
-                                    monthLabel: currentMonthName,
-                                    generatedBy: activeWorkspace?.name || 'System',
-                                    items
-                                  };
-
-                                  const pdfBuf = await generateActionPlanPDF(pdfData);
-                                  // jsPDF returns an ArrayBuffer-like Uint8Array; cast to any for Blob constructor to avoid TS ArrayBuffer/SharedArrayBuffer mismatch
-                                  const blob = new Blob([pdfBuf as any], { type: 'application/pdf' });
-                                  const url = URL.createObjectURL(blob);
-                                  const a = document.createElement('a');
-                                  a.href = url;
-                                  a.download = getActionPlanPDFFilename(activeWorkspace?.name || 'workspace', currentMonthName);
-                                  document.body.appendChild(a);
-                                  a.click();
-                                  a.remove();
-                                  URL.revokeObjectURL(url);
-                                } catch (error) {
-                                  console.error('Error generating Action Plan PDF:', error);
-                                  alert('Failed to generate PDF. Check console for details.');
-                                }
+                                await downloadActionPlanPDF(actionPlan, currentMonthName);
                               }}
                               className="ml-4 px-3 py-2 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700"
                             >
@@ -511,10 +815,10 @@ export default function ActionPlansPage() {
                                 <td className="p-4 align-top">
                                   <Select value={item.assignedTeam || ''} onValueChange={(v) => handleTeamAssignmentUpdate(item.id, v)} disabled={updatingItem === item.id || loadingTeams}>
                                     <SelectTrigger className="w-full max-w-xs">
-                                      <SelectValue placeholder={loadingTeams ? 'Loading...' : (getAvailableTeamsAndStaff().find(opt => opt.value === item.assignedTeam)?.label || 'Unassigned')} />
+                                      <SelectValue placeholder={loadingTeams ? 'Loading...' : (assignmentOptions.find(opt => opt.value === item.assignedTeam)?.label || 'Unassigned')} />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      {getAvailableTeamsAndStaff().map(opt => (
+                                      {assignmentOptions.map(opt => (
                                         <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                                       ))}
                                     </SelectContent>
@@ -570,6 +874,14 @@ export default function ActionPlansPage() {
                                 </td>
                                 <td className="p-4 align-top">
                                   <div className="flex items-center gap-3">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCurrentItemClick(item)}
+                                      className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-indigo-200 bg-indigo-50 text-indigo-600 text-xs font-medium transition-colors hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                                    >
+                                      <FileText className="h-4 w-4" />
+                                      View audit
+                                    </button>
                                     {item.status !== 'completed' ? (
                                       <button
                                         onClick={() => handleItemStatusUpdate(item.id, 'completed')}
@@ -844,7 +1156,7 @@ export default function ActionPlansPage() {
                                                         <span>Loading teams...</span>
                                                       </div>
                                                     </SelectItem>
-                                                  ) : getAvailableTeamsAndStaff().length === 0 ? (
+                                                  ) : assignmentOptions.length === 0 ? (
                                                     <SelectItem value="" disabled>
                                                       <div className="flex items-center gap-2">
                                                         <Users className="h-3 w-3" />
@@ -852,7 +1164,7 @@ export default function ActionPlansPage() {
                                                       </div>
                                                     </SelectItem>
                                                   ) : (
-                                                    getAvailableTeamsAndStaff().map((option) => (
+                                                    assignmentOptions.map((option) => (
                                                       <SelectItem key={option.value} value={option.value}>
                                                         <div className="flex items-center gap-2">
                                                           <Users className="h-3 w-3" />
@@ -890,7 +1202,7 @@ export default function ActionPlansPage() {
                                               )}
                                               {item.assignedTeam && (
                                                 <span className="px-3 py-1 text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200 rounded-full">
-                                                  Assigned: {getAvailableTeamsAndStaff().find(opt => opt.value === item.assignedTeam)?.label || item.assignedTeam}
+                                                  Assigned: {assignmentOptions.find(opt => opt.value === item.assignedTeam)?.label || item.assignedTeam}
                                                 </span>
                                               )}
                                             </div>
@@ -997,7 +1309,314 @@ export default function ActionPlansPage() {
             </div>
           </div>
         )}
+              </>
+            )}
+          </>
+        )}
+
+        {tab === 'tracker' && (
+          <div className="space-y-8 pb-10">
+            {historicalLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-6">
+                  {availableYears.map(year => (
+                    <div key={year} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                      <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
+                        <div>
+                          <h2 className="text-lg font-semibold text-gray-900">{year} Action Plans</h2>
+                          <p className="text-sm text-gray-500">Select a month to review saved action plans.</p>
+                        </div>
+                        <span className="text-xs font-medium text-gray-400 uppercase tracking-wide">{historicalPlans.filter(plan => plan.monthKey.startsWith(year)).length} saved</span>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+                        {MONTH_LABELS.map((monthLabel, index) => {
+                          const monthKey = `${year}-${String(index + 1).padStart(2, '0')}`;
+                          const plan = plansByYear[year]?.[monthKey];
+                          const isSelected = selectedHistoricalPlan?.monthKey === monthKey;
+                          const isCurrentMonth = monthKey === currentMonthKey;
+                          const hasPlan = Boolean(plan);
+                          return (
+                            <button
+                              key={monthKey}
+                              type="button"
+                              onClick={() => {
+                                if (plan) {
+                                  setSelectedHistoricalPlan(plan);
+                                }
+                              }}
+                              disabled={!hasPlan}
+                              className={`text-left rounded-xl border p-4 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-200 ${
+                                hasPlan
+                                  ? 'bg-white hover:border-indigo-400 hover:shadow-md cursor-pointer'
+                                  : 'bg-slate-50 border-dashed border-gray-300 text-gray-400 cursor-not-allowed'
+                              } ${
+                                isSelected ? 'border-indigo-500 ring-2 ring-indigo-200' : ''
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className={`text-sm font-semibold ${hasPlan ? 'text-gray-900' : 'text-gray-500'}`}>
+                                  {MONTH_SHORT_LABELS[index]}
+                                </span>
+                                {hasPlan ? (
+                                  <span className="text-xs font-medium text-indigo-600">
+                                    {plan?.progressPercent ?? 0}%
+                                  </span>
+                                ) : (
+                                  <span className="text-xs">No plan</span>
+                                )}
+                              </div>
+                              {hasPlan && (
+                                <div className="mt-3 space-y-2">
+                                  <div className="text-xs text-gray-600">
+                                    {plan?.completedItems || 0} / {plan?.totalItems || 0} completed
+                                  </div>
+                                  <div className="flex flex-wrap gap-2">
+                                    {plan?.isComplete && (
+                                      <span className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-green-700 bg-green-100 rounded-full">
+                                        <CheckCircle className="h-3 w-3" />
+                                        Finalised
+                                      </span>
+                                    )}
+                                    {isCurrentMonth && (
+                                      <span className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-blue-700 bg-blue-100 rounded-full">
+                                        <Clock className="h-3 w-3" />
+                                        Current
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                  {selectedHistoricalPlan ? (
+                    <>
+                      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                        <div>
+                          <h3 className="text-xl font-semibold text-gray-900">Action Plan — {getMonthLabelFromKey(selectedHistoricalPlan.monthKey)}</h3>
+                          <p className="text-sm text-gray-600">
+                            {selectedHistoricalPlan.totalItems} issues — {selectedHistoricalPlan.completedItems} completed
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                            Progress {selectedHistoricalPlan.progressPercent || 0}%
+                          </span>
+                          <button
+                            onClick={async () => {
+                              await downloadActionPlanPDF(selectedHistoricalPlan, getMonthLabelFromKey(selectedHistoricalPlan.monthKey));
+                            }}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 transition-colors"
+                          >
+                            <FileCheck className="h-4 w-4" />
+                            Download PDF
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="mt-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                        {selectedHistoricalPlan.items.map(item => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => handleHistoricalItemClick(item)}
+                            className="w-full text-left rounded-xl border border-gray-200 p-4 bg-white shadow-sm transition-all hover:border-indigo-400 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-200 cursor-pointer"
+                          >
+                            <div className="flex items-start justify-between gap-3 mb-3">
+                              <div>
+                                <div className="text-sm font-semibold text-gray-900">{item.issue}</div>
+                                <div className="text-xs text-gray-500 mt-1">
+                                  {item.auditType.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                </div>
+                              </div>
+                              <span className={`px-2 py-1 text-[11px] font-semibold rounded-full ${getStatusColor(item.status)}`}>
+                                {item.status.replace('-', ' ').toUpperCase()}
+                              </span>
+                            </div>
+
+                            <p className="text-sm text-gray-600 mb-4">{item.question}</p>
+
+                            <div className="flex flex-wrap gap-2 text-xs text-gray-600">
+                              <span className={`px-2 py-1 rounded-full border ${
+                                item.priority === 'high'
+                                  ? 'border-red-200 bg-red-50 text-red-700'
+                                  : item.priority === 'medium'
+                                    ? 'border-amber-200 bg-amber-50 text-amber-700'
+                                    : 'border-green-200 bg-green-50 text-green-700'
+                              }`}>
+                                Priority {item.priority.toUpperCase()}
+                              </span>
+                              {item.ragRating && (
+                                <span className={`px-2 py-1 rounded-full border ${getRAGColor(item.ragRating)}`}>
+                                  {item.ragRating.toUpperCase()}{getRAGDays(item.ragRating) ? ` • ${getRAGDays(item.ragRating)} days` : ''}
+                                </span>
+                              )}
+                              {item.assignedTeam && (
+                                <span className="px-2 py-1 rounded-full border border-blue-200 bg-blue-50 text-blue-700">
+                                  Assigned: {assignmentOptions.find(option => option.value === item.assignedTeam)?.label || item.assignedTeam}
+                                </span>
+                              )}
+                              {item.completedAt && (
+                                <span className="px-2 py-1 rounded-full border border-green-200 bg-green-50 text-green-700">
+                                  Completed {new Date(item.completedAt).toLocaleDateString()}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="mt-4 flex items-center justify-between text-xs text-indigo-600">
+                              <span className="inline-flex items-center gap-1 font-medium">
+                                <FileText className="h-3.5 w-3.5" />
+                                View audit details
+                              </span>
+                              <span className="text-[11px] text-gray-400">Click to open</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center py-14 text-gray-500">
+                      <div className="w-16 h-16 mx-auto mb-4 rounded-full border border-dashed border-gray-300 flex items-center justify-center">
+                        <Clock className="h-6 w-6 text-gray-400" />
+                      </div>
+                      <p className="text-sm">Select a month from the tracker to review its action plan.</p>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
+
+      <Dialog open={auditModalOpen} onOpenChange={handleAuditModalOpenChange}>
+        <DialogContent className="max-w-5xl w-full max-h-[90vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold text-gray-900">
+              {selectedAuditItem ? `${formatAuditTypeLabel(selectedAuditItem.auditType)} Audit` : 'Audit details'}
+            </DialogTitle>
+            <DialogDescription className="text-sm text-gray-600">
+              {selectedHistoricalPlan
+                ? `Captured as part of the ${getMonthLabelFromKey(selectedHistoricalPlan.monthKey)} action plan.`
+                : 'Review the saved audit snapshot.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          {auditModalLoading ? (
+            <div className="flex flex-col items-center justify-center py-16 text-gray-600">
+              <Loader2 className="h-8 w-8 animate-spin text-indigo-600 mb-3" />
+              <span className="text-sm">Loading audit details…</span>
+            </div>
+          ) : auditError ? (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+              {auditError}
+            </div>
+          ) : (
+            <ScrollArea className="max-h-[70vh] pr-2">
+              <div className="space-y-6 py-1">
+                {selectedAuditItem && (
+                  <div className="rounded-lg border border-indigo-100 bg-indigo-50/70 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">Action plan context</p>
+                    <h4 className="mt-2 text-base font-semibold text-gray-900">{selectedAuditItem.issue}</h4>
+                    <p className="mt-1 text-sm text-gray-700">{selectedAuditItem.question}</p>
+                    <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                      <span className={`px-3 py-1 rounded-full border ${getStatusColor(selectedAuditItem.status)} bg-white/80 font-semibold`}>Status {selectedAuditItem.status.replace('-', ' ').toUpperCase()}</span>
+                      <span className={`px-3 py-1 rounded-full border ${
+                        selectedAuditItem.priority === 'high'
+                          ? 'border-red-200 bg-red-50 text-red-700'
+                          : selectedAuditItem.priority === 'medium'
+                            ? 'border-amber-200 bg-amber-50 text-amber-700'
+                            : 'border-green-200 bg-green-50 text-green-700'
+                      }`}>
+                        Priority {selectedAuditItem.priority.toUpperCase()}
+                      </span>
+                      {selectedAuditItem.ragRating && (
+                        <span className={`px-3 py-1 rounded-full border ${getRAGColor(selectedAuditItem.ragRating)}`}>
+                          {selectedAuditItem.ragRating.toUpperCase()}{getRAGDays(selectedAuditItem.ragRating) ? ` • ${getRAGDays(selectedAuditItem.ragRating)} days` : ''}
+                        </span>
+                      )}
+                      {selectedAuditItem.assignedTeam && (
+                        <span className="px-3 py-1 rounded-full border border-blue-200 bg-blue-50 text-blue-700">
+                          Assigned: {assignmentOptions.find(option => option.value === selectedAuditItem.assignedTeam)?.label || selectedAuditItem.assignedTeam}
+                        </span>
+                      )}
+                      {selectedAuditItem.completedAt && (
+                        <span className="px-3 py-1 rounded-full border border-green-200 bg-green-50 text-green-700">
+                          Completed {new Date(selectedAuditItem.completedAt).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {auditSummary.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gray-700">
+                      <Info className="h-4 w-4 text-indigo-600" />
+                      Snapshot summary
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {auditSummary.map(({ label, value }) => (
+                        <div key={label} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</p>
+                          <p className="mt-2 text-sm font-medium text-gray-900">{value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {topLevelDetails.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gray-700">
+                      <FileText className="h-4 w-4 text-indigo-600" />
+                      Additional details
+                    </div>
+                    <div className="space-y-3">
+                      {topLevelDetails.map(detail => (
+                        <div key={detail.label} className="rounded-lg border border-gray-200 bg-white p-4">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{detail.label}</p>
+                          <div className="mt-2">{renderFieldValue(detail.value)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {auditResponses.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gray-700">
+                      <FileCheck className="h-4 w-4 text-indigo-600" />
+                      Audit responses
+                    </div>
+                    <div className="space-y-3">
+                      {auditResponses.map(response => (
+                        <div key={response.key} className="rounded-lg border border-gray-200 bg-white p-4">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{response.label}</p>
+                          <div className="mt-2">{renderFieldValue(response.value)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {auditResponses.length === 0 && !auditModalLoading && !auditError && (
+                  <p className="text-sm text-gray-500">No question-level responses were stored for this audit.</p>
+                )}
+              </div>
+            </ScrollArea>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

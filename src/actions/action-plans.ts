@@ -3,9 +3,9 @@
 import { db } from '@/lib/firebase';
 import { collection, addDoc, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { workspaceCollectionPath } from '@/lib/paths';
-import { getMonthlyActionPlan } from '@/lib/action-plans';
+import type { MonthlyActionPlan } from '@/lib/action-plans';
 import { generateAuditPDF } from '@/lib/pdf-generator';
-import { saveDocument } from '@/lib/firestore';
+import admin, { adminDb } from '@/lib/firebase-admin';
 import { sendWithMailgun } from '@/lib/mailgun';
 import renderActionPlanAssignmentEmail from '@/email-templates/action-plan-assignment';
 
@@ -75,12 +75,32 @@ export async function sendActionPlanAssignmentEmail({ workspaceId, recipientEmai
  */
 export async function finalizeActionPlan(workspaceId: string, monthKey: string, organisationId?: string | null) {
   try {
-    const plan = await getMonthlyActionPlan(workspaceId, monthKey, organisationId);
-    if (!plan) throw new Error('Action plan not found');
-    if (plan.isComplete) return;
+    const scopedPath = workspaceCollectionPath(workspaceId, 'action-plans', organisationId);
+    let planRef = adminDb.collection(scopedPath).doc(monthKey);
+    let planSnap = await planRef.get();
+    let plan: MonthlyActionPlan | null = planSnap.exists ? (planSnap.data() as MonthlyActionPlan) : null;
 
-    // Create a simple PDF summary using existing audit PDF generator as a fallback
-    // Build a small data object compatible with generateAuditPDF
+    if (!plan && organisationId) {
+      const fallbackPath = workspaceCollectionPath(workspaceId, 'action-plans', null);
+      const fallbackRef = adminDb.collection(fallbackPath).doc(monthKey);
+      const fallbackSnap = await fallbackRef.get();
+      if (fallbackSnap.exists) {
+        plan = fallbackSnap.data() as MonthlyActionPlan;
+        planRef = fallbackRef;
+      }
+    }
+
+    if (!plan) {
+      throw new Error('Action plan not found');
+    }
+
+    const resolvedOrganisationId = organisationId ?? (plan as any)?.organisationId ?? null;
+
+    if (plan.isComplete) {
+      await planRef.update({ isComplete: true, completedAt: new Date().toISOString() });
+      return;
+    }
+
     const pdfData = {
       auditType: 'action-plan',
       home: `Workspace ${workspaceId}`,
@@ -92,40 +112,65 @@ export async function finalizeActionPlan(workspaceId: string, monthKey: string, 
         completedItems: plan.completedItems,
         items: plan.items
       },
-      comments: `Action plan for ${monthKey}`,
+      comments: `Action plan for ${monthKey}`
     };
 
     const pdfBuffer = generateAuditPDF(pdfData as any);
-    const filename = `action-plan_${workspaceId}_${monthKey}.pdf`;
+    void pdfBuffer;
 
-    // Save the PDF as a document in workspace (reuse saveDocument)
-    const document = {
+    const timestamp = admin.firestore.Timestamp.now();
+    const documentData = {
       name: `Action Plan - ${monthKey}`,
       type: 'document',
       fileType: 'pdf',
-      createdAt: new Date().toISOString(),
+      createdAt: timestamp,
       owner: { id: 'system', name: 'Docuflow', email: null, avatarUrl: null },
-      folderId: null, // let saveDocument decide or user folder
+      folderId: null,
       workspaceId,
       storagePath: null,
       downloadUrl: null,
-      summary: `Action plan snapshot for ${monthKey}` ,
+      summary: `Action plan snapshot for ${monthKey}`,
       extractedJson: {
         isActionPlanSnapshot: true,
         monthKey,
         generatedAt: new Date().toISOString()
-      }
-    } as any;
+      },
+      organisationId: resolvedOrganisationId
+    } as Record<string, unknown>;
 
-    // Save document metadata first (binary storage integration is left to existing upload helpers)
-    const docId = await saveDocument(document);
+    const docsPath = workspaceCollectionPath(workspaceId, 'documents', resolvedOrganisationId);
+    const docRef = await adminDb.collection(docsPath).add(documentData);
 
-    // Mark action plan as complete in Firestore
-  const planCol = collection(db, workspaceCollectionPath(workspaceId, 'action-plans', organisationId));
-  const planRef = doc(planCol, monthKey);
-  await updateDoc(planRef, { isComplete: true, completedAt: new Date().toISOString(), finalizedDocumentId: docId });
+    try {
+      const notificationsPath = workspaceCollectionPath(workspaceId, 'notifications', resolvedOrganisationId);
+      await adminDb.collection(notificationsPath).add({
+        title: `New document: ${documentData.name}`,
+        body: (documentData.summary as string) ?? '',
+        type: 'document',
+        createdAt: timestamp,
+        read: false,
+        meta: {
+          documentId: docRef.id,
+          folderId: documentData.folderId ?? null
+        }
+      });
+    } catch (notificationError) {
+      console.warn('Failed to create notification for finalized action plan document', notificationError);
+    }
 
-    return { docId };
+    const planUpdate: Record<string, unknown> = {
+      isComplete: true,
+      completedAt: new Date().toISOString(),
+      finalizedDocumentId: docRef.id
+    };
+
+    if (resolvedOrganisationId && !(plan as any)?.organisationId) {
+      planUpdate.organisationId = resolvedOrganisationId;
+    }
+
+    await planRef.update(planUpdate);
+
+    return { docId: docRef.id };
   } catch (err) {
     console.error('Failed to finalize action plan', err);
     throw err;
