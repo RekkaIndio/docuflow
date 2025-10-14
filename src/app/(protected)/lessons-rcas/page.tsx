@@ -138,8 +138,8 @@ const renderReadOnlyField = (form: Record<string, any>, descriptor: FieldDescrip
   const colSpanClass = descriptor.fullWidth ? 'md:col-span-2' : '';
   return (
     <div key={descriptor.key} className={`space-y-1 ${colSpanClass}`}>
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{descriptor.label}</p>
-      <div className="rounded-xl border border-border/60 bg-background/95 px-4 py-3 text-sm leading-relaxed whitespace-pre-line">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-700">{descriptor.label}</p>
+      <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed whitespace-pre-line text-slate-700">
         {value || '—'}
       </div>
     </div>
@@ -149,7 +149,7 @@ const renderReadOnlyField = (form: Record<string, any>, descriptor: FieldDescrip
 const renderActionsList = (actions: Array<{ action: string; owner: string; timescale: string; status: string }>) => {
   if (!actions || actions.length === 0) {
     return (
-      <div className="rounded-md border border-dashed border-muted/60 bg-muted/10 p-4 text-sm text-muted-foreground">
+  <div className="rounded-md border border-dashed border-muted/60 bg-muted/10 p-4 text-sm text-slate-500">
         No actions recorded.
       </div>
     );
@@ -158,20 +158,20 @@ const renderActionsList = (actions: Array<{ action: string; owner: string; times
   return (
     <div className="space-y-4">
       {actions.map((action, index) => (
-        <div key={`${action.action}-${index}`} className="rounded-2xl border border-border/60 bg-background/95 p-5 shadow-sm">
-          <p className="text-sm font-semibold text-foreground">{action.action || 'Action item'}</p>
-          <div className="mt-4 grid grid-cols-1 gap-4 text-sm text-muted-foreground sm:grid-cols-3">
+        <div key={`${action.action}-${index}`} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-sm font-semibold text-slate-800">{action.action || 'Action item'}</p>
+          <div className="mt-4 grid grid-cols-1 gap-4 text-sm text-slate-500 sm:grid-cols-3">
             <div className="space-y-1">
-              <p className="text-xs uppercase tracking-wide">Owner</p>
-              <p className="text-foreground">{action.owner || '—'}</p>
+              <p className="text-xs uppercase tracking-wide text-slate-500">Owner</p>
+              <p className="text-slate-800">{action.owner || '—'}</p>
             </div>
             <div className="space-y-1">
-              <p className="text-xs uppercase tracking-wide">Timescale</p>
-              <p className="text-foreground">{action.timescale || '—'}</p>
+              <p className="text-xs uppercase tracking-wide text-slate-500">Timescale</p>
+              <p className="text-slate-800">{action.timescale || '—'}</p>
             </div>
             <div className="space-y-1">
-              <p className="text-xs uppercase tracking-wide">Status</p>
-              <p className="text-foreground">{action.status || '—'}</p>
+              <p className="text-xs uppercase tracking-wide text-slate-500">Status</p>
+              <p className="text-slate-800">{action.status || '—'}</p>
             </div>
           </div>
         </div>
@@ -228,9 +228,9 @@ const renderLessonsDetail = (
   return (
     <div className="space-y-6">
       {sections.map(section => (
-        <div key={section.title} className="space-y-4 rounded-3xl border border-border/60 bg-background/80 p-6 shadow-sm">
+        <div key={section.title} className="space-y-4 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
           <div className="space-y-1">
-            <h3 className="text-base font-semibold text-foreground">{section.title}</h3>
+            <h3 className="text-base font-semibold text-blue-900">{section.title}</h3>
             <span className="block h-px w-full bg-border/60" />
           </div>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -239,9 +239,9 @@ const renderLessonsDetail = (
         </div>
       ))}
 
-      <div className="space-y-4 rounded-3xl border border-border/60 bg-background/80 p-6 shadow-sm">
+  <div className="space-y-4 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
         <div className="space-y-1">
-          <h3 className="text-base font-semibold text-foreground">Actions for Improvement</h3>
+          <h3 className="text-base font-semibold text-blue-900">Actions for Improvement</h3>
           <span className="block h-px w-full bg-border/60" />
         </div>
         {renderActionsList(actions)}
@@ -310,9 +310,9 @@ const renderRcaDetail = (
   return (
     <div className="space-y-6">
       {sections.map(section => (
-        <div key={section.title} className="space-y-4 rounded-3xl border border-border/60 bg-background/80 p-6 shadow-sm">
+        <div key={section.title} className="space-y-4 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
           <div className="space-y-1">
-            <h3 className="text-base font-semibold text-foreground">{section.title}</h3>
+            <h3 className="text-base font-semibold text-blue-900">{section.title}</h3>
             <span className="block h-px w-full bg-border/60" />
           </div>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -321,28 +321,28 @@ const renderRcaDetail = (
         </div>
       ))}
 
-      <div className="space-y-4 rounded-3xl border border-border/60 bg-background/80 p-6 shadow-sm">
+  <div className="space-y-4 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
         <div className="space-y-1">
-          <h3 className="text-base font-semibold text-foreground">Timeline of Events</h3>
+          <h3 className="text-base font-semibold text-blue-900">Timeline of Events</h3>
           <span className="block h-px w-full bg-border/60" />
         </div>
         {timeline && timeline.length > 0 ? (
-          <ol className="space-y-3 border-l-2 border-border/60 pl-4">
+          <ol className="space-y-3 border-l-2 border-slate-200 pl-4">
             {timeline.map((step, idx) => (
-              <li key={`${step}-${idx}`} className="relative text-sm leading-relaxed text-muted-foreground">
+              <li key={`${step}-${idx}`} className="relative text-sm leading-relaxed text-slate-500">
                 <span className="absolute -left-[17px] mt-1 h-3 w-3 rounded-full border border-background bg-primary" />
-                <span className="block rounded-xl border border-border/60 bg-background/95 px-4 py-3 text-foreground">{step}</span>
+                <span className="block rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-700">{step}</span>
               </li>
             ))}
           </ol>
         ) : (
-          <div className="rounded-2xl border border-dashed border-border/60 bg-muted/10 p-4 text-sm text-muted-foreground">No timeline provided.</div>
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-muted/10 p-4 text-sm text-slate-500">No timeline provided.</div>
         )}
       </div>
 
-      <div className="space-y-4 rounded-3xl border border-border/60 bg-background/80 p-6 shadow-sm">
+  <div className="space-y-4 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
         <div className="space-y-1">
-          <h3 className="text-base font-semibold text-foreground">Contributing Factors</h3>
+          <h3 className="text-base font-semibold text-blue-900">Contributing Factors</h3>
           <span className="block h-px w-full bg-border/60" />
         </div>
         {selectedFactors.length > 0 || otherFactor ? (
@@ -353,13 +353,13 @@ const renderRcaDetail = (
             {otherFactor ? <Badge variant="secondary">Other: {otherFactor}</Badge> : null}
           </div>
         ) : (
-          <div className="rounded-2xl border border-dashed border-border/60 bg-muted/10 p-4 text-sm text-muted-foreground">No contributing factors recorded.</div>
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-muted/10 p-4 text-sm text-slate-500">No contributing factors recorded.</div>
         )}
       </div>
 
-      <div className="space-y-4 rounded-3xl border border-border/60 bg-background/80 p-6 shadow-sm">
+  <div className="space-y-4 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
         <div className="space-y-1">
-          <h3 className="text-base font-semibold text-foreground">Action Plan</h3>
+          <h3 className="text-base font-semibold text-blue-900">Action Plan</h3>
           <span className="block h-px w-full bg-border/60" />
         </div>
         {renderActionsList(actions)}
@@ -572,39 +572,73 @@ export default function LessonsRcasPage() {
         leading={<NotebookPen className="h-6 w-6" />}
       />
 
-  <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
-        <Tabs value={activeTab} onValueChange={val => setActiveTab(val as 'lessons' | 'rca' | 'tracker')}>
+  <div className="w-full py-10 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-50 to-white rounded-3xl shadow-2xl mt-10 border border-slate-200">
+        <div className="flex flex-col lg:flex-row gap-10">
+        <div className="w-full lg:w-[420px] flex-shrink-0 bg-white rounded-2xl p-8 border border-slate-200 shadow-xl mb-8 lg:mb-0 lg:sticky lg:top-[96px] self-start h-fit">
+          <h2 className="text-2xl font-extrabold text-blue-900 mb-2">Quick record options</h2>
+          <p className="text-sm text-slate-500 mb-4">Use these quick fields to prefill the currently selected form. Switch tabs to edit a different record type.</p>
+
+          <div className="space-y-3 mb-4">
+            <label className="block text-sm font-medium text-slate-700">Date &amp; Time</label>
+            <Input type="datetime-local" value={activeTab === 'lessons' ? lessonsForm.date : rcaForm.date} onChange={e => activeTab === 'lessons' ? updateLessonsField('date', e.target.value) : updateRcaField('date', e.target.value)} />
+          </div>
+          <div className="space-y-3 mb-4">
+            <label className="block text-sm font-medium text-slate-700">Type of Event</label>
+            <Input placeholder="e.g. inspection, fall" value={activeTab === 'lessons' ? lessonsForm.eventType : rcaForm.eventType} onChange={e => activeTab === 'lessons' ? updateLessonsField('eventType', e.target.value) : updateRcaField('eventType', e.target.value)} />
+          </div>
+          <div className="space-y-3 mb-4">
+            <label className="block text-sm font-medium text-slate-700">Location / Unit</label>
+            <Input placeholder="Location / Unit" value={activeTab === 'lessons' ? lessonsForm.location : rcaForm.location} onChange={e => activeTab === 'lessons' ? updateLessonsField('location', e.target.value) : updateRcaField('location', e.target.value)} />
+          </div>
+          <div className="space-y-3 mb-6">
+            <label className="block text-sm font-medium text-slate-700">People Involved</label>
+            <Textarea rows={2} placeholder="Staff, residents, families" value={activeTab === 'lessons' ? lessonsForm.peopleInvolved : rcaForm.peopleInvolved} onChange={e => activeTab === 'lessons' ? updateLessonsField('peopleInvolved', e.target.value) : updateRcaField('peopleInvolved', e.target.value)} />
+          </div>
+
+          <div className="flex gap-3">
+            <Button onClick={() => setActiveTab('lessons')} className="flex-1 bg-blue-800 hover:bg-blue-900 text-white rounded-xl shadow-md">
+              New Lesson
+            </Button>
+            <Button onClick={() => setActiveTab('rca')} className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl shadow-md">
+              New RCA
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="w-full">
+            <Tabs value={activeTab} onValueChange={val => setActiveTab(val as 'lessons' | 'rca' | 'tracker')}>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <TabsList className="grid w-full max-w-2xl grid-cols-3 gap-2 rounded-2xl border border-border/60 bg-background/80 p-2 shadow-sm backdrop-blur">
-              <TabsTrigger className="rounded-xl px-4 py-2 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="lessons">
+            <TabsList className="grid h-auto items-center w-full max-w-2xl grid-cols-3 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+              <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="lessons">
                 Lessons Learned
               </TabsTrigger>
-              <TabsTrigger className="rounded-xl px-4 py-2 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="rca">
+              <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="rca">
                 Root Cause Analysis
               </TabsTrigger>
-              <TabsTrigger className="rounded-xl px-4 py-2 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="tracker">
+              <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="tracker">
                 Tracker
               </TabsTrigger>
             </TabsList>
-            <div className="text-sm text-muted-foreground">
+            <div className="text-sm text-slate-500">
               Capture new insights, run investigations, or review previous submissions in one place.
             </div>
           </div>
 
           <TabsContent value="lessons" className="space-y-8">
-            <Card className="border border-border/60 bg-card/60 shadow-xl backdrop-blur">
-              <CardHeader className="space-y-2 border-b border-border/60 bg-background/60 px-6 py-6 sm:px-8">
-                <CardTitle className="text-2xl font-semibold">Lessons Learned Record</CardTitle>
-                <CardDescription className="text-base text-muted-foreground">
+            <Card className="bg-white rounded-2xl border border-slate-200 shadow-xl">
+              <CardHeader className="space-y-2 border-b border-slate-200 bg-white px-6 py-6 sm:px-8">
+                <CardTitle className="text-2xl font-semibold text-blue-900">Lessons Learned Record</CardTitle>
+                <CardDescription className="text-base text-slate-500">
                   Capture reflective learning following incidents, audits, or improvement work.
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-6 sm:p-8">
                 <form className="space-y-8" onSubmit={handleLessonsSubmit}>
-                  <div className="space-y-6 rounded-3xl border border-border/60 bg-background/80 p-6 shadow-sm sm:p-8">
+                  <div className="space-y-6 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
                     <div className="space-y-2">
-                      <h3 className="text-lg font-semibold text-foreground">Event Overview</h3>
-                      <p className="text-sm text-muted-foreground">Key context for the learning captured.</p>
+                      <h3 className="text-lg font-semibold text-blue-900">Event Overview</h3>
+                      <p className="text-sm text-slate-500">Key context for the learning captured.</p>
                     </div>
                     <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
                       <div className="space-y-2">
@@ -626,10 +660,10 @@ export default function LessonsRcasPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-6 rounded-3xl border border-border/60 bg-background/80 p-6 shadow-sm sm:p-8">
+                  <div className="space-y-6 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
                     <div className="space-y-2">
-                      <h3 className="text-lg font-semibold text-foreground">Narrative &amp; Impact</h3>
-                      <p className="text-sm text-muted-foreground">Document what happened and the immediate effect on people or services.</p>
+                      <h3 className="text-lg font-semibold text-blue-900">Narrative &amp; Impact</h3>
+                      <p className="text-sm text-slate-500">Document what happened and the immediate effect on people or services.</p>
                     </div>
                     <div className="grid gap-6 lg:grid-cols-2">
                       <div className="space-y-2 lg:col-span-1">
@@ -651,10 +685,10 @@ export default function LessonsRcasPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-6 rounded-3xl border border-border/60 bg-background/80 p-6 shadow-sm sm:p-8">
+                  <div className="space-y-6 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
                     <div className="space-y-2">
-                      <h3 className="text-lg font-semibold text-foreground">Reflection &amp; Learning</h3>
-                      <p className="text-sm text-muted-foreground">Capture the positives, gaps, and key takeaways.</p>
+                      <h3 className="text-lg font-semibold text-blue-900">Reflection &amp; Learning</h3>
+                      <p className="text-sm text-slate-500">Capture the positives, gaps, and key takeaways.</p>
                     </div>
                     <div className="grid gap-6 lg:grid-cols-2">
                       <div className="space-y-2">
@@ -676,11 +710,11 @@ export default function LessonsRcasPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-6 rounded-3xl border border-border/60 bg-background/80 p-6 shadow-sm sm:p-8">
+                  <div className="space-y-6 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="space-y-1">
-                        <h3 className="text-lg font-semibold text-foreground">Actions for Improvement</h3>
-                        <p className="text-sm text-muted-foreground">Track follow-up tasks with owners and timelines.</p>
+                        <h3 className="text-lg font-semibold text-blue-900">Actions for Improvement</h3>
+                        <p className="text-sm text-slate-500">Track follow-up tasks with owners and timelines.</p>
                       </div>
                       <Button type="button" variant="outline" onClick={() => setLessonsActions(prev => [...prev, { ...EMPTY_ACTION_ROW }])}>
                         <Plus className="mr-2 h-4 w-4" /> Add Action
@@ -688,7 +722,7 @@ export default function LessonsRcasPage() {
                     </div>
                     <div className="space-y-4">
                       {lessonsActions.map((row, index) => (
-                        <div key={index} className="space-y-4 rounded-2xl border border-border/60 bg-background/95 p-4 shadow-sm sm:p-6">
+                        <div key={index} className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
                           <div className="grid gap-4 lg:grid-cols-5">
                             <div className="space-y-2 lg:col-span-2">
                               <Label>Action Required</Label>
@@ -719,10 +753,10 @@ export default function LessonsRcasPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-6 rounded-3xl border border-border/60 bg-background/80 p-6 shadow-sm sm:p-8">
+                  <div className="space-y-6 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
                     <div className="space-y-2">
-                      <h3 className="text-lg font-semibold text-foreground">Monitoring &amp; Oversight</h3>
-                      <p className="text-sm text-muted-foreground">Outline who will monitor the actions and when they will be reviewed.</p>
+                      <h3 className="text-lg font-semibold text-blue-900">Monitoring &amp; Oversight</h3>
+                      <p className="text-sm text-slate-500">Outline who will monitor the actions and when they will be reviewed.</p>
                     </div>
                     <div className="grid gap-6 lg:grid-cols-3">
                       <div className="lg:col-span-2 space-y-2">
@@ -742,10 +776,10 @@ export default function LessonsRcasPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-6 rounded-3xl border border-border/60 bg-background/80 p-6 shadow-sm sm:p-8">
+                  <div className="space-y-6 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
                     <div className="space-y-2">
-                      <h3 className="text-lg font-semibold text-foreground">Communication &amp; Sharing</h3>
-                      <p className="text-sm text-muted-foreground">Plan how the learning will be cascaded to staff, residents, and external partners.</p>
+                      <h3 className="text-lg font-semibold text-blue-900">Communication &amp; Sharing</h3>
+                      <p className="text-sm text-slate-500">Plan how the learning will be cascaded to staff, residents, and external partners.</p>
                     </div>
                     <div className="grid gap-6 lg:grid-cols-3">
                       <div className="space-y-2 lg:col-span-1">
@@ -764,7 +798,7 @@ export default function LessonsRcasPage() {
                   </div>
 
                   <div className="flex justify-end gap-3">
-                    <Button type="submit" disabled={lessonsSaving} className="min-w-[160px]">
+                    <Button type="submit" disabled={lessonsSaving} className="min-w-[160px] bg-blue-800 hover:bg-blue-900 text-white rounded-xl shadow-md px-4 py-2 disabled:opacity-60">
                       {lessonsSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                       {lessonsSaving ? 'Saving…' : 'Save Lessons Learned'}
                     </Button>
@@ -775,19 +809,19 @@ export default function LessonsRcasPage() {
           </TabsContent>
 
           <TabsContent value="rca" className="space-y-8">
-            <Card className="border border-border/60 bg-card/60 shadow-xl backdrop-blur">
-              <CardHeader className="space-y-2 border-b border-border/60 bg-background/60 px-6 py-6 sm:px-8">
-                <CardTitle className="text-2xl font-semibold">Root Cause Analysis</CardTitle>
-                <CardDescription className="text-base text-muted-foreground">
+              <Card className="bg-white rounded-2xl border border-slate-200 shadow-xl">
+              <CardHeader className="space-y-2 border-b border-slate-200 bg-white px-6 py-6 sm:px-8">
+                <CardTitle className="text-2xl font-semibold text-blue-900">Root Cause Analysis</CardTitle>
+                <CardDescription className="text-base text-slate-500">
                   Document investigative findings, contributing factors, and corrective actions.
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-6 sm:p-8">
                 <form className="space-y-8" onSubmit={handleRcaSubmit}>
-                  <div className="space-y-6 rounded-3xl border border-border/60 bg-background/80 p-6 shadow-sm sm:p-8">
+                  <div className="space-y-6 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
                     <div className="space-y-2">
-                      <h3 className="text-lg font-semibold text-foreground">Investigation Overview</h3>
-                      <p className="text-sm text-muted-foreground">Summarise the event under investigation and the evidence gathered.</p>
+                      <h3 className="text-lg font-semibold text-blue-900">Investigation Overview</h3>
+                      <p className="text-sm text-slate-500">Summarise the event under investigation and the evidence gathered.</p>
                     </div>
                     <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
                       <div className="space-y-2">
@@ -817,11 +851,11 @@ export default function LessonsRcasPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-6 rounded-3xl border border-border/60 bg-background/80 p-6 shadow-sm sm:p-8">
+                  <div className="space-y-6 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                       <div className="space-y-1">
-                        <h3 className="text-lg font-semibold text-foreground">Timeline &amp; Key Moments</h3>
-                        <p className="text-sm text-muted-foreground">Reconstruct the sequence of events leading up to and following the incident.</p>
+                        <h3 className="text-lg font-semibold text-blue-900">Timeline &amp; Key Moments</h3>
+                        <p className="text-sm text-slate-500">Reconstruct the sequence of events leading up to and following the incident.</p>
                       </div>
                       <Button type="button" size="sm" variant="outline" onClick={addTimelineStep}>
                         <Plus className="mr-2 h-4 w-4" /> Add Step
@@ -829,7 +863,7 @@ export default function LessonsRcasPage() {
                     </div>
                     <div className="space-y-3">
                       {rcaTimeline.map((step, index) => (
-                        <div key={index} className="flex flex-col gap-3 rounded-2xl border border-border/60 bg-background/95 p-4 shadow-sm sm:flex-row sm:items-start">
+                        <div key={index} className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-start">
                           <Input value={step} onChange={e => updateTimelineStep(index, e.target.value)} placeholder={`Timeline entry ${index + 1}`} className="flex-1" />
                           {rcaTimeline.length > 1 && (
                             <Button type="button" variant="ghost" className="text-destructive" onClick={() => removeTimelineStep(index)}>
@@ -841,10 +875,10 @@ export default function LessonsRcasPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-6 rounded-3xl border border-border/60 bg-background/80 p-6 shadow-sm sm:p-8">
+                  <div className="space-y-6 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
                     <div className="space-y-2">
-                      <h3 className="text-lg font-semibold text-foreground">Impact Assessment</h3>
-                      <p className="text-sm text-muted-foreground">Capture the effect on residents, staff, and wider service delivery.</p>
+                      <h3 className="text-lg font-semibold text-blue-900">Impact Assessment</h3>
+                      <p className="text-sm text-slate-500">Capture the effect on residents, staff, and wider service delivery.</p>
                     </div>
                     <div className="grid gap-6 lg:grid-cols-3">
                       <div className="space-y-2">
@@ -862,10 +896,10 @@ export default function LessonsRcasPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-6 rounded-3xl border border-border/60 bg-background/80 p-6 shadow-sm sm:p-8">
+                  <div className="space-y-6 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
                     <div className="space-y-2">
-                      <h3 className="text-lg font-semibold text-foreground">Contributing Factors</h3>
-                      <p className="text-sm text-muted-foreground">Highlight the factors that influenced the incident.</p>
+                      <h3 className="text-lg font-semibold text-blue-900">Contributing Factors</h3>
+                      <p className="text-sm text-slate-500">Highlight the factors that influenced the incident.</p>
                     </div>
                     <div className="grid gap-3 md:grid-cols-2">
                       {([
@@ -876,9 +910,9 @@ export default function LessonsRcasPage() {
                         { key: 'leadership', label: 'Leadership / Management (supervision, culture, workload)' },
                         { key: 'external', label: 'External (family dynamics, visiting professionals, providers)' },
                       ] as const).map(option => (
-                        <label key={option.key} className="flex items-start gap-3 rounded-2xl border border-border/60 bg-background/95 px-4 py-3 text-sm shadow-sm">
+                        <label key={option.key} className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm">
                           <Checkbox checked={rcaForm.contributing[option.key]} onCheckedChange={() => toggleContributingFactor(option.key)} />
-                          <span className="leading-snug text-muted-foreground">{option.label}</span>
+                          <span className="leading-snug text-slate-500">{option.label}</span>
                         </label>
                       ))}
                       <div className="md:col-span-2 space-y-2">
@@ -888,10 +922,10 @@ export default function LessonsRcasPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-6 rounded-3xl border border-border/60 bg-background/80 p-6 shadow-sm sm:p-8">
+                  <div className="space-y-6 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
                     <div className="space-y-2">
-                      <h3 className="text-lg font-semibold text-foreground">Root Cause &amp; Learning</h3>
-                      <p className="text-sm text-muted-foreground">Analyse why the event occurred and how to prevent recurrence.</p>
+                      <h3 className="text-lg font-semibold text-blue-900">Root Cause &amp; Learning</h3>
+                      <p className="text-sm text-slate-500">Analyse why the event occurred and how to prevent recurrence.</p>
                     </div>
                     <div className="grid gap-6 lg:grid-cols-2">
                       <div className="space-y-2">
@@ -913,11 +947,11 @@ export default function LessonsRcasPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-6 rounded-3xl border border-border/60 bg-background/80 p-6 shadow-sm sm:p-8">
+                  <div className="space-y-6 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="space-y-1">
-                        <h3 className="text-lg font-semibold text-foreground">Action Plan</h3>
-                        <p className="text-sm text-muted-foreground">Assign responsibilities and monitor progress.</p>
+                        <h3 className="text-lg font-semibold text-blue-900">Action Plan</h3>
+                        <p className="text-sm text-slate-500">Assign responsibilities and monitor progress.</p>
                       </div>
                       <Button type="button" variant="outline" onClick={() => setRcaActions(prev => [...prev, { ...EMPTY_ACTION_ROW }])}>
                         <Plus className="mr-2 h-4 w-4" /> Add Action
@@ -925,7 +959,7 @@ export default function LessonsRcasPage() {
                     </div>
                     <div className="space-y-4">
                       {rcaActions.map((row, index) => (
-                        <div key={index} className="space-y-4 rounded-2xl border border-border/60 bg-background/95 p-4 shadow-sm sm:p-6">
+                        <div key={index} className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
                           <div className="grid gap-4 lg:grid-cols-5">
                             <div className="space-y-2 lg:col-span-2">
                               <Label>Action Required</Label>
@@ -956,10 +990,10 @@ export default function LessonsRcasPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-6 rounded-3xl border border-border/60 bg-background/80 p-6 shadow-sm sm:p-8">
+                  <div className="space-y-6 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
                     <div className="space-y-2">
-                      <h3 className="text-lg font-semibold text-foreground">Review &amp; Monitoring</h3>
-                      <p className="text-sm text-muted-foreground">Schedule future checks and define how success will be measured.</p>
+                      <h3 className="text-lg font-semibold text-blue-900">Review &amp; Monitoring</h3>
+                      <p className="text-sm text-slate-500">Schedule future checks and define how success will be measured.</p>
                     </div>
                     <div className="grid gap-6 lg:grid-cols-3">
                       <div className="space-y-2">
@@ -978,7 +1012,7 @@ export default function LessonsRcasPage() {
                   </div>
 
                   <div className="flex justify-end gap-3">
-                    <Button type="submit" disabled={rcaSaving} className="min-w-[160px]">
+                    <Button type="submit" disabled={rcaSaving} className="min-w-[160px] bg-blue-800 hover:bg-blue-900 text-white rounded-xl shadow-md px-4 py-2 disabled:opacity-60">
                       {rcaSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                       {rcaSaving ? 'Saving…' : 'Save RCA'}
                     </Button>
@@ -989,12 +1023,12 @@ export default function LessonsRcasPage() {
           </TabsContent>
 
             <TabsContent value="tracker" className="space-y-8">
-              <Card className="border border-border/60 bg-card/60 shadow-xl backdrop-blur">
-                <CardHeader className="border-b border-border/60 bg-background/60 px-6 py-6 sm:px-8">
+              <Card className="bg-white rounded-2xl border border-slate-200 shadow-xl">
+                <CardHeader className="border-b border-slate-200 bg-white px-6 py-6 sm:px-8">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="space-y-1 text-left">
-                      <CardTitle className="text-2xl font-semibold">Lessons &amp; RCA Tracker</CardTitle>
-                      <CardDescription className="text-base text-muted-foreground">Browse previously saved lessons learned records and root cause analyses.</CardDescription>
+                      <CardTitle className="text-2xl font-semibold text-blue-900">Lessons &amp; RCA Tracker</CardTitle>
+                      <CardDescription className="text-base text-slate-500">Browse previously saved lessons learned records and root cause analyses.</CardDescription>
                     </div>
                     <Button
                       type="button"
@@ -1012,17 +1046,17 @@ export default function LessonsRcasPage() {
                   {trackerLoading && trackerRecords.length === 0 ? (
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                       {Array.from({ length: 6 }).map((_, index) => (
-                        <div key={index} className="h-28 animate-pulse rounded-2xl border border-dashed border-border/60 bg-muted/40" />
+                        <div key={index} className="h-28 animate-pulse rounded-2xl border border-dashed border-slate-200 bg-muted/40" />
                       ))}
                     </div>
                   ) : trackerRecords.length === 0 ? (
-                    <div className="rounded-3xl border border-dashed border-border/60 bg-background/70 p-10 text-center">
-                      <p className="text-sm text-muted-foreground">
+                    <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-10 text-center">
+                      <p className="text-sm text-slate-500">
                         No records saved yet. Capture a lesson learned or RCA to see it appear here.
                       </p>
                     </div>
                   ) : (
-                    <div className="overflow-hidden rounded-3xl border border-border/60 bg-background/80 shadow-sm">
+                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                       <Table>
                         <TableHeader className="bg-muted/60">
                           <TableRow className="text-xs uppercase tracking-wide">
@@ -1039,7 +1073,7 @@ export default function LessonsRcasPage() {
                               <TableCell>
                                 <Badge variant={record.recordType === 'lessons-learned' ? 'secondary' : 'default'}>{RECORD_LABELS[record.recordType]}</Badge>
                               </TableCell>
-                              <TableCell className="text-sm text-muted-foreground">
+                              <TableCell className="text-sm text-slate-500">
                                 <span className="line-clamp-2">
                                   {record.recordType === 'lessons-learned'
                                     ? record.form.summaryOfEvents || record.form.description || '—'
@@ -1047,7 +1081,7 @@ export default function LessonsRcasPage() {
                                 </span>
                               </TableCell>
                               <TableCell className="text-sm font-medium text-foreground">{formatDateTime(record.createdAt)}</TableCell>
-                              <TableCell className="text-sm text-muted-foreground">{record.createdBy?.name || record.createdBy?.email || 'Unknown'}</TableCell>
+                              <TableCell className="text-sm text-slate-500">{record.createdBy?.name || record.createdBy?.email || 'Unknown'}</TableCell>
                               <TableCell className="text-right">
                                 <Button size="sm" variant="outline" onClick={() => setSelectedRecord(record)}>
                                   View details
@@ -1063,10 +1097,12 @@ export default function LessonsRcasPage() {
               </Card>
             </TabsContent>
         </Tabs>
+          </div>
+        </div>
       </div>
 
         <Dialog open={!!selectedRecord} onOpenChange={open => setSelectedRecord(open ? selectedRecord : null)}>
-          <DialogContent className="flex max-h-[85vh] min-h-[60vh] w-full max-w-4xl flex-col overflow-hidden border border-border/70 bg-card shadow-2xl p-0">
+          <DialogContent className="flex max-h-[85vh] min-h-[60vh] w-full max-w-4xl flex-col overflow-hidden border border-slate-200 bg-white shadow-2xl p-0">
             {selectedRecord ? (
               <>
                 <DialogHeader className="border-b px-6 py-4">
@@ -1097,6 +1133,7 @@ export default function LessonsRcasPage() {
             ) : null}
           </DialogContent>
         </Dialog>
+      </div>
     </div>
   );
 }
