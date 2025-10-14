@@ -719,7 +719,7 @@ export default function Page() {
                 Why modern care homes switch
               </div>
               <h2 className="mt-6 text-4xl lg:text-5xl font-bold leading-tight">
-                Old systems slow you down.
+                Pro-Active Compliance, not reactive.
                 <span className="block font-semibold text-transparent bg-clip-text bg-gradient-to-r from-blue-300 via-cyan-200 to-purple-300">
                   CG-360 keeps everything in flow.
                 </span>
@@ -748,7 +748,7 @@ export default function Page() {
                     </div>
                     <div>
                       <p className="font-semibold">Disconnected tools everywhere</p>
-                      <p className="text-slate-300">HR files in one system, policies in another, audits in spreadsheets — nothing talks to each other when you need evidence fast.</p>
+                      <p className="text-slate-300">Compliance in one system, policies in another, audits in spreadsheets — nothing talks to each other when you need evidence fast.</p>
                     </div>
                   </li>
                   <li className="flex items-start gap-4">
@@ -784,7 +784,7 @@ export default function Page() {
                     </div>
                     <div>
                       <p className="font-semibold">Opaque renewal costs</p>
-                      <p className="text-slate-300">Annual price hikes and consultancy retainers make budgeting unpredictable.</p>
+                      <p className="text-slate-300">No hidden price hikes and consultancy retainers make budgeting unpredictable.</p>
                     </div>
                   </li>
                 </ul>
