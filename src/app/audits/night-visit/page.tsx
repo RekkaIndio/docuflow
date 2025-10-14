@@ -1,17 +1,17 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronDown, ChevronUp, FileText } from 'lucide-react';
-import { useAuth } from '@/hooks/use-auth';
 import { useWorkspace } from '@/context/workspace';
+import { useAuth } from '@/hooks/use-auth';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
 import { saveAudit, markAuditCompletedWithSnapshot, getLatestAuditData } from '@/lib/firestore';
 import { storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { StaffSelectInput } from '@/components/audits/staff-select-input';
 
 interface NightVisitData {
   home: string;
@@ -147,21 +147,14 @@ export default function NightVisitAuditPage() {
   const activeWorkspace = useWorkspace();
   const { user } = useAuth();
   const [saving, setSaving] = useState(false);
-  const [savedAuditId, setSavedAuditId] = useState<string | null>(null);
   const [finalComments, setFinalComments] = useState('');
 
-  // Collapsible sections state
-  const [openSections, setOpenSections] = useState<boolean[]>(Array(10).fill(false));
-
-  const toggleSection = (index: number) => {
-    setOpenSections(prev => prev.map((open, i) => i === index ? !open : open));
-  };
-
-  // Section definitions with guidance text
   const sections = [
     {
       title: "1. Staffing and Presence",
-      guidance: "Verify adequate staffing levels, staff visibility, and proper identification during night visits.",
+      guidance: [
+        "Verify adequate staffing levels, staff visibility, and proper identification during night visits."
+      ],
       questions: [
         { label: "Are sufficient staff on duty according to the rota and resident dependency levels?", yesNoField: "sufficient_staff_on_duty" },
         { label: "Are staff present and visible in appropriate areas?", yesNoField: "staff_present_visible" },
@@ -172,7 +165,9 @@ export default function NightVisitAuditPage() {
     },
     {
       title: "2. Resident Safety and Wellbeing",
-      guidance: "Assess resident safety measures, monitoring procedures, and support for residents during night hours.",
+      guidance: [
+        "Assess resident safety measures, monitoring procedures, and support for residents during night hours."
+      ],
       questions: [
         { label: "Are all residents accounted for?", yesNoField: "residents_accounted_for" },
         { label: "Are call bells accessible and working?", yesNoField: "call_bells_accessible" },
@@ -183,7 +178,9 @@ export default function NightVisitAuditPage() {
     },
     {
       title: "3. Environment and Security",
-      guidance: "Check security measures, fire safety, and environmental conditions during night visits.",
+      guidance: [
+        "Check security measures, fire safety, and environmental conditions during night visits."
+      ],
       questions: [
         { label: "Are external doors locked and secure?", yesNoField: "external_doors_locked" },
         { label: "Are fire exits clear and accessible?", yesNoField: "fire_exits_clear" },
@@ -194,7 +191,9 @@ export default function NightVisitAuditPage() {
     },
     {
       title: "4. Medication and Clinical Care",
-      guidance: "Verify medication storage, administration records, and clinical care procedures during night shifts.",
+      guidance: [
+        "Verify medication storage, administration records, and clinical care procedures during night shifts."
+      ],
       questions: [
         { label: "Are night medications stored securely?", yesNoField: "night_meds_stored_secure" },
         { label: "Are MAR charts up to date for administered medications?", yesNoField: "mar_chart_up_to_date" },
@@ -204,7 +203,9 @@ export default function NightVisitAuditPage() {
     },
     {
       title: "5. Infection Control and Hygiene",
-      guidance: "Assess hygiene practices, PPE usage, and infection control measures during night visits.",
+      guidance: [
+        "Assess hygiene practices, PPE usage, and infection control measures during night visits."
+      ],
       questions: [
         { label: "Is hand hygiene and PPE being followed?", yesNoField: "hand_hygiene_ppe_followed" },
         { label: "Is PPE available for staff?", yesNoField: "ppe_available" },
@@ -214,7 +215,9 @@ export default function NightVisitAuditPage() {
     },
     {
       title: "6. Food, Fluids and Kitchen",
-      guidance: "Check availability of refreshments and kitchen cleanliness during night hours.",
+      guidance: [
+        "Check availability of refreshments and kitchen cleanliness during night hours."
+      ],
       questions: [
         { label: "Are drinks/snacks available for residents?", yesNoField: "drinks_snacks_available" },
         { label: "Is the kitchen clean and tidy?", yesNoField: "kitchen_clean_tidy" },
@@ -223,7 +226,9 @@ export default function NightVisitAuditPage() {
     },
     {
       title: "7. Record Keeping and Handover",
-      guidance: "Verify documentation completeness and handover procedures during night shifts.",
+      guidance: [
+        "Verify documentation completeness and handover procedures during night shifts."
+      ],
       questions: [
         { label: "Are care notes up to date?", yesNoField: "care_notes_up_to_date" },
         { label: "Are monitoring documents (observations) completed?", yesNoField: "monitoring_docs_completed" },
@@ -233,7 +238,9 @@ export default function NightVisitAuditPage() {
     },
     {
       title: "8. Staff Conduct and Morale",
-      guidance: "Assess staff professionalism, break management, and support during night shifts.",
+      guidance: [
+        "Assess staff professionalism, break management, and support during night shifts."
+      ],
       questions: [
         { label: "Are staff alert and professional?", yesNoField: "staff_alert_professional" },
         { label: "Are staff taking breaks as required?", yesNoField: "staff_breaks_taken" },
@@ -243,7 +250,9 @@ export default function NightVisitAuditPage() {
     },
     {
       title: "9. Maintenance and Equipment",
-      guidance: "Check equipment condition and maintenance status during night visits.",
+      guidance: [
+        "Check equipment condition and maintenance status during night visits."
+      ],
       questions: [
         { label: "Is equipment stored safely and in good working order?", yesNoField: "equipment_stored_good_working" },
         { label: "Are nurse-call systems functioning?", yesNoField: "nurse_call_systems_functioning" },
@@ -252,7 +261,9 @@ export default function NightVisitAuditPage() {
     },
     {
       title: "10. General Observations",
-      guidance: "Record general observations about resident comfort and overall night visit conditions.",
+      guidance: [
+        "Record general observations about resident comfort and overall night visit conditions."
+      ],
       questions: [
         { label: "Are residents out of bed and in discomfort?", yesNoField: "residents_out_of_bed_discomfort" },
         { label: "Are lights/TVs/noise disruptive to residents?", yesNoField: "lights_tvs_noise_disruptive" },
@@ -261,6 +272,13 @@ export default function NightVisitAuditPage() {
       ]
     }
   ];
+
+  // Collapsible sections state
+  const [openSections, setOpenSections] = useState<boolean[]>(() => Array(sections.length).fill(true));
+
+  const toggleSection = (index: number) => {
+    setOpenSections(prev => prev.map((open, i) => i === index ? !open : open));
+  };
 
   // Helper functions
   const hasError = (fieldName: string) => errors.includes(fieldName);
@@ -368,6 +386,14 @@ export default function NightVisitAuditPage() {
     atmosphere_calm_safe: '',
     atmosphere_calm_safe_comment: '',
   });
+
+  useEffect(() => {
+    if (!activeWorkspace?.name) return;
+    setData(prev => {
+      if (prev.home && prev.home.trim().length > 0) return prev;
+      return { ...prev, home: activeWorkspace.name };
+    });
+  }, [activeWorkspace?.name]);
 
   const handleChange = (field: keyof NightVisitData, value: string) => {
     setData(prev => ({ ...prev, [field]: value }));
@@ -523,109 +549,86 @@ export default function NightVisitAuditPage() {
     onYesNoChange: (value: string) => void;
     onCommentChange: (value: string) => void;
   }) => (
-    <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-      <div className="space-y-3">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <div className="flex gap-4" data-field={yesNoField}>
-            <label className="flex items-center cursor-pointer">
-              <input
-                type="radio"
-                name={yesNoField}
-                value="Yes"
-                checked={yesNoValue === 'Yes'}
-                onChange={(e) => onYesNoChange(e.target.value)}
-                className="mr-2 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="text-sm text-gray-700">Yes</span>
-            </label>
-            <label className="flex items-center cursor-pointer">
-              <input
-                type="radio"
-                name={yesNoField}
-                value="No"
-                checked={yesNoValue === 'No'}
-                onChange={(e) => onYesNoChange(e.target.value)}
-                className="mr-2 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="text-sm text-gray-700">No</span>
-            </label>
-            <label className="flex items-center cursor-pointer">
-              <input
-                type="radio"
-                name={yesNoField}
-                value="N/A"
-                checked={yesNoValue === 'N/A'}
-                onChange={(e) => onYesNoChange(e.target.value)}
-                className="mr-2 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="text-sm text-gray-700">N/A</span>
-            </label>
-          </div>
-            </div>
-            <div className="ml-4 relative">
-              { (attachments[yesNoField]?.length ?? 0) > 0 && (
-                <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">
-                  {attachments[yesNoField]?.length}
-                </span>
-              )}
-              <label
-                title="Add attachment"
-                className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100"
-              >
-                <input
-                  type="file"
-                  accept="image/*"
-                  data-field-input={yesNoField}
-                  onChange={(e) => {
-                    handleAddAttachments(yesNoField, e.target.files);
-                    e.currentTarget.value = '';
-                  }}
-                  className="hidden"
-                />
-                <span className="text-xl font-bold">+</span>
-              </label>
-            </div>
-          </div>
-          {errors.includes(yesNoField) && (
-            <p className="text-red-500 text-sm mt-1">This field is required</p>
+    <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm transition-colors hover:border-blue-200">
+      <div className="flex items-start justify-between gap-4">
+        <label className="block text-sm font-semibold text-slate-800 leading-snug">
+          {label}
+        </label>
+        <div className="relative flex-shrink-0">
+          {(attachments[yesNoField]?.length ?? 0) > 0 && (
+            <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">
+              {attachments[yesNoField]?.length}
+            </span>
           )}
+          <label
+            title="Add attachment"
+            className="inline-flex items-center justify-center h-9 w-9 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100"
+          >
+            <input
+              type="file"
+              accept="image/*"
+              data-field-input={yesNoField}
+              onChange={(e) => {
+                handleAddAttachments(yesNoField, e.target.files);
+                e.currentTarget.value = '';
+              }}
+              className="hidden"
+            />
+            <span className="text-xl font-bold">+</span>
+          </label>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Comments</label>
-          <textarea
-            value={commentValue}
-            onChange={(e) => onCommentChange(e.target.value)}
-            className="w-full p-3 border border-slate-200 rounded-lg resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-slate-50"
-            rows={2}
-            placeholder="Add any comments or observations..."
-          />
-        </div>
-        {/* Attachments preview */}
-        <div>
-          <div className="flex flex-wrap gap-2">
-            {(attachments[yesNoField] ?? []).map(att => (
-              <div key={att.id} className="relative w-24 h-24 rounded overflow-hidden border border-gray-200">
-                <button
-                  type="button"
-                  onClick={() => setPreviewImage({ url: att.url, name: att.name })}
-                  className="w-full h-full"
-                  title={att.name}
-                >
-                  <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
-                </button>
-                <button
-                  onClick={() => handleRemoveAttachment(yesNoField, att.id)}
-                  title="Remove"
-                  className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-gray-200 shadow-sm"
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-4 mt-4" data-field={yesNoField}>
+        {['Yes', 'No', 'N/A'].map(option => (
+          <label key={option} className="flex items-center gap-2 cursor-pointer text-sm text-slate-700">
+            <input
+              type="radio"
+              name={yesNoField}
+              value={option}
+              checked={yesNoValue === option}
+              onChange={(e) => onYesNoChange(e.target.value)}
+              className="text-blue-600 focus:ring-blue-500"
+            />
+            <span>{option}</span>
+          </label>
+        ))}
+      </div>
+      {errors.includes(yesNoField) && (
+        <p className="text-red-500 text-xs mt-2">This field is required</p>
+      )}
+      <div className="mt-4 space-y-2">
+        <label className="block text-sm font-medium text-slate-700">Comments</label>
+        <Textarea
+          value={commentValue}
+          onChange={(e) => onCommentChange(e.target.value)}
+          rows={2}
+          placeholder="Add any comments or observations..."
+          className="bg-slate-50 border-slate-200"
+          data-comment-field={commentField}
+        />
+      </div>
+      <div className="mt-4">
+        <div className="flex flex-wrap gap-2">
+          {(attachments[yesNoField] ?? []).map(att => (
+            <div key={att.id} className="relative w-24 h-24 rounded-lg overflow-hidden border border-slate-200 shadow-sm">
+              <button
+                type="button"
+                onClick={() => setPreviewImage({ url: att.url, name: att.name })}
+                className="w-full h-full"
+                title={att.name}
+              >
+                <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRemoveAttachment(yesNoField, att.id)}
+                title="Remove"
+                className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-slate-200 shadow"
+              >
+                ×
+              </button>
+            </div>
+          ))}
         </div>
       </div>
     </div>
@@ -741,8 +744,7 @@ export default function NightVisitAuditPage() {
 
     try {
       setSaving(true);
-      const id = await saveAudit(payload, activeWorkspaceId, activeWorkspace?.organisationId || null);
-      setSavedAuditId(id);
+  await saveAudit(payload, activeWorkspaceId, activeWorkspace?.organisationId || null);
       const completedAt = data.date || new Date().toISOString();
       try {
         await markAuditCompletedWithSnapshot(activeWorkspaceId, 'night-visit', payload, completedAt);
@@ -765,171 +767,185 @@ export default function NightVisitAuditPage() {
 
 
   return (
-    <div className="min-h-screen bg-white">
-  <div className="w-full p-6">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Night Visit Audit</h1>
-          <p className="text-gray-600">Comprehensive assessment of night-time care and safety procedures</p>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Panel - Audit Information */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl shadow-lg p-6 sticky top-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
-                <FileText className="w-5 h-5 mr-2 text-blue-600" />
-                Audit Information
-              </h2>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Home</label>
-                  <Input
-                    type="text"
-                    className={getFieldClassName('home', "w-full")}
-                    name="home"
-                    value={data.home}
-                    onChange={(e: any) => handleChange('home', e.target.value)}
-                    placeholder="Enter home name"
-                    data-field="home"
-                  />
-                  {hasError('home') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
-                  <Input
-                    type="date"
-                    className={getFieldClassName('date', "w-full")}
-                    name="date"
-                    value={data.date}
-                    onChange={(e: any) => handleChange('date', e.target.value)}
-                    data-field="date"
-                  />
-                  {hasError('date') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Person Completing Audit</label>
-                  <Input
-                    type="text"
-                    className={getFieldClassName('personCompletingAudit', "w-full")}
-                    name="personCompletingAudit"
-                    value={data.personCompletingAudit}
-                    onChange={(e: any) => handleChange('personCompletingAudit', e.target.value)}
-                    placeholder="Enter auditor name"
-                    data-field="personCompletingAudit"
-                  />
-                  {hasError('personCompletingAudit') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
-                </div>
-              </div>
+    <div className="w-full p-10 bg-gradient-to-br from-slate-50 to-white rounded-3xl shadow-2xl mt-10 border border-slate-200">
+      <div className="flex flex-col lg:flex-row gap-10">
+        <div className="w-full lg:w-[480px] flex-shrink-0 bg-white rounded-2xl p-10 border border-slate-200 shadow-xl mb-8 lg:mb-0 lg:sticky lg:top-10 self-start h-fit">
+          <h1 className="text-3xl font-extrabold mb-2 text-blue-900 tracking-tight">Night Visit Audit</h1>
+          <p className="mb-4 text-slate-500">Complete this comprehensive night visit audit to review care, safety, and staffing standards. All fields are required.</p>
+          <div className="space-y-4 mt-4">
+            <div>
+              <label className="block font-semibold mb-1 text-slate-700">Home/Care Facility</label>
+              <Input
+                type="text"
+                className={getFieldClassName('home', "w-full")}
+                name="home"
+                value={data.home}
+                onChange={(e: any) => handleChange('home', e.target.value)}
+                placeholder="Enter care home name"
+                data-field="home"
+                required
+              />
+              {hasError('home') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+            </div>
+            <div>
+              <label className="block font-semibold mb-1 text-slate-700">Audit Date</label>
+              <Input
+                type="date"
+                className={getFieldClassName('date', "w-full")}
+                name="date"
+                value={data.date}
+                onChange={(e: any) => handleChange('date', e.target.value)}
+                data-field="date"
+                required
+              />
+              {hasError('date') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+            </div>
+            <div>
+              <label className="block font-semibold mb-1 text-slate-700">Person Completing Audit</label>
+              <StaffSelectInput
+                type="text"
+                className={getFieldClassName('personCompletingAudit', "w-full")}
+                name="personCompletingAudit"
+                value={data.personCompletingAudit}
+                onChange={(e: any) => handleChange('personCompletingAudit', e.target.value)}
+                placeholder="Full name and position"
+                data-field="personCompletingAudit"
+                required
+              />
+              {hasError('personCompletingAudit') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
             </div>
           </div>
+        </div>
 
-          {/* Right Panel - Audit Sections */}
-          <div className="lg:col-span-2">
-            <div className="space-y-6">
-              {sections.map((section, index) => (
-                <div key={index} className="bg-white rounded-xl shadow-lg overflow-hidden">
-                  <button
-                    onClick={() => toggleSection(index)}
-                    className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex items-center justify-between hover:from-blue-700 hover:to-indigo-700 transition-all duration-200"
-                  >
-                    <div className="flex items-center">
-                      <div className="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center mr-3">
-                        <span className="text-sm font-bold">{index + 1}</span>
-                      </div>
-                      <div className="text-left">
-                        <h3 className="text-lg font-semibold">{section.title}</h3>
-                        <p className="text-sm text-blue-100 mt-1">{section.guidance}</p>
-                      </div>
-                    </div>
-                    {openSections[index] ? (
-                      <ChevronUp className="w-5 h-5" />
-                    ) : (
-                      <ChevronDown className="w-5 h-5" />
-                    )}
-                  </button>
-
-                  {openSections[index] && (
-                    <div className="px-6 py-6 bg-gray-50">
-                      <div className="space-y-6">
-                        {section.questions.map((question, qIndex) => {
-                          const yesField = question.yesNoField as keyof NightVisitData;
-                          const commentField = `${question.yesNoField}_comment` as keyof NightVisitData;
-                          return (
-                            <YesNoQuestion
-                              key={qIndex}
-                              label={question.label}
-                              yesNoField={yesField as string}
-                              commentField={commentField as string}
-                              yesNoValue={data[yesField]}
-                              commentValue={(data as any)[commentField]}
-                              onYesNoChange={(value: string) => handleChange(yesField, value)}
-                              onCommentChange={(value: string) => handleChange(commentField, value)}
-                            />
-                          );
-                        })}
-                      </div>
-                    </div>
+        <div className="flex-1 min-w-0 pr-2">
+          <form onSubmit={(e) => { e.preventDefault(); handleComplete(); }} className="flex flex-col gap-8">
+            {sections.map((section, index) => (
+              <div key={section.title} className="bg-white rounded-2xl border border-slate-200 shadow-md transition-shadow hover:shadow-lg">
+                <button
+                  type="button"
+                  className="w-full flex items-center justify-between px-8 py-5 text-left font-semibold text-blue-900 text-lg focus:outline-none hover:bg-slate-50 rounded-t-2xl transition-colors"
+                  onClick={() => toggleSection(index)}
+                >
+                  <div className="flex items-center gap-3">
+                    <FileText className="h-5 w-5 text-gray-600" />
+                    <h3 className="text-lg font-semibold text-gray-900">{section.title}</h3>
+                  </div>
+                  {openSections[index] ? (
+                    <ChevronUp className="h-5 w-5 text-gray-500" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5 text-gray-500" />
                   )}
-                </div>
-              ))}
-
-              {/* Final Comments Section */}
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Final Comments</h3>
-                <textarea
-                  value={finalComments}
-                  onChange={(e) => setFinalComments(e.target.value)}
-                  rows={4}
-                  placeholder="Add any final comments or observations about this night visit audit..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-blue-500 resize-none"
-                />
-              </div>
-
-              {/* Complete Audit Button */}
-              <div className="flex justify-center pt-6">
-                <button
-                  onClick={handleComplete}
-                  className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-8 py-3 rounded-lg font-semibold hover:from-green-700 hover:to-emerald-700 transition-all duration-200 shadow-lg"
-                >
-                  Complete Audit
                 </button>
+                {openSections[index] && (
+                  <div className="px-8 pb-8">
+                    {section.guidance?.length > 0 && (
+                      <ul className="mb-4 ml-4 list-disc text-sm text-slate-500 space-y-1">
+                        {section.guidance.map((item, gIdx) => (
+                          <li key={gIdx}>{item}</li>
+                        ))}
+                      </ul>
+                    )}
+                    <div className="space-y-4">
+                      {section.questions.map((question, qIndex) => {
+                        const yesField = question.yesNoField as keyof NightVisitData;
+                        const commentField = `${question.yesNoField}_comment` as keyof NightVisitData;
+                        return (
+                          <YesNoQuestion
+                            key={qIndex}
+                            label={question.label}
+                            yesNoField={yesField as string}
+                            commentField={commentField as string}
+                            yesNoValue={data[yesField]}
+                            commentValue={(data as any)[commentField]}
+                            onYesNoChange={(value: string) => handleChange(yesField, value)}
+                            onCommentChange={(value: string) => handleChange(commentField, value)}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-md p-8">
+              <h3 className="text-lg font-semibold text-blue-900 mb-4">Final Comments</h3>
+              <Textarea
+                value={finalComments}
+                onChange={(e) => setFinalComments(e.target.value)}
+                rows={4}
+                placeholder="Add any final comments or observations about this night visit audit..."
+                className="w-full bg-slate-50 border-slate-200 focus-visible:ring-blue-500"
+              />
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                disabled={saving}
+              >
+                {saving ? 'Saving...' : 'Complete Audit'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md mx-4 shadow-2xl">
+            <h3 className="text-lg font-semibold mb-4">Audit Complete</h3>
+            <p className="text-gray-600 mb-6">Would you like to create an action plan for this audit?</p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                disabled={saving}
+              >
+                {saving ? 'Saving...' : 'No'}
+              </button>
+              <button
+                onClick={() => handleModalCreate(true)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                disabled={saving}
+              >
+                {saving ? 'Saving...' : 'Yes, Create Action Plan'}
+              </button>
+              <button
+                onClick={() => handleModalCreate(false)}
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                disabled={saving}
+              >
+                {saving ? 'Saving...' : 'Save and Close'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {previewImage && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black bg-opacity-60" onClick={() => setPreviewImage(null)} />
+          <div className="relative z-70 max-w-3xl w-full mx-4">
+            <div className="bg-white rounded-lg overflow-hidden shadow-xl">
+              <div className="flex justify-between items-start p-2 border-b">
+                <div className="px-3 py-1 text-sm text-gray-700 truncate">{previewImage.name}</div>
+                <button
+                  type="button"
+                  onClick={() => setPreviewImage(null)}
+                  className="px-3 py-1 text-sm text-blue-600 hover:text-blue-800"
+                >
+                  Close
+                </button>
+              </div>
+              <div className="p-4 bg-black flex items-center justify-center">
+                <img src={previewImage.url} alt={previewImage.name} className="max-h-[80vh] w-auto object-contain" />
               </div>
             </div>
           </div>
         </div>
-
-        {/* Completion Modal */}
-        {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-xl max-w-md w-full mx-4 shadow-2xl">
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">Audit Completed</h3>
-              <p className="text-gray-600 mb-6">Would you like to create an action plan based on this audit?</p>
-              <div className="flex gap-3 justify-end">
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium"
-                >
-                  No, thanks
-                </button>
-                <button
-                  onClick={() => handleModalCreate(false)}
-                  disabled={saving}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium disabled:opacity-50"
-                >
-                  {saving ? 'Saving...' : 'Save Audit'}
-                </button>
-                <button
-                  onClick={() => handleModalCreate(true)}
-                  disabled={saving}
-                  className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-medium disabled:opacity-50"
-                >
-                  {saving ? 'Saving...' : 'Save & Create Action Plan'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }

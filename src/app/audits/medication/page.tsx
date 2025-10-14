@@ -1,11 +1,14 @@
  'use client';
 import React, { useState, useEffect, useRef } from 'react';
-import CompleteAuditModal from '../../../components/ui/complete-audit-modal';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { saveAudit, markAuditCompletedWithSnapshot, getLatestAuditData } from '@/lib/firestore';
 import { storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { useWorkspace } from '@/context/workspace';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 
 interface MedicationData {
   home: string;
@@ -250,6 +253,18 @@ export default function MedicationAuditPage() {
     if (value.trim() !== '' && errors.includes(field)) setErrors(prev => prev.filter(e => e !== field));
   };
 
+  // Helpers for validation styling
+  const hasError = (fieldName: string) => errors.includes(fieldName);
+  const getFieldClassName = (fieldName: string, baseClassName: string) => {
+    return hasError(fieldName)
+      ? `${baseClassName} border-red-500 bg-red-50 focus:ring-red-500 focus:border-red-500`
+      : baseClassName;
+  };
+
+  // Collapsible sections state (match Accident/Incident style)
+  const [openSections, setOpenSections] = useState<boolean[]>(() => Array(10).fill(true));
+  const toggleSection = (idx: number) => setOpenSections(prev => prev.map((v, i) => (i === idx ? !v : v)));
+
   // Attachment handlers
   const handleAddAttachments = (fieldName: string, files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -383,15 +398,15 @@ export default function MedicationAuditPage() {
               No
             </label>
           </div>
-          {errors.includes(yesNoField) && <p className="text-red-500 text-sm mt-2">This field is required</p>}
+          {hasError(yesNoField) && <p className="text-red-500 text-xs mt-2">This field is required</p>}
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Comments</label>
-          <textarea
+          <Textarea
             value={commentValue || ''}
             onChange={(e) => onCommentChange && onCommentChange(e.target.value)}
-            className="w-full p-3 border border-slate-200 rounded-lg resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-slate-50"
+            className={commentField ? getFieldClassName(commentField, "w-full bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-200") : "w-full bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-200"}
             rows={2}
             placeholder="Add any comments or observations..."
           />
@@ -767,6 +782,50 @@ export default function MedicationAuditPage() {
           <h1 className="text-3xl font-extrabold mb-2 text-blue-900 tracking-tight">Medication Audit</h1>
           <p className="mb-4 text-slate-500">Complete this comprehensive audit to check medication management and safety. All fields are required.</p>
           <div className="space-y-4 mt-4">
+            <div>
+              <div className="space-y-3">
+                <div>
+                  <label className="block font-semibold mb-1 text-slate-700">Home/Care Facility</label>
+                  <Input
+                    type="text"
+                    name="home"
+                    data-field="home"
+                    className={getFieldClassName('home', "w-full")}
+                    value={data.home}
+                    onChange={(e) => handleChange('home', e.target.value)}
+                    placeholder="Enter care home name"
+                  />
+                  {hasError('home') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+                </div>
+                <div>
+                  <label className="block font-semibold mb-1 text-slate-700">Name</label>
+                  <Input
+                    type="text"
+                    name="name"
+                    data-field="name"
+                    className={getFieldClassName('name', "w-full")}
+                    value={data.name}
+                    onChange={(e) => handleChange('name', e.target.value)}
+                    placeholder="Enter home name"
+                  />
+                  {hasError('name') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+                </div>
+                <div>
+                  <label className="block font-semibold mb-1 text-slate-700">Person Completing Audit</label>
+                  <Input
+                    type="text"
+                    name="personCompletingAudit"
+                    data-field="personCompletingAudit"
+                    className={getFieldClassName('personCompletingAudit', "w-full")}
+                    value={data.personCompletingAudit}
+                    onChange={(e) => handleChange('personCompletingAudit', e.target.value)}
+                    placeholder="Full name and position"
+                  />
+                  {hasError('personCompletingAudit') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+                </div>
+              </div>
+            </div>
+
             <div className="text-sm text-slate-600">
               <strong>Sections:</strong>
               <ul className="list-disc list-inside mt-2 space-y-1">
@@ -778,7 +837,7 @@ export default function MedicationAuditPage() {
               </ul>
             </div>
             <div className="flex gap-2">
-              <button onClick={addNewReport} className="px-3 py-2 bg-blue-600 text-white rounded-lg">New Report</button>
+              <Button onClick={addNewReport} className="px-3 py-2">New Report</Button>
               <div className="px-3 py-2 bg-slate-100 rounded-lg">Report {currentReport} / {totalReports}</div>
             </div>
           </div>
@@ -787,131 +846,198 @@ export default function MedicationAuditPage() {
         {/* Main form right column, scrollable */}
         <div className="flex-1 min-w-0 pr-2">
           <form onSubmit={(e) => { e.preventDefault(); handleComplete(); }} className="flex flex-col gap-8">
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <h2 className="text-lg font-semibold text-blue-900 mb-4">Audit Information</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Home</label>
-                  <input value={data.home} data-field="home" onChange={(e) => handleChange('home', e.target.value)} className={`w-full p-2 border rounded ${errors.includes('home') ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="Enter home name" />
-                  {errors.includes('home') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
-                  <input value={data.name} data-field="name" onChange={(e) => handleChange('name', e.target.value)} className={`w-full p-2 border rounded ${errors.includes('name') ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="Enter home name" />
-                  {errors.includes('name') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Person completing the audit</label>
-                  <input value={data.personCompletingAudit} data-field="personCompletingAudit" onChange={(e) => handleChange('personCompletingAudit', e.target.value)} className={`w-full p-2 border rounded ${errors.includes('personCompletingAudit') ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="Enter auditor name" />
-                  {errors.includes('personCompletingAudit') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
-                </div>
-              </div>
-            </div>
+            {/* Audit information moved to the left sticky panel to keep a consistent layout across audits */}
 
             <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-semibold text-green-900 mb-3">1. Policies and Procedures</h3>
-                <div className="space-y-4">
-                  <YesNoQuestion label="Is there a current, up-to-date medication policy in place?" yesNoField="medication_policy_current" commentField="medication_policy_current_comment" yesNoValue={data.medication_policy_current} commentValue={data.medication_policy_current_comment} onYesNoChange={(val: string) => handleChange('medication_policy_current', val)} onCommentChange={(val: string) => handleChange('medication_policy_current_comment', val)} />
-                  <YesNoQuestion label="Do all staff administering medication have appropriate training and competency assessments?" yesNoField="staff_training_competency" commentField="staff_training_competency_comment" yesNoValue={data.staff_training_competency} commentValue={data.staff_training_competency_comment} onYesNoChange={(val: string) => handleChange('staff_training_competency', val)} onCommentChange={(val: string) => handleChange('staff_training_competency_comment', val)} />
-                  <YesNoQuestion label="Are policies followed regarding the handling of controlled drugs?" yesNoField="controlled_drugs_policy" commentField="controlled_drugs_policy_comment" yesNoValue={data.controlled_drugs_policy} commentValue={data.controlled_drugs_policy_comment} onYesNoChange={(val: string) => handleChange('controlled_drugs_policy', val)} onCommentChange={(val: string) => handleChange('controlled_drugs_policy_comment', val)} />
-                  <YesNoQuestion label="Is there a procedure in place for reporting medication errors or near misses?" yesNoField="reporting_errors_procedure" commentField="reporting_errors_procedure_comment" yesNoValue={data.reporting_errors_procedure} commentValue={data.reporting_errors_procedure_comment} onYesNoChange={(val: string) => handleChange('reporting_errors_procedure', val)} onCommentChange={(val: string) => handleChange('reporting_errors_procedure_comment', val)} />
-                  <YesNoQuestion label="Is the home's policy compliant with NICE guidelines?" yesNoField="policy_nice_compliant" commentField="policy_nice_compliant_comment" yesNoValue={data.policy_nice_compliant} commentValue={data.policy_nice_compliant_comment} onYesNoChange={(val: string) => handleChange('policy_nice_compliant', val)} onCommentChange={(val: string) => handleChange('policy_nice_compliant_comment', val)} />
-                </div>
+              {/* Section 0: Policies and Procedures */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-md transition-shadow hover:shadow-lg">
+                <button
+                  type="button"
+                  className="w-full flex items-center justify-between px-8 py-5 text-left font-semibold text-blue-900 text-lg focus:outline-none hover:bg-slate-50 rounded-t-2xl transition-colors"
+                  onClick={() => toggleSection(0)}
+                >
+                  <span>1. Policies and Procedures</span>
+                  {openSections[0] ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                </button>
+                {openSections[0] && (
+                  <div className="px-8 pb-8">
+                    <div className="space-y-4">
+                      <YesNoQuestion label="Is there a current, up-to-date medication policy in place?" yesNoField="medication_policy_current" commentField="medication_policy_current_comment" yesNoValue={data.medication_policy_current} commentValue={data.medication_policy_current_comment} onYesNoChange={(val: string) => handleChange('medication_policy_current', val)} onCommentChange={(val: string) => handleChange('medication_policy_current_comment', val)} />
+                      <YesNoQuestion label="Do all staff administering medication have appropriate training and competency assessments?" yesNoField="staff_training_competency" commentField="staff_training_competency_comment" yesNoValue={data.staff_training_competency} commentValue={data.staff_training_competency_comment} onYesNoChange={(val: string) => handleChange('staff_training_competency', val)} onCommentChange={(val: string) => handleChange('staff_training_competency_comment', val)} />
+                      <YesNoQuestion label="Are policies followed regarding the handling of controlled drugs?" yesNoField="controlled_drugs_policy" commentField="controlled_drugs_policy_comment" yesNoValue={data.controlled_drugs_policy} commentValue={data.controlled_drugs_policy_comment} onYesNoChange={(val: string) => handleChange('controlled_drugs_policy', val)} onCommentChange={(val: string) => handleChange('controlled_drugs_policy_comment', val)} />
+                      <YesNoQuestion label="Is there a procedure in place for reporting medication errors or near misses?" yesNoField="reporting_errors_procedure" commentField="reporting_errors_procedure_comment" yesNoValue={data.reporting_errors_procedure} commentValue={data.reporting_errors_procedure_comment} onYesNoChange={(val: string) => handleChange('reporting_errors_procedure', val)} onCommentChange={(val: string) => handleChange('reporting_errors_procedure_comment', val)} />
+                      <YesNoQuestion label="Is the home's policy compliant with NICE guidelines?" yesNoField="policy_nice_compliant" commentField="policy_nice_compliant_comment" yesNoValue={data.policy_nice_compliant} commentValue={data.policy_nice_compliant_comment} onYesNoChange={(val: string) => handleChange('policy_nice_compliant', val)} onCommentChange={(val: string) => handleChange('policy_nice_compliant_comment', val)} />
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div>
-                <h3 className="text-lg font-semibold text-yellow-900 mb-3">2. Storage of Medication</h3>
-                <div className="space-y-4">
-                  <YesNoQuestion label="Are medications stored securely in a locked cabinet or trolley?" yesNoField="meds_stored_secure" commentField="meds_stored_secure_comment" yesNoValue={data.meds_stored_secure} commentValue={data.meds_stored_secure_comment} onYesNoChange={(val: string) => handleChange('meds_stored_secure', val)} onCommentChange={(val: string) => handleChange('meds_stored_secure_comment', val)} />
-                  <YesNoQuestion label="Are controlled drugs stored in a separate locked cabinet (as per legal requirements)?" yesNoField="cds_separate_locked" commentField="cds_separate_locked_comment" yesNoValue={data.cds_separate_locked} commentValue={data.cds_separate_locked_comment} onYesNoChange={(val: string) => handleChange('cds_separate_locked', val)} onCommentChange={(val: string) => handleChange('cds_separate_locked_comment', val)} />
-                  <YesNoQuestion label="Is access to medication limited to authorised, trained staff only?" yesNoField="access_limited_authorised" commentField="access_limited_authorised_comment" yesNoValue={data.access_limited_authorised} commentValue={data.access_limited_authorised_comment} onYesNoChange={(val: string) => handleChange('access_limited_authorised', val)} onCommentChange={(val: string) => handleChange('access_limited_authorised_comment', val)} />
-                  <YesNoQuestion label="Is the medication fridge lockable, clean, and within correct temperature range (2–8°C)?" yesNoField="med_fridge_lockable" commentField="med_fridge_lockable_comment" yesNoValue={data.med_fridge_lockable} commentValue={data.med_fridge_lockable_comment} onYesNoChange={(val: string) => handleChange('med_fridge_lockable', val)} onCommentChange={(val: string) => handleChange('med_fridge_lockable_comment', val)} />
-                  <YesNoQuestion label="Are fridge temperatures recorded daily and actions taken if outside range?" yesNoField="fridge_temps_recorded" commentField="fridge_temps_recorded_comment" yesNoValue={data.fridge_temps_recorded} commentValue={data.fridge_temps_recorded_comment} onYesNoChange={(val: string) => handleChange('fridge_temps_recorded', val)} onCommentChange={(val: string) => handleChange('fridge_temps_recorded_comment', val)} />
-                </div>
+              {/* Section 1: Storage of Medication */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-md transition-shadow hover:shadow-lg">
+                <button type="button" className="w-full flex items-center justify-between px-8 py-5 text-left font-semibold text-blue-900 text-lg focus:outline-none hover:bg-slate-50 rounded-t-2xl transition-colors" onClick={() => toggleSection(1)}>
+                  <span>2. Storage of Medication</span>
+                  {openSections[1] ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                </button>
+                {openSections[1] && (
+                  <div className="px-8 pb-8">
+                    <div className="space-y-4">
+                      <YesNoQuestion label="Are medications stored securely in a locked cabinet or trolley?" yesNoField="meds_stored_secure" commentField="meds_stored_secure_comment" yesNoValue={data.meds_stored_secure} commentValue={data.meds_stored_secure_comment} onYesNoChange={(val: string) => handleChange('meds_stored_secure', val)} onCommentChange={(val: string) => handleChange('meds_stored_secure_comment', val)} />
+                      <YesNoQuestion label="Are controlled drugs stored in a separate locked cabinet (as per legal requirements)?" yesNoField="cds_separate_locked" commentField="cds_separate_locked_comment" yesNoValue={data.cds_separate_locked} commentValue={data.cds_separate_locked_comment} onYesNoChange={(val: string) => handleChange('cds_separate_locked', val)} onCommentChange={(val: string) => handleChange('cds_separate_locked_comment', val)} />
+                      <YesNoQuestion label="Is access to medication limited to authorised, trained staff only?" yesNoField="access_limited_authorised" commentField="access_limited_authorised_comment" yesNoValue={data.access_limited_authorised} commentValue={data.access_limited_authorised_comment} onYesNoChange={(val: string) => handleChange('access_limited_authorised', val)} onCommentChange={(val: string) => handleChange('access_limited_authorised_comment', val)} />
+                      <YesNoQuestion label="Is the medication fridge lockable, clean, and within correct temperature range (2–8°C)?" yesNoField="med_fridge_lockable" commentField="med_fridge_lockable_comment" yesNoValue={data.med_fridge_lockable} commentValue={data.med_fridge_lockable_comment} onYesNoChange={(val: string) => handleChange('med_fridge_lockable', val)} onCommentChange={(val: string) => handleChange('med_fridge_lockable_comment', val)} />
+                      <YesNoQuestion label="Are fridge temperatures recorded daily and actions taken if outside range?" yesNoField="fridge_temps_recorded" commentField="fridge_temps_recorded_comment" yesNoValue={data.fridge_temps_recorded} commentValue={data.fridge_temps_recorded_comment} onYesNoChange={(val: string) => handleChange('fridge_temps_recorded', val)} onCommentChange={(val: string) => handleChange('fridge_temps_recorded_comment', val)} />
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div>
-                <h3 className="text-lg font-semibold text-pink-900 mb-3">3. Medication Administration</h3>
-                <div className="space-y-4">
-                  <YesNoQuestion label="Are Medication Administration Records (MAR charts) completed accurately and legibly?" yesNoField="mar_charts_legible" commentField="mar_charts_legible_comment" yesNoValue={data.mar_charts_legible} commentValue={data.mar_charts_legible_comment} onYesNoChange={(val: string) => handleChange('mar_charts_legible', val)} onCommentChange={(val: string) => handleChange('mar_charts_legible_comment', val)} />
-                  <YesNoQuestion label="Are staff observed following the 5 rights: right resident, right medication, right dose,right time, right route?" yesNoField="five_rights_followed" commentField="five_rights_followed_comment" yesNoValue={data.five_rights_followed} commentValue={data.five_rights_followed_comment} onYesNoChange={(val: string) => handleChange('five_rights_followed', val)} onCommentChange={(val: string) => handleChange('five_rights_followed_comment', val)} />
-                  <YesNoQuestion label="Are medications administered at the correct times and not missed without reason?" yesNoField="meds_given_correct_time" commentField="meds_given_correct_time_comment" yesNoValue={data.meds_given_correct_time} commentValue={data.meds_given_correct_time_comment} onYesNoChange={(val: string) => handleChange('meds_given_correct_time', val)} onCommentChange={(val: string) => handleChange('meds_given_correct_time_comment', val)} />
-                  <YesNoQuestion label="Are staff signatures and initials correctly recorded on MAR charts?" yesNoField="signatures_recorded" commentField="signatures_recorded_comment" yesNoValue={data.signatures_recorded} commentValue={data.signatures_recorded_comment} onYesNoChange={(val: string) => handleChange('signatures_recorded', val)} onCommentChange={(val: string) => handleChange('signatures_recorded_comment', val)} />
-                  <YesNoQuestion label="Are residents supported to take their medication in a dignified and appropriate manner?" yesNoField="residents_supported_dignified" commentField="residents_supported_dignified_comment" yesNoValue={data.residents_supported_dignified} commentValue={data.residents_supported_dignified_comment} onYesNoChange={(val: string) => handleChange('residents_supported_dignified', val)} onCommentChange={(val: string) => handleChange('residents_supported_dignified_comment', val)} />
-                </div>
+              {/* Section 2: Medication Administration */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-md transition-shadow hover:shadow-lg">
+                <button type="button" className="w-full flex items-center justify-between px-8 py-5 text-left font-semibold text-blue-900 text-lg focus:outline-none hover:bg-slate-50 rounded-t-2xl transition-colors" onClick={() => toggleSection(2)}>
+                  <span>3. Medication Administration</span>
+                  {openSections[2] ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                </button>
+                {openSections[2] && (
+                  <div className="px-8 pb-8">
+                    <div className="space-y-4">
+                      <YesNoQuestion label="Are Medication Administration Records (MAR charts) completed accurately and legibly?" yesNoField="mar_charts_legible" commentField="mar_charts_legible_comment" yesNoValue={data.mar_charts_legible} commentValue={data.mar_charts_legible_comment} onYesNoChange={(val: string) => handleChange('mar_charts_legible', val)} onCommentChange={(val: string) => handleChange('mar_charts_legible_comment', val)} />
+                      <YesNoQuestion label="Are staff observed following the 5 rights: right resident, right medication, right dose,right time, right route?" yesNoField="five_rights_followed" commentField="five_rights_followed_comment" yesNoValue={data.five_rights_followed} commentValue={data.five_rights_followed_comment} onYesNoChange={(val: string) => handleChange('five_rights_followed', val)} onCommentChange={(val: string) => handleChange('five_rights_followed_comment', val)} />
+                      <YesNoQuestion label="Are medications administered at the correct times and not missed without reason?" yesNoField="meds_given_correct_time" commentField="meds_given_correct_time_comment" yesNoValue={data.meds_given_correct_time} commentValue={data.meds_given_correct_time_comment} onYesNoChange={(val: string) => handleChange('meds_given_correct_time', val)} onCommentChange={(val: string) => handleChange('meds_given_correct_time_comment', val)} />
+                      <YesNoQuestion label="Are staff signatures and initials correctly recorded on MAR charts?" yesNoField="signatures_recorded" commentField="signatures_recorded_comment" yesNoValue={data.signatures_recorded} commentValue={data.signatures_recorded_comment} onYesNoChange={(val: string) => handleChange('signatures_recorded', val)} onCommentChange={(val: string) => handleChange('signatures_recorded_comment', val)} />
+                      <YesNoQuestion label="Are residents supported to take their medication in a dignified and appropriate manner?" yesNoField="residents_supported_dignified" commentField="residents_supported_dignified_comment" yesNoValue={data.residents_supported_dignified} commentValue={data.residents_supported_dignified_comment} onYesNoChange={(val: string) => handleChange('residents_supported_dignified', val)} onCommentChange={(val: string) => handleChange('residents_supported_dignified_comment', val)} />
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div>
-                <h3 className="text-lg font-semibold text-amber-900 mb-3">4. PRN (As Required) Medication</h3>
-                <div className="space-y-4">
-                  <YesNoQuestion label="Is there a clear protocol  for each PRN medication?" yesNoField="prn_protocols_clear" commentField="prn_protocols_clear_comment" yesNoValue={data.prn_protocols_clear} commentValue={data.prn_protocols_clear_comment} onYesNoChange={(val: string) => handleChange('prn_protocols_clear', val)} onCommentChange={(val: string) => handleChange('prn_protocols_clear_comment', val)} />
-                  <YesNoQuestion label="Are PRN medications only given when clinically indicated and documented?" yesNoField="prn_given_documented" commentField="prn_given_documented_comment" yesNoValue={data.prn_given_documented} commentValue={data.prn_given_documented_comment} onYesNoChange={(val: string) => handleChange('prn_given_documented', val)} onCommentChange={(val: string) => handleChange('prn_given_documented_comment', val)} />
-                  <YesNoQuestion label="Is the effect of PRN medication evaluated and recorded?" yesNoField="prn_effect_evaluated" commentField="prn_effect_evaluated_comment" yesNoValue={data.prn_effect_evaluated} commentValue={data.prn_effect_evaluated_comment} onYesNoChange={(val: string) => handleChange('prn_effect_evaluated', val)} onCommentChange={(val: string) => handleChange('prn_effect_evaluated_comment', val)} />
-                  <YesNoQuestion label="Are staff aware of when and how to administer PRNs?" yesNoField="staff_aware_prn" commentField="staff_aware_prn_comment" yesNoValue={data.staff_aware_prn} commentValue={data.staff_aware_prn_comment} onYesNoChange={(val: string) => handleChange('staff_aware_prn', val)} onCommentChange={(val: string) => handleChange('staff_aware_prn_comment', val)} />
-                </div>
+              {/* Section 3: PRN (As Required) Medication */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-md transition-shadow hover:shadow-lg">
+                <button type="button" className="w-full flex items-center justify-between px-8 py-5 text-left font-semibold text-blue-900 text-lg focus:outline-none hover:bg-slate-50 rounded-t-2xl transition-colors" onClick={() => toggleSection(3)}>
+                  <span>4. PRN (As Required) Medication</span>
+                  {openSections[3] ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                </button>
+                {openSections[3] && (
+                  <div className="px-8 pb-8">
+                    <div className="space-y-4">
+                      <YesNoQuestion label="Is there a clear protocol  for each PRN medication?" yesNoField="prn_protocols_clear" commentField="prn_protocols_clear_comment" yesNoValue={data.prn_protocols_clear} commentValue={data.prn_protocols_clear_comment} onYesNoChange={(val: string) => handleChange('prn_protocols_clear', val)} onCommentChange={(val: string) => handleChange('prn_protocols_clear_comment', val)} />
+                      <YesNoQuestion label="Are PRN medications only given when clinically indicated and documented?" yesNoField="prn_given_documented" commentField="prn_given_documented_comment" yesNoValue={data.prn_given_documented} commentValue={data.prn_given_documented_comment} onYesNoChange={(val: string) => handleChange('prn_given_documented', val)} onCommentChange={(val: string) => handleChange('prn_given_documented_comment', val)} />
+                      <YesNoQuestion label="Is the effect of PRN medication evaluated and recorded?" yesNoField="prn_effect_evaluated" commentField="prn_effect_evaluated_comment" yesNoValue={data.prn_effect_evaluated} commentValue={data.prn_effect_evaluated_comment} onYesNoChange={(val: string) => handleChange('prn_effect_evaluated', val)} onCommentChange={(val: string) => handleChange('prn_effect_evaluated_comment', val)} />
+                      <YesNoQuestion label="Are staff aware of when and how to administer PRNs?" yesNoField="staff_aware_prn" commentField="staff_aware_prn_comment" yesNoValue={data.staff_aware_prn} commentValue={data.staff_aware_prn_comment} onYesNoChange={(val: string) => handleChange('staff_aware_prn', val)} onCommentChange={(val: string) => handleChange('staff_aware_prn_comment', val)} />
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div>
-                <h3 className="text-lg font-semibold text-green-900 mb-3">5. Controlled Drugs</h3>
-                <div className="space-y-4">
-                  <YesNoQuestion label="Are controlled drugs recorded in a bound register with all required entries?" yesNoField="cds_bound_register" commentField="cds_bound_register_comment" yesNoValue={data.cds_bound_register} commentValue={data.cds_bound_register_comment} onYesNoChange={(val: string) => handleChange('cds_bound_register', val)} onCommentChange={(val: string) => handleChange('cds_bound_register_comment', val)} />
-                  <YesNoQuestion label="Is stock balance of controlled drugs checked and accurate?" yesNoField="cds_stock_balance_checked" commentField="cds_stock_balance_checked_comment" yesNoValue={data.cds_stock_balance_checked} commentValue={data.cds_stock_balance_checked_comment} onYesNoChange={(val: string) => handleChange('cds_stock_balance_checked', val)} onCommentChange={(val: string) => handleChange('cds_stock_balance_checked_comment', val)} />
-                  <YesNoQuestion label="Are two trained staff present when administering controlled drugs?" yesNoField="cds_two_staff_present" commentField="cds_two_staff_present_comment" yesNoValue={data.cds_two_staff_present} commentValue={data.cds_two_staff_present_comment} onYesNoChange={(val: string) => handleChange('cds_two_staff_present', val)} onCommentChange={(val: string) => handleChange('cds_two_staff_present_comment', val)} />
-                  <YesNoQuestion label="Are expired or discontinued controlled drugs recorded and stored appropriately for disposal?" yesNoField="cds_expired_recorded" commentField="cds_expired_recorded_comment" yesNoValue={data.cds_expired_recorded} commentValue={data.cds_expired_recorded_comment} onYesNoChange={(val: string) => handleChange('cds_expired_recorded', val)} onCommentChange={(val: string) => handleChange('cds_expired_recorded_comment', val)} />
-                </div>
+              {/* Section 4: Controlled Drugs */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-md transition-shadow hover:shadow-lg">
+                <button type="button" className="w-full flex items-center justify-between px-8 py-5 text-left font-semibold text-blue-900 text-lg focus:outline-none hover:bg-slate-50 rounded-t-2xl transition-colors" onClick={() => toggleSection(4)}>
+                  <span>5. Controlled Drugs</span>
+                  {openSections[4] ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                </button>
+                {openSections[4] && (
+                  <div className="px-8 pb-8">
+                    <div className="space-y-4">
+                      <YesNoQuestion label="Are controlled drugs recorded in a bound register with all required entries?" yesNoField="cds_bound_register" commentField="cds_bound_register_comment" yesNoValue={data.cds_bound_register} commentValue={data.cds_bound_register_comment} onYesNoChange={(val: string) => handleChange('cds_bound_register', val)} onCommentChange={(val: string) => handleChange('cds_bound_register_comment', val)} />
+                      <YesNoQuestion label="Is stock balance of controlled drugs checked and accurate?" yesNoField="cds_stock_balance_checked" commentField="cds_stock_balance_checked_comment" yesNoValue={data.cds_stock_balance_checked} commentValue={data.cds_stock_balance_checked_comment} onYesNoChange={(val: string) => handleChange('cds_stock_balance_checked', val)} onCommentChange={(val: string) => handleChange('cds_stock_balance_checked_comment', val)} />
+                      <YesNoQuestion label="Are two trained staff present when administering controlled drugs?" yesNoField="cds_two_staff_present" commentField="cds_two_staff_present_comment" yesNoValue={data.cds_two_staff_present} commentValue={data.cds_two_staff_present_comment} onYesNoChange={(val: string) => handleChange('cds_two_staff_present', val)} onCommentChange={(val: string) => handleChange('cds_two_staff_present_comment', val)} />
+                      <YesNoQuestion label="Are expired or discontinued controlled drugs recorded and stored appropriately for disposal?" yesNoField="cds_expired_recorded" commentField="cds_expired_recorded_comment" yesNoValue={data.cds_expired_recorded} commentValue={data.cds_expired_recorded_comment} onYesNoChange={(val: string) => handleChange('cds_expired_recorded', val)} onCommentChange={(val: string) => handleChange('cds_expired_recorded_comment', val)} />
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div>
-                <h3 className="text-lg font-semibold text-pink-900 mb-3">6. Ordering and Supply</h3>
-                <div className="space-y-4">
-                  <YesNoQuestion label="Is there a clear process for ordering medication in a timely manner?" yesNoField="ordering_process_clear" commentField="ordering_process_clear_comment" yesNoValue={data.ordering_process_clear} commentValue={data.ordering_process_clear_comment} onYesNoChange={(val: string) => handleChange('ordering_process_clear', val)} onCommentChange={(val: string) => handleChange('ordering_process_clear_comment', val)} />
-                  <YesNoQuestion label="Are medication deliveries checked and recorded by staff?" yesNoField="deliveries_checked_recorded" commentField="deliveries_checked_recorded_comment" yesNoValue={data.deliveries_checked_recorded} commentValue={data.deliveries_checked_recorded_comment} onYesNoChange={(val: string) => handleChange('deliveries_checked_recorded', val)} onCommentChange={(val: string) => handleChange('deliveries_checked_recorded_comment', val)} />
-                  <YesNoQuestion label="Is there a process for handling discrepancies in orders?" yesNoField="discrepancies_process" commentField="discrepancies_process_comment" yesNoValue={data.discrepancies_process} commentValue={data.discrepancies_process_comment} onYesNoChange={(val: string) => handleChange('discrepancies_process', val)} onCommentChange={(val: string) => handleChange('discrepancies_process_comment', val)} />
-                  <YesNoQuestion label="Are residents' medications available and not out of stock?" yesNoField="meds_available_not_out" commentField="meds_available_not_out_comment" yesNoValue={data.meds_available_not_out} commentValue={data.meds_available_not_out_comment} onYesNoChange={(val: string) => handleChange('meds_available_not_out', val)} onCommentChange={(val: string) => handleChange('meds_available_not_out_comment', val)} />
-                </div>
+              {/* Section 5: Ordering and Supply */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-md transition-shadow hover:shadow-lg">
+                <button type="button" className="w-full flex items-center justify-between px-8 py-5 text-left font-semibold text-blue-900 text-lg focus:outline-none hover:bg-slate-50 rounded-t-2xl transition-colors" onClick={() => toggleSection(5)}>
+                  <span>6. Ordering and Supply</span>
+                  {openSections[5] ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                </button>
+                {openSections[5] && (
+                  <div className="px-8 pb-8">
+                    <div className="space-y-4">
+                      <YesNoQuestion label="Is there a clear process for ordering medication in a timely manner?" yesNoField="ordering_process_clear" commentField="ordering_process_clear_comment" yesNoValue={data.ordering_process_clear} commentValue={data.ordering_process_clear_comment} onYesNoChange={(val: string) => handleChange('ordering_process_clear', val)} onCommentChange={(val: string) => handleChange('ordering_process_clear_comment', val)} />
+                      <YesNoQuestion label="Are medication deliveries checked and recorded by staff?" yesNoField="deliveries_checked_recorded" commentField="deliveries_checked_recorded_comment" yesNoValue={data.deliveries_checked_recorded} commentValue={data.deliveries_checked_recorded_comment} onYesNoChange={(val: string) => handleChange('deliveries_checked_recorded', val)} onCommentChange={(val: string) => handleChange('deliveries_checked_recorded_comment', val)} />
+                      <YesNoQuestion label="Is there a process for handling discrepancies in orders?" yesNoField="discrepancies_process" commentField="discrepancies_process_comment" yesNoValue={data.discrepancies_process} commentValue={data.discrepancies_process_comment} onYesNoChange={(val: string) => handleChange('discrepancies_process', val)} onCommentChange={(val: string) => handleChange('discrepancies_process_comment', val)} />
+                      <YesNoQuestion label="Are residents' medications available and not out of stock?" yesNoField="meds_available_not_out" commentField="meds_available_not_out_comment" yesNoValue={data.meds_available_not_out} commentValue={data.meds_available_not_out_comment} onYesNoChange={(val: string) => handleChange('meds_available_not_out', val)} onCommentChange={(val: string) => handleChange('meds_available_not_out_comment', val)} />
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div>
-                <h3 className="text-lg font-semibold text-amber-900 mb-3">7. Disposal of Medication</h3>
-                <div className="space-y-4">
-                  <YesNoQuestion label="Is there a secure system for disposing of unwanted or expired medication?" yesNoField="disposal_system_secure" commentField="disposal_system_secure_comment" yesNoValue={data.disposal_system_secure} commentValue={data.disposal_system_secure_comment} onYesNoChange={(val: string) => handleChange('disposal_system_secure', val)} onCommentChange={(val: string) => handleChange('disposal_system_secure_comment', val)} />
-                  <YesNoQuestion label="Are records kept of medication returned to pharmacy or disposed of?" yesNoField="disposal_records_kept" commentField="disposal_records_kept_comment" yesNoValue={data.disposal_records_kept} commentValue={data.disposal_records_kept_comment} onYesNoChange={(val: string) => handleChange('disposal_records_kept', val)} onCommentChange={(val: string) => handleChange('disposal_records_kept_comment', val)} />
-                  <YesNoQuestion label="Are controlled drugs disposed of with witness signatures as per regulation?" yesNoField="cds_disposed_witnessed" commentField="cds_disposed_witnessed_comment" yesNoValue={data.cds_disposed_witnessed} commentValue={data.cds_disposed_witnessed_comment} onYesNoChange={(val: string) => handleChange('cds_disposed_witnessed', val)} onCommentChange={(val: string) => handleChange('cds_disposed_witnessed_comment', val)} />
-                </div>
+              {/* Section 6: Disposal of Medication */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-md transition-shadow hover:shadow-lg">
+                <button type="button" className="w-full flex items-center justify-between px-8 py-5 text-left font-semibold text-blue-900 text-lg focus:outline-none hover:bg-slate-50 rounded-t-2xl transition-colors" onClick={() => toggleSection(6)}>
+                  <span>7. Disposal of Medication</span>
+                  {openSections[6] ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                </button>
+                {openSections[6] && (
+                  <div className="px-8 pb-8">
+                    <div className="space-y-4">
+                      <YesNoQuestion label="Is there a secure system for disposing of unwanted or expired medication?" yesNoField="disposal_system_secure" commentField="disposal_system_secure_comment" yesNoValue={data.disposal_system_secure} commentValue={data.disposal_system_secure_comment} onYesNoChange={(val: string) => handleChange('disposal_system_secure', val)} onCommentChange={(val: string) => handleChange('disposal_system_secure_comment', val)} />
+                      <YesNoQuestion label="Are records kept of medication returned to pharmacy or disposed of?" yesNoField="disposal_records_kept" commentField="disposal_records_kept_comment" yesNoValue={data.disposal_records_kept} commentValue={data.disposal_records_kept_comment} onYesNoChange={(val: string) => handleChange('disposal_records_kept', val)} onCommentChange={(val: string) => handleChange('disposal_records_kept_comment', val)} />
+                      <YesNoQuestion label="Are controlled drugs disposed of with witness signatures as per regulation?" yesNoField="cds_disposed_witnessed" commentField="cds_disposed_witnessed_comment" yesNoValue={data.cds_disposed_witnessed} commentValue={data.cds_disposed_witnessed_comment} onYesNoChange={(val: string) => handleChange('cds_disposed_witnessed', val)} onCommentChange={(val: string) => handleChange('cds_disposed_witnessed_comment', val)} />
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div>
-                <h3 className="text-lg font-semibold text-green-900 mb-3">8. Covert Medication (If Applicable)</h3>
-                <div className="space-y-4">
-                  <YesNoQuestion label="Is covert administration supported by a best interest decision and GP approval?" yesNoField="covert_best_interest" commentField="covert_best_interest_comment" yesNoValue={data.covert_best_interest} commentValue={data.covert_best_interest_comment} onYesNoChange={(val: string) => handleChange('covert_best_interest', val)} onCommentChange={(val: string) => handleChange('covert_best_interest_comment', val)} />
-                  <YesNoQuestion label="Are covert care plans and risk assessments in place and reviewed regularly?" yesNoField="covert_care_plans" commentField="covert_care_plans_comment" yesNoValue={data.covert_care_plans} commentValue={data.covert_care_plans_comment} onYesNoChange={(val: string) => handleChange('covert_care_plans', val)} onCommentChange={(val: string) => handleChange('covert_care_plans_comment', val)} />
-                  <YesNoQuestion label="Is covert administration clearly documented and monitored?" yesNoField="covert_documented_monitored" commentField="covert_documented_monitored_comment" yesNoValue={data.covert_documented_monitored} commentValue={data.covert_documented_monitored_comment} onYesNoChange={(val: string) => handleChange('covert_documented_monitored', val)} onCommentChange={(val: string) => handleChange('covert_documented_monitored_comment', val)} />
-                </div>
+              {/* Section 7: Covert Medication */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-md transition-shadow hover:shadow-lg">
+                <button type="button" className="w-full flex items-center justify-between px-8 py-5 text-left font-semibold text-blue-900 text-lg focus:outline-none hover:bg-slate-50 rounded-t-2xl transition-colors" onClick={() => toggleSection(7)}>
+                  <span>8. Covert Medication (If Applicable)</span>
+                  {openSections[7] ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                </button>
+                {openSections[7] && (
+                  <div className="px-8 pb-8">
+                    <div className="space-y-4">
+                      <YesNoQuestion label="Is covert administration supported by a best interest decision and GP approval?" yesNoField="covert_best_interest" commentField="covert_best_interest_comment" yesNoValue={data.covert_best_interest} commentValue={data.covert_best_interest_comment} onYesNoChange={(val: string) => handleChange('covert_best_interest', val)} onCommentChange={(val: string) => handleChange('covert_best_interest_comment', val)} />
+                      <YesNoQuestion label="Are covert care plans and risk assessments in place and reviewed regularly?" yesNoField="covert_care_plans" commentField="covert_care_plans_comment" yesNoValue={data.covert_care_plans} commentValue={data.covert_care_plans_comment} onYesNoChange={(val: string) => handleChange('covert_care_plans', val)} onCommentChange={(val: string) => handleChange('covert_care_plans_comment', val)} />
+                      <YesNoQuestion label="Is covert administration clearly documented and monitored?" yesNoField="covert_documented_monitored" commentField="covert_documented_monitored_comment" yesNoValue={data.covert_documented_monitored} commentValue={data.covert_documented_monitored_comment} onYesNoChange={(val: string) => handleChange('covert_documented_monitored', val)} onCommentChange={(val: string) => handleChange('covert_documented_monitored_comment', val)} />
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div>
-                <h3 className="text-lg font-semibold text-yellow-900 mb-3">9. Medication Errors and Incident Reporting</h3>
-                <div className="space-y-4">
-                  <YesNoQuestion label="Are all medication errors or near misses documented and investigated?" yesNoField="errors_documented" commentField="errors_documented_comment" yesNoValue={data.errors_documented} commentValue={data.errors_documented_comment} onYesNoChange={(val: string) => handleChange('errors_documented', val)} onCommentChange={(val: string) => handleChange('errors_documented_comment', val)} />
-                  <YesNoQuestion label="Is there evidence of learning from errors and actions taken?" yesNoField="learning_from_errors" commentField="learning_from_errors_comment" yesNoValue={data.learning_from_errors} commentValue={data.learning_from_errors_comment} onYesNoChange={(val: string) => handleChange('learning_from_errors', val)} onCommentChange={(val: string) => handleChange('learning_from_errors_comment', val)} />
-                  <YesNoQuestion label="Are safeguarding concerns reported where necessary?" yesNoField="safeguarding_reported" commentField="safeguarding_reported_comment" yesNoValue={data.safeguarding_reported} commentValue={data.safeguarding_reported_comment} onYesNoChange={(val: string) => handleChange('safeguarding_reported', val)} onCommentChange={(val: string) => handleChange('safeguarding_reported_comment', val)} />
-                  <YesNoQuestion label="Are staff confident in the procedure for reporting errors?" yesNoField="staff_confident_reporting" commentField="staff_confident_reporting_comment" yesNoValue={data.staff_confident_reporting} commentValue={data.staff_confident_reporting_comment} onYesNoChange={(val: string) => handleChange('staff_confident_reporting', val)} onCommentChange={(val: string) => handleChange('staff_confident_reporting_comment', val)} />
-                </div>
+              {/* Section 8: Errors and Incident Reporting */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-md transition-shadow hover:shadow-lg">
+                <button type="button" className="w-full flex items-center justify-between px-8 py-5 text-left font-semibold text-blue-900 text-lg focus:outline-none hover:bg-slate-50 rounded-t-2xl transition-colors" onClick={() => toggleSection(8)}>
+                  <span>9. Medication Errors and Incident Reporting</span>
+                  {openSections[8] ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                </button>
+                {openSections[8] && (
+                  <div className="px-8 pb-8">
+                    <div className="space-y-4">
+                      <YesNoQuestion label="Are all medication errors or near misses documented and investigated?" yesNoField="errors_documented" commentField="errors_documented_comment" yesNoValue={data.errors_documented} commentValue={data.errors_documented_comment} onYesNoChange={(val: string) => handleChange('errors_documented', val)} onCommentChange={(val: string) => handleChange('errors_documented_comment', val)} />
+                      <YesNoQuestion label="Is there evidence of learning from errors and actions taken?" yesNoField="learning_from_errors" commentField="learning_from_errors_comment" yesNoValue={data.learning_from_errors} commentValue={data.learning_from_errors_comment} onYesNoChange={(val: string) => handleChange('learning_from_errors', val)} onCommentChange={(val: string) => handleChange('learning_from_errors_comment', val)} />
+                      <YesNoQuestion label="Are safeguarding concerns reported where necessary?" yesNoField="safeguarding_reported" commentField="safeguarding_reported_comment" yesNoValue={data.safeguarding_reported} commentValue={data.safeguarding_reported_comment} onYesNoChange={(val: string) => handleChange('safeguarding_reported', val)} onCommentChange={(val: string) => handleChange('safeguarding_reported_comment', val)} />
+                      <YesNoQuestion label="Are staff confident in the procedure for reporting errors?" yesNoField="staff_confident_reporting" commentField="staff_confident_reporting_comment" yesNoValue={data.staff_confident_reporting} commentValue={data.staff_confident_reporting_comment} onYesNoChange={(val: string) => handleChange('staff_confident_reporting', val)} onCommentChange={(val: string) => handleChange('staff_confident_reporting_comment', val)} />
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div>
-                <h3 className="text-lg font-semibold text-pink-900 mb-3">10. Resident-Centred Practice</h3>
-                <div className="space-y-4">
-                  <YesNoQuestion label="Are residents involved in decisions about their medication?" yesNoField="residents_involved_decisions" commentField="residents_involved_decisions_comment" yesNoValue={data.residents_involved_decisions} commentValue={data.residents_involved_decisions_comment} onYesNoChange={(val: string) => handleChange('residents_involved_decisions', val)} onCommentChange={(val: string) => handleChange('residents_involved_decisions_comment', val)} />
-                  <YesNoQuestion label="Are residents supported to self-administer where appropriate?" yesNoField="residents_supported_self_admin" commentField="residents_supported_self_admin_comment" yesNoValue={data.residents_supported_self_admin} commentValue={data.residents_supported_self_admin_comment} onYesNoChange={(val: string) => handleChange('residents_supported_self_admin', val)} onCommentChange={(val: string) => handleChange('residents_supported_self_admin_comment', val)} />
-                  <YesNoQuestion label="Are medication reviews carried out regularly (e.g. with GP, pharmacist)?" yesNoField="medication_reviews_regular" commentField="medication_reviews_regular_comment" yesNoValue={data.medication_reviews_regular} commentValue={data.medication_reviews_regular_comment} onYesNoChange={(val: string) => handleChange('medication_reviews_regular', val)} onCommentChange={(val: string) => handleChange('medication_reviews_regular_comment', val)} />
-                  <YesNoQuestion label="Are allergies clearly documented and highlighted?" yesNoField="allergies_documented" commentField="allergies_documented_comment" yesNoValue={data.allergies_documented} commentValue={data.allergies_documented_comment} onYesNoChange={(val: string) => handleChange('allergies_documented', val)} onCommentChange={(val: string) => handleChange('allergies_documented_comment', val)} />
-                </div>
+              {/* Section 9: Resident-Centred Practice */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-md transition-shadow hover:shadow-lg">
+                <button type="button" className="w-full flex items-center justify-between px-8 py-5 text-left font-semibold text-blue-900 text-lg focus:outline-none hover:bg-slate-50 rounded-t-2xl transition-colors" onClick={() => toggleSection(9)}>
+                  <span>10. Resident-Centred Practice</span>
+                  {openSections[9] ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                </button>
+                {openSections[9] && (
+                  <div className="px-8 pb-8">
+                    <div className="space-y-4">
+                      <YesNoQuestion label="Are residents involved in decisions about their medication?" yesNoField="residents_involved_decisions" commentField="residents_involved_decisions_comment" yesNoValue={data.residents_involved_decisions} commentValue={data.residents_involved_decisions_comment} onYesNoChange={(val: string) => handleChange('residents_involved_decisions', val)} onCommentChange={(val: string) => handleChange('residents_involved_decisions_comment', val)} />
+                      <YesNoQuestion label="Are residents supported to self-administer where appropriate?" yesNoField="residents_supported_self_admin" commentField="residents_supported_self_admin_comment" yesNoValue={data.residents_supported_self_admin} commentValue={data.residents_supported_self_admin_comment} onYesNoChange={(val: string) => handleChange('residents_supported_self_admin', val)} onCommentChange={(val: string) => handleChange('residents_supported_self_admin_comment', val)} />
+                      <YesNoQuestion label="Are medication reviews carried out regularly (e.g. with GP, pharmacist)?" yesNoField="medication_reviews_regular" commentField="medication_reviews_regular_comment" yesNoValue={data.medication_reviews_regular} commentValue={data.medication_reviews_regular_comment} onYesNoChange={(val: string) => handleChange('medication_reviews_regular', val)} onCommentChange={(val: string) => handleChange('medication_reviews_regular_comment', val)} />
+                      <YesNoQuestion label="Are allergies clearly documented and highlighted?" yesNoField="allergies_documented" commentField="allergies_documented_comment" yesNoValue={data.allergies_documented} commentValue={data.allergies_documented_comment} onYesNoChange={(val: string) => handleChange('allergies_documented', val)} onCommentChange={(val: string) => handleChange('allergies_documented_comment', val)} />
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-center mt-8">
-                <button type="submit" className="bg-green-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors">Complete Audit</button>
+                <Button type="submit" className="w-full h-14 text-lg font-bold mt-4 bg-blue-800 hover:bg-blue-900 text-white rounded-xl shadow transition-all duration-150 disabled:opacity-60" disabled={saving}>
+                  {saving ? 'Saving...' : 'Complete Audit'}
+                </Button>
               </div>
             </div>
           </form>
@@ -921,7 +1047,13 @@ export default function MedicationAuditPage() {
       {/* Final comments area */}
       <div className="max-w-4xl mx-auto p-6">
         <label className="block text-sm font-medium text-gray-700 mb-2">Comments</label>
-        <textarea value={finalComments} onChange={(e) => setFinalComments(e.target.value)} placeholder="Any additional comments or observations..." className="w-full p-3 border rounded h-28 resize-none" />
+        <Textarea
+          name="finalComments"
+          value={finalComments}
+          onChange={(e) => setFinalComments(e.target.value)}
+          placeholder="Any additional comments or observations..."
+          className="w-full bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-200 h-28"
+        />
       </div>
 
       {showModal && (

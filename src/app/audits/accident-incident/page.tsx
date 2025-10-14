@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { StaffSelectInput } from '@/components/audits/staff-select-input';
 
 type AccidentIncidentReport = {
   home: string;
@@ -88,7 +89,11 @@ export default function AccidentIncidentAuditPage({ startFresh = false }: { star
 
   function addNewReport() {
     setReports(prev => {
-      const updated = [...prev, createEmptyReport()];
+      const nextReport: AccidentIncidentReport = {
+        ...createEmptyReport(),
+        home: activeWorkspace?.name ?? "",
+      };
+      const updated = [...prev, nextReport];
       setCurrentReportIndex(updated.length - 1);
       return updated;
     });
@@ -323,8 +328,23 @@ export default function AccidentIncidentAuditPage({ startFresh = false }: { star
   const [finalComments, setFinalComments] = useState('');
 
   useEffect(() => {
+    if (!activeWorkspace?.name) return;
+    setReports(prev => {
+      let changed = false;
+      const next = prev.map(report => {
+        if (report.home && report.home.trim().length > 0) {
+          return report;
+        }
+        changed = true;
+        return { ...report, home: activeWorkspace.name };
+      });
+      return changed ? next : prev;
+    });
+  }, [activeWorkspace?.name]);
+
+  useEffect(() => {
     const resetFormState = () => {
-      setReports([createEmptyReport()]);
+      setReports([{ ...createEmptyReport(), home: activeWorkspace?.name ?? "" }]);
       setCurrentReportIndex(0);
       setFinalComments('');
       setSavedAuditId(null);
@@ -526,7 +546,7 @@ export default function AccidentIncidentAuditPage({ startFresh = false }: { star
             </div>
             <div>
               <label className="block font-semibold mb-1 text-slate-700">Person Completing Audit</label>
-              <Input
+              <StaffSelectInput
                 type="text"
                 className={getFieldClassName('completedBy', "w-full")}
                 name="completedBy"

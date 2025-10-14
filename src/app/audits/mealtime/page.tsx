@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useWorkspace } from '@/context/workspace';
+import { StaffSelectInput } from '@/components/audits/staff-select-input';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -103,8 +104,8 @@ interface MealtimeData {
   feedback_gathered_comment: string;
 }
 
-const createEmptyData = (): MealtimeData => ({
-  home: '',
+const createEmptyData = (home: string = ''): MealtimeData => ({
+  home,
   date: '',
   personCompletingAudit: '',
 
@@ -306,7 +307,13 @@ export default function MealtimeAuditPage() {
     }
   ];
 
-  const [data, setData] = useState<MealtimeData>(createEmptyData());
+  const [data, setData] = useState<MealtimeData>(() => createEmptyData(activeWorkspace?.name ?? ''));
+
+  useEffect(() => {
+    if (!activeWorkspace?.name) return;
+    if (data.home && data.home.trim().length > 0) return;
+    setData(prev => ({ ...prev, home: activeWorkspace.name }));
+  }, [activeWorkspace?.name, data.home]);
 
   // Helper functions
   const getFieldError = (fieldName: string) => {
@@ -773,7 +780,7 @@ export default function MealtimeAuditPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Person Completing the Audit</label>
-              <Input
+              <StaffSelectInput
                 value={data.personCompletingAudit}
                 onChange={(e) => handleChange('personCompletingAudit', e.target.value)}
                 className={getFieldClassName('personCompletingAudit')}

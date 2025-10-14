@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import AuditFooter from '@/components/audit-footer';
+import { StaffSelectInput } from '@/components/audits/staff-select-input';
 
 type YesNoNA = 'Yes' | 'No' | 'N/A' | '';
 
@@ -199,6 +200,16 @@ export default function StaffFileAuditPage() {
 
     comments: '',
   });
+
+  useEffect(() => {
+    if (!activeWorkspace?.name) return;
+    setData(prev => {
+      if (prev.home && prev.home.trim().length > 0) {
+        return prev;
+      }
+      return { ...prev, home: activeWorkspace.name };
+    });
+  }, [activeWorkspace?.name]);
 
   // Helper functions
   const toggleSection = (sectionId: string) => {
@@ -510,7 +521,7 @@ export default function StaffFileAuditPage() {
 
   const addNewReport = () => {
     setData({
-      home: '',
+      home: activeWorkspace?.name ?? '',
       date: '',
       personCompletingAudit: '',
 
@@ -597,7 +608,7 @@ export default function StaffFileAuditPage() {
             </div>
             <div>
               <label className="block font-semibold mb-1 text-slate-700">Person Completing Audit</label>
-              <Input
+              <StaffSelectInput
                 type="text"
                 className={getFieldClassName('personCompletingAudit', "w-full")}
                 name="personCompletingAudit"

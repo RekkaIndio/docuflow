@@ -260,7 +260,7 @@ export default function InfectionControlAuditPage() {
     const loadExistingAuditData = async () => {
       if (!activeWorkspace?.id) return;
       try {
-        const existingData = await getLatestAuditData(activeWorkspace.id, 'infection-control');
+  const existingData = await getLatestAuditData(activeWorkspace.id, 'infection-control', undefined, activeWorkspace.organisationId || null);
         if (existingData) {
           const { id, createdAt, attachments: storedAttachments, ...formData } = existingData as any;
           setData(prevData => ({ ...prevData, ...formData }));
@@ -351,33 +351,7 @@ export default function InfectionControlAuditPage() {
   const renderAttachmentPreview = (fieldName: string) => { const list = attachments[fieldName] ?? []; if (list.length === 0) return null; return (<div className="mt-3 flex flex-wrap gap-2">{list.map(att => (<div key={att.id} className="relative w-24 h-24 rounded overflow-hidden border border-gray-200"><button type="button" onClick={() => setPreviewImage({ url: att.url, name: att.name })} className="w-full h-full" title={att.name}><img src={att.url} alt={att.name} className="w-full h-full object-cover" /></button><button type="button" onClick={() => handleRemoveAttachment(fieldName, att.id)} className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-gray-200 shadow-sm" title="Remove">×</button></div>))}</div>); };
 
 
-  // Load existing audit data when component mounts
-  useEffect(() => {
-    const loadExistingAuditData = async () => {
-      if (!activeWorkspace?.id) return;
-      
-      try {
-        const existingData = await getLatestAuditData(activeWorkspace.id, 'infection-control');
-        if (existingData) {
-          // Remove metadata fields and populate form
-          const { id, createdAt, ...formData } = existingData;
-          setData(prevData => ({
-            ...prevData,
-            ...formData
-          }));
-          
-          // Load final comments if available
-          if (existingData.comments) {
-            setFinalComments(existingData.comments);
-          }
-        }
-      } catch (error) {
-        console.warn('Failed to load existing audit data:', error);
-      }
-    };
-
-    loadExistingAuditData();
-  }, [activeWorkspace?.id]);
+  // (Duplicate data-load was removed - attachments and form data are loaded by the primary effect above.)
 
   const handleInputChange = (field: keyof InfectionControlData, value: string) => {
     setData(prev => ({ ...prev, [field]: value }));

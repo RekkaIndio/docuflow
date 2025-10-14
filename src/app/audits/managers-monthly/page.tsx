@@ -1,6 +1,10 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
 import { useWorkspace } from '@/context/workspace';
+import { ChevronDown, ChevronUp, FileText } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { StaffSelectInput } from '@/components/audits/staff-select-input';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -216,6 +220,21 @@ export default function ManagersMonthlyAuditPage() {
   const [currentReport, setCurrentReport] = useState(1);
   const [totalReports] = useState(1);
   const [showModal, setShowModal] = useState(false);
+  
+  // Section definitions for collapsible UI
+  const sections = [
+    { label: '1. Care Planning and Documentation', guidance: ['Review care plans, notes and risk assessments.'] },
+    { label: '2. Medication Management', guidance: ['Check MAR charts, fridge temps and CD records.'] },
+    { label: '3. Infection Prevention and Control', guidance: ['Review IPC audits, cleaning schedules and PPE stocks.'] },
+    { label: '4. Staffing and Supervision', guidance: ['Staffing levels, recruitment checks, supervisions and training.'] },
+    { label: '5. Health and Safety', guidance: ['Environmental checks, maintenance and incident review.'] },
+    { label: '6. Resident Wellbeing and Rights', guidance: ['Complaints, involvement, activities and safeguarding.'] },
+    { label: '7. Nutrition and Mealtimes', guidance: ['Weights, charts, mealtime audits and special diets.'] },
+    { label: '8. Audits, Governance and Compliance', guidance: ['Internal audits, actions, policies and CQC readiness.'] }
+  ];
+
+  const [openSections, setOpenSections] = useState<boolean[]>(() => Array(sections.length).fill(true));
+  const toggleSection = (idx: number) => setOpenSections(prev => prev.map((open, i) => i === idx ? !open : open));
   const activeWorkspace = useWorkspace();
   const { user } = useAuth();
   const [saving, setSaving] = useState(false);
@@ -315,6 +334,19 @@ export default function ManagersMonthlyAuditPage() {
 
   const [data, setData] = useState<ManagersMonthlyData>(initialData);
 
+  // Prefill home field with workspace name when available
+  useEffect(() => {
+    if (!activeWorkspace?.name) return;
+    setData(prev => {
+      if (prev.home && prev.home.trim().length > 0) return prev;
+      return { ...prev, home: activeWorkspace.name };
+    });
+  }, [activeWorkspace?.name]);
+
+  const hasError = (fieldName: string) => errors.includes(fieldName);
+  const getFieldClassName = (fieldName: string, baseClassName = 'w-full') =>
+    hasError(fieldName) ? `${baseClassName} border-red-500 bg-red-50 focus:ring-red-500 focus:border-red-500` : baseClassName;
+
   const handleChange = (field: keyof ManagersMonthlyData, value: string) => {
     setData(prev => ({ ...prev, [field]: value }));
     if (value.trim() !== '' && errors.includes(field as string)) setErrors(prev => prev.filter(e => e !== (field as string)));
@@ -392,94 +424,40 @@ export default function ManagersMonthlyAuditPage() {
   };
 
   const YesNoQuestion = ({ label, yesNoField, commentField, yesNoValue, commentValue, onYesNoChange, onCommentChange }: { label: string; yesNoField: string; commentField: string; yesNoValue: string; commentValue: string; onYesNoChange: (v: string) => void; onCommentChange: (v: string) => void; }) => (
-    <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-      <div className="space-y-3">
-        <div>
-          <div className="flex items-start justify-between">
-            <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
-            <div className="ml-4 relative">
-              { (attachments[yesNoField]?.length ?? 0) > 0 && (
-                <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">
-                  {attachments[yesNoField]?.length}
-                </span>
-              )}
-              <label
-                title="Add attachment"
-                className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100"
-              >
-                <input
-                  type="file"
-                  accept="image/*"
-                  data-field-input={yesNoField}
-                  onChange={(e) => {
-                    handleAddAttachments(yesNoField, e.target.files);
-                    e.currentTarget.value = '';
-                  }}
-                  className="hidden"
-                />
-                <span className="text-xl font-bold">+</span>
-              </label>
+    <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm transition-colors hover:border-blue-200">
+      <div className="flex items-start justify-between gap-4">
+        <label className="block text-sm font-semibold text-slate-800 leading-snug">{label}</label>
+        <div className="relative flex-shrink-0">
+          {(attachments[yesNoField]?.length ?? 0) > 0 && (
+            <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">{attachments[yesNoField]?.length}</span>
+          )}
+          <label title="Add attachment" className="inline-flex items-center justify-center h-9 w-9 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100">
+            <input type="file" accept="image/*" data-field-input={yesNoField} onChange={(e) => { handleAddAttachments(yesNoField, e.target.files); e.currentTarget.value = ''; }} className="hidden" />
+            <span className="text-xl font-bold">+</span>
+          </label>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-4 mt-4" data-field={yesNoField}>
+        {['Yes', 'No', 'N/A'].map(option => (
+          <label key={option} className="flex items-center gap-2 cursor-pointer text-sm text-slate-700">
+            <input type="radio" name={yesNoField} value={option} checked={yesNoValue === option} onChange={(e) => onYesNoChange(e.target.value)} className="text-blue-600 focus:ring-blue-500" />
+            <span>{option}</span>
+          </label>
+        ))}
+      </div>
+      {errors.includes(yesNoField) && <p className="text-red-500 text-xs mt-2">This field is required</p>}
+      <div className="mt-4 space-y-2">
+        <label className="block text-sm font-medium text-slate-700">Comments</label>
+        <Textarea value={commentValue} onChange={(e) => onCommentChange(e.target.value)} rows={2} placeholder="Add any comments or observations..." data-comment-field={commentField} className="bg-slate-50 border-slate-200" />
+      </div>
+      <div className="mt-4">
+        <div className="flex flex-wrap gap-2">
+          {(attachments[yesNoField] ?? []).map(att => (
+            <div key={att.id} className="relative w-24 h-24 rounded-lg overflow-hidden border border-slate-200 shadow-sm">
+              <button type="button" onClick={() => setPreviewImage({ url: att.url, name: att.name })} className="w-full h-full" title={att.name}><img src={att.url} alt={att.name} className="w-full h-full object-cover" /></button>
+              <button type="button" onClick={() => handleRemoveAttachment(yesNoField, att.id)} title="Remove" className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-slate-200 shadow">×</button>
             </div>
-          </div>
-          <div className="flex gap-4" data-field={yesNoField}>
-            <label className="flex items-center cursor-pointer">
-              <input
-                type="radio"
-                name={yesNoField}
-                value="Yes"
-                checked={yesNoValue === 'Yes'}
-                onChange={(e) => onYesNoChange(e.target.value)}
-                className="mr-2 text-blue-600 focus:ring-blue-500"
-              />
-              Yes
-            </label>
-            <label className="flex items-center cursor-pointer">
-              <input
-                type="radio"
-                name={yesNoField}
-                value="No"
-                checked={yesNoValue === 'No'}
-                onChange={(e) => onYesNoChange(e.target.value)}
-                className="mr-2 text-blue-600 focus:ring-blue-500"
-              />
-              No
-            </label>
-          </div>
-          {errors.includes(yesNoField) && <p className="text-red-500 text-sm mt-2">This field is required</p>}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Comments</label>
-          <textarea
-            value={commentValue}
-            onChange={(e) => onCommentChange(e.target.value)}
-            className="w-full p-3 border border-slate-200 rounded-lg resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-slate-50"
-            rows={2}
-            placeholder="Add any comments or observations..."
-          />
-        </div>
-        {/* Attachments preview */}
-        <div>
-          <div className="flex flex-wrap gap-2">
-            {(attachments[yesNoField] ?? []).map(att => (
-              <div key={att.id} className="relative w-24 h-24 rounded overflow-hidden border border-gray-200">
-                <button
-                  type="button"
-                  onClick={() => setPreviewImage({ url: att.url, name: att.name })}
-                  className="w-full h-full"
-                  title={att.name}
-                >
-                  <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
-                </button>
-                <button
-                  onClick={() => handleRemoveAttachment(yesNoField, att.id)}
-                  title="Remove"
-                  className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-gray-200 shadow-sm"
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
+          ))}
         </div>
       </div>
     </div>
@@ -639,6 +617,21 @@ export default function ManagersMonthlyAuditPage() {
           <h1 className="text-3xl font-extrabold mb-2 text-blue-900 tracking-tight">Managers Monthly Audit</h1>
           <p className="mb-4 text-slate-500">Complete this comprehensive monthly check. All fields are required.</p>
           <div className="space-y-4 mt-4">
+            <div>
+              <label className="block font-semibold mb-1 text-slate-700">Home/Care Facility</label>
+              <Input type="text" className={getFieldClassName('home', 'w-full')} name="home" value={data.home} onChange={(e: any) => handleChange('home', e.target.value)} placeholder="Enter care home name" data-field="home" required />
+              {hasError('home') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+            </div>
+            <div>
+              <label className="block font-semibold mb-1 text-slate-700">Audit Date</label>
+              <Input type="date" className={getFieldClassName('date', 'w-full')} name="date" value={data.date} onChange={(e: any) => handleChange('date', e.target.value)} data-field="date" required />
+              {hasError('date') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+            </div>
+            <div>
+              <label className="block font-semibold mb-1 text-slate-700">Person Completing Audit</label>
+              <StaffSelectInput type="text" className={getFieldClassName('personCompletingAudit', 'w-full')} name="personCompletingAudit" value={data.personCompletingAudit} onChange={(e: any) => handleChange('personCompletingAudit', e.target.value)} placeholder="Full name and position" data-field="personCompletingAudit" required />
+              {hasError('personCompletingAudit') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+            </div>
             <div className="text-sm text-slate-600">
               <strong>Sections:</strong>
               <ul className="list-disc list-inside mt-2 space-y-1">
@@ -658,120 +651,108 @@ export default function ManagersMonthlyAuditPage() {
         {/* Main form right column, scrollable */}
         <div className="flex-1 min-w-0 pr-2">
           <form onSubmit={(e) => { e.preventDefault(); handleComplete(); }} className="flex flex-col gap-8">
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <h2 className="text-lg font-semibold text-blue-900 mb-4">Audit Information</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Home</label>
-                  <input value={data.home} data-field="home" onChange={(e) => handleChange('home', e.target.value)} className={`w-full p-2 border rounded ${errors.includes('home') ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="Enter home name" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
-                  <input type="date" value={data.date} data-field="date" onChange={(e) => handleChange('date', e.target.value)} className={`w-full p-2 border rounded ${errors.includes('date') ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Person completing the audit</label>
-                  <input value={data.personCompletingAudit} data-field="personCompletingAudit" onChange={(e) => handleChange('personCompletingAudit', e.target.value)} className={`w-full p-2 border rounded ${errors.includes('personCompletingAudit') ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="Enter auditor name" />
-                </div>
-              </div>
-            </div>
-
             <div className="space-y-6">
-              <div className="bg-green-50 p-4 rounded-lg">
-                <h3 className="text-lg font-semibold text-green-900 mb-3">1. Care Planning and Documentation</h3>
-                <div className="space-y-4">
-                  <YesNoQuestion label="Are all care plans reviewed and updated within the last 30 days?" yesNoField="care_plans_recent" commentField="care_plans_recent_comment" yesNoValue={data.care_plans_recent} commentValue={data.care_plans_recent_comment} onYesNoChange={(v) => handleChange('care_plans_recent', v)} onCommentChange={(v) => handleChange('care_plans_recent_comment', v)} />
-                  <YesNoQuestion label="Are daily care notes consistently completed and person-centred?" yesNoField="daily_care_notes_completed" commentField="daily_care_notes_completed_comment" yesNoValue={data.daily_care_notes_completed} commentValue={data.daily_care_notes_completed_comment} onYesNoChange={(v) => handleChange('daily_care_notes_completed', v)} onCommentChange={(v) => handleChange('daily_care_notes_completed_comment', v)} />
-                  <YesNoQuestion label="Are risk assessments (falls, pressure ulcers, nutrition, etc.) up to date?" yesNoField="risk_assessments_up_to_date" commentField="risk_assessments_up_to_date_comment" yesNoValue={data.risk_assessments_up_to_date} commentValue={data.risk_assessments_up_to_date_comment} onYesNoChange={(v) => handleChange('risk_assessments_up_to_date', v)} onCommentChange={(v) => handleChange('risk_assessments_up_to_date_comment', v)} />
-                  <YesNoQuestion label="Are mental capacity assessments and best interest decisions recorded where required?" yesNoField="mental_capacity_records" commentField="mental_capacity_records_comment" yesNoValue={data.mental_capacity_records} commentValue={data.mental_capacity_records_comment} onYesNoChange={(v) => handleChange('mental_capacity_records', v)} onCommentChange={(v) => handleChange('mental_capacity_records_comment', v)} />
-                  <YesNoQuestion label="Are DoLS applications made appropriately and tracked?" yesNoField="dols_applications_tracked" commentField="dols_applications_tracked_comment" yesNoValue={data.dols_applications_tracked} commentValue={data.dols_applications_tracked_comment} onYesNoChange={(v) => handleChange('dols_applications_tracked', v)} onCommentChange={(v) => handleChange('dols_applications_tracked_comment', v)} />
+              {sections.map((section, idx) => (
+                <div key={section.label} className="bg-white rounded-2xl border border-slate-200 shadow-md transition-shadow hover:shadow-lg">
+                  <button type="button" className="w-full flex items-center justify-between px-8 py-5 text-left font-semibold text-blue-900 text-lg focus:outline-none hover:bg-slate-50 rounded-t-2xl transition-colors" onClick={() => toggleSection(idx)}>
+                    <div className="flex items-center gap-3">
+                      <FileText className="h-5 w-5 text-gray-600" />
+                      <h3 className="text-lg font-semibold text-gray-900">{section.label}</h3>
+                    </div>
+                    {openSections[idx] ? <ChevronUp className="h-5 w-5 text-gray-500" /> : <ChevronDown className="h-5 w-5 text-gray-500" />}
+                  </button>
+                  {openSections[idx] && (
+                    <div className="px-8 pb-8">
+                      {section.guidance?.length > 0 && (
+                        <ul className="mb-4 ml-4 list-disc text-sm text-slate-500 space-y-1">
+                          {section.guidance.map((g, i) => <li key={i}>{g}</li>)}
+                        </ul>
+                      )}
+                      {/* Section specific content */}
+                      {idx === 0 && (
+                        <div className="space-y-4">
+                          <YesNoQuestion label="Are all care plans reviewed and updated within the last 30 days?" yesNoField="care_plans_recent" commentField="care_plans_recent_comment" yesNoValue={data.care_plans_recent} commentValue={data.care_plans_recent_comment} onYesNoChange={(v) => handleChange('care_plans_recent', v)} onCommentChange={(v) => handleChange('care_plans_recent_comment', v)} />
+                          <YesNoQuestion label="Are daily care notes consistently completed and person-centred?" yesNoField="daily_care_notes_completed" commentField="daily_care_notes_completed_comment" yesNoValue={data.daily_care_notes_completed} commentValue={data.daily_care_notes_completed_comment} onYesNoChange={(v) => handleChange('daily_care_notes_completed', v)} onCommentChange={(v) => handleChange('daily_care_notes_completed_comment', v)} />
+                          <YesNoQuestion label="Are risk assessments (falls, pressure ulcers, nutrition, etc.) up to date?" yesNoField="risk_assessments_up_to_date" commentField="risk_assessments_up_to_date_comment" yesNoValue={data.risk_assessments_up_to_date} commentValue={data.risk_assessments_up_to_date_comment} onYesNoChange={(v) => handleChange('risk_assessments_up_to_date', v)} onCommentChange={(v) => handleChange('risk_assessments_up_to_date_comment', v)} />
+                          <YesNoQuestion label="Are mental capacity assessments and best interest decisions recorded where required?" yesNoField="mental_capacity_records" commentField="mental_capacity_records_comment" yesNoValue={data.mental_capacity_records} commentValue={data.mental_capacity_records_comment} onYesNoChange={(v) => handleChange('mental_capacity_records', v)} onCommentChange={(v) => handleChange('mental_capacity_records_comment', v)} />
+                          <YesNoQuestion label="Are DoLS applications made appropriately and tracked?" yesNoField="dols_applications_tracked" commentField="dols_applications_tracked_comment" yesNoValue={data.dols_applications_tracked} commentValue={data.dols_applications_tracked_comment} onYesNoChange={(v) => handleChange('dols_applications_tracked', v)} onCommentChange={(v) => handleChange('dols_applications_tracked_comment', v)} />
+                        </div>
+                      )}
+                      {idx === 1 && (
+                        <div className="space-y-4">
+                          <YesNoQuestion label="Are MAR charts completed accurately with no missing signatures?" yesNoField="mar_charts_completed" commentField="mar_charts_completed_comment" yesNoValue={data.mar_charts_completed} commentValue={data.mar_charts_completed_comment} onYesNoChange={(v) => handleChange('mar_charts_completed', v)} onCommentChange={(v) => handleChange('mar_charts_completed_comment', v)} />
+                          <YesNoQuestion label="Are controlled drugs checked and recorded in line with policy?" yesNoField="controlled_drugs_checked" commentField="controlled_drugs_checked_comment" yesNoValue={data.controlled_drugs_checked} commentValue={data.controlled_drugs_checked_comment} onYesNoChange={(v) => handleChange('controlled_drugs_checked', v)} onCommentChange={(v) => handleChange('controlled_drugs_checked_comment', v)} />
+                          <YesNoQuestion label="Are fridge and room temperatures monitored and within range?" yesNoField="fridge_room_temps_monitored" commentField="fridge_room_temps_monitored_comment" yesNoValue={data.fridge_room_temps_monitored} commentValue={data.fridge_room_temps_monitored_comment} onYesNoChange={(v) => handleChange('fridge_room_temps_monitored', v)} onCommentChange={(v) => handleChange('fridge_room_temps_monitored_comment', v)} />
+                          <YesNoQuestion label="Are any medication errors recorded, investigated, and followed up?" yesNoField="med_errors_recorded_followed" commentField="med_errors_recorded_followed_comment" yesNoValue={data.med_errors_recorded_followed} commentValue={data.med_errors_recorded_followed_comment} onYesNoChange={(v) => handleChange('med_errors_recorded_followed', v)} onCommentChange={(v) => handleChange('med_errors_recorded_followed_comment', v)} />
+                          <YesNoQuestion label="Are PRN and covert medication protocols in place and appropriate?" yesNoField="prn_covert_protocols" commentField="prn_covert_protocols_comment" yesNoValue={data.prn_covert_protocols} commentValue={data.prn_covert_protocols_comment} onYesNoChange={(v) => handleChange('prn_covert_protocols', v)} onCommentChange={(v) => handleChange('prn_covert_protocols_comment', v)} />
+                        </div>
+                      )}
+                      {idx === 2 && (
+                        <div className="space-y-4">
+                          <YesNoQuestion label="Are hand hygiene and PPE audits completed regularly?" yesNoField="hand_hygiene_audits" commentField="hand_hygiene_audits_comment" yesNoValue={data.hand_hygiene_audits} commentValue={data.hand_hygiene_audits_comment} onYesNoChange={(v) => handleChange('hand_hygiene_audits', v)} onCommentChange={(v) => handleChange('hand_hygiene_audits_comment', v)} />
+                          <YesNoQuestion label="Are cleaning schedules up to date and signed?" yesNoField="cleaning_schedules_signed" commentField="cleaning_schedules_signed_comment" yesNoValue={data.cleaning_schedules_signed} commentValue={data.cleaning_schedules_signed_comment} onYesNoChange={(v) => handleChange('cleaning_schedules_signed', v)} onCommentChange={(v) => handleChange('cleaning_schedules_signed_comment', v)} />
+                          <YesNoQuestion label="Are all staff following current IPC guidance (e.g. isolation, testing)?" yesNoField="staff_following_ipc" commentField="staff_following_ipc_comment" yesNoValue={data.staff_following_ipc} commentValue={data.staff_following_ipc_comment} onYesNoChange={(v) => handleChange('staff_following_ipc', v)} onCommentChange={(v) => handleChange('staff_following_ipc_comment', v)} />
+                          <YesNoQuestion label="Are clinical and domestic waste managed correctly?" yesNoField="waste_managed_correctly" commentField="waste_managed_correctly_comment" yesNoValue={data.waste_managed_correctly} commentValue={data.waste_managed_correctly_comment} onYesNoChange={(v) => handleChange('waste_managed_correctly', v)} onCommentChange={(v) => handleChange('waste_managed_correctly_comment', v)} />
+                          <YesNoQuestion label="Are there sufficient stocks of PPE and cleaning materials?" yesNoField="stocks_ppe_cleaning_ok" commentField="stocks_ppe_cleaning_ok_comment" yesNoValue={data.stocks_ppe_cleaning_ok} commentValue={data.stocks_ppe_cleaning_ok_comment} onYesNoChange={(v) => handleChange('stocks_ppe_cleaning_ok', v)} onCommentChange={(v) => handleChange('stocks_ppe_cleaning_ok_comment', v)} />
+                        </div>
+                      )}
+                      {idx === 3 && (
+                        <div className="space-y-4">
+                          <YesNoQuestion label="Are staffing levels adequate and in line with dependency levels?" yesNoField="staffing_levels_adequate" commentField="staffing_levels_adequate_comment" yesNoValue={data.staffing_levels_adequate} commentValue={data.staffing_levels_adequate_comment} onYesNoChange={(v) => handleChange('staffing_levels_adequate', v)} onCommentChange={(v) => handleChange('staffing_levels_adequate_comment', v)} />
+                          <YesNoQuestion label="Are recruitment checks complete for any new starters (DBS, references)?" yesNoField="recruitment_checks_complete" commentField="recruitment_checks_complete_comment" yesNoValue={data.recruitment_checks_complete} commentValue={data.recruitment_checks_complete_comment} onYesNoChange={(v) => handleChange('recruitment_checks_complete', v)} onCommentChange={(v) => handleChange('recruitment_checks_complete_comment', v)} />
+                          <YesNoQuestion label="Are supervisions and appraisals up to date for all staff?" yesNoField="supervisions_appraisals_up_to_date" commentField="supervisions_appraisals_up_to_date_comment" yesNoValue={data.supervisions_appraisals_up_to_date} commentValue={data.supervisions_appraisals_up_to_date_comment} onYesNoChange={(v) => handleChange('supervisions_appraisals_up_to_date', v)} onCommentChange={(v) => handleChange('supervisions_appraisals_up_to_date_comment', v)} />
+                          <YesNoQuestion label="Are training records up to date and reflect mandatory requirements?" yesNoField="training_records_up_to_date" commentField="training_records_up_to_date_comment" yesNoValue={data.training_records_up_to_date} commentValue={data.training_records_up_to_date_comment} onYesNoChange={(v) => handleChange('training_records_up_to_date', v)} onCommentChange={(v) => handleChange('training_records_up_to_date_comment', v)} />
+                          <YesNoQuestion label="Are agency staff inducted and monitored appropriately?" yesNoField="agency_inducted_monitored" commentField="agency_inducted_monitored_comment" yesNoValue={data.agency_inducted_monitored} commentValue={data.agency_inducted_monitored_comment} onYesNoChange={(v) => handleChange('agency_inducted_monitored', v)} onCommentChange={(v) => handleChange('agency_inducted_monitored_comment', v)} />
+                        </div>
+                      )}
+                      {idx === 4 && (
+                        <div className="space-y-4">
+                          <YesNoQuestion label="Are environmental checks completed (e.g. water temp, fire exits)?" yesNoField="environmental_checks_completed" commentField="environmental_checks_completed_comment" yesNoValue={data.environmental_checks_completed} commentValue={data.environmental_checks_completed_comment} onYesNoChange={(v) => handleChange('environmental_checks_completed', v)} onCommentChange={(v) => handleChange('environmental_checks_completed_comment', v)} />
+                          <YesNoQuestion label="Are maintenance issues logged and addressed promptly?" yesNoField="maintenance_issues_logged" commentField="maintenance_issues_logged_comment" yesNoValue={data.maintenance_issues_logged} commentValue={data.maintenance_issues_logged_comment} onYesNoChange={(v) => handleChange('maintenance_issues_logged', v)} onCommentChange={(v) => handleChange('maintenance_issues_logged_comment', v)} />
+                          <YesNoQuestion label="Are risk assessments reviewed and signed (e.g. COSHH, moving and handling)?" yesNoField="risk_assessments_reviewed" commentField="risk_assessments_reviewed_comment" yesNoValue={data.risk_assessments_reviewed} commentValue={data.risk_assessments_reviewed_comment} onYesNoChange={(v) => handleChange('risk_assessments_reviewed', v)} onCommentChange={(v) => handleChange('risk_assessments_reviewed_comment', v)} />
+                          <YesNoQuestion label="Are accident/incident logs reviewed monthly and analysed for trends?" yesNoField="incident_logs_reviewed" commentField="incident_logs_reviewed_comment" yesNoValue={data.incident_logs_reviewed} commentValue={data.incident_logs_reviewed_comment} onYesNoChange={(v) => handleChange('incident_logs_reviewed', v)} onCommentChange={(v) => handleChange('incident_logs_reviewed_comment', v)} />
+                          <YesNoQuestion label="Is there a record of fire drills and evacuation practices?" yesNoField="fire_drills_recorded" commentField="fire_drills_recorded_comment" yesNoValue={data.fire_drills_recorded} commentValue={data.fire_drills_recorded_comment} onYesNoChange={(v) => handleChange('fire_drills_recorded', v)} onCommentChange={(v) => handleChange('fire_drills_recorded_comment', v)} />
+                        </div>
+                      )}
+                      {idx === 5 && (
+                        <div className="space-y-4">
+                          <YesNoQuestion label="Are residents involved in decision-making about their care?" yesNoField="residents_involved_in_decisions" commentField="residents_involved_in_decisions_comment" yesNoValue={data.residents_involved_in_decisions} commentValue={data.residents_involved_in_decisions_comment} onYesNoChange={(v) => handleChange('residents_involved_in_decisions', v)} onCommentChange={(v) => handleChange('residents_involved_in_decisions_comment', v)} />
+                          <YesNoQuestion label="Are complaints, compliments and concerns logged and responded to?" yesNoField="complaints_logged_responded" commentField="complaints_logged_responded_comment" yesNoValue={data.complaints_logged_responded} commentValue={data.complaints_logged_responded_comment} onYesNoChange={(v) => handleChange('complaints_logged_responded', v)} onCommentChange={(v) => handleChange('complaints_logged_responded_comment', v)} />
+                          <YesNoQuestion label="Are there activities and social engagement opportunities in place?" yesNoField="activities_social_engagement" commentField="activities_social_engagement_comment" yesNoValue={data.activities_social_engagement} commentValue={data.activities_social_engagement_comment} onYesNoChange={(v) => handleChange('activities_social_engagement', v)} onCommentChange={(v) => handleChange('activities_social_engagement_comment', v)} />
+                          <YesNoQuestion label="Are residents supported with choice, independence, and dignity?" yesNoField="choice_independence_dignity" commentField="choice_independence_dignity_comment" yesNoValue={data.choice_independence_dignity} commentValue={data.choice_independence_dignity_comment} onYesNoChange={(v) => handleChange('choice_independence_dignity', v)} onCommentChange={(v) => handleChange('choice_independence_dignity_comment', v)} />
+                          <YesNoQuestion label="Are safeguarding concerns raised and followed up properly?" yesNoField="safeguarding_concerns_followed" commentField="safeguarding_concerns_followed_comment" yesNoValue={data.safeguarding_concerns_followed} commentValue={data.safeguarding_concerns_followed_comment} onYesNoChange={(v) => handleChange('safeguarding_concerns_followed', v)} onCommentChange={(v) => handleChange('safeguarding_concerns_followed_comment', v)} />
+                        </div>
+                      )}
+                      {idx === 6 && (
+                        <div className="space-y-4">
+                          <YesNoQuestion label="Are weights monitored and referrals made where needed (e.g. dietitian)?" yesNoField="weights_monitored_referrals" commentField="weights_monitored_referrals_comment" yesNoValue={data.weights_monitored_referrals} commentValue={data.weights_monitored_referrals_comment} onYesNoChange={(v) => handleChange('weights_monitored_referrals', v)} onCommentChange={(v) => handleChange('weights_monitored_referrals_comment', v)} />
+                          <YesNoQuestion label="Are food/fluid charts used appropriately and completed accurately?" yesNoField="food_fluid_charts_used" commentField="food_fluid_charts_used_comment" yesNoValue={data.food_fluid_charts_used} commentValue={data.food_fluid_charts_used_comment} onYesNoChange={(v) => handleChange('food_fluid_charts_used', v)} onCommentChange={(v) => handleChange('food_fluid_charts_used_comment', v)} />
+                          <YesNoQuestion label="Are mealtime audits carried out, and feedback gathered from residents?" yesNoField="mealtime_audits_feedback" commentField="mealtime_audits_feedback_comment" yesNoValue={data.mealtime_audits_feedback} commentValue={data.mealtime_audits_feedback_comment} onYesNoChange={(v) => handleChange('mealtime_audits_feedback', v)} onCommentChange={(v) => handleChange('mealtime_audits_feedback_comment', v)} />
+                          <YesNoQuestion label="Are special dietary needs being met safely and appropriately?" yesNoField="special_diets_met" commentField="special_diets_met_comment" yesNoValue={data.special_diets_met} commentValue={data.special_diets_met_comment} onYesNoChange={(v) => handleChange('special_diets_met', v)} onCommentChange={(v) => handleChange('special_diets_met_comment', v)} />
+                          <YesNoQuestion label="Is the kitchen compliant with food hygiene standards?" yesNoField="kitchen_compliant" commentField="kitchen_compliant_comment" yesNoValue={data.kitchen_compliant} commentValue={data.kitchen_compliant_comment} onYesNoChange={(v) => handleChange('kitchen_compliant', v)} onCommentChange={(v) => handleChange('kitchen_compliant_comment', v)} />
+                        </div>
+                      )}
+                      {idx === 7 && (
+                        <div className="space-y-4">
+                          <YesNoQuestion label="Are internal audits (care plans, medication, H&S, etc.) completed this month?" yesNoField="internal_audits_completed" commentField="internal_audits_completed_comment" yesNoValue={data.internal_audits_completed} commentValue={data.internal_audits_completed_comment} onYesNoChange={(v) => handleChange('internal_audits_completed', v)} onCommentChange={(v) => handleChange('internal_audits_completed_comment', v)} />
+                          <YesNoQuestion label="Are any actions from previous audits followed up and closed?" yesNoField="actions_followed_closed" commentField="actions_followed_closed_comment" yesNoValue={data.actions_followed_closed} commentValue={data.actions_followed_closed_comment} onYesNoChange={(v) => handleChange('actions_followed_closed', v)} onCommentChange={(v) => handleChange('actions_followed_closed_comment', v)} />
+                          <YesNoQuestion label="Are policies and procedures reviewed and accessible?" yesNoField="policies_procedures_reviewed" commentField="policies_procedures_reviewed_comment" yesNoValue={data.policies_procedures_reviewed} commentValue={data.policies_procedures_reviewed_comment} onYesNoChange={(v) => handleChange('policies_procedures_reviewed', v)} onCommentChange={(v) => handleChange('policies_procedures_reviewed_comment', v)} />
+                          <YesNoQuestion label="Is CQC compliance monitored, and PIR or inspection preparedness maintained?" yesNoField="cqc_compliance_monitored" commentField="cqc_compliance_monitored_comment" yesNoValue={data.cqc_compliance_monitored} commentValue={data.cqc_compliance_monitored_comment} onYesNoChange={(v) => handleChange('cqc_compliance_monitored', v)} onCommentChange={(v) => handleChange('cqc_compliance_monitored_comment', v)} />
+                          <YesNoQuestion label="Are quality assurance reports and resident/family feedback analysed?" yesNoField="qa_reports_feedback_analysed" commentField="qa_reports_feedback_analysed_comment" yesNoValue={data.qa_reports_feedback_analysed} commentValue={data.qa_reports_feedback_analysed_comment} onYesNoChange={(v) => handleChange('qa_reports_feedback_analysed', v)} onCommentChange={(v) => handleChange('qa_reports_feedback_analysed_comment', v)} />
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
+              ))}
+
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-md p-8">
+                <h3 className="text-lg font-semibold text-blue-900 mb-4">Final Comments</h3>
+                <Textarea value={finalComments} onChange={(e) => setFinalComments(e.target.value)} rows={4} placeholder="Final comments for this audit" className="w-full bg-slate-50 border-slate-200" />
               </div>
 
-              <div className="bg-yellow-50 p-4 rounded-lg">
-                <h3 className="text-lg font-semibold text-yellow-900 mb-3">2. Medication Management</h3>
-                <div className="space-y-4">
-                  <YesNoQuestion label="Are MAR charts completed accurately with no missing signatures?" yesNoField="mar_charts_completed" commentField="mar_charts_completed_comment" yesNoValue={data.mar_charts_completed} commentValue={data.mar_charts_completed_comment} onYesNoChange={(v) => handleChange('mar_charts_completed', v)} onCommentChange={(v) => handleChange('mar_charts_completed_comment', v)} />
-                  <YesNoQuestion label="Are controlled drugs checked and recorded in line with policy?" yesNoField="controlled_drugs_checked" commentField="controlled_drugs_checked_comment" yesNoValue={data.controlled_drugs_checked} commentValue={data.controlled_drugs_checked_comment} onYesNoChange={(v) => handleChange('controlled_drugs_checked', v)} onCommentChange={(v) => handleChange('controlled_drugs_checked_comment', v)} />
-                  <YesNoQuestion label="Are fridge and room temperatures monitored and within range?" yesNoField="fridge_room_temps_monitored" commentField="fridge_room_temps_monitored_comment" yesNoValue={data.fridge_room_temps_monitored} commentValue={data.fridge_room_temps_monitored_comment} onYesNoChange={(v) => handleChange('fridge_room_temps_monitored', v)} onCommentChange={(v) => handleChange('fridge_room_temps_monitored_comment', v)} />
-                  <YesNoQuestion label="Are any medication errors recorded, investigated, and followed up?" yesNoField="med_errors_recorded_followed" commentField="med_errors_recorded_followed_comment" yesNoValue={data.med_errors_recorded_followed} commentValue={data.med_errors_recorded_followed_comment} onYesNoChange={(v) => handleChange('med_errors_recorded_followed', v)} onCommentChange={(v) => handleChange('med_errors_recorded_followed_comment', v)} />
-                  <YesNoQuestion label="Are PRN and covert medication protocols in place and appropriate?" yesNoField="prn_covert_protocols" commentField="prn_covert_protocols_comment" yesNoValue={data.prn_covert_protocols} commentValue={data.prn_covert_protocols_comment} onYesNoChange={(v) => handleChange('prn_covert_protocols', v)} onCommentChange={(v) => handleChange('prn_covert_protocols_comment', v)} />
-                </div>
-              </div>
-
-              <div className="bg-pink-50 p-4 rounded-lg">
-                <h3 className="text-lg font-semibold text-pink-900 mb-3">3. Infection Prevention and Control</h3>
-                <div className="space-y-4">
-                  <YesNoQuestion label="Are hand hygiene and PPE audits completed regularly?" yesNoField="hand_hygiene_audits" commentField="hand_hygiene_audits_comment" yesNoValue={data.hand_hygiene_audits} commentValue={data.hand_hygiene_audits_comment} onYesNoChange={(v) => handleChange('hand_hygiene_audits', v)} onCommentChange={(v) => handleChange('hand_hygiene_audits_comment', v)} />
-                  <YesNoQuestion label="Are cleaning schedules up to date and signed?" yesNoField="cleaning_schedules_signed" commentField="cleaning_schedules_signed_comment" yesNoValue={data.cleaning_schedules_signed} commentValue={data.cleaning_schedules_signed_comment} onYesNoChange={(v) => handleChange('cleaning_schedules_signed', v)} onCommentChange={(v) => handleChange('cleaning_schedules_signed_comment', v)} />
-                  <YesNoQuestion label="Are all staff following current IPC guidance (e.g. isolation, testing)?" yesNoField="staff_following_ipc" commentField="staff_following_ipc_comment" yesNoValue={data.staff_following_ipc} commentValue={data.staff_following_ipc_comment} onYesNoChange={(v) => handleChange('staff_following_ipc', v)} onCommentChange={(v) => handleChange('staff_following_ipc_comment', v)} />
-                  <YesNoQuestion label="Are clinical and domestic waste managed correctly?" yesNoField="waste_managed_correctly" commentField="waste_managed_correctly_comment" yesNoValue={data.waste_managed_correctly} commentValue={data.waste_managed_correctly_comment} onYesNoChange={(v) => handleChange('waste_managed_correctly', v)} onCommentChange={(v) => handleChange('waste_managed_correctly_comment', v)} />
-                  <YesNoQuestion label="Are there sufficient stocks of PPE and cleaning materials?" yesNoField="stocks_ppe_cleaning_ok" commentField="stocks_ppe_cleaning_ok_comment" yesNoValue={data.stocks_ppe_cleaning_ok} commentValue={data.stocks_ppe_cleaning_ok_comment} onYesNoChange={(v) => handleChange('stocks_ppe_cleaning_ok', v)} onCommentChange={(v) => handleChange('stocks_ppe_cleaning_ok_comment', v)} />
-                </div>
-              </div>
-
-              <div className="bg-indigo-50 p-4 rounded-lg">
-                <h3 className="text-lg font-semibold text-indigo-900 mb-3">4. Staffing and Supervision</h3>
-                <div className="space-y-4">
-                  <YesNoQuestion label="Are staffing levels adequate and in line with dependency levels?" yesNoField="staffing_levels_adequate" commentField="staffing_levels_adequate_comment" yesNoValue={data.staffing_levels_adequate} commentValue={data.staffing_levels_adequate_comment} onYesNoChange={(v) => handleChange('staffing_levels_adequate', v)} onCommentChange={(v) => handleChange('staffing_levels_adequate_comment', v)} />
-                  <YesNoQuestion label="Are recruitment checks complete for any new starters (DBS, references)?" yesNoField="recruitment_checks_complete" commentField="recruitment_checks_complete_comment" yesNoValue={data.recruitment_checks_complete} commentValue={data.recruitment_checks_complete_comment} onYesNoChange={(v) => handleChange('recruitment_checks_complete', v)} onCommentChange={(v) => handleChange('recruitment_checks_complete_comment', v)} />
-                  <YesNoQuestion label="Are supervisions and appraisals up to date for all staff?" yesNoField="supervisions_appraisals_up_to_date" commentField="supervisions_appraisals_up_to_date_comment" yesNoValue={data.supervisions_appraisals_up_to_date} commentValue={data.supervisions_appraisals_up_to_date_comment} onYesNoChange={(v) => handleChange('supervisions_appraisals_up_to_date', v)} onCommentChange={(v) => handleChange('supervisions_appraisals_up_to_date_comment', v)} />
-                  <YesNoQuestion label="Are training records up to date and reflect mandatory requirements?" yesNoField="training_records_up_to_date" commentField="training_records_up_to_date_comment" yesNoValue={data.training_records_up_to_date} commentValue={data.training_records_up_to_date_comment} onYesNoChange={(v) => handleChange('training_records_up_to_date', v)} onCommentChange={(v) => handleChange('training_records_up_to_date_comment', v)} />
-                  <YesNoQuestion label="Are agency staff inducted and monitored appropriately?" yesNoField="agency_inducted_monitored" commentField="agency_inducted_monitored_comment" yesNoValue={data.agency_inducted_monitored} commentValue={data.agency_inducted_monitored_comment} onYesNoChange={(v) => handleChange('agency_inducted_monitored', v)} onCommentChange={(v) => handleChange('agency_inducted_monitored_comment', v)} />
-                </div>
-              </div>
-
-              <div className="bg-pink-50 p-4 rounded-lg">
-                <h3 className="text-lg font-semibold text-pink-900 mb-3">5. Health and Safety</h3>
-                <div className="space-y-4">
-                  <YesNoQuestion label="Are environmental checks completed (e.g. water temp, fire exits)?" yesNoField="environmental_checks_completed" commentField="environmental_checks_completed_comment" yesNoValue={data.environmental_checks_completed} commentValue={data.environmental_checks_completed_comment} onYesNoChange={(v) => handleChange('environmental_checks_completed', v)} onCommentChange={(v) => handleChange('environmental_checks_completed_comment', v)} />
-                  <YesNoQuestion label="Are maintenance issues logged and addressed promptly?" yesNoField="maintenance_issues_logged" commentField="maintenance_issues_logged_comment" yesNoValue={data.maintenance_issues_logged} commentValue={data.maintenance_issues_logged_comment} onYesNoChange={(v) => handleChange('maintenance_issues_logged', v)} onCommentChange={(v) => handleChange('maintenance_issues_logged_comment', v)} />
-                  <YesNoQuestion label="Are risk assessments reviewed and signed (e.g. COSHH, moving and handling)?" yesNoField="risk_assessments_reviewed" commentField="risk_assessments_reviewed_comment" yesNoValue={data.risk_assessments_reviewed} commentValue={data.risk_assessments_reviewed_comment} onYesNoChange={(v) => handleChange('risk_assessments_reviewed', v)} onCommentChange={(v) => handleChange('risk_assessments_reviewed_comment', v)} />
-                  <YesNoQuestion label="Are accident/incident logs reviewed monthly and analysed for trends?" yesNoField="incident_logs_reviewed" commentField="incident_logs_reviewed_comment" yesNoValue={data.incident_logs_reviewed} commentValue={data.incident_logs_reviewed_comment} onYesNoChange={(v) => handleChange('incident_logs_reviewed', v)} onCommentChange={(v) => handleChange('incident_logs_reviewed_comment', v)} />
-                  <YesNoQuestion label="Is there a record of fire drills and evacuation practices?" yesNoField="fire_drills_recorded" commentField="fire_drills_recorded_comment" yesNoValue={data.fire_drills_recorded} commentValue={data.fire_drills_recorded_comment} onYesNoChange={(v) => handleChange('fire_drills_recorded', v)} onCommentChange={(v) => handleChange('fire_drills_recorded_comment', v)} />
-                </div>
-              </div>
-
-              <div className="bg-amber-50 p-4 rounded-lg">
-                <h3 className="text-lg font-semibold text-amber-900 mb-3">6. Resident Wellbeing and Rights</h3>
-                <div className="space-y-4">
-                  <YesNoQuestion label="Are residents involved in decision-making about their care?" yesNoField="residents_involved_in_decisions" commentField="residents_involved_in_decisions_comment" yesNoValue={data.residents_involved_in_decisions} commentValue={data.residents_involved_in_decisions_comment} onYesNoChange={(v) => handleChange('residents_involved_in_decisions', v)} onCommentChange={(v) => handleChange('residents_involved_in_decisions_comment', v)} />
-                  <YesNoQuestion label="Are complaints, compliments and concerns logged and responded to?" yesNoField="complaints_logged_responded" commentField="complaints_logged_responded_comment" yesNoValue={data.complaints_logged_responded} commentValue={data.complaints_logged_responded_comment} onYesNoChange={(v) => handleChange('complaints_logged_responded', v)} onCommentChange={(v) => handleChange('complaints_logged_responded_comment', v)} />
-                  <YesNoQuestion label="Are there activities and social engagement opportunities in place?" yesNoField="activities_social_engagement" commentField="activities_social_engagement_comment" yesNoValue={data.activities_social_engagement} commentValue={data.activities_social_engagement_comment} onYesNoChange={(v) => handleChange('activities_social_engagement', v)} onCommentChange={(v) => handleChange('activities_social_engagement_comment', v)} />
-                  <YesNoQuestion label="Are residents supported with choice, independence, and dignity?" yesNoField="choice_independence_dignity" commentField="choice_independence_dignity_comment" yesNoValue={data.choice_independence_dignity} commentValue={data.choice_independence_dignity_comment} onYesNoChange={(v) => handleChange('choice_independence_dignity', v)} onCommentChange={(v) => handleChange('choice_independence_dignity_comment', v)} />
-                  <YesNoQuestion label="Are safeguarding concerns raised and followed up properly?" yesNoField="safeguarding_concerns_followed" commentField="safeguarding_concerns_followed_comment" yesNoValue={data.safeguarding_concerns_followed} commentValue={data.safeguarding_concerns_followed_comment} onYesNoChange={(v) => handleChange('safeguarding_concerns_followed', v)} onCommentChange={(v) => handleChange('safeguarding_concerns_followed_comment', v)} />
-                </div>
-              </div>
-
-              <div className="bg-green-50 p-4 rounded-lg">
-                <h3 className="text-lg font-semibold text-green-900 mb-3">7. Nutrition and Mealtimes</h3>
-                <div className="space-y-4">
-                  <YesNoQuestion label="Are weights monitored and referrals made where needed (e.g. dietitian)?" yesNoField="weights_monitored_referrals" commentField="weights_monitored_referrals_comment" yesNoValue={data.weights_monitored_referrals} commentValue={data.weights_monitored_referrals_comment} onYesNoChange={(v) => handleChange('weights_monitored_referrals', v)} onCommentChange={(v) => handleChange('weights_monitored_referrals_comment', v)} />
-                  <YesNoQuestion label="Are food/fluid charts used appropriately and completed accurately?" yesNoField="food_fluid_charts_used" commentField="food_fluid_charts_used_comment" yesNoValue={data.food_fluid_charts_used} commentValue={data.food_fluid_charts_used_comment} onYesNoChange={(v) => handleChange('food_fluid_charts_used', v)} onCommentChange={(v) => handleChange('food_fluid_charts_used_comment', v)} />
-                  <YesNoQuestion label="Are mealtime audits carried out, and feedback gathered from residents?" yesNoField="mealtime_audits_feedback" commentField="mealtime_audits_feedback_comment" yesNoValue={data.mealtime_audits_feedback} commentValue={data.mealtime_audits_feedback_comment} onYesNoChange={(v) => handleChange('mealtime_audits_feedback', v)} onCommentChange={(v) => handleChange('mealtime_audits_feedback_comment', v)} />
-                  <YesNoQuestion label="Are special dietary needs being met safely and appropriately?" yesNoField="special_diets_met" commentField="special_diets_met_comment" yesNoValue={data.special_diets_met} commentValue={data.special_diets_met_comment} onYesNoChange={(v) => handleChange('special_diets_met', v)} onCommentChange={(v) => handleChange('special_diets_met_comment', v)} />
-                  <YesNoQuestion label="Is the kitchen compliant with food hygiene standards?" yesNoField="kitchen_compliant" commentField="kitchen_compliant_comment" yesNoValue={data.kitchen_compliant} commentValue={data.kitchen_compliant_comment} onYesNoChange={(v) => handleChange('kitchen_compliant', v)} onCommentChange={(v) => handleChange('kitchen_compliant_comment', v)} />
-                </div>
-              </div>
-
-              <div className="bg-sky-50 p-4 rounded-lg">
-                <h3 className="text-lg font-semibold text-sky-900 mb-3">8. Audits, Governance and Compliance</h3>
-                <div className="space-y-4">
-                  <YesNoQuestion label="Are internal audits (care plans, medication, H&S, etc.) completed this month?" yesNoField="internal_audits_completed" commentField="internal_audits_completed_comment" yesNoValue={data.internal_audits_completed} commentValue={data.internal_audits_completed_comment} onYesNoChange={(v) => handleChange('internal_audits_completed', v)} onCommentChange={(v) => handleChange('internal_audits_completed_comment', v)} />
-                  <YesNoQuestion label="Are any actions from previous audits followed up and closed?" yesNoField="actions_followed_closed" commentField="actions_followed_closed_comment" yesNoValue={data.actions_followed_closed} commentValue={data.actions_followed_closed_comment} onYesNoChange={(v) => handleChange('actions_followed_closed', v)} onCommentChange={(v) => handleChange('actions_followed_closed_comment', v)} />
-                  <YesNoQuestion label="Are policies and procedures reviewed and accessible?" yesNoField="policies_procedures_reviewed" commentField="policies_procedures_reviewed_comment" yesNoValue={data.policies_procedures_reviewed} commentValue={data.policies_procedures_reviewed_comment} onYesNoChange={(v) => handleChange('policies_procedures_reviewed', v)} onCommentChange={(v) => handleChange('policies_procedures_reviewed_comment', v)} />
-                  <YesNoQuestion label="Is CQC compliance monitored, and PIR or inspection preparedness maintained?" yesNoField="cqc_compliance_monitored" commentField="cqc_compliance_monitored_comment" yesNoValue={data.cqc_compliance_monitored} commentValue={data.cqc_compliance_monitored_comment} onYesNoChange={(v) => handleChange('cqc_compliance_monitored', v)} onCommentChange={(v) => handleChange('cqc_compliance_monitored_comment', v)} />
-                  <YesNoQuestion label="Are quality assurance reports and resident/family feedback analysed?" yesNoField="qa_reports_feedback_analysed" commentField="qa_reports_feedback_analysed_comment" yesNoValue={data.qa_reports_feedback_analysed} commentValue={data.qa_reports_feedback_analysed_comment} onYesNoChange={(v) => handleChange('qa_reports_feedback_analysed', v)} onCommentChange={(v) => handleChange('qa_reports_feedback_analysed_comment', v)} />
-                </div>
-              </div>
-
-              <div className="mt-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Final comments</label>
-                <textarea value={finalComments} onChange={(e) => setFinalComments(e.target.value)} rows={4} placeholder="Final comments for this audit" className="w-full p-2 border rounded resize-none mt-2" />
-              </div>
-
-              <div className="flex justify-center mt-8">
-                <button type="submit" className="bg-green-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors">Complete Audit</button>
+              <div className="flex justify-end">
+                <button type="submit" className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium" disabled={saving}>{saving ? 'Saving...' : 'Complete Audit'}</button>
               </div>
             </div>
           </form>
@@ -781,12 +762,12 @@ export default function ManagersMonthlyAuditPage() {
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4">Audit Completed</h3>
-            <p className="text-gray-600 mb-6">Would you like to create an action plan based on this audit?</p>
+            <h3 className="text-lg font-semibold mb-4">Audit Complete</h3>
+            <p className="text-gray-600 mb-6">Would you like to create an action plan for this audit?</p>
             <div className="flex gap-3 justify-end">
-              <button onClick={() => setShowModal(false)} className="px-4 py-2 text-gray-600 hover:text-gray-800">No, thanks</button>
-              <button onClick={() => handleModalCreate(false)} disabled={saving} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">{saving ? 'Saving...' : 'Save Audit'}</button>
-              <button onClick={() => handleModalCreate(true)} disabled={saving} className="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700">{saving ? 'Saving...' : 'Save & Create Action Plan'}</button>
+              <button onClick={() => setShowModal(false)} className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50" disabled={saving}>{saving ? 'Saving...' : 'No'}</button>
+              <button onClick={() => handleModalCreate(true)} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700" disabled={saving}>{saving ? 'Saving...' : 'Yes, Create Action Plan'}</button>
+              <button onClick={() => handleModalCreate(false)} className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700" disabled={saving}>{saving ? 'Saving...' : 'Save and Close'}</button>
             </div>
           </div>
         </div>
@@ -798,13 +779,8 @@ export default function ManagersMonthlyAuditPage() {
           <div className="relative z-70 max-w-3xl w-full mx-4">
             <div className="bg-white rounded-lg overflow-hidden shadow-xl">
               <div className="flex justify-between items-start p-2 border-b">
-                <div className="px-3 py-1 text-sm text-gray-700">{previewImage.name}</div>
-                <button
-                  onClick={() => setPreviewImage(null)}
-                  className="m-2 bg-white rounded-full p-1 text-gray-700 border"
-                >
-                  Close
-                </button>
+                <div className="px-3 py-1 text-sm text-gray-700 truncate">{previewImage.name}</div>
+                <button type="button" onClick={() => setPreviewImage(null)} className="px-3 py-1 text-sm text-blue-600 hover:text-blue-800">Close</button>
               </div>
               <div className="p-4 bg-black flex items-center justify-center">
                 <img src={previewImage.url} alt={previewImage.name} className="max-h-[80vh] w-auto object-contain" />

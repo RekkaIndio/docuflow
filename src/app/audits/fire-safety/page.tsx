@@ -5,6 +5,7 @@ import { ChevronDown, ChevronUp, FileText } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { StaffSelectInput } from '@/components/audits/staff-select-input';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -247,7 +248,7 @@ export default function FireSafetyAuditPage() {
   };
   
   const [auditData, setAuditData] = useState<FireSafetyAuditData>({
-    home: '',
+    home: activeWorkspace?.name ?? '',
     date: '',
     personCompletingAudit: '',
     
@@ -349,6 +350,12 @@ export default function FireSafetyAuditPage() {
     staffAwareReportingHazards: '',
     staffAwareReportingHazardsComment: '',
   });
+
+  useEffect(() => {
+    if (!activeWorkspace?.name) return;
+    if (auditData.home && auditData.home.trim().length > 0) return;
+    setAuditData(prev => ({ ...prev, home: activeWorkspace.name }));
+  }, [activeWorkspace?.name, auditData.home]);
 
   // Load existing audit data when component mounts
   useEffect(() => {
@@ -850,7 +857,7 @@ export default function FireSafetyAuditPage() {
             </div>
             <div>
               <label className="block font-semibold mb-1 text-slate-700">Person Completing Audit</label>
-              <Input
+              <StaffSelectInput
                 type="text"
                 className={getFieldClassName('personCompletingAudit', "w-full")}
                 name="personCompletingAudit"
