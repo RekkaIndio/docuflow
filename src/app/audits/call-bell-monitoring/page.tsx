@@ -7,6 +7,7 @@ import AuditFooter from '@/components/audit-footer';
 import { ChevronDown, ChevronUp, FileText } from 'lucide-react';
 import { storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { StaffSelectInput } from '@/components/audits/staff-select-input';
 
 type AttachmentItem = {
   id: string;
@@ -69,6 +70,21 @@ export default function CallBellMonitoringAuditPage() {
   const [saving, setSaving] = useState(false);
   const [savedAuditId, setSavedAuditId] = useState<string | null>(null);
   const [finalComments, setFinalComments] = useState('');
+
+  useEffect(() => {
+    if (!activeWorkspace?.name) return;
+    setReports(prev => {
+      let changed = false;
+      const next = prev.map(report => {
+        if (report.home?.trim()) {
+          return report;
+        }
+        changed = true;
+        return { ...report, home: activeWorkspace.name };
+      });
+      return changed ? next : prev;
+    });
+  }, [activeWorkspace?.name]);
   
   // Collapsible state for each section
   const [openSections, setOpenSections] = useState(() => Array(3).fill(true));
@@ -118,7 +134,7 @@ export default function CallBellMonitoringAuditPage() {
 
   function addNewReport() {
     const newReport = {
-      home: "",
+      home: activeWorkspace?.name ?? "",
       auditDate: "",
       completedBy: "",
       numberOfCallBells: "",
@@ -555,7 +571,7 @@ export default function CallBellMonitoringAuditPage() {
             </div>
             <div>
               <label className="block font-semibold mb-1 text-slate-700">Person Completing Audit</label>
-              <input
+              <StaffSelectInput
                 type="text"
                 className={getFieldClassName('completedBy', "w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500")}
                 name="completedBy"

@@ -9,6 +9,7 @@ import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { StaffSelectInput } from '@/components/audits/staff-select-input';
 
 interface HealthSafetyAuditData {
   home: string;
@@ -186,6 +187,8 @@ export default function HealthSafetyAuditPage() {
   const [attachmentsToDelete, setAttachmentsToDelete] = useState<string[]>([]);
   const [previewImage, setPreviewImage] = useState<{ url: string; name: string } | null>(null);
   const createdObjectUrls = useRef<Set<string>>(new Set());
+  const activeWorkspace = useWorkspace();
+  const { user } = useAuth();
   
   // Collapsible sections state
   const [openSections, setOpenSections] = useState<string[]>(['audit-details']);
@@ -299,7 +302,7 @@ export default function HealthSafetyAuditPage() {
   };
 
   const [auditData, setAuditData] = useState<HealthSafetyAuditData>({
-    home: '',
+    home: activeWorkspace?.name ?? '',
     date: '',
     personCompletingAudit: '',
 
@@ -469,8 +472,11 @@ export default function HealthSafetyAuditPage() {
     'warning_signs_displayed', 'first_aid_posters_visible', 'residents_informed'
   ];
 
-  const activeWorkspace = useWorkspace();
-  const { user } = useAuth();
+  useEffect(() => {
+    if (!activeWorkspace?.name) return;
+    if (auditData.home && auditData.home.trim().length > 0) return;
+    setAuditData(prev => ({ ...prev, home: activeWorkspace.name }));
+  }, [activeWorkspace?.name, auditData.home]);
 
   // Load existing attachments for this audit type when workspace changes
   useEffect(() => {
@@ -836,7 +842,7 @@ export default function HealthSafetyAuditPage() {
             </div>
             <div>
               <label className="block font-semibold mb-1 text-slate-700">Person Completing Audit</label>
-              <Input
+              <StaffSelectInput
                 type="text"
                 className={getFieldClassName('personCompletingAudit', "w-full")}
                 data-field="personCompletingAudit"

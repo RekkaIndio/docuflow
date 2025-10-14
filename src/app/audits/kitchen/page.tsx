@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useWorkspace } from '@/context/workspace';
 import { useAuth } from '@/hooks/use-auth';
 import { saveAudit, markAuditCompletedWithSnapshot, getLatestAuditData, saveAuditSnapshot, markAuditCompleted } from '@/lib/firestore';
+import { StaffSelectInput } from '@/components/audits/staff-select-input';
 
 interface KitchenAuditData {
   home: string;
@@ -367,6 +368,12 @@ export default function KitchenAuditPage() {
     loadExistingAuditData();
   }, [activeWorkspace?.id, activeWorkspace?.organisationId]);
 
+  useEffect(() => {
+    if (!activeWorkspace?.name) return;
+    if (data.home && data.home.trim().length > 0) return;
+    setData(prev => ({ ...prev, home: activeWorkspace.name }));
+  }, [activeWorkspace?.name, data.home]);
+
   const handleChange = (field: keyof KitchenAuditData, value: string) => {
     setData(prev => ({ ...prev, [field]: value }));
     if (value.trim() !== '' && errors.includes(field)) setErrors(prev => prev.filter(e => e !== field));
@@ -541,7 +548,7 @@ export default function KitchenAuditPage() {
             </div>
             <div>
               <label className="block font-semibold mb-1 text-slate-700">Person Completing Audit</label>
-              <Input
+              <StaffSelectInput
                 type="text"
                 className={getFieldClassName('personCompletingAudit', "w-full")}
                 data-field="personCompletingAudit"

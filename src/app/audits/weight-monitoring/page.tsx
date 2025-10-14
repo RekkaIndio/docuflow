@@ -9,6 +9,7 @@ import { saveAudit, markAuditCompletedWithSnapshot, getLatestAuditData } from '@
 import { storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { ChevronDown, ChevronUp, FileText } from 'lucide-react';
+import { StaffSelectInput } from '@/components/audits/staff-select-input';
 
 interface WeightRow {
   room: string;
@@ -120,7 +121,7 @@ export default function WeightMonitoringAuditPage() {
   };
 
   const [data, setData] = useState<WeightMonitoringData>({
-    home: '',
+    home: activeWorkspace?.name ?? '',
     date: '',
     personCompletingAudit: '',
     rows: [emptyRow(), emptyRow(), emptyRow()],
@@ -132,6 +133,12 @@ export default function WeightMonitoringAuditPage() {
     themes_trends: '',
     action_plan_required: '',
   });
+
+  useEffect(() => {
+    if (!activeWorkspace?.name) return;
+    if (data.home && data.home.trim().length > 0) return;
+    setData(prev => ({ ...prev, home: activeWorkspace.name }));
+  }, [activeWorkspace?.name, data.home]);
 
   const updateRow = (index: number, field: keyof WeightRow, value: string) => {
     setData(prev => {
@@ -531,7 +538,7 @@ export default function WeightMonitoringAuditPage() {
             </div>
             <div>
               <label className="block font-semibold mb-1 text-slate-700">Person completing the audit</label>
-              <input
+              <StaffSelectInput
                 value={data.personCompletingAudit}
                 data-field="personCompletingAudit"
                 onChange={(e) => setData({ ...data, personCompletingAudit: e.target.value })}

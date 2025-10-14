@@ -8,6 +8,7 @@ import { storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { StaffSelectInput } from '@/components/audits/staff-select-input';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -186,6 +187,12 @@ export default function HandHygieneAuditPage() {
       comments: ''
     }))
   });
+
+  useEffect(() => {
+    if (!activeWorkspace?.name) return;
+    if (auditData.home && auditData.home.trim().length > 0) return;
+    setAuditData(prev => ({ ...prev, home: activeWorkspace.name }));
+  }, [activeWorkspace?.name, auditData.home]);
 
   const momentOptions = [
     { value: '1', label: '1 - Before touching a resident' },
@@ -506,7 +513,7 @@ export default function HandHygieneAuditPage() {
   const addNewReport = () => {
     // Reset form for new report
     setAuditData({
-      home: '',
+      home: activeWorkspace?.name ?? '',
       date: '',
       personCompletingAudit: '',
       
@@ -563,7 +570,7 @@ export default function HandHygieneAuditPage() {
             </div>
             <div>
               <label className="block font-semibold mb-1 text-slate-700">Person Completing Audit</label>
-              <Input
+              <StaffSelectInput
                 type="text"
                 className={getFieldClassName('personCompletingAudit', "w-full")}
                 data-field="personCompletingAudit"

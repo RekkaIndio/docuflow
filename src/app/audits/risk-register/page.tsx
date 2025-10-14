@@ -6,6 +6,9 @@ import { markAuditCompletedWithSnapshot, getLatestAuditData } from '@/lib/firest
 import { storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { ChevronDown, ChevronUp, FileText } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { StaffSelectInput } from '@/components/audits/staff-select-input';
 
 type RiskRow = {
   rm: string;
@@ -75,13 +78,6 @@ export default function RiskRegisterAuditPage() {
   const { user } = useAuth();
   const activeWorkspace = useWorkspace();
 
-  // Collapsible sections state
-  const [openSections, setOpenSections] = useState<{ [key: string]: boolean }>({
-    'resident-overview': true,
-    'risk-management': false,
-    'final-comments': false,
-  });
-
   // Section definitions with guidance text
   const sections = [
     {
@@ -106,6 +102,22 @@ export default function RiskRegisterAuditPage() {
       content: 'comments'
     },
   ];
+
+  // Collapsible sections state (open all sections by default to match other audits)
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>(() => Object.fromEntries(sections.map(s => [s.id, true])));
+
+  // Audit metadata fields shown in the left panel
+  const [home, setHome] = useState('');
+  const [auditDate, setAuditDate] = useState('');
+  const [personCompletingAudit, setPersonCompletingAudit] = useState('');
+
+  // Prefill home from active workspace name when available
+  useEffect(() => {
+    if (!activeWorkspace?.name) return;
+    setHome(prev => (prev && prev.trim().length > 0) ? prev : activeWorkspace.name);
+  }, [activeWorkspace?.name]);
+
+  
 
   // Helper functions
   const toggleSection = (sectionId: string) => {
@@ -302,26 +314,32 @@ export default function RiskRegisterAuditPage() {
   useEffect(() => { return () => { createdObjectUrls.current.forEach(u => { try { URL.revokeObjectURL(u); } catch (err) { /* ignore */ } }); createdObjectUrls.current.clear(); }; }, []);
 
   return (
-  <div className="w-full p-6 bg-white">
+  <div className="w-full p-10 bg-gradient-to-br from-slate-50 to-white rounded-3xl shadow-2xl mt-10 border border-slate-200">
       <div className="mb-6">
-        <div className="flex justify-between items-center mb-4">
-          <h1 className="text-2xl font-bold text-gray-900">Risk Register Audit</h1>
-        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Panel - Audit Information */}
+          {/* Left Panel - Audit Information (sticky) */}
           <div className="lg:col-span-1">
-            <div className="bg-blue-50 p-6 rounded-lg">
-              <div className="flex items-center gap-2 mb-4">
-                <FileText className="h-5 w-5 text-blue-600" />
-                <h2 className="text-lg font-semibold text-blue-900">Audit Information</h2>
-              </div>
+            <div className="w-full lg:w-[480px] flex-shrink-0 bg-white rounded-2xl p-8 border border-slate-200 shadow-xl mb-8 lg:mb-0 lg:sticky lg:top-10 self-start h-fit">
+              <h2 className="text-2xl font-extrabold mb-2 text-blue-900 tracking-tight flex items-center gap-3"><FileText className="h-5 w-5 text-blue-600" />Risk Register Audit</h2>
+              <p className="mb-4 text-slate-500">Manage resident risk information by room. Track conditions, equipment needs and care requirements.</p>
+
               <div className="space-y-4">
-                <div className="text-sm text-gray-600">
-                  <p>Manage resident risk information by room. Track medical conditions, equipment needs, and care requirements for each resident.</p>
+                <div>
+                  <label className="block font-semibold mb-1 text-slate-700">Home/Care Facility</label>
+                  <Input value={home} onChange={(e: any) => setHome(e.target.value)} className={getFieldClassName('home')} placeholder="Enter care home name" data-field="home" />
                 </div>
-                <div className="pt-4">
-                  <div className="text-sm font-medium text-gray-700 mb-2">Total Residents: {rows.length}</div>
+                <div>
+                  <label className="block font-semibold mb-1 text-slate-700">Audit Date</label>
+                  <Input type="date" value={auditDate} onChange={(e: any) => setAuditDate(e.target.value)} className={getFieldClassName('date')} data-field="date" />
+                </div>
+                <div>
+                  <label className="block font-semibold mb-1 text-slate-700">Person Completing Audit</label>
+                  <StaffSelectInput value={personCompletingAudit} onChange={(e: any) => setPersonCompletingAudit(e.target.value)} placeholder="Full name and position" className={getFieldClassName('personCompletingAudit')} data-field="personCompletingAudit" />
+                </div>
+
+                <div className="pt-2">
+                  <div className="text-sm font-medium text-gray-700 mb-1">Total Residents: {rows.length}</div>
                   <div className="text-sm text-gray-600">
                     {rows.filter(r => r.dementia || r.diabetic || r.epilepsy || r.parkinsons).length} residents with major risk flags
                   </div>
@@ -333,10 +351,10 @@ export default function RiskRegisterAuditPage() {
           {/* Right Panel - Collapsible Sections */}
           <div className="lg:col-span-2 space-y-4">
             {sections.map((section, index) => (
-              <div key={index} className="bg-white border border-gray-200 rounded-lg shadow-sm">
+              <div key={index} className="bg-white rounded-2xl border border-slate-200 shadow-md transition-shadow hover:shadow-lg">
                 <button
                   onClick={() => toggleSection(section.id)}
-                  className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors"
+                  className="w-full flex items-center justify-between px-8 py-5 text-left font-semibold text-blue-900 text-lg focus:outline-none hover:bg-slate-50 rounded-t-2xl transition-colors"
                 >
                   <div className="flex items-center gap-3">
                     <FileText className="h-5 w-5 text-gray-600" />
@@ -350,8 +368,12 @@ export default function RiskRegisterAuditPage() {
                 </button>
 
                 {openSections[section.id] && (
-                  <div className="px-4 pb-4">
-                    <p className="text-sm text-gray-600 mb-4">{section.guidance}</p>
+                  <div className="px-8 pb-6">
+                    {section.guidance && (
+                      <ul className="mb-4 ml-4 list-disc text-sm text-slate-500 space-y-1">
+                        <li>{section.guidance}</li>
+                      </ul>
+                    )}
                     <div className="space-y-4">
                       {section.content === 'overview' && (
                         <div className="space-y-4">
@@ -483,27 +505,16 @@ export default function RiskRegisterAuditPage() {
                 {/* Basic Information */}
                 <div className="bg-blue-50 p-4 rounded-lg">
                   <h3 className="text-lg font-semibold text-blue-900 mb-4">Basic Information</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Resident Name</label>
-                      <input
-                        value={rows[selectedIndex].name}
-                        onChange={(e) => updateRow(selectedIndex, { name: e.target.value })}
-                        className="block w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Enter resident name"
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Resident Name</label>
+                        <Input value={rows[selectedIndex].name} onChange={(e: any) => updateRow(selectedIndex, { name: e.target.value })} placeholder="Enter resident name" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Waterlow Score</label>
+                        <Input type="number" value={rows[selectedIndex].waterlow ?? ''} onChange={(e: any) => updateRow(selectedIndex, { waterlow: e.target.value ? Number(e.target.value) : null })} placeholder="Enter score" />
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Waterlow Score</label>
-                      <input
-                        type="number"
-                        value={rows[selectedIndex].waterlow ?? ''}
-                        onChange={(e) => updateRow(selectedIndex, { waterlow: e.target.value ? Number(e.target.value) : null })}
-                        className="block w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Enter score"
-                      />
-                    </div>
-                  </div>
                 </div>
 
                 {/* Medical Conditions */}
@@ -597,45 +608,25 @@ export default function RiskRegisterAuditPage() {
                 {/* Additional Notes */}
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Additional Information</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Allergies / Medication Notes</label>
-                      <input
-                        value={rows[selectedIndex].allergies}
-                        onChange={(e) => updateRow(selectedIndex, { allergies: e.target.value })}
-                        className="block w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
-                        placeholder="Enter allergy information and medication notes"
-                      />
-                    </div>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Allergies / Medication Notes</label>
+                        <Input value={rows[selectedIndex].allergies} onChange={(e: any) => updateRow(selectedIndex, { allergies: e.target.value })} placeholder="Enter allergy information and medication notes" />
+                      </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Pressure Sore / Leg Ulcer Notes</label>
-                      <input
-                        value={rows[selectedIndex].pressureSoreRisk}
-                        onChange={(e) => updateRow(selectedIndex, { pressureSoreRisk: e.target.value })}
-                        className="block w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
-                        placeholder="Enter pressure sore or leg ulcer information"
-                      />
-                    </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Pressure Sore / Leg Ulcer Notes</label>
+                        <Input value={rows[selectedIndex].pressureSoreRisk} onChange={(e: any) => updateRow(selectedIndex, { pressureSoreRisk: e.target.value })} placeholder="Enter pressure sore or leg ulcer information" />
+                      </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">DOLS Condition</label>
-                      <input
-                        value={rows[selectedIndex].dolsCondition}
-                        onChange={(e) => updateRow(selectedIndex, { dolsCondition: e.target.value })}
-                        className="block w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
-                        placeholder="Enter DOLS condition details"
-                      />
-                    </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">DOLS Condition</label>
+                        <Input value={rows[selectedIndex].dolsCondition} onChange={(e: any) => updateRow(selectedIndex, { dolsCondition: e.target.value })} placeholder="Enter DOLS condition details" />
+                      </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">General Notes / Actions</label>
-                      <textarea
-                        value={rows[selectedIndex].notes}
-                        onChange={(e) => updateRow(selectedIndex, { notes: e.target.value })}
-                        className="block w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500 h-32 resize-none"
-                        placeholder="Enter any additional notes, care requirements, or actions needed"
-                      />
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">General Notes / Actions</label>
+                        <Textarea value={rows[selectedIndex].notes} onChange={(e) => updateRow(selectedIndex, { notes: e.target.value })} className="h-32" placeholder="Enter any additional notes, care requirements, or actions needed" />
                       {/* Attachments */}
                       <div className="mt-4">
                         <label className="block text-sm font-medium text-gray-700 mb-2">Attachments</label>
@@ -652,11 +643,9 @@ export default function RiskRegisterAuditPage() {
                         </div>
                         <div className="mt-3 flex flex-wrap gap-2">
                           {(attachments[`resident-${rows[selectedIndex].rm}`] ?? []).map(att => (
-                            <div key={att.id} className="relative w-28 h-28 rounded overflow-hidden border border-gray-200">
-                              <button type="button" onClick={() => setPreviewImage({ url: att.url, name: att.name })} className="w-full h-full" title={att.name}>
-                                <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
-                              </button>
-                              <button type="button" onClick={() => handleRemoveAttachment(`resident-${rows[selectedIndex].rm}`, att.id)} className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-gray-200 shadow-sm">×</button>
+                            <div key={att.id} className="relative w-28 h-28 rounded-lg overflow-hidden border border-slate-200 shadow-sm">
+                              <button type="button" onClick={() => setPreviewImage({ url: att.url, name: att.name })} className="w-full h-full" title={att.name}><img src={att.url} alt={att.name} className="w-full h-full object-cover" /></button>
+                              <button type="button" onClick={() => handleRemoveAttachment(`resident-${rows[selectedIndex].rm}`, att.id)} className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-slate-200 shadow">×</button>
                             </div>
                           ))}
                         </div>
@@ -669,12 +658,7 @@ export default function RiskRegisterAuditPage() {
 
             {/* Footer */}
             <div className="border-t bg-gray-50 p-6 flex justify-end gap-3">
-              <button
-                onClick={() => setSelectedIndex(null)}
-                className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-              >
-                Save & Close
-              </button>
+              <button onClick={() => setSelectedIndex(null)} className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">Save & Close</button>
             </div>
           </div>
         </div>
@@ -686,15 +670,9 @@ export default function RiskRegisterAuditPage() {
           <div className="bg-white p-6 rounded-lg max-w-md mx-4">
             <h3 className="text-lg font-semibold mb-4">Complete Risk Register Audit</h3>
             <p className="text-gray-600 mb-4">Would you like to add any final comments before completing this audit? A PDF snapshot will be saved.</p>
-            <textarea
-              value={finalComments}
-              onChange={e => setFinalComments(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-md resize-none mb-4"
-              rows={4}
-              placeholder="Enter any final comments or notes..."
-            />
+            <Textarea value={finalComments} onChange={e => setFinalComments(e.target.value)} rows={4} placeholder="Enter any final comments or notes..." className="mb-4" />
             <div className="flex gap-3 justify-end">
-              <button onClick={() => setShowCompleteModal(false)} disabled={saving} className="px-4 py-2 text-gray-600 hover:text-gray-800 disabled:opacity-50">Cancel</button>
+              <button onClick={() => setShowCompleteModal(false)} disabled={saving} className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50">{saving ? 'Saving...' : 'Cancel'}</button>
               <button
                 onClick={async () => {
                   if (!activeWorkspace?.id) {
@@ -741,6 +719,9 @@ export default function RiskRegisterAuditPage() {
                     const attachmentsPayload = Object.keys(attachmentsMetadata).length > 0 ? attachmentsMetadata : undefined;
 
                     const auditData: any = {
+                      home,
+                      date: auditDate,
+                      personCompletingAudit,
                       residents: rows,
                       comments: finalComments,
                       completedBy: user?.id ?? null,
@@ -766,7 +747,7 @@ export default function RiskRegisterAuditPage() {
                   }
                 }}
                 disabled={saving}
-                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
               >
                 {saving ? 'Saving...' : 'Save & Complete'}
               </button>
