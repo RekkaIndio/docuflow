@@ -246,4 +246,329 @@
     box-shadow: none !important;
     border-color: rgba(239, 68, 68, 0.75) !important;
   }
+
+  .animate-on-scroll,
+  .animate-on-scroll-left,
+  .animate-on-scroll-right,
+  .animate-on-scroll-scale {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0) scale(0.98);
+    transition: opacity 0.8s ease, transform 0.8s ease, filter 0.8s ease;
+    transition-delay: var(--scroll-delay, 0s);
+    will-change: opacity, transform;
+  }
+
+  /* Fade-only animation used for connectors so we don't clash with transform-based placement */
+  .animate-fade-in {
+    opacity: 0;
+    transition: opacity 0.9s ease;
+    will-change: opacity;
+  }
+
+  .animate-fade-in.animate {
+    opacity: 1;
+  }
+
+  .animate-on-scroll-left {
+    transform: translate3d(-36px, 0, 0);
+  }
+
+  .animate-on-scroll-right {
+    transform: translate3d(36px, 0, 0);
+  }
+
+  .animate-on-scroll-scale {
+    transform: scale(0.94);
+  }
+
+  .animate-on-scroll.animate,
+  .animate-on-scroll-left.animate,
+  .animate-on-scroll-right.animate,
+  .animate-on-scroll-scale.animate {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    transition-delay: var(--scroll-delay, 0s);
+  }
+
+  body[data-accessibility-theme] .animate-on-scroll,
+  body[data-accessibility-theme] .animate-on-scroll-left,
+  body[data-accessibility-theme] .animate-on-scroll-right,
+  body[data-accessibility-theme] .animate-on-scroll-scale {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-on-scroll,
+    .animate-on-scroll-left,
+    .animate-on-scroll-right,
+    .animate-on-scroll-scale {
+      transition: none;
+      transform: none;
+      opacity: 1;
+    }
+  }
+
+  @keyframes float-soft {
+    0%, 100% {
+      transform: translate3d(0, 0, 0);
+    }
+    50% {
+      transform: translate3d(0, -12px, 0);
+    }
+  }
+
+  @keyframes float-soft-alt {
+    0%, 100% {
+      transform: translate3d(0, 0, 0);
+    }
+    50% {
+      transform: translate3d(0, 10px, 0);
+    }
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% {
+      box-shadow: 0 20px 60px -32px rgba(129, 140, 248, 0.45);
+    }
+    50% {
+      box-shadow: 0 35px 90px -25px rgba(59, 130, 246, 0.6);
+    }
+  }
+
+  .animate-float-slow {
+    animation: float-soft 8s ease-in-out infinite;
+  }
+
+  .animate-float-medium {
+    animation: float-soft-alt 6s ease-in-out infinite;
+  }
+
+  .glow-ring {
+    animation: pulse-glow 5.5s ease-in-out infinite;
+  }
+
+  body[data-accessibility-theme] .animate-float-slow,
+  body[data-accessibility-theme] .animate-float-medium,
+  body[data-accessibility-theme] .glow-ring {
+    animation: none !important;
+  }
+
+  body[data-accessibility-theme] .connector .line {
+    animation: none !important;
+    background-position: 50% 50% !important;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .connector .line {
+      animation: none !important;
+      background-position: 50% 50% !important;
+    }
+  }
+
+  /* Make nodes more compact and rectangular */
+  .orbit-node > div {
+    min-width: 140px;
+    max-width: 200px;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .orbit-node p.truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Orbit connectors and node styles for the comparison visual */
+  .connector {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform-origin: 0 50%;
+    pointer-events: none;
+  }
+
+  .connector .line {
+    height: 2px;
+    border-radius: 9999px;
+    background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.85) 50%, rgba(255,255,255,0) 100%);
+    background-size: 200% 100%;
+    background-position: 100% 50%;
+    box-shadow: 0 6px 18px -8px rgba(59,130,246,0.28);
+    /* subtle base glow */
+  }
+
+  /* Hero visual: parallax card, rotating ring, glint and decorative chips */
+  .hero-visual {
+    position: relative;
+    perspective: 1400px;
+    -webkit-perspective: 1400px;
+  }
+
+  .hero-scale {
+    display: inline-block;
+    transform-style: preserve-3d;
+  }
+
+  .hero-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: 1rem;
+    will-change: transform, box-shadow;
+    transition: transform 320ms cubic-bezier(.2, .9, .23, 1);
+  }
+
+  .hero-ring {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 520px;
+    height: 520px;
+    border-radius: 9999px;
+    background: radial-gradient(circle at center, rgba(99,102,241,0.08), rgba(79,70,229,0.04) 28%, transparent 56%);
+    filter: blur(36px);
+    z-index: -10;
+    animation: rotate-slow 28s linear infinite;
+    opacity: 0.95;
+  }
+
+  @keyframes rotate-slow {
+    0% { transform: translate(-50%, -50%) rotate(0deg); }
+    100% { transform: translate(-50%, -50%) rotate(360deg); }
+  }
+
+  .hero-glint {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    mix-blend-mode: overlay;
+    opacity: 0.9;
+    background: linear-gradient(120deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.08) 44%, rgba(255,255,255,0.02) 60%, rgba(255,255,255,0) 100%);
+    transform: translateX(-130%);
+    animation: hero-glint 5.6s linear infinite;
+  }
+
+  @keyframes hero-glint {
+    0% { transform: translateX(-130%); }
+    100% { transform: translateX(130%); }
+  }
+
+  .hero-chip {
+    will-change: transform, opacity;
+  }
+
+  .cta-glow {
+    position: relative;
+    overflow: visible;
+  }
+
+  .cta-glow::after {
+    content: '';
+    position: absolute;
+    inset: -6px;
+    z-index: -1;
+    border-radius: 12px;
+    background: linear-gradient(90deg, rgba(59,130,246,0.12), rgba(99,102,241,0.10), rgba(139,92,246,0.06));
+    filter: blur(12px);
+    opacity: 0;
+    transition: opacity 220ms ease, transform 220ms ease;
+  }
+
+  .cta-glow:hover::after {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero-ring,
+    .hero-glint,
+    .hero-chip,
+    .cta-glow::after {
+      animation: none !important;
+      opacity: 0.0 !important;
+      transform: none !important;
+    }
+  }
+
+  /* Smooth moving gradient helper used for headline emphasis */
+  .animate-gradient-x {
+    background-size: 200% 100%;
+    animation: gradient-x 6s linear infinite;
+  }
+
+  @keyframes gradient-x {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-gradient-x { animation: none !important; }
+  }
+
+  /* small moving dot that travels along the connector for a smoother, back-and-forth pulse */
+  .connector .line::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 10px;
+    height: 10px;
+    border-radius: 9999px;
+    background: radial-gradient(circle at center, rgba(255,255,255,0.95), rgba(99,102,241,0.95));
+    filter: blur(6px);
+    opacity: 0.95;
+    pointer-events: none;
+    will-change: transform;
+  }
+
+  @keyframes connector-pulse {
+    0% {
+      background-position: 100% 50%;
+      opacity: 0.75;
+      filter: drop-shadow(0 6px 18px rgba(59,130,246,0.18));
+    }
+    50% {
+      background-position: 60% 50%;
+      opacity: 1;
+      filter: drop-shadow(0 12px 34px rgba(59,130,246,0.28));
+    }
+    100% {
+      background-position: 0% 50%;
+      opacity: 0.65;
+      filter: drop-shadow(0 6px 18px rgba(59,130,246,0.12));
+    }
+  }
+
+  /* smoother continuous back-and-forth pulse (linear + alternate avoids jerky easing) */
+  .connector.animate .line {
+    animation: connector-pulse 2.6s linear infinite alternate;
+  }
+
+  @keyframes dot-travel {
+    0% { transform: translateX(0) translateY(-50%); }
+    100% { transform: translateX(calc(100% - 12px)) translateY(-50%); }
+  }
+
+  .connector.animate .line::before {
+    animation: dot-travel 1.4s linear infinite alternate;
+  }
+
+  .orbit-node {
+    position: absolute;
+    pointer-events: auto;
+    /* node centering and rotation handled inline to keep every node tightly aligned with its connector */
+  }
+
+  /* small accessibility-friendly focus / hover state for nodes */
+  .orbit-node > *:hover,
+  .orbit-node > *:focus {
+    outline: none;
+    box-shadow: 0 8px 32px -12px rgba(59,130,246,0.65), 0 1px 0 rgba(255,255,255,0.04) inset;
+    transform: translateY(-2px);
+  }
 }

@@ -2,7 +2,7 @@
 "use client";
 
 import Link from 'next/link';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useLayoutEffect, type CSSProperties } from 'react';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/icons/logo';
 import {
@@ -12,6 +12,7 @@ import {
   Cpu,
   Tag,
   FolderSync,
+  Folder,
   Bell,
   Share2,
   MessageSquare,
@@ -38,7 +39,13 @@ import {
   Accessibility,
   Menu,
   Clock,
-  DollarSign
+  DollarSign,
+  AlertTriangle,
+  Puzzle,
+  Layers,
+  CreditCard,
+  BadgeCheck,
+  PoundSterling
 } from 'lucide-react';
 import { Lock } from 'lucide-react';
 import Image from 'next/image';
@@ -75,6 +82,19 @@ export default function Page() {
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const { openCalendlyModal } = useCalendly();
 
+  // Ref + measurement for the central CG-360 card so connectors stop at its outer edge
+  const centerRef = useRef<HTMLDivElement | null>(null);
+  const [centerSize, setCenterSize] = useState({ width: 260, height: 140 });
+  const orbitRef = useRef<HTMLDivElement | null>(null);
+  const [orbitSize, setOrbitSize] = useState({ width: 0, height: 0 });
+  // Refs and sizes for each orbit node so we can compute where lines should stop
+  const moduleRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [moduleSizes, setModuleSizes] = useState<Record<string, { width: number; height: number }>>({});
+  // Hero visual refs for parallax and micro-interaction
+  const heroRef = useRef<HTMLDivElement | null>(null);
+  const heroCardRef = useRef<HTMLDivElement | null>(null);
+  const heroRaf = useRef<number | null>(null);
+
   const handleIconClick = (modalType: string) => {
     setActiveModal(activeModal === modalType ? null : modalType);
   };
@@ -93,8 +113,8 @@ export default function Page() {
       });
     }, observerOptions);
 
-    // Observe all elements with animation classes
-    const animatedElements = document.querySelectorAll('.animate-on-scroll, .animate-on-scroll-left, .animate-on-scroll-right, .animate-on-scroll-scale');
+  // Observe all elements with animation classes (add fade-only class for connectors)
+  const animatedElements = document.querySelectorAll('.animate-on-scroll, .animate-on-scroll-left, .animate-on-scroll-right, .animate-on-scroll-scale, .animate-fade-in');
     animatedElements.forEach((el) => observer.observe(el));
 
     return () => observer.disconnect();
@@ -128,6 +148,310 @@ export default function Page() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [mobileMenuOpen]);
+
+  useEffect(() => {
+    if (!centerRef.current) return;
+
+    const ro = new ResizeObserver((entries) => {
+      const rect = entries[0].contentRect;
+      setCenterSize({ width: rect.width, height: rect.height });
+    });
+
+    ro.observe(centerRef.current);
+
+    // initial measurement
+    const rect = centerRef.current.getBoundingClientRect();
+    setCenterSize({ width: rect.width, height: rect.height });
+
+    const handleResize = () => {
+      if (centerRef.current) {
+        const r = centerRef.current.getBoundingClientRect();
+        setCenterSize({ width: r.width, height: r.height });
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!orbitRef.current) return;
+
+    const ro = new ResizeObserver((entries) => {
+      const rect = entries[0].contentRect;
+      setOrbitSize({ width: rect.width, height: rect.height });
+    });
+
+    ro.observe(orbitRef.current);
+
+    // initial measurement
+    const rect = orbitRef.current.getBoundingClientRect();
+    setOrbitSize({ width: rect.width, height: rect.height });
+
+    const handleResize = () => {
+      if (orbitRef.current) {
+        const r = orbitRef.current.getBoundingClientRect();
+        setOrbitSize({ width: r.width, height: r.height });
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    const latestSizes: Record<string, { width: number; height: number }> = {};
+    Object.entries(moduleRefs.current).forEach(([id, el]) => {
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      latestSizes[id] = { width: rect.width, height: rect.height };
+    });
+
+    setModuleSizes((prev) => {
+      const next: Record<string, { width: number; height: number }> = { ...prev };
+      let mutated = false;
+
+      // update or add nodes
+      Object.entries(latestSizes).forEach(([id, size]) => {
+        const existing = prev[id];
+        const widthChanged = !existing || Math.abs(existing.width - size.width) > 0.5;
+        const heightChanged = !existing || Math.abs(existing.height - size.height) > 0.5;
+        if (widthChanged || heightChanged) {
+          next[id] = size;
+          mutated = true;
+        }
+      });
+
+      // remove nodes that no longer exist
+      Object.keys(prev).forEach((id) => {
+        if (!(id in latestSizes) && id in next) {
+          delete next[id];
+          mutated = true;
+        }
+      });
+
+      return mutated ? next : prev;
+    });
+  }, [orbitSize.width, orbitSize.height, centerSize.width, centerSize.height]);
+
+  // Orbit module definitions for the comparison visual — angles in degrees, radius in px from centre
+  // Evenly space 6 nodes around a single ring so they're visually connected and aligned
+  const orbitRadius = 220; // px
+  const orbitModules = [
+    { id: 'm1', title: 'Module 01', desc: 'Details revealed during migration planning.', angle: -60, radius: orbitRadius, icon: Folder },
+    { id: 'm2', title: 'Module 02', desc: 'See how signals flow in the private demo.', angle: 0, radius: orbitRadius, icon: FolderSync },
+    { id: 'm3', title: 'Module 03', desc: 'Experience the human layer live with us.', angle: 60, radius: orbitRadius, icon: Users },
+    { id: 'm4', title: 'Module 04', desc: 'Reserved: reveal during inspection walk-through.', angle: 120, radius: orbitRadius, icon: FileText },
+    { id: 'm5', title: 'Module 05', desc: 'Guided tour unlocks the governance layer.', angle: 180, radius: orbitRadius, icon: Shield },
+    { id: 'm6', title: 'Module 06', desc: 'Future-facing analytics previewed on call.', angle: 240, radius: orbitRadius, icon: BarChart3 },
+  ];
+
+  const featureCards = [
+    {
+      id: 'feature-docs',
+      title: 'Smart Document Management',
+      description: 'AI-powered document processing with automatic categorisation, version control, and compliance tracking. Never lose track of important paperwork again.',
+      icon: FileText,
+      accentGradient: 'from-blue-500 to-blue-600',
+      hoverBorder: 'hover:border-blue-200/50',
+      glow: 'from-blue-400/20 via-blue-500/10 to-transparent'
+    },
+    {
+      id: 'feature-ai',
+      title: 'AI Compliance Assistant',
+      description: 'Get instant answers to compliance questions, automated policy reviews, and intelligent recommendations tailored to your care home\'s needs.',
+      icon: BrainCircuit,
+      accentGradient: 'from-purple-500 to-purple-600',
+      hoverBorder: 'hover:border-purple-200/50',
+      glow: 'from-purple-400/20 via-purple-500/10 to-transparent'
+    },
+    {
+      id: 'feature-analytics',
+      title: 'Real-time Analytics',
+      description: 'Comprehensive dashboards showing compliance status, staffing ratios, and operational insights. Make data-driven decisions with confidence.',
+      icon: BarChart3,
+      accentGradient: 'from-cyan-500 to-cyan-600',
+      hoverBorder: 'hover:border-cyan-200/50',
+      glow: 'from-cyan-400/20 via-cyan-500/10 to-transparent'
+    },
+    {
+      id: 'feature-staff',
+      title: 'Staff Management',
+      description: 'Streamline team management and oversight to keep your workforce organised, supported, and compliant.',
+      icon: Users,
+      accentGradient: 'from-green-500 to-green-600',
+      hoverBorder: 'hover:border-green-200/50',
+      glow: 'from-green-400/18 via-green-500/10 to-transparent'
+    },
+    {
+      id: 'feature-inspection',
+      title: 'Inspection Access',
+      description: 'Give inspectors controlled, time-limited access to exactly what they need — securely and on your terms.No printing, no file uploads — just instant visibility for the right people, at the right time.',
+      icon: Shield,
+      accentGradient: 'from-orange-500 to-orange-600',
+      hoverBorder: 'hover:border-orange-200/50',
+      glow: 'from-orange-400/20 via-amber-500/10 to-transparent'
+    },
+    {
+      id: 'feature-automation',
+      title: 'Automation Engine',
+      description: 'Automate routine compliance tasks, generate reports, and receive alerts. Focus on resident care while we handle the paperwork.',
+      icon: Zap,
+      accentGradient: 'from-pink-500 to-pink-600',
+      hoverBorder: 'hover:border-pink-200/50',
+      glow: 'from-pink-400/20 via-pink-500/10 to-transparent'
+    }
+  ];
+
+  const migrationProofPoints = [
+    {
+      id: 'proof-implementation',
+      eyebrow: 'Implementation',
+      title: 'Live in 2 weeks',
+      body: 'Structured onboarding, data migration, and automation setup handled with you — not handed over.',
+      legacyNote: 'Legacy: 12+ weeks + consultancy'
+    },
+    {
+      id: 'proof-support',
+      eyebrow: 'Support',
+      title: 'Unlimited guidance',
+      body: 'In-app coaching, inspection rehearsal kits, and an expert team on-call without extra line items.',
+      legacyNote: 'Legacy: paid refresher days'
+    },
+    {
+      id: 'proof-value',
+      eyebrow: 'Value',
+      title: 'All-inclusive pricing',
+      body: 'One subscription covers compliance, AI, secure storage, and updates — no surprised finance teams.',
+      legacyNote: 'Legacy: bolt-ons + uplift fees'
+    }
+  ];
+
+  const roiHighlights = [
+    {
+      id: 'roi-policy',
+      icon: FileText,
+      accentGradient: 'from-green-500 to-blue-500',
+      title: 'Policy Management',
+      description: 'Streamlined creation, updates, and management of care home policies with version control and approval workflows.'
+    },
+    {
+      id: 'roi-staff',
+      icon: Users,
+      accentGradient: 'from-blue-500 to-purple-500',
+      title: 'Staff Management',
+      description: 'Complete staff records along with supervision management to ensure compliance and up-to-date certifications.'
+    },
+    {
+      id: 'roi-compliance',
+      icon: Shield,
+      accentGradient: 'from-purple-500 to-pink-500',
+      title: 'Compliance Tracking',
+      description: 'Automated compliance monitoring and audit preparation to meet CQC standards and maintain inspection readiness.'
+    },
+    {
+      id: 'roi-trends',
+      icon: TrendingUp,
+      accentGradient: 'from-green-500 to-emerald-500',
+      title: 'Trend Tracking',
+      description: 'Monitor compliance trends, performance metrics, and operational insights over time for proactive improvements.'
+    }
+  ];
+
+  const transparencySteps = [
+    {
+      id: 'step-setup',
+      icon: UploadCloud,
+      accentGradient: 'from-blue-500 to-blue-600',
+      title: '2 Week Setup',
+      subtitle: 'Fast Implementation',
+      description: 'Complete setup and in just 2 weeks with full transparency throughout the process'
+    },
+    {
+      id: 'step-updates',
+      icon: MessageSquare,
+      accentGradient: 'from-purple-500 to-purple-600',
+      title: 'Monthly Updates',
+      subtitle: 'Feedback & Communication',
+      description: 'Regular check-ins and transparent updates with all stakeholders to ensure optimal performance'
+    },
+    {
+      id: 'step-support',
+      icon: TrendingUp,
+      accentGradient: 'from-green-500 to-green-600',
+      title: 'Continuous Support',
+      subtitle: 'Ongoing Optimisation',
+      description: 'Transparent reporting and continuous platform improvements to maximize your compliance efficiency'
+    }
+  ];
+
+  const fallbackModuleSize = { width: 160, height: 44 };
+  const moduleGeometry = orbitModules.reduce<Record<string, { angleRad: number; support: number; width: number; height: number }>>((acc, module) => {
+    const angleRad = (module.angle * Math.PI) / 180;
+    const measured = moduleSizes[module.id];
+    const width = measured?.width ?? fallbackModuleSize.width;
+    const height = measured?.height ?? fallbackModuleSize.height;
+    const support = (width / 2) * Math.abs(Math.cos(angleRad)) + (height / 2) * Math.abs(Math.sin(angleRad));
+    acc[module.id] = { angleRad, support, width, height };
+    return acc;
+  }, {});
+  const maxSupportDistance = Object.values(moduleGeometry).reduce((max, geom) => Math.max(max, geom.support), 0);
+  const centerRadius = Math.max(centerSize.width, centerSize.height) / 2 + 12;
+  const minGapBetweenCenterAndModule = 48;
+  const ringRadius = Math.max(orbitRadius, centerRadius + maxSupportDistance + minGapBetweenCenterAndModule);
+
+  useEffect(() => {
+    // Add parallax tilt to the hero visual; avoid running when reduced-motion is requested
+    if (!heroRef.current || !heroCardRef.current) return;
+    const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReduced) return;
+
+    const el = heroRef.current;
+    const card = heroCardRef.current;
+    let rafId: number | null = null;
+    const maxTilt = 8; // degrees for rotateX/rotateY
+    const maxTranslate = 10; // pixels for subtle parallax movement
+
+    const applyTransform = (nx: number, ny: number) => {
+      const tiltX = Math.max(-maxTilt, Math.min(maxTilt, ny * -maxTilt));
+      const tiltY = Math.max(-maxTilt, Math.min(maxTilt, nx * maxTilt));
+      const translateX = Math.round(nx * maxTranslate);
+      const translateY = Math.round(ny * maxTranslate);
+      card.style.transform = `translate3d(${translateX}px, ${translateY}px, 0px) rotateX(${tiltX}deg) rotateY(${tiltY}deg)`;
+    };
+
+    const onMove = (ev: MouseEvent) => {
+      const rect = el.getBoundingClientRect();
+      const nx = ((ev.clientX - rect.left) / rect.width - 0.5) * 2; // -1..1
+      const ny = ((ev.clientY - rect.top) / rect.height - 0.5) * 2; // -1..1
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => applyTransform(nx, ny));
+      heroRaf.current = rafId;
+    };
+
+    const onLeave = () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      card.style.transform = 'translate3d(0px, 0px, 0px) rotateX(0deg) rotateY(0deg)';
+    };
+
+    el.addEventListener('mousemove', onMove);
+    el.addEventListener('mouseleave', onLeave);
+
+    return () => {
+      el.removeEventListener('mousemove', onMove);
+      el.removeEventListener('mouseleave', onLeave);
+      if (rafId) cancelAnimationFrame(rafId);
+      heroRaf.current = null;
+    };
+  }, []);
 
   return (
   <div className="flex flex-col min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 text-slate-900 relative">
@@ -242,14 +566,14 @@ export default function Page() {
 
                 <div className="space-y-4">
                   <h1 className="text-5xl lg:text-7xl font-bold leading-tight">
-                    Transform Your
+                    Say goodbye to fragmented systems 
                     <span className="block bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-600 bg-clip-text text-transparent animate-gradient-x">
-                      Care Home Compliance
+                      & compliance headaches.
                     </span>
                   </h1>
 
                   <p className="text-xl text-slate-600 leading-relaxed max-w-lg">
-                    Say goodbye to fragmented systems and compliance nightmares. CG-360 brings everything together in one elegant, intelligent platform designed specifically for care homes.
+                    With CG-360, it’s all about integration, not fragmentation — bringing every aspect of care home compliance and governance together in one simple, intelligent, connected platform.
                   </p>
                 </div>
 
@@ -257,7 +581,7 @@ export default function Page() {
                   <Button
                     size="lg"
                     onClick={openCalendlyModal}
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105"
+                    className="cta-glow bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105"
                   >
                     <Play className="mr-2 h-5 w-5" />
                     Book Your Free Demo
@@ -265,19 +589,43 @@ export default function Page() {
                 </div>
               </div>
 
-              {/* Hero Visual */}
-              <div className="relative">
-                <div className="relative rounded-3xl shadow-2xl border border-slate-200/50 overflow-hidden transform scale-125">
-                  <img
-                    src="/heroimage.png"
-                    alt="CG-360 Platform Dashboard"
-                    className="w-full h-auto object-cover"
-                    style={{
-                      maskImage: 'radial-gradient(ellipse at center, rgba(0,0,0,0.9) 60%, rgba(0,0,0,0.4) 80%, rgba(0,0,0,0.02) 100%)',
-                      WebkitMaskImage: 'radial-gradient(ellipse at center, rgba(0,0,0,0.9) 60%, rgba(0,0,0,0.4) 80%, rgba(0,0,0,0.02) 100%)',
-                      opacity: 0.7
-                    }}
-                  />
+              {/* Hero Visual with parallax, ring, and micro-interactions */}
+              <div ref={heroRef} className="relative hero-visual">
+                <div className="hero-ring pointer-events-none -z-10" aria-hidden />
+
+                <div className="relative transform scale-125 hero-scale">
+                  <div ref={heroCardRef} className="hero-card relative rounded-3xl shadow-2xl border border-slate-200/50 overflow-hidden">
+                    <img
+                      src="/heroimage.png"
+                      alt="CG-360 Platform Dashboard"
+                      className="w-full h-auto object-cover"
+                      style={{
+                        maskImage: 'radial-gradient(ellipse at center, rgba(0,0,0,0.9) 60%, rgba(0,0,0,0.4) 80%, rgba(0,0,0,0.02) 100%)',
+                        WebkitMaskImage: 'radial-gradient(ellipse at center, rgba(0,0,0,0.9) 60%, rgba(0,0,0,0.4) 80%, rgba(0,0,0,0.02) 100%)',
+                        opacity: 0.92
+                      }}
+                    />
+                    <div className="hero-glint pointer-events-none" aria-hidden />
+                  </div>
+                </div>
+
+                {/* Decorative chips — purely visual */}
+                <div className="hidden lg:block absolute -top-6 -left-6 hero-chip animate-float-slow" aria-hidden>
+                  <div className="w-12 h-12 rounded-lg bg-white/6 border border-white/10 flex items-center justify-center shadow-md">
+                    <FileText className="w-5 h-5 text-white/80" />
+                  </div>
+                </div>
+
+                <div className="hidden lg:block absolute -top-8 -right-8 hero-chip animate-float-medium" aria-hidden>
+                  <div className="w-10 h-10 rounded-full bg-white/6 border border-white/10 flex items-center justify-center shadow-md">
+                    <Users className="w-4 h-4 text-white/80" />
+                  </div>
+                </div>
+
+                <div className="hidden lg:block absolute -bottom-6 -left-8 hero-chip animate-float-slow" aria-hidden>
+                  <div className="w-14 h-14 rounded-lg bg-white/6 border border-white/10 flex items-center justify-center shadow-md">
+                    <Shield className="w-6 h-6 text-white/80" />
+                  </div>
                 </div>
               </div>
             </div>
@@ -302,77 +650,39 @@ export default function Page() {
                 Powerful Capabilities
               </div>
               <h2 className="text-4xl lg:text-5xl font-bold mb-6">
-                Everything you need to
+                Outstanding compliance
                 <span className="block bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                  excel at compliance
+                  made simple
                 </span>
               </h2>
               <p className="text-xl text-slate-600 max-w-3xl mx-auto">
-                From document management to automated reporting, CG-360 provides the complete toolkit for care home compliance excellence.
-              </p>
+                From document management to automated reporting, CG-360 brings together everything you need for confident, efficient compliance.              </p>
             </div>
 
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {/* Feature Cards */}
-              <div className="group bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl border border-slate-200/50 hover:border-blue-200/50 transition-all duration-300 hover:-translate-y-2">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
-                  <FileText className="w-6 h-6 text-white" />
-                </div>
-                <h3 className="text-xl font-bold mb-4 text-slate-900">Smart Document Management</h3>
-                <p className="text-slate-600 leading-relaxed">
-                  AI-powered document processing with automatic categorisation, version control, and compliance tracking. Never lose track of important paperwork again.
-                </p>
-              </div>
+              {featureCards.map((feature, index) => {
+                const Icon = feature.icon as any;
+                const staggerStyle = { '--scroll-delay': `${index * 0.08}s` } as CSSProperties;
 
-              <div className="group bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl border border-slate-200/50 hover:border-purple-200/50 transition-all duration-300 hover:-translate-y-2">
-                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
-                  <BrainCircuit className="w-6 h-6 text-white" />
-                </div>
-                <h3 className="text-xl font-bold mb-4 text-slate-900">AI Compliance Assistant</h3>
-                <p className="text-slate-600 leading-relaxed">
-                  Get instant answers to compliance questions, automated policy reviews, and intelligent recommendations tailored to your care home's needs.
-                </p>
-              </div>
-
-              <div className="group bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl border border-slate-200/50 hover:border-cyan-200/50 transition-all duration-300 hover:-translate-y-2">
-                <div className="w-12 h-12 bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
-                  <BarChart3 className="w-6 h-6 text-white" />
-                </div>
-                <h3 className="text-xl font-bold mb-4 text-slate-900">Real-time Analytics</h3>
-                <p className="text-slate-600 leading-relaxed">
-                  Comprehensive dashboards showing compliance status, staffing ratios, and operational insights. Make data-driven decisions with confidence.
-                </p>
-              </div>
-
-              <div className="group bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl border border-slate-200/50 hover:border-green-200/50 transition-all duration-300 hover:-translate-y-2">
-                <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
-                  <Users className="w-6 h-6 text-white" />
-                </div>
-                <h3 className="text-xl font-bold mb-4 text-slate-900">Staff Management</h3>
-                <p className="text-slate-600 leading-relaxed">
-                  Complete staff records, and supervision management. Ensure your team stays compliant and up-to-date with regulations.
-                </p>
-              </div>
-
-              <div className="group bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl border border-slate-200/50 hover:border-orange-200/50 transition-all duration-300 hover:-translate-y-2">
-                <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
-                  <Shield className="w-6 h-6 text-white" />
-                </div>
-                <h3 className="text-xl font-bold mb-4 text-slate-900">Inspection Access</h3>
-                <p className="text-slate-600 leading-relaxed">
-                  Offer inspection level access to your homes compliance and governance. Be prepared for CQC visits with organised evidence and clear compliance documentation.
-                </p>
-              </div>
-
-              <div className="group bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl border border-slate-200/50 hover:border-pink-200/50 transition-all duration-300 hover:-translate-y-2">
-                <div className="w-12 h-12 bg-gradient-to-br from-pink-500 to-pink-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
-                  <Zap className="w-6 h-6 text-white" />
-                </div>
-                <h3 className="text-xl font-bold mb-4 text-slate-900">Automation Engine</h3>
-                <p className="text-slate-600 leading-relaxed">
-                  Automate routine compliance tasks, generate reports, and receive alerts. Focus on resident care while we handle the paperwork.
-                </p>
-              </div>
+                return (
+                  <div
+                    key={feature.id}
+                    className={`animate-on-scroll group relative overflow-hidden rounded-2xl border border-slate-200/40 bg-white p-8 shadow-lg transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl ${feature.hoverBorder}`}
+                    style={staggerStyle}
+                  >
+                    <span className={`pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100 bg-gradient-to-br ${feature.glow}`} aria-hidden />
+                    <div className="relative z-10">
+                      <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${feature.accentGradient} flex items-center justify-center mb-6 transition-transform duration-300 group-hover:scale-[1.08]`}>
+                        <Icon className="w-6 h-6 text-white" />
+                      </div>
+                      <h3 className="text-xl font-bold mb-4 text-slate-900">{feature.title}</h3>
+                      <p className="text-slate-600 leading-relaxed">
+                        {feature.description}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             {/* CTA in Features */}
@@ -387,6 +697,236 @@ export default function Page() {
                 >
                   <Play className="mr-2 h-5 w-5" />
                   Book Your Demo
+                </Button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Comparison Section */}
+        <section id="comparison" className="relative py-24 bg-slate-950 text-white overflow-hidden">
+          <div className="absolute inset-0">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.18),_transparent_60%)]"></div>
+            <div className="absolute -bottom-24 right-12 w-72 h-72 rounded-full bg-purple-500/20 blur-3xl animate-pulse" style={{ animationDelay: '1.5s' }}></div>
+            <div className="absolute -top-20 left-16 w-64 h-64 rounded-full bg-blue-500/20 blur-3xl animate-pulse"></div>
+            <div className="absolute inset-x-0 top-1/2 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+          </div>
+
+          <div className="container mx-auto px-4 lg:px-6 relative z-10">
+            <div className="max-w-3xl mx-auto text-center mb-16">
+              <div className="inline-flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full text-sm font-medium text-blue-200 animate-on-scroll">
+                <Sparkles className="w-4 h-4" />
+                Why modern care homes switch
+              </div>
+              <h2 className="mt-6 text-4xl lg:text-5xl font-bold leading-tight">
+                Old systems slow you down.
+                <span className="block font-semibold text-transparent bg-clip-text bg-gradient-to-r from-blue-300 via-cyan-200 to-purple-300">
+                  CG-360 keeps everything in flow.
+                </span>
+              </h2>
+              <p className="mt-6 text-lg text-slate-200">
+                Legacy compliance tools were built for another era. CG-360 gives you a connected, AI-powered hub that replaces bolt-ons, manual workarounds, and hidden training fees with clarity and speed.
+              </p>
+            </div>
+
+            <div className="grid xl:grid-cols-[minmax(0,360px)_1fr] gap-10 items-center">
+              <div className="animate-on-scroll-left bg-white/5 border border-white/10 rounded-3xl p-8 shadow-2xl backdrop-blur-xl relative overflow-hidden">
+                <div className="absolute -top-24 -right-8 w-48 h-48 bg-gradient-to-br from-amber-400/30 to-red-500/30 rounded-full blur-3xl"></div>
+                <div className="flex items-center gap-3 mb-6 relative z-10">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500 to-red-500 flex items-center justify-center shadow-lg">
+                    <AlertTriangle className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-semibold">The legacy stack</h3>
+                    <p className="text-sm text-slate-300">Fragmented, reactive, and expensive to maintain.</p>
+                  </div>
+                </div>
+                <ul className="space-y-5 relative z-10">
+                  <li className="flex items-start gap-4">
+                    <div className="mt-1">
+                      <Layers className="w-5 h-5 text-amber-300" />
+                    </div>
+                    <div>
+                      <p className="font-semibold">Disconnected tools everywhere</p>
+                      <p className="text-slate-300">HR files in one system, policies in another, audits in spreadsheets — nothing talks to each other when you need evidence fast.</p>
+                    </div>
+                  </li>
+                  <li className="flex items-start gap-4">
+                    <div className="mt-1">
+                      <Puzzle className="w-5 h-5 text-amber-300" />
+                    </div>
+                    <div>
+                      <p className="font-semibold">Not built for care home reality</p>
+                      <p className="text-slate-300">Generic compliance portals struggle with CQC nuance, forcing teams to improvise risky workarounds.</p>
+                    </div>
+                  </li>
+                  <li className="flex items-start gap-4">
+                    <div className="mt-1">
+                      <CreditCard className="w-5 h-5 text-amber-300" />
+                    </div>
+                    <div>
+                      <p className="font-semibold">Bolt-ons add up quickly</p>
+                      <p className="text-slate-300">Want analytics, document storage, or inspection portals? Those are extra modules with extra invoices.</p>
+                    </div>
+                  </li>
+                  <li className="flex items-start gap-4">
+                    <div className="mt-1">
+                      <Clock className="w-5 h-5 text-amber-300" />
+                    </div>
+                    <div>
+                      <p className="font-semibold">Training sold separately</p>
+                      <p className="text-slate-300">Teams pay for classroom days, then wait weeks for “configuration” before they can do the basics.</p>
+                    </div>
+                  </li>
+                  <li className="flex items-start gap-4">
+                    <div className="mt-1">
+                      <PoundSterling className="w-5 h-5 text-amber-300" />
+                    </div>
+                    <div>
+                      <p className="font-semibold">Opaque renewal costs</p>
+                      <p className="text-slate-300">Annual price hikes and consultancy retainers make budgeting unpredictable.</p>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+
+              <div ref={orbitRef} className="animate-on-scroll-right relative flex items-center justify-center h-[520px]">
+                <div className="absolute inset-0 rounded-[48px] bg-gradient-to-br from-blue-600/40 via-purple-600/30 to-cyan-500/30 blur-3xl"></div>
+                <div className="absolute inset-10 border border-white/10 rounded-[40px] opacity-40"></div>
+                <div className="absolute inset-[18%] rounded-full border border-white/10"></div>
+                <div className="absolute inset-[32%] rounded-full border border-white/10 opacity-60"></div>
+
+                <div ref={centerRef} className="relative z-20 max-w-[260px] text-center px-6 py-9 bg-white/12 border border-white/15 rounded-[28px] shadow-[0_22px_70px_-36px_rgba(59,130,246,0.65)] backdrop-blur-xl glow-ring">
+                  <div className="inline-flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-full text-[11px] font-semibold uppercase tracking-[0.32em] text-blue-100/70 mb-5">
+                    <BadgeCheck className="w-4 h-4" />
+                    CG-360
+                  </div>
+                  <h3 className="text-xl font-semibold">Unified compliance command centre</h3>
+                  <p className="mt-3 text-xs text-blue-100/80">
+                    The full suite lives here — revealed in guided sessions. Seamless, intelligent, and orchestrated for modern care teams.
+                  </p>
+                  {/* Teaser content removed to keep platform details private; book a demo to learn more. */}
+                </div>
+
+                {orbitModules.map((m) => {
+                  const Icon = m.icon as any;
+                  const geometry = moduleGeometry[m.id] ?? {
+                    angleRad: (m.angle * Math.PI) / 180,
+                    support: (fallbackModuleSize.width / 2) * Math.abs(Math.cos((m.angle * Math.PI) / 180)) + (fallbackModuleSize.height / 2) * Math.abs(Math.sin((m.angle * Math.PI) / 180)),
+                    width: fallbackModuleSize.width,
+                    height: fallbackModuleSize.height
+                  };
+                  const { angleRad, support: supportDistance } = geometry;
+
+                  const effectiveRadius = Math.max(ringRadius, centerRadius + supportDistance + minGapBetweenCenterAndModule);
+                  const connectorLen = Math.max(16, effectiveRadius - centerRadius - supportDistance);
+                  // place module center at the effective radius so the line (which ends at
+                  // effectiveRadius - supportDistance) meets the module inner edge
+                  const nodeX = Math.cos(angleRad) * effectiveRadius;
+                  const nodeY = Math.sin(angleRad) * effectiveRadius;
+                  const startX = Math.cos(angleRad) * centerRadius;
+                  const startY = Math.sin(angleRad) * centerRadius;
+
+                  const formatPosition = (value: number) => `calc(50% ${value >= 0 ? '+' : '-'} ${Math.abs(value).toFixed(2)}px)`;
+                  const nodeLeft = formatPosition(nodeX);
+                  const nodeTop = formatPosition(nodeY);
+                  const startLeft = formatPosition(startX);
+                  const startTop = formatPosition(startY);
+
+                  return (
+                    <div key={m.id} className="hidden md:block connector animate-fade-in" style={{ position: 'absolute', inset: 0 }}>
+                      {/* connector line: starts at central-card edge and extends outward to the module */}
+                      <div
+                        className="line absolute"
+                        style={{
+                          left: startLeft,
+                          top: startTop,
+                          width: `${connectorLen}px`,
+                          transform: `translateY(-50%) rotate(${m.angle}deg)`,
+                          transformOrigin: '0 50%',
+                          height: '2px'
+                        }}
+                        aria-hidden
+                      />
+
+                      {/* node placed at the final orbit position */}
+                      <div
+                        className="orbit-node"
+                        style={{ left: nodeLeft, top: nodeTop, transform: 'translate(-50%, -50%)' }}
+                      >
+                          <div
+                            ref={(el) => {
+                              if (el) {
+                                moduleRefs.current[m.id] = el;
+                                const rect = el.getBoundingClientRect();
+                                setModuleSizes((prev) => {
+                                  const prevEntry = prev[m.id];
+                                  const widthChanged = !prevEntry || Math.abs(prevEntry.width - rect.width) > 0.5;
+                                  const heightChanged = !prevEntry || Math.abs(prevEntry.height - rect.height) > 0.5;
+                                  if (!widthChanged && !heightChanged) {
+                                    return prev;
+                                  }
+                                  return {
+                                    ...prev,
+                                    [m.id]: { width: rect.width, height: rect.height }
+                                  };
+                                });
+                              } else {
+                                delete moduleRefs.current[m.id];
+                              }
+                            }}
+                            className="rounded-2xl bg-white/10 border border-white/20 px-3 py-2 backdrop-blur-xl shadow-lg text-left max-w-[200px] z-10 flex items-center gap-3 overflow-hidden min-h-[44px]"
+                          >
+                          <div className="flex-shrink-0 w-8 h-8 rounded-md bg-white/6 flex items-center justify-center">
+                            <Icon className="w-4 h-4 text-blue-100" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold leading-tight">{m.title}</p>
+                            <p className="text-[11px] text-blue-100/60 leading-tight whitespace-normal break-words">{m.desc}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="mt-16 grid gap-6 md:grid-cols-3">
+              {migrationProofPoints.map((point, index) => {
+                const staggerStyle = { '--scroll-delay': `${index * 0.08}s` } as CSSProperties;
+                return (
+                  <div
+                    key={point.id}
+                    className="animate-on-scroll group relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl"
+                    style={staggerStyle}
+                  >
+                    <span className="pointer-events-none absolute inset-[-30%] opacity-0 transition-opacity duration-500 group-hover:opacity-100 bg-[radial-gradient(circle_at_top,_rgba(191,219,254,0.32),_transparent_65%)]" aria-hidden />
+                    <div className="relative z-10">
+                      <span className="text-xs uppercase tracking-[0.2em] text-slate-300">{point.eyebrow}</span>
+                      <h4 className="mt-4 text-lg font-semibold">{point.title}</h4>
+                      <p className="mt-2 text-sm text-slate-300">{point.body}</p>
+                      <div className="mt-4 flex items-center gap-3 text-blue-200/80">
+                        <div className="flex-1 h-px bg-white/10"></div>
+                        <span className="text-xs">{point.legacyNote}</span>
+                        <div className="flex-1 h-px bg-white/10"></div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mt-16 text-center">
+              <div className="inline-flex items-center gap-3 bg-white/10 px-6 py-4 rounded-2xl border border-white/20 shadow-2xl animate-on-scroll">
+                <span className="text-base font-medium text-blue-100">Ready to leave legacy software behind?</span>
+                <Button
+                  size="lg"
+                  onClick={openCalendlyModal}
+                  className="bg-white text-slate-900 hover:bg-slate-100 font-semibold shadow-2xl"
+                >
+                  Book a migration call
+                  <ArrowRight className="w-5 h-5 ml-2" />
                 </Button>
               </div>
             </div>
@@ -413,7 +953,7 @@ export default function Page() {
                 </span>
               </h2>
               <p className="text-xl text-slate-600 max-w-3xl mx-auto">
-                Generate comprehensive inspection evidence packs in minutes. Show inspectors exactly what they need to see, when they need to see it.
+                Generate comprehensive inspection evidence in minutes. Show inspectors exactly what they need to see, when they need to see it.
               </p>
             </div>
 
@@ -438,21 +978,6 @@ export default function Page() {
                   </div>
 
                   <div className="p-6">
-                    <div className="grid grid-cols-3 gap-4 mb-6">
-                      <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-xl border border-blue-200/50">
-                        <div className="text-2xl font-bold text-blue-600">47</div>
-                        <div className="text-xs text-blue-600 font-medium">Active Policies</div>
-                      </div>
-                      <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-xl border border-purple-200/50">
-                        <div className="text-2xl font-bold text-purple-600">156</div>
-                        <div className="text-xs text-purple-600 font-medium">Staff Records</div>
-                      </div>
-                      <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-xl border border-green-200/50">
-                        <div className="text-2xl font-bold text-green-600">8</div>
-                        <div className="text-xs text-green-600 font-medium">Open Actions</div>
-                      </div>
-                    </div>
-
                     <div className="space-y-4">
                       <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/50">
                         <div className="flex items-center justify-between mb-2">
@@ -489,9 +1014,9 @@ export default function Page() {
                       <CheckCircle2 className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <h3 className="text-xl font-bold mb-2 text-slate-900">Instant Evidence Packs</h3>
+                      <h3 className="text-xl font-bold mb-2 text-slate-900">Instant Evidence Readiness</h3>
                       <p className="text-slate-600 leading-relaxed">
-                        Generate comprehensive inspection documentation in seconds. Every policy, record, and compliance check organised and ready for review.
+                        Inspection documentation in seconds. Every policy, record, and compliance check organised and ready for review.
                       </p>
                     </div>
                   </div>
@@ -501,9 +1026,9 @@ export default function Page() {
                       <BarChart3 className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <h3 className="text-xl font-bold mb-2 text-slate-900">Live Compliance Monitoring</h3>
+                      <h3 className="text-xl font-bold mb-2 text-slate-900">Live Compliance Oversight</h3>
                       <p className="text-slate-600 leading-relaxed">
-                        Real-time dashboards showing your compliance status across all areas. Know exactly where you stand, always.
+                        Stay inspection-ready every day with real-time dashboards that show your compliance position across all key areas. Clear insights help you spot gaps early and keep every standard on track.
                       </p>
                     </div>
                   </div>
@@ -513,9 +1038,9 @@ export default function Page() {
                       <Bell className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <h3 className="text-xl font-bold mb-2 text-slate-900">Automated Alerts</h3>
+                      <h3 className="text-xl font-bold mb-2 text-slate-900">Smart Alerts & Reminders</h3>
                       <p className="text-slate-600 leading-relaxed">
-                        Never miss a deadline or compliance requirement. Smart notifications keep you ahead of inspections and regulations.
+                        Never miss a deadline or requirement again. Automated alerts and reminders keep your team informed, proactive, and always prepared for inspection.
                       </p>
                     </div>
                   </div>
@@ -561,37 +1086,27 @@ export default function Page() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-16">
-              <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-lg hover:shadow-xl transition-all duration-300 text-center">
-                <div className="w-16 h-16 bg-gradient-to-r from-green-500 to-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                  <FileText className="w-8 h-8 text-white" />
-                </div>
-                <div className="text-xl font-bold text-slate-900 mb-2">Policy Management</div>
-                <p className="text-sm text-slate-500">Streamlined creation, updates, and management of care home policies with version control and approval workflows.</p>
-              </div>
+              {roiHighlights.map((highlight, index) => {
+                const Icon = highlight.icon as any;
+                const staggerStyle = { '--scroll-delay': `${index * 0.08}s` } as CSSProperties;
 
-              <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-lg hover:shadow-xl transition-all duration-300 text-center">
-                <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                  <Users className="w-8 h-8 text-white" />
-                </div>
-                <div className="text-xl font-bold text-slate-900 mb-2">Staff Management</div>
-                <p className="text-sm text-slate-500">Complete staff records along with supervision management to ensure compliance and up-to-date certifications.</p>
-              </div>
-
-              <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-lg hover:shadow-xl transition-all duration-300 text-center">
-                <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                  <Shield className="w-8 h-8 text-white" />
-                </div>
-                <div className="text-xl font-bold text-slate-900 mb-2">Compliance Tracking</div>
-                <p className="text-sm text-slate-500">Automated compliance monitoring and audit preparation to meet CQC standards and maintain inspection readiness.</p>
-              </div>
-
-              <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-lg hover:shadow-xl transition-all duration-300 text-center">
-                <div className="w-16 h-16 bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                  <TrendingUp className="w-8 h-8 text-white" />
-                </div>
-                <div className="text-xl font-bold text-slate-900 mb-2">Trend Tracking</div>
-                <p className="text-sm text-slate-500">Monitor compliance trends, performance metrics, and operational insights over time for proactive improvements.</p>
-              </div>
+                return (
+                  <div
+                    key={highlight.id}
+                    className="animate-on-scroll-scale group relative overflow-hidden rounded-2xl border border-slate-200/60 bg-white p-8 text-center shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl"
+                    style={staggerStyle}
+                  >
+                    <span className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100 bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.16),_transparent_70%)]" aria-hidden />
+                    <div className="relative z-10">
+                      <div className={`w-16 h-16 mx-auto mb-6 rounded-2xl bg-gradient-to-r ${highlight.accentGradient} flex items-center justify-center transition-transform duration-300 group-hover:scale-[1.06]`}>
+                        <Icon className="w-8 h-8 text-white" />
+                      </div>
+                      <div className="text-xl font-bold text-slate-900 mb-2">{highlight.title}</div>
+                      <p className="text-sm text-slate-500">{highlight.description}</p>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             {/* Platform Overview */}
@@ -603,32 +1118,28 @@ export default function Page() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                  <div className="text-center">
-                    <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                      <UploadCloud className="w-8 h-8 text-white" />
-                    </div>
-                    <div className="text-lg font-bold text-slate-900 mb-2">2 Week Setup</div>
-                    <div className="text-sm font-medium text-slate-700 mb-2">Fast Implementation</div>
-                    <p className="text-sm text-slate-500">Complete setup and in just 2 weeks with full transparency throughout the process</p>
-                  </div>
+                  {transparencySteps.map((step, index) => {
+                    const Icon = step.icon as any;
+                    const staggerStyle = { '--scroll-delay': `${index * 0.08}s` } as CSSProperties;
 
-                  <div className="text-center">
-                    <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                      <MessageSquare className="w-8 h-8 text-white" />
-                    </div>
-                    <div className="text-lg font-bold text-slate-900 mb-2">Monthly Updates</div>
-                    <div className="text-sm font-medium text-slate-700 mb-2">Feedback & Communication</div>
-                    <p className="text-sm text-slate-500">Regular check-ins and transparent updates with all stakeholders to ensure optimal performance</p>
-                  </div>
-
-                  <div className="text-center">
-                    <div className="w-16 h-16 bg-gradient-to-r from-green-500 to-green-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                      <TrendingUp className="w-8 h-8 text-white" />
-                    </div>
-                    <div className="text-lg font-bold text-slate-900 mb-2">Continuous Support</div>
-                    <div className="text-sm font-medium text-slate-700 mb-2">Ongoing Optimisation</div>
-                    <p className="text-sm text-slate-500">Transparent reporting and continuous platform improvements to maximize your compliance efficiency</p>
-                  </div>
+                    return (
+                      <div
+                        key={step.id}
+                        className="animate-on-scroll-scale group relative overflow-hidden rounded-2xl border border-slate-200/60 bg-white/90 p-6 text-center shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+                        style={staggerStyle}
+                      >
+                        <span className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100 bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.12),_transparent_70%)]" aria-hidden />
+                        <div className="relative z-10">
+                          <div className={`w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-r ${step.accentGradient} flex items-center justify-center transition-transform duration-300 group-hover:scale-[1.06]`}>
+                            <Icon className="w-8 h-8 text-white" />
+                          </div>
+                          <div className="text-lg font-bold text-slate-900 mb-1">{step.title}</div>
+                          <div className="text-sm font-medium text-slate-700 mb-2">{step.subtitle}</div>
+                          <p className="text-sm text-slate-500">{step.description}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 <div className="text-center">
