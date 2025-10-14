@@ -194,8 +194,8 @@ export default function MaintenencePersonSupervisionForm({ onSave, workspaceId }
             </div>
           </div>
         </div>
-        {/* Main form right column, scrollable */}
-        <div className="flex-1 min-w-0 max-h-[calc(100vh-6rem)] overflow-y-auto pr-2">
+  {/* Main form right column (no internal scroll) - page should scroll externally so the left panel can stay sticky like the audits */}
+  <div className="flex-1 min-w-0 pr-2">
           <form onSubmit={handleSave} className="flex flex-col gap-8">
             {sections.map((section, idx) => (
               <div key={section.label} className="bg-white rounded-2xl border border-slate-200 shadow-md transition-shadow hover:shadow-lg">

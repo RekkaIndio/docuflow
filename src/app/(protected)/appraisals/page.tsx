@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import ActivitiesSupervisionForm from "./activities-supervision/page";
 import AdminSupervisionForm from "./admin-supervision/page";
 import StaffAppraisalForm from "./staff-appraisal/page";
@@ -22,7 +22,7 @@ import { doc, getDoc, setDoc, updateDoc, collection, query, where, orderBy, limi
 import { useAuth } from "@/hooks/use-auth";
 import { useWorkspace } from "@/context/workspace";
 import { workspaceCollectionPath } from '@/lib/paths';
-import { generateAppraisalPDF, generateAppraisalPDFWithLogo, getAppraisalPDFFilename } from '@/lib/appraisal-pdf-generator';
+import { generateAppraisalPDFWithLogo, getAppraisalPDFFilename } from '@/lib/appraisal-pdf-generator';
 
 // Mapping of tracker roles to their appraisals
 const trackerAppraisalMapping = {
@@ -53,27 +53,41 @@ const appraisalCards = [
   { title: 'Senior Carer / Care Team Manager supervision', slug: 'senior-carer-supervision' },
 ];
 
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+type HistoryEntry = {
+  slug: string;
+  title: string;
+  month: number;
+  year: number;
+  role?: string;
+  hasSnapshot: boolean;
+};
+
+type HistoryGroup = {
+  key: string;
+  month: number;
+  year: number;
+  entries: HistoryEntry[];
+};
+
 export default function AppraisalsPage() {
   const { user } = useAuth();
   const workspace = useWorkspace();
   const [tab, setTab] = useState<'appraisals' | 'tracker' | 'history'>('appraisals');
   const [currentView, setCurrentView] = useState<string | null>(null);
-  const [trackerModal, setTrackerModal] = useState<{ role: string; month: number } | null>(null);
+  const [trackerModal, setTrackerModal] = useState<{ role: string; month: number; year: number } | null>(null);
   const [completionStatus, setCompletionStatus] = useState<Record<string, Record<string, boolean>>>({});
   const [currentMonth, setCurrentMonth] = useState<number | null>(null);
+  const [currentYear, setCurrentYear] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-  const [openHistorySections, setOpenHistorySections] = useState<Record<string, boolean>>({});
-
-  const toggleHistorySection = (appraisalSlug: string) => {
-    setOpenHistorySections(prev => ({
-      ...prev,
-      [appraisalSlug]: !prev[appraisalSlug]
-    }));
-  };
+  const [selectedHistoryMonthKey, setSelectedHistoryMonthKey] = useState<string | null>(null);
 
   const [additionalReportModal, setAdditionalReportModal] = useState<{ appraisal: string; title: string } | null>(null);
   const [appraisalData, setAppraisalData] = useState<Record<string, any>>({});
-  const [pdfViewer, setPdfViewer] = useState<{ appraisal: string; month: number; content: string | null } | null>(null);
+  const [pdfViewer, setPdfViewer] = useState<{ appraisal: string; month: number; year?: number; content: string | null } | null>(null);
+  const [readOnlyViewer, setReadOnlyViewer] = useState<{ appraisal: string; month: number; year: number; formData?: any } | null>(null);
+  const [confirmCreateModal, setConfirmCreateModal] = useState<{ appraisal: string; month: number; year: number } | null>(null);
 
   // Load completion status and appraisal data from Firebase
   useEffect(() => {
@@ -87,8 +101,39 @@ export default function AppraisalsPage() {
 
         if (docSnap.exists()) {
           const data = docSnap.data();
-          setCompletionStatus(data.completionStatus || {});
+
+          // Immediately prune any completionStatus entries that do not belong to the active month/year
+          const loadedStatus: Record<string, Record<string, boolean>> = data.completionStatus || {};
+          const cleanedStatus: Record<string, Record<string, boolean>> = {};
+          const { activeMonth: initialActiveMonth, activeYear: initialActiveYear } = calculateResetInfo();
+          let hadRemovals = false;
+
+          Object.keys(loadedStatus).forEach(role => {
+            const roleMap = loadedStatus[role] || {};
+            const kept: Record<string, boolean> = {};
+            Object.keys(roleMap).forEach(key => {
+              try {
+                const parsed = parseCompletionKey(key);
+                if (parsed.month === initialActiveMonth && parsed.year === initialActiveYear && roleMap[key]) {
+                  kept[key] = true;
+                } else {
+                  hadRemovals = true;
+                }
+              } catch (e) {
+                // If parsing fails conservatively drop the key for the UI
+                hadRemovals = true;
+              }
+            });
+            cleanedStatus[role] = kept;
+          });
+
+          setCompletionStatus(cleanedStatus);
           setAppraisalData(data.appraisalData || {});
+
+          // Persist cleaned map back to Firestore if we removed old entries
+          if (hadRemovals) {
+            saveCompletionStatus(cleanedStatus);
+          }
         }
       } catch (error) {
         console.error("Error loading data:", error);
@@ -108,7 +153,7 @@ export default function AppraisalsPage() {
       const currentMonth = new Date().getMonth();
       // For now, open tracker for the first role and current month
       const firstRole = 'Deputy/ies';
-      setTrackerModal({ role: firstRole, month: currentMonth });
+      setTrackerModal({ role: firstRole, month: currentMonth, year: inferYearForMonth(currentMonth) });
     };
 
     const handleOpenTrackerTab = (event: CustomEvent) => {
@@ -162,54 +207,105 @@ export default function AppraisalsPage() {
     };
   }, []);
 
-  // Check for month changes and reset completion status for previous months
+  // Audits reset on the 7th of each month - compute the active month/year based on that rule
+  const calculateResetInfo = () => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    const currentDay = now.getDate();
+
+    // Determine the active month/year: if we've passed the 7th (inclusive), the active month is this month,
+    // otherwise it's the previous month (with year wrap).
+    if (currentDay >= 7) {
+      return { activeMonth: currentMonth, activeYear: currentYear };
+    }
+    // previous month with year handling
+    if (currentMonth === 0) {
+      return { activeMonth: 11, activeYear: currentYear - 1 };
+    }
+    return { activeMonth: currentMonth - 1, activeYear: currentYear };
+  };
+
+  const inferYearForMonth = (month: number) => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    // Heuristic: if the month is <= currentMonth, assume current year, otherwise previous year
+    return month <= currentMonth ? currentYear : currentYear - 1;
+  };
+
+  // Parse completion map keys which are stored as either:
+  // - `${slug}-${year}-${month}` (recommended)
+  // - legacy: `${slug}-${month}`
+  // Slugs can contain hyphens, so parsing must take the year/month from the end of the string.
+  const parseCompletionKey = (key: string) => {
+    // Try new format: slug-YYYY-M
+    const newMatch = key.match(/^(.+)-(\d{4})-(\d{1,2})$/);
+    if (newMatch) {
+      const slug = newMatch[1];
+      const year = parseInt(newMatch[2], 10);
+      const month = parseInt(newMatch[3], 10);
+      return { slug, year, month };
+    }
+
+    // Try legacy format: slug-M
+    const legacyMatch = key.match(/^(.+)-(\d{1,2})$/);
+    if (legacyMatch) {
+      const slug = legacyMatch[1];
+      const month = parseInt(legacyMatch[2], 10);
+      const year = inferYearForMonth(month);
+      return { slug, year, month };
+    }
+
+    // Fallback to current month/year and use full key as slug
+    const now = new Date();
+    return { slug: key, year: now.getFullYear(), month: now.getMonth() };
+  };
+
+  // Check for month transitions & reset completionStatus entries that are not for the active month/year
   useEffect(() => {
     const checkMonthTransition = () => {
-      const currentMonth = new Date().getMonth();
-      const currentYear = new Date().getFullYear();
+      const { activeMonth, activeYear } = calculateResetInfo();
 
-      // If it's a new year, reset all completion status
-      if (currentYear > 2025) {
+      // If it's a new year far in the future, reset everything (safety)
+      const nowYear = new Date().getFullYear();
+      if (nowYear > 3000) { // safeguard, unlikely
         setCompletionStatus({});
         saveCompletionStatus({});
         return;
       }
 
       let hasChanges = false;
-      const newStatus = { ...completionStatus };
+      const newStatus: Record<string, Record<string, boolean>> = {};
 
-      // Check each role and their completion entries
-      Object.keys(newStatus).forEach(role => {
-        Object.keys(newStatus[role]).forEach(key => {
-          if (newStatus[role][key]) {
-            const [, monthStr] = key.split('-');
-            const completedMonth = parseInt(monthStr);
-
-            // If completed in a previous month, reset it
-            if (completedMonth < currentMonth) {
-              delete newStatus[role][key];
-              hasChanges = true;
-            }
+      // Build a cleaned status map keeping only entries that match activeMonth/activeYear
+      Object.keys(completionStatus || {}).forEach(role => {
+        const roleMap = completionStatus[role] || {};
+        const kept: Record<string, boolean> = {};
+        Object.keys(roleMap).forEach(key => {
+          const parsed = parseCompletionKey(key);
+          if (parsed.month === activeMonth && parsed.year === activeYear && roleMap[key]) {
+            kept[key] = true;
+          } else {
+            hasChanges = true;
           }
         });
+        newStatus[role] = kept;
       });
 
-      // Save changes if any were made
       if (hasChanges) {
         setCompletionStatus(newStatus);
         saveCompletionStatus(newStatus);
       }
     };
 
-    // Check immediately and then every hour
     checkMonthTransition();
-    const interval = setInterval(checkMonthTransition, 60 * 60 * 1000); // Check every hour
-
+    const interval = setInterval(checkMonthTransition, 60 * 60 * 1000);
     return () => clearInterval(interval);
   }, [completionStatus]);
 
   // Save completion status and appraisal data to Firebase
-  const saveCompletionStatus = (newStatus: Record<string, Record<string, boolean>>, appraisalData?: any, appraisal?: string, month?: number) => {
+  const saveCompletionStatus = (newStatus: Record<string, Record<string, boolean>>, appraisalData?: any, appraisal?: string, month?: number, year?: number) => {
     if (!user?.id || !workspace?.id) {
       return;
     }
@@ -224,16 +320,18 @@ export default function AppraisalsPage() {
       userEmail: user.email,
     };
 
-    // If appraisal data is provided, save it as well
+    // If appraisal data is provided, save it as well (keyed by year-month)
     if (appraisalData && appraisal && month !== undefined) {
+      const inferredYear = typeof year === 'number' ? year : inferYearForMonth(month);
       if (!updateData.appraisalData) {
         updateData.appraisalData = {};
       }
-      updateData.appraisalData[`${appraisal}-${month}`] = {
+      updateData.appraisalData[`${appraisal}-${inferredYear}-${month}`] = {
         data: appraisalData,
         completedAt: new Date(),
         appraisalType: appraisal,
         month: month,
+        year: inferredYear,
       };
     }
 
@@ -243,7 +341,9 @@ export default function AppraisalsPage() {
   };
 
     const handleOpenTrackerModal = (role: string, month: number) => {
-      setTrackerModal({ role, month });
+      // Use the activeYear for the active column so that early-month behaviour (before the 7th) is respected
+      const year = month === activeMonth ? activeYear : inferYearForMonth(month);
+      setTrackerModal({ role, month, year });
     };
 
     const handleCloseTrackerModal = () => {
@@ -251,40 +351,83 @@ export default function AppraisalsPage() {
     };
 
   const handleSelectAppraisal = (appraisal: string) => {
+    // If invoked from a tracker modal, perform additional checks (past month / completed view)
+    if (trackerModal) {
+      const { month, year, role } = trackerModal;
+      const { activeMonth, activeYear } = calculateResetInfo();
+
+      // If this is the active month/year, proceed to create/edit directly
+      if (month === activeMonth && year === activeYear) {
+        setCurrentView(appraisal);
+        setTab('appraisals');
+        setCurrentMonth(month);
+        setCurrentYear(year);
+        setTrackerModal(null);
+        return;
+      }
+
+      // If the selected month/year already has a completed snapshot, open read-only viewer
+      const alreadyCompleted = doesRoleHaveCompletionForMonth(completionStatus[role], appraisal, month, year);
+      if (alreadyCompleted) {
+        openReadOnlyViewer(appraisal, month, year);
+        return;
+      }
+
+  // If it's a past month and not completed - confirm creation
+  setTrackerModal(null);
+  setConfirmCreateModal({ appraisal, month, year });
+      return;
+    }
+
+    // Not coming from tracker - assume current month
     setCurrentView(appraisal);
     setTab('appraisals');
+    setCurrentMonth(new Date().getMonth());
+    setCurrentYear(inferYearForMonth(new Date().getMonth()));
     setTrackerModal(null);
-    if (trackerModal) {
-      setCurrentMonth(trackerModal.month);
-    } else {
-      // Set current month to current date if not coming from tracker modal
-      setCurrentMonth(new Date().getMonth());
-    }
-    // Don't mark as complete here - only when form is actually submitted
   };
 
   // Callback for forms to call when successfully saved
   const handleFormSave = (appraisal: string, formData: any) => {
-    const month = new Date().getMonth();
-    markAppraisalComplete(appraisal, month, formData);
+    // Prefer the form's own date if provided so saved snapshots are tagged with the intended month/year
+    let month: number;
+    let year: number;
+    if (formData?.date) {
+      try {
+        const d = new Date(formData.date);
+        month = d.getMonth();
+        year = d.getFullYear();
+      } catch (e) {
+        month = currentMonth ?? new Date().getMonth();
+        year = currentYear ?? inferYearForMonth(month);
+      }
+    } else {
+      month = currentMonth ?? new Date().getMonth();
+      year = currentYear ?? inferYearForMonth(month);
+    }
+    markAppraisalComplete(appraisal, month, year, formData);
   };
 
-  const markAppraisalComplete = async (appraisal: string, month: number, appraisalData?: any) => {
+  const markAppraisalComplete = async (appraisal: string, month: number, year?: number, appraisalData?: any) => {
     const role = Object.keys(trackerAppraisalMapping).find(r =>
       trackerAppraisalMapping[r as keyof typeof trackerAppraisalMapping].includes(appraisal)
     );
 
+    const inferredYear = typeof year === 'number' ? year : inferYearForMonth(month);
+
     if (role) {
       setCompletionStatus(prevStatus => {
+        const roleMap = prevStatus[role] ?? {};
+        const key = `${appraisal}-${inferredYear}-${month}`;
         const newStatus = {
           ...prevStatus,
           [role]: {
-            ...prevStatus[role],
-            [`${appraisal}-${month}`]: true,
+            ...roleMap,
+            [key]: true,
           }
         };
         // Save to Firebase asynchronously
-        saveCompletionStatus(newStatus, appraisalData, appraisal, month);
+        saveCompletionStatus(newStatus, appraisalData, appraisal, month, inferredYear);
         return newStatus;
       });
     }
@@ -298,59 +441,146 @@ export default function AppraisalsPage() {
     if (currentView && currentMonth !== null && savedFormData) {
       // Only mark as complete if form data exists (indicating it was submitted)
       const appraisalData = JSON.parse(savedFormData);
-      markAppraisalComplete(currentView, currentMonth, appraisalData);
+      // Prefer the saved form's date if present so we tag completion to the month the user chose
+      if (appraisalData && appraisalData.date) {
+        try {
+          const d = new Date(appraisalData.date);
+          const m = d.getMonth();
+          const y = d.getFullYear();
+          markAppraisalComplete(currentView, m, y, appraisalData);
+        } catch (e) {
+          markAppraisalComplete(currentView, currentMonth, currentYear ?? inferYearForMonth(currentMonth), appraisalData);
+        }
+      } else {
+        markAppraisalComplete(currentView, currentMonth, currentYear ?? inferYearForMonth(currentMonth), appraisalData);
+      }
     }
 
     setCurrentView(null);
     setCurrentMonth(null);
+    setCurrentYear(null);
+  };
+
+  // Open read-only viewer for a completed snapshot
+  const openReadOnlyViewer = async (appraisal: string, month: number, year: number) => {
+    try {
+      // Prefer tracker snapshot first
+      let formData = appraisalData[`${appraisal}-${year}-${month}`]?.data;
+      if (!formData) {
+        // Search all appraisalData keys
+        for (const k of Object.keys(appraisalData || {})) {
+          const parsed = parseCompletionKey(k);
+          if (parsed.slug === appraisal && parsed.month === month && parsed.year === year) {
+            formData = appraisalData[k]?.data;
+            break;
+          }
+        }
+      }
+
+      // If not in tracker, try collection fallback
+      if (!formData) {
+        formData = await getAppraisalDataFromCollection(appraisal, month, year);
+      }
+
+      // If still not found, try localStorage fallback
+      if (!formData) {
+        const localKey = `${appraisal}-form`;
+        const stored = localStorage.getItem(localKey);
+        if (stored) formData = JSON.parse(stored);
+      }
+
+      setReadOnlyViewer({ appraisal, month, year, formData });
+      setTrackerModal(null);
+    } catch (err) {
+      console.error('Error opening read-only viewer', err);
+    }
+  };
+
+  const proceedToAppraisal = (appraisal: string, month: number, year: number) => {
+    setCurrentView(appraisal);
+    setTab('appraisals');
+    setCurrentMonth(month);
+    setCurrentYear(year);
+    setConfirmCreateModal(null);
+    setTrackerModal(null);
+  };
+
+  const doesRoleHaveCompletionForMonth = (roleMap: Record<string, boolean> | undefined, appraisalSlug: string, month: number, year: number) => {
+    if (!roleMap) return false;
+    return Object.keys(roleMap).some(key => {
+      const parsed = parseCompletionKey(key);
+      return parsed.slug === appraisalSlug && parsed.month === month && parsed.year === year && roleMap[key];
+    });
   };
 
   const getCompletionPercentage = (role: string, month: number) => {
     const appraisals = trackerAppraisalMapping[role as keyof typeof trackerAppraisalMapping] || [];
     if (appraisals.length === 0) return 0;
 
+    // Use active year for the active month so the audits-style 7th reset is respected across the UI
+    const { activeMonth, activeYear } = calculateResetInfo();
+    const year = month === activeMonth ? activeYear : inferYearForMonth(month);
+
     const completed = appraisals.filter(appraisal => {
-      const key = `${appraisal}-${month}`;
-      return completionStatus[role]?.[key];
+      // 1) Check saved appraisalData by scanning keys (robust to legacy vs new keys)
+      if (appraisalData) {
+        for (const k of Object.keys(appraisalData)) {
+          const parsed = parseCompletionKey(k);
+          if (parsed.slug === appraisal && parsed.month === month && parsed.year === year) return true;
+        }
+      }
+
+      // 2) Check completionStatus map using parsed keys
+      return doesRoleHaveCompletionForMonth(completionStatus[role], appraisal, month, year);
     }).length;
 
     return Math.round((completed / appraisals.length) * 100);
   };
 
-  // Check if an appraisal card (by slug) has been completed in the current month
+  // Check if an appraisal card (by slug) has been completed for the active month/year
   const isAppraisalCompleted = (slug: string) => {
-    const currentMonth = new Date().getMonth(); // Get current month (0-11)
-    const currentYear = new Date().getFullYear();
+    const { activeMonth, activeYear } = calculateResetInfo();
 
-    // If it's a new year, reset all completion status
-    if (currentYear > 2025) {
-      setCompletionStatus({});
-      return false;
-    }
+    // 1) Check tracker snapshot data (year-aware key)
+    const exactKey = `${slug}-${activeYear}-${activeMonth}`;
+    if (appraisalData && appraisalData[exactKey]) return true;
 
-    // Iterate over all roles and their completion entries to see if this slug is completed for current month
-    for (const role of Object.keys(completionStatus || {})) {
-      const entries = completionStatus[role] || {};
-      for (const key of Object.keys(entries)) {
-        // Check for exact match with current month
-        if (key === `${slug}-${currentMonth}` && entries[key]) {
-          return true;
-        }
-        // If completed in a previous month, reset it for new month
-        else if (key.startsWith(`${slug}-`)) {
-          const [, monthStr] = key.split('-');
-          const completedMonth = parseInt(monthStr);
-          if (completedMonth < currentMonth && entries[key]) {
-            // Remove the old completion status
-            const newStatus = { ...completionStatus };
-            delete newStatus[role][key];
-            setCompletionStatus(newStatus);
-            // Save the updated status to Firebase
-            saveCompletionStatus(newStatus);
-          }
-        }
+
+
+    // 3) Scan any appraisalData entries for a matching slug/month/year
+    if (appraisalData) {
+      for (const k of Object.keys(appraisalData)) {
+        const parsed = parseCompletionKey(k);
+        if (parsed.slug === slug && parsed.month === activeMonth && parsed.year === activeYear) return true;
       }
     }
+
+    // 4) Check role-based completionStatus entries
+    for (const role of Object.keys(completionStatus || {})) {
+      if (doesRoleHaveCompletionForMonth(completionStatus[role], slug, activeMonth, activeYear)) return true;
+    }
+
+    // 5) LocalStorage quick-fallback (immediate local saves) - only if the saved form's date matches the active month/year
+    try {
+      const localKey = `${slug}-form`;
+      const saved = typeof window !== 'undefined' ? localStorage.getItem(localKey) : null;
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          const savedDate = parsed?.date ? new Date(parsed.date) : null;
+          if (savedDate) {
+            if (savedDate.getMonth() === activeMonth && savedDate.getFullYear() === activeYear) {
+              return true;
+            }
+          }
+        } catch (e) {
+          // ignore parse errors and do not treat as completed
+        }
+      }
+    } catch (err) {
+      // ignore localStorage errors
+    }
+
     return false;
   };
 
@@ -525,42 +755,141 @@ export default function AppraisalsPage() {
     return sections;
   };
 
-  // Get all completed appraisals organized by appraisal type
-  const getCompletedAppraisalsByType = () => {
-    const result: Record<string, { month: number; role: string }[]> = {};
+  const getAppraisalTitle = (slug: string) => {
+    const match = appraisalCards.find(card => card.slug === slug);
+    return match?.title || slug;
+  };
 
-    Object.keys(completionStatus).forEach(role => {
-      const roleEntries = completionStatus[role];
-      Object.keys(roleEntries).forEach(key => {
-        if (roleEntries[key]) {
-          const [appraisalSlug, monthStr] = key.split('-');
-          const month = parseInt(monthStr);
+  const formatMonthLabel = (month: number, year: number) => {
+    const name = MONTH_NAMES[month] ?? `Month ${month + 1}`;
+    return `${name} ${year}`;
+  };
 
-          if (!result[appraisalSlug]) {
-            result[appraisalSlug] = [];
-          }
-          result[appraisalSlug].push({ month, role });
+  const historyGroups = useMemo<HistoryGroup[]>(() => {
+    const monthMap = new Map<string, { key: string; month: number; year: number; entries: Map<string, HistoryEntry> }>();
+
+    const recordEntry = (slug: string, month: number, year: number, options?: { role?: string; hasSnapshot?: boolean }) => {
+      if (!Number.isFinite(month) || !Number.isFinite(year)) return;
+      if (month < 0 || month > 11) return;
+
+      const normalizedMonth = Number(month);
+      const normalizedYear = Number(year);
+      const key = `${normalizedYear}-${String(normalizedMonth).padStart(2, '0')}`;
+
+      if (!monthMap.has(key)) {
+        monthMap.set(key, {
+          key,
+          month: normalizedMonth,
+          year: normalizedYear,
+          entries: new Map<string, HistoryEntry>(),
+        });
+      }
+
+      const group = monthMap.get(key)!;
+      const entryKey = `${slug}-${normalizedYear}-${normalizedMonth}`;
+      const existing = group.entries.get(entryKey);
+
+      if (existing) {
+        if (!existing.role && options?.role) {
+          existing.role = options.role;
         }
+        existing.hasSnapshot = existing.hasSnapshot || Boolean(options?.hasSnapshot);
+        group.entries.set(entryKey, existing);
+        return;
+      }
+
+      group.entries.set(entryKey, {
+        slug,
+        title: getAppraisalTitle(slug),
+        month: normalizedMonth,
+        year: normalizedYear,
+        role: options?.role,
+        hasSnapshot: Boolean(options?.hasSnapshot),
+      });
+    };
+
+    Object.entries(appraisalData || {}).forEach(([key, value]) => {
+      const parsed = parseCompletionKey(key);
+      recordEntry(parsed.slug, parsed.month, parsed.year, {
+        role: value?.role || value?.data?.role,
+        hasSnapshot: true,
       });
     });
 
-    return result;
-  };
+    Object.entries(completionStatus || {}).forEach(([role, roleMap]) => {
+      Object.entries(roleMap || {}).forEach(([key, completed]) => {
+        if (!completed) return;
+        const parsed = parseCompletionKey(key);
+        recordEntry(parsed.slug, parsed.month, parsed.year, { role, hasSnapshot: false });
+      });
+    });
 
-  const handleViewPDF = async (appraisal: string, month: number) => {
+    return Array.from(monthMap.values())
+      .map(group => ({
+        key: group.key,
+        month: group.month,
+        year: group.year,
+        entries: Array.from(group.entries.values()).sort((a, b) => a.title.localeCompare(b.title)),
+      }))
+      .sort((a, b) => {
+        if (a.year !== b.year) return b.year - a.year;
+        return b.month - a.month;
+      });
+  }, [appraisalData, completionStatus]);
+
+  useEffect(() => {
+    if (!historyGroups.length) {
+      if (selectedHistoryMonthKey !== null) {
+        setSelectedHistoryMonthKey(null);
+      }
+      return;
+    }
+
+    const hasSelected = selectedHistoryMonthKey && historyGroups.some(group => group.key === selectedHistoryMonthKey);
+    if (!hasSelected) {
+      setSelectedHistoryMonthKey(historyGroups[0].key);
+    }
+  }, [historyGroups, selectedHistoryMonthKey]);
+
+  const selectedHistoryGroup = historyGroups.find(group => group.key === selectedHistoryMonthKey) || null;
+
+  useEffect(() => {
+    if (!pdfViewer?.content) return;
+    const url = pdfViewer.content;
+    return () => {
+      try {
+        URL.revokeObjectURL(url);
+      } catch {
+        /* ignore */
+      }
+    };
+  }, [pdfViewer]);
+
+  const handleViewPDF = async (appraisal: string, month: number, year?: number) => {
     try {
-      // Try to get appraisal data from Firebase first, then localStorage as fallback
-      const firebaseKey = `${appraisal}-${month}`;
+      // 1) Try to find snapshot in the tracker appraisalData using year-aware keys
+      const effectiveYear = typeof year === 'number' ? year : inferYearForMonth(month);
+      const exactKey = `${appraisal}-${effectiveYear}-${month}`;
+      let formData = appraisalData[exactKey]?.data;
 
-      let formData = appraisalData[firebaseKey]?.data;
-
-      // If no data from Firebase tracker, try specific Firebase collection
+      // 2) If not found, try to find any appraisalData key that matches slug/month/year
       if (!formData) {
-        formData = await getAppraisalDataFromCollection(appraisal, month);
+        for (const k of Object.keys(appraisalData || {})) {
+          const parsed = parseCompletionKey(k);
+          if (parsed.slug === appraisal && parsed.month === month && parsed.year === effectiveYear) {
+            formData = appraisalData[k]?.data;
+            break;
+          }
+        }
       }
 
+      // 3) If still not found, fallback to collection query (prefer matching year)
       if (!formData) {
-        // Fallback to localStorage - try multiple possible key formats
+        formData = await getAppraisalDataFromCollection(appraisal, month, effectiveYear);
+      }
+
+      // 4) Fallback to localStorage heuristics
+      if (!formData) {
         const possibleKeys = [
           `${appraisal}-form`,
           `${appraisal.replace(/-/g, '')}form`,
@@ -576,7 +905,6 @@ export default function AppraisalsPage() {
           }
         }
 
-        // If still no data, try to get all localStorage keys and find relevant ones
         if (!formData) {
           for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
@@ -604,38 +932,49 @@ export default function AppraisalsPage() {
           appraisalType: appraisal,
           formData: formData,
           month: month,
-          year: 2025
+          year: effectiveYear,
         });
 
         // Create a data URL for the PDF to display in iframe
         const blob = new Blob([pdfData as any], { type: 'application/pdf' });
         const pdfUrl = URL.createObjectURL(blob);
 
-        setPdfViewer({ appraisal, month, content: pdfUrl });
+        setPdfViewer({ appraisal, month, year: effectiveYear, content: pdfUrl });
       } else {
         // If no data found, show placeholder
-        setPdfViewer({ appraisal, month, content: null });
+        const effectiveYear = typeof year === 'number' ? year : inferYearForMonth(month);
+        setPdfViewer({ appraisal, month, year: effectiveYear, content: null });
       }
     } catch (error) {
       console.error('Error generating PDF:', error);
-      setPdfViewer({ appraisal, month, content: null });
+      const effectiveYear = typeof year === 'number' ? year : inferYearForMonth(month);
+      setPdfViewer({ appraisal, month, year: effectiveYear, content: null });
     }
   };
 
-  const handleDownloadPDF = async (appraisal: string, month: number) => {
+  const handleDownloadPDF = async (appraisal: string, month: number, year?: number) => {
     try {
-      // Try to get appraisal data from Firebase first, then localStorage as fallback
-      const firebaseKey = `${appraisal}-${month}`;
+      const effectiveYear = typeof year === 'number' ? year : inferYearForMonth(month);
 
-      let formData = appraisalData[firebaseKey]?.data;
+      // 1) Try snapshot from appraisalData
+      let formData = appraisalData[`${appraisal}-${effectiveYear}-${month}`]?.data;
+      if (!formData) {
+        for (const k of Object.keys(appraisalData || {})) {
+          const parsed = parseCompletionKey(k);
+          if (parsed.slug === appraisal && parsed.month === month && parsed.year === effectiveYear) {
+            formData = appraisalData[k]?.data;
+            break;
+          }
+        }
+      }
 
-      // If no data from Firebase tracker, try specific Firebase collection
+      // 2) Try collection fallback
       if (!formData) {
         formData = await getAppraisalDataFromCollection(appraisal, month);
       }
 
+      // 3) Localstorage fallback
       if (!formData) {
-        // Fallback to localStorage - try multiple possible key formats
         const possibleKeys = [
           `${appraisal}-form`,
           `${appraisal.replace(/-/g, '')}form`,
@@ -651,7 +990,6 @@ export default function AppraisalsPage() {
           }
         }
 
-        // If still no data, try to get all localStorage keys and find relevant ones
         if (!formData) {
           for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
@@ -679,14 +1017,14 @@ export default function AppraisalsPage() {
           appraisalType: appraisal,
           formData: formData,
           month: month,
-          year: 2025
+          year: effectiveYear,
         });
 
         // Create a blob from the PDF data
         const blob = new Blob([pdfData as any], { type: 'application/pdf' });
 
         // Generate filename
-        const filename = getAppraisalPDFFilename(appraisal, month, 2025);
+        const filename = getAppraisalPDFFilename(appraisal, month, effectiveYear);
 
         // Create download link and trigger download
         const url = URL.createObjectURL(blob);
@@ -728,7 +1066,7 @@ export default function AppraisalsPage() {
   };
 
   // Try to get appraisal data from the workspace-specific appraisal collection
-  const getAppraisalDataFromCollection = async (appraisal: string, month: number) => {
+  const getAppraisalDataFromCollection = async (appraisal: string, month: number, year?: number) => {
     if (!user?.id || !workspace?.id) return null;
 
     try {
@@ -747,18 +1085,19 @@ export default function AppraisalsPage() {
       for (const docSnap of querySnapshot.docs) {
         const data = docSnap.data();
 
-        // Check if the document date matches the requested month
+        // Check if the document date matches the requested month (and year if provided)
         if (data.date) {
           const docDate = new Date(data.date);
           const docMonth = docDate.getMonth();
+          const docYear = docDate.getFullYear();
 
-          if (docMonth === month) {
+          if (docMonth === month && (typeof year !== 'number' || docYear === year)) {
             return data;
           }
         }
       }
 
-      // If no exact month match, return the most recent document
+      // If no exact match for month/year, return the most recent document as fallback
       if (!querySnapshot.empty) {
         const mostRecent = querySnapshot.docs[0].data();
         return mostRecent;
@@ -770,11 +1109,59 @@ export default function AppraisalsPage() {
       return null;
     }
   };
+  // Determine the currently active month/year based on the audits reset rule
+  const { activeMonth, activeYear } = calculateResetInfo();
   return (
     <div>
+      {/* Header with countdown matching audits reset (7th of month) */}
       <PageHeader
         title="Appraisals & Supervisions"
         subtitle="Manage and complete staff appraisals and supervisions. Click a card to begin."
+        actions={(
+          <div className="text-right">
+            {/* Compute next reset date (7th) and days remaining */}
+            {(() => {
+              const now = new Date();
+              const currentYear = now.getFullYear();
+              const currentMonth = now.getMonth();
+              const currentDay = now.getDate();
+
+              let resetMonth = currentMonth;
+              let resetYear = currentYear;
+              if (currentDay >= 7) {
+                resetMonth = currentMonth + 1;
+                if (resetMonth > 11) {
+                  resetMonth = 0;
+                  resetYear = currentYear + 1;
+                }
+              }
+
+              const resetDate = new Date(resetYear, resetMonth, 7);
+              const timeDiff = resetDate.getTime() - now.getTime();
+              const daysRemaining = Math.ceil(timeDiff / (1000 * 3600 * 24));
+
+              const getCountdownColor = (days: number) => {
+                if (days > 15) return { text: 'text-green-800', bg: 'bg-green-100' };
+                if (days > 5) return { text: 'text-amber-800', bg: 'bg-amber-100' };
+                return { text: 'text-destructive', bg: 'bg-destructive/10' };
+              };
+
+              return (
+                <div className="flex items-center gap-3">
+                  <div className="flex flex-col justify-center items-end h-10 sm:h-12 px-3 gap-1 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 text-sm">
+                    <div className="text-primary-foreground/80 text-xs leading-none">{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-primary-foreground/80 text-xs">Next: {resetDate.toLocaleDateString()}</div>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getCountdownColor(daysRemaining).bg} ${getCountdownColor(daysRemaining).text}`}>
+                        {daysRemaining} {daysRemaining === 1 ? 'day' : 'days'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        )}
       />
       {/* Tabs below header */}
       <div className="flex gap-2 border-b border-gray-200 mb-8">
@@ -958,7 +1345,7 @@ export default function AppraisalsPage() {
                       <tr className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
                         <th className="py-4 px-6 text-left font-semibold border-b border-blue-500">Staff member & Role</th>
                         {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((m, idx) => (
-                          <th key={m} className={`py-4 px-6 font-semibold border-b border-blue-500 text-center ${idx === 8 ? 'bg-blue-700' : ''}`}>
+                          <th key={m} className={`py-4 px-6 font-semibold border-b border-blue-500 text-center ${idx === activeMonth ? 'bg-blue-700' : ''}`}>
                             {m}
                           </th>
                         ))}
@@ -966,7 +1353,7 @@ export default function AppraisalsPage() {
                     </thead>
                     <tbody>
                       {[
-                        'Deputy/ies',
+                        'Deputy',
                         'Clinical lead & Nurses',
                         'Senior/Care team managers',
                         'Admin staff',
@@ -979,12 +1366,12 @@ export default function AppraisalsPage() {
                           <td className="py-4 px-6 font-medium text-gray-900 border-r border-gray-200">{role}</td>
                           {Array.from({ length: 12 }).map((_, i) => {
                             const percentage = getCompletionPercentage(role, i);
-                            const isCurrentMonth = i === 8; // September is current month
+                            const isActiveCell = i === activeMonth;
                             return (
                               <td
                                 key={i}
                                 className={`py-4 px-6 text-center border-r border-gray-200 cursor-pointer transition-all duration-200 hover:bg-blue-100 hover:shadow-inner ${
-                                  isCurrentMonth ? 'bg-blue-50' : ''
+                                  isActiveCell ? 'bg-blue-50' : ''
                                 }`}
                                 onClick={() => handleOpenTrackerModal(role, i)}
                               >
@@ -1029,114 +1416,123 @@ export default function AppraisalsPage() {
 
       {tab === 'history' && (
         <div className="px-4 sm:px-8 lg:px-16">
-          <div className="space-y-4">
-            {Object.keys(getCompletedAppraisalsByType()).length === 0 ? (
-              <div className="text-center py-16">
-                <div className="w-20 h-20 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center mx-auto mb-6">
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="text-current">
-                    <path d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">No Completed Appraisals</h3>
-                <p className="text-gray-600 mb-6">Complete some appraisals to see them in your audit history</p>
-                <button
-                  onClick={() => setTab('appraisals')}
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-medium hover:shadow-lg transition-shadow"
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-current">
-                    <path d="M12 4v16m8-8H4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                  Start an Appraisal
-                </button>
+          {historyGroups.length === 0 ? (
+            <div className="py-16 text-center">
+              <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gray-100 text-gray-400">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="text-current">
+                  <path d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
               </div>
-            ) : (
-              Object.keys(getCompletedAppraisalsByType()).map(appraisalSlug => {
-                const appraisalTitle = appraisalCards.find(card => card.slug === appraisalSlug)?.title || appraisalSlug;
-                const reports = getCompletedAppraisalsByType()[appraisalSlug];
-                const isOpen = openHistorySections[appraisalSlug] ?? true; // Default to open
+              <h3 className="mb-2 text-xl font-semibold text-gray-900">No Completed Appraisals</h3>
+              <p className="mb-6 text-gray-600">Complete some appraisals to see them in your history.</p>
+              <button
+                onClick={() => setTab('appraisals')}
+                className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-3 font-medium text-white transition-shadow hover:shadow-lg"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-current">
+                  <path d="M12 4v16m8-8H4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                Start an Appraisal
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="overflow-x-auto pb-3">
+                <div className="flex min-w-max gap-3">
+                  {historyGroups.map(group => {
+                    const isActive = group.key === selectedHistoryMonthKey;
+                    return (
+                      <button
+                        key={group.key}
+                        onClick={() => setSelectedHistoryMonthKey(group.key)}
+                        className={`flex min-w-[170px] flex-col rounded-xl border px-4 py-3 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${isActive ? 'border-blue-600 bg-blue-600 text-white shadow-lg' : 'border-gray-200 bg-white text-gray-700 hover:border-blue-400 hover:text-blue-700'}`}
+                      >
+                        <span className="text-sm font-semibold">{formatMonthLabel(group.month, group.year)}</span>
+                        <span className={`mt-1 text-xs ${isActive ? 'text-blue-100' : 'text-gray-500'}`}>
+                          {group.entries.length} completed {group.entries.length === 1 ? 'appraisal' : 'appraisals'}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
-                return (
-                  <div key={appraisalSlug} className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+              {selectedHistoryGroup && selectedHistoryGroup.entries.length > 0 ? (
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {selectedHistoryGroup.entries.map(entry => (
                     <button
-                      onClick={() => toggleHistorySection(appraisalSlug)}
-                      className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-left hover:from-blue-700 hover:to-indigo-700 transition-colors"
+                      key={`${entry.slug}-${entry.year}-${entry.month}`}
+                      onClick={() => openReadOnlyViewer(entry.slug, entry.month, entry.year)}
+                      className="group relative flex flex-col gap-4 rounded-2xl border border-gray-200 bg-white p-5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 rounded-xl bg-white/20 text-white flex items-center justify-center">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-current">
-                              <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-start gap-3">
+                          <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-green-100 text-green-600">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-current">
+                              <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                             </svg>
-                          </div>
+                          </span>
                           <div>
-                            <h2 className="text-xl font-bold text-white">{appraisalTitle}</h2>
-                            <p className="text-blue-100 text-sm">{reports.length} completed report{reports.length !== 1 ? 's' : ''}</p>
+                            <div className="text-sm font-semibold text-gray-900 transition-colors group-hover:text-blue-700">{entry.title}</div>
+                            <div className="text-xs text-gray-500">{formatMonthLabel(entry.month, entry.year)}</div>
+                            {entry.role && <div className="mt-1 text-xs text-gray-500">{entry.role}</div>}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <svg
-                            width="20"
-                            height="20"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            className={`text-white transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+                          <button
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleViewPDF(entry.slug, entry.month, entry.year);
+                            }}
+                            className="inline-flex items-center gap-1 rounded-lg border border-blue-200 px-2 py-1 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-50"
                           >
-                            <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="text-current">
+                              <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                              <path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                            View
+                          </button>
+                          <button
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleDownloadPDF(entry.slug, entry.month, entry.year);
+                            }}
+                            className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2 py-1 text-xs font-medium text-gray-600 transition-colors hover:border-gray-300 hover:text-gray-800"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="text-current">
+                              <path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                            Download
+                          </button>
+                        </div>
+                      </div>
+                      {!entry.hasSnapshot && (
+                        <div className="flex items-center gap-2 text-xs text-amber-600">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="text-current">
+                            <path d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
+                          Snapshot will be rebuilt when opened.
                         </div>
-                      </div>
+                      )}
                     </button>
-
-                    {isOpen && (
-                      <div className="p-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {reports.map(({ month, role }, index) => (
-                            <div key={`${appraisalSlug}-${month}-${index}`} className="border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow">
-                              <div className="flex items-start justify-between mb-3">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-8 h-8 rounded-lg bg-green-100 text-green-600 flex items-center justify-center">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-current">
-                                      <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                    </svg>
-                                  </div>
-                                  <div>
-                                    <div className="font-medium text-gray-900 text-sm">{['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][month]} 2025</div>
-                                    <div className="text-xs text-gray-600">{role}</div>
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => handleViewPDF(appraisalSlug, month)}
-                                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors"
-                                >
-                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="text-current">
-                                    <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                    <path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                  </svg>
-                                  View PDF
-                                </button>
-                                <button
-                                  onClick={() => handleDownloadPDF(appraisalSlug, month)}
-                                  className="flex items-center justify-center gap-2 px-3 py-2 bg-gray-600 text-white text-xs rounded-lg hover:bg-gray-700 transition-colors"
-                                >
-                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="text-current">
-                                    <path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                  </svg>
-                                  Download
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })
-            )}
-          </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center text-sm text-gray-600">
+                  {(() => {
+                    if (!selectedHistoryMonthKey) return 'Select a month to view completed appraisals.';
+                    const [yearPart, monthPart] = selectedHistoryMonthKey.split('-');
+                    const parsedMonth = Number(monthPart);
+                    const parsedYear = Number(yearPart);
+                    if (Number.isFinite(parsedMonth) && Number.isFinite(parsedYear)) {
+                      return `No appraisals stored for ${formatMonthLabel(parsedMonth, parsedYear)}.`;
+                    }
+                    return 'No appraisals stored for the selected month.';
+                  })()}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -1145,9 +1541,11 @@ export default function AppraisalsPage() {
           isOpen={true}
           role={trackerModal.role}
           month={trackerModal.month}
+          year={trackerModal.year}
           appraisals={trackerAppraisalMapping[trackerModal.role as keyof typeof trackerAppraisalMapping] || []}
           onClose={handleCloseTrackerModal}
           onSelectAppraisal={handleSelectAppraisal}
+          onViewCompletedAppraisal={(appraisal) => openReadOnlyViewer(appraisal, trackerModal.month, trackerModal.year)}
           completionStatus={completionStatus[trackerModal.role] || {}}
         />
       )}
@@ -1175,22 +1573,24 @@ export default function AppraisalsPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   defaultValue={new Date().getMonth()}
                 >
-                  {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((month, index) => (
+                  {MONTH_NAMES.map((month, index) => (
                     <option key={month} value={index}>{month}</option>
                   ))}
                 </select>
               </div>
 
               <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => {
-                    const selectedMonth = (document.querySelector('select') as HTMLSelectElement)?.value;
-                    if (selectedMonth) {
-                      setCurrentView(additionalReportModal.appraisal);
-                      setCurrentMonth(parseInt(selectedMonth));
-                      setAdditionalReportModal(null);
-                    }
-                  }}
+                  <button
+                    onClick={() => {
+                      const selectedMonth = (document.querySelector('select') as HTMLSelectElement)?.value;
+                      if (selectedMonth) {
+                        const monthIdx = parseInt(selectedMonth);
+                        setCurrentView(additionalReportModal.appraisal);
+                        setCurrentMonth(monthIdx);
+                        setCurrentYear(inferYearForMonth(monthIdx));
+                        setAdditionalReportModal(null);
+                      }
+                    }}
                   className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:shadow-lg transition-shadow"
                 >
                   Create Report
@@ -1216,11 +1616,11 @@ export default function AppraisalsPage() {
                 <h3 className="text-lg font-semibold text-gray-900">
                   {appraisalCards.find(card => card.slug === pdfViewer.appraisal)?.title || pdfViewer.appraisal}
                 </h3>
-                <p className="text-sm text-gray-600">{['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][pdfViewer.month]} 2025</p>
+                <p className="text-sm text-gray-600">{MONTH_NAMES[pdfViewer.month]} {pdfViewer.year ?? new Date().getFullYear()}</p>
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => handleDownloadPDF(pdfViewer.appraisal, pdfViewer.month)}
+                  onClick={() => handleDownloadPDF(pdfViewer.appraisal, pdfViewer.month, pdfViewer.year)}
                   className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-current">
@@ -1257,9 +1657,95 @@ export default function AppraisalsPage() {
                   </div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">No PDF Available</h3>
                   <p className="text-gray-600 mb-4">The appraisal data could not be loaded for PDF generation.</p>
-                  <p className="text-sm text-gray-500">File: {appraisalCards.find(card => card.slug === pdfViewer.appraisal)?.title || pdfViewer.appraisal}_{['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][pdfViewer.month]}_2025_Report.pdf</p>
+                  <p className="text-sm text-gray-500">File: {appraisalCards.find(card => card.slug === pdfViewer.appraisal)?.title || pdfViewer.appraisal}_{MONTH_NAMES[pdfViewer.month]}_{pdfViewer.year ?? new Date().getFullYear()}_Report.pdf</p>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Read-only Appraisal Viewer Modal */}
+      {readOnlyViewer && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-auto">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">{appraisalCards.find(card => card.slug === readOnlyViewer.appraisal)?.title || readOnlyViewer.appraisal}</h3>
+                <p className="text-sm text-gray-600">{MONTH_NAMES[readOnlyViewer.month]} {readOnlyViewer.year}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleDownloadPDF(readOnlyViewer.appraisal, readOnlyViewer.month, readOnlyViewer.year)}
+                  className="px-3 py-1 bg-gray-600 text-white text-sm rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2"
+                >
+                  Download
+                </button>
+                <button
+                  onClick={() => setReadOnlyViewer(null)}
+                  className="p-2 text-gray-500 rounded-lg hover:bg-gray-50"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              {readOnlyViewer.formData ? (
+                <div className="space-y-6">
+                  {groupFormDataIntoSections(readOnlyViewer.formData).map((section, idx) => (
+                    <div key={idx} className="p-4 border rounded-lg">
+                      <h4 className="font-semibold text-gray-800 mb-3">{section.title}</h4>
+                      {section.groups.map((group: any, gidx: number) => (
+                        <div key={gidx} className="space-y-2">
+                          {group.fields && group.fields.map((f: any, fi: number) => (
+                            <div key={fi} className="mb-2">
+                              <div className="text-sm font-medium text-gray-700">{f.label}</div>
+                              <div className="text-gray-800">{f.value || <span className="text-gray-400">Not provided</span>}</div>
+                            </div>
+                          ))}
+                          {group.objectives && group.objectives.length > 0 && (
+                            <div className="mt-2">
+                              <div className="text-sm font-medium text-gray-700">Objectives</div>
+                              <ul className="list-disc list-inside text-gray-800 mt-2">
+                                {group.objectives.map((o: any, oi: number) => (
+                                  <li key={oi}>{o.text || o}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12 text-gray-600">No snapshot data available for this appraisal.</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm-create modal for creating past-month appraisal */}
+      {confirmCreateModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Create appraisal for {MONTH_NAMES[confirmCreateModal.month]} {confirmCreateModal.year}?</h3>
+            <p className="text-sm text-gray-600 mb-6">This will create a new appraisal for the selected past month. Are you sure you want to proceed?</p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setConfirmCreateModal(null)}
+                className="px-4 py-2 text-gray-700 hover:text-gray-900"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => proceedToAppraisal(confirmCreateModal.appraisal, confirmCreateModal.month, confirmCreateModal.year)}
+                className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg"
+              >
+                Create
+              </button>
             </div>
           </div>
         </div>

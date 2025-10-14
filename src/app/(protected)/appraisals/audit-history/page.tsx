@@ -8,13 +8,13 @@ import { useAuth } from "@/hooks/use-auth";
 import Link from "next/link";
 
 // PDF Generation utility
-const generateAppraisalPDF = async (appraisalData: any, appraisalTitle: string, month: number) => {
+const generateAppraisalPDF = async (appraisalData: any, appraisalTitle: string, month: number, year: number) => {
   const htmlContent = `
     <!DOCTYPE html>
     <html>
     <head>
       <meta charset="utf-8">
-      <title>${appraisalTitle} - ${new Date(2025, month).toLocaleString('default', { month: 'long' })} 2025</title>
+      <title>${appraisalTitle} - ${new Date(year, month).toLocaleString('default', { month: 'long' })} ${year}</title>
       <style>
         body { font-family: Arial, sans-serif; margin: 40px; color: #333; }
         .header { text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 20px; margin-bottom: 30px; }
@@ -33,7 +33,7 @@ const generateAppraisalPDF = async (appraisalData: any, appraisalTitle: string, 
     <body>
       <div class="header">
         <div class="title">${appraisalTitle}</div>
-        <div class="subtitle">${new Date(2025, month).toLocaleString('default', { month: 'long' })} 2025</div>
+  <div class="subtitle">${new Date(year, month).toLocaleString('default', { month: 'long' })} ${year}</div>
       </div>
 
       <div class="content">
@@ -90,7 +90,7 @@ export default function AuditHistoryPage() {
   const [appraisalData, setAppraisalData] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
   const [selectedAppraisal, setSelectedAppraisal] = useState<string | null>(null);
-  const [pdfViewer, setPdfViewer] = useState<{ appraisal: string; month: number; content?: string | null } | null>(null);
+  const [pdfViewer, setPdfViewer] = useState<{ appraisal: string; month: number; year?: number; content?: string | null } | null>(null);
 
   // Load completion status and appraisal data from Firebase
   useEffect(() => {
@@ -121,19 +121,31 @@ export default function AuditHistoryPage() {
 
   // Get all completed appraisals organized by appraisal type
   const getCompletedAppraisalsByType = () => {
-    const result: Record<string, { month: number; role: string }[]> = {};
+    const result: Record<string, { month: number; year: number; role: string }[]> = {};
 
     Object.keys(completionStatus).forEach(role => {
-      const roleEntries = completionStatus[role];
+      const roleEntries = completionStatus[role] || {};
       Object.keys(roleEntries).forEach(key => {
         if (roleEntries[key]) {
-          const [appraisalSlug, monthStr] = key.split('-');
-          const month = parseInt(monthStr);
-
-          if (!result[appraisalSlug]) {
-            result[appraisalSlug] = [];
+          // Parse keys of the form slug-YYYY-M or legacy slug-M
+          const newMatch = key.match(/^(.+)-(\d{4})-(\d{1,2})$/);
+          if (newMatch) {
+            const slug = newMatch[1];
+            const year = parseInt(newMatch[2], 10);
+            const month = parseInt(newMatch[3], 10);
+            if (!result[slug]) result[slug] = [];
+            result[slug].push({ month, year, role });
+            return;
           }
-          result[appraisalSlug].push({ month, role });
+
+          const legacyMatch = key.match(/^(.+)-(\d{1,2})$/);
+          if (legacyMatch) {
+            const slug = legacyMatch[1];
+            const month = parseInt(legacyMatch[2], 10);
+            const year = (month <= new Date().getMonth()) ? new Date().getFullYear() : new Date().getFullYear() - 1;
+            if (!result[slug]) result[slug] = [];
+            result[slug].push({ month, year, role });
+          }
         }
       });
     });
@@ -143,11 +155,25 @@ export default function AuditHistoryPage() {
 
   const completedByType = getCompletedAppraisalsByType();
 
-  const handleViewPDF = async (appraisal: string, month: number) => {
+  const handleViewPDF = async (appraisal: string, month: number, year?: number) => {
     try {
-      // Try to get appraisal data from Firebase first, then localStorage as fallback
-      const firebaseKey = `${appraisal}-${month}`;
-      let formData = appraisalData[firebaseKey]?.data;
+      // Try to get appraisal data from Firebase first (prefer year-aware keys), then localStorage as fallback
+      const effectiveYear = (typeof year === 'number') ? year : ((month <= new Date().getMonth()) ? new Date().getFullYear() : new Date().getFullYear() - 1);
+      const exactKey = `${appraisal}-${effectiveYear}-${month}`;
+      let formData = appraisalData[exactKey]?.data;
+
+      // If not found, scan stored snapshots (legacy vs new keys)
+      if (!formData && appraisalData) {
+        for (const k of Object.keys(appraisalData)) {
+          const parsed = (k && k.match(/^(.+)-(\d{4})-(\d{1,2})$/)) ? { slug: k.replace(/-(\d{4})-(\d{1,2})$/, ''), year: parseInt(k.split('-').slice(-2)[0], 10), month: parseInt(k.split('-').slice(-1)[0], 10) } : null;
+          // fallback to a simple lookup by including month-only keys
+          if (!parsed) continue;
+          if (parsed.slug === appraisal && parsed.month === month && parsed.year === effectiveYear) {
+            formData = appraisalData[k]?.data;
+            break;
+          }
+        }
+      }
 
       if (!formData) {
         // Fallback to localStorage
@@ -160,11 +186,12 @@ export default function AuditHistoryPage() {
 
       if (formData) {
         const appraisalTitle = appraisalCards.find(card => card.slug === appraisal)?.title || appraisal;
-        const pdfContent = await generateAppraisalPDF(formData, appraisalTitle, month);
-        setPdfViewer({ appraisal, month, content: pdfContent });
+        const effectiveYear = (typeof year === 'number') ? year : ((month <= new Date().getMonth()) ? new Date().getFullYear() : new Date().getFullYear() - 1);
+        const pdfContent = await generateAppraisalPDF(formData, appraisalTitle, month, effectiveYear);
+        setPdfViewer({ appraisal, month, year: effectiveYear, content: pdfContent });
       } else {
         // If no data found, show placeholder
-        setPdfViewer({ appraisal, month, content: null });
+        setPdfViewer({ appraisal, month, year: (typeof year === 'number' ? year : (month <= new Date().getMonth() ? new Date().getFullYear() : new Date().getFullYear() - 1)), content: null });
       }
     } catch (error) {
       console.error('Error generating PDF:', error);
@@ -172,11 +199,23 @@ export default function AuditHistoryPage() {
     }
   };
 
-  const handleDownloadPDF = async (appraisal: string, month: number) => {
+  const handleDownloadPDF = async (appraisal: string, month: number, year?: number) => {
     try {
-      // Try to get appraisal data from Firebase first, then localStorage as fallback
-      const firebaseKey = `${appraisal}-${month}`;
-      let formData = appraisalData[firebaseKey]?.data;
+      // Try to get appraisal data from Firebase first (prefer year-aware keys), then localStorage as fallback
+      const effectiveYear = (typeof year === 'number') ? year : ((month <= new Date().getMonth()) ? new Date().getFullYear() : new Date().getFullYear() - 1);
+      const exactKey = `${appraisal}-${effectiveYear}-${month}`;
+      let formData = appraisalData[exactKey]?.data;
+
+      if (!formData && appraisalData) {
+        for (const k of Object.keys(appraisalData)) {
+          const parsed = (k && k.match(/^(.+)-(\d{4})-(\d{1,2})$/)) ? { slug: k.replace(/-(\d{4})-(\d{1,2})$/, ''), year: parseInt(k.split('-').slice(-2)[0], 10), month: parseInt(k.split('-').slice(-1)[0], 10) } : null;
+          if (!parsed) continue;
+          if (parsed.slug === appraisal && parsed.month === month && parsed.year === effectiveYear) {
+            formData = appraisalData[k]?.data;
+            break;
+          }
+        }
+      }
 
       if (!formData) {
         // Fallback to localStorage
@@ -189,14 +228,15 @@ export default function AuditHistoryPage() {
 
       if (formData) {
         const appraisalTitle = appraisalCards.find(card => card.slug === appraisal)?.title || appraisal;
-        const pdfContent = await generateAppraisalPDF(formData, appraisalTitle, month);
+        const effectiveYear = (typeof year === 'number') ? year : ((month <= new Date().getMonth()) ? new Date().getFullYear() : new Date().getFullYear() - 1);
+        const pdfContent = await generateAppraisalPDF(formData, appraisalTitle, month, effectiveYear);
 
         // Create a blob and download
         const blob = new Blob([pdfContent], { type: 'text/html' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${appraisal}-${month}.html`;
+        a.download = `${appraisal}-${month}-${effectiveYear}.html`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -292,8 +332,8 @@ export default function AuditHistoryPage() {
 
                   <div className="p-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {reports.map(({ month, role }, index) => (
-                        <div key={`${appraisalSlug}-${month}-${index}`} className="border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow">
+                      {reports.map(({ month, year, role }, index) => (
+                        <div key={`${appraisalSlug}-${month}-${year}-${index}`} className="border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow">
                           <div className="flex items-start justify-between mb-3">
                             <div className="flex items-center gap-2">
                               <div className="w-8 h-8 rounded-lg bg-green-100 text-green-600 flex items-center justify-center">
@@ -302,15 +342,15 @@ export default function AuditHistoryPage() {
                                 </svg>
                               </div>
                               <div>
-                                <div className="font-medium text-gray-900 text-sm">{getMonthName(month)} 2025</div>
+                                <div className="font-medium text-gray-900 text-sm">{getMonthName(month)} {year}</div>
                                 <div className="text-xs text-gray-600">{role}</div>
                               </div>
                             </div>
                           </div>
 
                           <div className="flex gap-2">
-                            <button
-                              onClick={() => handleViewPDF(appraisalSlug, month)}
+                              <button
+                              onClick={() => handleViewPDF(appraisalSlug, month, year)}
                               className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors"
                             >
                               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="text-current">
@@ -320,7 +360,7 @@ export default function AuditHistoryPage() {
                               View PDF
                             </button>
                             <button
-                              onClick={() => handleDownloadPDF(appraisalSlug, month)}
+                              onClick={() => handleDownloadPDF(appraisalSlug, month, year)}
                               className="flex items-center justify-center gap-2 px-3 py-2 bg-gray-600 text-white text-xs rounded-lg hover:bg-gray-700 transition-colors"
                             >
                               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="text-current">
@@ -343,7 +383,7 @@ export default function AuditHistoryPage() {
       {/* PDF Viewer Modal */}
       {pdfViewer && (
         <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-5xl w-full max-h-[90vh] overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-4 border-b border-gray-200 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
@@ -355,12 +395,12 @@ export default function AuditHistoryPage() {
                   <h3 className="font-semibold text-gray-900">
                     {appraisalCards.find(card => card.slug === pdfViewer.appraisal)?.title || pdfViewer.appraisal}
                   </h3>
-                  <p className="text-sm text-gray-600">{getMonthName(pdfViewer.month)} 2025</p>
+                  <p className="text-sm text-gray-600">{getMonthName(pdfViewer.month)} {pdfViewer.year}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => handleDownloadPDF(pdfViewer.appraisal, pdfViewer.month)}
+                  onClick={() => handleDownloadPDF(pdfViewer.appraisal, pdfViewer.month, pdfViewer.year)}
                   className="px-3 py-1 bg-gray-600 text-white text-sm rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="text-current">
@@ -380,10 +420,10 @@ export default function AuditHistoryPage() {
             </div>
             <div className="p-4 bg-gray-50">
               {pdfViewer.content ? (
-                <div className="bg-white rounded-lg border-2 border-gray-300 max-h-96 overflow-y-auto">
+                <div className="bg-white rounded-lg border-2 border-gray-300 overflow-hidden">
                   <iframe
                     srcDoc={pdfViewer.content}
-                    className="w-full h-96 border-0"
+                    className="w-full h-[70vh] border-0"
                     title={`${pdfViewer.appraisal} PDF`}
                   />
                 </div>
