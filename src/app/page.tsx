@@ -725,7 +725,7 @@ export default function Page() {
                 </span>
               </h2>
               <p className="mt-6 text-lg text-slate-200">
-                Legacy compliance tools were built for another era. CG-360 gives you a connected, AI-powered hub that replaces bolt-ons, manual workarounds, and hidden training fees with clarity and speed.
+                Legacy compliance tools were built for another era. CG-360 gives you a connected, seamless hub that replaces bolt-ons, manual workarounds, and hidden training fees with clarity and speed.
               </p>
             </div>
 
