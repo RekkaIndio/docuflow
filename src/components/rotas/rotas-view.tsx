@@ -586,9 +586,9 @@ export function RotasView({ workspace }: RotasViewProps) {
       <main className="flex-1 p-6 overflow-y-auto">
         <div className="space-y-6 max-w-[1800px] mx-auto">
           <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'schedule' | 'hours')}>
-            <TabsList className="grid w-full max-w-md grid-cols-2">
-              <TabsTrigger value="schedule">Schedule</TabsTrigger>
-              <TabsTrigger value="hours">Contracted Hours</TabsTrigger>
+            <TabsList className="grid h-auto items-center w-full max-w-md grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+              <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="schedule">Schedule</TabsTrigger>
+              <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="hours">Contracted Hours</TabsTrigger>
             </TabsList>
 
             <TabsContent value="schedule" className="space-y-6 mt-6">

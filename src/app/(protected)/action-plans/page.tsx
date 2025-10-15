@@ -12,6 +12,7 @@ import { generateActionPlanPDF, getActionPlanPDFFilename, ActionPlanPDFData } fr
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import PageHeader from '../../../components/page-header';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -712,23 +713,17 @@ export default function ActionPlansPage() {
       <PageHeader title="Monthly Action Plans" subtitle={currentMonthName} />
 
       <div className="px-4 pt-6 pb-12">
-        <div className="flex gap-2 border-b border-gray-200 mb-6">
-          <button
-            className={`px-4 py-2 font-medium border-b-2 transition-colors ${tab === 'current' ? 'border-blue-600 text-blue-800 bg-blue-50' : 'border-transparent text-gray-500 hover:text-blue-700'}`}
-            onClick={() => setTab('current')}
-          >
-            Current Plan
-          </button>
-          <button
-            className={`px-4 py-2 font-medium border-b-2 transition-colors ${tab === 'tracker' ? 'border-blue-600 text-blue-800 bg-blue-50' : 'border-transparent text-gray-500 hover:text-blue-700'}`}
-            onClick={() => setTab('tracker')}
-          >
-            History & Tracker
-          </button>
-        </div>
+        <Tabs value={tab} onValueChange={(value) => setTab(value as 'current' | 'tracker')} className="w-full">
+          <TabsList className="grid h-auto items-center w-full max-w-md grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm mb-6">
+            <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="current">
+              Current Plan
+            </TabsTrigger>
+            <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="tracker">
+              History & Tracker
+            </TabsTrigger>
+          </TabsList>
 
-        {tab === 'current' && (
-          <>
+          <TabsContent value="current">
             {loading ? (
               <div className="flex items-center justify-center py-16">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -1311,192 +1306,192 @@ export default function ActionPlansPage() {
         )}
               </>
             )}
-          </>
-        )}
+          </TabsContent>
 
-        {tab === 'tracker' && (
-          <div className="space-y-8 pb-10">
-            {historicalLoading ? (
-              <div className="flex items-center justify-center py-16">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-              </div>
-            ) : (
-              <>
-                <div className="space-y-6">
-                  {availableYears.map(year => (
-                    <div key={year} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-                      <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
-                        <div>
-                          <h2 className="text-lg font-semibold text-gray-900">{year} Action Plans</h2>
-                          <p className="text-sm text-gray-500">Select a month to review saved action plans.</p>
+          <TabsContent value="tracker">
+            <div className="space-y-8 pb-10">
+              {historicalLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-6">
+                    {availableYears.map(year => (
+                      <div key={year} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                        <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
+                          <div>
+                            <h2 className="text-lg font-semibold text-gray-900">{year} Action Plans</h2>
+                            <p className="text-sm text-gray-500">Select a month to review saved action plans.</p>
+                          </div>
+                          <span className="text-xs font-medium text-gray-400 uppercase tracking-wide">{historicalPlans.filter(plan => plan.monthKey.startsWith(year)).length} saved</span>
                         </div>
-                        <span className="text-xs font-medium text-gray-400 uppercase tracking-wide">{historicalPlans.filter(plan => plan.monthKey.startsWith(year)).length} saved</span>
-                      </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-                        {MONTH_LABELS.map((monthLabel, index) => {
-                          const monthKey = `${year}-${String(index + 1).padStart(2, '0')}`;
-                          const plan = plansByYear[year]?.[monthKey];
-                          const isSelected = selectedHistoricalPlan?.monthKey === monthKey;
-                          const isCurrentMonth = monthKey === currentMonthKey;
-                          const hasPlan = Boolean(plan);
-                          return (
-                            <button
-                              key={monthKey}
-                              type="button"
-                              onClick={() => {
-                                if (plan) {
-                                  setSelectedHistoricalPlan(plan);
-                                }
-                              }}
-                              disabled={!hasPlan}
-                              className={`text-left rounded-xl border p-4 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-200 ${
-                                hasPlan
-                                  ? 'bg-white hover:border-indigo-400 hover:shadow-md cursor-pointer'
-                                  : 'bg-slate-50 border-dashed border-gray-300 text-gray-400 cursor-not-allowed'
-                              } ${
-                                isSelected ? 'border-indigo-500 ring-2 ring-indigo-200' : ''
-                              }`}
-                            >
-                              <div className="flex items-center justify-between">
-                                <span className={`text-sm font-semibold ${hasPlan ? 'text-gray-900' : 'text-gray-500'}`}>
-                                  {MONTH_SHORT_LABELS[index]}
-                                </span>
-                                {hasPlan ? (
-                                  <span className="text-xs font-medium text-indigo-600">
-                                    {plan?.progressPercent ?? 0}%
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+                          {MONTH_LABELS.map((monthLabel, index) => {
+                            const monthKey = `${year}-${String(index + 1).padStart(2, '0')}`;
+                            const plan = plansByYear[year]?.[monthKey];
+                            const isSelected = selectedHistoricalPlan?.monthKey === monthKey;
+                            const isCurrentMonth = monthKey === currentMonthKey;
+                            const hasPlan = Boolean(plan);
+                            return (
+                              <button
+                                key={monthKey}
+                                type="button"
+                                onClick={() => {
+                                  if (plan) {
+                                    setSelectedHistoricalPlan(plan);
+                                  }
+                                }}
+                                disabled={!hasPlan}
+                                className={`text-left rounded-xl border p-4 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-200 ${
+                                  hasPlan
+                                    ? 'bg-white hover:border-indigo-400 hover:shadow-md cursor-pointer'
+                                    : 'bg-slate-50 border-dashed border-gray-300 text-gray-400 cursor-not-allowed'
+                                } ${
+                                  isSelected ? 'border-indigo-500 ring-2 ring-indigo-200' : ''
+                                }`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className={`text-sm font-semibold ${hasPlan ? 'text-gray-900' : 'text-gray-500'}`}>
+                                    {MONTH_SHORT_LABELS[index]}
                                   </span>
-                                ) : (
-                                  <span className="text-xs">No plan</span>
+                                  {hasPlan ? (
+                                    <span className="text-xs font-medium text-indigo-600">
+                                      {plan?.progressPercent ?? 0}%
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs">No plan</span>
+                                  )}
+                                </div>
+                                {hasPlan && (
+                                  <div className="mt-3 space-y-2">
+                                    <div className="text-xs text-gray-600">
+                                      {plan?.completedItems || 0} / {plan?.totalItems || 0} completed
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                      {plan?.isComplete && (
+                                        <span className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-green-700 bg-green-100 rounded-full">
+                                          <CheckCircle className="h-3 w-3" />
+                                          Finalised
+                                        </span>
+                                      )}
+                                      {isCurrentMonth && (
+                                        <span className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-blue-700 bg-blue-100 rounded-full">
+                                          <Clock className="h-3 w-3" />
+                                          Current
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                    {selectedHistoricalPlan ? (
+                      <>
+                        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                          <div>
+                            <h3 className="text-xl font-semibold text-gray-900">Action Plan — {getMonthLabelFromKey(selectedHistoricalPlan.monthKey)}</h3>
+                            <p className="text-sm text-gray-600">
+                              {selectedHistoricalPlan.totalItems} issues — {selectedHistoricalPlan.completedItems} completed
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                              Progress {selectedHistoricalPlan.progressPercent || 0}%
+                            </span>
+                            <button
+                              onClick={async () => {
+                                await downloadActionPlanPDF(selectedHistoricalPlan, getMonthLabelFromKey(selectedHistoricalPlan.monthKey));
+                              }}
+                              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 transition-colors"
+                            >
+                              <FileCheck className="h-4 w-4" />
+                              Download PDF
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                          {selectedHistoricalPlan.items.map(item => (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => handleHistoricalItemClick(item)}
+                              className="w-full text-left rounded-xl border border-gray-200 p-4 bg-white shadow-sm transition-all hover:border-indigo-400 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-200 cursor-pointer"
+                            >
+                              <div className="flex items-start justify-between gap-3 mb-3">
+                                <div>
+                                  <div className="text-sm font-semibold text-gray-900">{item.issue}</div>
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    {item.auditType.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                  </div>
+                                </div>
+                                <span className={`px-2 py-1 text-[11px] font-semibold rounded-full ${getStatusColor(item.status)}`}>
+                                  {item.status.replace('-', ' ').toUpperCase()}
+                                </span>
+                              </div>
+
+                              <p className="text-sm text-gray-600 mb-4">{item.question}</p>
+
+                              <div className="flex flex-wrap gap-2 text-xs text-gray-600">
+                                <span className={`px-2 py-1 rounded-full border ${
+                                  item.priority === 'high'
+                                    ? 'border-red-200 bg-red-50 text-red-700'
+                                    : item.priority === 'medium'
+                                      ? 'border-amber-200 bg-amber-50 text-amber-700'
+                                      : 'border-green-200 bg-green-50 text-green-700'
+                                }`}>
+                                  Priority {item.priority.toUpperCase()}
+                                </span>
+                                {item.ragRating && (
+                                  <span className={`px-2 py-1 rounded-full border ${getRAGColor(item.ragRating)}`}>
+                                    {item.ragRating.toUpperCase()}{getRAGDays(item.ragRating) ? ` • ${getRAGDays(item.ragRating)} days` : ''}
+                                  </span>
+                                )}
+                                {item.assignedTeam && (
+                                  <span className="px-2 py-1 rounded-full border border-blue-200 bg-blue-50 text-blue-700">
+                                    Assigned: {assignmentOptions.find(option => option.value === item.assignedTeam)?.label || item.assignedTeam}
+                                  </span>
+                                )}
+                                {item.completedAt && (
+                                  <span className="px-2 py-1 rounded-full border border-green-200 bg-green-50 text-green-700">
+                                    Completed {new Date(item.completedAt).toLocaleDateString()}
+                                  </span>
                                 )}
                               </div>
-                              {hasPlan && (
-                                <div className="mt-3 space-y-2">
-                                  <div className="text-xs text-gray-600">
-                                    {plan?.completedItems || 0} / {plan?.totalItems || 0} completed
-                                  </div>
-                                  <div className="flex flex-wrap gap-2">
-                                    {plan?.isComplete && (
-                                      <span className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-green-700 bg-green-100 rounded-full">
-                                        <CheckCircle className="h-3 w-3" />
-                                        Finalised
-                                      </span>
-                                    )}
-                                    {isCurrentMonth && (
-                                      <span className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-blue-700 bg-blue-100 rounded-full">
-                                        <Clock className="h-3 w-3" />
-                                        Current
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
 
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-                  {selectedHistoricalPlan ? (
-                    <>
-                      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-                        <div>
-                          <h3 className="text-xl font-semibold text-gray-900">Action Plan — {getMonthLabelFromKey(selectedHistoricalPlan.monthKey)}</h3>
-                          <p className="text-sm text-gray-600">
-                            {selectedHistoricalPlan.totalItems} issues — {selectedHistoricalPlan.completedItems} completed
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">
-                            Progress {selectedHistoricalPlan.progressPercent || 0}%
-                          </span>
-                          <button
-                            onClick={async () => {
-                              await downloadActionPlanPDF(selectedHistoricalPlan, getMonthLabelFromKey(selectedHistoricalPlan.monthKey));
-                            }}
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 transition-colors"
-                          >
-                            <FileCheck className="h-4 w-4" />
-                            Download PDF
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="mt-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                        {selectedHistoricalPlan.items.map(item => (
-                          <button
-                            key={item.id}
-                            type="button"
-                            onClick={() => handleHistoricalItemClick(item)}
-                            className="w-full text-left rounded-xl border border-gray-200 p-4 bg-white shadow-sm transition-all hover:border-indigo-400 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-200 cursor-pointer"
-                          >
-                            <div className="flex items-start justify-between gap-3 mb-3">
-                              <div>
-                                <div className="text-sm font-semibold text-gray-900">{item.issue}</div>
-                                <div className="text-xs text-gray-500 mt-1">
-                                  {item.auditType.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                                </div>
+                              <div className="mt-4 flex items-center justify-between text-xs text-indigo-600">
+                                <span className="inline-flex items-center gap-1 font-medium">
+                                  <FileText className="h-3.5 w-3.5" />
+                                  View audit details
+                                </span>
+                                <span className="text-[11px] text-gray-400">Click to open</span>
                               </div>
-                              <span className={`px-2 py-1 text-[11px] font-semibold rounded-full ${getStatusColor(item.status)}`}>
-                                {item.status.replace('-', ' ').toUpperCase()}
-                              </span>
-                            </div>
-
-                            <p className="text-sm text-gray-600 mb-4">{item.question}</p>
-
-                            <div className="flex flex-wrap gap-2 text-xs text-gray-600">
-                              <span className={`px-2 py-1 rounded-full border ${
-                                item.priority === 'high'
-                                  ? 'border-red-200 bg-red-50 text-red-700'
-                                  : item.priority === 'medium'
-                                    ? 'border-amber-200 bg-amber-50 text-amber-700'
-                                    : 'border-green-200 bg-green-50 text-green-700'
-                              }`}>
-                                Priority {item.priority.toUpperCase()}
-                              </span>
-                              {item.ragRating && (
-                                <span className={`px-2 py-1 rounded-full border ${getRAGColor(item.ragRating)}`}>
-                                  {item.ragRating.toUpperCase()}{getRAGDays(item.ragRating) ? ` • ${getRAGDays(item.ragRating)} days` : ''}
-                                </span>
-                              )}
-                              {item.assignedTeam && (
-                                <span className="px-2 py-1 rounded-full border border-blue-200 bg-blue-50 text-blue-700">
-                                  Assigned: {assignmentOptions.find(option => option.value === item.assignedTeam)?.label || item.assignedTeam}
-                                </span>
-                              )}
-                              {item.completedAt && (
-                                <span className="px-2 py-1 rounded-full border border-green-200 bg-green-50 text-green-700">
-                                  Completed {new Date(item.completedAt).toLocaleDateString()}
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="mt-4 flex items-center justify-between text-xs text-indigo-600">
-                              <span className="inline-flex items-center gap-1 font-medium">
-                                <FileText className="h-3.5 w-3.5" />
-                                View audit details
-                              </span>
-                              <span className="text-[11px] text-gray-400">Click to open</span>
-                            </div>
-                          </button>
-                        ))}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-center py-14 text-gray-500">
+                        <div className="w-16 h-16 mx-auto mb-4 rounded-full border border-dashed border-gray-300 flex items-center justify-center">
+                          <Clock className="h-6 w-6 text-gray-400" />
+                        </div>
+                        <p className="text-sm">Select a month from the tracker to review its action plan.</p>
                       </div>
-                    </>
-                  ) : (
-                    <div className="text-center py-14 text-gray-500">
-                      <div className="w-16 h-16 mx-auto mb-4 rounded-full border border-dashed border-gray-300 flex items-center justify-center">
-                        <Clock className="h-6 w-6 text-gray-400" />
-                      </div>
-                      <p className="text-sm">Select a month from the tracker to review its action plan.</p>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        )}
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
 
       <Dialog open={auditModalOpen} onOpenChange={handleAuditModalOpenChange}>
