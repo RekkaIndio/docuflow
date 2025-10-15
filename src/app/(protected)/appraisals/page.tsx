@@ -23,6 +23,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useWorkspace } from "@/context/workspace";
 import { workspaceCollectionPath } from '@/lib/paths';
 import { generateAppraisalPDFWithLogo, getAppraisalPDFFilename } from '@/lib/appraisal-pdf-generator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 // Mapping of tracker roles to their appraisals
 const trackerAppraisalMapping = {
@@ -1164,28 +1165,14 @@ export default function AppraisalsPage() {
         )}
       />
       {/* Tabs below header */}
-      <div className="flex gap-2 border-b border-gray-200 mb-8">
-        <button
-          className={`px-4 py-2 font-medium border-b-2 transition-colors ${tab === 'appraisals' ? 'border-blue-600 text-blue-800 bg-blue-50' : 'border-transparent text-gray-500 hover:text-blue-700'}`}
-          onClick={() => setTab('appraisals')}
-        >
-          Appraisals
-        </button>
-        <button
-          className={`px-4 py-2 font-medium border-b-2 transition-colors ${tab === 'tracker' ? 'border-blue-600 text-blue-800 bg-blue-50' : 'border-transparent text-gray-500 hover:text-blue-700'}`}
-          onClick={() => setTab('tracker')}
-        >
-          Tracker
-        </button>
-        <button
-          className={`px-4 py-2 font-medium border-b-2 transition-colors ${tab === 'history' ? 'border-blue-600 text-blue-800 bg-blue-50' : 'border-transparent text-gray-500 hover:text-blue-700'}`}
-          onClick={() => setTab('history')}
-        >
-          Audit History
-        </button>
-      </div>
-      {/* Main Content */}
-      {tab === 'appraisals' && (
+      <Tabs value={tab} onValueChange={(value) => setTab(value as 'appraisals' | 'tracker' | 'history')} className="mb-8">
+        <TabsList className="grid h-auto items-center w-full max-w-2xl grid-cols-3 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+          <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="appraisals">Appraisals</TabsTrigger>
+          <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="tracker">Tracker</TabsTrigger>
+          <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="history">Audit History</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="appraisals" className="mt-6">
         <div className="px-4 sm:px-8 lg:px-16">
           {currentView === null && (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
@@ -1319,8 +1306,9 @@ export default function AppraisalsPage() {
             <div><button onClick={handleBackToAppraisals} className="mb-4 p-2 text-primary hover:text-primary/80">← Back to Appraisals</button><CarersSupervisionForm onSave={handleFormSave} workspaceId={workspace?.id} /></div>
           )}
         </div>
-      )}
-      {tab === 'tracker' && (
+      </TabsContent>
+
+      <TabsContent value="tracker" className="mt-6">
         <div className="px-4 sm:px-8 lg:px-16">
           <div className="w-full">
             <div className="bg-white/90 rounded-2xl shadow-xl border border-blue-100 p-6 sm:p-10 mb-8 min-h-[500px] flex flex-col justify-between">
@@ -1412,9 +1400,9 @@ export default function AppraisalsPage() {
             </div>
           </div>
         </div>
-      )}
+      </TabsContent>
 
-      {tab === 'history' && (
+      <TabsContent value="history" className="mt-6">
         <div className="px-4 sm:px-8 lg:px-16">
           {historyGroups.length === 0 ? (
             <div className="py-16 text-center">
@@ -1460,10 +1448,10 @@ export default function AppraisalsPage() {
               {selectedHistoryGroup && selectedHistoryGroup.entries.length > 0 ? (
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {selectedHistoryGroup.entries.map(entry => (
-                    <button
+                    <div
                       key={`${entry.slug}-${entry.year}-${entry.month}`}
                       onClick={() => openReadOnlyViewer(entry.slug, entry.month, entry.year)}
-                      className="group relative flex flex-col gap-4 rounded-2xl border border-gray-200 bg-white p-5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                      className="group relative flex flex-col gap-4 rounded-2xl border border-gray-200 bg-white p-5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 cursor-pointer"
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex items-start gap-3">
@@ -1514,7 +1502,7 @@ export default function AppraisalsPage() {
                           Snapshot will be rebuilt when opened.
                         </div>
                       )}
-                    </button>
+                    </div>
                   ))}
                 </div>
               ) : (
@@ -1534,7 +1522,8 @@ export default function AppraisalsPage() {
             </div>
           )}
         </div>
-      )}
+      </TabsContent>
+    </Tabs>
 
       {trackerModal && (
         <TrackerModal
