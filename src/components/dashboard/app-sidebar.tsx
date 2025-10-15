@@ -28,6 +28,7 @@ import {
   ClipboardList,
   AlertCircle,
   Calendar,
+  HelpCircle,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Logo } from "@/components/icons/logo";
@@ -61,7 +62,7 @@ interface AppSidebarProps {
   workspaces: Workspace[];
   activeWorkspace: Workspace | null;
   onWorkspaceChange: (workspaceId: string) => void;
-  setView: React.Dispatch<React.SetStateAction<'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'dependency-calculator' | 'daily' | 'notifications' | 'audits' | 'policies' | 'stats' | 'action-plans' | 'appraisals' | 'rotas' | 'lessons-rcas'>>;
+  setView: React.Dispatch<React.SetStateAction<'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'dependency-calculator' | 'daily' | 'notifications' | 'audits' | 'policies' | 'stats' | 'action-plans' | 'appraisals' | 'rotas' | 'lessons-rcas' | 'help'>>;
   onGoToFiles: () => void;
   onCreateWorkspace: (name: string) => void;
   dailyEntry?: any;
@@ -317,6 +318,13 @@ export function AppSidebar({
                 </SidebarMenuButton>
               </SidebarMenuItem>
             )}
+            {/* Help - Always visible (core feature) */}
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={() => handleNavigation(() => setView('help'))} className="text-lg h-12">
+                <HelpCircle className="w-6 h-6 mr-2" />
+                <span className="text-sm">Help</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
             {/* Settings - Always visible (core feature) */}
             {isEnabled('settings') && (
               <SidebarMenuItem>

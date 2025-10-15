@@ -246,12 +246,12 @@ export default function Page() {
   // Evenly space 6 nodes around a single ring so they're visually connected and aligned
   const orbitRadius = 220; // px
   const orbitModules = [
-    { id: 'm1', title: 'Module 01', desc: 'Details revealed during migration planning.', angle: -60, radius: orbitRadius, icon: Folder },
-    { id: 'm2', title: 'Module 02', desc: 'See how signals flow in the private demo.', angle: 0, radius: orbitRadius, icon: FolderSync },
-    { id: 'm3', title: 'Module 03', desc: 'Experience the human layer live with us.', angle: 60, radius: orbitRadius, icon: Users },
-    { id: 'm4', title: 'Module 04', desc: 'Reserved: reveal during inspection walk-through.', angle: 120, radius: orbitRadius, icon: FileText },
-    { id: 'm5', title: 'Module 05', desc: 'Guided tour unlocks the governance layer.', angle: 180, radius: orbitRadius, icon: Shield },
-    { id: 'm6', title: 'Module 06', desc: 'Future-facing analytics previewed on call.', angle: 240, radius: orbitRadius, icon: BarChart3 },
+    { id: 'm1', title: 'Module 01', desc: 'Intelligent document management with automated categorisation and secure storage.', angle: -60, radius: orbitRadius, icon: Folder },
+    { id: 'm2', title: 'Module 02', desc: 'Real-time compliance monitoring and automated workflow orchestration.', angle: 0, radius: orbitRadius, icon: FolderSync },
+    { id: 'm3', title: 'Module 03', desc: 'Comprehensive staff management with training tracking and performance insights.', angle: 60, radius: orbitRadius, icon: Users },
+    { id: 'm4', title: 'Module 04', desc: 'Inspection-ready evidence generation and controlled access portals.', angle: 120, radius: orbitRadius, icon: FileText },
+    { id: 'm5', title: 'Module 05', desc: 'Policy governance framework with version control and approval workflows.', angle: 180, radius: orbitRadius, icon: Shield },
+    { id: 'm6', title: 'Module 06', desc: 'Advanced analytics dashboard with predictive insights and trend analysis.', angle: 240, radius: orbitRadius, icon: BarChart3 },
   ];
 
   const featureCards = [

@@ -168,6 +168,7 @@ const DASHBOARD_VIEWS = [
   "appraisals",
   "rotas",
   "lessons-rcas",
+  "help",
 ] as const;
 
 type DashboardView = (typeof DASHBOARD_VIEWS)[number];
@@ -1174,6 +1175,15 @@ export function Dashboard() {
             </React.Suspense>
           ) : <div className="p-6">No workspace</div>}
         </FeatureGuard>
+      );
+    case 'help':
+      return (
+        <React.Suspense fallback={<div>Loading...</div>}>
+          {(() => {
+            const HelpPage = require("@/app/(protected)/help/page").default;
+            return <HelpPage />;
+          })()}
+        </React.Suspense>
       );
     case 'notifications':
       return (
