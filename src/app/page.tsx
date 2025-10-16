@@ -1,2198 +1,980 @@
-
 "use client";
 
-import Link from 'next/link';
-import { useEffect, useState, useRef, useLayoutEffect, type CSSProperties } from 'react';
-import { Button } from '@/components/ui/button';
-import { Logo } from '@/components/icons/logo';
+import Link from "next/link";
+import { type ReactNode } from "react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Logo } from "@/components/icons/logo";
+import { useCalendly } from "@/context/calendly-context";
+import { Footer } from "@/components/footer";
 import {
-  ArrowRight,
-  CheckCircle2,
-  UploadCloud,
-  Cpu,
-  Tag,
-  FolderSync,
-  Folder,
-  Bell,
-  Share2,
-  MessageSquare,
-  BrainCircuit,
-  Shield,
-  FileText,
-  Users,
-  BarChart3,
-  Calendar,
-  Mail,
-  Zap,
-  Star,
-  Award,
-  Heart,
-  Building2,
   Sparkles,
-  ChevronRight,
   Play,
-  X,
-  Twitter,
-  Github,
-  Linkedin,
-  TrendingUp,
-  Accessibility,
-  Menu,
-  Clock,
-  DollarSign,
-  AlertTriangle,
-  Puzzle,
+  ArrowRight,
+  BrainCircuit,
+  FileText,
+  FileCheck,
+  ClipboardList,
+  Users,
+  Shield,
+  ShieldCheck,
+  BarChart3,
+  Cpu,
+  CheckCircle2,
+  Calendar,
   Layers,
-  CreditCard,
-  BadgeCheck,
+  Puzzle,
+  AlertTriangle,
+  Timer,
+  DollarSign,
+  GraduationCap,
   PoundSterling
-} from 'lucide-react';
-import { Lock } from 'lucide-react';
-import Image from 'next/image';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
-import { AnimatedHeroBg } from '@/components/landing/animated-hero-bg';
-import { TrustedByBar } from '@/components/landing/trusted-by-bar';
-import { DetailedFeatures } from '@/components/landing/detailed-features';
-import { DashboardPreview } from '@/components/landing/dashboard-preview';
-import { NewsletterSignup } from '@/components/landing/newsletter-signup';
-import { Footer } from '@/components/footer';
-import { CalendlyModal } from '@/components/calendly-modal';
-import { useCalendly } from '@/context/calendly-context';
+type Capability = {
+  id: string;
+  name: string;
+  description: string;
+  icon: LucideIcon;
+  accent: string;
+  preview: ReactNode;
+};
+
+type WorkflowStage = {
+  id: string;
+  title: string;
+  subtitle: string;
+  bullets: string[];
+  icon: LucideIcon;
+  accent: string;
+  highlight: ReactNode;
+};
+
+type ImpactMetric = {
+  id: string;
+  value: string;
+  label: string;
+  detail: string;
+};
+
+type PainPoint = {
+  id: string;
+  title: string;
+  description: string;
+  icon: LucideIcon;
+};
+
+const capabilityCards: Capability[] = [
+  {
+    id: "smart-docs",
+    name: "Smart Document Management",
+    description: "AI triages evidence, locks versions, and keeps every inspection artefact a click away.",
+    icon: BrainCircuit,
+    accent: "from-violet-500 via-indigo-500 to-blue-500",
+    preview: (
+      <div className="space-y-3">
+        <div className="flex items-center justify-between rounded-xl border border-violet-100 bg-violet-50 px-3 py-2">
+          <div>
+            <p className="text-sm font-semibold text-violet-900">Falls Policy.pdf</p>
+            <p className="text-xs text-violet-600">AI tagged • 32 insights</p>
+          </div>
+          <Badge variant="secondary" className="bg-violet-200/70 text-violet-900">Ready</Badge>
+        </div>
+        <div className="grid gap-2 text-slate-700">
+          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
+            <span className="text-xs font-medium uppercase text-slate-500">Workspace</span>
+            <span className="text-sm font-semibold text-slate-900">Safety & Risk</span>
+          </div>
+          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
+            <span className="text-xs font-medium uppercase text-slate-500">Version</span>
+            <span className="text-sm font-semibold text-slate-900">v6 • locked</span>
+          </div>
+        </div>
+      </div>
+    )
+  },
+  {
+    id: "dependency",
+    name: "Dependency Calculator",
+    description: "Model staffing need per acuity level and surface shortages instantly.",
+    icon: Cpu,
+    accent: "from-sky-500 via-cyan-500 to-emerald-500",
+    preview: (
+      <div className="space-y-3">
+        <div className="flex items-center justify-between rounded-xl border border-sky-100 bg-sky-50 px-3 py-2">
+          <span className="text-sm font-semibold text-sky-900">Current ratio</span>
+          <span className="text-lg font-bold text-sky-900">1:3.1</span>
+        </div>
+        <div className="grid grid-cols-3 gap-2 text-xs font-medium">
+          <div className="rounded-lg bg-white px-2 py-2 text-slate-600">
+            <p className="text-[11px] uppercase text-slate-400">Low</p>
+            <p className="text-sm font-semibold text-slate-900">14 residents</p>
+          </div>
+          <div className="rounded-lg bg-white px-2 py-2 text-slate-600">
+            <p className="text-[11px] uppercase text-slate-400">Medium</p>
+            <p className="text-sm font-semibold text-slate-900">9 residents</p>
+          </div>
+          <div className="rounded-lg bg-white px-2 py-2 text-slate-600">
+            <p className="text-[11px] uppercase text-slate-400">High</p>
+            <p className="text-sm font-semibold text-slate-900">5 residents</p>
+          </div>
+        </div>
+        <div className="rounded-lg bg-white px-3 py-2 text-xs text-slate-600">
+          <div className="flex items-center justify-between">
+            <span>Night requirement</span>
+            <span className="font-semibold text-slate-900">+2 staff</span>
+          </div>
+        </div>
+      </div>
+    )
+  },
+  {
+    id: "policies",
+    name: "Policies & Governance",
+    description: "Version control, approvals, and acknowledgements tracked without spreadsheets.",
+    icon: FileText,
+    accent: "from-blue-500 via-slate-500 to-slate-800",
+    preview: (
+      <div className="space-y-3">
+        <div className="flex items-center justify-between rounded-xl border border-blue-100 bg-blue-50 px-3 py-2">
+          <div>
+            <p className="text-sm font-semibold text-blue-900">Medication Management</p>
+            <p className="text-xs text-blue-700">Awaiting 3 approvals</p>
+          </div>
+          <Badge variant="secondary" className="bg-blue-200/70 text-blue-900">Due in 3 days</Badge>
+        </div>
+        <div className="rounded-lg bg-white px-3 py-2 text-xs text-slate-600">
+          <div className="mb-2 flex items-center justify-between">
+            <span>Team sign-off</span>
+            <span className="font-semibold text-slate-900">42 / 50</span>
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+            <div className="h-full w-[84%] rounded-full bg-gradient-to-r from-blue-500 to-purple-500"></div>
+          </div>
+        </div>
+      </div>
+    )
+  },
+  {
+    id: "audits",
+    name: "Audits & Evidence",
+    description: "Live checklists, evidence capture, and instant inspection exports.",
+    icon: FileCheck,
+    accent: "from-emerald-500 via-green-500 to-lime-500",
+    preview: (
+      <div className="space-y-3">
+        <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2">
+          <p className="text-sm font-semibold text-emerald-900">Infection Control Audit</p>
+          <p className="text-xs text-emerald-700">Due Friday • Registered Manager</p>
+        </div>
+        <div className="space-y-2 text-xs text-slate-600">
+          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
+            <span>Hand hygiene spot checks</span>
+            <Badge variant="secondary" className="bg-emerald-100 text-emerald-800">Complete</Badge>
+          </div>
+          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
+            <span>Sterilisation log evidence</span>
+            <Badge variant="secondary" className="bg-amber-100 text-amber-800">Evidence</Badge>
+          </div>
+          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
+            <span>Corrective actions</span>
+            <Badge variant="secondary" className="bg-red-100 text-red-700">2 open</Badge>
+          </div>
+        </div>
+      </div>
+    )
+  },
+  {
+    id: "action-plans",
+    name: "Action Plans",
+    description: "Assign owners, capture updates, and auto-remind the team until closed.",
+    icon: ClipboardList,
+    accent: "from-orange-500 via-amber-500 to-yellow-500",
+    preview: (
+      <div className="space-y-3">
+        <div className="flex items-center justify-between rounded-xl border border-orange-100 bg-orange-50 px-3 py-2">
+          <span className="text-sm font-semibold text-orange-900">Falls prevention plan</span>
+          <Badge variant="secondary" className="bg-orange-200/70 text-orange-900">On track</Badge>
+        </div>
+        <div className="space-y-2 text-xs text-slate-600">
+          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
+            <span>Install sensor mats</span>
+            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+          </div>
+          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
+            <span>Night staff refresher</span>
+            <span className="rounded-full bg-orange-100 px-2 py-[2px] text-[11px] font-semibold text-orange-800">Due tomorrow</span>
+          </div>
+          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
+            <span>Evidence upload</span>
+            <span className="text-[11px] font-semibold text-slate-900">3 / 5 files</span>
+          </div>
+        </div>
+      </div>
+    )
+  },
+  {
+    id: "supervisions",
+    name: "Supervisions",
+    description: "Plan sessions, capture notes, and track supervision coverage for every colleague.",
+    icon: Users,
+    accent: "from-cyan-500 via-sky-500 to-blue-500",
+    preview: (
+      <div className="space-y-3">
+        <div className="rounded-xl border border-cyan-100 bg-cyan-50 px-3 py-2">
+          <p className="text-sm font-semibold text-cyan-900">Supervision schedule</p>
+          <p className="text-xs text-cyan-700">This week</p>
+        </div>
+        <div className="space-y-2 text-xs">
+          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
+            <span className="font-medium text-slate-700">Mia Smith</span>
+            <span className="text-slate-500">Tue • 14:00</span>
+          </div>
+          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
+            <span className="font-medium text-slate-700">Omar Malik</span>
+            <span className="rounded-full bg-cyan-100 px-2 py-[2px] text-[11px] font-semibold text-cyan-800">Notes added</span>
+          </div>
+          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
+            <span className="font-medium text-slate-700">Lily Chan</span>
+            <span className="text-slate-500">Fri • 10:30</span>
+          </div>
+        </div>
+      </div>
+    )
+  },
+  {
+    id: "inspection-access",
+    name: "Inspection Level Access",
+    description: "Create secure inspector portals with expiries, audit trails, and curated collections.",
+    icon: Shield,
+    accent: "from-pink-500 via-rose-500 to-fuchsia-500",
+    preview: (
+      <div className="space-y-3">
+        <div className="flex items-center justify-between rounded-xl border border-pink-100 bg-pink-50 px-3 py-2">
+          <span className="text-sm font-semibold text-pink-900">Inspection portal</span>
+          <Badge variant="secondary" className="bg-pink-200/70 text-pink-900">Active</Badge>
+        </div>
+        <div className="space-y-2 text-xs text-slate-600">
+          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
+            <span>CQC access link</span>
+            <span className="font-semibold text-slate-900">Expires in 5 days</span>
+          </div>
+          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
+            <span>Shared collections</span>
+            <span className="font-semibold text-slate-900">Policies • Audits • Docs</span>
+          </div>
+          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
+            <span>Activity log</span>
+            <span className="text-[11px] font-semibold text-slate-900">14 views today</span>
+          </div>
+        </div>
+      </div>
+    )
+  },
+  {
+    id: "admin-overview",
+    name: "Admin Overview",
+    description: "Global command centre for organisations, permissions, and performance.",
+    icon: Layers,
+    accent: "from-slate-900 via-slate-700 to-slate-500",
+    preview: (
+      <div className="space-y-3">
+        <div className="grid grid-cols-3 gap-2 text-center text-xs">
+          <div className="rounded-lg bg-white px-2 py-3">
+            <p className="text-[11px] uppercase text-slate-400">Workspaces</p>
+            <p className="text-lg font-bold text-slate-900">12</p>
+          </div>
+          <div className="rounded-lg bg-white px-2 py-3">
+            <p className="text-[11px] uppercase text-slate-400">Users</p>
+            <p className="text-lg font-bold text-slate-900">248</p>
+          </div>
+          <div className="rounded-lg bg-white px-2 py-3">
+            <p className="text-[11px] uppercase text-slate-400">Active flags</p>
+            <p className="text-lg font-bold text-amber-600">3</p>
+          </div>
+        </div>
+        <div className="rounded-lg bg-white px-3 py-2 text-xs text-slate-600">
+          <div className="flex items-center justify-between">
+            <span>Platform uptime</span>
+            <span className="font-semibold text-slate-900">99.98%</span>
+          </div>
+          <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200">
+            <div className="h-full w-[96%] rounded-full bg-gradient-to-r from-slate-900 to-slate-600"></div>
+          </div>
+        </div>
+      </div>
+    )
+  },
+  {
+    id: "analytics-suite",
+    name: "Full Analytical Suite",
+    description: "Predictive trends, variance analysis, and ready-made executive dashboards.",
+    icon: BarChart3,
+    accent: "from-teal-500 via-emerald-500 to-cyan-500",
+    preview: (
+      <div className="space-y-3">
+        <div className="rounded-xl border border-teal-100 bg-teal-50 px-3 py-2">
+          <p className="text-sm font-semibold text-teal-900">Quality of life index</p>
+          <p className="text-xs text-teal-700">Forecast: +6.2%</p>
+        </div>
+        <div className="flex items-end gap-2">
+          <div className="h-16 w-6 rounded-full bg-teal-200"></div>
+          <div className="h-24 w-6 rounded-full bg-teal-300"></div>
+          <div className="h-12 w-6 rounded-full bg-teal-200"></div>
+          <div className="h-20 w-6 rounded-full bg-emerald-300"></div>
+          <div className="h-28 w-6 rounded-full bg-teal-400"></div>
+        </div>
+        <div className="flex items-center justify-between text-xs text-slate-600">
+          <span>Insights generated</span>
+          <span className="font-semibold text-slate-900">12 this week</span>
+        </div>
+      </div>
+    )
+  }
+];
+
+const workflowStages: WorkflowStage[] = [
+  {
+    id: "capture",
+    title: "Capture & Classify",
+    subtitle: "Bring every policy, record, rota, and incident feed into a single operating system.",
+    bullets: [
+      "Drag-and-drop uploads with automatic interactivity",
+      "Tag your documents, for clarity and searchability, no more uploading to seperate drives",
+      "Dependency calculator with clinical context"
+    ],
+    icon: Cpu,
+    accent: "from-blue-500 to-cyan-500",
+    highlight: (
+      <div className="space-y-2 text-xs text-blue-100">
+        <div className="flex items-center justify-between rounded-lg border border-blue-300/40 bg-blue-500/20 px-3 py-2">
+          <span>Medication Review.docx</span>
+          <span className="text-[11px] font-semibold text-white">Synced ✓</span>
+        </div>
+        <div className="flex items-center justify-between rounded-lg border border-blue-300/40 bg-blue-500/20 px-3 py-2">
+          <span>Falls incident form</span>
+          <span className="text-[11px] font-semibold text-white">AI summary ready</span>
+        </div>
+        <div className="flex items-center justify-between rounded-lg border border-blue-300/40 bg-blue-500/20 px-3 py-2">
+          <span>Rota import • Night shift</span>
+          <span className="text-[11px] font-semibold text-white">Dependency recalculated</span>
+        </div>
+      </div>
+    )
+  },
+  {
+    id: "coordinate",
+    title: "Coordinate & Assign",
+    subtitle: "Turn findings into action plans, supervisions, and targeted communication.",
+    bullets: [
+      "Assign owners with due dates and escalation rules",
+      "Auto-create supervision agendas from reflective notes",
+      "Notify teams in-app, email, and SMS simultaneously"
+    ],
+    icon: ClipboardList,
+    accent: "from-orange-500 to-amber-500",
+    highlight: (
+      <div className="space-y-2 text-xs text-orange-100">
+        <div className="flex items-center justify-between rounded-lg border border-orange-300/40 bg-orange-500/20 px-3 py-2">
+          <span>Falls action plan</span>
+          <span className="text-[11px] font-semibold text-white">Owner: Maria</span>
+        </div>
+        <div className="flex items-center justify-between rounded-lg border border-orange-300/40 bg-orange-500/20 px-3 py-2">
+          <span>Supervision • Omar</span>
+          <span className="text-[11px] font-semibold text-white">Agenda auto-built</span>
+        </div>
+        <div className="flex items-center justify-between rounded-lg border border-orange-300/40 bg-orange-500/20 px-3 py-2">
+          <span>Evidence reminder</span>
+          <span className="text-[11px] font-semibold text-white">3 files pending</span>
+        </div>
+      </div>
+    )
+  },
+  {
+    id: "monitor",
+    title: "Monitor & Coach",
+    subtitle: "Dashboards keep leaders coaching, not chasing data across disconnected tools.",
+    bullets: [
+      "Live compliance scores by service, domain, and key question",
+      "Staff supervision coverage and training matrix",
+      "Action plan momentum tracked in real time"
+    ],
+    icon: Users,
+    accent: "from-cyan-500 to-sky-500",
+    highlight: (
+      <div className="space-y-2 text-xs text-cyan-100">
+        <div className="flex items-center justify-between rounded-lg border border-cyan-300/40 bg-cyan-500/20 px-3 py-2">
+          <span>Responsive domain</span>
+          <span className="text-[11px] font-semibold text-white">92% • improving</span>
+        </div>
+        <div className="flex items-center justify-between rounded-lg border border-cyan-300/40 bg-cyan-500/20 px-3 py-2">
+          <span>Supervision coverage</span>
+          <span className="text-[11px] font-semibold text-white">87% complete</span>
+        </div>
+        <div className="flex items-center justify-between rounded-lg border border-cyan-300/40 bg-cyan-500/20 px-3 py-2">
+          <span>Action plan velocity</span>
+          <span className="text-[11px] font-semibold text-white">12 days faster</span>
+        </div>
+      </div>
+    )
+  },
+  {
+    id: "prove",
+    title: "Evidence On Demand",
+    subtitle: "Inspection-ready data in seconds with inspection level access.",
+    bullets: [
+      "One-click inspection bundles by key question",
+      "Controlled inspector access with timers and document access",
+      ""
+    ],
+    icon: ShieldCheck,
+    accent: "from-emerald-500 to-teal-500",
+    highlight: (
+      <div className="space-y-2 text-xs text-emerald-100">
+        <div className="flex items-center justify-between rounded-lg border border-emerald-300/40 bg-emerald-500/20 px-3 py-2">
+          <span>Inspection bundle</span>
+          <span className="text-[11px] font-semibold text-white">12 files attached</span>
+        </div>
+        <div className="flex items-center justify-between rounded-lg border border-emerald-300/40 bg-emerald-500/20 px-3 py-2">
+          <span>Access window</span>
+          <span className="text-[11px] font-semibold text-white">Closes in 4 days</span>
+        </div>
+        <div className="flex items-center justify-between rounded-lg border border-emerald-300/40 bg-emerald-500/20 px-3 py-2">
+          <span>Audit trail</span>
+          <span className="text-[11px] font-semibold text-white">14 views logged</span>
+        </div>
+      </div>
+    )
+  }
+];
+
+const impactMetrics: ImpactMetric[] = [
+  {
+    id: "time",
+    value: "78%",
+    label: "Admin time saved",
+    detail: "Average reduction in manual evidence prep after eight weeks."
+  },
+  {
+    id: "confidence",
+    value: "4.9/5",
+    label: "Inspection confidence",
+    detail: "Leaders report feeling inspection ready every day, not just before visits."
+  },
+  {
+    id: "automation",
+    value: "62",
+    label: "Automations live",
+    detail: "Automated workflows deployed per organisation on average."
+  }
+];
+
+const competitorPainPoints: PainPoint[] = [
+  {
+    id: "fragmented",
+    title: "Fragmented toolsets",
+    description: "Compliance lives across bolt-on portals, spreadsheets, and shared drives that never stay in sync.",
+    icon: Puzzle
+  },
+  {
+    id: "outdated",
+    title: "Outdated, hard to use",
+    description: "Legacy interfaces bury critical actions and demand specialist ops teams to keep them running.",
+    icon: AlertTriangle
+  },
+  {
+    id: "hidden-costs",
+    title: "Hidden bolt-on costs",
+    description: "Every new module means another invoice—policies, analytics, inspector access, all sold separately.",
+    icon: PoundSterling
+  },
+  {
+    id: "training",
+    title: "Expensive training cycles",
+    description: "Vendors mandate costly classroom training and annual refreshers just to keep staff certified.",
+    icon: GraduationCap
+  },
+  {
+    id: "setup",
+    title: "Long implementation",
+    description: "Six-month deployments with consultancy hours before the system delivers any value.",
+    icon: Timer
+  }
+];
 
 export default function Page() {
-  const [activeModal, setActiveModal] = useState<string | null>(null);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const mobileMenuRef = useRef<HTMLDivElement>(null);
   const { openCalendlyModal } = useCalendly();
 
-  // Ref + measurement for the central CG-360 card so connectors stop at its outer edge
-  const centerRef = useRef<HTMLDivElement | null>(null);
-  const [centerSize, setCenterSize] = useState({ width: 260, height: 140 });
-  const orbitRef = useRef<HTMLDivElement | null>(null);
-  const [orbitSize, setOrbitSize] = useState({ width: 0, height: 0 });
-  // Refs and sizes for each orbit node so we can compute where lines should stop
-  const moduleRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  const [moduleSizes, setModuleSizes] = useState<Record<string, { width: number; height: number }>>({});
-  // Hero visual refs for parallax and micro-interaction
-  const heroRef = useRef<HTMLDivElement | null>(null);
-  const heroCardRef = useRef<HTMLDivElement | null>(null);
-  const heroRaf = useRef<number | null>(null);
-
-  const handleIconClick = (modalType: string) => {
-    setActiveModal(activeModal === modalType ? null : modalType);
-  };
-
-  useEffect(() => {
-    const observerOptions = {
-      threshold: 0.1,
-      rootMargin: '0px 0px -50px 0px'
-    };
-
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('animate');
-        }
-      });
-    }, observerOptions);
-
-  // Observe all elements with animation classes (add fade-only class for connectors)
-  const animatedElements = document.querySelectorAll('.animate-on-scroll, .animate-on-scroll-left, .animate-on-scroll-right, .animate-on-scroll-scale, .animate-fade-in');
-    animatedElements.forEach((el) => observer.observe(el));
-
-    return () => observer.disconnect();
-  }, []);
-
-  // Close mobile menu on window resize to desktop
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth >= 1024) { // lg breakpoint
-        setMobileMenuOpen(false);
-      }
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  // Close mobile menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node)) {
-        setMobileMenuOpen(false);
-      }
-    };
-
-    if (mobileMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [mobileMenuOpen]);
-
-  useEffect(() => {
-    if (!centerRef.current) return;
-
-    const ro = new ResizeObserver((entries) => {
-      const rect = entries[0].contentRect;
-      setCenterSize({ width: rect.width, height: rect.height });
-    });
-
-    ro.observe(centerRef.current);
-
-    // initial measurement
-    const rect = centerRef.current.getBoundingClientRect();
-    setCenterSize({ width: rect.width, height: rect.height });
-
-    const handleResize = () => {
-      if (centerRef.current) {
-        const r = centerRef.current.getBoundingClientRect();
-        setCenterSize({ width: r.width, height: r.height });
-      }
-    };
-
-    window.addEventListener('resize', handleResize);
-
-    return () => {
-      ro.disconnect();
-      window.removeEventListener('resize', handleResize);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!orbitRef.current) return;
-
-    const ro = new ResizeObserver((entries) => {
-      const rect = entries[0].contentRect;
-      setOrbitSize({ width: rect.width, height: rect.height });
-    });
-
-    ro.observe(orbitRef.current);
-
-    // initial measurement
-    const rect = orbitRef.current.getBoundingClientRect();
-    setOrbitSize({ width: rect.width, height: rect.height });
-
-    const handleResize = () => {
-      if (orbitRef.current) {
-        const r = orbitRef.current.getBoundingClientRect();
-        setOrbitSize({ width: r.width, height: r.height });
-      }
-    };
-
-    window.addEventListener('resize', handleResize);
-
-    return () => {
-      ro.disconnect();
-      window.removeEventListener('resize', handleResize);
-    };
-  }, []);
-
-  useLayoutEffect(() => {
-    const latestSizes: Record<string, { width: number; height: number }> = {};
-    Object.entries(moduleRefs.current).forEach(([id, el]) => {
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      latestSizes[id] = { width: rect.width, height: rect.height };
-    });
-
-    setModuleSizes((prev) => {
-      const next: Record<string, { width: number; height: number }> = { ...prev };
-      let mutated = false;
-
-      // update or add nodes
-      Object.entries(latestSizes).forEach(([id, size]) => {
-        const existing = prev[id];
-        const widthChanged = !existing || Math.abs(existing.width - size.width) > 0.5;
-        const heightChanged = !existing || Math.abs(existing.height - size.height) > 0.5;
-        if (widthChanged || heightChanged) {
-          next[id] = size;
-          mutated = true;
-        }
-      });
-
-      // remove nodes that no longer exist
-      Object.keys(prev).forEach((id) => {
-        if (!(id in latestSizes) && id in next) {
-          delete next[id];
-          mutated = true;
-        }
-      });
-
-      return mutated ? next : prev;
-    });
-  }, [orbitSize.width, orbitSize.height, centerSize.width, centerSize.height]);
-
-  // Orbit module definitions for the comparison visual — angles in degrees, radius in px from centre
-  // Evenly space 6 nodes around a single ring so they're visually connected and aligned
-  const orbitRadius = 220; // px
-  const orbitModules = [
-    { id: 'm1', title: 'Module 01', desc: 'Intelligent document management with automated categorisation and secure storage.', angle: -60, radius: orbitRadius, icon: Folder },
-    { id: 'm2', title: 'Module 02', desc: 'Real-time compliance monitoring and automated workflow orchestration.', angle: 0, radius: orbitRadius, icon: FolderSync },
-    { id: 'm3', title: 'Module 03', desc: 'Comprehensive staff management with training tracking and performance insights.', angle: 60, radius: orbitRadius, icon: Users },
-    { id: 'm4', title: 'Module 04', desc: 'Inspection-ready evidence generation and controlled access portals.', angle: 120, radius: orbitRadius, icon: FileText },
-    { id: 'm5', title: 'Module 05', desc: 'Policy governance framework with version control and approval workflows.', angle: 180, radius: orbitRadius, icon: Shield },
-    { id: 'm6', title: 'Module 06', desc: 'Advanced analytics dashboard with predictive insights and trend analysis.', angle: 240, radius: orbitRadius, icon: BarChart3 },
-  ];
-
-  const featureCards = [
-    {
-      id: 'feature-docs',
-      title: 'Smart Document Management',
-      description: 'AI-powered document processing with automatic categorisation, version control, and compliance tracking. Never lose track of important paperwork again.',
-      icon: FileText,
-      accentGradient: 'from-blue-500 to-blue-600',
-      hoverBorder: 'hover:border-blue-200/50',
-      glow: 'from-blue-400/20 via-blue-500/10 to-transparent'
-    },
-    {
-      id: 'feature-ai',
-      title: 'AI Compliance Assistant',
-      description: 'Get instant answers to compliance questions, automated policy reviews, and intelligent recommendations tailored to your care home\'s needs.',
-      icon: BrainCircuit,
-      accentGradient: 'from-purple-500 to-purple-600',
-      hoverBorder: 'hover:border-purple-200/50',
-      glow: 'from-purple-400/20 via-purple-500/10 to-transparent'
-    },
-    {
-      id: 'feature-analytics',
-      title: 'Real-time Analytics',
-      description: 'Comprehensive dashboards showing compliance status, staffing ratios, and operational insights. Make data-driven decisions with confidence.',
-      icon: BarChart3,
-      accentGradient: 'from-cyan-500 to-cyan-600',
-      hoverBorder: 'hover:border-cyan-200/50',
-      glow: 'from-cyan-400/20 via-cyan-500/10 to-transparent'
-    },
-    {
-      id: 'feature-staff',
-      title: 'Staff Management',
-      description: 'Streamline team management and oversight to keep your workforce organised, supported, and compliant.',
-      icon: Users,
-      accentGradient: 'from-green-500 to-green-600',
-      hoverBorder: 'hover:border-green-200/50',
-      glow: 'from-green-400/18 via-green-500/10 to-transparent'
-    },
-    {
-      id: 'feature-inspection',
-      title: 'Inspection Access',
-      description: 'Give inspectors controlled, time-limited access to exactly what they need — securely and on your terms.No printing, no file uploads — just instant visibility for the right people, at the right time.',
-      icon: Shield,
-      accentGradient: 'from-orange-500 to-orange-600',
-      hoverBorder: 'hover:border-orange-200/50',
-      glow: 'from-orange-400/20 via-amber-500/10 to-transparent'
-    },
-    {
-      id: 'feature-automation',
-      title: 'Automation Engine',
-      description: 'Automate routine compliance tasks, generate reports, and receive alerts. Focus on resident care while we handle the paperwork.',
-      icon: Zap,
-      accentGradient: 'from-pink-500 to-pink-600',
-      hoverBorder: 'hover:border-pink-200/50',
-      glow: 'from-pink-400/20 via-pink-500/10 to-transparent'
-    }
-  ];
-
-  const migrationProofPoints = [
-    {
-      id: 'proof-implementation',
-      eyebrow: 'Implementation',
-      title: 'Live in 2 weeks',
-      body: 'Structured onboarding, data migration, and automation setup handled with you — not handed over.',
-      legacyNote: 'Legacy: 12+ weeks + consultancy'
-    },
-    {
-      id: 'proof-support',
-      eyebrow: 'Support',
-      title: 'Unlimited guidance',
-      body: 'In-app coaching, inspection rehearsal kits, and an expert team on-call without extra line items.',
-      legacyNote: 'Legacy: paid refresher days'
-    },
-    {
-      id: 'proof-value',
-      eyebrow: 'Value',
-      title: 'All-inclusive pricing',
-      body: 'One subscription covers compliance, AI, secure storage, and updates — no surprised finance teams.',
-      legacyNote: 'Legacy: bolt-ons + uplift fees'
-    }
-  ];
-
-  const roiHighlights = [
-    {
-      id: 'roi-policy',
-      icon: FileText,
-      accentGradient: 'from-green-500 to-blue-500',
-      title: 'Policy Management',
-      description: 'Streamlined creation, updates, and management of care home policies with version control and approval workflows.'
-    },
-    {
-      id: 'roi-staff',
-      icon: Users,
-      accentGradient: 'from-blue-500 to-purple-500',
-      title: 'Staff Management',
-      description: 'Complete staff records along with supervision management to ensure compliance and up-to-date certifications.'
-    },
-    {
-      id: 'roi-compliance',
-      icon: Shield,
-      accentGradient: 'from-purple-500 to-pink-500',
-      title: 'Compliance Tracking',
-      description: 'Automated compliance monitoring and audit preparation to meet CQC standards and maintain inspection readiness.'
-    },
-    {
-      id: 'roi-trends',
-      icon: TrendingUp,
-      accentGradient: 'from-green-500 to-emerald-500',
-      title: 'Trend Tracking',
-      description: 'Monitor compliance trends, performance metrics, and operational insights over time for proactive improvements.'
-    }
-  ];
-
-  const transparencySteps = [
-    {
-      id: 'step-setup',
-      icon: UploadCloud,
-      accentGradient: 'from-blue-500 to-blue-600',
-      title: '2 Week Setup',
-      subtitle: 'Fast Implementation',
-      description: 'Complete setup and in just 2 weeks with full transparency throughout the process'
-    },
-    {
-      id: 'step-updates',
-      icon: MessageSquare,
-      accentGradient: 'from-purple-500 to-purple-600',
-      title: 'Monthly Updates',
-      subtitle: 'Feedback & Communication',
-      description: 'Regular check-ins and transparent updates with all stakeholders to ensure optimal performance'
-    },
-    {
-      id: 'step-support',
-      icon: TrendingUp,
-      accentGradient: 'from-green-500 to-green-600',
-      title: 'Continuous Support',
-      subtitle: 'Ongoing Optimisation',
-      description: 'Transparent reporting and continuous platform improvements to maximize your compliance efficiency'
-    }
-  ];
-
-  const fallbackModuleSize = { width: 160, height: 44 };
-  const moduleGeometry = orbitModules.reduce<Record<string, { angleRad: number; support: number; width: number; height: number }>>((acc, module) => {
-    const angleRad = (module.angle * Math.PI) / 180;
-    const measured = moduleSizes[module.id];
-    const width = measured?.width ?? fallbackModuleSize.width;
-    const height = measured?.height ?? fallbackModuleSize.height;
-    const support = (width / 2) * Math.abs(Math.cos(angleRad)) + (height / 2) * Math.abs(Math.sin(angleRad));
-    acc[module.id] = { angleRad, support, width, height };
-    return acc;
-  }, {});
-  const maxSupportDistance = Object.values(moduleGeometry).reduce((max, geom) => Math.max(max, geom.support), 0);
-  const centerRadius = Math.max(centerSize.width, centerSize.height) / 2 + 12;
-  const minGapBetweenCenterAndModule = 48;
-  const ringRadius = Math.max(orbitRadius, centerRadius + maxSupportDistance + minGapBetweenCenterAndModule);
-
-  useEffect(() => {
-    // Add parallax tilt to the hero visual; avoid running when reduced-motion is requested
-    if (!heroRef.current || !heroCardRef.current) return;
-    const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReduced) return;
-
-    const el = heroRef.current;
-    const card = heroCardRef.current;
-    let rafId: number | null = null;
-    const maxTilt = 8; // degrees for rotateX/rotateY
-    const maxTranslate = 10; // pixels for subtle parallax movement
-
-    const applyTransform = (nx: number, ny: number) => {
-      const tiltX = Math.max(-maxTilt, Math.min(maxTilt, ny * -maxTilt));
-      const tiltY = Math.max(-maxTilt, Math.min(maxTilt, nx * maxTilt));
-      const translateX = Math.round(nx * maxTranslate);
-      const translateY = Math.round(ny * maxTranslate);
-      card.style.transform = `translate3d(${translateX}px, ${translateY}px, 0px) rotateX(${tiltX}deg) rotateY(${tiltY}deg)`;
-    };
-
-    const onMove = (ev: MouseEvent) => {
-      const rect = el.getBoundingClientRect();
-      const nx = ((ev.clientX - rect.left) / rect.width - 0.5) * 2; // -1..1
-      const ny = ((ev.clientY - rect.top) / rect.height - 0.5) * 2; // -1..1
-      if (rafId) cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(() => applyTransform(nx, ny));
-      heroRaf.current = rafId;
-    };
-
-    const onLeave = () => {
-      if (rafId) cancelAnimationFrame(rafId);
-      card.style.transform = 'translate3d(0px, 0px, 0px) rotateX(0deg) rotateY(0deg)';
-    };
-
-    el.addEventListener('mousemove', onMove);
-    el.addEventListener('mouseleave', onLeave);
-
-    return () => {
-      el.removeEventListener('mousemove', onMove);
-      el.removeEventListener('mouseleave', onLeave);
-      if (rafId) cancelAnimationFrame(rafId);
-      heroRaf.current = null;
-    };
-  }, []);
-
   return (
-  <div className="flex flex-col min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 text-slate-900 relative">
-      {/* Enhanced Header with Glassmorphism */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-xl border-b border-slate-200/50 shadow-sm">
-        <div className="w-full px-4 lg:px-6 h-16 flex items-center justify-between">
-          <Link href="#" className="flex items-center gap-3 group">
-            <div className="w-12 h-12 rounded-lg flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow duration-300">
-              <Logo className="h-8 w-8" />
+    <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
+      <header className="fixed inset-x-0 top-0 z-50 bg-slate-950/80 backdrop-blur-xl border-b border-white/10">
+        <div className="flex h-16 w-full items-center justify-between px-6 sm:px-10 lg:px-16 xl:px-24">
+          <Link href="#" className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/5 shadow-lg">
+              <Logo className="h-8 w-8 text-indigo-400" />
             </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              CG-360
-            </span>
+            <span className="text-xl font-semibold tracking-tight">CG-360</span>
           </Link>
-
-          <nav className="hidden lg:flex items-center gap-8">
-            <Link href="#features" className="text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors duration-200">
-              Features
-            </Link>
-            <Link href="#compliance" className="text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors duration-200">
-              Compliance
-            </Link>
-            <Link href="#demo" className="text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors duration-200">
-              Demo
-            </Link>
-            <Button
-              size="sm"
-              onClick={openCalendlyModal}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
-            >
-              Book Demo
-            </Button>
+          <nav className="hidden items-center gap-6 text-sm font-medium text-slate-200 md:flex">
+            <Link href="#platform" className="hover:text-white transition-colors">Platform</Link>
+            <Link href="#workflow" className="hover:text-white transition-colors">Workflow</Link>
+            <Link href="#analytics" className="hover:text-white transition-colors">Analytics</Link>
+            <Link href="#demo" className="hover:text-white transition-colors">Demo</Link>
           </nav>
-
-          {/* Mobile menu button */}
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="lg:hidden"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          <Button
+            size="sm"
+            onClick={openCalendlyModal}
+            className="bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg hover:from-blue-500/90 hover:to-purple-500/90"
           >
-            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            Book a demo
           </Button>
         </div>
       </header>
 
-      {/* Mobile Menu */}
-      {mobileMenuOpen && (
-        <div 
-          ref={mobileMenuRef}
-          className="lg:hidden fixed top-16 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-b border-slate-200/50 shadow-lg"
-        >
-          <div className="px-4 py-6 space-y-4">
-            <Link 
-              href="#features" 
-              className="block text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors duration-200 py-2"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Features
-            </Link>
-            <Link 
-              href="#compliance" 
-              className="block text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors duration-200 py-2"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Compliance
-            </Link>
-            <Link 
-              href="#demo" 
-              className="block text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors duration-200 py-2"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Demo
-            </Link>
-            <Button
-              size="sm"
-              onClick={() => {
-                openCalendlyModal();
-                setMobileMenuOpen(false);
-              }}
-              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
-            >
-              Book Demo
-            </Button>
-          </div>
-        </div>
-      )}
-
       <main className="flex-1 pt-16">
-        {/* Hero Section - Dramatic Redesign */}
-        <section className="relative min-h-screen flex items-center overflow-hidden bg-gradient-to-br from-blue-50 via-white to-purple-50">
-          {/* Animated Background Elements */}
-          <div className="absolute inset-0 overflow-hidden">
-            <div className="absolute -top-40 -left-40 w-96 h-96 bg-gradient-to-br from-blue-400/30 to-purple-400/30 rounded-full blur-3xl animate-pulse"></div>
-            <div className="absolute top-1/4 -right-40 w-80 h-80 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full blur-3xl animate-pulse" style={{animationDelay: '1s'}}></div>
-            <div className="absolute bottom-0 left-1/4 w-72 h-72 bg-gradient-to-br from-cyan-400/25 to-blue-400/25 rounded-full blur-3xl animate-pulse" style={{animationDelay: '2s'}}></div>
-
-            {/* Floating geometric shapes */}
-            <div className="absolute top-20 left-20 w-4 h-4 bg-blue-500/40 rotate-45 animate-bounce"></div>
-            <div className="absolute top-40 right-32 w-6 h-6 bg-purple-500/30 rounded-full animate-pulse"></div>
-            <div className="absolute bottom-32 left-32 w-3 h-3 bg-cyan-500/50 rotate-12 animate-ping"></div>
+        <section className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+          <div className="absolute inset-0">
+            <div className="absolute -top-32 -left-24 h-64 w-64 rounded-full bg-blue-500/30 blur-3xl"></div>
+            <div className="absolute top-1/3 right-0 h-72 w-72 rounded-full bg-purple-500/20 blur-3xl"></div>
+            <div className="absolute bottom-0 left-1/4 h-52 w-52 rounded-full bg-cyan-500/20 blur-3xl"></div>
           </div>
-
-          <div className="container mx-auto px-4 lg:px-6 relative z-10">
-            <div className="grid lg:grid-cols-2 gap-12 items-center min-h-[80vh]">
-              {/* Hero Content */}
-              <div className="space-y-8">
-                <div className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-100 to-purple-100 text-blue-800 px-4 py-2 rounded-full text-sm font-medium border border-blue-200/50">
-                  <Sparkles className="w-4 h-4" />
-                  AI-Powered Care Home Compliance Platform
-                </div>
-
-                <div className="space-y-4">
-                  <h1 className="text-5xl lg:text-7xl font-bold leading-tight">
-                    Say goodbye to fragmented systems 
-                    <span className="block bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-600 bg-clip-text text-transparent animate-gradient-x">
-                      & compliance headaches.
-                    </span>
-                  </h1>
-
-                  <p className="text-xl text-slate-600 leading-relaxed max-w-lg">
-                    With CG-360, it’s all about integration, not fragmentation — bringing every aspect of care home compliance and governance together in one simple, intelligent, connected platform.
-                  </p>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <Button
-                    size="lg"
-                    onClick={openCalendlyModal}
-                    className="cta-glow bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105"
-                  >
-                    <Play className="mr-2 h-5 w-5" />
-                    Book Your Free Demo
-                  </Button>
-                </div>
+          <div className="relative mx-auto grid w-full max-w-[1600px] gap-16 px-6 py-28 sm:px-10 lg:grid-cols-[minmax(0,620px)_minmax(0,720px)] lg:items-center xl:px-16">
+            <div className="space-y-8">
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white">
+                <Sparkles className="h-4 w-4" />
+                All-in-one care governance platform
               </div>
-
-              {/* Hero Visual with parallax, ring, and micro-interactions */}
-              <div ref={heroRef} className="relative hero-visual">
-                <div className="hero-ring pointer-events-none -z-10" aria-hidden />
-
-                <div className="relative transform scale-125 hero-scale">
-                  <div ref={heroCardRef} className="hero-card relative rounded-3xl shadow-2xl border border-slate-200/50 overflow-hidden">
-                    <img
-                      src="/heroimage.png"
-                      alt="CG-360 Platform Dashboard"
-                      className="w-full h-auto object-cover"
-                      style={{
-                        maskImage: 'radial-gradient(ellipse at center, rgba(0,0,0,0.9) 60%, rgba(0,0,0,0.4) 80%, rgba(0,0,0,0.02) 100%)',
-                        WebkitMaskImage: 'radial-gradient(ellipse at center, rgba(0,0,0,0.9) 60%, rgba(0,0,0,0.4) 80%, rgba(0,0,0,0.02) 100%)',
-                        opacity: 0.92
-                      }}
-                    />
-                    <div className="hero-glint pointer-events-none" aria-hidden />
-                  </div>
-                </div>
-
-                {/* Decorative chips — purely visual */}
-                <div className="hidden lg:block absolute -top-6 -left-6 hero-chip animate-float-slow" aria-hidden>
-                  <div className="w-12 h-12 rounded-lg bg-white/6 border border-white/10 flex items-center justify-center shadow-md">
-                    <FileText className="w-5 h-5 text-white/80" />
-                  </div>
-                </div>
-
-                <div className="hidden lg:block absolute -top-8 -right-8 hero-chip animate-float-medium" aria-hidden>
-                  <div className="w-10 h-10 rounded-full bg-white/6 border border-white/10 flex items-center justify-center shadow-md">
-                    <Users className="w-4 h-4 text-white/80" />
-                  </div>
-                </div>
-
-                <div className="hidden lg:block absolute -bottom-6 -left-8 hero-chip animate-float-slow" aria-hidden>
-                  <div className="w-14 h-14 rounded-lg bg-white/6 border border-white/10 flex items-center justify-center shadow-md">
-                    <Shield className="w-6 h-6 text-white/80" />
-                  </div>
-                </div>
+              <div className="space-y-6">
+                <h1 className="text-4xl font-semibold leading-tight sm:text-5xl lg:text-6xl">
+                  See the platform that runs dependency modelling, policies, audits, and analytics in one place.
+                </h1>
+                <p className="max-w-xl text-lg text-slate-300">
+                  CG-360 connects every workflow your teams touch. Visualise policy versions, action plans, supervisions, inspection portals, and predictive analytics in a single operating system designed for care homes.
+                </p>
+              </div>
+              <div className="flex flex-col items-start gap-4 sm:flex-row">
+                <Button
+                  size="lg"
+                  onClick={openCalendlyModal}
+                  className="bg-gradient-to-r from-blue-500 via-purple-500 to-cyan-500 text-white shadow-xl transition-transform hover:scale-[1.02]"
+                >
+                  <Play className="mr-2 h-5 w-5" />
+                  Book your guided tour
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="lg"
+                  asChild
+                  className="border border-white/20 bg-white/5 text-white hover:bg-white/10"
+                >
+                  <Link href="#platform">Explore the platform</Link>
+                </Button>
               </div>
             </div>
-          </div>
 
-          {/* Scroll Indicator */}
-          <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce">
-            <div className="w-6 h-10 border-2 border-slate-400 rounded-full flex justify-center">
-              <div className="w-1 h-3 bg-slate-400 rounded-full mt-2 animate-pulse"></div>
+            <div className="relative mx-auto w-full max-w-[680px]">
+              <div className="absolute -top-10 -right-10 h-28 w-28 rounded-full bg-purple-400/25 blur-2xl"></div>
+              <div className="absolute -bottom-12 -left-8 h-32 w-32 rounded-full bg-blue-400/25 blur-3xl"></div>
+
+              <div className="relative rounded-[32px] border border-white/10 bg-white/5 p-8 shadow-[0_45px_120px_-60px_rgba(79,70,229,0.7)] backdrop-blur-xl">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-slate-200">Today</p>
+                    <p className="text-xl font-semibold text-white">Compliance control room</p>
+                  </div>
+                  <Badge variant="secondary" className="bg-emerald-400/20 text-emerald-100">Live</Badge>
+                </div>
+                <div className="mt-6 grid gap-4">
+                  <div className="rounded-2xl border border-white/15 bg-white/10 p-4">
+                    <div className="flex items-center justify-between text-sm text-slate-200">
+                      <span>Policy acknowledgements</span>
+                      <span className="font-semibold text-white">42 / 50</span>
+                    </div>
+                    <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-white/20">
+                      <div className="h-full w-[84%] rounded-full bg-gradient-to-r from-blue-400 to-purple-400"></div>
+                    </div>
+                  </div>
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    <div className="rounded-2xl border border-white/15 bg-white/10 p-4">
+                      <div className="flex items-center justify-between text-sm text-slate-200">
+                        <span>Dependency ratio</span>
+                        <span className="text-base font-semibold text-white">1:3.1</span>
+                      </div>
+                      <div className="mt-3 grid grid-cols-3 gap-2 text-xs text-slate-200">
+                        <div className="rounded-lg bg-white/10 px-2 py-2 text-center">
+                          <p className="text-[11px] uppercase text-slate-300">Low</p>
+                          <p className="text-sm font-semibold text-white">14</p>
+                        </div>
+                        <div className="rounded-lg bg-white/10 px-2 py-2 text-center">
+                          <p className="text-[11px] uppercase text-slate-300">Medium</p>
+                          <p className="text-sm font-semibold text-white">9</p>
+                        </div>
+                        <div className="rounded-lg bg-white/10 px-2 py-2 text-center">
+                          <p className="text-[11px] uppercase text-slate-300">High</p>
+                          <p className="text-sm font-semibold text-white">5</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="rounded-2xl border border-white/15 bg-white/10 p-4">
+                      <div className="flex items-center justify-between text-sm text-slate-200">
+                        <span>Audit readiness</span>
+                        <span className="text-base font-semibold text-white">96%</span>
+                      </div>
+                      <div className="mt-3 space-y-2 text-xs text-slate-200">
+                        <div className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2">
+                          <span>Infection control</span>
+                          <span className="font-semibold text-emerald-200">Complete</span>
+                        </div>
+                        <div className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2">
+                          <span>Fire safety</span>
+                          <span className="font-semibold text-amber-200">Evidence</span>
+                        </div>
+                        <div className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2">
+                          <span>Staff files</span>
+                          <span className="font-semibold text-rose-200">2 actions</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-white/15 bg-white/10 p-4">
+                    <div className="flex items-center justify-between text-sm text-slate-200">
+                      <span>Inspection portal</span>
+                      <span className="font-semibold text-white">Active • 5 days left</span>
+                    </div>
+                    <div className="mt-3 flex items-center justify-between text-xs text-slate-200">
+                      <span>Views today</span>
+                      <span className="font-semibold text-white">14</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="absolute -right-60 top-6 hidden w-48 rounded-2xl border border-white/15 bg-white/10 p-4 shadow-xl backdrop-blur xl:block">
+                <div className="flex items-center justify-between text-xs text-slate-200">
+                  <span>Action plan tasks</span>
+                  <span className="font-semibold text-white">7</span>
+                </div>
+                <div className="mt-3 space-y-2 text-[11px] text-slate-200">
+                  <div className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2">
+                    <span>Sensor mats</span>
+                    <CheckCircle2 className="h-4 w-4 text-emerald-200" />
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2">
+                    <span>Night briefing</span>
+                    <span className="rounded-full bg-amber-200/30 px-2 py-[2px] font-semibold text-amber-100">Due</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="absolute -right-60 bottom-6 hidden w-52 rounded-2xl border border-white/15 bg-white/10 p-4 shadow-xl backdrop-blur xl:block">
+                <div className="flex items-center justify-between text-xs text-slate-200">
+                  <span>Supervisions</span>
+                  <span className="font-semibold text-white">3 today</span>
+                </div>
+                <div className="mt-3 space-y-2 text-[11px] text-slate-200">
+                  <div className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2">
+                    <span>Mia Smith</span>
+                    <span>14:00</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2">
+                    <span>Omar Malik</span>
+                    <span>Notes added</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </section>
 
-        {/* Features Section - Redesigned */}
-        <section id="features" className="py-24 bg-white relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-50/50 to-blue-50/30"></div>
-
-          <div className="container mx-auto px-4 lg:px-6 relative z-10">
-            <div className="text-center mb-16">
-              <div className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-100 to-purple-100 text-blue-800 px-4 py-2 rounded-full text-sm font-medium mb-4">
-                <Zap className="w-4 h-4" />
-                Powerful Capabilities
-              </div>
-              <h2 className="text-4xl lg:text-5xl font-bold mb-6">
-                Outstanding compliance
-                <span className="block bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                  made simple
-                </span>
+        <section id="platform" className="bg-white py-24 text-slate-900">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6">
+            <div className="mx-auto max-w-3xl text-center">
+              <Badge variant="secondary" className="bg-blue-100 text-blue-800">The CG-360 platform</Badge>
+              <h2 className="mt-6 text-4xl font-semibold tracking-tight sm:text-5xl">
+                Every module on display.
               </h2>
-              <p className="text-xl text-slate-600 max-w-3xl mx-auto">
-                From document management to automated reporting, CG-360 brings together everything you need for confident, efficient compliance.              </p>
+              <p className="mt-4 text-lg text-slate-600">
+                We do not hide the product. Explore the real components you will use every day—dependency modelling, policy governance, audits, action plans, supervisions, inspection portals, admin oversight, and predictive analytics.
+              </p>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {featureCards.map((feature, index) => {
-                const Icon = feature.icon as any;
-                const staggerStyle = { '--scroll-delay': `${index * 0.08}s` } as CSSProperties;
-
+            <div className="mt-16 grid gap-8 md:grid-cols-2 xl:grid-cols-3">
+              {capabilityCards.map((capability) => {
+                const Icon = capability.icon;
                 return (
                   <div
-                    key={feature.id}
-                    className={`animate-on-scroll group relative overflow-hidden rounded-2xl border border-slate-200/40 bg-white p-8 shadow-lg transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl ${feature.hoverBorder}`}
-                    style={staggerStyle}
+                    key={capability.id}
+                    className="group relative flex h-full flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white p-8 shadow-lg transition-all hover:-translate-y-2 hover:shadow-2xl"
                   >
-                    <span className={`pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100 bg-gradient-to-br ${feature.glow}`} aria-hidden />
-                    <div className="relative z-10">
-                      <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${feature.accentGradient} flex items-center justify-center mb-6 transition-transform duration-300 group-hover:scale-[1.08]`}>
-                        <Icon className="w-6 h-6 text-white" />
+                    <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${capability.accent}`} />
+                    <div className="flex items-center gap-3">
+                      <div className={`rounded-2xl bg-gradient-to-br ${capability.accent} p-3 text-white shadow-lg`}>
+                        <Icon className="h-6 w-6" />
                       </div>
-                      <h3 className="text-xl font-bold mb-4 text-slate-900">{feature.title}</h3>
-                      <p className="text-slate-600 leading-relaxed">
-                        {feature.description}
-                      </p>
+                      <div>
+                        <h3 className="text-xl font-semibold text-slate-900">{capability.name}</h3>
+                        <p className="text-sm text-slate-600">{capability.description}</p>
+                      </div>
+                    </div>
+                    <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+                      {capability.preview}
                     </div>
                   </div>
                 );
               })}
             </div>
+          </div>
+        </section>
 
-            {/* CTA in Features */}
-            <div className="text-center mt-16">
-              <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-3xl p-8 border border-blue-100">
-                <h3 className="text-2xl font-bold mb-4 text-slate-900">Ready to transform your compliance?</h3>
-                <p className="text-slate-600 mb-6">See how CG-360 can streamline your operations and ensure inspection readiness.</p>
-                <Button
-                  size="lg"
-                  onClick={openCalendlyModal}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-xl hover:shadow-2xl transition-all duration-300"
-                >
-                  <Play className="mr-2 h-5 w-5" />
-                  Book Your Demo
-                </Button>
-              </div>
+        <section id="workflow" className="relative overflow-hidden bg-slate-950 py-24">
+          <div className="absolute inset-0">
+            <div className="absolute -left-12 top-20 h-64 w-64 rounded-full bg-blue-500/20 blur-3xl"></div>
+            <div className="absolute bottom-10 right-10 h-72 w-72 rounded-full bg-purple-500/20 blur-3xl"></div>
+          </div>
+          <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
+            <div className="max-w-3xl">
+              <Badge variant="secondary" className="bg-white/10 text-white">Orchestrated workflow</Badge>
+              <h2 className="mt-6 text-4xl font-semibold text-white sm:text-5xl">
+                From capture to inspection—one continuous flow.
+              </h2>
+              <p className="mt-4 text-lg text-slate-300">
+                CG-360 acts as the operating system for compliance. See how data flows through dependency modelling, action plans, coaching, and inspection delivery without leaving the platform.
+              </p>
+            </div>
+
+            <div className="mt-16 grid gap-10 lg:grid-cols-2">
+              {workflowStages.map((stage) => {
+                const Icon = stage.icon;
+                return (
+                  <div
+                    key={stage.id}
+                    className="relative flex h-full flex-col justify-between rounded-[28px] border border-white/15 bg-white/5 p-8 shadow-lg"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className={`rounded-2xl bg-gradient-to-br ${stage.accent} p-3 text-white shadow-lg`}>
+                        <Icon className="h-6 w-6" />
+                      </div>
+                      <div>
+                        <h3 className="text-2xl font-semibold text-white">{stage.title}</h3>
+                        <p className="mt-2 text-sm text-slate-200">{stage.subtitle}</p>
+                      </div>
+                    </div>
+                    <ul className="mt-6 space-y-3 text-sm text-slate-200">
+                      {stage.bullets.map((bullet) => (
+                        <li key={bullet} className="flex items-start gap-3">
+                          <ArrowRight className="mt-1 h-4 w-4 text-slate-300" />
+                          <span>{bullet}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="mt-6 rounded-2xl border border-white/20 bg-white/10 p-4">
+                      {stage.highlight}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </section>
 
-        {/* Comparison Section */}
-        <section id="comparison" className="relative py-24 bg-slate-950 text-white overflow-hidden">
-          <div className="absolute inset-0">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.18),_transparent_60%)]"></div>
-            <div className="absolute -bottom-24 right-12 w-72 h-72 rounded-full bg-purple-500/20 blur-3xl animate-pulse" style={{ animationDelay: '1.5s' }}></div>
-            <div className="absolute -top-20 left-16 w-64 h-64 rounded-full bg-blue-500/20 blur-3xl animate-pulse"></div>
-            <div className="absolute inset-x-0 top-1/2 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
-          </div>
-
-          <div className="container mx-auto px-4 lg:px-6 relative z-10">
-            <div className="max-w-3xl mx-auto text-center mb-16">
-              <div className="inline-flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full text-sm font-medium text-blue-200 animate-on-scroll">
-                <Sparkles className="w-4 h-4" />
-                Why modern care homes switch
-              </div>
-              <h2 className="mt-6 text-4xl lg:text-5xl font-bold leading-tight">
-                Pro-Active Compliance, not reactive.
-                <span className="block font-semibold text-transparent bg-clip-text bg-gradient-to-r from-blue-300 via-cyan-200 to-purple-300">
-                  CG-360 keeps everything in flow.
-                </span>
-              </h2>
-              <p className="mt-6 text-lg text-slate-200">
-                Legacy compliance tools were built for another era. CG-360 gives you a connected, seamless hub that replaces bolt-ons, manual workarounds, and hidden training fees with clarity and speed.
-              </p>
-            </div>
-
-            <div className="grid xl:grid-cols-[minmax(0,360px)_1fr] gap-10 items-center">
-              <div className="animate-on-scroll-left bg-white/5 border border-white/10 rounded-3xl p-8 shadow-2xl backdrop-blur-xl relative overflow-hidden">
-                <div className="absolute -top-24 -right-8 w-48 h-48 bg-gradient-to-br from-amber-400/30 to-red-500/30 rounded-full blur-3xl"></div>
-                <div className="flex items-center gap-3 mb-6 relative z-10">
-                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500 to-red-500 flex items-center justify-center shadow-lg">
-                    <AlertTriangle className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-semibold">The legacy stack</h3>
-                    <p className="text-sm text-slate-300">Fragmented, reactive, and expensive to maintain.</p>
-                  </div>
-                </div>
-                <ul className="space-y-5 relative z-10">
-                  <li className="flex items-start gap-4">
-                    <div className="mt-1">
-                      <Layers className="w-5 h-5 text-amber-300" />
-                    </div>
-                    <div>
-                      <p className="font-semibold">Disconnected tools everywhere</p>
-                      <p className="text-slate-300">Compliance in one system, policies in another, audits in spreadsheets — nothing talks to each other when you need evidence fast.</p>
-                    </div>
+        <section id="analytics" className="bg-slate-100 py-24 text-slate-900">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6">
+            <div className="grid gap-12 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] lg:items-center">
+              <div className="space-y-6">
+                <Badge variant="secondary" className="bg-slate-900 text-white">Operations cockpit</Badge>
+                <h2 className="text-4xl font-semibold tracking-tight sm:text-5xl">
+                  Admin overview meets predictive analytics.
+                </h2>
+                <p className="text-lg text-slate-600">
+                  Leaders see the whole organisation at a glance—licensing, staffing coverage, risk, and inspection readiness. Analysts dive deeper with the full analytical suite built into CG-360.
+                </p>
+                <ul className="space-y-3 text-sm text-slate-600">
+                  <li className="flex items-start gap-3">
+                    <CheckCircle2 className="mt-1 h-5 w-5 text-emerald-500" />
+                    <span>Multi-organisation oversight with granular permissions.</span>
                   </li>
-                  <li className="flex items-start gap-4">
-                    <div className="mt-1">
-                      <Puzzle className="w-5 h-5 text-amber-300" />
-                    </div>
-                    <div>
-                      <p className="font-semibold">Not built for care home reality</p>
-                      <p className="text-slate-300">Generic compliance portals struggle with CQC nuance, forcing teams to improvise risky workarounds.</p>
-                    </div>
+                  <li className="flex items-start gap-3">
+                    <CheckCircle2 className="mt-1 h-5 w-5 text-emerald-500" />
+                    <span>AI-powered dashboards forecast compliance drift before it happens.</span>
                   </li>
-                  <li className="flex items-start gap-4">
-                    <div className="mt-1">
-                      <CreditCard className="w-5 h-5 text-amber-300" />
-                    </div>
-                    <div>
-                      <p className="font-semibold">Bolt-ons add up quickly</p>
-                      <p className="text-slate-300">Want analytics, document storage, or inspection portals? Those are extra modules with extra invoices.</p>
-                    </div>
-                  </li>
-                  <li className="flex items-start gap-4">
-                    <div className="mt-1">
-                      <Clock className="w-5 h-5 text-amber-300" />
-                    </div>
-                    <div>
-                      <p className="font-semibold">Training sold separately</p>
-                      <p className="text-slate-300">Teams pay for classroom days, then wait weeks for “configuration” before they can do the basics.</p>
-                    </div>
-                  </li>
-                  <li className="flex items-start gap-4">
-                    <div className="mt-1">
-                      <PoundSterling className="w-5 h-5 text-amber-300" />
-                    </div>
-                    <div>
-                      <p className="font-semibold">Opaque renewal costs</p>
-                      <p className="text-slate-300">No hidden price hikes and consultancy retainers make budgeting unpredictable.</p>
-                    </div>
+                  <li className="flex items-start gap-3">
+                    <CheckCircle2 className="mt-1 h-5 w-5 text-emerald-500" />
+                    <span>Share curated analytics boards with executives or inspectors in one click.</span>
                   </li>
                 </ul>
               </div>
 
-              <div ref={orbitRef} className="animate-on-scroll-right relative flex items-center justify-center h-[520px]">
-                <div className="absolute inset-0 rounded-[48px] bg-gradient-to-br from-blue-600/40 via-purple-600/30 to-cyan-500/30 blur-3xl"></div>
-                <div className="absolute inset-10 border border-white/10 rounded-[40px] opacity-40"></div>
-                <div className="absolute inset-[18%] rounded-full border border-white/10"></div>
-                <div className="absolute inset-[32%] rounded-full border border-white/10 opacity-60"></div>
-
-                <div ref={centerRef} className="relative z-20 max-w-[260px] text-center px-6 py-9 bg-white/12 border border-white/15 rounded-[28px] shadow-[0_22px_70px_-36px_rgba(59,130,246,0.65)] backdrop-blur-xl glow-ring">
-                  <div className="inline-flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-full text-[11px] font-semibold uppercase tracking-[0.32em] text-blue-100/70 mb-5">
-                    <BadgeCheck className="w-4 h-4" />
-                    CG-360
+              <div className="rounded-[32px] border border-slate-200 bg-white p-8 shadow-2xl">
+                <div className="flex flex-wrap gap-4 text-left">
+                  <div className="flex-1 min-w-[140px] rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-xs font-semibold uppercase text-slate-500">Organisation score</p>
+                    <p className="mt-2 text-3xl font-bold text-slate-900">94%</p>
+                    <p className="text-xs text-emerald-600">+6.1 vs last month</p>
                   </div>
-                  <h3 className="text-xl font-semibold">Unified compliance command centre</h3>
-                  <p className="mt-3 text-xs text-blue-100/80">
-                    The full suite lives here — revealed in guided sessions. Seamless, intelligent, and orchestrated for modern care teams.
-                  </p>
-                  {/* Teaser content removed to keep platform details private; book a demo to learn more. */}
+                  <div className="flex-1 min-w-[140px] rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-xs font-semibold uppercase text-slate-500">Live alerts</p>
+                    <p className="mt-2 text-3xl font-bold text-slate-900">5</p>
+                    <p className="text-xs text-amber-600">Prioritised by impact</p>
+                  </div>
+                  <div className="flex-1 min-w-[140px] rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-xs font-semibold uppercase text-slate-500">Automation runs</p>
+                    <p className="mt-2 text-3xl font-bold text-slate-900">62</p>
+                    <p className="text-xs text-slate-500">Across 9 workflows</p>
+                  </div>
                 </div>
-
-                {orbitModules.map((m) => {
-                  const Icon = m.icon as any;
-                  const geometry = moduleGeometry[m.id] ?? {
-                    angleRad: (m.angle * Math.PI) / 180,
-                    support: (fallbackModuleSize.width / 2) * Math.abs(Math.cos((m.angle * Math.PI) / 180)) + (fallbackModuleSize.height / 2) * Math.abs(Math.sin((m.angle * Math.PI) / 180)),
-                    width: fallbackModuleSize.width,
-                    height: fallbackModuleSize.height
-                  };
-                  const { angleRad, support: supportDistance } = geometry;
-
-                  const effectiveRadius = Math.max(ringRadius, centerRadius + supportDistance + minGapBetweenCenterAndModule);
-                  const connectorLen = Math.max(16, effectiveRadius - centerRadius - supportDistance);
-                  // place module center at the effective radius so the line (which ends at
-                  // effectiveRadius - supportDistance) meets the module inner edge
-                  const nodeX = Math.cos(angleRad) * effectiveRadius;
-                  const nodeY = Math.sin(angleRad) * effectiveRadius;
-                  const startX = Math.cos(angleRad) * centerRadius;
-                  const startY = Math.sin(angleRad) * centerRadius;
-
-                  const formatPosition = (value: number) => `calc(50% ${value >= 0 ? '+' : '-'} ${Math.abs(value).toFixed(2)}px)`;
-                  const nodeLeft = formatPosition(nodeX);
-                  const nodeTop = formatPosition(nodeY);
-                  const startLeft = formatPosition(startX);
-                  const startTop = formatPosition(startY);
-
-                  return (
-                    <div key={m.id} className="hidden md:block connector animate-fade-in" style={{ position: 'absolute', inset: 0 }}>
-                      {/* connector line: starts at central-card edge and extends outward to the module */}
-                      <div
-                        className="line absolute"
-                        style={{
-                          left: startLeft,
-                          top: startTop,
-                          width: `${connectorLen}px`,
-                          transform: `translateY(-50%) rotate(${m.angle}deg)`,
-                          transformOrigin: '0 50%',
-                          height: '2px'
-                        }}
-                        aria-hidden
-                      />
-
-                      {/* node placed at the final orbit position */}
-                      <div
-                        className="orbit-node"
-                        style={{ left: nodeLeft, top: nodeTop, transform: 'translate(-50%, -50%)' }}
-                      >
-                          <div
-                            ref={(el) => {
-                              if (el) {
-                                moduleRefs.current[m.id] = el;
-                                const rect = el.getBoundingClientRect();
-                                setModuleSizes((prev) => {
-                                  const prevEntry = prev[m.id];
-                                  const widthChanged = !prevEntry || Math.abs(prevEntry.width - rect.width) > 0.5;
-                                  const heightChanged = !prevEntry || Math.abs(prevEntry.height - rect.height) > 0.5;
-                                  if (!widthChanged && !heightChanged) {
-                                    return prev;
-                                  }
-                                  return {
-                                    ...prev,
-                                    [m.id]: { width: rect.width, height: rect.height }
-                                  };
-                                });
-                              } else {
-                                delete moduleRefs.current[m.id];
-                              }
-                            }}
-                            className="rounded-2xl bg-white/10 border border-white/20 px-3 py-2 backdrop-blur-xl shadow-lg text-left max-w-[200px] z-10 flex items-center gap-3 overflow-hidden min-h-[44px]"
-                          >
-                          <div className="flex-shrink-0 w-8 h-8 rounded-md bg-white/6 flex items-center justify-center">
-                            <Icon className="w-4 h-4 text-blue-100" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold leading-tight">{m.title}</p>
-                            <p className="text-[11px] text-blue-100/60 leading-tight whitespace-normal break-words">{m.desc}</p>
-                          </div>
-                        </div>
+                <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,240px)_minmax(0,1fr)]">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-xs font-semibold uppercase text-slate-500">Live feed</p>
+                    <div className="mt-3 space-y-3 text-xs text-slate-600">
+                      <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
+                        <span>Inspection portal viewed</span>
+                        <span className="font-semibold text-slate-900">CQC • 09:24</span>
                       </div>
+                      <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
+                        <span>Action plan closed</span>
+                        <span className="font-semibold text-emerald-600">Falls prevention</span>
+                      </div>
+                      <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
+                        <span>Dependency alert</span>
+                        <span className="font-semibold text-rose-600">Night shift +2</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
+                    <div className="flex items-center justify-between text-sm text-slate-600">
+                      <span>Predictive compliance trend</span>
+                      <span className="font-semibold text-slate-900">Next 12 weeks</span>
+                    </div>
+                    <div className="mt-6 h-40 w-full">
+                      <svg viewBox="0 0 260 120" className="h-full w-full text-blue-500">
+                        <defs>
+                          <linearGradient id="trend" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stopColor="#0ea5e9" stopOpacity="0.6" />
+                            <stop offset="100%" stopColor="#a855f7" stopOpacity="0.1" />
+                          </linearGradient>
+                        </defs>
+                        <path
+                          d="M10 90 C 50 40, 90 60, 130 30 C 170 10, 210 50, 250 20 L 250 110 L 10 110 Z"
+                          fill="url(#trend)"
+                          stroke="#0ea5e9"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-slate-600">
+                      <span>Projected inspection outcome</span>
+                      <span className="font-semibold text-emerald-600">Outstanding trajectory</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-16 grid gap-6 sm:grid-cols-3">
+              {impactMetrics.map((metric) => (
+                <div key={metric.id} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-lg">
+                  <p className="text-3xl font-bold text-slate-900">{metric.value}</p>
+                  <p className="mt-2 text-sm font-semibold text-slate-700">{metric.label}</p>
+                  <p className="mt-2 text-xs text-slate-500">{metric.detail}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="comparison" className="relative overflow-hidden bg-slate-950 py-24 text-white">
+          <div className="absolute inset-0">
+            <div className="absolute -left-24 top-10 h-64 w-64 rounded-full bg-indigo-500/20 blur-3xl"></div>
+            <div className="absolute -right-16 bottom-0 h-72 w-72 rounded-full bg-emerald-500/10 blur-3xl"></div>
+          </div>
+          <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-12 px-6 sm:px-8 lg:flex-row lg:items-start">
+            <div className="max-w-xl space-y-6">
+              <Badge variant="secondary" className="bg-white/10 text-white">Why teams switch</Badge>
+              <h2 className="text-4xl font-semibold sm:text-5xl">
+                CG-360 replaces the fragmented tool stack everyone else still sells.
+              </h2>
+              <p className="text-lg text-slate-200">
+                Most platforms stitch together aging bolt-ons. CG-360 is a single operating system—deploy once, govern every workflow, no surprise invoices for the modules you actually need.
+              </p>
+              <ul className="space-y-3 text-sm text-slate-200">
+                <li className="flex items-start gap-3">
+                  <CheckCircle2 className="mt-1 h-5 w-5 text-emerald-400" />
+                  <span>Unified data model across documents, audits, action plans, analytics, and inspector sharing.</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <CheckCircle2 className="mt-1 h-5 w-5 text-emerald-400" />
+                  <span>Onboard in under four weeks—no six-month transformation projects.</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <CheckCircle2 className="mt-1 h-5 w-5 text-emerald-400" />
+                  <span>All-inclusive pricing: AI document processing, dependency modelling, portals, and analytics are part of the core subscription.</span>
+                </li>
+              </ul>
+            </div>
+            <div className="flex-1">
+              <div className="grid gap-4 sm:grid-cols-2">
+                {competitorPainPoints.map((painPoint) => {
+                  const Icon = painPoint.icon;
+                  return (
+                    <div
+                      key={painPoint.id}
+                      className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-lg backdrop-blur"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="rounded-2xl bg-indigo-500/20 p-3 text-indigo-200">
+                          <Icon className="h-6 w-6" />
+                        </div>
+                        <h3 className="text-lg font-semibold text-white">{painPoint.title}</h3>
+                      </div>
+                      <p className="mt-4 text-sm text-slate-200">{painPoint.description}</p>
                     </div>
                   );
                 })}
               </div>
             </div>
-
-            <div className="mt-16 grid gap-6 md:grid-cols-3">
-              {migrationProofPoints.map((point, index) => {
-                const staggerStyle = { '--scroll-delay': `${index * 0.08}s` } as CSSProperties;
-                return (
-                  <div
-                    key={point.id}
-                    className="animate-on-scroll group relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl"
-                    style={staggerStyle}
-                  >
-                    <span className="pointer-events-none absolute inset-[-30%] opacity-0 transition-opacity duration-500 group-hover:opacity-100 bg-[radial-gradient(circle_at_top,_rgba(191,219,254,0.32),_transparent_65%)]" aria-hidden />
-                    <div className="relative z-10">
-                      <span className="text-xs uppercase tracking-[0.2em] text-slate-300">{point.eyebrow}</span>
-                      <h4 className="mt-4 text-lg font-semibold">{point.title}</h4>
-                      <p className="mt-2 text-sm text-slate-300">{point.body}</p>
-                      <div className="mt-4 flex items-center gap-3 text-blue-200/80">
-                        <div className="flex-1 h-px bg-white/10"></div>
-                        <span className="text-xs">{point.legacyNote}</span>
-                        <div className="flex-1 h-px bg-white/10"></div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="mt-16 text-center">
-              <div className="inline-flex items-center gap-3 bg-white/10 px-6 py-4 rounded-2xl border border-white/20 shadow-2xl animate-on-scroll">
-                <span className="text-base font-medium text-blue-100">Ready to leave legacy software behind?</span>
-                <Button
-                  size="lg"
-                  onClick={openCalendlyModal}
-                  className="bg-white text-slate-900 hover:bg-slate-100 font-semibold shadow-2xl"
-                >
-                  Book a migration call
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Button>
-              </div>
-            </div>
           </div>
         </section>
 
-        {/* Compliance Section - Redesigned */}
-        <section id="compliance" className="py-24 bg-gradient-to-br from-slate-50 to-blue-50 relative overflow-hidden">
+        <section id="demo" className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 py-24 text-white">
           <div className="absolute inset-0">
-            <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-blue-200/30 to-purple-200/30 rounded-full blur-3xl"></div>
-            <div className="absolute bottom-0 left-0 w-80 h-80 bg-gradient-to-br from-cyan-200/30 to-blue-200/30 rounded-full blur-3xl"></div>
+            <div className="absolute top-0 left-0 h-full w-full bg-blue-500/10"></div>
+            <div className="absolute top-1/3 left-1/4 h-72 w-72 rounded-full bg-white/20 blur-3xl"></div>
+            <div className="absolute bottom-1/4 right-1/4 h-72 w-72 rounded-full bg-white/20 blur-3xl"></div>
           </div>
-
-          <div className="container mx-auto px-4 lg:px-6 relative z-10">
-            <div className="text-center mb-16">
-              <div className="inline-flex items-center gap-2 bg-gradient-to-r from-green-100 to-blue-100 text-green-800 px-4 py-2 rounded-full text-sm font-medium mb-4">
-                <Shield className="w-4 h-4" />
-                Inspection Ready
-              </div>
-              <h2 className="text-4xl lg:text-5xl font-bold mb-6">
-                Always prepared for
-                <span className="block bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
-                  CQC inspections
-                </span>
-              </h2>
-              <p className="text-xl text-slate-600 max-w-3xl mx-auto">
-                Generate comprehensive inspection evidence in minutes. Show inspectors exactly what they need to see, when they need to see it.
-              </p>
-            </div>
-
-            <div className="grid lg:grid-cols-2 gap-12 items-center">
-              {/* Dashboard Mockup */}
-              <div className="relative">
-                <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/50 overflow-hidden">
-                  <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 text-white">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Shield className="w-8 h-8" />
-                        <div>
-                          <div className="font-bold text-lg">Compliance Dashboard</div>
-                          <div className="text-blue-100">Live monitoring active</div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 bg-white/20 px-3 py-1 rounded-full">
-                        <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                        <span className="text-sm font-medium">96% Ready</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-6">
-                    <div className="space-y-4">
-                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/50">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium text-slate-700">Overall Readiness</span>
-                          <span className="text-sm font-bold text-slate-900">96%</span>
-                        </div>
-                        <div className="w-full bg-slate-200 rounded-full h-3">
-                          <div className="bg-gradient-to-r from-green-500 to-blue-500 h-3 rounded-full transition-all duration-1000" style={{width: '96%'}}></div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-slate-600">Next inspection</span>
-                        <span className="font-medium text-slate-900">March 15, 2025</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Floating elements */}
-                <div className="absolute -top-4 -right-4 bg-gradient-to-r from-green-500 to-blue-500 text-white p-3 rounded-2xl shadow-xl">
-                  <CheckCircle2 className="w-6 h-6" />
-                </div>
-                <div className="absolute -bottom-4 -left-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white p-3 rounded-2xl shadow-xl">
-                  <FileText className="w-6 h-6" />
-                </div>
-              </div>
-
-              {/* Content */}
-              <div className="space-y-8">
-                <div className="space-y-6">
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center flex-shrink-0">
-                      <CheckCircle2 className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-bold mb-2 text-slate-900">Instant Evidence Readiness</h3>
-                      <p className="text-slate-600 leading-relaxed">
-                        Inspection documentation in seconds. Every policy, record, and compliance check organised and ready for review.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
-                      <BarChart3 className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-bold mb-2 text-slate-900">Live Compliance Oversight</h3>
-                      <p className="text-slate-600 leading-relaxed">
-                        Stay inspection-ready every day with real-time dashboards that show your compliance position across all key areas. Clear insights help you spot gaps early and keep every standard on track.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center flex-shrink-0">
-                      <Bell className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-bold mb-2 text-slate-900">Smart Alerts & Reminders</h3>
-                      <p className="text-slate-600 leading-relaxed">
-                        Never miss a deadline or requirement again. Automated alerts and reminders keep your team informed, proactive, and always prepared for inspection.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-2xl border border-blue-100">
-                  <div className="flex items-center gap-3 mb-4">
-                    <Award className="w-6 h-6 text-blue-600" />
-                    <span className="font-semibold text-slate-900">CQC Inspection Guarantee</span>
-                  </div>
-                  <p className="text-slate-600 text-sm leading-relaxed">
-                    Our platform is designed to help support care homes with compliance and inspections. With CG-360, you're not just compliant — you're inspection-ready.
-                  </p>
-                </div>
-              </div>
+          <div className="relative mx-auto max-w-4xl px-4 text-center sm:px-6">
+            <Badge variant="secondary" className="bg-white/20 text-white">Ready to explore</Badge>
+            <h2 className="mt-6 text-4xl font-semibold sm:text-5xl">
+              Book a demo and step inside the operating system for compliance.
+            </h2>
+            <p className="mt-4 text-lg text-blue-100">
+              We will walk you through live dependency modelling, policies, audits, action plans, inspection access, and analytics—tailored to your organisation.
+            </p>
+            <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
+              <Button
+                size="lg"
+                onClick={openCalendlyModal}
+                className="bg-white text-indigo-700 hover:bg-white/90"
+              >
+                <Calendar className="mr-2 h-5 w-5" />
+                Book your free demo
+              </Button>
+              <Button
+                size="lg"
+                variant="ghost"
+                asChild
+                className="border border-white/40 bg-white/10 text-white hover:bg-white/20"
+              >
+                <Link href="#platform">Browse modules again</Link>
+              </Button>
             </div>
           </div>
         </section>
+      </main>
 
-        {/* Success Metrics & ROI */}
-        <section className="w-full py-24 bg-gradient-to-br from-slate-50 to-blue-50 relative overflow-hidden">
-          <div className="absolute inset-0">
-            <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-blue-50/50 to-purple-50/50"></div>
-            <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-white/20 rounded-full blur-3xl"></div>
-            <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-white/20 rounded-full blur-3xl"></div>
-          </div>
-
-          <div className="container mx-auto px-4 lg:px-6 relative z-10">
-            <div className="text-center mb-16">
-              <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-800 px-4 py-2 rounded-full text-sm font-medium mb-6">
-                <TrendingUp className="w-4 h-4" />
-                Increase Efficiency & Cut Costs
-              </div>
-              <h2 className="text-4xl lg:text-5xl font-bold text-slate-900 mb-6">
-                CG-360
-                <span className="block text-slate-600">
-                  Measurable time and cost savings
-                </span>
-              </h2>
-              <p className="text-xl text-slate-600 max-w-3xl mx-auto">
-                Care homes using CG-360 will see significant improvements in efficiency, compliance, and operational costs.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-16">
-              {roiHighlights.map((highlight, index) => {
-                const Icon = highlight.icon as any;
-                const staggerStyle = { '--scroll-delay': `${index * 0.08}s` } as CSSProperties;
-
-                return (
-                  <div
-                    key={highlight.id}
-                    className="animate-on-scroll-scale group relative overflow-hidden rounded-2xl border border-slate-200/60 bg-white p-8 text-center shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl"
-                    style={staggerStyle}
-                  >
-                    <span className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100 bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.16),_transparent_70%)]" aria-hidden />
-                    <div className="relative z-10">
-                      <div className={`w-16 h-16 mx-auto mb-6 rounded-2xl bg-gradient-to-r ${highlight.accentGradient} flex items-center justify-center transition-transform duration-300 group-hover:scale-[1.06]`}>
-                        <Icon className="w-8 h-8 text-white" />
-                      </div>
-                      <div className="text-xl font-bold text-slate-900 mb-2">{highlight.title}</div>
-                      <p className="text-sm text-slate-500">{highlight.description}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Platform Overview */}
-            <div className="max-w-4xl mx-auto">
-              <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-xl">
-                <div className="text-center mb-8">
-                  <h3 className="text-2xl font-bold text-slate-900 mb-2">How CG-360 Works</h3>
-                  <p className="text-slate-600">Transparent implementation with ongoing support</p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                  {transparencySteps.map((step, index) => {
-                    const Icon = step.icon as any;
-                    const staggerStyle = { '--scroll-delay': `${index * 0.08}s` } as CSSProperties;
-
-                    return (
-                      <div
-                        key={step.id}
-                        className="animate-on-scroll-scale group relative overflow-hidden rounded-2xl border border-slate-200/60 bg-white/90 p-6 text-center shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
-                        style={staggerStyle}
-                      >
-                        <span className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100 bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.12),_transparent_70%)]" aria-hidden />
-                        <div className="relative z-10">
-                          <div className={`w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-r ${step.accentGradient} flex items-center justify-center transition-transform duration-300 group-hover:scale-[1.06]`}>
-                            <Icon className="w-8 h-8 text-white" />
-                          </div>
-                          <div className="text-lg font-bold text-slate-900 mb-1">{step.title}</div>
-                          <div className="text-sm font-medium text-slate-700 mb-2">{step.subtitle}</div>
-                          <p className="text-sm text-slate-500">{step.description}</p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div className="text-center">
-                  <p className="text-sm text-slate-500 mb-4">
-                    We believe in complete transparency throughout your journey with CG-360.
-                  </p>
-                  <Button
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-3 px-8 rounded-xl transition-all duration-300 transform hover:scale-105"
-                    onClick={openCalendlyModal}
-                  >
-                    Book Your Free Demo
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-  </main>
-
-    {/* Demo CTA (replaces TrustedByBar) */}
-    <section id="demo" className="w-full py-24 bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 relative overflow-hidden">
-      <div className="absolute inset-0">
-        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-blue-500/20 to-purple-500/20"></div>
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-white/10 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-white/10 rounded-full blur-3xl"></div>
-      </div>
-
-      <div className="container mx-auto px-4 lg:px-6 relative z-10">
-        <div className="text-center mb-16">
-          <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-medium mb-6">
-            <Calendar className="w-4 h-4" />
-            Free Demo
-          </div>
-          <h2 className="text-4xl lg:text-5xl font-bold text-white mb-6">
-            See CG-360 in action
-            <span className="block text-blue-100">
-              Book your free demo today
-            </span>
-          </h2>
-          <p className="text-xl text-blue-100 max-w-3xl mx-auto">
-            Experience how CG-360 transforms compliance management. Our experts will show you how to go from overwhelmed to inspection-ready in minutes.
-          </p>
-        </div>
-
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center">
-            <Button
-              className="bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white font-semibold py-4 px-8 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-xl text-lg"
-              onClick={openCalendlyModal}
-            >
-              <Calendar className="w-5 h-5 mr-2" />
-              Book Your Free Demo
-            </Button>
-          </div>
-        </div>
-      </div>
-    </section>
-
-  {/* DashboardPreview removed per request */}
-  {/* NewsletterSignup kept out for simplified landing */}
-
-    {/* Footer */}
-    {/* new Footer component inserted below */}
-
-        {/* Interactive Modals */}
-        <Dialog open={activeModal === 'documents'} onOpenChange={() => setActiveModal(null)}>
-          <DialogContent className="max-w-4xl bg-background/95 backdrop-blur-sm border-primary/20">
-            <DialogHeader className="pb-6">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                  <FileText className="w-6 h-6 text-primary" />
-                </div>
-                <div>
-                  <DialogTitle className="text-2xl font-bold font-headline">Document Management</DialogTitle>
-                  <DialogDescription className="text-muted-foreground">
-                    Comprehensive document management for care home compliance
-                  </DialogDescription>
-                </div>
-              </div>
-            </DialogHeader>
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card className="bg-background/50 border-border/20 hover:border-primary/30 transition-all duration-300">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <UploadCloud className="w-5 h-5 text-primary" />
-                      Key Features
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-3 text-sm">
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Smart document upload & processing
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Automatic categorisation & tagging
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Version control & audit trails
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Bulk operations & batch processing
-                      </li>
-                    </ul>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-background/50 border-border/20 hover:border-primary/30 transition-all duration-300">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <FileText className="w-5 h-5 text-primary" />
-                      Supported Formats
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex flex-wrap gap-2">
-                      <Badge variant="secondary" className="bg-blue-100 text-blue-800">PDF</Badge>
-                      <Badge variant="secondary" className="bg-green-100 text-green-800">DOC</Badge>
-                      <Badge variant="secondary" className="bg-purple-100 text-purple-800">XLS</Badge>
-                      <Badge variant="secondary" className="bg-orange-100 text-orange-800">JPG</Badge>
-                      <Badge variant="secondary" className="bg-pink-100 text-pink-800">PNG</Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <Card className="bg-gradient-to-r from-primary/5 to-purple-500/5 border-primary/20">
-                <CardContent className="p-6">
-                  <div className="flex items-start gap-3">
-                    <BrainCircuit className="w-6 h-6 text-primary mt-1" />
-                    <div>
-                      <h4 className="font-semibold text-lg mb-2">AI-Powered Processing</h4>
-                      <p className="text-muted-foreground">
-                        Our advanced AI automatically extracts key information, identifies document types,
-                        and ensures compliance requirements are met with intelligent document analysis.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={activeModal === 'folders'} onOpenChange={() => setActiveModal(null)}>
-          <DialogContent className="max-w-4xl bg-background/95 backdrop-blur-sm border-primary/20">
-            <DialogHeader className="pb-6">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                  <FolderSync className="w-6 h-6 text-primary" />
-                </div>
-                <div>
-                  <DialogTitle className="text-2xl font-bold font-headline">Hierarchical Organization</DialogTitle>
-                  <DialogDescription className="text-muted-foreground">
-                    Intelligent folder structures designed for care home operations
-                  </DialogDescription>
-                </div>
-              </div>
-            </DialogHeader>
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card className="bg-background/50 border-border/20 hover:border-primary/30 transition-all duration-300">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Building2 className="w-5 h-5 text-primary" />
-                      Care Home Structure
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-3 text-sm">
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Policies & Procedures
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Staff Records & Training
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Resident Care Plans
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        CQC Inspection Reports
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Health & Safety Documents
-                      </li>
-                    </ul>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-background/50 border-border/20 hover:border-primary/30 transition-all duration-300">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Zap className="w-5 h-5 text-primary" />
-                      Smart Features
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-3 text-sm">
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Auto-organization
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Quick search & filter
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Access permissions
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Audit trails
-                      </li>
-                    </ul>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <Card className="bg-gradient-to-r from-primary/5 to-purple-500/5 border-primary/20">
-                <CardContent className="p-6">
-                  <div className="flex items-start gap-3">
-                    <Shield className="w-6 h-6 text-primary mt-1" />
-                    <div>
-                      <h4 className="font-semibold text-lg mb-2">Compliance-First Design</h4>
-                      <p className="text-muted-foreground">
-                        Folder structures are pre-configured to match CQC requirements and care home
-                        operational needs, ensuring you stay organised and compliant.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={activeModal === 'staff'} onOpenChange={() => setActiveModal(null)}>
-          <DialogContent className="max-w-4xl bg-background/95 backdrop-blur-sm border-primary/20">
-            <DialogHeader className="pb-6">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                  <Users className="w-6 h-6 text-primary" />
-                </div>
-                <div>
-                  <DialogTitle className="text-2xl font-bold font-headline">Staff Management</DialogTitle>
-                  <DialogDescription className="text-muted-foreground">
-                    Complete staff compliance and training management system
-                  </DialogDescription>
-                </div>
-              </div>
-            </DialogHeader>
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card className="bg-background/50 border-border/20 hover:border-primary/30 transition-all duration-300">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <FileText className="w-5 h-5 text-primary" />
-                      Staff Records
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-3 text-sm">
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Qualifications & certifications
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Training records & appraisals
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        DBS checks & references
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Contract & employment details
-                      </li>
-                    </ul>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-background/50 border-border/20 hover:border-primary/30 transition-all duration-300">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Shield className="w-5 h-5 text-primary" />
-                      Compliance Tracking
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-3 text-sm">
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Mandatory training deadlines
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Competency assessments
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Renewal reminders
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Audit preparation
-                      </li>
-                    </ul>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <Card className="bg-gradient-to-r from-primary/5 to-purple-500/5 border-primary/20">
-                <CardContent className="p-6">
-                  <div className="flex items-start gap-3">
-                    <Bell className="w-6 h-6 text-primary mt-1" />
-                    <div>
-                      <h4 className="font-semibold text-lg mb-2">Automated Compliance</h4>
-                      <p className="text-muted-foreground">
-                        Never miss a training deadline or certification renewal with intelligent notifications
-                        and automated tracking across your entire staff team.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={activeModal === 'analytics'} onOpenChange={() => setActiveModal(null)}>
-          <DialogContent className="max-w-4xl bg-background/95 backdrop-blur-sm border-primary/20">
-            <DialogHeader className="pb-6">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                  <BarChart3 className="w-6 h-6 text-primary" />
-                </div>
-                <div>
-                  <DialogTitle className="text-2xl font-bold font-headline">Analytics & Reporting</DialogTitle>
-                  <DialogDescription className="text-muted-foreground">
-                    Comprehensive insights into your care home operations
-                  </DialogDescription>
-                </div>
-              </div>
-            </DialogHeader>
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card className="bg-background/50 border-border/20 hover:border-primary/30 transition-all duration-300">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Shield className="w-5 h-5 text-primary" />
-                      Compliance Analytics
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-3 text-sm">
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Compliance status overview
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Audit readiness scores
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Risk assessment reports
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Trend analysis
-                      </li>
-                    </ul>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-background/50 border-border/20 hover:border-primary/30 transition-all duration-300">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <TrendingUp className="w-5 h-5 text-primary" />
-                      Operational Insights
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-3 text-sm">
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Document activity metrics
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Staff training completion
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Process efficiency reports
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Custom dashboards
-                      </li>
-                    </ul>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <Card className="bg-gradient-to-r from-primary/5 to-purple-500/5 border-primary/20">
-                <CardContent className="p-6">
-                  <div className="flex items-start gap-3">
-                    <BrainCircuit className="w-6 h-6 text-primary mt-1" />
-                    <div>
-                      <h4 className="font-semibold text-lg mb-2">AI-Powered Insights</h4>
-                      <p className="text-muted-foreground">
-                        Get actionable recommendations and predictive analytics to improve compliance
-                        and operational efficiency with intelligent data analysis.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={activeModal === 'compliance'} onOpenChange={() => setActiveModal(null)}>
-          <DialogContent className="max-w-4xl bg-background/95 backdrop-blur-sm border-primary/20">
-            <DialogHeader className="pb-6">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                  <Shield className="w-6 h-6 text-primary" />
-                </div>
-                <div>
-                  <DialogTitle className="text-2xl font-bold font-headline">Compliance Management</DialogTitle>
-                  <DialogDescription className="text-muted-foreground">
-                    Automated CQC compliance tracking and audit preparation
-                  </DialogDescription>
-                </div>
-              </div>
-            </DialogHeader>
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card className="bg-background/50 border-border/20 hover:border-primary/30 transition-all duration-300">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Award className="w-5 h-5 text-primary" />
-                      CQC Standards
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-3 text-sm">
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Safe care & treatment
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Effective care & treatment
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Caring & compassionate
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Responsive care & treatment
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Well-led care
-                      </li>
-                    </ul>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-background/50 border-border/20 hover:border-primary/30 transition-all duration-300">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Zap className="w-5 h-5 text-primary" />
-                      Automated Features
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-3 text-sm">
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Compliance checklists
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Evidence gathering
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Gap analysis reports
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Audit preparation
-                      </li>
-                    </ul>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <Card className="bg-gradient-to-r from-primary/5 to-purple-500/5 border-primary/20">
-                <CardContent className="p-6">
-                  <div className="flex items-start gap-3">
-                    <Award className="w-6 h-6 text-primary mt-1" />
-                    <div>
-                      <h4 className="font-semibold text-lg mb-2">Inspection Ready</h4>
-                      <p className="text-muted-foreground">
-                        Maintain 100% compliance with automated tracking, intelligent reminders,
-                        and comprehensive audit preparation tools designed for CQC standards.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={activeModal === 'chat'} onOpenChange={() => setActiveModal(null)}>
-          <DialogContent className="max-w-4xl bg-background/95 backdrop-blur-sm border-primary/20">
-            <DialogHeader className="pb-6">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                  <MessageSquare className="w-6 h-6 text-primary" />
-                </div>
-                <div>
-                  <DialogTitle className="text-2xl font-bold font-headline">AI Document Chat</DialogTitle>
-                  <DialogDescription className="text-muted-foreground">
-                    Natural language queries about your documents and compliance data
-                  </DialogDescription>
-                </div>
-              </div>
-            </DialogHeader>
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card className="bg-background/50 border-border/20 hover:border-primary/30 transition-all duration-300">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <MessageSquare className="w-5 h-5 text-primary" />
-                      Query Types
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-3 text-sm">
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Document content questions
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Compliance status inquiries
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Policy interpretation
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Training requirements
-                      </li>
-                    </ul>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-background/50 border-border/20 hover:border-primary/30 transition-all duration-300">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <BrainCircuit className="w-5 h-5 text-primary" />
-                      AI Capabilities
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-3 text-sm">
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Cross-document analysis
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Compliance insights
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Summarization & extraction
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Contextual recommendations
-                      </li>
-                    </ul>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <Card className="bg-gradient-to-r from-primary/5 to-purple-500/5 border-primary/20">
-                <CardContent className="p-6">
-                  <div className="flex items-start gap-3">
-                    <BrainCircuit className="w-6 h-6 text-primary mt-1" />
-                    <div>
-                      <h4 className="font-semibold text-lg mb-2">Intelligent Assistant</h4>
-                      <p className="text-muted-foreground">
-                        Ask questions in natural language and get instant, accurate answers from your
-                        entire document library and compliance data with advanced AI understanding.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </DialogContent>
-        </Dialog>
-  {/* Capability detail dialogs opened from hero icons */}
-        <Dialog open={activeModal === 'governance'} onOpenChange={() => setActiveModal(null)}>
-          <DialogContent className="max-w-4xl bg-background/95 backdrop-blur-sm border-primary/20">
-            <DialogHeader className="pb-6">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                  <Building2 className="w-6 h-6 text-primary" />
-                </div>
-                <div>
-                  <DialogTitle className="text-2xl font-bold font-headline">Governance</DialogTitle>
-                  <DialogDescription className="text-muted-foreground">
-                    Maintain clear ownership, versioned policies, and approval workflows so every change is tracked and auditable.
-                  </DialogDescription>
-                </div>
-              </div>
-            </DialogHeader>
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card className="bg-background/50 border-border/20 hover:border-primary/30 transition-all duration-300">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <FileText className="w-5 h-5 text-primary" />
-                      Policy & Approval Workflows
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-3 text-sm">
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Version control and change history
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Approval chains and delegated sign-off
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Policy publishing and staff acknowledgment tracking
-                      </li>
-                    </ul>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-background/50 border-border/20 hover:border-primary/30 transition-all duration-300">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Users className="w-5 h-5 text-primary" />
-                      Audit Trails & Accountability
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-3 text-sm">
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Detailed change logs for policies and documents
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Role-based accountability and ownership maps
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Exportable reports for inspections and governance reviews
-                      </li>
-                    </ul>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <Card className="bg-gradient-to-r from-primary/5 to-purple-500/5 border-primary/20">
-                <CardContent className="p-6">
-                  <div className="flex items-start gap-3">
-                    <Shield className="w-6 h-6 text-primary mt-1" />
-                    <div>
-                      <h4 className="font-semibold text-lg mb-2">Governance Clarity</h4>
-                      <p className="text-muted-foreground">
-                        Centralise policies, approvals and governance workflows so management and inspectors can clearly see who is responsible and when changes happened.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={activeModal === 'security'} onOpenChange={() => setActiveModal(null)}>
-          <DialogContent className="max-w-4xl bg-background/95 backdrop-blur-sm border-primary/20">
-            <DialogHeader className="pb-6">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                  <Lock className="w-6 h-6 text-primary" />
-                </div>
-                <div>
-                  <DialogTitle className="text-2xl font-bold font-headline">Security</DialogTitle>
-                  <DialogDescription className="text-muted-foreground">
-                    Enterprise-grade controls to protect resident data, meet regulatory expectations, and produce auditable evidence of compliance.
-                  </DialogDescription>
-                </div>
-              </div>
-            </DialogHeader>
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card className="bg-background/50 border-border/20 hover:border-primary/30 transition-all duration-300">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Shield className="w-5 h-5 text-primary" />
-                      Data Protection
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-3 text-sm">
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Encryption at rest and in transit
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Granular role-based access controls
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Secure backups and retention policies
-                      </li>
-                    </ul>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-background/50 border-border/20 hover:border-primary/30 transition-all duration-300">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <TrendingUp className="w-5 h-5 text-primary" />
-                      Monitoring & Audit
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-3 text-sm">
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Detailed access and activity logs
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Alerts for suspicious activity
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Compliance-ready exportable audit trails
-                      </li>
-                    </ul>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <Card className="bg-gradient-to-r from-primary/5 to-purple-500/5 border-primary/20">
-                <CardContent className="p-6">
-                  <div className="flex items-start gap-3">
-                    <Lock className="w-6 h-6 text-primary mt-1" />
-                    <div>
-                      <h4 className="font-semibold text-lg mb-2">Enterprise-grade Security</h4>
-                      <p className="text-muted-foreground">
-                        Built with data protection standards in mind — secure access, encrypted storage, and monitoring to keep sensitive resident information safe.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={activeModal === 'automation'} onOpenChange={() => setActiveModal(null)}>
-          <DialogContent className="max-w-4xl bg-background/95 backdrop-blur-sm border-primary/20">
-            <DialogHeader className="pb-6">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                  <Zap className="w-6 h-6 text-primary" />
-                </div>
-                <div>
-                  <DialogTitle className="text-2xl font-bold font-headline">Automation</DialogTitle>
-                  <DialogDescription className="text-muted-foreground">
-                    Reduce manual work with intelligent automations for compliance tasks, reminders, and document generation.
-                  </DialogDescription>
-                </div>
-              </div>
-            </DialogHeader>
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card className="bg-background/50 border-border/20 hover:border-primary/30 transition-all duration-300">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Zap className="w-5 h-5 text-primary" />
-                      Automated Workflows
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-3 text-sm">
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Scheduled audits and task assignments
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Automatic evidence collection for inspections
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Template-driven document generation
-                      </li>
-                    </ul>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-background/50 border-border/20 hover:border-primary/30 transition-all duration-300">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Calendar className="w-5 h-5 text-primary" />
-                      Reminders & Scheduling
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-3 text-sm">
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Automated staff notifications and deadlines
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Recurring task scheduling
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Smart escalation for overdue items
-                      </li>
-                    </ul>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <Card className="bg-gradient-to-r from-primary/5 to-purple-500/5 border-primary/20">
-                <CardContent className="p-6">
-                  <div className="flex items-start gap-3">
-                    <Zap className="w-6 h-6 text-primary mt-1" />
-                    <div>
-                      <h4 className="font-semibold text-lg mb-2">Automate Routine Work</h4>
-                      <p className="text-muted-foreground">
-                        Let CG-360 handle routine compliance operations so staff can prioritise resident care — scheduled checks, reminders and auto-generated evidence reduce manual overhead.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={activeModal === 'insights'} onOpenChange={() => setActiveModal(null)}>
-          <DialogContent className="max-w-4xl bg-background/95 backdrop-blur-sm border-primary/20">
-            <DialogHeader className="pb-6">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                  <BarChart3 className="w-6 h-6 text-primary" />
-                </div>
-                <div>
-                  <DialogTitle className="text-2xl font-bold font-headline">Insights</DialogTitle>
-                  <DialogDescription className="text-muted-foreground">
-                    Actionable analytics and predictive signals to identify risks, resource needs, and improvement opportunities.
-                  </DialogDescription>
-                </div>
-              </div>
-            </DialogHeader>
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card className="bg-background/50 border-border/20 hover:border-primary/30 transition-all duration-300">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <BarChart3 className="w-5 h-5 text-primary" />
-                      Operational Dashboards
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-3 text-sm">
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        At-a-glance compliance and activity metrics
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Customisable dashboards for managers
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Exportable charts and trend reports
-                      </li>
-                    </ul>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-background/50 border-border/20 hover:border-primary/30 transition-all duration-300">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <TrendingUp className="w-5 h-5 text-primary" />
-                      Predictive Risk Alerts
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-3 text-sm">
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Early warning signals for deteriorating compliance
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Prioritised recommendations for corrective action
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Integration-ready exports for analytics teams
-                      </li>
-                    </ul>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <Card className="bg-gradient-to-r from-primary/5 to-purple-500/5 border-primary/20">
-                <CardContent className="p-6">
-                  <div className="flex items-start gap-3">
-                    <BrainCircuit className="w-6 h-6 text-primary mt-1" />
-                    <div>
-                      <h4 className="font-semibold text-lg mb-2">AI-Powered Insights</h4>
-                      <p className="text-muted-foreground">
-                        Use AI to surface meaningful trends and predict risks so you can take targeted action before issues escalate.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={activeModal === 'accessibility'} onOpenChange={() => setActiveModal(null)}>
-          <DialogContent className="max-w-4xl bg-background/95 backdrop-blur-sm border-primary/20">
-            <DialogHeader className="pb-6">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                  <Accessibility className="w-6 h-6 text-primary" />
-                </div>
-                <div>
-                  <DialogTitle className="text-2xl font-bold font-headline">Accessibility</DialogTitle>
-                  <DialogDescription className="text-muted-foreground">
-                    Tools and UI designed to be inclusive, ensuring staff and residents of varying needs can access information and complete tasks.
-                  </DialogDescription>
-                </div>
-              </div>
-            </DialogHeader>
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card className="bg-background/50 border-border/20 hover:border-primary/30 transition-all duration-300">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Accessibility className="w-5 h-5 text-primary" />
-                      Accessible UI & Content
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-3 text-sm">
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        High-contrast themes and scalable text
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Keyboard navigation and ARIA support
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Screen reader friendly labels and structure
-                      </li>
-                    </ul>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-background/50 border-border/20 hover:border-primary/30 transition-all duration-300">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Users className="w-5 h-5 text-primary" />
-                      Assistive Tools & Support
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-3 text-sm">
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Built-in text-to-speech and simplified views
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Customisable workflows for diverse user needs
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Training materials and staff guidance
-                      </li>
-                    </ul>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <Card className="bg-gradient-to-r from-primary/5 to-purple-500/5 border-primary/20">
-                <CardContent className="p-6">
-                  <div className="flex items-start gap-3">
-                    <Accessibility className="w-6 h-6 text-primary mt-1" />
-                    <div>
-                      <h4 className="font-semibold text-lg mb-2">Inclusive by Design</h4>
-                      <p className="text-muted-foreground">
-                        CG-360 is built to be usable by everyone — from high-contrast themes and keyboard-first navigation to assistive tools that help staff access the information they need quickly.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </DialogContent>
-        </Dialog>
-    <Footer />
-  </div>
+      <Footer />
+    </div>
   );
 }
