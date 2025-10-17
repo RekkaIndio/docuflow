@@ -14,6 +14,7 @@ import { Folder as FolderIcon, FileText, FileSpreadsheet, FileX2, Home, ChevronR
 // AdminDependencyTable and OccupancyPie were removed as they're not used in this view
 import StatsView from '@/components/admin/admin-stats-view';
 import AuditsView from './admin-audits-view';
+import { AdminRotasView } from './admin-rotas-view';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Manager {
@@ -1279,6 +1280,10 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
               <Tag className="w-4 h-4" />
               Audits
             </TabsTrigger>
+            <TabsTrigger value="rotas" className="flex items-center gap-2 whitespace-nowrap">
+              <Calendar className="w-4 h-4" />
+              Rotas
+            </TabsTrigger>
             {/* Management / staff-category triggers removed — TeamsView handles those categories */}
           </TabsList>
           { /* Dependency tab disabled for now */ }
@@ -1489,6 +1494,10 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
               recentUploads={recentUploads}
               aggregateAuditData={aggregateAuditData}
             />
+          </TabsContent>
+          
+          <TabsContent value="rotas" className="mt-6">
+            <AdminRotasView workspace={workspace} />
           </TabsContent>
           
           <TabsContent value="management" className="mt-6">

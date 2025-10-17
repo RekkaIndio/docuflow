@@ -9,6 +9,9 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   useSidebar,
 } from "@/components/ui/sidebar";
 import {
@@ -29,6 +32,8 @@ import {
   AlertCircle,
   Calendar,
   HelpCircle,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Logo } from "@/components/icons/logo";
@@ -62,7 +67,7 @@ interface AppSidebarProps {
   workspaces: Workspace[];
   activeWorkspace: Workspace | null;
   onWorkspaceChange: (workspaceId: string) => void;
-  setView: React.Dispatch<React.SetStateAction<'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'dependency-calculator' | 'daily' | 'notifications' | 'audits' | 'policies' | 'stats' | 'action-plans' | 'appraisals' | 'rotas' | 'lessons-rcas' | 'help'>>;
+  setView: React.Dispatch<React.SetStateAction<'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'dependency-calculator' | 'daily' | 'notifications' | 'audits' | 'policies' | 'stats' | 'action-plans' | 'appraisals' | 'rotas' | 'lessons-rcas' | 'cqc-logs' | 'safeguarding-logs' | 'help'>>;
   onGoToFiles: () => void;
   onCreateWorkspace: (name: string) => void;
   dailyEntry?: any;
@@ -133,6 +138,7 @@ export function AppSidebar({
 }: AppSidebarProps) {
   const { user, signOut } = useAuth();
   const { isMobile, setOpenMobile, toggleSidebar, state } = useSidebar();
+  const [logsExpanded, setLogsExpanded] = useState(false);
   
   // Get organisation ID from active workspace
   const organisationId = (activeWorkspace as any)?.organisationId;
@@ -234,13 +240,40 @@ export function AppSidebar({
         </SidebarMenuItem>
       )}
 
-      {/* Lessons Learnt & RCA - user-only feature */}
+      {/* Logs - user-only feature */}
       {isEnabled('lessonsRcas') && (
         <SidebarMenuItem>
-          <SidebarMenuButton onClick={() => handleNavigation(() => setView('lessons-rcas'))} className="text-lg h-14">
-            <AlertCircle className="w-7 h-7 mr-2" />
-            <span className="text-lg">Lessons Learnt &amp; RCA</span>
+          <SidebarMenuButton onClick={() => setLogsExpanded(!logsExpanded)} className="text-lg h-14">
+            <FileText className="w-7 h-7 mr-2" />
+            <span className="text-lg">Logs</span>
+            {logsExpanded ? (
+              <ChevronDown className="w-4 h-4 ml-auto" />
+            ) : (
+              <ChevronRight className="w-4 h-4 ml-auto" />
+            )}
           </SidebarMenuButton>
+          {logsExpanded && (
+            <SidebarMenuSub>
+              <SidebarMenuSubItem>
+                <SidebarMenuSubButton onClick={() => handleNavigation(() => setView('lessons-rcas'))} className="text-base h-12">
+                  <AlertCircle className="w-5 h-5 mr-2" />
+                  <span>Lessons Learnt</span>
+                </SidebarMenuSubButton>
+              </SidebarMenuSubItem>
+              <SidebarMenuSubItem>
+                <SidebarMenuSubButton onClick={() => handleNavigation(() => setView('cqc-logs'))} className="text-base h-12">
+                  <ClipboardList className="w-5 h-5 mr-2" />
+                  <span>CQC Logs</span>
+                </SidebarMenuSubButton>
+              </SidebarMenuSubItem>
+              <SidebarMenuSubItem>
+                <SidebarMenuSubButton onClick={() => handleNavigation(() => setView('safeguarding-logs'))} className="text-base h-12">
+                  <ClipboardList className="w-5 h-5 mr-2" />
+                  <span>Safeguarding Logs</span>
+                </SidebarMenuSubButton>
+              </SidebarMenuSubItem>
+            </SidebarMenuSub>
+          )}
         </SidebarMenuItem>
       )}
       
