@@ -135,7 +135,8 @@ export function AppSidebar({
   onGoToFiles,
   onCreateWorkspace,
   dailyEntry,
-}: AppSidebarProps) {
+  currentView,
+}: AppSidebarProps & { currentView?: string }) {
   const { user, signOut } = useAuth();
   const { isMobile, setOpenMobile, toggleSidebar, state } = useSidebar();
   const [logsExpanded, setLogsExpanded] = useState(false);
@@ -198,7 +199,7 @@ export function AppSidebar({
       {/* Dashboard - Always visible (core feature) */}
       {isEnabled('dashboard') && (
         <SidebarMenuItem>
-          <SidebarMenuButton onClick={() => handleNavigation(() => setView('home'))} className="text-lg h-14">
+          <SidebarMenuButton onClick={() => handleNavigation(() => setView('home'))} isActive={currentView === 'home'} className="text-lg h-14">
             <LayoutDashboard className="w-7 h-7 mr-2" />
             <div className="flex items-center gap-2">
               <span className="text-lg">Dashboard</span>
@@ -213,7 +214,7 @@ export function AppSidebar({
       {/* Dependency Calculator */}
       {isEnabled('dependencyCalculator') && (
         <SidebarMenuItem>
-          <SidebarMenuButton onClick={() => handleNavigation(() => setView('dependency-calculator'))} className="text-lg h-14">
+          <SidebarMenuButton onClick={() => handleNavigation(() => setView('dependency-calculator'))} isActive={currentView === 'dependency-calculator'} className="text-lg h-14">
             <UsersRound className="w-7 h-7 mr-2" />
             <span className="text-lg">Dependency</span>
           </SidebarMenuButton>
@@ -223,7 +224,7 @@ export function AppSidebar({
       {/* Audits */}
       {isEnabled('audits') && (
         <SidebarMenuItem>
-          <SidebarMenuButton onClick={() => handleNavigation(() => setView('audits'))} className="text-lg h-14">
+          <SidebarMenuButton onClick={() => handleNavigation(() => setView('audits'))} isActive={currentView === 'audits'} className="text-lg h-14">
             <Tag className="w-7 h-7 mr-2" />
             <span className="text-lg">Audits</span>
           </SidebarMenuButton>
@@ -233,7 +234,7 @@ export function AppSidebar({
       {/* Action Plans */}
       {isEnabled('actionPlans') && (
         <SidebarMenuItem>
-          <SidebarMenuButton onClick={() => handleNavigation(() => setView('action-plans'))} className="text-lg h-14">
+          <SidebarMenuButton onClick={() => handleNavigation(() => setView('action-plans'))} isActive={currentView === 'action-plans'} className="text-lg h-14">
             <ClipboardList className="w-7 h-7 mr-2" />
             <span className="text-lg">Action Plans</span>
           </SidebarMenuButton>
@@ -243,7 +244,7 @@ export function AppSidebar({
       {/* Logs - user-only feature */}
       {isEnabled('lessonsRcas') && (
         <SidebarMenuItem>
-          <SidebarMenuButton onClick={() => setLogsExpanded(!logsExpanded)} className="text-lg h-14">
+          <SidebarMenuButton onClick={() => setLogsExpanded(!logsExpanded)} isActive={['lessons-rcas','cqc-logs','safeguarding-logs'].includes(String(currentView))} className="text-lg h-14">
             <FileText className="w-7 h-7 mr-2" />
             <span className="text-lg">Logs</span>
             {logsExpanded ? (
@@ -254,20 +255,20 @@ export function AppSidebar({
           </SidebarMenuButton>
           {logsExpanded && (
             <SidebarMenuSub>
-              <SidebarMenuSubItem>
-                <SidebarMenuSubButton onClick={() => handleNavigation(() => setView('lessons-rcas'))} className="text-base h-12">
+                <SidebarMenuSubItem>
+                <SidebarMenuSubButton onClick={() => handleNavigation(() => setView('lessons-rcas'))} isActive={currentView === 'lessons-rcas'} className="text-base h-12">
                   <AlertCircle className="w-5 h-5 mr-2" />
                   <span>Lessons Learnt</span>
                 </SidebarMenuSubButton>
               </SidebarMenuSubItem>
               <SidebarMenuSubItem>
-                <SidebarMenuSubButton onClick={() => handleNavigation(() => setView('cqc-logs'))} className="text-base h-12">
+                <SidebarMenuSubButton onClick={() => handleNavigation(() => setView('cqc-logs'))} isActive={currentView === 'cqc-logs'} className="text-base h-12">
                   <ClipboardList className="w-5 h-5 mr-2" />
                   <span>CQC Logs</span>
                 </SidebarMenuSubButton>
               </SidebarMenuSubItem>
               <SidebarMenuSubItem>
-                <SidebarMenuSubButton onClick={() => handleNavigation(() => setView('safeguarding-logs'))} className="text-base h-12">
+                <SidebarMenuSubButton onClick={() => handleNavigation(() => setView('safeguarding-logs'))} isActive={currentView === 'safeguarding-logs'} className="text-base h-12">
                   <ClipboardList className="w-5 h-5 mr-2" />
                   <span>Safeguarding Logs</span>
                 </SidebarMenuSubButton>
@@ -280,7 +281,7 @@ export function AppSidebar({
       {/* Policies */}
       {isEnabled('policies') && (
         <SidebarMenuItem>
-          <SidebarMenuButton onClick={() => handleNavigation(() => setView('policies'))} className="text-lg h-14">
+          <SidebarMenuButton onClick={() => handleNavigation(() => setView('policies'))} isActive={currentView === 'policies'} className="text-lg h-14">
             <Tag className="w-7 h-7 mr-2" />
             <span className="text-lg">Policies</span>
           </SidebarMenuButton>
@@ -290,7 +291,7 @@ export function AppSidebar({
       {/* Appraisals/Supervisions */}
       {isEnabled('appraisals') && (
         <SidebarMenuItem>
-          <SidebarMenuButton onClick={() => handleNavigation(() => setView('appraisals'))} className="text-lg h-14">
+          <SidebarMenuButton onClick={() => handleNavigation(() => setView('appraisals'))} isActive={currentView === 'appraisals'} className="text-lg h-14">
             <ClipboardList className="w-7 h-7 mr-2" />
             <span className="text-lg">Supervisions</span>
           </SidebarMenuButton>
@@ -300,7 +301,7 @@ export function AppSidebar({
       {/* Rotas */}
       {isEnabled('rotas') && (
         <SidebarMenuItem>
-          <SidebarMenuButton onClick={() => handleNavigation(() => setView('rotas'))} className="text-lg h-14">
+          <SidebarMenuButton onClick={() => handleNavigation(() => setView('rotas'))} isActive={currentView === 'rotas'} className="text-lg h-14">
             <Calendar className="w-7 h-7 mr-2" />
             <span className="text-lg">Rotas</span>
           </SidebarMenuButton>
@@ -310,7 +311,7 @@ export function AppSidebar({
       {/* Files/Folders - Always visible (core feature) */}
       {isEnabled('files') && (
         <SidebarMenuItem>
-          <SidebarMenuButton onClick={() => handleNavigation(onGoToFiles)} className="text-lg h-14">
+          <SidebarMenuButton onClick={() => handleNavigation(onGoToFiles)} isActive={currentView === 'files'} className="text-lg h-14">
             <FolderIcon className="w-7 h-7 mr-2" />
             <span className="text-lg">Folders</span>
           </SidebarMenuButton>
@@ -320,7 +321,7 @@ export function AppSidebar({
       {/* Teams */}
       {isEnabled('teams') && (
         <SidebarMenuItem>
-          <SidebarMenuButton onClick={() => handleNavigation(() => setView('teams'))} className="text-lg h-14">
+          <SidebarMenuButton onClick={() => handleNavigation(() => setView('teams'))} isActive={currentView === 'teams'} className="text-lg h-14">
             <UsersRound className="w-7 h-7 mr-2" />
             <span className="text-lg">Teams</span>
           </SidebarMenuButton>
@@ -330,7 +331,7 @@ export function AppSidebar({
       {/* Stats */}
       {isEnabled('stats') && (
         <SidebarMenuItem>
-          <SidebarMenuButton onClick={() => handleNavigation(() => setView('stats'))} className="text-lg h-14">
+          <SidebarMenuButton onClick={() => handleNavigation(() => setView('stats'))} isActive={currentView === 'stats'} className="text-lg h-14">
             <BarChart3 className="w-7 h-7 mr-2" />
             <span className="text-lg">Stats</span>
           </SidebarMenuButton>
@@ -345,7 +346,7 @@ export function AppSidebar({
             {/* Accessibility - Always visible (core feature) */}
             {isEnabled('accessibility') && (
               <SidebarMenuItem>
-                <SidebarMenuButton onClick={() => handleNavigation(() => setView('accessibility'))} className="text-lg h-12">
+                <SidebarMenuButton onClick={() => handleNavigation(() => setView('accessibility'))} isActive={currentView === 'accessibility'} className="text-lg h-12">
                   <Accessibility className="w-6 h-6 mr-2" />
                   <span className="text-sm">Accessibility</span>
                 </SidebarMenuButton>

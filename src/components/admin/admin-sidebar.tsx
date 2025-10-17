@@ -81,31 +81,31 @@ export function AdminSidebar({
       <SidebarContent>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={() => handleNavigation(() => setView('home'))} className={`text-lg h-14 ${isActive('/admin') ? 'bg-muted/50 rounded' : ''}`}>
+            <SidebarMenuButton onClick={() => handleNavigation(() => setView('home'))} isActive={isActive('/admin')} className="text-lg h-14">
               <LayoutDashboard className="w-7 h-7 mr-2" />
               <span className="text-lg">Dashboard</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={() => handleNavigation(() => setView('appraisals'))} className={`text-lg h-14 ${isActive('/admin/appraisals') ? 'bg-muted/50 rounded' : ''}`}>
+            <SidebarMenuButton onClick={() => handleNavigation(() => setView('appraisals'))} isActive={isActive('/admin/appraisals')} className="text-lg h-14">
               <FolderIcon className="w-7 h-7 mr-2" />
               <span className="text-lg">Appraisals</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={() => handleNavigation(() => setView('supervision'))} className={`text-lg h-14 ${isActive('/admin/supervision') ? 'bg-muted/50 rounded' : ''}`}>
+            <SidebarMenuButton onClick={() => handleNavigation(() => setView('supervision'))} isActive={isActive('/admin/supervision')} className="text-lg h-14">
               <FileText className="w-7 h-7 mr-2" />
               <span className="text-lg">Supervision</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={() => handleNavigation(() => setView('rd-compliance-audit'))} className={`text-lg h-14 ${isActive('/admin/rd-compliance-audit') ? 'bg-muted/50 rounded' : ''}`}>
+            <SidebarMenuButton onClick={() => handleNavigation(() => setView('rd-compliance-audit'))} isActive={isActive('/admin/rd-compliance-audit')} className="text-lg h-14">
               <ClipboardCheck className="w-7 h-7 mr-2" />
               <span className="text-lg">RD Compliance Audit</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={() => handleNavigation(() => setView('analytics'))} className={`text-lg h-14 ${isActive('/admin/analytics') ? 'bg-muted/50 rounded' : ''}`}>
+            <SidebarMenuButton onClick={() => handleNavigation(() => setView('analytics'))} isActive={isActive('/admin/analytics')} className="text-lg h-14">
               <BarChart2 className="w-7 h-7 mr-2" />
               <span className="text-lg">Analytics</span>
             </SidebarMenuButton>
@@ -117,7 +117,7 @@ export function AdminSidebar({
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={() => handleNavigation(() => setView('care-homes'))} className={`text-lg h-14 ${isActive('/admin/care-homes') ? 'bg-muted/50 rounded' : ''}`}>
+            <SidebarMenuButton onClick={() => handleNavigation(() => setView('care-homes'))} isActive={isActive('/admin/care-homes')} className="text-lg h-14">
               <UsersRound className="w-7 h-7 mr-2" />
               <span className="text-lg">Occupancy</span>
             </SidebarMenuButton>
