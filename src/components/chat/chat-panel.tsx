@@ -44,6 +44,7 @@ interface ChatMessage {
 interface ChatPanelProps {
   selectedItem: Document | Folder;
   onFolderAdd: (folderName: string) => void;
+  organisationId?: string | null;
 }
 
 interface UserIntent {
@@ -70,7 +71,7 @@ interface UserIntent {
   [key: string]: any;
 }
 
-export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
+export function ChatPanel({ selectedItem, onFolderAdd, organisationId }: ChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const messagesRef = React.useRef<ChatMessage[]>(messages);
   const appendMessages = (newMsgs: ChatMessage[] | ChatMessage) => {
@@ -836,6 +837,94 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
       }
     }
 
+    // Action Plans query patterns
+    const actionPlansPatterns = [
+      /(show|display|get|give|tell|what|how)\s+(me\s+)?(the\s+)?(latest\s+)?action\s+plans?/i,
+      /(action\s+plans?|plans?)\s+(status|summary|overview|list)/i,
+      /(what\s+is\s+the\s+status\s+of|check)\s+(the\s+)?action\s+plans?/i,
+      /(are\s+there\s+any|list)\s+(overdue|pending|completed)\s+action\s+plans?/i,
+      /(show|display|get)\s+(me\s+)?action\s+plans?\s+(for|in)\s+(.+)/i,
+      /(action\s+plans?|plans?)\s+(assignments?|assigned\s+to\s+me)/i
+    ];
+
+    for (const pattern of actionPlansPatterns) {
+      if (pattern.test(input)) {
+        return {
+          type: 'action_plans_query',
+          originalInput: userInput
+        };
+      }
+    }
+
+    // Holiday / annual leave patterns - handle before rotas or user search
+    const holidayPatterns = [
+      /(who|which|anyone)\s+(is|are)\s+(on\s+)?(holiday|annual\s+leave|leave)\s+(this|next|last)\s+week/i,
+      /(show|list|display|get|give|tell)\s+(me\s+)?(who\s+is\s+)?(on\s+)?(holiday|annual\s+leave|leave)/i,
+      /(who|which\s+staff)\s+(is|are)\s+(away|off)\s+(today|tomorrow|this\s+week|next\s+week)/i,
+      /(annual\s+leave|holiday)\s+schedule/i
+    ];
+
+    for (const pattern of holidayPatterns) {
+      if (pattern.test(input)) {
+        const timeframe = input.includes('next week')
+          ? 'next-week'
+          : input.includes('last week')
+            ? 'last-week'
+            : input.includes('tomorrow')
+              ? 'tomorrow'
+              : input.includes('today')
+                ? 'today'
+                : input.includes('next month')
+                  ? 'next-month'
+                  : input.includes('this month')
+                    ? 'this-month'
+                    : 'this-week';
+
+        return {
+          type: 'holiday_query',
+          timeframe,
+          originalInput: userInput
+        };
+      }
+    }
+
+    // Rotas query patterns
+    const rotasPatterns = [
+      /(show|display|get|give|tell|what|how)\s+(me\s+)?(the\s+)?(latest\s+)?rotas?/i,
+      /(rotas?|schedules?|shifts?)\s+(status|summary|overview|list)/i,
+      /(what\s+is\s+my|check\s+my)\s+(rota|schedule|shifts?)/i,
+      /(show|display|get)\s+(me\s+)?rota\s+(for|in)\s+(.+)/i,
+      /(rota|schedule)\s+(this\s+week|next\s+week|upcoming)/i,
+      /(my\s+)?shifts?\s+(this\s+week|next\s+week|for\s+the\s+week)/i
+    ];
+
+    for (const pattern of rotasPatterns) {
+      if (pattern.test(input)) {
+        return {
+          type: 'rotas_query',
+          originalInput: userInput
+        };
+      }
+    }
+
+    // Lessons Learned and RCA query patterns
+    const lessonsRcaPatterns = [
+      /(show|display|get|give|tell|what|how)\s+(me\s+)?(the\s+)?(latest\s+)?lessons?\s+learned/i,
+      /(lessons?\s+learned|rca|root\s+cause\s+analysis)\s+(records?|summary|overview|list)/i,
+      /(what\s+are\s+the|check)\s+(lessons?\s+learned|rca\s+records?)/i,
+      /(show|display|get)\s+(me\s+)?lessons?\s+learned\s+(for|about|regarding)\s+(.+)/i,
+      /(rca|root\s+cause)\s+(analysis|records?)\s+(for|about)\s+(.+)/i
+    ];
+
+    for (const pattern of lessonsRcaPatterns) {
+      if (pattern.test(input)) {
+        return {
+          type: 'lessons_rca_query',
+          originalInput: userInput
+        };
+      }
+    }
+
 
     // default fallback - treat as a general query when nothing else matches
     return {
@@ -888,7 +977,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
       // If not enough, fallback to server
       if (multiResults.length < 2) {
         const workspaceId = selectedItem.workspaceId;
-        const orgId = (selectedItem as any).organisationId || (selectedItem as any).organisation?.id || null;
+        const orgId = organisationId || null;
         if (workspaceId) {
           const searchRes = await fetch('/api/search-documents', {
             method: 'POST',
@@ -951,7 +1040,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         if (originalInput.includes('trend') || originalInput.includes('performance')) {
           // Get audit trends
           const { getMonthlyAuditSnapshots } = await import('@/lib/firestore');
-          const snapshots = await getMonthlyAuditSnapshots(workspaceId, undefined, (selectedItem as any).organisationId || null);
+          const snapshots = await getMonthlyAuditSnapshots(workspaceId, undefined, organisationId || null);
           let response = '📊 **Audit Trends**\n\n';
 
           Object.entries(snapshots).forEach(([auditType, auditData]) => {
@@ -976,7 +1065,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         } else if (originalInput.includes('comment')) {
           // Get audit comments
           const { getMonthlyAuditSnapshots } = await import('@/lib/firestore');
-          const snapshots = await getMonthlyAuditSnapshots(workspaceId, undefined, (selectedItem as any).organisationId || null);
+          const snapshots = await getMonthlyAuditSnapshots(workspaceId, undefined, organisationId || null);
           let response = '💬 **Audit Comments**\n\n';
 
           Object.entries(snapshots).forEach(([auditType, auditData]) => {
@@ -1007,7 +1096,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
           if (auditType === 'all') {
             // Get all audit types and their latest scores
             const { getMonthlyAuditCompletionStatus } = await import('@/lib/firestore');
-            const completionStatus = await getMonthlyAuditCompletionStatus(workspaceId, (selectedItem as any).organisationId || null);
+            const completionStatus = await getMonthlyAuditCompletionStatus(workspaceId, organisationId || null);
             const auditTypes = Object.keys(completionStatus);
 
             let response = 'Latest audit scores:\n\n';
@@ -1037,7 +1126,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         } else {
           // General audit status query
           const { getMonthlyAuditCompletionStatus } = await import('@/lib/firestore');
-          const completionStatus = await getMonthlyAuditCompletionStatus(workspaceId, (selectedItem as any).organisationId || null);
+          const completionStatus = await getMonthlyAuditCompletionStatus(workspaceId, organisationId || null);
           const auditTypes = Object.keys(completionStatus);
 
           let response = 'Here is the current audit status:\n\n';
@@ -1092,7 +1181,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
           return;
         }
 
-        const orgId = (selectedItem as any).organisationId || (selectedItem as any).organisation?.id || null;
+        const orgId = organisationId || (selectedItem as any).organisation?.id || null;
 
         // Try to get dependency data from user's snapshots or calculate from current data
         const userIdToUse = user?.id ?? mockUser.id;
@@ -1438,8 +1527,8 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
 
         // Get teams for the workspace from workspace subcollection
         const { collection, getDocs } = await import('firebase/firestore');
-        const orgId = (selectedItem as any)?.organisationId || null;
-  const teamsCol = collection(db, workspaceCollectionPath(workspaceId, 'teams', orgId));
+        const orgId = organisationId || null;
+        const teamsCol = collection(db, workspaceCollectionPath(workspaceId, 'teams', orgId));
         const snapshot = await getDocs(teamsCol);
         const teams = snapshot.docs.map(d => ({ id: d.id, name: d.data().name ?? 'Untitled Team' }));
 
@@ -1562,7 +1651,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
           return;
         }
 
-        const orgId2 = (selectedItem as any).organisationId || null;
+        const orgId2 = organisationId || null;
         const { searchDocumentsInWorkspace } = await import('@/lib/firestore');
   const relatedDocs = await searchDocumentsInWorkspace(workspaceId, intent.searchTerm || '', orgId2);
 
@@ -1634,7 +1723,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         }
 
         const { collection, getDocs } = await import('firebase/firestore');
-        const orgId3 = (selectedItem as any).organisationId || null;
+        const orgId3 = organisationId || null;
         const teamsCol = collection(db, workspaceCollectionPath(workspaceId, 'teams', orgId3));
         const snapshot = await getDocs(teamsCol);
         const workspaceTeams = snapshot.docs.map(d => ({
@@ -1860,7 +1949,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
         }
 
         const { searchDocumentsInWorkspace } = await import('@/lib/firestore');
-  const orgIdForSearch = (selectedItem as any).organisationId || null;
+  const orgIdForSearch = organisationId || null;
   const docs = await searchDocumentsInWorkspace(workspaceId, intent.searchTerm || '', orgIdForSearch);
 
         if (docs.length > 0) {
@@ -2043,7 +2132,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
       setIsTyping(true);
       try {
         const workspaceId = selectedItem.workspaceId;
-        const orgId = (selectedItem as any).organisationId || null;
+        const orgId = organisationId || null;
         if (!workspaceId) {
           appendMessages({ sender: 'ai', text: 'No workspace selected for workflow management.' });
           setIsTyping(false);
@@ -2119,7 +2208,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
           for (const docSnap of snapshot.docs) {
             const data = docSnap.data();
             if (data.status !== 'active') {
-              await updateDoc(doc(db, workspaceCollectionPath(workspaceId, 'workflows', orgId || null), docSnap.id), {
+              await updateDoc(doc(db, workspaceCollectionPath(workspaceId, 'workflows', orgId), docSnap.id), {
                 status: 'active'
               });
               activatedCount++;
@@ -2141,7 +2230,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
           for (const docSnap of snapshot.docs) {
             const data = docSnap.data();
             if (data.status === 'active') {
-              await updateDoc(doc(db, workspaceId, 'workflows', orgId || null, docSnap.id), {
+              await updateDoc(doc(db, workspaceCollectionPath(workspaceId, 'workflows', orgId), docSnap.id), {
                 status: 'inactive'
               });
               deactivatedCount++;
@@ -2207,6 +2296,352 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
       } catch (error) {
         console.error('Error managing workflows:', error);
         appendMessages({ sender: 'ai', text: 'Sorry, I couldn\'t manage the workflows. Please try again.' });
+      } finally {
+        setIsTyping(false);
+      }
+      return;
+    }
+
+    // Handle action plans query
+    if (intent.type === 'action_plans_query') {
+      appendMessages([{ sender: 'user', text: inputVal }, { sender: 'ai', text: 'Fetching action plans information...' }]);
+      setInput('');
+      setIsTyping(true);
+      try {
+        const workspaceId = selectedItem.workspaceId;
+        if (!workspaceId) {
+          appendMessages({ sender: 'ai', text: 'No workspace selected for action plans query.' });
+          setIsTyping(false);
+          return;
+        }
+
+        const orgId = organisationId || null;
+        const { collection, getDocs, query, orderBy, limit } = await import('firebase/firestore');
+        const actionPlansCol = collection(db, workspaceCollectionPath(workspaceId, 'action-plans', orgId));
+        const actionPlansQuery = query(actionPlansCol, orderBy('createdAt', 'desc'), limit(5));
+        const snapshot = await getDocs(actionPlansQuery);
+
+        if (!snapshot.empty) {
+          let response = '📋 **Recent Action Plans**\n\n';
+          snapshot.docs.forEach((doc, index) => {
+            const data = doc.data() as any;
+            const monthKey = data.monthKey || 'Unknown';
+            const totalItems = data.totalItems || 0;
+            const completedItems = data.completedItems || 0;
+            const isComplete = data.isComplete || false;
+            const statusIcon = isComplete ? '✅' : '⏳';
+            
+            response += `${index + 1}. ${statusIcon} **${monthKey}**\n`;
+            response += `   Progress: ${completedItems}/${totalItems} items completed\n`;
+            response += `   Status: ${isComplete ? 'Complete' : 'In Progress'}\n\n`;
+          });
+          appendMessages({ sender: 'ai', text: response });
+        } else {
+          appendMessages({ sender: 'ai', text: 'No action plans found in this workspace.' });
+        }
+      } catch (error) {
+        console.error('Error fetching action plans:', error);
+        appendMessages({ sender: 'ai', text: 'Sorry, I couldn\'t fetch the action plans information. Please try again.' });
+      } finally {
+        setIsTyping(false);
+      }
+      return;
+    }
+
+    // Handle holiday/annual leave query
+    if (intent.type === 'holiday_query') {
+      appendMessages([{ sender: 'user', text: inputVal }, { sender: 'ai', text: 'Checking who is on leave...' }]);
+      setInput('');
+      setIsTyping(true);
+      try {
+        const workspaceId = selectedItem.workspaceId;
+        if (!workspaceId) {
+          appendMessages({ sender: 'ai', text: 'No workspace selected to check holidays.' });
+          setIsTyping(false);
+          return;
+        }
+
+        const orgId = organisationId || null;
+        const timeframe: string = intent.timeframe || 'this-week';
+
+        const toStartOfDay = (date: Date) => {
+          const d = new Date(date);
+          d.setHours(0, 0, 0, 0);
+          return d;
+        };
+
+        const toEndOfDay = (date: Date) => {
+          const d = new Date(date);
+          d.setHours(23, 59, 59, 999);
+          return d;
+        };
+
+        const addDays = (date: Date, days: number) => {
+          const d = new Date(date);
+          d.setDate(d.getDate() + days);
+          return d;
+        };
+
+        const startOfWeek = (date: Date) => {
+          const d = toStartOfDay(date);
+          const diff = d.getDay();
+          d.setDate(d.getDate() - diff);
+          return d;
+        };
+
+        const endOfWeek = (start: Date) => toEndOfDay(addDays(start, 6));
+
+        const now = new Date();
+        let rangeStart: Date;
+        let rangeEnd: Date;
+
+        switch (timeframe) {
+          case 'next-week': {
+            const start = addDays(startOfWeek(now), 7);
+            rangeStart = start;
+            rangeEnd = endOfWeek(start);
+            break;
+          }
+          case 'last-week': {
+            const start = addDays(startOfWeek(now), -7);
+            rangeStart = start;
+            rangeEnd = endOfWeek(start);
+            break;
+          }
+          case 'today': {
+            rangeStart = toStartOfDay(now);
+            rangeEnd = toEndOfDay(now);
+            break;
+          }
+          case 'tomorrow': {
+            const tomorrow = addDays(now, 1);
+            rangeStart = toStartOfDay(tomorrow);
+            rangeEnd = toEndOfDay(tomorrow);
+            break;
+          }
+          case 'this-month': {
+            const start = new Date(now.getFullYear(), now.getMonth(), 1);
+            const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            rangeStart = toStartOfDay(start);
+            rangeEnd = toEndOfDay(end);
+            break;
+          }
+          case 'next-month': {
+            const start = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+            const end = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+            rangeStart = toStartOfDay(start);
+            rangeEnd = toEndOfDay(end);
+            break;
+          }
+          default: {
+            const start = startOfWeek(now);
+            rangeStart = start;
+            rangeEnd = endOfWeek(start);
+          }
+        }
+
+        const periodLabel = (() => {
+          const sameDay = rangeStart.toDateString() === rangeEnd.toDateString();
+          if (sameDay) return formatDateSafe(rangeStart) || 'the selected day';
+          const startText = formatDateSafe(rangeStart) || '';
+          const endText = formatDateSafe(rangeEnd) || '';
+          return `${startText} – ${endText}`.trim();
+        })();
+
+        const weekKeys = new Set<string>();
+        const cursor = new Date(rangeStart);
+        while (cursor <= rangeEnd) {
+          const wkStart = startOfWeek(cursor);
+          const weekKey = wkStart.toISOString().split('T')[0];
+          weekKeys.add(weekKey);
+          cursor.setDate(cursor.getDate() + 1);
+        }
+
+        const { doc, getDoc } = await import('firebase/firestore');
+
+        const leaveByStaff = new Map<string, { name: string; entries: Array<{ date: Date; hours?: number | null; notes?: string | null }> }>();
+
+        for (const weekKey of weekKeys.values()) {
+          const rotaRef = doc(db, workspaceCollectionPath(workspaceId, 'rotas', orgId), weekKey);
+          const rotaSnap = await getDoc(rotaRef);
+          if (!rotaSnap.exists()) continue;
+
+          const rotaData = rotaSnap.data() as { shifts?: Array<any> } | undefined;
+          const shifts = Array.isArray(rotaData?.shifts) ? rotaData!.shifts : [];
+
+          for (const shift of shifts) {
+            if (!shift || shift.type !== 'AnnualLeave') continue;
+            if (!shift.date) continue;
+
+            const shiftDate = new Date(shift.date);
+            if (Number.isNaN(shiftDate.getTime())) continue;
+            if (shiftDate < rangeStart || shiftDate > rangeEnd) continue;
+
+            const staffName = typeof shift.staffName === 'string' && shift.staffName.trim()
+              ? shift.staffName.trim()
+              : typeof shift.staffFullName === 'string' && shift.staffFullName.trim()
+                ? shift.staffFullName.trim()
+                : typeof shift.staffDisplayName === 'string' && shift.staffDisplayName.trim()
+                  ? shift.staffDisplayName.trim()
+                  : String(shift.staffId || 'Unknown staff');
+
+            const staffKey = String(shift.staffId || staffName);
+            const entry = leaveByStaff.get(staffKey) || {
+              name: staffName,
+              entries: [] as Array<{ date: Date; hours?: number | null; notes?: string | null }>,
+            };
+            entry.entries.push({ date: shiftDate, hours: shift.leave?.totalHours ?? null, notes: shift.notes ?? null });
+            leaveByStaff.set(staffKey, entry);
+          }
+        }
+
+        if (leaveByStaff.size === 0) {
+          appendMessages({ sender: 'ai', text: `No one appears to be on annual leave for ${periodLabel}.` });
+          setIsTyping(false);
+          return;
+        }
+
+        const sortedStaff = Array.from(leaveByStaff.values()).sort((a, b) => a.name.localeCompare(b.name));
+
+        let response = `🌴 **Annual Leave (${periodLabel})**\n\n`;
+        for (const staff of sortedStaff) {
+          const days = staff.entries
+            .sort((a, b) => a.date.getTime() - b.date.getTime())
+            .map((entry) => {
+              const dateText = formatDateSafe(entry.date) || entry.date.toISOString().split('T')[0];
+              const hoursText = typeof entry.hours === 'number' && entry.hours > 0 ? ` (${entry.hours.toFixed(1)}h)` : '';
+              return `• ${dateText}${hoursText}`;
+            });
+
+          response += `**${staff.name}**\n${days.join('\n')}\n\n`;
+        }
+
+        appendMessages({ sender: 'ai', text: response.trimEnd() });
+      } catch (error) {
+        console.error('Error fetching holiday information:', error);
+        appendMessages({ sender: 'ai', text: 'Sorry, I could not check holiday information right now.' });
+      } finally {
+        setIsTyping(false);
+      }
+      return;
+    }
+
+    // Handle rotas query
+    if (intent.type === 'rotas_query') {
+      appendMessages([{ sender: 'user', text: inputVal }, { sender: 'ai', text: 'Fetching rota information...' }]);
+      setInput('');
+      setIsTyping(true);
+      try {
+        const workspaceId = selectedItem.workspaceId;
+        if (!workspaceId) {
+          appendMessages({ sender: 'ai', text: 'No workspace selected for rotas query.' });
+          setIsTyping(false);
+          return;
+        }
+
+        const orgId = organisationId || null;
+        const userId = user?.id;
+        
+        if (!userId) {
+          appendMessages({ sender: 'ai', text: 'User authentication required to view rotas.' });
+          setIsTyping(false);
+          return;
+        }
+
+        // Get current week's rota
+        const today = new Date();
+        const startOfWeek = new Date(today);
+        startOfWeek.setDate(today.getDate() - today.getDay()); // Start of week (Sunday)
+        const weekKey = startOfWeek.toISOString().split('T')[0];
+
+        const { doc, getDoc } = await import('firebase/firestore');
+        const rotaRef = doc(db, workspaceCollectionPath(workspaceId, 'rotas', orgId), weekKey);
+        const rotaSnap = await getDoc(rotaRef);
+
+        if (rotaSnap.exists()) {
+          const rotaData = rotaSnap.data() as any;
+          const shifts = rotaData.shifts || [];
+          const userShifts = shifts.filter((shift: any) => shift.staffId === userId);
+
+          if (userShifts.length > 0) {
+            let response = `📅 **Your Rota for Week of ${startOfWeek.toLocaleDateString()}**\n\n`;
+            userShifts.forEach((shift: any, index: number) => {
+              const date = new Date(shift.date).toLocaleDateString();
+              const timeRange = shift.startTime && shift.endTime ? `${shift.startTime} - ${shift.endTime}` : 'Time TBC';
+              const type = shift.type || 'Regular';
+              response += `${index + 1}. **${date}**: ${timeRange} (${type})\n`;
+            });
+            appendMessages({ sender: 'ai', text: response });
+          } else {
+            appendMessages({ sender: 'ai', text: 'No shifts found for you in the current week.' });
+          }
+        } else {
+          appendMessages({ sender: 'ai', text: 'No rota data found for the current week.' });
+        }
+      } catch (error) {
+        console.error('Error fetching rotas:', error);
+        appendMessages({ sender: 'ai', text: 'Sorry, I couldn\'t fetch the rota information. Please try again.' });
+      } finally {
+        setIsTyping(false);
+      }
+      return;
+    }
+
+    // Handle lessons learned and RCA query
+    if (intent.type === 'lessons_rca_query') {
+      appendMessages([{ sender: 'user', text: inputVal }, { sender: 'ai', text: 'Fetching lessons learned and RCA records...' }]);
+      setInput('');
+      setIsTyping(true);
+      try {
+        const workspaceId = selectedItem.workspaceId;
+        if (!workspaceId) {
+          appendMessages({ sender: 'ai', text: 'No workspace selected for lessons learned/RCA query.' });
+          setIsTyping(false);
+          return;
+        }
+
+        const orgId = organisationId || null;
+        const { collection, getDocs, query, orderBy, limit } = await import('firebase/firestore');
+        
+        // Fetch lessons learned
+        const lessonsCol = collection(db, workspaceCollectionPath(workspaceId, 'lessons-learned', orgId));
+        const lessonsQuery = query(lessonsCol, orderBy('createdAt', 'desc'), limit(3));
+        const lessonsSnap = await getDocs(lessonsQuery);
+        
+        // Fetch RCA records
+        const rcaCol = collection(db, workspaceCollectionPath(workspaceId, 'rca-records', orgId));
+        const rcaQuery = query(rcaCol, orderBy('createdAt', 'desc'), limit(3));
+        const rcaSnap = await getDocs(rcaQuery);
+
+        let response = '📚 **Lessons Learned & Root Cause Analysis**\n\n';
+
+        if (!lessonsSnap.empty) {
+          response += '**Recent Lessons Learned:**\n';
+          lessonsSnap.docs.forEach((doc, index) => {
+            const data = doc.data() as any;
+            const createdAt = data.createdAt?.toDate?.()?.toLocaleDateString() || 'Unknown';
+            response += `${index + 1}. ${createdAt}: ${data.form?.title || 'Untitled'}\n`;
+          });
+          response += '\n';
+        }
+
+        if (!rcaSnap.empty) {
+          response += '**Recent RCA Records:**\n';
+          rcaSnap.docs.forEach((doc, index) => {
+            const data = doc.data() as any;
+            const createdAt = data.createdAt?.toDate?.()?.toLocaleDateString() || 'Unknown';
+            response += `${index + 1}. ${createdAt}: ${data.form?.incidentTitle || 'Untitled'}\n`;
+          });
+        }
+
+        if (lessonsSnap.empty && rcaSnap.empty) {
+          response = 'No lessons learned or RCA records found in this workspace.';
+        }
+
+        appendMessages({ sender: 'ai', text: response });
+      } catch (error) {
+        console.error('Error fetching lessons learned/RCA:', error);
+        appendMessages({ sender: 'ai', text: 'Sorry, I couldn\'t fetch the lessons learned and RCA information. Please try again.' });
       } finally {
         setIsTyping(false);
       }
@@ -2734,7 +3169,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
   const { collection, getDocs } = await import('firebase/firestore');
         // Prefer organisation-scoped workspace teams path to respect security rules.
         const wsId = selectedItem.workspaceId;
-        const orgId = (selectedItem as any)?.organisationId || undefined;
+        const orgId = organisationId || null;
         const teamsCol = collection(db, workspaceCollectionPath(wsId, 'teams', orgId));
         const snapshot = await getDocs(teamsCol);
         const fetched = snapshot.docs.map(d => ({ id: d.id, name: (d.data() as any)?.name ?? 'Untitled Team' }));
@@ -2745,7 +3180,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
       }
     })();
     return () => { cancelled = true; };
-  }, [selectedItem?.workspaceId]);
+  }, [selectedItem?.workspaceId, organisationId]);
 
   // Listen for policy opening events to set active document context
   useEffect(() => {
@@ -2895,6 +3330,15 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
               <Button size="sm" variant="ghost" onClick={() => { setInput('Benchmark comparison'); setTimeout(() => handleSend(), 60); }}>
                 Benchmark comparison
               </Button>
+              <Button size="sm" variant="ghost" onClick={() => { setInput('Show me action plans'); setTimeout(() => handleSend(), 60); }}>
+                Show action plans
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => { setInput('What is my rota this week?'); setTimeout(() => handleSend(), 60); }}>
+                Show my rota
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => { setInput('Show lessons learned'); setTimeout(() => handleSend(), 60); }}>
+                Lessons learned
+              </Button>
               <Button size="sm" variant="ghost" onClick={() => { setInput('Create audit reminders workflow'); setTimeout(() => handleSend(), 60); }}>
                 Create audit workflow
               </Button>
@@ -2952,7 +3396,7 @@ export function ChatPanel({ selectedItem, onFolderAdd }: ChatPanelProps) {
       <div className="p-4 border-t bg-white shrink-0">
         <div className="relative">
           <Textarea
-            placeholder="Ask me anything... 'Show advanced analytics', 'Performance analysis', 'Predictive insights', 'Risk assessment', 'Benchmark comparison', 'Create audit workflow', 'Show workflows'..."
+            placeholder="Ask me anything... 'Show advanced analytics', 'Performance analysis', 'Predictive insights', 'Risk assessment', 'Benchmark comparison', 'Show action plans', 'What is my rota?', 'Show lessons learned', 'Create audit workflow', 'Show workflows'..."
             className="w-full resize-none pr-12 min-h-[48px] border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:border-blue-300 transition-colors"
             value={input}
             onChange={(e) => setInput(e.target.value)}

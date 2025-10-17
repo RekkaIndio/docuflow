@@ -361,14 +361,43 @@ export async function getWorkspacesForUser(userId: string, orgIdOverride?: strin
 }
 
 export async function getUserById(userId: string): Promise<User | null> {
+    if (!userId) return null;
+
+    let shouldAttemptClientRead = false;
+
+    try {
+        const resp = await fetch(`/api/users/${encodeURIComponent(userId)}`);
+        if (resp.ok) {
+            const data = await resp.json();
+            if (data && !data.error) {
+                const { id = userId, ...rest } = data as any;
+                return { id, ...rest } as User;
+            }
+            return null;
+        }
+
+        if (resp.status === 404 || resp.status === 403) {
+            // User not found or caller lacks access; do not fall back to Firestore.
+            return null;
+        }
+
+        shouldAttemptClientRead = resp.status >= 500;
+    } catch (apiError) {
+        // Network or other failure when calling the privileged API; try client read as a fallback.
+        shouldAttemptClientRead = true;
+    }
+
+    if (!shouldAttemptClientRead) {
+        return null;
+    }
+
     try {
         const userRef = doc(db, `users`, userId);
         const snap = await getDoc(userRef);
         if (!snap.exists()) return null;
-    const data = snap.data() as User;
-    // Avoid duplicate `id` field if present in the stored doc
-    const { id: _maybeId, ...rest } = data as any;
-    return { id: snap.id, ...rest } as User;
+        const data = snap.data() as User;
+        const { id: _maybeId, ...rest } = data as any;
+        return { id: snap.id, ...rest } as User;
     } catch (error) {
         console.error('Error fetching user by id', userId, error);
         return null;
