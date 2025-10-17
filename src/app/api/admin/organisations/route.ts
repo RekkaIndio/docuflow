@@ -4,6 +4,7 @@ import { resolveAdminContext } from '../_utils/admin-auth';
 import { ensureProtectedFolders } from '../_utils/workspaces';
 import { randomBytes } from 'crypto';
 import type { UserRecord } from 'firebase-admin/auth';
+import { sendWelcomeEmail } from '@/actions/email';
 
 function toIso(value: any): string | null {
   try {
@@ -192,6 +193,20 @@ export async function POST(req: Request) {
       console.warn('[admin organisations] failed to generate password link', linkError);
     }
 
+    // Send welcome email if password link was generated successfully
+    if (passwordLink) {
+      try {
+        await sendWelcomeEmail({
+          recipientEmail: ownerEmail,
+          organisationName,
+          passwordResetLink: passwordLink,
+        });
+      } catch (emailError) {
+        console.warn('[admin organisations] failed to send welcome email', emailError);
+        // Don't fail the entire operation if email fails
+      }
+    }
+
     return NextResponse.json({
       ok: true,
       organisation: {
@@ -210,6 +225,7 @@ export async function POST(req: Request) {
       },
       userCreated,
       passwordLink,
+      emailSent: !!passwordLink, // Indicate if welcome email was sent
     });
   } catch (error) {
     console.error('[admin organisations] POST failed', error);

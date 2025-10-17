@@ -36,6 +36,7 @@ interface RotaGridProps {
   onDeleteShift: (shiftId: string, date: string) => void;
   calculateStaffHours?: (staffId: string) => number;
   patterns: ShiftPattern[];
+  readOnly?: boolean;
 }
 
 const ANNUAL_LEAVE_THEME = {
@@ -66,7 +67,7 @@ const formatHours = (hours: number): string => {
   return hours.toFixed(1);
 };
 
-export function RotaGrid({ weekStart, weeksToShow, staff, shifts, onAddShift, onDeleteShift, calculateStaffHours, patterns }: RotaGridProps) {
+export function RotaGrid({ weekStart, weeksToShow, staff, shifts, onAddShift, onDeleteShift, calculateStaffHours, patterns, readOnly = false }: RotaGridProps) {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -190,11 +191,12 @@ export function RotaGrid({ weekStart, weeksToShow, staff, shifts, onAddShift, on
               <Card
                 key={date.toISOString()}
                 className={cn(
-                  "overflow-hidden transition-all hover:shadow-lg cursor-pointer",
+                  "overflow-hidden transition-all hover:shadow-lg",
+                  (readOnly ? hasEntries : true) && "cursor-pointer",
                   todayCard && "ring-2 ring-primary shadow-md",
                   weekend && "bg-muted/30"
                 )}
-                onClick={() => hasEntries && handleViewDetails(date, dateStr)}
+                onClick={() => (readOnly ? hasEntries : true) && handleViewDetails(date, dateStr)}
               >
                 <CardHeader className={cn(
                   "pb-3",
@@ -283,20 +285,22 @@ export function RotaGrid({ weekStart, weeksToShow, staff, shifts, onAddShift, on
                     )}
 
                     {/* Action buttons */}
-                    <div className="flex gap-2 pt-2">
-                      <Button
-                        variant={!hasEntries ? "default" : "outline"}
-                        size="sm"
-                        className={cn("w-full", !hasEntries && "border-dashed")}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleAddClick(dateStr);
-                        }}
-                      >
-                        <Plus className="w-4 h-4 mr-1" />
-                        Add Entry
-                      </Button>
-                    </div>
+                    {!readOnly && (
+                      <div className="flex gap-2 pt-2">
+                        <Button
+                          variant={!hasEntries ? "default" : "outline"}
+                          size="sm"
+                          className={cn("w-full", !hasEntries && "border-dashed")}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAddClick(dateStr);
+                          }}
+                        >
+                          <Plus className="w-4 h-4 mr-1" />
+                          Add Entry
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -409,14 +413,16 @@ export function RotaGrid({ weekStart, weeksToShow, staff, shifts, onAddShift, on
                                 </div>
                               </div>
                             </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="hover:bg-red-500/20"
-                              onClick={() => onDeleteShift(shift.id, shift.date)}
-                            >
-                              <X className="w-4 h-4" />
-                            </Button>
+                            {!readOnly && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="hover:bg-red-500/20"
+                                onClick={() => onDeleteShift(shift.id, shift.date)}
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            )}
                           </div>
                         );
                       })}
@@ -470,14 +476,16 @@ export function RotaGrid({ weekStart, weeksToShow, staff, shifts, onAddShift, on
                                 </div>
                               </div>
                             </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="hover:bg-red-500/20"
-                              onClick={() => onDeleteShift(shift.id, shift.date)}
-                            >
-                              <X className="w-4 h-4" />
-                            </Button>
+                            {!readOnly && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="hover:bg-red-500/20"
+                                onClick={() => onDeleteShift(shift.id, shift.date)}
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            )}
                           </div>
                         );
                       })}
@@ -485,17 +493,19 @@ export function RotaGrid({ weekStart, weeksToShow, staff, shifts, onAddShift, on
                   </div>
                 )}
 
-                <Button
-                  variant="outline"
-                  className="w-full mt-4 border-dashed"
-                  onClick={() => {
-                    setDetailsDialogOpen(false);
-                    handleAddClick(selectedDate);
-                  }}
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Another Entry
-                </Button>
+                {!readOnly && (
+                  <Button
+                    variant="outline"
+                    className="w-full mt-4 border-dashed"
+                    onClick={() => {
+                      setDetailsDialogOpen(false);
+                      handleAddClick(selectedDate);
+                    }}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Another Entry
+                  </Button>
+                )}
               </div>
             );
           })()}

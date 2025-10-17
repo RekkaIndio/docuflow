@@ -47,6 +47,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const { uid, email, displayName, photoURL } = firebaseUser;
         // Basic user fields from Firebase auth; then hydrate with server-side user doc
         const basicUser = { id: uid, email, name: displayName, avatarUrl: photoURL };
+        // Set the ID token cookie for middleware authentication
+        (async () => {
+          try {
+            const idToken = await firebaseUser.getIdToken();
+            if (typeof document !== 'undefined') {
+              document.cookie = `token=${idToken}; Path=/; Max-Age=3600`;
+            }
+          } catch (e) {
+            console.warn('Failed to set token cookie:', e);
+          }
+        })();
         setUser(basicUser);
         try { if (typeof window !== 'undefined') (window as any).__USER__ = basicUser; } catch (e) {}
 
@@ -127,8 +138,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = () => {
     if (typeof document !== 'undefined') {
-      // clear cookie
+      // clear cookies
       document.cookie = 'isAdmin=; Path=/; Max-Age=0';
+      document.cookie = 'token=; Path=/; Max-Age=0';
     }
     return firebaseSignOut(auth);
   };

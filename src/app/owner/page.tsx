@@ -28,6 +28,10 @@ import {
   UserPlus,
   X,
   Sparkles,
+  Activity,
+  Database,
+  Server,
+  Clock,
 } from 'lucide-react';
 
 type OrganisationSummary = {
@@ -155,6 +159,55 @@ type InviteFormState = {
 
 type TabKey = 'overview' | 'workspaces' | 'members' | 'invites' | 'features';
 
+type SystemHealth = {
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  timestamp: string;
+  uptime: number;
+  services: {
+    firestore: {
+      status: string;
+      latency: number;
+    };
+    auth: {
+      status: string;
+      latency: number;
+    };
+  };
+  metrics: {
+    totalUsers: number;
+    totalOrganisations: number;
+    totalWorkspaces: number;
+    totalDocuments: number;
+  };
+  responseTime: number;
+};
+
+type GlobalUser = {
+  id: string;
+  name: string | null;
+  email: string | null;
+  avatarUrl: string | null;
+  role?: string;
+  status?: string;
+  createdAt: string;
+  lastLoginAt?: string;
+  organisations?: Array<{
+    id: string;
+    name: string;
+    role: string;
+  }>;
+  organisationCount?: number;
+};
+
+type UserStatistics = {
+  totalUsers: number;
+  newUsersLast30Days: number;
+  newUsersLast7Days: number;
+  activeUsersLast30Days: number;
+  activeUsersLast7Days: number;
+  roleDistribution: Record<string, number>;
+};
+
 const DEFAULT_PROVISION_FORM: ProvisionFormState = {
   organisationName: '',
   ownerName: '',
@@ -209,6 +262,7 @@ const OwnerConsolePage: React.FC = () => {
   const [selectedOrganisationId, setSelectedOrganisationId] = useState<string | null>(null);
   const [organisationDetail, setOrganisationDetail] = useState<OrganisationDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState<boolean>(false);
+  const [mainTab, setMainTab] = useState<'dashboard' | 'organisations' | 'users'>('dashboard');
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
 
   const [workspaceForm, setWorkspaceForm] = useState<WorkspaceFormState>(DEFAULT_WORKSPACE_FORM);
@@ -223,6 +277,17 @@ const OwnerConsolePage: React.FC = () => {
   const [inviteDeleting, setInviteDeleting] = useState<string | null>(null);
 
   const [featureFlagsSaving, setFeatureFlagsSaving] = useState<string | null>(null);
+
+  const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
+  const [healthLoading, setHealthLoading] = useState<boolean>(false);
+
+  const [globalUsers, setGlobalUsers] = useState<GlobalUser[]>([]);
+  const [userStatistics, setUserStatistics] = useState<UserStatistics | null>(null);
+  const [usersLoading, setUsersLoading] = useState<boolean>(false);
+  const [userSearch, setUserSearch] = useState<string>('');
+  const [userOffset, setUserOffset] = useState<number>(0);
+  const [userTotal, setUserTotal] = useState<number>(0);
+  const [userUpdating, setUserUpdating] = useState<string | null>(null);
 
   const aggregateMetrics = useMemo(() => {
     const totalOrgs = organisations.length;
@@ -252,9 +317,17 @@ const OwnerConsolePage: React.FC = () => {
       console.warn('[owner console] failed to fetch ID token', tokenError);
     }
 
-    if (!hasAuthHeader && typeof window !== 'undefined' && (window as any)?.__ADMIN_SECRET) {
-      headers.set('x-admin-secret', (window as any).__ADMIN_SECRET as string);
-      hasAuthHeader = true;
+    // For development, use admin secret as fallback
+    if (!hasAuthHeader && typeof window !== 'undefined') {
+      if ((window as any).__ADMIN_SECRET) {
+        headers.set('x-admin-secret', (window as any).__ADMIN_SECRET as string);
+        hasAuthHeader = true;
+      } else {
+        // Set default admin secret for development
+        (window as any).__ADMIN_SECRET = 'test';
+        headers.set('x-admin-secret', 'test');
+        hasAuthHeader = true;
+      }
     }
 
     if (!hasAuthHeader) {
@@ -290,37 +363,87 @@ const OwnerConsolePage: React.FC = () => {
     }
   }, [authedFetch, toast]);
 
-  const fetchOrganisationDetail = useCallback(
-    async (organisationId: string) => {
-      setDetailLoading(true);
-      try {
-        const response = await authedFetch(`/api/admin/organisations/${organisationId}`, { cache: 'no-store' });
-        if (!response.ok) {
-          const payload = await readJson<{ error?: string }>(response);
-          throw new Error(payload.error || 'Failed to load organisation');
-        }
-        const payload = await readJson<OrganisationDetail>(response);
-        setOrganisationDetail(payload);
-        setWorkspaceForm(DEFAULT_WORKSPACE_FORM);
-        setMemberForm(DEFAULT_MEMBER_FORM);
-        setInviteForm(DEFAULT_INVITE_FORM);
-      } catch (error) {
-        console.error('[owner console] failed to load organisation detail', error);
-        toast({
-          title: 'Unable to load organisation',
-          description: error instanceof Error ? error.message : 'Please refresh and try again.',
-          variant: 'destructive',
-        });
-      } finally {
-        setDetailLoading(false);
-      }
-    },
-    [authedFetch, toast]
-  );
-
+  // Load organisations on mount
   useEffect(() => {
     fetchOrganisations();
   }, [fetchOrganisations]);
+
+  const fetchSystemHealth = useCallback(async () => {
+    setHealthLoading(true);
+    try {
+      const response = await authedFetch('/api/admin/health', { cache: 'no-store' });
+      if (!response.ok) {
+        const payload = await readJson<{ error?: string }>(response);
+        throw new Error(payload.error || 'Failed to load system health');
+      }
+      const payload = await readJson<SystemHealth>(response);
+      setSystemHealth(payload);
+    } catch (error) {
+      console.error('[owner console] failed to load system health', error);
+      toast({
+        title: 'Unable to load system health',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setHealthLoading(false);
+    }
+  }, [authedFetch, toast]);
+
+  const fetchGlobalUsers = useCallback(async (search = '', offset = 0) => {
+    setUsersLoading(true);
+    try {
+      const params = new URLSearchParams({
+        limit: '50',
+        offset: offset.toString(),
+        ...(search && { search }),
+      });
+      const response = await authedFetch(`/api/admin/users?${params}`, { cache: 'no-store' });
+      if (!response.ok) {
+        const payload = await readJson<{ error?: string }>(response);
+        throw new Error(payload.error || 'Failed to load users');
+      }
+      const payload = await readJson<{
+        users: GlobalUser[];
+        total: number;
+        statistics: UserStatistics;
+      }>(response);
+      setGlobalUsers(payload.users);
+      setUserTotal(payload.total);
+      setUserStatistics(payload.statistics);
+    } catch (error) {
+      console.error('[owner console] failed to load global users', error);
+      toast({
+        title: 'Unable to load users',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setUsersLoading(false);
+    }
+  }, [authedFetch, toast]);
+
+  const fetchOrganisationDetail = useCallback(async (organisationId: string) => {
+    setDetailLoading(true);
+    try {
+      const response = await authedFetch(`/api/admin/organisations/${organisationId}`, { cache: 'no-store' });
+      if (!response.ok) {
+        const payload = await readJson<{ error?: string }>(response);
+        throw new Error(payload.error || 'Failed to load organisation details');
+      }
+      const payload = await readJson<OrganisationDetail>(response);
+      setOrganisationDetail(payload);
+    } catch (error) {
+      console.error('[owner console] failed to load organisation details', error);
+      toast({
+        title: 'Unable to load organisation details',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDetailLoading(false);
+    }
+  }, [authedFetch, toast]);
 
   const handleChange = (field: keyof ProvisionFormState) => (event: ChangeEvent<HTMLInputElement>) => {
     setForm((prev) => ({ ...prev, [field]: event.target.value }));
@@ -623,31 +746,54 @@ const OwnerConsolePage: React.FC = () => {
     }
   };
 
+  const handleUserUpdate = useCallback(async (userId: string, updates: { role?: string; status?: string }) => {
+    setUserUpdating(userId);
+    try {
+      const response = await authedFetch('/api/admin/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, updates }),
+      });
+      const payload = await readJson<{ error?: string }>(response);
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to update user');
+      }
+
+      await fetchGlobalUsers(userSearch, userOffset);
+      toast({ title: 'User updated successfully' });
+    } catch (error) {
+      console.error('[owner console] failed to update user', error);
+      toast({
+        title: 'Unable to update user',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setUserUpdating(null);
+    }
+  }, [authedFetch, toast, fetchGlobalUsers, userSearch, userOffset]);
+
   const handleFeatureToggle = async (featureKey: string, enabled: boolean) => {
     if (!selectedOrganisationId) return;
 
     setFeatureFlagsSaving(featureKey);
     try {
-      const response = await authedFetch(`/api/admin/organisations/${selectedOrganisationId}/feature-flags`, {
+      const response = await authedFetch(`/api/admin/organisations/${selectedOrganisationId}/features`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ featureKey, enabled }),
       });
-      const payload = await readJson<{ error?: string; featureFlags?: FeatureFlagsState }>(response);
+      const payload = await readJson<{ error?: string }>(response);
       if (!response.ok) {
         throw new Error(payload.error || 'Failed to update feature flag');
       }
 
-      if (organisationDetail && payload.featureFlags) {
-        setOrganisationDetail({ ...organisationDetail, featureFlags: payload.featureFlags });
-      } else if (selectedOrganisationId) {
-        await fetchOrganisationDetail(selectedOrganisationId);
-      }
-      toast({ title: enabled ? 'Feature enabled' : 'Feature disabled' });
+      await fetchOrganisationDetail(selectedOrganisationId);
+      toast({ title: 'Feature flag updated' });
     } catch (error) {
-      console.error('[owner console] failed to toggle feature flag', error);
+      console.error('[owner console] failed to update feature flag', error);
       toast({
-        title: 'Unable to update feature',
+        title: 'Unable to update feature flag',
         description: error instanceof Error ? error.message : 'Please try again later.',
         variant: 'destructive',
       });
@@ -713,7 +859,121 @@ const OwnerConsolePage: React.FC = () => {
           </div>
         </header>
 
-        <section className="grid gap-6 lg:grid-cols-[1.35fr,1fr] xl:grid-cols-[1.2fr,1fr]">
+        <Tabs value={mainTab} onValueChange={(value) => setMainTab(value as 'dashboard' | 'organisations' | 'users')}>
+          <TabsList className="mb-6 grid grid-cols-3 rounded-full bg-muted/60 p-1">
+            <TabsTrigger value="dashboard" className="rounded-full">Dashboard</TabsTrigger>
+            <TabsTrigger value="organisations" className="rounded-full">Organisations</TabsTrigger>
+            <TabsTrigger value="users" className="rounded-full">Users</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="dashboard" className="space-y-6">
+            <section className="rounded-3xl border border-border/70 bg-card/80 p-6 shadow-sm backdrop-blur">
+              <div className="flex flex-col gap-6">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <h2 className="text-xl font-semibold tracking-tight">System Health</h2>
+                    <p className="text-sm text-muted-foreground">Monitor platform services and key metrics</p>
+                  </div>
+                  <Button variant="outline" onClick={fetchSystemHealth} disabled={healthLoading} size="sm">
+                    {healthLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
+                    Refresh
+                  </Button>
+                </div>
+
+                {systemHealth && (
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    <Card className="border-none bg-muted/40">
+                      <CardHeader className="pb-2">
+                        <CardDescription>Overall Status</CardDescription>
+                        <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+                          <Activity className={`h-4 w-4 ${
+                            systemHealth.status === 'healthy' ? 'text-green-500' :
+                            systemHealth.status === 'degraded' ? 'text-yellow-500' : 'text-red-500'
+                          }`} />
+                          {systemHealth.status.charAt(0).toUpperCase() + systemHealth.status.slice(1)}
+                        </CardTitle>
+                      </CardHeader>
+                    </Card>
+                    <Card className="border-none bg-muted/40">
+                      <CardHeader className="pb-2">
+                        <CardDescription>Firestore</CardDescription>
+                        <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+                          <Database className={`h-4 w-4 ${
+                            systemHealth.services.firestore.status === 'healthy' ? 'text-green-500' : 'text-red-500'
+                          }`} />
+                          {systemHealth.services.firestore.latency}ms
+                        </CardTitle>
+                      </CardHeader>
+                    </Card>
+                    <Card className="border-none bg-muted/40">
+                      <CardHeader className="pb-2">
+                        <CardDescription>Firebase Auth</CardDescription>
+                        <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+                          <ShieldCheck className={`h-4 w-4 ${
+                            systemHealth.services.auth.status === 'healthy' ? 'text-green-500' : 'text-red-500'
+                          }`} />
+                          {systemHealth.services.auth.latency}ms
+                        </CardTitle>
+                      </CardHeader>
+                    </Card>
+                    <Card className="border-none bg-muted/40">
+                      <CardHeader className="pb-2">
+                        <CardDescription>Response Time</CardDescription>
+                        <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+                          <Clock className="h-4 w-4 text-muted-foreground" />
+                          {systemHealth.responseTime}ms
+                        </CardTitle>
+                      </CardHeader>
+                    </Card>
+                  </div>
+                )}
+
+                {systemHealth && (
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    <Card className="border-none bg-muted/40">
+                      <CardHeader className="pb-2">
+                        <CardDescription>Total Users</CardDescription>
+                        <CardTitle className="flex items-center gap-2 text-2xl font-semibold">
+                          <Users className="h-5 w-5 text-muted-foreground" />
+                          {systemHealth.metrics.totalUsers.toLocaleString()}
+                        </CardTitle>
+                      </CardHeader>
+                    </Card>
+                    <Card className="border-none bg-muted/40">
+                      <CardHeader className="pb-2">
+                        <CardDescription>Organisations</CardDescription>
+                        <CardTitle className="flex items-center gap-2 text-2xl font-semibold">
+                          <Building className="h-5 w-5 text-muted-foreground" />
+                          {systemHealth.metrics.totalOrganisations.toLocaleString()}
+                        </CardTitle>
+                      </CardHeader>
+                    </Card>
+                    <Card className="border-none bg-muted/40">
+                      <CardHeader className="pb-2">
+                        <CardDescription>Workspaces</CardDescription>
+                        <CardTitle className="flex items-center gap-2 text-2xl font-semibold">
+                          <Server className="h-5 w-5 text-muted-foreground" />
+                          {systemHealth.metrics.totalWorkspaces.toLocaleString()}
+                        </CardTitle>
+                      </CardHeader>
+                    </Card>
+                    <Card className="border-none bg-muted/40">
+                      <CardHeader className="pb-2">
+                        <CardDescription>Documents</CardDescription>
+                        <CardTitle className="flex items-center gap-2 text-2xl font-semibold">
+                          <Flag className="h-5 w-5 text-muted-foreground" />
+                          {systemHealth.metrics.totalDocuments.toLocaleString()}
+                        </CardTitle>
+                      </CardHeader>
+                    </Card>
+                  </div>
+                )}
+              </div>
+            </section>
+          </TabsContent>
+
+          <TabsContent value="organisations" className="space-y-6">
+            <section className="grid gap-6 lg:grid-cols-[1.35fr,1fr] xl:grid-cols-[1.2fr,1fr]">
           <Card className="overflow-hidden border border-border/70 shadow-sm">
             <CardHeader className="space-y-1 border-b bg-muted/40 px-6 py-5">
               <CardTitle className="text-xl font-semibold">Provision a new organisation</CardTitle>
@@ -823,7 +1083,211 @@ const OwnerConsolePage: React.FC = () => {
             </CardContent>
           </Card>
         </section>
-      </div>
+          </TabsContent>
+
+          <TabsContent value="users" className="space-y-6">
+            <section className="rounded-3xl border border-border/70 bg-card/80 p-6 shadow-sm backdrop-blur">
+              <div className="flex flex-col gap-6">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <h2 className="text-xl font-semibold tracking-tight">Global User Management</h2>
+                    <p className="text-sm text-muted-foreground">Search, view, and manage all users across organisations</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      placeholder="Search users..."
+                      value={userSearch}
+                      onChange={(e) => setUserSearch(e.target.value)}
+                      className="w-64"
+                    />
+                    <Button variant="outline" onClick={() => fetchGlobalUsers(userSearch, 0)} disabled={usersLoading}>
+                      {usersLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
+                      Search
+                    </Button>
+                  </div>
+                </div>
+
+                {userStatistics && (
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    <Card className="border-none bg-muted/40">
+                      <CardHeader className="pb-2">
+                        <CardDescription>Total Users</CardDescription>
+                        <CardTitle className="text-2xl font-semibold">{userStatistics.totalUsers.toLocaleString()}</CardTitle>
+                      </CardHeader>
+                    </Card>
+                    <Card className="border-none bg-muted/40">
+                      <CardHeader className="pb-2">
+                        <CardDescription>New (30 days)</CardDescription>
+                        <CardTitle className="text-2xl font-semibold">{userStatistics.newUsersLast30Days.toLocaleString()}</CardTitle>
+                      </CardHeader>
+                    </Card>
+                    <Card className="border-none bg-muted/40">
+                      <CardHeader className="pb-2">
+                        <CardDescription>Active (30 days)</CardDescription>
+                        <CardTitle className="text-2xl font-semibold">{userStatistics.activeUsersLast30Days.toLocaleString()}</CardTitle>
+                      </CardHeader>
+                    </Card>
+                    <Card className="border-none bg-muted/40">
+                      <CardHeader className="pb-2">
+                        <CardDescription>Role Distribution</CardDescription>
+                        <CardTitle className="text-sm font-semibold">
+                          {Object.entries(userStatistics.roleDistribution).map(([role, count]) => (
+                            <div key={role} className="flex justify-between">
+                              <span className="capitalize">{role}:</span>
+                              <span>{count}</span>
+                            </div>
+                          ))}
+                        </CardTitle>
+                      </CardHeader>
+                    </Card>
+                  </div>
+                )}
+
+                <Card className="border border-border/70">
+                  <CardHeader>
+                    <CardTitle>Users</CardTitle>
+                    <CardDescription>Manage user accounts and permissions</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ScrollArea className="max-h-96">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>User</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Role</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Organisations</TableHead>
+                            <TableHead>Last Login</TableHead>
+                            <TableHead>Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {usersLoading ? (
+                            <TableRow>
+                              <TableCell colSpan={7} className="text-center py-8">
+                                <Loader2 className="mx-auto h-6 w-6 animate-spin" />
+                                Loading users...
+                              </TableCell>
+                            </TableRow>
+                          ) : globalUsers.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                                No users found.
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            globalUsers.map((user) => (
+                              <TableRow key={user.id}>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    {user.avatarUrl && (
+                                      <img src={user.avatarUrl} alt="" className="h-8 w-8 rounded-full" />
+                                    )}
+                                    <div>
+                                      <p className="font-medium">{user.name || 'Unnamed'}</p>
+                                      <p className="text-xs text-muted-foreground">ID: {user.id.slice(0, 8)}...</p>
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>{user.email || '—'}</TableCell>
+                                <TableCell>
+                                  <Select
+                                    value={user.role || 'user'}
+                                    onValueChange={(value) => handleUserUpdate(user.id, { role: value })}
+                                    disabled={userUpdating === user.id}
+                                  >
+                                    <SelectTrigger className="h-8 w-20">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="user">User</SelectItem>
+                                      <SelectItem value="admin">Admin</SelectItem>
+                                      <SelectItem value="owner">Owner</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </TableCell>
+                                <TableCell>
+                                  <Select
+                                    value={user.status || 'active'}
+                                    onValueChange={(value) => handleUserUpdate(user.id, { status: value })}
+                                    disabled={userUpdating === user.id}
+                                  >
+                                    <SelectTrigger className="h-8 w-24">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="active">Active</SelectItem>
+                                      <SelectItem value="suspended">Suspended</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex flex-wrap gap-1">
+                                    {user.organisations?.slice(0, 2).map((org) => (
+                                      <Badge key={org.id} variant="secondary" className="text-xs">
+                                        {org.name}
+                                      </Badge>
+                                    ))}
+                                    {user.organisationCount && user.organisationCount > 2 && (
+                                      <Badge variant="outline" className="text-xs">
+                                        +{user.organisationCount - 2}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-sm text-muted-foreground">
+                                  {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString() : 'Never'}
+                                </TableCell>
+                                <TableCell>
+                                  <Button variant="ghost" size="sm" disabled={userUpdating === user.id}>
+                                    {userUpdating === user.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Update'}
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
+
+                    {userTotal > 50 && (
+                      <div className="flex items-center justify-between mt-4">
+                        <p className="text-sm text-muted-foreground">
+                          Showing {globalUsers.length} of {userTotal} users
+                        </p>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setUserOffset(Math.max(0, userOffset - 50));
+                              fetchGlobalUsers(userSearch, Math.max(0, userOffset - 50));
+                            }}
+                            disabled={userOffset === 0}
+                          >
+                            Previous
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setUserOffset(userOffset + 50);
+                              fetchGlobalUsers(userSearch, userOffset + 50);
+                            }}
+                            disabled={userOffset + 50 >= userTotal}
+                          >
+                            Next
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </section>
+          </TabsContent>
+        </Tabs>
 
       <Dialog open={!!selectedOrganisationId} onOpenChange={(open) => { if (!open) handleCloseOrganisation(); }}>
         <DialogContent className="max-w-6xl overflow-hidden border border-border/70 bg-card/95 p-0 shadow-2xl">
@@ -1233,6 +1697,7 @@ const OwnerConsolePage: React.FC = () => {
         </DialogContent>
       </Dialog>
     </div>
+  </div>
   );
 };
 

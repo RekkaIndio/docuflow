@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,11 @@ import { useAdminWorkspaces } from '@/context/admin-workspaces';
 import { FileText, User, Calendar, Target, Award, TrendingUp, Heart, CheckCircle, Users } from "lucide-react";
 import AdminPageHeader from '@/components/admin/admin-page-header';
 import ManagerSearchSelect from "@/components/admin/manager-search-select";
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from "next/link";
+import { db } from '@/lib/firebase';
+import { workspaceDocPath } from '@/lib/paths';
+import { doc, getDoc } from 'firebase/firestore';
 
 interface Manager {
   id: string;
@@ -26,6 +30,104 @@ interface Manager {
 export default function SupervisionPage() {
   const adminWorkspaces = useAdminWorkspaces();
   const defaultAdminWorkspace = adminWorkspaces && adminWorkspaces.length > 0 ? adminWorkspaces[0] : null;
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [viewMode, setViewMode] = useState<'form' | 'tracker'>('form');
+
+  // Managers and supervisions for tracker
+  const [managers, setManagers] = useState<Manager[] | null>(null);
+  const [supervisions, setSupervisions] = useState<any[] | null>(null);
+  const TRACKER_STORAGE_KEY = 'docuflow.admin.supervisions.tracker.v1';
+  const [trackerState, setTrackerState] = useState<Record<string, Record<string, boolean>>>({});
+
+  useEffect(() => {
+    try {
+      const raw = typeof window !== 'undefined' ? window.localStorage.getItem(TRACKER_STORAGE_KEY) : null;
+      if (raw) setTrackerState(JSON.parse(raw));
+    } catch (e) {}
+  }, []);
+
+  const saveTrackerState = (next: Record<string, Record<string, boolean>>) => {
+    setTrackerState(next);
+    try { if (typeof window !== 'undefined') window.localStorage.setItem(TRACKER_STORAGE_KEY, JSON.stringify(next)); } catch (e) {}
+  };
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchManagers = async () => {
+      try {
+        if (!defaultAdminWorkspace || !defaultAdminWorkspace.id) {
+          setManagers([]);
+          return;
+        }
+        const docPath = workspaceDocPath(defaultAdminWorkspace.id, undefined, defaultAdminWorkspace.organisationId);
+        const ref = doc(db, docPath);
+        const snap = await getDoc(ref);
+        if (!mounted) return;
+        if (!snap.exists()) {
+          setManagers([]);
+          return;
+        }
+        const data = snap.data() as any;
+        const mgrs = Array.isArray(data?.managers) ? data.managers : [];
+        setManagers(mgrs);
+      } catch (err) {
+        console.error('Error loading managers for tracker', err);
+        setManagers([]);
+      }
+    };
+
+    const fetchSupervisions = async () => {
+      try {
+        const res = await fetch('/api/admin/supervisions');
+        if (!mounted) return;
+        if (!res.ok) {
+          setSupervisions([]);
+          return;
+        }
+        const data = await res.json();
+        // Expect array of supervisions with managerId and supervisionDate or createdAt
+        setSupervisions(Array.isArray(data.supervisions) ? data.supervisions : (data?.items || []));
+      } catch (err) {
+        console.error('Error loading supervisions', err);
+        setSupervisions([]);
+      }
+    };
+
+    fetchManagers();
+    fetchSupervisions();
+    return () => { mounted = false; };
+  }, [defaultAdminWorkspace]);
+
+  const trackerYears = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const years: number[] = [];
+    for (let y = currentYear; y <= currentYear + 4; y++) years.push(y);
+    return years;
+  }, []);
+
+  // Build a quick map of completed years per manager from supervisions
+  const completedMap = useMemo(() => {
+    const map: Record<string, Record<string, boolean>> = {};
+    if (!supervisions || !Array.isArray(supervisions)) return map;
+    supervisions.forEach((s: any) => {
+      const mid = s.managerId || s.manager?.id || s.managerId;
+      const dateStr = s.supervisionDate || s.createdAt || s.updatedAt || s.date;
+      if (!mid || !dateStr) return;
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return;
+      const y = String(d.getFullYear());
+      if (!map[mid]) map[mid] = {};
+      map[mid][y] = true;
+    });
+    return map;
+  }, [supervisions]);
+
+  const toggleTracker = (managerId: string, yearKey: string) => {
+    const cur = trackerState[managerId] || {};
+    const nextFor = { ...cur, [yearKey]: !cur[yearKey] };
+    saveTrackerState({ ...trackerState, [managerId]: nextFor });
+  };
   const [selectedManager, setSelectedManager] = useState<Manager | null>(null);
   const [role, setRole] = useState("");
   const [supervisor, setSupervisor] = useState("");
@@ -152,6 +254,17 @@ export default function SupervisionPage() {
       <div className="w-full px-4 sm:px-6 lg:px-8 pb-8">
         <div className="w-full space-y-6">
           <div className="w-full p-10 bg-gradient-to-br from-slate-50 to-white rounded-3xl shadow-2xl mt-10 border border-slate-200">
+        {/* Tabs and main content area */}
+        <div>
+          <div className="mb-4">
+            <div className="flex items-center gap-2">
+              <button onClick={() => setViewMode('form')} className={`px-3 py-1 rounded-md ${viewMode === 'form' ? 'bg-white text-slate-900' : 'bg-transparent text-slate-500'}`}>Form</button>
+              <button onClick={() => setViewMode('tracker')} className={`px-3 py-1 rounded-md ${viewMode === 'tracker' ? 'bg-white text-slate-900' : 'bg-transparent text-slate-500'}`}>Tracker</button>
+            </div>
+          </div>
+
+          {/* FORM VIEW */}
+          {viewMode === 'form' && (
         <div className="flex flex-col lg:flex-row gap-10">
           {/* Left panel for details, sticky and NOT part of the form */}
           <div className="w-full lg:w-[480px] flex-shrink-0 bg-white rounded-2xl p-6 border border-slate-200 shadow-xl mb-8 lg:mb-0 self-start">
@@ -543,6 +656,100 @@ export default function SupervisionPage() {
               </div>
             </form>
           </div>
+        </div>
+          )}
+
+          {/* TRACKER VIEW */}
+          {viewMode === 'tracker' && (
+            <div className="px-4 sm:px-8 lg:px-16">
+              <div className="w-full">
+                <div className="bg-white/90 rounded-2xl shadow-xl border border-blue-100 p-6 sm:p-10 mb-8 min-h-[240px] flex flex-col justify-between">
+                  <div className="flex items-center gap-3 mb-6">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="text-blue-500"><rect x="3" y="3" width="18" height="18" rx="4" fill="currentColor" /></svg>
+                    <div>
+                      <h2 className="text-2xl font-bold text-blue-900 leading-tight">Supervisions Tracker</h2>
+                      <div className="text-blue-700 text-sm mt-1">Overview of manager supervisions by year</div>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full border-collapse border border-gray-200 shadow-sm rounded-lg overflow-hidden">
+                      <thead>
+                        <tr className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+                          <th className="py-4 px-6 text-left font-semibold border-b border-blue-500">Manager</th>
+                          {trackerYears.map((y) => (
+                            <th key={y} className={`py-4 px-6 font-semibold border-b border-blue-500 text-center ${y === new Date().getFullYear() ? 'bg-blue-700' : ''}`}>
+                              {y}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(managers || []).map((m: Manager, idx: number) => {
+                          const managerId = m.id || `${m.name}-${idx}`;
+                          const storedFor = trackerState[managerId] || {};
+                          const completedFor = completedMap[managerId] || {};
+                          return (
+                            <tr key={managerId} className={`transition-colors ${idx % 2 === 0 ? 'bg-white hover:bg-gray-50' : 'bg-gray-50 hover:bg-gray-100'} border-b border-gray-200`}>
+                              <td className="py-4 px-6 font-medium text-gray-900 border-r border-gray-200">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedManager(m);
+                                    setRole('Home Manager');
+                                    setViewMode('form');
+                                  }}
+                                  className="text-left w-full text-gray-900 hover:underline"
+                                >
+                                  {m.name}
+                                </button>
+                              </td>
+                              {trackerYears.map((yr) => {
+                                const yearKey = String(yr);
+                                const prefilled = !!completedFor[yearKey];
+                                const stored = storedFor[yearKey];
+                                const checked = stored || prefilled;
+                                return (
+                                  <td key={yearKey} className={`py-4 px-6 text-center border-r border-gray-200 cursor-pointer transition-all duration-200 hover:bg-blue-100 hover:shadow-inner ${yr === new Date().getFullYear() ? 'bg-blue-50' : ''}`} onClick={() => {
+                                    if (checked) {
+                                      toggleTracker(managerId, yearKey);
+                                    } else {
+                                      // Immediately prefill the form client-side so the '+' is responsive
+                                      setSelectedManager(m);
+                                      setRole('Home Manager');
+                                      setSupervisionDate(`${yearKey}-01-01`);
+                                      setViewMode('form');
+                                      // update the URL so the state is shareable
+                                      try {
+                                        router.push(`/admin/supervision?managerId=${encodeURIComponent(managerId)}&year=${yearKey}`);
+                                      } catch (e) {
+                                        // ignore router errors
+                                      }
+                                    }
+                                  }}>
+                                    <div className="relative inline-block">
+                                      {checked ? (
+                                        <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shadow-md bg-blue-500 text-white">✓</div>
+                                      ) : (
+                                        <div className="w-10 h-10 rounded-full border-2 border-gray-300 border-dashed flex items-center justify-center text-gray-400 hover:border-blue-400 transition-colors">
+                                          <span className="text-xs">+</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
     </div>

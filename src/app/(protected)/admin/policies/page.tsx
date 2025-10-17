@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { DocumentView } from '@/components/dashboard/document-view';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import AdminPageHeader from '@/components/admin/admin-page-header';
 import type { Document } from '@/lib/types';
 
@@ -117,7 +118,15 @@ export default function AdminPoliciesPage() {
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [viewLoading, setViewLoading] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'list' | 'tracker'>('list');
+    const [viewMode, setViewMode] = React.useState<'list' | 'tracker'>('list');
+  const [isCreateModalOpen, setIsCreateModalOpen] = React.useState(false);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [policyRequestForm, setPolicyRequestForm] = React.useState({
+    title: '',
+    description: '',
+    urgency: 'normal',
+    additionalNotes: ''
+  });
 
   // Tracker state (persisted to localStorage)
   const [trackerState, setTrackerState] = useState<Record<string, Record<string, boolean>>>({});
@@ -387,6 +396,36 @@ export default function AdminPoliciesPage() {
     return years;
   }, [sortedItems]);
 
+  const handlePolicyRequestSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch('/api/admin/send-policy-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...policyRequestForm,
+          requestedBy: user?.email || 'Unknown',
+          organisationId: user?.organisationId
+        })
+      });
+
+      if (response.ok) {
+        setIsCreateModalOpen(false);
+        setPolicyRequestForm({ title: '', description: '', urgency: 'normal', additionalNotes: '' });
+        alert('Policy request sent successfully!');
+      } else {
+        throw new Error('Failed to send request');
+      }
+    } catch (error) {
+      console.error('Error sending policy request:', error);
+      alert('Failed to send policy request. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   if (selectedDocument) {
     return (
       <DocumentView document={selectedDocument} onBack={() => setSelectedDocument(null)} isChatOpen={false} />
@@ -408,12 +447,17 @@ export default function AdminPoliciesPage() {
             <button onClick={() => setViewMode('tracker')} className={`px-3 py-1 rounded-md ${viewMode === 'tracker' ? 'bg-white text-slate-900' : 'bg-transparent text-slate-500'}`}>Tracker</button>
           </div>
 
-          <div className="w-1/3">
-            <div className="relative w-full">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-                <path d="M21 21l-6-6m2-5a7 7 0 1 1-14 0 7 7 0 0 1 14 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              <Input type="text" placeholder="Search policies..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
+          <div className="flex items-center gap-2">
+            <Button onClick={() => setIsCreateModalOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white">
+              Create Policy
+            </Button>
+            <div className="w-1/3">
+              <div className="relative w-full">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+                  <path d="M21 21l-6-6m2-5a7 7 0 1 1-14 0 7 7 0 0 1 14 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <Input type="text" placeholder="Search policies..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
+              </div>
             </div>
           </div>
         </div>
@@ -574,6 +618,83 @@ export default function AdminPoliciesPage() {
           </div>
         )}
       </div>
+
+      {/* Create Policy Request Modal */}
+      <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Request New Policy</DialogTitle>
+            <DialogDescription>
+              Fill out the details below to request a new policy. This will be sent to our support team for creation.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handlePolicyRequestSubmit} className="space-y-4">
+            <div>
+              <label htmlFor="policyTitle" className="block text-sm font-medium text-gray-700 mb-1">
+                Policy Title *
+              </label>
+              <Input
+                id="policyTitle"
+                type="text"
+                placeholder="e.g., Data Protection Policy"
+                value={policyRequestForm.title}
+                onChange={(e) => setPolicyRequestForm(prev => ({ ...prev, title: e.target.value }))}
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor="policyDescription" className="block text-sm font-medium text-gray-700 mb-1">
+                Description *
+              </label>
+              <textarea
+                id="policyDescription"
+                placeholder="Describe what this policy should cover..."
+                value={policyRequestForm.description}
+                onChange={(e) => setPolicyRequestForm(prev => ({ ...prev, description: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                rows={4}
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor="urgency" className="block text-sm font-medium text-gray-700 mb-1">
+                Urgency
+              </label>
+              <select
+                id="urgency"
+                value={policyRequestForm.urgency}
+                onChange={(e) => setPolicyRequestForm(prev => ({ ...prev, urgency: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="normal">Normal</option>
+                <option value="high">High</option>
+                <option value="urgent">Urgent</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="additionalNotes" className="block text-sm font-medium text-gray-700 mb-1">
+                Additional Notes
+              </label>
+              <textarea
+                id="additionalNotes"
+                placeholder="Any additional context or requirements..."
+                value={policyRequestForm.additionalNotes}
+                onChange={(e) => setPolicyRequestForm(prev => ({ ...prev, additionalNotes: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                rows={3}
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? 'Sending...' : 'Send Request'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
