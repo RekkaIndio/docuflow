@@ -1380,6 +1380,7 @@ export function Dashboard() {
             activeWorkspace={activeWorkspace}
             onWorkspaceChange={handleWorkspaceChange}
             setView={setView} 
+            currentView={view}
             onGoToFiles={handleGoToFiles} 
             onCreateWorkspace={handleCreateWorkspace}
             dailyEntry={dailyEntry}
