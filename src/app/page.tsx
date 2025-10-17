@@ -463,10 +463,10 @@ const impactMetrics: ImpactMetric[] = [
     detail: "Leaders report feeling inspection ready every day, not just before visits."
   },
   {
-    id: "automation",
-    value: "62",
-    label: "Automations live",
-    detail: "Automated workflows deployed per organisation on average."
+    id: "analytics",
+    value: "24/7",
+    label: "On-demand analytics",
+    detail: "Transparent, real-time insights available for every organisation."
   }
 ];
 
