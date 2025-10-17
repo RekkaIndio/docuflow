@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import admin, { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { resolveAdminContext } from '../../../_utils/admin-auth';
+import { sendInvitationEmail } from '@/actions/email';
 
 const ROLE_LABELS = {
   owner: 'Owner',
@@ -224,9 +225,43 @@ export async function POST(req: Request, context: { params: { organisationId: st
       }
     }
 
+    // Send invitation email if password link was generated successfully
+    let emailSent = false;
+    if (passwordLink) {
+      try {
+        // Get organization name
+        const orgDoc = await adminDb.collection('organisations').doc(organisationId).get();
+        const orgData = orgDoc.data() as Record<string, any>;
+        const organisationName = orgData?.name || 'Your Organization';
+
+        // Get inviter name (current admin user)
+        let inviterName = 'CG360 Admin';
+        if (ctx.uid) {
+          try {
+            const inviterRecord = await adminAuth.getUser(ctx.uid);
+            inviterName = inviterRecord.displayName || inviterRecord.email || 'CG360 Admin';
+          } catch (err) {
+            console.warn('[admin organisation members] failed to get inviter info', err);
+          }
+        }
+
+        await sendInvitationEmail({
+          recipientEmail: email,
+          organisationName,
+          inviterName,
+          passwordResetLink: passwordLink,
+          role: roleLabel,
+        });
+        emailSent = true;
+      } catch (emailError) {
+        console.warn('[admin organisation members] failed to send invitation email', emailError);
+        // Don't fail the entire operation if email fails
+      }
+    }
+
   const member = await mapMemberDoc(await adminDb.collection(`organisations/${organisationId}/users`).doc(uid).get());
 
-    return NextResponse.json({ ok: true, member, passwordLink, userCreated });
+    return NextResponse.json({ ok: true, member, passwordLink, userCreated, emailSent });
   } catch (error) {
     const status = (error as any)?.statusCode === 403 ? 403 : 500;
     if (status === 500) {
