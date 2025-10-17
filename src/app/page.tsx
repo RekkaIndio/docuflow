@@ -28,7 +28,9 @@ import {
   Timer,
   DollarSign,
   GraduationCap,
-  PoundSterling
+  PoundSterling,
+  BookOpen,
+  Bell
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -315,8 +317,8 @@ const capabilityCards: Capability[] = [
     preview: (
       <div className="space-y-3">
         <div className="rounded-xl border border-teal-100 bg-teal-50 px-3 py-2">
-          <p className="text-sm font-semibold text-teal-900">Quality of life index</p>
-          <p className="text-xs text-teal-700">Forecast: +6.2%</p>
+          <p className="text-sm font-semibold text-teal-900">Operational efficiency</p>
+          <p className="text-xs text-teal-700">Forecast: +8.7%</p>
         </div>
         <div className="flex items-end gap-2">
           <div className="h-16 w-6 rounded-full bg-teal-200"></div>
@@ -328,6 +330,93 @@ const capabilityCards: Capability[] = [
         <div className="flex items-center justify-between text-xs text-slate-600">
           <span>Insights generated</span>
           <span className="font-semibold text-slate-900">12 this week</span>
+        </div>
+      </div>
+    )
+  },
+  {
+    id: "rotas",
+    name: "Rotas & Scheduling",
+    description: "Manage staff rotas, track shifts, and ensure optimal coverage.",
+    icon: Calendar,
+    accent: "from-green-500 via-lime-500 to-emerald-500",
+    preview: (
+      <div className="space-y-3">
+        <div className="flex items-center justify-between rounded-xl border border-green-100 bg-green-50 px-3 py-2">
+          <span className="text-sm font-semibold text-green-900">Weekly rota</span>
+          <Badge variant="secondary" className="bg-green-200/70 text-green-900">Published</Badge>
+        </div>
+        <div className="space-y-2 text-xs text-slate-600">
+          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
+            <span>Monday • Night shift</span>
+            <span className="font-semibold text-slate-900">4 staff</span>
+          </div>
+          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
+            <span>Tuesday • Day shift</span>
+            <span className="font-semibold text-slate-900">6 staff</span>
+          </div>
+          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
+            <span>Coverage alert</span>
+            <span className="rounded-full bg-amber-100 px-2 py-[2px] text-[11px] font-semibold text-amber-800">1 short</span>
+          </div>
+        </div>
+      </div>
+    )
+  },
+  {
+    id: "lessons-rca",
+    name: "Lessons Learned & RCA",
+    description: "Capture incidents, perform root cause analysis, and implement preventive measures.",
+    icon: BookOpen,
+    accent: "from-red-500 via-orange-500 to-yellow-500",
+    preview: (
+      <div className="space-y-3">
+        <div className="flex items-center justify-between rounded-xl border border-red-100 bg-red-50 px-3 py-2">
+          <span className="text-sm font-semibold text-red-900">Falls incident RCA</span>
+          <Badge variant="secondary" className="bg-red-200/70 text-red-900">In progress</Badge>
+        </div>
+        <div className="space-y-2 text-xs text-slate-600">
+          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
+            <span>Root cause identified</span>
+            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+          </div>
+          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
+            <span>Action plan created</span>
+            <span className="rounded-full bg-orange-100 px-2 py-[2px] text-[11px] font-semibold text-orange-800">3 actions</span>
+          </div>
+          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
+            <span>Lessons documented</span>
+            <span className="font-semibold text-slate-900">Shared with team</span>
+          </div>
+        </div>
+      </div>
+    )
+  },
+  {
+    id: "notifications",
+    name: "Sova & CQC Notifications",
+    description: "Log and track notifications to Sova and CQC for compliance and auditing.",
+    icon: Bell,
+    accent: "from-purple-500 via-pink-500 to-rose-500",
+    preview: (
+      <div className="space-y-3">
+        <div className="flex items-center justify-between rounded-xl border border-purple-100 bg-purple-50 px-3 py-2">
+          <span className="text-sm font-semibold text-purple-900">Notification log</span>
+          <Badge variant="secondary" className="bg-purple-200/70 text-purple-900">Up to date</Badge>
+        </div>
+        <div className="space-y-2 text-xs text-slate-600">
+          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
+            <span>Sova notification</span>
+            <span className="font-semibold text-slate-900">Sent • 2 days ago</span>
+          </div>
+          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
+            <span>CQC incident report</span>
+            <span className="font-semibold text-slate-900">Filed • 1 week ago</span>
+          </div>
+          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
+            <span>Follow-up required</span>
+            <span className="rounded-full bg-pink-100 px-2 py-[2px] text-[11px] font-semibold text-pink-800">Due soon</span>
+          </div>
         </div>
       </div>
     )
@@ -543,14 +632,14 @@ export default function Page() {
             <div className="space-y-8">
               <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white">
                 <Sparkles className="h-4 w-4" />
-                All-in-one care governance platform
+                One system that replaces scattered tools with real-time clarity and control.
               </div>
               <div className="space-y-6">
                 <h1 className="text-4xl font-semibold leading-tight sm:text-5xl lg:text-6xl">
-                  See the platform that runs dependency modelling, policies, audits, and analytics in one place.
+                  Governance, compliance, and operations — all in one intelligent platform.
                 </h1>
                 <p className="max-w-xl text-lg text-slate-300">
-                  CG-360 connects every workflow your teams touch. Visualise policy versions, action plans, supervisions, inspection portals, and predictive analytics in a single operating system designed for care homes.
+                  From audits and rotas to KPIs, root cause analysis, and everything in between — streamline oversight, connect teams, and stay inspection-ready every day.
                 </p>
               </div>
               <div className="flex flex-col items-start gap-4 sm:flex-row">
@@ -663,6 +752,23 @@ export default function Page() {
                   <div className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2">
                     <span>Night briefing</span>
                     <span className="rounded-full bg-amber-200/30 px-2 py-[2px] font-semibold text-amber-100">Due</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="absolute -right-60 top-1/2 -translate-y-1/2 hidden w-50 rounded-2xl border border-white/15 bg-white/10 p-4 shadow-xl backdrop-blur xl:block">
+                <div className="flex items-center justify-between text-xs text-slate-200">
+                  <span>Recent notifications</span>
+                  <span className="font-semibold text-white">3 unread</span>
+                </div>
+                <div className="mt-3 space-y-2 text-[11px] text-slate-200">
+                  <div className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2">
+                    <span>Sova alert</span>
+                    <span className="text-amber-200">2h ago</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2">
+                    <span>CQC update</span>
+                    <span className="text-emerald-200">1d ago</span>
                   </div>
                 </div>
               </div>

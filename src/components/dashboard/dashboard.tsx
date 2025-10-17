@@ -1432,6 +1432,7 @@ export function Dashboard() {
                 {selected !== null && (
                   <ChatPanel 
                     selectedItem={selected!}
+                    organisationId={organisationId}
                     onFolderAdd={async (folderName: string) => {
                             if (!workspaceId) return;
                             const currentSelected = selected;
