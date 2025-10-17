@@ -202,7 +202,7 @@ const capabilityCards: Capability[] = [
         <div className="space-y-2 text-xs text-slate-600">
           <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
             <span>Install sensor mats</span>
-            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+            <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-500" />
           </div>
           <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
             <span>Night staff refresher</span>
@@ -337,7 +337,7 @@ const capabilityCards: Capability[] = [
   {
     id: "rotas",
     name: "Rotas & Scheduling",
-    description: "Manage staff rotas, track shifts, and ensure optimal coverage.",
+    description: "Manage staff rotas, track shifts, and ensure optimal coverage — fully connected to your dependency tool for live, acuity-based staffing insights.",
     icon: Calendar,
     accent: "from-green-500 via-lime-500 to-emerald-500",
     preview: (
@@ -378,7 +378,7 @@ const capabilityCards: Capability[] = [
         <div className="space-y-2 text-xs text-slate-600">
           <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
             <span>Root cause identified</span>
-            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+            <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-500" />
           </div>
           <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
             <span>Action plan created</span>
@@ -747,7 +747,7 @@ export default function Page() {
                 <div className="mt-3 space-y-2 text-[11px] text-slate-200">
                   <div className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2">
                     <span>Sensor mats</span>
-                    <CheckCircle2 className="h-4 w-4 text-emerald-200" />
+                    <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-200" />
                   </div>
                   <div className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2">
                     <span>Night briefing</span>
@@ -897,15 +897,15 @@ export default function Page() {
                 </p>
                 <ul className="space-y-3 text-sm text-slate-600">
                   <li className="flex items-start gap-3">
-                    <CheckCircle2 className="mt-1 h-5 w-5 text-emerald-500" />
+                    <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-500" />
                     <span>Multi-organisation oversight with granular permissions.</span>
                   </li>
                   <li className="flex items-start gap-3">
-                    <CheckCircle2 className="mt-1 h-5 w-5 text-emerald-500" />
+                    <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-500" />
                     <span>AI-powered dashboards forecast compliance drift before it happens.</span>
                   </li>
                   <li className="flex items-start gap-3">
-                    <CheckCircle2 className="mt-1 h-5 w-5 text-emerald-500" />
+                    <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-500" />
                     <span>Share curated analytics boards with executives or inspectors in one click.</span>
                   </li>
                 </ul>
@@ -1007,15 +1007,15 @@ export default function Page() {
               </p>
               <ul className="space-y-3 text-sm text-slate-200">
                 <li className="flex items-start gap-3">
-                  <CheckCircle2 className="mt-1 h-5 w-5 text-emerald-400" />
+                  <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-400" />
                   <span>Unified data model across documents, audits, action plans, analytics, and inspector sharing.</span>
                 </li>
                 <li className="flex items-start gap-3">
-                  <CheckCircle2 className="mt-1 h-5 w-5 text-emerald-400" />
+                  <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-400" />
                   <span>Onboard in under four weeks—no six-month transformation projects.</span>
                 </li>
                 <li className="flex items-start gap-3">
-                  <CheckCircle2 className="mt-1 h-5 w-5 text-emerald-400" />
+                  <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-400" />
                   <span>All-inclusive pricing: AI document processing, dependency modelling, portals, and analytics are part of the core subscription.</span>
                 </li>
               </ul>
@@ -1027,7 +1027,7 @@ export default function Page() {
                   return (
                     <div
                       key={painPoint.id}
-                      className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-lg backdrop-blur"
+                      className={`rounded-2xl border border-white/10 bg-white/5 p-6 shadow-lg backdrop-blur ${painPoint.id === "setup" ? "sm:col-span-2" : ""}`}
                     >
                       <div className="flex items-center gap-3">
                         <div className="rounded-2xl bg-indigo-500/20 p-3 text-indigo-200">
