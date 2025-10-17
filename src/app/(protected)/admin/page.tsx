@@ -58,7 +58,6 @@ type AdminHeroProps = {
     percentComplete: number;
   };
   onManageWorkspaces: () => void;
-  onOpenAnalytics: () => void;
 };
 
 const AdminDashboardHero = ({
@@ -70,9 +69,9 @@ const AdminDashboardHero = ({
   aggregateFallsTotal,
   aggregateInfectionsTotal,
   aggregateDailyCheckinData,
-  onManageWorkspaces,
-  onOpenAnalytics
+  onManageWorkspaces
 }: AdminHeroProps) => {
+  const router = useRouter();
   const averageOccupancyPercent = Math.round((careOverview?.averageOccupancy || 0) * 100);
   const occupancyHelper = careOverview?.totalBeds
     ? `${careOverview.totalOccupied}/${careOverview.totalBeds} beds occupied`
@@ -183,7 +182,7 @@ const AdminDashboardHero = ({
               variant="outline"
               size="lg"
               className="border-white/30 bg-transparent text-primary-foreground hover:bg-white/10 hover:border-white/40 backdrop-blur-sm"
-              onClick={onOpenAnalytics}
+              onClick={() => router.push('/admin/analytics')}
             >
               Open analytics
             </Button>
@@ -1797,7 +1796,6 @@ export default function AdminPage() {
                             aggregateInfectionsTotal={aggregateInfectionData.totalInfections}
                             aggregateDailyCheckinData={aggregateDailyCheckinData}
                             onManageWorkspaces={() => setAdminView('workspaces')}
-                            onOpenAnalytics={() => setAdminView('stats')}
                           />
 
                           <AdminOverviewCards
