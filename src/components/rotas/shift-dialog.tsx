@@ -46,6 +46,7 @@ export function ShiftDialog({ open, onOpenChange, staff, onAddShift, date, calcu
   const [mode, setMode] = useState<'shift' | 'annualLeave'>('shift');
   const [leaveDate, setLeaveDate] = useState(() => date || format(new Date(), 'yyyy-MM-dd'));
   const [leaveHours, setLeaveHours] = useState('7.5');
+  const [overrideLimit, setOverrideLimit] = useState(false);
 
   const selectedStaff = staff.find(s => s.id === selectedStaffId);
   const patternOptions = useMemo(() => {
@@ -91,7 +92,7 @@ export function ShiftDialog({ open, onOpenChange, staff, onAddShift, date, calcu
   const isOverLimit = totalHoursAfterShift > contractedHours;
   const isAtLimit = totalHoursAfterShift >= contractedHours;
   const isNearLimit = percentageUsed >= 90 && !isOverLimit;
-  const canAddShift = !isAtLimit; // Cannot add shift if at or over limit
+  const canAddShift = !isAtLimit || overrideLimit;
 
   // Safe formatting function to prevent NaN display
   const formatHours = (hours: number): string => {
@@ -133,6 +134,7 @@ export function ShiftDialog({ open, onOpenChange, staff, onAddShift, date, calcu
       setEndTime(initialPattern?.endTime ?? defaultShiftTimes.AM.end);
       setLeaveDate(date || format(new Date(), 'yyyy-MM-dd'));
       setLeaveHours('7.5');
+      setOverrideLimit(false);
     }
   }, [open, date, patternOptions]);
 
@@ -147,6 +149,12 @@ export function ShiftDialog({ open, onOpenChange, staff, onAddShift, date, calcu
       }
     }
   }, [patternOptions, shiftType, mode]);
+
+  useEffect(() => {
+    if (!isAtLimit) {
+      setOverrideLimit(false);
+    }
+  }, [isAtLimit, selectedStaffId, currentShiftHours]);
 
   const handleSubmit = async () => {
     if (!selectedStaffId || !selectedStaff) return;
@@ -196,7 +204,7 @@ export function ShiftDialog({ open, onOpenChange, staff, onAddShift, date, calcu
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[720px] lg:max-w-[780px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {mode === 'annualLeave' ? <Plane className="w-5 h-5" /> : <Clock className="w-5 h-5" />}
@@ -213,274 +221,329 @@ export function ShiftDialog({ open, onOpenChange, staff, onAddShift, date, calcu
           </p>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
-          {/* Staff Selection */}
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2">
-              <User className="w-4 h-4" />
-              Select Staff Member
-            </Label>
-            <Select value={selectedStaffId} onValueChange={setSelectedStaffId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Choose a staff member" />
-              </SelectTrigger>
-              <SelectContent className="max-h-[300px]">
-                {staff.length === 0 ? (
-                  <div className="p-4 text-center text-sm text-muted-foreground">
-                    No staff members available
-                  </div>
-                ) : (
-                  staff.map((member) => (
-                    <SelectItem key={member.id} value={member.id}>
-                      <div className="flex items-center justify-between w-full gap-4">
-                        <div>
-                          <div className="font-medium">{member.name}</div>
-                          <div className="text-xs text-muted-foreground">{member.roles}</div>
-                        </div>
-                        <Badge variant="outline" className="text-xs">
-                          {member.department}
-                        </Badge>
+        <div className="py-4">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(260px,320px)]">
+            <div className="space-y-6">
+              {/* Staff Selection */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <User className="w-4 h-4" />
+                  Select Staff Member
+                </Label>
+                <Select value={selectedStaffId} onValueChange={setSelectedStaffId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a staff member" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    {staff.length === 0 ? (
+                      <div className="p-4 text-center text-sm text-muted-foreground">
+                        No staff members available
                       </div>
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Entry type */}
-          <div className="space-y-2">
-            <Label>Entry Type</Label>
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                type="button"
-                variant={mode === 'shift' ? 'default' : 'outline'}
-                onClick={() => setMode('shift')}
-                className="h-auto py-3 flex items-center justify-center gap-2"
-              >
-                <Clock className="w-4 h-4" />
-                Shift
-              </Button>
-              <Button
-                type="button"
-                variant={mode === 'annualLeave' ? 'default' : 'outline'}
-                onClick={() => setMode('annualLeave')}
-                className="h-auto py-3 flex items-center justify-center gap-2"
-              >
-                <Plane className="w-4 h-4" />
-                Annual Leave
-              </Button>
-            </div>
-          </div>
-
-          {/* Hours Warning/Info */}
-          {mode === 'shift' && selectedStaff && selectedStaff.contractedHours && (
-            <Alert className={isAtLimit ? "border-destructive bg-destructive/10" : isNearLimit ? "border-amber-500 bg-amber-50" : "border-green-500 bg-green-50"}>
-              <div className="flex items-start gap-3">
-                {isAtLimit ? (
-                  <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />
-                ) : isNearLimit ? (
-                  <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
-                ) : (
-                  <CheckCircle className="h-5 w-5 text-green-600 shrink-0" />
-                )}
-                <div className="flex-1 space-y-1">
-                  <AlertDescription className="font-medium text-sm">
-                    {isAtLimit ? (
-                      <span className="text-destructive">🚫 Cannot Add - Would Meet/Exceed Hours</span>
-                    ) : isNearLimit ? (
-                      <span className="text-amber-700">⚡ Approaching Hour Limit</span>
                     ) : (
-                      <span className="text-green-700">✓ Within Contracted Hours</span>
+                      staff.map((member) => (
+                        <SelectItem key={member.id} value={member.id}>
+                          <div className="flex items-center justify-between w-full gap-4">
+                            <div>
+                              <div className="font-medium">{member.name}</div>
+                              <div className="text-xs text-muted-foreground">{member.roles}</div>
+                            </div>
+                            <Badge variant="outline" className="text-xs">
+                              {member.department}
+                            </Badge>
+                          </div>
+                        </SelectItem>
+                      ))
                     )}
-                  </AlertDescription>
-                  <AlertDescription className="text-xs space-y-0.5">
-                    <div className="flex justify-between">
-                      <span>Currently scheduled:</span>
-                      <span className="font-medium">{formatHours(currentScheduledHours)} hrs</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>This shift adds:</span>
-                      <span className="font-medium">+{formatHours(currentShiftHours)} hrs</span>
-                    </div>
-                    <div className="flex justify-between border-t pt-0.5 mt-1">
-                      <span>Total after shift:</span>
-                      <span className={`font-bold ${isAtLimit ? 'text-destructive' : isNearLimit ? 'text-amber-700' : 'text-green-700'}`}>
-                        {formatHours(totalHoursAfterShift)} / {contractedHours} hrs
-                      </span>
-                    </div>
-                    <div className="mt-2">
-                      <div className="h-2 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className={`h-full transition-all ${isAtLimit ? 'bg-destructive' : isNearLimit ? 'bg-amber-500' : 'bg-green-500'}`}
-                          style={{ width: `${Math.min(isNaN(percentageUsed) ? 0 : percentageUsed, 100)}%` }}
-                        />
-                      </div>
-                    </div>
-                  </AlertDescription>
-                </div>
-              </div>
-            </Alert>
-          )}
-
-          {mode === 'shift' ? (
-            <>
-              {/* Shift Type Selection */}
-              <div className="space-y-2">
-                <Label>Shift Type</Label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {patternOptions.map((pattern) => (
-                    <Button
-                      key={pattern.id}
-                      type="button"
-                      variant={shiftType === pattern.id ? 'default' : 'outline'}
-                      onClick={() => handleShiftTypeChange(pattern.id)}
-                      className="h-auto py-3 flex flex-col items-center"
-                    >
-                      <span className="font-semibold">{pattern.id}</span>
-                      <span className="text-xs mt-1">{pattern.label}</span>
-                    </Button>
-                  ))}
-                </div>
+                  </SelectContent>
+                </Select>
               </div>
 
-              {/* Time Selection */}
+              {/* Entry type */}
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label>Shift Times</Label>
+                <Label>Entry Type</Label>
+                <div className="grid grid-cols-2 gap-2">
                   <Button
                     type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      const nextState = !customTimes;
-                      setCustomTimes(nextState);
-                      if (!nextState) {
-                        if (selectedPattern) {
-                          setStartTime(selectedPattern.startTime);
-                          setEndTime(selectedPattern.endTime);
-                        } else {
-                          const fallback = defaultShiftTimes[shiftType as keyof typeof defaultShiftTimes] ?? defaultShiftTimes.AM;
-                          setStartTime(fallback.start);
-                          setEndTime(fallback.end);
-                        }
-                      }
-                    }}
+                    variant={mode === 'shift' ? 'default' : 'outline'}
+                    onClick={() => setMode('shift')}
+                    className="h-auto py-3 flex items-center justify-center gap-2"
                   >
-                    {customTimes ? 'Use Default' : 'Custom Times'}
+                    <Clock className="w-4 h-4" />
+                    Shift
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={mode === 'annualLeave' ? 'default' : 'outline'}
+                    onClick={() => setMode('annualLeave')}
+                    className="h-auto py-3 flex items-center justify-center gap-2"
+                  >
+                    <Plane className="w-4 h-4" />
+                    Annual Leave
                   </Button>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="startTime" className="text-xs text-muted-foreground">
-                      Start Time
-                    </Label>
-                    <Input
-                      id="startTime"
-                      type="time"
-                      value={startTime}
-                      onChange={(e) => {
-                        setStartTime(e.target.value);
-                        setCustomTimes(true);
-                      }}
-                      className="font-mono"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="endTime" className="text-xs text-muted-foreground">
-                      End Time
-                    </Label>
-                    <Input
-                      id="endTime"
-                      type="time"
-                      value={endTime}
-                      onChange={(e) => {
-                        setEndTime(e.target.value);
-                        setCustomTimes(true);
-                      }}
-                      className="font-mono"
-                    />
-                  </div>
-                </div>
-                {!customTimes && selectedPattern && (
-                  <p className="text-xs text-muted-foreground">
-                    Using default times for the {selectedPattern.label} shift
-                  </p>
-                )}
               </div>
-            </>
-          ) : (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="leaveDate" className="text-xs text-muted-foreground">
-                  Leave date
-                </Label>
-                <Input
-                  id="leaveDate"
-                  type="date"
-                  value={leaveDate}
-                  onChange={(event) => setLeaveDate(event.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="leaveHours" className="text-xs text-muted-foreground">
-                  Hours away (max 24)
-                </Label>
-                <Input
-                  id="leaveHours"
-                  type="number"
-                  min={0.5}
-                  step={0.5}
-                  max={24}
-                  value={leaveHours}
-                  onChange={(event) => setLeaveHours(event.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  These hours will be recorded as annual leave on the selected day.
-                </p>
-              </div>
-            </div>
-          )}
 
-          {/* Summary */}
-          {selectedStaff && (
-            <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-              <p className="text-sm font-medium">{mode === 'annualLeave' ? 'Annual Leave Summary' : 'Shift Summary'}</p>
-              <div className="space-y-1 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Staff:</span>
-                  <span className="font-medium">{selectedStaff.name}</span>
-                </div>
-                {mode === 'annualLeave' ? (
+              {/* Hours Warning/Info */}
+              {mode === 'shift' && selectedStaff && selectedStaff.contractedHours && (
+                <Alert className={isAtLimit ? "border-destructive bg-destructive/10" : isNearLimit ? "border-amber-500 bg-amber-50" : "border-green-500 bg-green-50"}>
+                  <div className="flex items-start gap-3">
+                    {isAtLimit ? (
+                      <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />
+                    ) : isNearLimit ? (
+                      <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
+                    ) : (
+                      <CheckCircle className="h-5 w-5 text-green-600 shrink-0" />
+                    )}
+                    <div className="flex-1 space-y-1">
+                      <AlertDescription className="font-medium text-sm">
+                        {isAtLimit ? (
+                          <span className={overrideLimit ? 'text-amber-700' : 'text-destructive'}>
+                            {overrideLimit ? 'Override enabled — shift will exceed contracted hours' : '🚫 Cannot Add - Would Meet/Exceed Hours'}
+                          </span>
+                        ) : isNearLimit ? (
+                          <span className="text-amber-700">⚡ Approaching Hour Limit</span>
+                        ) : (
+                          <span className="text-green-700">✓ Within Contracted Hours</span>
+                        )}
+                      </AlertDescription>
+                      <AlertDescription className="text-xs space-y-0.5">
+                        <div className="flex justify-between">
+                          <span>Currently scheduled:</span>
+                          <span className="font-medium">{formatHours(currentScheduledHours)} hrs</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>This shift adds:</span>
+                          <span className="font-medium">+{formatHours(currentShiftHours)} hrs</span>
+                        </div>
+                        <div className="flex justify-between border-t pt-0.5 mt-1">
+                          <span>Total after shift:</span>
+                          <span className={`font-bold ${isAtLimit ? 'text-destructive' : isNearLimit ? 'text-amber-700' : 'text-green-700'}`}>
+                            {formatHours(totalHoursAfterShift)} / {contractedHours} hrs
+                          </span>
+                        </div>
+                        <div className="mt-2">
+                          <div className="h-2 bg-muted rounded-full overflow-hidden">
+                            <div
+                              className={`h-full transition-all ${isAtLimit ? 'bg-destructive' : isNearLimit ? 'bg-amber-500' : 'bg-green-500'}`}
+                              style={{ width: `${Math.min(isNaN(percentageUsed) ? 0 : percentageUsed, 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                        {isAtLimit && (
+                          <div className="mt-3 rounded-md border border-destructive/20 bg-background p-3">
+                            <p className="text-xs text-muted-foreground">
+                              Enable an override if you still need to assign this shift beyond contracted hours.
+                            </p>
+                            <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                              <Button
+                                type="button"
+                                variant={overrideLimit ? 'destructive' : 'outline'}
+                                size="sm"
+                                onClick={() => setOverrideLimit((state) => !state)}
+                              >
+                                {overrideLimit ? 'Disable Override' : 'Enable Override'}
+                              </Button>
+                              {overrideLimit && (
+                                <Badge variant="destructive" className="w-fit text-xs uppercase tracking-wide">
+                                  Override active
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </AlertDescription>
+                    </div>
+                  </div>
+                </Alert>
+              )}
+
+              <div className="space-y-6 rounded-lg border border-border/40 bg-background/60 p-4 shadow-sm lg:min-h-[260px]">
+                {mode === 'shift' ? (
                   <>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Type:</span>
-                      <span className="font-medium">Annual Leave</span>
+                    {/* Shift Type Selection */}
+                    <div className="space-y-2">
+                      <Label>Shift Type</Label>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {patternOptions.map((pattern) => (
+                          <Button
+                            key={pattern.id}
+                            type="button"
+                            variant={shiftType === pattern.id ? 'default' : 'outline'}
+                            onClick={() => handleShiftTypeChange(pattern.id)}
+                            className="h-auto py-3 flex flex-col items-center"
+                          >
+                            <span className="font-semibold">{pattern.id}</span>
+                            <span className="text-xs mt-1">{pattern.label}</span>
+                          </Button>
+                        ))}
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Date:</span>
-                      <span className="font-medium">{leaveDateLabel}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Hours away:</span>
-                      <span className="font-medium">{Number.isFinite(leaveHoursValue) ? formatHours(leaveHoursValue) : '0.0'}h</span>
+
+                    {/* Time Selection */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label>Shift Times</Label>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            const nextState = !customTimes;
+                            setCustomTimes(nextState);
+                            if (!nextState) {
+                              if (selectedPattern) {
+                                setStartTime(selectedPattern.startTime);
+                                setEndTime(selectedPattern.endTime);
+                              } else {
+                                const fallback = defaultShiftTimes[shiftType as keyof typeof defaultShiftTimes] ?? defaultShiftTimes.AM;
+                                setStartTime(fallback.start);
+                                setEndTime(fallback.end);
+                              }
+                            }
+                          }}
+                        >
+                          {customTimes ? 'Use Default' : 'Custom Times'}
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="startTime" className="text-xs text-muted-foreground">
+                            Start Time
+                          </Label>
+                          <Input
+                            id="startTime"
+                            type="time"
+                            value={startTime}
+                            onChange={(e) => {
+                              setStartTime(e.target.value);
+                              setCustomTimes(true);
+                            }}
+                            className="font-mono"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="endTime" className="text-xs text-muted-foreground">
+                            End Time
+                          </Label>
+                          <Input
+                            id="endTime"
+                            type="time"
+                            value={endTime}
+                            onChange={(e) => {
+                              setEndTime(e.target.value);
+                              setCustomTimes(true);
+                            }}
+                            className="font-mono"
+                          />
+                        </div>
+                      </div>
+                      {!customTimes && selectedPattern && (
+                        <p className="text-xs text-muted-foreground">
+                          Using default times for the {selectedPattern.label} shift
+                        </p>
+                      )}
                     </div>
                   </>
                 ) : (
-                  <>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Shift:</span>
-                      <span className="font-medium">{selectedPattern?.label ?? shiftType}</span>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="leaveDate" className="text-xs text-muted-foreground">
+                        Leave date
+                      </Label>
+                      <Input
+                        id="leaveDate"
+                        type="date"
+                        value={leaveDate}
+                        onChange={(event) => setLeaveDate(event.target.value)}
+                      />
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Hours:</span>
-                      <span className="font-medium">{startTime} - {endTime}</span>
+                    <div className="space-y-2">
+                      <Label htmlFor="leaveHours" className="text-xs text-muted-foreground">
+                        Hours away (max 24)
+                      </Label>
+                      <Input
+                        id="leaveHours"
+                        type="number"
+                        min={0.5}
+                        step={0.5}
+                        max={24}
+                        value={leaveHours}
+                        onChange={(event) => setLeaveHours(event.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        These hours will be recorded as annual leave on the selected day.
+                      </p>
                     </div>
-                  </>
+                  </div>
                 )}
               </div>
             </div>
-          )}
+
+            <div className="space-y-4 self-start">
+              <div className="rounded-lg border border-border/60 bg-muted/40 p-4">
+                <p className="text-sm font-medium">Details</p>
+                <div className="mt-3 space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Date:</span>
+                    <span className="font-medium">{mode === 'shift' ? formattedDate : leaveDateLabel}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Mode:</span>
+                    <span className="font-medium">{mode === 'shift' ? 'Shift' : 'Annual Leave'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Hours added:</span>
+                    <span className="font-medium">
+                      {mode === 'shift' ? `+${formatHours(currentShiftHours)}h` : `${Number.isFinite(leaveHoursValue) ? formatHours(leaveHoursValue) : '0.0'}h`}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {selectedStaff ? (
+                <div className="rounded-lg border border-border/60 bg-muted/40 p-4 space-y-2">
+                  <p className="text-sm font-medium">{mode === 'annualLeave' ? 'Annual Leave Summary' : 'Shift Summary'}</p>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Staff:</span>
+                      <span className="font-medium">{selectedStaff.name}</span>
+                    </div>
+                    {mode === 'annualLeave' ? (
+                      <>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Type:</span>
+                          <span className="font-medium">Annual Leave</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Date:</span>
+                          <span className="font-medium">{leaveDateLabel}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Hours away:</span>
+                          <span className="font-medium">{Number.isFinite(leaveHoursValue) ? formatHours(leaveHoursValue) : '0.0'}h</span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Shift:</span>
+                          <span className="font-medium">{selectedPattern?.label ?? shiftType}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Hours:</span>
+                          <span className="font-medium">{startTime} - {endTime}</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-lg border border-dashed border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
+                  Select a staff member to preview summary details.
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         <DialogFooter>
