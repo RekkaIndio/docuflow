@@ -31,6 +31,7 @@ import {
   Calendar,
   ChevronDown,
   ChevronRight,
+  NotebookPen,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Logo } from "@/components/icons/logo";
@@ -64,7 +65,7 @@ interface AppSidebarProps {
   workspaces: Workspace[];
   activeWorkspace: Workspace | null;
   onWorkspaceChange: (workspaceId: string) => void;
-  setView: React.Dispatch<React.SetStateAction<'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'dependency-calculator' | 'daily' | 'notifications' | 'audits' | 'policies' | 'stats' | 'action-plans' | 'appraisals' | 'rotas' | 'lessons-rcas' | 'cqc-logs' | 'safeguarding-logs' | 'help'>>;
+  setView: React.Dispatch<React.SetStateAction<'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'dependency-calculator' | 'daily' | 'notifications' | 'audits' | 'policies' | 'journal' | 'stats' | 'action-plans' | 'appraisals' | 'rotas' | 'lessons-rcas' | 'cqc-logs' | 'safeguarding-logs' | 'help'>>;
   onGoToFiles: () => void;
   onCreateWorkspace: (name: string) => void;
   dailyEntry?: any;
@@ -234,6 +235,16 @@ export function AppSidebar({
           <SidebarMenuButton onClick={() => handleNavigation(() => setView('action-plans'))} isActive={currentView === 'action-plans'} className="text-lg h-14">
             <ClipboardList className="w-7 h-7 mr-2" />
             <span className="text-lg">Action Plans</span>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      )}
+
+      {/* Journal */}
+      {isEnabled('journal') && (
+        <SidebarMenuItem>
+          <SidebarMenuButton onClick={() => handleNavigation(() => setView('journal'))} isActive={currentView === 'journal'} className="text-lg h-14">
+            <NotebookPen className="w-7 h-7 mr-2" />
+            <span className="text-lg">Journal</span>
           </SidebarMenuButton>
         </SidebarMenuItem>
       )}

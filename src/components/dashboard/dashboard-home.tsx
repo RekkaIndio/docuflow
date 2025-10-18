@@ -1,11 +1,12 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Users, FileText, FileSpreadsheet, FileIcon, FileX2, Briefcase, Clock, User, TrendingUp, TrendingDown, Minus, Calendar, CalendarCheck2, BarChart3, Edit3, FileCheck, CheckCircle, AlertCircle, ClipboardList, ClipboardCheck, ChevronRight, Shield, Heart, Tag } from "lucide-react";
+import { Users, FileText, FileSpreadsheet, FileIcon, FileX2, Briefcase, Clock, User, TrendingUp, TrendingDown, Minus, Calendar, CalendarCheck2, BarChart3, Edit3, FileCheck, CheckCircle, AlertCircle, ClipboardList, ClipboardCheck, ChevronRight, Shield, Heart, Tag, NotebookPen } from "lucide-react";
 import type { Workspace, Document, Folder as FolderType } from "@/lib/types";
 import type { ReactNode } from "react";
 import { useMemo, useEffect, useState } from "react";
 import { useAuth } from '@/hooks/use-auth';
+import { useFeatureFlags } from '@/hooks/use-feature-flags';
 import {
   Table,
   TableBody,
@@ -133,6 +134,9 @@ type AuditScoreEntry = {
     yesCount: number | null;
     totalCount: number | null;
 };
+
+const MANAGER_ROLE_KEYS = ['manager', 'clinical lead', 'deputy', 'operations manager', 'admin', 'owner', 'head office', 'head-office'];
+const HEAD_OFFICE_ROLE_KEYS = ['admin', 'owner', 'head office', 'head-office'];
 
 type AuditScoreMap = Record<AuditType, AuditScoreEntry>;
 
@@ -1782,6 +1786,16 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
     // workspace becomes available.
     const isMobile = useIsMobile();
     const { user } = useAuth();
+    const organisationId = (workspace as any)?.organisationId ?? (user as any)?.organisationId ?? null;
+    const { isEnabled } = useFeatureFlags(organisationId);
+    const journalFeatureEnabled = isEnabled('journal');
+    const roleRaw = (user as any)?.role ?? '';
+    const role = typeof roleRaw === 'string' ? roleRaw.trim().toLowerCase() : '';
+    const isAdminUser = Boolean((user as any)?.isAdmin);
+    const isManagerRole = MANAGER_ROLE_KEYS.includes(role) || isAdminUser;
+    const isHeadOfficeRole = HEAD_OFFICE_ROLE_KEYS.includes(role) || isAdminUser;
+    const shouldShowJournalCard = journalFeatureEnabled && (isManagerRole || isHeadOfficeRole);
+    const [openJournalCount, setOpenJournalCount] = useState<number>(0);
 
     // Header logo (follows same logic as TopNav: prefer user's profilePicture, then uploadedLogo, with workspace fallback)
     const [headerLogo, setHeaderLogo] = useState<string | null>(null);
@@ -1795,6 +1809,38 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
         const merged = orgUserLogo ?? topUserLogo ?? workspaceLogo ?? workspace?.profilePicture ?? workspace?.settings?.uploadedLogo ?? null;
         setHeaderLogo(merged);
     }, [orgUserLogo, topUserLogo, workspaceLogo, workspace?.profilePicture, workspace?.settings?.uploadedLogo]);
+
+    useEffect(() => {
+        if (!workspace?.id || !shouldShowJournalCard) {
+            setOpenJournalCount(0);
+            return;
+        }
+
+        const ref = getWorkspaceCollectionRef(workspace.id, 'journal-entries', organisationId);
+        if (!ref) {
+            setOpenJournalCount(0);
+            return;
+        }
+
+        const q = fsQuery(ref, where('status', '==', 'open'));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            let pending = 0;
+            snapshot.forEach((docSnap) => {
+                const data = docSnap.data() as Record<string, unknown>;
+                const response = data?.response as Record<string, unknown> | undefined;
+                const responseText = typeof response?.text === 'string' ? response.text.trim() : '';
+                if (!responseText) {
+                    pending += 1;
+                }
+            });
+            setOpenJournalCount(pending);
+        }, (error) => {
+            console.warn('[dashboard] failed to watch journal entries', error);
+            setOpenJournalCount(0);
+        });
+
+        return () => unsubscribe();
+    }, [workspace?.id, organisationId, shouldShowJournalCard]);
 
     const { documents, folders } = useMemo(() => getAllItems(workspace?.folders || []), [workspace?.folders]);
 
@@ -2369,6 +2415,25 @@ const navigateToAuditForm = (auditKey: string) => {
             });
         }
 
+        if (shouldShowJournalCard && openJournalCount > 0) {
+            const noun = openJournalCount === 1 ? "entry" : "entries";
+            const awaitingLabel = `${openJournalCount} awaiting`;
+            const navigateToJournal = () => {
+                if (typeof window === "undefined") return;
+                window.dispatchEvent(new CustomEvent("dashboard:navigate", { detail: { view: "journal" } }));
+            };
+
+            items.push({
+                id: "journal-attention",
+                title: `${openJournalCount} journal ${noun} need a response`,
+                description: "Review reflective journal submissions and close them out once actions are taken.",
+                badge: { label: awaitingLabel, variant: "destructive" },
+                icon: <NotebookPen className="h-4 w-4" />,
+                iconWrapperClass: "bg-amber-100 border-amber-200 text-amber-700",
+                onClick: navigateToJournal,
+            });
+        }
+
         if (actionableItems.untaggedCount > 0) {
             actionableItems.untaggedDocs.slice(0, 2).forEach((doc) => {
                 seenDocIds.add(doc.id);
@@ -2424,6 +2489,8 @@ const navigateToAuditForm = (auditKey: string) => {
         isTodayCompleted,
         monthlyAuditStatus,
         monthlyStatusLoaded,
+        openJournalCount,
+        shouldShowJournalCard,
         navigateToAuditForm,
         onSelect,
         setIsDailyCheckinModalOpen,

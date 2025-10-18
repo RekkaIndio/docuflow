@@ -47,6 +47,37 @@ export type Document = {
   downloadUrl?: string;
 };
 
+export type JournalEntry = {
+  id?: string;
+  workspaceId: string;
+  organisationId?: string | null;
+  entryType: 'staff' | 'manager';
+  status: 'open' | 'closed';
+  content: string;
+  isAnonymous: boolean;
+  author: {
+    id: string | null;
+    name: string | null;
+    role?: string | null;
+  };
+  createdAt: string;
+  monthKey: string;
+  response?: {
+    text: string;
+    responderId: string | null;
+    responderName?: string | null;
+    responderRole?: string | null;
+    respondedAt: string;
+  };
+  closedAt?: string | null;
+  closedBy?: {
+    id: string | null;
+    name?: string | null;
+    role?: string | null;
+  };
+  resolvedMonthKey?: string | null;
+};
+
 export type Team = {
   id: string;
   name: string;
