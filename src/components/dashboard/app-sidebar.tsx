@@ -15,9 +15,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import {
-  Settings,
   UsersRound,
-  LogOut,
   Folder as FolderIcon,
   LayoutDashboard,
   FileText,
@@ -31,7 +29,6 @@ import {
   ClipboardList,
   AlertCircle,
   Calendar,
-  HelpCircle,
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
@@ -341,34 +338,23 @@ export function AppSidebar({
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter>
-        <div className="w-full">
-          <SidebarMenu>
-            {/* Accessibility - Always visible (core feature) */}
-            {isEnabled('accessibility') && (
+        <div className="w-full flex justify-center py-2">
+          {isEnabled('accessibility') && (
+            <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton onClick={() => handleNavigation(() => setView('accessibility'))} isActive={currentView === 'accessibility'} className="text-lg h-12">
-                  <Accessibility className="w-6 h-6 mr-2" />
-                  <span className="text-sm">Accessibility</span>
+                <SidebarMenuButton
+                  onClick={() => handleNavigation(() => setView('accessibility'))}
+                  isActive={currentView === 'accessibility'}
+                  className="h-12 w-12 justify-center rounded-full px-0 mx-auto bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-primary/60"
+                  aria-label="Accessibility"
+                  title="Accessibility"
+                >
+                  <Accessibility className="w-6 h-6" />
+                  <span className="sr-only">Accessibility</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-            )}
-            {/* Help - Always visible (core feature) */}
-            <SidebarMenuItem>
-              <SidebarMenuButton onClick={() => handleNavigation(() => setView('help'))} className="text-lg h-12">
-                <HelpCircle className="w-6 h-6 mr-2" />
-                <span className="text-sm">Help</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            {/* Settings - Always visible (core feature) */}
-            {isEnabled('settings') && (
-              <SidebarMenuItem>
-                <SidebarMenuButton onClick={() => handleNavigation(() => setView('settings'))} className="text-lg h-12">
-                  <Settings className="w-6 h-6 mr-2" />
-                  <span className="text-sm">Settings</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            )}
-          </SidebarMenu>
+            </SidebarMenu>
+          )}
         </div>
       </SidebarFooter>
       {/* Visible rail toggle between sidebar and content on desktop */}
