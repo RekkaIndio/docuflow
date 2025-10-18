@@ -1388,7 +1388,14 @@ export function Dashboard() {
         </Sidebar>
 
         <SidebarInset className="flex flex-col min-h-screen w-full">
-                <TopNav onSettingsClick={() => setView('settings')} onNotificationsClick={() => setView('notifications')} unreadCount={unreadNotifications} workspaceId={workspaceId} organisationId={organisationId} />
+                <TopNav
+                  onSettingsClick={() => setView('settings')}
+                  onNotificationsClick={() => setView('notifications')}
+                  onHelpClick={() => setView('help')}
+                  unreadCount={unreadNotifications}
+                  workspaceId={workspaceId}
+                  organisationId={organisationId}
+                />
             <div className={cn(
               "flex-1 w-full",
               // Add bottom padding on mobile when chat is closed to ensure content isn't hidden behind chat button

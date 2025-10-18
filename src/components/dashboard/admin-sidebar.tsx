@@ -11,7 +11,6 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import {
-  Settings,
   UsersRound,
   Folder as FolderIcon,
   LayoutDashboard,
@@ -108,18 +107,17 @@ export function AdminSidebar({
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter>
-        <div className="w-full">
+        <div className="w-full flex justify-center py-2">
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton onClick={() => handleNavigation(() => setView('accessibility'))} className="text-lg h-12">
-                <Accessibility className="w-6 h-6 mr-2" />
-                <span className="text-sm">Accessibility</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton onClick={() => handleNavigation(() => setView('settings'))} className="text-lg h-12">
-                <Settings className="w-6 h-6 mr-2" />
-                <span className="text-sm">Settings</span>
+              <SidebarMenuButton
+                onClick={() => handleNavigation(() => setView('accessibility'))}
+                className="h-12 w-12 justify-center rounded-full px-0 mx-auto bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-primary/60"
+                aria-label="Accessibility"
+                title="Accessibility"
+              >
+                <Accessibility className="w-6 h-6" />
+                <span className="sr-only">Accessibility</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>

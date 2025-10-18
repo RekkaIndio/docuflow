@@ -31,9 +31,10 @@ interface TopNavProps {
   unreadCount?: number;
   workspaceId?: string | null;
   organisationId?: string | null;
+  onHelpClick?: () => void;
 }
 
-export function TopNav({ onSettingsClick, onNotificationsClick, unreadCount = 0, workspaceId, organisationId }: TopNavProps) {
+export function TopNav({ onSettingsClick, onNotificationsClick, unreadCount = 0, workspaceId, organisationId, onHelpClick }: TopNavProps) {
   const { user, signOut } = useAuth();
   const pathname = usePathname();
   const isMobile = useIsMobile();
@@ -218,12 +219,19 @@ export function TopNav({ onSettingsClick, onNotificationsClick, unreadCount = 0,
                 <span>Settings</span>
               </DropdownMenuItem>
             )}
-            <DropdownMenuItem asChild>
-              <Link href="/help" className="flex items-center">
+            {onHelpClick ? (
+              <DropdownMenuItem onClick={onHelpClick}>
                 <LifeBuoy className="mr-2 h-4 w-4" />
                 <span>Help Center</span>
-              </Link>
-            </DropdownMenuItem>
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem asChild>
+                <Link href="/help" className="flex items-center">
+                  <LifeBuoy className="mr-2 h-4 w-4" />
+                  <span>Help Center</span>
+                </Link>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={signOut}>
               <LogOut className="mr-2 h-4 w-4" />
