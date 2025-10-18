@@ -550,12 +550,30 @@ export function RotasView({ workspace }: RotasViewProps) {
   };
 
   const handleSaveShiftPatterns = async (patternsToSave: ShiftPattern[]) => {
-    setShiftPatterns(patternsToSave);
+    if (!workspaceId) {
+      toast({
+        title: 'Workspace missing',
+        description: 'Select a workspace before updating shift patterns.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const sanitizedPatterns = patternsToSave.map((pattern) => {
+      const { id, label, startTime, endTime } = pattern;
+      const color = (pattern.color as ShiftColorKey) || DEFAULT_SHIFT_COLOR;
+      const description = pattern.description?.trim();
+      return description
+        ? { id, label, startTime, endTime, color, description }
+        : { id, label, startTime, endTime, color };
+    });
+
+    setShiftPatterns(sanitizedPatterns);
 
     try {
       const patternsRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId), 'rotas', 'shift-patterns');
       await setDoc(patternsRef, {
-        patterns: patternsToSave,
+        patterns: sanitizedPatterns,
         updatedAt: new Date().toISOString(),
       }, { merge: true });
       toast({
