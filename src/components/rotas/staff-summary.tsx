@@ -1,9 +1,10 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, TrendingUp, Clock } from "lucide-react";
-import type { StaffMember, Shift } from "./rotas-view";
-import { addDays, addWeeks, format, isSameDay, isWithinInterval } from "date-fns";
+import { Users, TrendingUp, Clock, ShieldCheck, CheckCircle2, AlertTriangle } from "lucide-react";
+import type { StaffMember, Shift, ShiftPattern } from "./rotas-view";
+import type { StaffingSummary } from "@/lib/staffing/ndps";
+import { addDays, addWeeks, format, formatDistanceToNow } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 
@@ -12,11 +13,45 @@ interface StaffSummaryProps {
   shifts: Shift[];
   weekStart: Date;
   weeksToShow: number;
+  patterns: ShiftPattern[];
+  staffingSummary: StaffingSummary | null;
 }
 
-export function StaffSummary({ staff, shifts, weekStart, weeksToShow }: StaffSummaryProps) {
+export function StaffSummary({ staff, shifts, weekStart, weeksToShow, patterns, staffingSummary }: StaffSummaryProps) {
   const workingShifts = shifts.filter((shift) => shift.type !== 'AnnualLeave');
   const leaveShifts = shifts.filter((shift) => shift.type === 'AnnualLeave');
+
+  const patternMap = new Map<string, ShiftPattern>();
+  patterns.forEach((pattern) => patternMap.set(pattern.id, pattern));
+
+  const parseTimeToMinutes = (time?: string | null) => {
+    if (!time) return null;
+    const [hoursStr, minutesStr] = time.split(':');
+    const hours = Number(hoursStr);
+    const minutes = Number(minutesStr);
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
+    return hours * 60 + minutes;
+  };
+
+  const classifyShift = (shift: Shift): 'Day' | 'Night' => {
+    const pattern = patternMap.get(shift.type);
+    const normalizedType = shift.type.toLowerCase();
+    if (normalizedType.includes('night')) return 'Night';
+
+    const startMinutes = parseTimeToMinutes(shift.startTime ?? pattern?.startTime ?? null);
+    const endMinutes = parseTimeToMinutes(shift.endTime ?? pattern?.endTime ?? null);
+
+    if (startMinutes === null) return 'Day';
+
+    const startHour = Math.floor(startMinutes / 60);
+    if (startHour >= 20 || startHour < 6) return 'Night';
+
+    if (endMinutes !== null && endMinutes < startMinutes) {
+      return 'Night';
+    }
+
+    return 'Day';
+  };
 
   // Calculate shifts per staff member
   const staffShiftCounts = staff.map(member => {
@@ -70,6 +105,54 @@ export function StaffSummary({ staff, shifts, weekStart, weeksToShow }: StaffSum
     }
   }
 
+  const dateKeys = allDates.map((date) => format(date, 'yyyy-MM-dd'));
+  const dateKeySet = new Set(dateKeys);
+  const dayAssignments: Record<string, number> = {};
+  const nightAssignments: Record<string, number> = {};
+
+  dateKeys.forEach((key) => {
+    dayAssignments[key] = 0;
+    nightAssignments[key] = 0;
+  });
+
+  workingShifts.forEach((shift) => {
+    if (!dateKeySet.has(shift.date)) return;
+    const bucket = classifyShift(shift);
+    if (bucket === 'Night') {
+      nightAssignments[shift.date] = (nightAssignments[shift.date] ?? 0) + 1;
+    } else {
+      dayAssignments[shift.date] = (dayAssignments[shift.date] ?? 0) + 1;
+    }
+  });
+
+  const dayCounts = dateKeys.map((key) => dayAssignments[key] ?? 0);
+  const nightCounts = dateKeys.map((key) => nightAssignments[key] ?? 0);
+
+  const averageDayStaff = dayCounts.length
+    ? Math.round((dayCounts.reduce((sum, value) => sum + value, 0) / dayCounts.length) * 10) / 10
+    : 0;
+  const averageNightStaff = nightCounts.length
+    ? Math.round((nightCounts.reduce((sum, value) => sum + value, 0) / nightCounts.length) * 10) / 10
+    : 0;
+
+  const lowestDayCover = dayCounts.length ? Math.min(...dayCounts) : 0;
+  const lowestNightCover = nightCounts.length ? Math.min(...nightCounts) : 0;
+
+  const requiredDayStaff = staffingSummary?.ndpsStaffing.Day ?? 0;
+  const requiredNightStaff = staffingSummary?.ndpsStaffing.Night ?? 0;
+  const dayDeficit = staffingSummary ? Math.max(0, requiredDayStaff - lowestDayCover) : 0;
+  const nightDeficit = staffingSummary ? Math.max(0, requiredNightStaff - lowestNightCover) : 0;
+  const meetsDayRequirement = staffingSummary ? dayDeficit === 0 : null;
+  const meetsNightRequirement = staffingSummary ? nightDeficit === 0 : null;
+  const isCompliant = Boolean(meetsDayRequirement && meetsNightRequirement);
+
+  const generatedRelative = (() => {
+    if (!staffingSummary) return null;
+    const generatedDate = new Date(staffingSummary.generatedAt);
+    if (Number.isNaN(generatedDate.getTime())) return null;
+    return formatDistanceToNow(generatedDate, { addSuffix: true });
+  })();
+
   const dailyCoverage = allDates.map(date => {
     const dateStr = format(date, 'yyyy-MM-dd');
     const dayShifts = workingShifts.filter(s => s.date === dateStr);
@@ -82,9 +165,67 @@ export function StaffSummary({ staff, shifts, weekStart, weeksToShow }: StaffSum
   const daysWithLowCoverage = dailyCoverage.filter(d => d.shiftCount < 3).length;
   const coveragePercentage = staff.length > 0 ? Math.min(100, Math.round((totalShifts / (staff.length * weeksToShow * 7)) * 100)) : 0;
   const expectedShiftsPerStaff = staff.length > 0 ? totalShifts / staff.length : 0;
+  const dayDeficitLabel = dayDeficit > 0 ? `Add ${Math.ceil(dayDeficit)} for day cover` : null;
+  const nightDeficitLabel = nightDeficit > 0 ? `Add ${Math.ceil(nightDeficit)} for night cover` : null;
+  const actionItems = [dayDeficitLabel, nightDeficitLabel].filter(Boolean) as string[];
 
   return (
     <div className="space-y-4">
+      {staffingSummary ? (
+        <Card className={isCompliant ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"}>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ShieldCheck className="w-4 h-4" />
+              NDPS Staffing Check
+            </CardTitle>
+            <div className="text-xs text-muted-foreground">
+              Last generated {generatedRelative ?? 'recently'} • {staffingSummary.residentCount} resident{staffingSummary.residentCount === 1 ? '' : 's'} assessed • Nurses {staffingSummary.includeNurses ? 'included' : 'rolled into carers'}
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-start gap-3">
+              {isCompliant ? (
+                <CheckCircle2 className="h-8 w-8 text-emerald-500" />
+              ) : (
+                <AlertTriangle className="h-8 w-8 text-amber-500" />
+              )}
+              <div className="space-y-2 text-sm">
+                <p className="font-medium text-slate-900">
+                  {isCompliant
+                    ? 'Your rota currently meets the NDPS recommended staffing levels.'
+                    : 'Staffing is below the NDPS recommendation on some shifts.'}
+                </p>
+                {!isCompliant && actionItems.length > 0 && (
+                  <ul className="list-disc pl-4 text-slate-700">
+                    {actionItems.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Clock className="w-4 h-4" />
+              Staffing Evidence
+            </CardTitle>
+            <div className="text-xs text-muted-foreground">
+              Generate dependency scores to view recommended staffing levels alongside your rota.
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-slate-600">
+              The rota will surface NDPS recommendations once the dependency calculator has been saved for this workspace.
+              Capture the latest resident assessments and this panel will compare required staff to scheduled cover automatically.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">

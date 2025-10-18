@@ -386,6 +386,8 @@ export function AdminRotasView({ workspace }: AdminRotasViewProps) {
             shifts={allShifts}
             weekStart={currentWeekStart}
             weeksToShow={weeksToShow}
+            patterns={shiftPatterns}
+            staffingSummary={null}
           />
         </div>
       </div>

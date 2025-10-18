@@ -376,6 +376,7 @@ export default function LessonsRcasPage() {
 
   const workspaceId = workspace?.id ?? '';
   const organisationId = workspace?.organisationId ?? null;
+  const isWorkspaceSelected = Boolean(workspaceId);
 
   const [lessonsForm, setLessonsForm] = useState({ ...LESSONS_FORM_TEMPLATE });
 
@@ -572,61 +573,96 @@ export default function LessonsRcasPage() {
         leading={<NotebookPen className="h-6 w-6" />}
       />
 
-  <div className="w-full py-10 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-50 to-white rounded-3xl shadow-2xl mt-10 border border-slate-200">
-        <div className="flex flex-col lg:flex-row gap-10">
-        <div className="w-full lg:w-[420px] flex-shrink-0 bg-white rounded-2xl p-8 border border-slate-200 shadow-xl mb-8 lg:mb-0 lg:sticky lg:top-[96px] self-start h-fit">
-          <h2 className="text-2xl font-extrabold text-blue-900 mb-2">Quick record options</h2>
-          <p className="text-sm text-slate-500 mb-4">Use these quick fields to prefill the currently selected form. Switch tabs to edit a different record type.</p>
+      <div className="px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-[1800px] space-y-6">
+          {!isWorkspaceSelected ? (
+            <Card className="border-dashed">
+              <CardHeader>
+                <CardTitle>Select a workspace</CardTitle>
+                <CardDescription>
+                  Choose a workspace from the sidebar to capture lessons learned and root cause analysis records.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          ) : (
+            <Tabs value={activeTab} onValueChange={val => setActiveTab(val as 'lessons' | 'rca' | 'tracker')} className="space-y-6">
+              <TabsList className="grid h-auto w-full max-w-2xl grid-cols-3 items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+                <TabsTrigger
+                  className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                  value="lessons"
+                >
+                  Lessons Learned
+                </TabsTrigger>
+                <TabsTrigger
+                  className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                  value="rca"
+                >
+                  Root Cause Analysis
+                </TabsTrigger>
+                <TabsTrigger
+                  className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                  value="tracker"
+                >
+                  Tracker
+                </TabsTrigger>
+              </TabsList>
 
-          <div className="space-y-3 mb-4">
-            <label className="block text-sm font-medium text-slate-700">Date &amp; Time</label>
-            <Input type="datetime-local" value={activeTab === 'lessons' ? lessonsForm.date : rcaForm.date} onChange={e => activeTab === 'lessons' ? updateLessonsField('date', e.target.value) : updateRcaField('date', e.target.value)} />
-          </div>
-          <div className="space-y-3 mb-4">
-            <label className="block text-sm font-medium text-slate-700">Type of Event</label>
-            <Input placeholder="e.g. inspection, fall" value={activeTab === 'lessons' ? lessonsForm.eventType : rcaForm.eventType} onChange={e => activeTab === 'lessons' ? updateLessonsField('eventType', e.target.value) : updateRcaField('eventType', e.target.value)} />
-          </div>
-          <div className="space-y-3 mb-4">
-            <label className="block text-sm font-medium text-slate-700">Location / Unit</label>
-            <Input placeholder="Location / Unit" value={activeTab === 'lessons' ? lessonsForm.location : rcaForm.location} onChange={e => activeTab === 'lessons' ? updateLessonsField('location', e.target.value) : updateRcaField('location', e.target.value)} />
-          </div>
-          <div className="space-y-3 mb-6">
-            <label className="block text-sm font-medium text-slate-700">People Involved</label>
-            <Textarea rows={2} placeholder="Staff, residents, families" value={activeTab === 'lessons' ? lessonsForm.peopleInvolved : rcaForm.peopleInvolved} onChange={e => activeTab === 'lessons' ? updateLessonsField('peopleInvolved', e.target.value) : updateRcaField('peopleInvolved', e.target.value)} />
-          </div>
+              <p className="text-sm text-slate-500">
+                Capture new insights, complete investigations, or revisit historic submissions from a single page.
+              </p>
 
-          <div className="flex gap-3">
-            <Button onClick={() => setActiveTab('lessons')} className="flex-1 bg-blue-800 hover:bg-blue-900 text-white rounded-xl shadow-md">
-              New Lesson
-            </Button>
-            <Button onClick={() => setActiveTab('rca')} className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl shadow-md">
-              New RCA
-            </Button>
-          </div>
-        </div>
+                  <TabsContent value="lessons" className="space-y-6">
+                    <div className="grid gap-6 lg:grid-cols-[minmax(0,320px),1fr] xl:grid-cols-[minmax(0,360px),1fr]">
+                  <Card className="h-fit border border-slate-200 shadow-sm">
+                    <CardHeader className="space-y-1 border-b border-slate-200 bg-slate-50/60">
+                      <CardTitle className="text-lg">Quick record options</CardTitle>
+                      <CardDescription>Prefill key context before completing the full lessons learned form.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4 p-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="quick-lessons-date">Date &amp; Time</Label>
+                        <Input
+                          id="quick-lessons-date"
+                          type="datetime-local"
+                          value={lessonsForm.date}
+                          onChange={event => updateLessonsField('date', event.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="quick-lessons-event">Type of Event</Label>
+                        <Input
+                          id="quick-lessons-event"
+                          placeholder="e.g. inspection, fall"
+                          value={lessonsForm.eventType}
+                          onChange={event => updateLessonsField('eventType', event.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="quick-lessons-location">Location / Unit</Label>
+                        <Input
+                          id="quick-lessons-location"
+                          placeholder="Location / Unit"
+                          value={lessonsForm.location}
+                          onChange={event => updateLessonsField('location', event.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="quick-lessons-people">People Involved</Label>
+                        <Textarea
+                          id="quick-lessons-people"
+                          rows={3}
+                          placeholder="Staff, residents, families"
+                          value={lessonsForm.peopleInvolved}
+                          onChange={event => updateLessonsField('peopleInvolved', event.target.value)}
+                        />
+                      </div>
+                      <Button type="button" variant="outline" className="w-full" onClick={() => setActiveTab('rca')}>
+                        Switch to RCA
+                      </Button>
+                    </CardContent>
+                  </Card>
 
-        <div className="flex-1 min-w-0">
-          <div className="w-full">
-            <Tabs value={activeTab} onValueChange={val => setActiveTab(val as 'lessons' | 'rca' | 'tracker')}>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <TabsList className="grid h-auto items-center w-full max-w-2xl grid-cols-3 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
-              <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="lessons">
-                Lessons Learned
-              </TabsTrigger>
-              <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="rca">
-                Root Cause Analysis
-              </TabsTrigger>
-              <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="tracker">
-                Tracker
-              </TabsTrigger>
-            </TabsList>
-            <div className="text-sm text-slate-500">
-              Capture new insights, run investigations, or review previous submissions in one place.
-            </div>
-          </div>
-
-          <TabsContent value="lessons" className="space-y-8">
-            <Card className="bg-white rounded-2xl border border-slate-200 shadow-xl">
+                  <Card className="border border-slate-200 shadow-sm">
               <CardHeader className="space-y-2 border-b border-slate-200 bg-white px-6 py-6 sm:px-8">
                 <CardTitle className="text-2xl font-semibold text-blue-900">Lessons Learned Record</CardTitle>
                 <CardDescription className="text-base text-slate-500">
@@ -806,10 +842,61 @@ export default function LessonsRcasPage() {
                 </form>
               </CardContent>
             </Card>
+            </div>
           </TabsContent>
 
-          <TabsContent value="rca" className="space-y-8">
-              <Card className="bg-white rounded-2xl border border-slate-200 shadow-xl">
+          <TabsContent value="rca" className="space-y-6">
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,320px),1fr] xl:grid-cols-[minmax(0,360px),1fr]">
+                  <Card className="h-fit border border-slate-200 shadow-sm">
+                    <CardHeader className="space-y-1 border-b border-slate-200 bg-slate-50/60">
+                      <CardTitle className="text-lg">Quick investigation setup</CardTitle>
+                      <CardDescription>Capture the essentials before working through the full RCA.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4 p-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="quick-rca-date">Date &amp; Time of Event</Label>
+                        <Input
+                          id="quick-rca-date"
+                          type="datetime-local"
+                          value={rcaForm.date}
+                          onChange={event => updateRcaField('date', event.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="quick-rca-event">Type of Event</Label>
+                        <Input
+                          id="quick-rca-event"
+                          placeholder="e.g. fall, medication error"
+                          value={rcaForm.eventType}
+                          onChange={event => updateRcaField('eventType', event.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="quick-rca-location">Location / Unit</Label>
+                        <Input
+                          id="quick-rca-location"
+                          placeholder="Location / Unit"
+                          value={rcaForm.location}
+                          onChange={event => updateRcaField('location', event.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="quick-rca-people">People Involved</Label>
+                        <Textarea
+                          id="quick-rca-people"
+                          rows={3}
+                          placeholder="Staff, residents, witnesses"
+                          value={rcaForm.peopleInvolved}
+                          onChange={event => updateRcaField('peopleInvolved', event.target.value)}
+                        />
+                      </div>
+                      <Button type="button" variant="outline" className="w-full" onClick={() => setActiveTab('lessons')}>
+                        Switch to Lessons
+                      </Button>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border border-slate-200 shadow-sm">
               <CardHeader className="space-y-2 border-b border-slate-200 bg-white px-6 py-6 sm:px-8">
                 <CardTitle className="text-2xl font-semibold text-blue-900">Root Cause Analysis</CardTitle>
                 <CardDescription className="text-base text-slate-500">
@@ -1020,6 +1107,7 @@ export default function LessonsRcasPage() {
                 </form>
               </CardContent>
             </Card>
+            </div>
           </TabsContent>
 
             <TabsContent value="tracker" className="space-y-8">
@@ -1096,12 +1184,12 @@ export default function LessonsRcasPage() {
                 </CardContent>
               </Card>
             </TabsContent>
-        </Tabs>
-          </div>
+          </Tabs>
+          )}
         </div>
       </div>
 
-        <Dialog open={!!selectedRecord} onOpenChange={open => setSelectedRecord(open ? selectedRecord : null)}>
+      <Dialog open={!!selectedRecord} onOpenChange={open => setSelectedRecord(open ? selectedRecord : null)}>
           <DialogContent className="flex max-h-[85vh] min-h-[60vh] w-full max-w-4xl flex-col overflow-hidden border border-slate-200 bg-white shadow-2xl p-0">
             {selectedRecord ? (
               <>
@@ -1133,7 +1221,6 @@ export default function LessonsRcasPage() {
             ) : null}
           </DialogContent>
         </Dialog>
-      </div>
     </div>
   );
 }

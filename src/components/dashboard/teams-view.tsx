@@ -80,6 +80,18 @@ interface Nurse {
   updatedAt?: string;
 }
 
+interface Carer {
+  id: string;
+  name: string;
+  roles: string;
+  email: string;
+  phone: string;
+  contractedHours?: number;
+  hoursType?: 'weekly' | 'monthly';
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 interface CTM {
   id: string;
   name: string;
@@ -188,6 +200,13 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
   const [editingNurse, setEditingNurse] = useState<string | null>(null);
   const [newNurse, setNewNurse] = useState<{ name: string; roles: string; email: string; phone: string; contractedHours: number | ''; hoursType: 'weekly' | 'monthly' }>({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' });
   const [nursesError, setNursesError] = useState<string | null>(null);
+
+  // Carers state
+  const [carers, setCarers] = useState<Carer[]>([]);
+  const [carersLoading, setCarersLoading] = useState(false);
+  const [editingCarer, setEditingCarer] = useState<string | null>(null);
+  const [newCarer, setNewCarer] = useState<{ name: string; roles: string; email: string; phone: string; contractedHours: number | ''; hoursType: 'weekly' | 'monthly' }>({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' });
+  const [carersError, setCarersError] = useState<string | null>(null);
 
   // CTMs state
   const [ctms, setCTMs] = useState<CTM[]>([]);
@@ -349,6 +368,32 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     };
     
     loadNurses();
+  }, [workspaceId, organisationId]);
+
+  // Load carers from workspace
+  useEffect(() => {
+    const loadCarers = async () => {
+      if (!workspaceId) return;
+
+      setCarersLoading(true);
+
+      try {
+        const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId));
+        const workspaceSnap = await getDoc(workspaceRef);
+
+        if (workspaceSnap.exists()) {
+          const data = workspaceSnap.data();
+          const carersData = data.carers || [];
+          setCarers(carersData);
+        }
+      } catch (error) {
+        console.error('Failed to load carers:', error);
+      } finally {
+        setCarersLoading(false);
+      }
+    };
+
+    loadCarers();
   }, [workspaceId, organisationId]);
 
   // Load CTMs from workspace
@@ -587,6 +632,60 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     } catch (error) {
       console.error('Failed to remove nurse from Firebase:', error);
       setNursesError('Failed to remove nurse');
+      return false;
+    }
+  };
+
+  // Add carer to Firebase
+  const addCarerToFirebase = async (carer: Carer) => {
+    if (!workspaceId) return false;
+
+    try {
+      const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId));
+      await updateDoc(workspaceRef, {
+        carers: arrayUnion(carer)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to add carer to Firebase:', error);
+      setCarersError('Failed to save carer');
+      return false;
+    }
+  };
+
+  // Update carer in Firebase
+  const updateCarerInFirebase = async (oldCarer: Carer, newCarer: Carer) => {
+    if (!workspaceId) return false;
+
+    try {
+      const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId));
+      await updateDoc(workspaceRef, {
+        carers: arrayRemove(oldCarer)
+      });
+      await updateDoc(workspaceRef, {
+        carers: arrayUnion(newCarer)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to update carer in Firebase:', error);
+      setCarersError('Failed to update carer');
+      return false;
+    }
+  };
+
+  // Remove carer from Firebase
+  const removeCarerFromFirebase = async (carer: Carer) => {
+    if (!workspaceId) return false;
+
+    try {
+      const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId));
+      await updateDoc(workspaceRef, {
+        carers: arrayRemove(carer)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to remove carer from Firebase:', error);
+      setCarersError('Failed to remove carer');
       return false;
     }
   };
@@ -1222,6 +1321,55 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     }
   };
 
+  const handleAddCarer = async () => {
+    if (!newCarer.name || !newCarer.email || !newCarer.phone) return;
+
+    const carerToAdd: Carer = {
+      id: Date.now().toString(),
+      name: newCarer.name,
+      roles: newCarer.roles,
+      email: newCarer.email,
+      phone: newCarer.phone,
+      contractedHours: typeof newCarer.contractedHours === 'number' && !isNaN(newCarer.contractedHours) ? newCarer.contractedHours : 40,
+      hoursType: newCarer.hoursType || 'weekly',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    setCarers(prev => [...prev, carerToAdd]);
+    setNewCarer({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' });
+    setCarersError(null);
+
+    const success = await addCarerToFirebase(carerToAdd);
+    if (!success) {
+      setCarers(prev => prev.filter(c => c.id !== carerToAdd.id));
+    } else {
+      try { await setContractedHoursForStaff(carerToAdd.id, carerToAdd.contractedHours ?? 40, carerToAdd.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to persist contracted hours mapping after adding carer', e); }
+    }
+  };
+
+  const handleUpdateCarer = async (carerId: string, updatedData: Partial<Carer>) => {
+    const originalCarer = carers.find(c => c.id === carerId);
+    if (!originalCarer) return;
+
+    const updatedCarer: Carer = {
+      ...originalCarer,
+      ...updatedData,
+      updatedAt: new Date().toISOString()
+    };
+
+    setCarers(prev => prev.map(c => c.id === carerId ? updatedCarer : c));
+    setEditingCarer(null);
+    setCarersError(null);
+
+    const success = await updateCarerInFirebase(originalCarer, updatedCarer);
+    if (!success) {
+      setCarers(prev => prev.map(c => c.id === carerId ? originalCarer : c));
+    } else {
+      try { await setContractedHoursForStaff(updatedCarer.id, updatedCarer.contractedHours ?? 40, updatedCarer.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to update contracted hours mapping for carer', e); }
+    }
+  };
+
   const handleAddCTM = async () => {
     if (!newCTM.name || !newCTM.email || !newCTM.phone) return;
     
@@ -1525,7 +1673,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
             )}
       <main className="flex-1 p-6 overflow-y-auto">
         <Tabs defaultValue="teams" className="w-full">
-          <TabsList className="grid w-[1200px] grid-cols-8 bg-white border border-gray-200 rounded-lg mb-6">
+          <TabsList className="grid w-[1200px] grid-cols-9 bg-white border border-gray-200 rounded-lg mb-6">
             <TabsTrigger value="teams" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
               Teams
@@ -1537,6 +1685,10 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
             <TabsTrigger value="nurses" className="flex items-center gap-2">
               <UserCheck className="w-4 h-4" />
               Nurses
+            </TabsTrigger>
+            <TabsTrigger value="carers" className="flex items-center gap-2">
+              <UserCheck className="w-4 h-4" />
+              Carers
             </TabsTrigger>
             <TabsTrigger value="ctm" className="flex items-center gap-2">
               <UserCheck className="w-4 h-4" />
@@ -1992,6 +2144,155 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                             }
                           }}
                           disabled={nursesLoading}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="carers" className="mt-6">
+            <div className="space-y-6">
+              {/* Error Display */}
+              {carersError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-red-600" />
+                    <p className="text-red-800 font-medium">Error</p>
+                  </div>
+                  <p className="text-red-700 text-sm mt-1">{carersError}</p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setCarersError(null)}
+                    className="mt-2 text-red-600 hover:text-red-700"
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              )}
+
+              {/* Add New Carer Form */}
+              <Card>
+                <CardHeader>
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <Plus className="w-5 h-5 text-blue-600" />
+                    Add New Carer
+                  </h3>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Name</label>
+                      <Input
+                        placeholder="Enter carer name"
+                        value={newCarer.name}
+                        onChange={(e) => setNewCarer(prev => ({ ...prev, name: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Roles</label>
+                      <Input
+                        placeholder="e.g. Senior Carer, Carer"
+                        value={newCarer.roles}
+                        onChange={(e) => setNewCarer(prev => ({ ...prev, roles: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Email Address</label>
+                      <Input
+                        type="email"
+                        placeholder="carer@example.com"
+                        value={newCarer.email}
+                        onChange={(e) => setNewCarer(prev => ({ ...prev, email: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Phone Number</label>
+                      <Input
+                        type="tel"
+                        placeholder="+44 123 456 7890"
+                        value={newCarer.phone}
+                        onChange={(e) => setNewCarer(prev => ({ ...prev, phone: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Contracted Hours</label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={168}
+                        value={newCarer.contractedHours === '' ? '' : String(newCarer.contractedHours)}
+                        onChange={(e) => setNewCarer(prev => ({ ...prev, contractedHours: e.target.value === '' ? '' : parseInt(e.target.value, 10) }))}
+                        placeholder="e.g. 40"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Hours Type</label>
+                      <Select value={newCarer.hoursType} onValueChange={(v: 'weekly' | 'monthly') => setNewCarer(prev => ({ ...prev, hoursType: v }))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <Button
+                      onClick={handleAddCarer}
+                      disabled={!newCarer.name || !newCarer.roles || !newCarer.email || !newCarer.phone || carersLoading}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      {carersLoading ? 'Adding...' : 'Add Carer'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Current Carers List */}
+              <Card>
+                <CardHeader>
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <UserCheck className="w-5 h-5 text-green-600" />
+                    Current Carers ({carers.length})
+                    {carersLoading && <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>}
+                  </h3>
+                </CardHeader>
+                <CardContent>
+                  {carers.length === 0 ? (
+                    <div className="text-center py-8">
+                      <UserCheck className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-500">No carers assigned yet</p>
+                      <p className="text-sm text-gray-400 mt-1">Add carers using the form above</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {carers.map((carer) => (
+                        <CarerCard
+                          key={carer.id}
+                          carer={carer}
+                          isEditing={editingCarer === carer.id}
+                          onEdit={() => setEditingCarer(carer.id)}
+                          onCancelEdit={() => setEditingCarer(null)}
+                          onSave={(updatedData) => handleUpdateCarer(carer.id, updatedData)}
+                          onDelete={async () => {
+                            setCarers(prev => prev.filter(c => c.id !== carer.id));
+                            setCarersError(null);
+
+                            const success = await removeCarerFromFirebase(carer);
+                            if (!success) {
+                              setCarers(prev => [...prev, carer]);
+                            } else {
+                              try { await removeContractedHoursForStaff(carer.id); } catch (e) { console.warn('Failed to remove contracted hours mapping for carer', e); }
+                            }
+                          }}
+                          disabled={carersLoading}
                         />
                       ))}
                     </div>
@@ -3131,6 +3432,184 @@ function NurseCard({ nurse, isEditing, onEdit, onCancelEdit, onSave, onDelete, d
           onClick={onEdit}
           disabled={disabled}
           className="text-green-600 hover:text-green-700 hover:bg-green-100"
+        >
+          <Edit className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onDelete}
+          disabled={disabled}
+          className="text-red-600 hover:text-red-700 hover:bg-red-100"
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// Carer Card Component with Edit Functionality
+interface CarerCardProps {
+  carer: Carer;
+  isEditing: boolean;
+  onEdit: () => void;
+  onCancelEdit: () => void;
+  onSave: (updatedData: Partial<Carer>) => void;
+  onDelete: () => void;
+  disabled: boolean;
+}
+
+function CarerCard({ carer, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: CarerCardProps) {
+  const [editForm, setEditForm] = useState<{ name: string; roles: string; email: string; phone: string; contractedHours: number | ''; hoursType: 'weekly' | 'monthly' }>({
+    name: carer.name,
+    roles: carer.roles,
+    email: carer.email,
+    phone: carer.phone,
+    contractedHours: carer.contractedHours ?? 40,
+    hoursType: carer.hoursType ?? 'weekly',
+  });
+
+  const handleSave = () => {
+    onSave({
+      name: editForm.name,
+      roles: editForm.roles,
+      email: editForm.email,
+      phone: editForm.phone,
+      contractedHours: typeof editForm.contractedHours === 'number' && !isNaN(editForm.contractedHours) ? editForm.contractedHours : (carer.contractedHours ?? 40),
+      hoursType: editForm.hoursType,
+    });
+  };
+
+  const handleCancel = () => {
+    setEditForm({
+      name: carer.name,
+      roles: carer.roles,
+      email: carer.email,
+      phone: carer.phone,
+      contractedHours: carer.contractedHours ?? 40,
+      hoursType: carer.hoursType ?? 'weekly',
+    });
+    onCancelEdit();
+  };
+
+  if (isEditing) {
+    return (
+      <div className="p-4 bg-teal-50 rounded-lg border border-teal-200">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
+            <Input value={editForm.name} onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))} placeholder="Carer name" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Roles</label>
+            <Input value={editForm.roles} onChange={(e) => setEditForm(prev => ({ ...prev, roles: e.target.value }))} placeholder="e.g. Senior Carer" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+            <Input type="email" value={editForm.email} onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))} placeholder="carer@example.com" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+            <Input type="tel" value={editForm.phone} onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))} placeholder="+44 123 456 7890" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Contracted Hours</label>
+            <Input type="number" min={1} max={168} value={editForm.contractedHours === '' ? '' : String(editForm.contractedHours)} onChange={(e) => setEditForm(prev => ({ ...prev, contractedHours: e.target.value === '' ? '' : parseInt(e.target.value, 10) }))} placeholder="e.g. 40" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Hours Type</label>
+            <Select value={editForm.hoursType ?? 'weekly'} onValueChange={(v: 'weekly' | 'monthly') => setEditForm(prev => ({ ...prev, hoursType: v }))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="weekly">Weekly</SelectItem>
+                <SelectItem value="monthly">Monthly</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            onClick={handleSave}
+            disabled={!editForm.name || !editForm.roles || !editForm.email || !editForm.phone || disabled}
+            className="bg-green-600 hover:bg-green-700"
+            size="sm"
+          >
+            <Save className="w-4 h-4 mr-2" />
+            Save Changes
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={handleCancel}
+            disabled={disabled}
+            size="sm"
+          >
+            <X className="w-4 h-4 mr-2" />
+            Cancel
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-teal-50 to-emerald-50 rounded-lg border border-teal-100">
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-3 bg-teal-100 rounded-full">
+            <UserCheck className="w-5 h-5 text-teal-600" />
+          </div>
+          <div>
+            <p className="font-semibold text-gray-900">{carer.name}</p>
+            <p className="text-sm text-teal-600 font-medium">Carer</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <UserCheck className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{carer.roles}</p>
+            <p className="text-xs text-gray-500">Roles</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <Mail className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{carer.email}</p>
+            <p className="text-xs text-gray-500">Email address</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <Phone className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{carer.phone}</p>
+            <p className="text-xs text-gray-500">Phone number</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <Clock className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{carer.contractedHours ?? 40}h/{(carer.hoursType || 'weekly') === 'weekly' ? 'wk' : 'mo'}</p>
+            <p className="text-xs text-gray-500">Contracted</p>
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 ml-4">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onEdit}
+          disabled={disabled}
+          className="text-teal-600 hover:text-teal-700 hover:bg-teal-100"
         >
           <Edit className="w-4 h-4" />
         </Button>

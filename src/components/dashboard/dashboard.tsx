@@ -1340,23 +1340,23 @@ export function Dashboard() {
       case 'cqc-logs':
         return (
           <FeatureGuard feature="lessonsRcas" organisationId={organisationId} onNavigateBack={() => setView('home')}>
-            <div className="container mx-auto py-8 px-4">
-              <div className="text-center">
-                <h1 className="text-2xl font-bold mb-4">CQC Logs</h1>
-                <p className="text-muted-foreground">CQC Logs functionality coming soon.</p>
-              </div>
-            </div>
+            <React.Suspense fallback={<div>Loading...</div>}>
+              {(() => {
+                const CqcLogsPage = require("@/app/(protected)/cqc-logs/page").default;
+                return <CqcLogsPage />;
+              })()}
+            </React.Suspense>
           </FeatureGuard>
         );
       case 'safeguarding-logs':
         return (
           <FeatureGuard feature="lessonsRcas" organisationId={organisationId} onNavigateBack={() => setView('home')}>
-            <div className="container mx-auto py-8 px-4">
-              <div className="text-center">
-                <h1 className="text-2xl font-bold mb-4">Safeguarding Logs</h1>
-                <p className="text-muted-foreground">Safeguarding Logs functionality coming soon.</p>
-              </div>
-            </div>
+            <React.Suspense fallback={<div>Loading...</div>}>
+              {(() => {
+                const SafeguardingLogsPage = require("@/app/(protected)/safeguarding-logs/page").default;
+                return <SafeguardingLogsPage />;
+              })()}
+            </React.Suspense>
           </FeatureGuard>
         );
     default:
