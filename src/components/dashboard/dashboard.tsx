@@ -163,6 +163,7 @@ const DASHBOARD_VIEWS = [
   "notifications",
   "audits",
   "policies",
+  "journal",
   "stats",
   "action-plans",
   "appraisals",
@@ -772,6 +773,12 @@ export function Dashboard() {
 
       window.addEventListener('navigate-to-policies', handlePoliciesNavigation as EventListener);
 
+      const handleJournalNavigation = (ev: CustomEvent) => {
+        setView('journal');
+      };
+
+      window.addEventListener('navigate-to-journal', handleJournalNavigation as EventListener);
+
       return () => {
         window.removeEventListener('navigate-to-document', navListener as EventListener);
         window.removeEventListener('navigate-to-workspace', handleWorkspaceNavigation as EventListener);
@@ -782,6 +789,7 @@ export function Dashboard() {
         window.removeEventListener('navigate-to-admin', handleAdminNavigation as EventListener);
         window.removeEventListener('navigate-to-dashboard', handleDashboardNavigation as EventListener);
         window.removeEventListener('navigate-to-policies', handlePoliciesNavigation as EventListener);
+        window.removeEventListener('navigate-to-journal', handleJournalNavigation as EventListener);
         try { window.removeEventListener('hashchange', handleHashChange); } catch (e) {}
         try { delete (window as any).__docuflow_set_doc_hash; } catch (e) {}
         try { delete (window as any).__docuflow_doc_hash; } catch (e) {}
@@ -1285,6 +1293,17 @@ export function Dashboard() {
                   </React.Suspense>
                 </FeatureGuard>
             );
+    case 'journal':
+      return (
+        <FeatureGuard feature="journal" organisationId={organisationId} onNavigateBack={() => setView('home')}>
+          <React.Suspense fallback={<div>Loading...</div>}>
+            {(() => {
+              const JournalPage = require('@/app/(protected)/journal/page').default;
+              return <JournalPage />;
+            })()}
+          </React.Suspense>
+        </FeatureGuard>
+      );
         case 'appraisals':
             return (
                 <FeatureGuard feature="appraisals" organisationId={organisationId} onNavigateBack={() => setView('home')}>
