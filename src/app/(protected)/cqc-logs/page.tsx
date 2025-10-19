@@ -255,15 +255,6 @@ function YesNoBadge({ value }: { value: boolean | null | undefined }) {
   );
 }
 
-function StatusBadge({ label, value }: { label: string; value: boolean | null | undefined }) {
-  return (
-    <div className="flex items-center gap-1">
-      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</span>
-      <YesNoBadge value={value} />
-    </div>
-  );
-}
-
 type YesNoSelectFieldProps = {
   id: string;
   label: string;
@@ -300,6 +291,33 @@ function DetailField({ label, value }: { label: string; value: React.ReactNode }
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
       <div className="text-sm text-slate-900 whitespace-pre-line">
         {isEmpty ? '—' : value}
+      </div>
+    </div>
+  );
+}
+
+function CardField({ label, value }: { label: string; value: React.ReactNode }) {
+  const isEmpty =
+    value === undefined ||
+    value === null ||
+    (typeof value === 'string' && value.trim().length === 0);
+
+  return (
+    <div className="space-y-1">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+      <div className="text-sm font-medium text-slate-800">
+        {isEmpty ? '—' : value}
+      </div>
+    </div>
+  );
+}
+
+function CardSection({ title, children, className }: { title: string; children: React.ReactNode; className?: string }) {
+  return (
+    <div className={`space-y-3 ${className ?? ''}`.trim()}>
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{title}</p>
+      <div className="space-y-3">
+        {children}
       </div>
     </div>
   );
@@ -1114,31 +1132,27 @@ export default function CqcLogsPage() {
             </Card>
           ) : (
             <>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-col text-sm text-slate-500">
-              <span>Entries recorded: {cqcEntries.length}</span>
-              <span className="hidden sm:inline">Next running number: {nextCqcNumber}</span>
-            </div>
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'form' | 'history')} className="space-y-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <TabsList className="grid h-auto w-full max-w-md grid-cols-2 items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+                <TabsTrigger
+                  value="form"
+                  className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                >
+                  Log entry
+                </TabsTrigger>
+                <TabsTrigger
+                  value="history"
+                  className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                >
+                  Log history
+                </TabsTrigger>
+              </TabsList>
               <Button variant="ghost" size="sm" onClick={loadCqcLogs} disabled={cqcLoading}>
                 {cqcLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
                 Refresh
               </Button>
-          </div>
-          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'form' | 'history')} className="space-y-6">
-            <TabsList className="grid h-auto w-full max-w-md grid-cols-2 items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
-              <TabsTrigger
-                value="form"
-                className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-              >
-                Log entry
-              </TabsTrigger>
-              <TabsTrigger
-                value="history"
-                className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-              >
-                Log history
-              </TabsTrigger>
-            </TabsList>
+            </div>
 
             <TabsContent value="form" className="mt-6 space-y-6">
               <Card className="border border-slate-200 shadow-sm">
@@ -1499,16 +1513,26 @@ export default function CqcLogsPage() {
                     </div>
                   ) : (
                     <div className="space-y-4 border-t bg-slate-50/40 p-6">
-                      {filteredCqcEntries.map((entry) => (
-                        <button
-                          key={entry.id}
-                          type="button"
-                          aria-label={`View details for log ${entry.runningLogNumber}`}
-                          onClick={() => openEntryDetails(entry)}
-                          className="w-full rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-px hover:border-slate-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-                        >
-                          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                            <div className="space-y-3">
+                      {filteredCqcEntries.map((entry) => {
+                        const lessonsLabel = entry.lessonsLearntRecordId
+                          ? lessonsRecordMap.get(entry.lessonsLearntRecordId)?.label ?? entry.lessonsLearntRecordId
+                          : null;
+                        const rcaLabel = entry.rootCauseAnalysisRecordId
+                          ? rcaRecordMap.get(entry.rootCauseAnalysisRecordId)?.label ?? entry.rootCauseAnalysisRecordId
+                          : null;
+                        const sovaLabel = entry.linkedSovaLogId
+                          ? `SOVA #${sovaRecordMap.get(entry.linkedSovaLogId)?.runningLogNumber ?? entry.linkedSovaLogId}`
+                          : null;
+
+                        return (
+                          <button
+                            key={entry.id}
+                            type="button"
+                            aria-label={`View details for log ${entry.runningLogNumber}`}
+                            onClick={() => openEntryDetails(entry)}
+                            className="w-full rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-px hover:border-slate-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                          >
+                            <div className="space-y-6">
                               <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                                 <span>Log #{entry.runningLogNumber}</span>
                                 {entry.uniqueReferenceNumber ? (
@@ -1520,31 +1544,45 @@ export default function CqcLogsPage() {
                                   <span className="font-normal text-slate-400">Recorded {safeFormatDateTime(entry.createdAt)}</span>
                                 ) : null}
                               </div>
+
                               <div className="text-lg font-semibold text-slate-900">
                                 {entry.residentName || 'Unknown resident'}
                               </div>
-                              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600">
-                                <span>CQC notified {safeFormatDate(entry.cqcNotificationDate)}</span>
-                                <span>Incident {safeFormatDate(entry.incidentDate)}</span>
-                                {entry.dateClosed ? <span>Closed {safeFormatDate(entry.dateClosed)}</span> : null}
+
+                              <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-4">
+                                <CardSection title="Key details">
+                                  <CardField label="Unique reference" value={entry.uniqueReferenceNumber} />
+                                  <CardField label="Running log number" value={`#${entry.runningLogNumber}`} />
+                                  <CardField label="Recorded" value={safeFormatDateTime(entry.createdAt)} />
+                                </CardSection>
+                                <CardSection title="Timeline">
+                                  <CardField label="CQC notification date" value={safeFormatDate(entry.cqcNotificationDate)} />
+                                  <CardField label="Incident date" value={safeFormatDate(entry.incidentDate)} />
+                                  <CardField label="Date closed" value={safeFormatDate(entry.dateClosed)} />
+                                </CardSection>
+                                <CardSection title="Status checks">
+                                  <CardField label="CQC acknowledgement" value={<YesNoBadge value={entry.cqcAcknowledgementReceived} />} />
+                                  <CardField label="Duty of candour upheld" value={<YesNoBadge value={entry.dutyOfCandourUpheld} />} />
+                                  <CardField label="Investigation complete" value={<YesNoBadge value={entry.investigationComplete} />} />
+                                  <CardField label="Lessons learnt complete" value={<YesNoBadge value={entry.lessonsLearntComplete} />} />
+                                  <CardField label="Root cause analysis complete" value={<YesNoBadge value={entry.rootCauseAnalysisComplete} />} />
+                                  <CardField label="SOVA completed" value={<YesNoBadge value={entry.sovaCompleted} />} />
+                                </CardSection>
+                                <CardSection title="Linked records">
+                                  <CardField label="Lessons learned" value={lessonsLabel} />
+                                  <CardField label="RCA record" value={rcaLabel} />
+                                  <CardField label="Safeguarding log" value={sovaLabel} />
+                                </CardSection>
                               </div>
-                            </div>
-                            <div className="flex flex-col items-start gap-3 lg:items-end">
-                              <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
-                                <StatusBadge label="Acknowledged" value={entry.cqcAcknowledgementReceived} />
-                                <StatusBadge label="Investigation" value={entry.investigationComplete} />
-                                <StatusBadge label="Lessons" value={entry.lessonsLearntComplete} />
-                                <StatusBadge label="RCA" value={entry.rootCauseAnalysisComplete} />
-                                <StatusBadge label="SOVA" value={entry.sovaCompleted} />
-                              </div>
-                              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
+
+                              <div className="flex items-center justify-end gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
                                 <span>View details</span>
                                 <ChevronRight className="h-4 w-4" aria-hidden="true" />
                               </div>
                             </div>
-                          </div>
-                        </button>
-                      ))}
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </CardContent>
