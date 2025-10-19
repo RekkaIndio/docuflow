@@ -257,7 +257,6 @@ export function RotasView({ workspace }: RotasViewProps) {
   const [emailWeeksToSend, setEmailWeeksToSend] = useState<number>(1);
   const [isPatternsDialogOpen, setIsPatternsDialogOpen] = useState(false);
   const [shiftPatterns, setShiftPatterns] = useState<ShiftPattern[]>(defaultShiftPatterns);
-  const [staffingSummary, setStaffingSummary] = useState<StaffingSummary | null>(null);
 
   const workspaceId = workspace?.id || '';
   const organisationId = (workspace as any)?.organisationId || '';
@@ -335,7 +334,13 @@ export function RotasView({ workspace }: RotasViewProps) {
     const summaryRef = doc(db, summaryDocPath, 'rotas', 'staffing-summary');
     const unsubscribe = onSnapshot(summaryRef, (snap) => {
       if (snap.exists()) {
-        setStaffingSummary(snap.data() as StaffingSummary);
+        const data = snap.data() as StaffingSummary;
+        setStaffingSummary({
+          recommendedDay: data.ndpsStaffing?.Day ?? 0,
+          recommendedNight: data.ndpsStaffing?.Night ?? 0,
+          residentCount: data.residentCount ?? 0,
+          generatedAt: data.generatedAt ?? null,
+        });
       } else {
         setStaffingSummary(null);
       }
@@ -915,6 +920,7 @@ export function RotasView({ workspace }: RotasViewProps) {
                     weekStart={currentWeekStart}
                     weeksToShow={weeksToShow}
                     staffingSummary={staffingSummary}
+                    patterns={shiftPatterns}
                   />
                 </div>
               </div>

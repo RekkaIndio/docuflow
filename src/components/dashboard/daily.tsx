@@ -21,7 +21,7 @@ export default function DailyPage({ workspaceId }: { workspaceId?: string }) {
   const [fallsCount, setFallsCount] = useState<number | "">("");
   const [fallsInjuries, setFallsInjuries] = useState<string>("");
   const [fallsWitnessed, setFallsWitnessed] = useState<string>("");
-  const [fallsUnwitnessed, setFallsUnwitnessed] = useState<string>("");
+  const [fallsTime, setFallsTime] = useState<string>("");
 
   // Support multiple fall entries
   const [fallsEntries, setFallsEntries] = useState<Array<{ id: number; count: number; injuries?: string; witnessed?: string; time?: string }>>([]);
@@ -49,7 +49,7 @@ export default function DailyPage({ workspaceId }: { workspaceId?: string }) {
     setFallsCount(0);
     setFallsInjuries("");
     setFallsWitnessed("");
-    setFallsUnwitnessed("");
+    setFallsTime("");
     setCqcNotifications(0);
     setSafeguards(0);
     setWoundsDetail("");
@@ -93,7 +93,7 @@ export default function DailyPage({ workspaceId }: { workspaceId?: string }) {
         }
         setFallsInjuries(latest.falls?.injuries || '');
         setFallsWitnessed(latest.falls?.witnessed || '');
-        setFallsUnwitnessed(latest.falls?.unwitnessed ?? latest.falls?.time ?? '');
+        setFallsTime(latest.falls?.time || '');
         setCqcNotifications(latest.cqcNotifications ?? '');
         setSafeguards(latest.safeguards ?? '');
         setWoundsDetail((latest.wounds && latest.wounds.detail) || '');
@@ -156,7 +156,7 @@ export default function DailyPage({ workspaceId }: { workspaceId?: string }) {
     setFallsCount(entry.falls?.count ?? '');
     setFallsInjuries(entry.falls?.injuries || '');
     setFallsWitnessed(entry.falls?.witnessed || '');
-    setFallsUnwitnessed(entry.falls?.unwitnessed ?? entry.falls?.time ?? '');
+    setFallsTime(entry.falls?.time || '');
     setCqcNotifications(entry.cqcNotifications ?? '');
     setSafeguards(entry.safeguards ?? '');
     setWoundsDetail((entry.wounds && entry.wounds.detail) || '');
@@ -195,7 +195,7 @@ export default function DailyPage({ workspaceId }: { workspaceId?: string }) {
 
   const handleSave = async () => {
     // Build falls payload from current state (avoid referencing undefined `falls` variable)
-    const fallsPayload: any = { count: fallsCount, injuries: fallsInjuries, witnessed: fallsWitnessed, unwitnessed: fallsUnwitnessed };
+    const fallsPayload: any = { count: fallsCount, injuries: fallsInjuries, witnessed: fallsWitnessed, time: fallsTime };
     if (fallsEntries && fallsEntries.length > 0) fallsPayload.entries = fallsEntries;
 
     const payload = {
@@ -439,7 +439,7 @@ export default function DailyPage({ workspaceId }: { workspaceId?: string }) {
                     </div>
                     <div>
                       <Label className="mb-1">Time (summary)</Label>
-                      <Input value={fallsUnwitnessed} onChange={(e) => setFallsUnwitnessed(e.target.value)} placeholder="e.g. 3 unwitnessed" />
+                      <Input value={fallsTime} onChange={(e) => setFallsTime(e.target.value)} placeholder="e.g. 14:30" />
                     </div>
                   </div>
                 </div>
