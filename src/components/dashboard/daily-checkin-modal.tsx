@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Clock } from 'lucide-react';
+import { Clock, X } from 'lucide-react';
 import { getDoc, setDoc } from 'firebase/firestore';
 import { useWorkspace } from '@/context/workspace';
 import { getWorkspaceDocRef } from '@/lib/firestore';
@@ -103,7 +103,7 @@ export default function DailyCheckinModal({ workspaceId, open: controlledOpen, o
   const [fallsEntries, setFallsEntries] = useState<FallEntry[]>([]);
   const [fallsInjuries, setFallsInjuries] = useState('');
   const [fallsWitnessed, setFallsWitnessed] = useState('');
-  const [fallsTime, setFallsTime] = useState('');
+  const [fallsUnwitnessed, setFallsUnwitnessed] = useState('');
   const [cqcNotifications, setCqcNotifications] = useState<number | ''>('');
   const [safeguards, setSafeguards] = useState<number | ''>('');
   const [preAdmissionsCount, setPreAdmissionsCount] = useState<number | ''>('');
@@ -424,12 +424,12 @@ export default function DailyCheckinModal({ workspaceId, open: controlledOpen, o
                   <Input className="h-10 text-sm" value={fallsInjuries} onChange={(event) => setFallsInjuries(event.target.value)} />
                 </div>
                 <div>
-                  <Label className="mb-1">Witnessed summary</Label>
+                  <Label className="mb-1">Witnessed</Label>
                   <Input className="h-10 text-sm" value={fallsWitnessed} onChange={(event) => setFallsWitnessed(event.target.value)} />
                 </div>
                 <div>
-                  <Label className="mb-1">Time summary</Label>
-                  <Input className="h-10 text-sm" value={fallsTime} onChange={(event) => setFallsTime(event.target.value)} />
+                  <Label className="mb-1">Unwitnessed</Label>
+                  <Input className="h-10 text-sm" value={fallsUnwitnessed} onChange={(event) => setFallsUnwitnessed(event.target.value)} />
                 </div>
               </div>
             </div>
@@ -630,7 +630,7 @@ export default function DailyCheckinModal({ workspaceId, open: controlledOpen, o
           );
           setFallsInjuries(data.falls?.injuries || '');
           setFallsWitnessed(data.falls?.witnessed || '');
-          setFallsTime(data.falls?.time || '');
+          setFallsUnwitnessed(data.falls?.unwitnessed ?? data.falls?.time ?? '');
 
           setCqcNotifications(data.cqcNotifications ?? '');
           setSafeguards(data.safeguards ?? '');
@@ -667,7 +667,7 @@ export default function DailyCheckinModal({ workspaceId, open: controlledOpen, o
           setFallsCount('');
           setFallsInjuries('');
           setFallsWitnessed('');
-          setFallsTime('');
+          setFallsUnwitnessed('');
           setCqcNotifications('');
           setSafeguards('');
           setPreAdmissionsCount('');
@@ -715,7 +715,8 @@ export default function DailyCheckinModal({ workspaceId, open: controlledOpen, o
         count: fallsCount === '' ? 0 : Number(fallsCount),
         injuries: fallsInjuries,
         witnessed: fallsWitnessed,
-        time: fallsTime,
+        time: fallsUnwitnessed,
+        unwitnessed: fallsUnwitnessed,
       };
 
       if (fallsEntries.length > 0) {
@@ -807,8 +808,8 @@ export default function DailyCheckinModal({ workspaceId, open: controlledOpen, o
         )}
       </div>
       <Dialog open={open} onOpenChange={handleOpenChange}>
-  <DialogContent className="mx-auto my-6 w-full overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-0 shadow-xl sm:max-w-5xl">
-          <div className="bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 px-6 py-5 text-white">
+        <DialogContent hideClose className="mx-auto my-6 flex h-[80vh] w-full max-h-[80vh] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-0 shadow-xl sm:h-[72vh] sm:max-h-[72vh] sm:max-w-5xl">
+          <div className="flex-shrink-0 bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 px-6 py-5 text-white">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex items-start gap-3">
                 <div className="rounded-xl border border-white/25 bg-white/15 p-2 backdrop-blur-sm">
@@ -821,6 +822,15 @@ export default function DailyCheckinModal({ workspaceId, open: controlledOpen, o
                 </div>
               </div>
               <div className="flex flex-col gap-2 sm:items-end">
+                <DialogClose asChild>
+                  <button
+                    type="button"
+                    className="ml-auto inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/30 text-white transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/60"
+                    aria-label="Close daily check-in"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </DialogClose>
                 <div className="w-48">
                   <div className="mb-1 text-right text-xs text-white/85">Step progress</div>
                   <div className="h-2 w-full overflow-hidden rounded-full bg-white/25">
@@ -828,19 +838,11 @@ export default function DailyCheckinModal({ workspaceId, open: controlledOpen, o
                   </div>
                 </div>
                 <div className="text-xs text-white/80">Data completion {dataCompletion}%</div>
-                <div className="flex items-center gap-3">
-                  <div className="text-sm text-white/90">{exists ? "Editing today's entry" : 'New entry for today'}</div>
-                  <DialogClose asChild>
-                    <Button variant="ghost" className="text-white/90 hover:bg-white/15 hover:text-white">
-                      Close
-                    </Button>
-                  </DialogClose>
-                </div>
               </div>
             </div>
           </div>
 
-          <div className="bg-slate-50 p-4 sm:p-6">{renderStepContent()}</div>
+          <div className="flex-1 overflow-y-auto bg-slate-50 p-4 sm:p-6">{renderStepContent()}</div>
 
           <div className="flex flex-shrink-0 items-center justify-between gap-3 border-t border-slate-200 bg-white px-4 py-4 sm:px-6">
             <DialogClose asChild>
