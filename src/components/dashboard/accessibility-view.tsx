@@ -1,13 +1,19 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Minus, Plus, RotateCcw, Zap, Eye, Brain, Target } from "lucide-react";
+import { Minus, Plus, RotateCcw, Zap, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
+import {
+    ADHD_FOCUS_EVENT,
+    ADHD_PROFILE_STORAGE_KEY,
+    SEIZURE_SAFE_EVENT,
+    SEIZURE_SAFE_STORAGE_KEY
+} from "@/components/accessibility/adhd-focus-manager";
 import type { Workspace } from "@/lib/types";
 import { SidebarTrigger } from "../ui/sidebar";
 
@@ -18,32 +24,24 @@ interface AccessibilityViewProps {
 const FONT_SIZE_STORAGE_KEY = 'docuflow-font-size';
 const DEFAULT_FONT_SIZE = 100; // 100% = normal size
 const COLOR_THEME_STORAGE_KEY = 'docuflow-color-theme';
+const PROFILE_STORAGE_KEYS: Record<string, string | undefined> = {
+    'adhd-friendly': ADHD_PROFILE_STORAGE_KEY,
+    'seizure-safe': SEIZURE_SAFE_STORAGE_KEY,
+};
 
 const ACCESSIBILITY_PROFILES = [
     {
         id: 'seizure-safe',
         name: 'Seizure Safe Profile',
         description: 'Clears flashes & reduces color',
-        Icon: Zap
-    },
-    {
-        id: 'vision-impaired',
-        name: 'Vision Impaired Profile',
-        description: "Enhances the website's visuals",
-        Icon: Eye
+        Icon: Zap,
     },
     {
         id: 'adhd-friendly',
         name: 'ADHD Friendly Profile',
         description: 'More focus & fewer distractions',
-        Icon: Brain
+        Icon: Brain,
     },
-    {
-        id: 'cognitive-disability',
-        name: 'Cognitive Disability Profile',
-        description: 'Assists with reading & focusing',
-        Icon: Target
-    }
 ];
 
 // Dyslexia-friendly color themes based on WCAG guidelines
@@ -92,12 +90,41 @@ export function AccessibilityView({ workspace }: AccessibilityViewProps) {
         }, {})
     );
 
+    const dispatchProfileChange = (profileId: string, active: boolean) => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+
+        if (profileId === 'adhd-friendly') {
+            window.dispatchEvent(new CustomEvent(ADHD_FOCUS_EVENT, { detail: { active } }));
+            return;
+        }
+
+        if (profileId === 'seizure-safe') {
+            window.dispatchEvent(new CustomEvent(SEIZURE_SAFE_EVENT, { detail: { active } }));
+        }
+    };
+
     // Placeholder handler until profile presets are wired into the accessibility system
     const handleProfileToggle = (profileId: string, nextValue: boolean) => {
-        setProfileStates((prev) => ({
-            ...prev,
-            [profileId]: nextValue,
-        }));
+        setProfileStates((prev) => {
+            const updated = {
+                ...prev,
+                [profileId]: nextValue,
+            };
+
+            const storageKey = PROFILE_STORAGE_KEYS[profileId];
+            if (storageKey && typeof window !== 'undefined') {
+                if (nextValue) {
+                    localStorage.setItem(storageKey, 'on');
+                } else {
+                    localStorage.setItem(storageKey, 'off');
+                }
+                dispatchProfileChange(profileId, nextValue);
+            }
+
+            return updated;
+        });
     };
 
     // Load saved font size on mount
@@ -114,7 +141,29 @@ export function AccessibilityView({ workspace }: AccessibilityViewProps) {
             setSelectedTheme(savedTheme);
             applyColorTheme(savedTheme);
         }
+
+        const restoredStates: Record<string, boolean> = {};
+
+        Object.entries(PROFILE_STORAGE_KEYS).forEach(([profileId, storageKey]) => {
+            if (!storageKey) {
+                return;
+            }
+
+            const storedValue = localStorage.getItem(storageKey);
+            if (storedValue === 'on') {
+                restoredStates[profileId] = true;
+                dispatchProfileChange(profileId, true);
+            }
+        });
+
+        if (Object.keys(restoredStates).length > 0) {
+            setProfileStates((prev) => ({
+                ...prev,
+                ...restoredStates,
+            }));
+        }
     }, []);
+    
 
     // Apply font size to document root
     const applyFontSize = (size: number) => {
@@ -187,16 +236,16 @@ export function AccessibilityView({ workspace }: AccessibilityViewProps) {
                     <SidebarTrigger />
                     <h1 className="text-2xl font-headline font-semibold">Accessibility Settings</h1>
                 </div>
-                
-                <div className="max-w-2xl space-y-6">
-                    <Card>
+
+                <div className="grid gap-6 lg:grid-cols-2">
+                    <Card className="lg:col-span-2">
                         <CardHeader>
                             <CardTitle>Choose the right accessibility profile for you</CardTitle>
                             <CardDescription>
                                 Toggle a preset to preview upcoming accessibility bundles. We will connect these to real settings soon.
                             </CardDescription>
                         </CardHeader>
-                        <CardContent className="space-y-3">
+                        <CardContent className="grid gap-3 md:grid-cols-2">
                             {ACCESSIBILITY_PROFILES.map(({ id, name, description, Icon }) => (
                                 <div
                                     key={id}
@@ -226,7 +275,7 @@ export function AccessibilityView({ workspace }: AccessibilityViewProps) {
                         </CardContent>
                     </Card>
 
-                    <Card>
+                    <Card className="lg:col-span-1">
                         <CardHeader>
                             <CardTitle>Text Size</CardTitle>
                             <CardDescription>
@@ -328,7 +377,7 @@ export function AccessibilityView({ workspace }: AccessibilityViewProps) {
                     </Card>
 
                     {/* Color Contrast for Dyslexia */}
-                    <Card>
+                    <Card className="lg:col-span-1">
                         <CardHeader>
                             <CardTitle>Color Contrast for Dyslexia</CardTitle>
                             <CardDescription>
@@ -359,7 +408,7 @@ export function AccessibilityView({ workspace }: AccessibilityViewProps) {
                             {/* Theme selection */}
                             <div className="space-y-3">
                                 <Label>Available Color Themes</Label>
-                                <div className="grid gap-3">
+                                <div className="grid gap-3 md:grid-cols-2">
                                     {COLOR_THEMES.map((theme) => (
                                         <div
                                             key={theme.id}
@@ -419,26 +468,6 @@ export function AccessibilityView({ workspace }: AccessibilityViewProps) {
                         </CardContent>
                     </Card>
 
-                    {/* Future accessibility features placeholder */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>More Accessibility Options</CardTitle>
-                            <CardDescription>
-                                Additional accessibility features will be added here in future updates.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-sm text-muted-foreground">
-                                Coming soon:
-                                <ul className="list-disc list-inside mt-2 space-y-1">
-                                    <li>Reading guides and focus indicators</li>
-                                    <li>Keyboard navigation improvements</li>
-                                    <li>Screen reader optimizations</li>
-                                    <li>Motion and animation controls</li>
-                                </ul>
-                            </div>
-                        </CardContent>
-                    </Card>
                 </div>
             </main>
         </div>

@@ -8,6 +8,7 @@ import { CalendlyProvider } from '@/context/calendly-context';
 import { CookieConsentProvider } from '@/context/cookie-consent';
 import { CookieBanner } from '@/components/cookie-banner';
 import VercelAnalytics from '@/components/VercelAnalytics';
+import { AccessibilityProfileManager } from '@/components/accessibility/adhd-focus-manager';
 
 export const metadata: Metadata = {
   title: 'CG-360',
@@ -36,7 +37,8 @@ export default function RootLayout({
         {/* Google Analytics will be injected client-side once the user grants consent via the cookie banner. */}
       </head>
     <body className="font-body antialiased">
-  <ThemeProvider>
+      <ThemeProvider>
+        <AccessibilityProfileManager />
       <AuthProvider>
         <CookieConsentProvider>
                 <CalendlyProvider>
