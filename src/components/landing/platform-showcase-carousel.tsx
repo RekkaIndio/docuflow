@@ -27,7 +27,7 @@ const slides = [
   },
   {
     title: 'AI Reads & Tags Your Docs',
-  description: 'Watch as CG-360 AI extracts key data and auto-tags your files for instant search and organization.',
+  description: 'Watch as CG-360 extracts key data and auto-tags your files for instant search and organisation.',
     visual: (
       <div className="relative w-full h-[340px] md:h-[420px] flex flex-col items-center justify-center">
         <div className="absolute inset-0 bg-gradient-to-br from-purple-400/10 via-pink-400/10 to-transparent rounded-2xl blur-sm" />

@@ -24,6 +24,113 @@ type AttachmentMetadata = {
   downloadUrl?: string;
 };
 
+interface AttachmentTextareaProps {
+  fieldKey: string;
+  label: React.ReactNode;
+  value: string;
+  attachments: AttachmentItem[];
+  onChange: (value: string) => void;
+  onAddAttachments: (fieldName: string, files: FileList | null) => void;
+  onRemoveAttachment: (fieldName: string, attachmentId: string) => void;
+  onPreviewAttachment: (attachment: { url: string; name: string }) => void;
+  placeholder?: string;
+  rows?: number;
+  className?: string;
+  disabled?: boolean;
+  required?: boolean;
+  error?: boolean;
+  errorMessage?: string;
+}
+
+const AttachmentTextarea: React.FC<AttachmentTextareaProps> = ({
+  fieldKey,
+  label,
+  value,
+  attachments,
+  onChange,
+  onAddAttachments,
+  onRemoveAttachment,
+  onPreviewAttachment,
+  placeholder = '',
+  rows = 3,
+  className = "w-full bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-200 p-3",
+  disabled = false,
+  required = false,
+  error = false,
+  errorMessage,
+}) => {
+  const textareaId = `${fieldKey}-textarea`;
+
+  return (
+    <div>
+      <div className="flex items-start justify-between mb-2">
+        <label className="block text-sm font-medium text-gray-700" htmlFor={textareaId}>
+          {label}
+        </label>
+        <div className="ml-4 relative">
+          {attachments.length > 0 && (
+            <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">
+              {attachments.length}
+            </span>
+          )}
+          <label
+            title="Add attachment"
+            className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100"
+          >
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                onAddAttachments(fieldKey, e.target.files);
+                e.currentTarget.value = '';
+              }}
+              className="hidden"
+              disabled={disabled}
+            />
+            <span className="text-xl font-bold">+</span>
+          </label>
+        </div>
+      </div>
+      <textarea
+        id={textareaId}
+        name={fieldKey}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={className}
+        rows={rows}
+        placeholder={placeholder}
+        disabled={disabled}
+        required={required}
+      />
+      {error && errorMessage && <p className="text-red-500 text-sm mt-1">{errorMessage}</p>}
+      {attachments.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {attachments.map((att) => (
+            <div key={att.id} className="relative w-24 h-24 rounded overflow-hidden border border-gray-200">
+              <button
+                type="button"
+                onClick={() => onPreviewAttachment({ url: att.url, name: att.name })}
+                className="w-full h-full"
+                title={att.name}
+              >
+                <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+              </button>
+              <button
+                type="button"
+                onClick={() => onRemoveAttachment(fieldKey, att.id)}
+                className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-gray-200 shadow-sm"
+                title="Remove"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default function CallBellMonitoringAuditPage() {
   const [currentReportIndex, setCurrentReportIndex] = useState(0);
   const [reports, setReports] = useState([{
@@ -132,6 +239,17 @@ export default function CallBellMonitoringAuditPage() {
     });
   }
 
+  const updateReportField = (fieldName: string, value: string) => {
+    setReports(prev => {
+      const updated = [...prev];
+      updated[currentReportIndex] = {
+        ...updated[currentReportIndex],
+        [fieldName]: value,
+      };
+      return updated;
+    });
+  };
+
   function addNewReport() {
     const newReport = {
       home: activeWorkspace?.name ?? "",
@@ -223,6 +341,10 @@ export default function CallBellMonitoringAuditPage() {
     });
   };
 
+  const handlePreviewAttachment = (attachment: { url: string; name: string }) => {
+    setPreviewImage(attachment);
+  };
+
   const uploadAttachmentFile = async (fieldName: string, file: File) => {
     if (!activeWorkspace?.id) {
       throw new Error('Workspace not available for attachment upload');
@@ -238,62 +360,6 @@ export default function CallBellMonitoringAuditPage() {
     await uploadBytes(storageRef, file);
     const downloadUrl = await getDownloadURL(storageRef);
     return { storagePath, downloadUrl };
-  };
-
-  const getAttachmentCount = (fieldName: string) => getAttachmentsForField(fieldName).length;
-
-  const renderAttachmentButton = (fieldName: string) => (
-    <div className="ml-4 relative">
-      {getAttachmentCount(fieldName) > 0 && (
-        <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">
-          {getAttachmentCount(fieldName)}
-        </span>
-      )}
-      <label
-        title="Add attachment"
-        className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100"
-      >
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(e) => {
-            handleAddAttachments(fieldName, e.target.files);
-            e.currentTarget.value = '';
-          }}
-          className="hidden"
-        />
-        <span className="text-xl font-bold">+</span>
-      </label>
-    </div>
-  );
-
-  const renderAttachmentPreview = (fieldName: string) => {
-    const list = getAttachmentsForField(fieldName);
-    if (!list || list.length === 0) return null;
-    return (
-      <div className="mt-3 flex flex-wrap gap-2">
-        {list.map(att => (
-          <div key={att.id} className="relative w-24 h-24 rounded overflow-hidden border border-gray-200">
-            <button
-              type="button"
-              onClick={() => setPreviewImage({ url: att.url, name: att.name })}
-              className="w-full h-full"
-              title={att.name}
-            >
-              <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
-            </button>
-            <button
-              type="button"
-              onClick={() => handleRemoveAttachment(fieldName, att.id)}
-              className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-gray-200 shadow-sm"
-              title="Remove"
-            >
-              ×
-            </button>
-          </div>
-        ))}
-      </div>
-    );
   };
 
   async function handleSubmit(e: React.FormEvent) {
@@ -714,25 +780,26 @@ export default function CallBellMonitoringAuditPage() {
                       <div className="space-y-4">
                         <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
                           <div className="space-y-4">
-                            <div>
-                              <div className="flex items-start justify-between mb-2">
-                                <label className="block text-sm font-medium text-gray-700">
-                                  Trends identified
-                                </label>
-                                {renderAttachmentButton('trendsIdentified')}
-                              </div>
-                              <textarea
-                                className={getFieldClassName('trendsIdentified', "w-full p-3 border border-slate-200 rounded-lg resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-slate-50")}
-                                name="trendsIdentified"
-                                value={currentReport.trendsIdentified}
-                                onChange={handleChange}
-                                placeholder="Describe any patterns or trends observed..."
-                                rows={4}
-                                required
-                              />
-                              {hasError('trendsIdentified') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
-                              {renderAttachmentPreview('trendsIdentified')}
-                            </div>
+                            <AttachmentTextarea
+                              fieldKey="trendsIdentified"
+                              label={
+                                <>
+                                  Trends identified {hasError('trendsIdentified') && <span className="text-red-500">*</span>}
+                                </>
+                              }
+                              value={currentReport.trendsIdentified}
+                              attachments={getAttachmentsForField('trendsIdentified')}
+                              onChange={(value) => updateReportField('trendsIdentified', value)}
+                              onAddAttachments={handleAddAttachments}
+                              onRemoveAttachment={handleRemoveAttachment}
+                              onPreviewAttachment={handlePreviewAttachment}
+                              placeholder="Describe any patterns or trends observed..."
+                              rows={4}
+                              className={getFieldClassName('trendsIdentified', "w-full p-3 border border-slate-200 rounded-lg resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-slate-50")}
+                              required
+                              error={hasError('trendsIdentified')}
+                              errorMessage="This field is required"
+                            />
                           </div>
                         </div>
 
@@ -741,21 +808,26 @@ export default function CallBellMonitoringAuditPage() {
                           <div className="space-y-4">
                             <div className="grid grid-cols-4 gap-3">
                               <div className="col-span-3">
-                                <div className="flex items-start justify-between mb-2">
-                                  <label className="block text-sm font-medium text-gray-700">Resident 1 Feedback</label>
-                                  {renderAttachmentButton('residentFeedback1')}
-                                </div>
-                                <textarea
-                                  className={getFieldClassName('residentFeedback1', "w-full p-3 border border-slate-200 rounded-lg resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-slate-50")}
-                                  name="residentFeedback1"
+                                <AttachmentTextarea
+                                  fieldKey="residentFeedback1"
+                                  label={
+                                    <>
+                                      Resident 1 Feedback {hasError('residentFeedback1') && <span className="text-red-500">*</span>}
+                                    </>
+                                  }
                                   value={currentReport.residentFeedback1}
-                                  onChange={handleChange}
+                                  attachments={getAttachmentsForField('residentFeedback1')}
+                                  onChange={(value) => updateReportField('residentFeedback1', value)}
+                                  onAddAttachments={handleAddAttachments}
+                                  onRemoveAttachment={handleRemoveAttachment}
+                                  onPreviewAttachment={handlePreviewAttachment}
                                   placeholder="Feedback from resident 1..."
                                   rows={3}
+                                  className={getFieldClassName('residentFeedback1', "w-full p-3 border border-slate-200 rounded-lg resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-slate-50")}
                                   required
+                                  error={hasError('residentFeedback1')}
+                                  errorMessage="This field is required"
                                 />
-                                {hasError('residentFeedback1') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
-                                {renderAttachmentPreview('residentFeedback1')}
                               </div>
                               <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Initial</label>
@@ -775,21 +847,26 @@ export default function CallBellMonitoringAuditPage() {
 
                             <div className="grid grid-cols-4 gap-3">
                               <div className="col-span-3">
-                                <div className="flex items-start justify-between mb-2">
-                                  <label className="block text-sm font-medium text-gray-700">Resident 2 Feedback</label>
-                                  {renderAttachmentButton('residentFeedback2')}
-                                </div>
-                                <textarea
-                                  className={getFieldClassName('residentFeedback2', "w-full p-3 border border-slate-200 rounded-lg resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-slate-50")}
-                                  name="residentFeedback2"
+                                <AttachmentTextarea
+                                  fieldKey="residentFeedback2"
+                                  label={
+                                    <>
+                                      Resident 2 Feedback {hasError('residentFeedback2') && <span className="text-red-500">*</span>}
+                                    </>
+                                  }
                                   value={currentReport.residentFeedback2}
-                                  onChange={handleChange}
+                                  attachments={getAttachmentsForField('residentFeedback2')}
+                                  onChange={(value) => updateReportField('residentFeedback2', value)}
+                                  onAddAttachments={handleAddAttachments}
+                                  onRemoveAttachment={handleRemoveAttachment}
+                                  onPreviewAttachment={handlePreviewAttachment}
                                   placeholder="Feedback from resident 2..."
                                   rows={3}
+                                  className={getFieldClassName('residentFeedback2', "w-full p-3 border border-slate-200 rounded-lg resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-slate-50")}
                                   required
+                                  error={hasError('residentFeedback2')}
+                                  errorMessage="This field is required"
                                 />
-                                {hasError('residentFeedback2') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
-                                {renderAttachmentPreview('residentFeedback2')}
                               </div>
                               <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Initial</label>
@@ -809,21 +886,26 @@ export default function CallBellMonitoringAuditPage() {
 
                             <div className="grid grid-cols-4 gap-3">
                               <div className="col-span-3">
-                                <div className="flex items-start justify-between mb-2">
-                                  <label className="block text-sm font-medium text-gray-700">Resident 3 Feedback</label>
-                                  {renderAttachmentButton('residentFeedback3')}
-                                </div>
-                                <textarea
-                                  className={getFieldClassName('residentFeedback3', "w-full p-3 border border-slate-200 rounded-lg resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-slate-50")}
-                                  name="residentFeedback3"
+                                <AttachmentTextarea
+                                  fieldKey="residentFeedback3"
+                                  label={
+                                    <>
+                                      Resident 3 Feedback {hasError('residentFeedback3') && <span className="text-red-500">*</span>}
+                                    </>
+                                  }
                                   value={currentReport.residentFeedback3}
-                                  onChange={handleChange}
+                                  attachments={getAttachmentsForField('residentFeedback3')}
+                                  onChange={(value) => updateReportField('residentFeedback3', value)}
+                                  onAddAttachments={handleAddAttachments}
+                                  onRemoveAttachment={handleRemoveAttachment}
+                                  onPreviewAttachment={handlePreviewAttachment}
                                   placeholder="Feedback from resident 3..."
                                   rows={3}
+                                  className={getFieldClassName('residentFeedback3', "w-full p-3 border border-slate-200 rounded-lg resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-slate-50")}
                                   required
+                                  error={hasError('residentFeedback3')}
+                                  errorMessage="This field is required"
                                 />
-                                {hasError('residentFeedback3') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
-                                {renderAttachmentPreview('residentFeedback3')}
                               </div>
                               <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Initial</label>
@@ -851,20 +933,29 @@ export default function CallBellMonitoringAuditPage() {
 
             {/* Final Comments section */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-md p-8">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-blue-900">Final Comments</h3>
-                {renderAttachmentButton('comments')}
-              </div>
-              <textarea
-                name="comments"
+              <h3 className="text-lg font-semibold text-blue-900 mb-4">Final Comments</h3>
+              <AttachmentTextarea
+                fieldKey="comments"
+                label={
+                  <>
+                    Comments {hasError('comments') && <span className="text-red-500">*</span>}
+                  </>
+                }
                 value={currentReport.comments}
-                onChange={handleChange}
+                attachments={getAttachmentsForField('comments')}
+                onChange={(value) => {
+                  updateReportField('comments', value);
+                  setFinalComments(value);
+                }}
+                onAddAttachments={handleAddAttachments}
+                onRemoveAttachment={handleRemoveAttachment}
+                onPreviewAttachment={handlePreviewAttachment}
                 placeholder="Any final comments or observations about this audit..."
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-200 h-32 p-3"
+                className={getFieldClassName('comments', "w-full bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-200 h-32 p-3")}
                 required
+                error={hasError('comments')}
+                errorMessage="This field is required"
               />
-              {hasError('comments') && <p className="text-red-500 text-sm mt-1">This field is required</p>}
-              {renderAttachmentPreview('comments')}
             </div>
 
             {/* Complete Audit Button */}

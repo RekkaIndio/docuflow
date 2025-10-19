@@ -61,7 +61,7 @@ const plans = [
         name: 'Enterprise',
         price: 'Custom',
         priceDetail: 'pricing',
-        description: 'For large organizations',
+        description: 'For large organisations',
         features: [
             'Unlimited workspaces',
             'Unlimited documents',

@@ -1,6 +1,6 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
-import { ChevronDown, ChevronUp, FileText } from "lucide-react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { useAuth } from '@/hooks/use-auth';
 import { saveAudit, markAuditCompletedWithSnapshot, getLatestAuditData } from '@/lib/firestore';
 import { useWorkspace } from '@/context/workspace';
@@ -53,6 +53,104 @@ type AttachmentMetadata = {
   name: string;
   storagePath: string;
   downloadUrl?: string;
+};
+
+interface AttachmentTextareaProps {
+  fieldKey: string;
+  dataField?: string;
+  label: string;
+  value: string;
+  attachments: Record<string, AttachmentItem[]>;
+  onChange: (value: string) => void;
+  onAddAttachments: (fieldName: string, files: FileList | null) => void;
+  onRemoveAttachment: (fieldName: string, attachmentId: string) => void;
+  onPreviewAttachment: (attachment: { url: string; name: string }) => void;
+  placeholder?: string;
+  rows?: number;
+  className?: string;
+  disabled?: boolean;
+}
+
+const AttachmentTextarea: React.FC<AttachmentTextareaProps> = ({
+  fieldKey,
+  dataField,
+  label,
+  value,
+  attachments,
+  onChange,
+  onAddAttachments,
+  onRemoveAttachment,
+  onPreviewAttachment,
+  placeholder = '',
+  rows = 3,
+  className = 'w-full p-2 border border-slate-300 rounded-md resize-none',
+  disabled = false,
+}) => {
+  const attachmentList = attachments[fieldKey] ?? [];
+
+  return (
+    <div>
+      <div className="flex items-start justify-between mb-2">
+        <label className="block text-sm font-medium text-gray-700">{label}</label>
+        <div className="ml-4 relative">
+          {attachmentList.length > 0 && (
+            <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">
+              {attachmentList.length}
+            </span>
+          )}
+          <label
+            title="Add attachment"
+            className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100"
+          >
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                onAddAttachments(fieldKey, e.target.files);
+                e.currentTarget.value = '';
+              }}
+              className="hidden"
+              disabled={disabled}
+            />
+            <span className="text-xl font-bold">+</span>
+          </label>
+        </div>
+      </div>
+      <Textarea
+        data-field={dataField ?? fieldKey}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={className}
+        rows={rows}
+        placeholder={placeholder}
+        disabled={disabled}
+      />
+      {attachmentList.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {attachmentList.map((att) => (
+            <div key={att.id} className="relative w-24 h-24 rounded overflow-hidden border border-gray-200">
+              <button
+                type="button"
+                onClick={() => onPreviewAttachment({ url: att.url, name: att.name })}
+                className="w-full h-full"
+                title={att.name}
+              >
+                <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+              </button>
+              <button
+                type="button"
+                onClick={() => onRemoveAttachment(fieldKey, att.id)}
+                className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-gray-200 shadow-sm"
+                title="Remove"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default function HandHygieneAuditPage() {
@@ -309,7 +407,7 @@ export default function HandHygieneAuditPage() {
     return newErrors.length === 0;
   };
 
-  const handleAddAttachments = (fieldName: string, files: FileList | null) => {
+  const handleFilesAdded = (fieldName: string, files: FileList | null) => {
     if (!files || files.length === 0) return;
     const fileArray = Array.from(files);
     setAttachments(prev => {
@@ -348,6 +446,10 @@ export default function HandHygieneAuditPage() {
     });
   };
 
+  const handlePreviewAttachment = useCallback((attachment: { url: string; name: string }) => {
+    setPreviewImage(attachment);
+  }, []);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setPreviewImage(null); };
     window.addEventListener('keydown', onKey);
@@ -376,39 +478,6 @@ export default function HandHygieneAuditPage() {
     await uploadBytes(storageRef, file);
     const downloadUrl = await getDownloadURL(storageRef);
     return { storagePath, downloadUrl };
-  };
-
-  const getAttachmentCount = (fieldName: string) => (attachments[fieldName]?.length ?? 0);
-
-  const renderAttachmentButton = (fieldName: string) => (
-    <div className="ml-4 relative">
-      {getAttachmentCount(fieldName) > 0 && (
-        <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">
-          {getAttachmentCount(fieldName)}
-        </span>
-      )}
-      <label title="Add attachment" className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100">
-        <input type="file" accept="image/*" onChange={(e) => { handleAddAttachments(fieldName, e.target.files); e.currentTarget.value = ''; }} className="hidden" />
-        <span className="text-xl font-bold">+</span>
-      </label>
-    </div>
-  );
-
-  const renderAttachmentPreview = (fieldName: string) => {
-    const list = attachments[fieldName] ?? [];
-    if (list.length === 0) return null;
-    return (
-      <div className="mt-3 flex flex-wrap gap-2">
-        {list.map(att => (
-          <div key={att.id} className="relative w-24 h-24 rounded overflow-hidden border border-gray-200">
-            <button type="button" onClick={() => setPreviewImage({ url: att.url, name: att.name })} className="w-full h-full" title={att.name}>
-              <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
-            </button>
-            <button type="button" onClick={() => handleRemoveAttachment(fieldName, att.id)} className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-gray-200 shadow-sm" title="Remove">×</button>
-          </div>
-        ))}
-      </div>
-    );
   };
 
   const handleCompleteAudit = () => {
@@ -772,21 +841,20 @@ export default function HandHygieneAuditPage() {
                                   </div>
                                   {getFieldError(`observation${index + 1}_correctTechnique`) && <p className="text-red-500 text-sm mt-1">Required</p>}
                                 </div>
-                                <div>
-                                  <div className="flex items-start justify-between mb-2">
-                                    <label className="block text-sm font-medium text-gray-700">Comments</label>
-                                    {renderAttachmentButton(`observation${index + 1}_comments`)}
-                                  </div>
-                                  <Textarea
-                                    data-field={`observation${index + 1}_comments`}
-                                    value={observation.comments}
-                                    onChange={(e) => handleObservationChange(index, 'comments', e.target.value)}
-                                    className="w-full p-2 border border-slate-300 rounded-md resize-none"
-                                    rows={3}
-                                    placeholder="Additional comments..."
-                                  />
-                                  {renderAttachmentPreview(`observation${index + 1}_comments`)}
-                                </div>
+                                <AttachmentTextarea
+                                  label="Comments"
+                                  fieldKey={`observation${index + 1}_comments`}
+                                  dataField={`observation${index + 1}_comments`}
+                                  value={observation.comments}
+                                  attachments={attachments}
+                                  onChange={(value) => handleObservationChange(index, 'comments', value)}
+                                  onAddAttachments={handleFilesAdded}
+                                  onRemoveAttachment={handleRemoveAttachment}
+                                  onPreviewAttachment={handlePreviewAttachment}
+                                  placeholder="Additional comments..."
+                                  rows={3}
+                                  disabled={saving}
+                                />
                               </div>
                             </div>
                           ))}
@@ -797,21 +865,20 @@ export default function HandHygieneAuditPage() {
                     {section.name === 'final-comments' && (
                       <div className="bg-slate-50 p-6 rounded-lg">
                         <h4 className="text-lg font-semibold text-slate-900 mb-4">Final Comments & Recommendations</h4>
-                        <div className="flex flex-col">
-                          <div className="flex items-start justify-between mb-2">
-                            <div />
-                            {renderAttachmentButton('finalComments')}
-                          </div>
-                          <Textarea
-                            data-field="finalComments"
-                            value={finalComments}
-                            onChange={(e) => setFinalComments(e.target.value)}
-                            className="w-full p-3 border border-slate-300 rounded-md resize-none"
-                            rows={6}
-                            placeholder="Enter any additional comments or recommendations based on the hand hygiene observations..."
-                          />
-                          {renderAttachmentPreview('finalComments')}
-                        </div>
+                        <AttachmentTextarea
+                          label="Comments"
+                          fieldKey="finalComments"
+                          dataField="finalComments"
+                          value={finalComments}
+                          attachments={attachments}
+                          onChange={setFinalComments}
+                          onAddAttachments={handleFilesAdded}
+                          onRemoveAttachment={handleRemoveAttachment}
+                          onPreviewAttachment={handlePreviewAttachment}
+                          placeholder="Enter any additional comments or recommendations based on the hand hygiene observations..."
+                          rows={6}
+                          disabled={saving}
+                        />
                       </div>
                     )}
                   </div>

@@ -68,7 +68,7 @@ export default function TermsPage() {
             <p className="text-sm text-slate-700">To use the Service, you must:</p>
             <ul className="list-disc pl-6 mt-2 text-sm text-slate-700 space-y-1">
               <li>Be at least 18 years old and have the legal capacity to enter into these Terms</li>
-              <li>Be authorized to act on behalf of a care home, residential care provider, or similar organization</li>
+              <li>Be authorized to act on behalf of a care home, residential care provider, or similar organisation</li>
               <li>Provide accurate and complete registration information</li>
               <li>Maintain the confidentiality of your account credentials</li>
               <li>Be responsible for all activities that occur under your account</li>
@@ -131,7 +131,7 @@ export default function TermsPage() {
             <p className="text-sm text-slate-700 mt-2"><strong>Our Responsibilities:</strong></p>
             <ul className="list-disc pl-6 mt-2 text-sm text-slate-700 space-y-1">
               <li>Process Customer Data in accordance with our Privacy Policy and applicable law</li>
-              <li>Implement appropriate technical and organizational security measures</li>
+              <li>Implement appropriate technical and organisational security measures</li>
               <li>Report data breaches affecting Customer Data within 72 hours</li>
               <li>Assist with data subject rights requests where we process data as processor</li>
             </ul>
