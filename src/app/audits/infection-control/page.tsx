@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -94,13 +94,158 @@ interface InfectionControlData {
   incidents_linked_to_infection_comment: string;
 }
 
+type AttachmentItem = {
+  id: string;
+  name: string;
+  url: string;
+  file?: File;
+  storagePath?: string;
+  downloadUrl?: string;
+};
+
+type AttachmentMetadata = {
+  name: string;
+  storagePath: string;
+  downloadUrl?: string;
+};
+
+interface YesNoQuestionProps {
+  label: string;
+  yesNoField: keyof InfectionControlData;
+  commentField: keyof InfectionControlData;
+  yesNoValue: string;
+  commentValue: string;
+  onYesNoChange: (value: string) => void;
+  onCommentChange: (value: string) => void;
+  attachments: Record<string, AttachmentItem[]>;
+  onAddAttachments: (fieldName: string, files: FileList | null) => void;
+  onRemoveAttachment: (fieldName: string, attachmentId: string) => void;
+  onPreviewAttachment: (attachment: { url: string; name: string }) => void;
+  hasError: (fieldName: string) => boolean;
+  getFieldClassName: (fieldName: string, baseClassName: string) => string;
+}
+
+const YesNoQuestion: React.FC<YesNoQuestionProps> = ({
+  label,
+  yesNoField,
+  commentField,
+  yesNoValue,
+  commentValue,
+  onYesNoChange,
+  onCommentChange,
+  attachments,
+  onAddAttachments,
+  onRemoveAttachment,
+  onPreviewAttachment,
+  hasError,
+  getFieldClassName,
+}) => {
+  const yesNoKey = yesNoField as string;
+  const commentKey = commentField as string;
+  const attachmentList = attachments[commentKey] ?? [];
+
+  return (
+    <div className="space-y-3 p-4 bg-white rounded-lg border border-slate-200 shadow-sm">
+      <div className="flex items-start justify-between mb-2">
+        <label className="block text-sm font-semibold text-slate-800">{label}</label>
+        <div className="ml-4 relative">
+          {attachmentList.length > 0 && (
+            <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">
+              {attachmentList.length}
+            </span>
+          )}
+          <label
+            title="Add attachment"
+            className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100"
+          >
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                onAddAttachments(commentKey, e.target.files);
+                e.currentTarget.value = '';
+              }}
+              className="hidden"
+            />
+            <span className="text-xl font-bold">+</span>
+          </label>
+        </div>
+      </div>
+      <div className="flex gap-6 items-center" data-field={yesNoKey}>
+        <label className="flex items-center cursor-pointer">
+          <input
+            type="radio"
+            name={yesNoKey}
+            value="Yes"
+            checked={yesNoValue === 'Yes'}
+            onChange={(e) => onYesNoChange(e.target.value)}
+            className="mr-2 w-4 h-4 text-blue-600 focus:ring-blue-500"
+          />
+          <span className="text-sm font-medium text-slate-700">Yes</span>
+        </label>
+        <label className="flex items-center cursor-pointer">
+          <input
+            type="radio"
+            name={yesNoKey}
+            value="No"
+            checked={yesNoValue === 'No'}
+            onChange={(e) => onYesNoChange(e.target.value)}
+            className="mr-2 w-4 h-4 text-blue-600 focus:ring-blue-500"
+          />
+          <span className="text-sm font-medium text-slate-700">No</span>
+        </label>
+      </div>
+      {hasError(yesNoKey) && (
+        <p className="text-red-600 text-sm font-medium">This field is required</p>
+      )}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Comments</label>
+        <Textarea
+          value={commentValue}
+          onChange={(e) => onCommentChange(e.target.value)}
+          className={getFieldClassName(
+            commentKey,
+            'w-full bg-white border border-slate-200 rounded-lg resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors'
+          )}
+          rows={2}
+          placeholder="Add any comments or observations..."
+        />
+        {attachmentList.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {attachmentList.map((att) => (
+              <div key={att.id} className="relative w-24 h-24 rounded overflow-hidden border border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => onPreviewAttachment({ url: att.url, name: att.name })}
+                  className="w-full h-full"
+                  title={att.name}
+                >
+                  <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onRemoveAttachment(commentKey, att.id)}
+                  className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-gray-200 shadow-sm"
+                  title="Remove"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 export default function InfectionControlAuditPage() {
   const [showModal, setShowModal] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [finalComments, setFinalComments] = useState('');
   const [openSections, setOpenSections] = useState<string[]>(['audit-details']);
-  const [attachments, setAttachments] = useState<Record<string, { id: string; name: string; url: string; file?: File; storagePath?: string; downloadUrl?: string }[]>>({});
+  const [attachments, setAttachments] = useState<Record<string, AttachmentItem[]>>({});
   const [attachmentsToDelete, setAttachmentsToDelete] = useState<string[]>([]);
   const [previewImage, setPreviewImage] = useState<{ url: string; name: string } | null>(null);
   const createdObjectUrls = useRef<Set<string>>(new Set());
@@ -166,15 +311,15 @@ export default function InfectionControlAuditPage() {
     );
   };
 
-  const getFieldClassName = (fieldName: string, baseClass: string = "") => {
-    return errors.includes(fieldName)
-      ? `${baseClass} border-red-500 bg-red-50`
-      : baseClass;
-  };
+  const hasError = useCallback((fieldName: string) => errors.includes(fieldName), [errors]);
 
-  const getFieldError = (fieldName: string) => {
-    return errors.includes(fieldName);
-  };
+  const getFieldClassName = useCallback(
+    (fieldName: string, baseClass: string = "") =>
+      hasError(fieldName)
+        ? `${baseClass} border-red-500 bg-red-50`
+        : baseClass,
+    [hasError]
+  );
 
   const [data, setData] = useState<InfectionControlData>({
     home: '',
@@ -323,6 +468,10 @@ export default function InfectionControlAuditPage() {
     });
   };
 
+  const handlePreviewAttachment = useCallback((attachment: { url: string; name: string }) => {
+    setPreviewImage(attachment);
+  }, []);
+
   useEffect(() => { const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setPreviewImage(null); }; window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey); }, []);
   useEffect(() => { return () => { createdObjectUrls.current.forEach((url) => { try { URL.revokeObjectURL(url); } catch (err) { console.warn('Failed to revoke object URL', err); } }); createdObjectUrls.current.clear(); }; }, []);
 
@@ -341,16 +490,6 @@ export default function InfectionControlAuditPage() {
     return { storagePath, downloadUrl };
   };
 
-  const getAttachmentCount = (fieldName: string) => (attachments[fieldName]?.length ?? 0);
-  const renderAttachmentButton = (fieldName: string) => (
-    <div className="ml-4 relative">
-      {getAttachmentCount(fieldName) > 0 && (<span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">{getAttachmentCount(fieldName)}</span>)}
-      <label title="Add attachment" className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100"><input type="file" accept="image/*" onChange={(e) => { handleAddAttachments(fieldName, e.target.files); e.currentTarget.value = ''; }} className="hidden" /><span className="text-xl font-bold">+</span></label>
-    </div>
-  );
-  const renderAttachmentPreview = (fieldName: string) => { const list = attachments[fieldName] ?? []; if (list.length === 0) return null; return (<div className="mt-3 flex flex-wrap gap-2">{list.map(att => (<div key={att.id} className="relative w-24 h-24 rounded overflow-hidden border border-gray-200"><button type="button" onClick={() => setPreviewImage({ url: att.url, name: att.name })} className="w-full h-full" title={att.name}><img src={att.url} alt={att.name} className="w-full h-full object-cover" /></button><button type="button" onClick={() => handleRemoveAttachment(fieldName, att.id)} className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-gray-200 shadow-sm" title="Remove">×</button></div>))}</div>); };
-
-
   // (Duplicate data-load was removed - attachments and form data are loaded by the primary effect above.)
 
   const handleInputChange = (field: keyof InfectionControlData, value: string) => {
@@ -359,61 +498,6 @@ export default function InfectionControlAuditPage() {
       setErrors(prev => prev.filter(e => e !== field));
     }
   };
-
-  const YesNoQuestion = ({
-    label,
-    yesNoField,
-    commentField,
-    yesNoValue,
-    commentValue,
-    onYesNoChange,
-    onCommentChange
-  }: {
-    label: string;
-    yesNoField: string;
-    commentField: string;
-    yesNoValue: string;
-    commentValue: string;
-    onYesNoChange: (v: string) => void;
-    onCommentChange: (v: string) => void;
-  }) => (
-    <div className="space-y-3 p-4 bg-white rounded-lg border border-slate-200 shadow-sm">
-      <div className="flex items-start justify-between mb-2">
-        <label className="block text-sm font-semibold text-slate-800">{label}</label>
-        {renderAttachmentButton(commentField)}
-      </div>
-      <div className="flex gap-6 items-center" data-field={yesNoField}>
-        <label className="flex items-center cursor-pointer">
-          <input
-            type="radio"
-            name={yesNoField}
-            value="Yes"
-            checked={yesNoValue === 'Yes'}
-            onChange={(e) => onYesNoChange(e.target.value)}
-            className="mr-2 w-4 h-4 text-blue-600 focus:ring-blue-500"
-          />
-          <span className="text-sm font-medium text-slate-700">Yes</span>
-        </label>
-        <label className="flex items-center cursor-pointer">
-          <input
-            type="radio"
-            name={yesNoField}
-            value="No"
-            checked={yesNoValue === 'No'}
-            onChange={(e) => onYesNoChange(e.target.value)}
-            className="mr-2 w-4 h-4 text-blue-600 focus:ring-blue-500"
-          />
-          <span className="text-sm font-medium text-slate-700">No</span>
-        </label>
-      </div>
-      {errors.includes(yesNoField) && <p className="text-red-600 text-sm font-medium">This field is required</p>}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Comments</label>
-        <textarea value={commentValue} onChange={(e) => onCommentChange(e.target.value)} className="w-full p-3 border border-slate-200 rounded-lg resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-slate-50" rows={2} placeholder="Add any comments or observations..." />
-        {renderAttachmentPreview(commentField)}
-      </div>
-    </div>
-  );
 
   const validateForm = () => {
     const required: (keyof InfectionControlData)[] = [
@@ -475,11 +559,11 @@ export default function InfectionControlAuditPage() {
       const totalCount = YES_NO_FIELDS.length;
       const scorePercent = totalCount > 0 ? Math.round((yesCount / totalCount) * 100) : 0;
 
-      const attachmentsMetadata: Record<string, { name: string; storagePath: string; downloadUrl?: string }[]> = {};
-      const nextAttachmentState: Record<string, any[]> = {};
+      const attachmentsMetadata: Record<string, AttachmentMetadata[]> = {};
+      const nextAttachmentState: Record<string, AttachmentItem[]> = {};
       for (const [fieldName, items] of Object.entries(attachments)) {
         if (!items || items.length === 0) continue;
-        const processed: any[] = [];
+        const processed: AttachmentItem[] = [];
         for (const item of items) {
           if (item.file) {
             const { storagePath, downloadUrl } = await uploadAttachmentFile(fieldName, item.file);
@@ -529,6 +613,15 @@ export default function InfectionControlAuditPage() {
     }
   };
 
+  const yesNoSharedProps = {
+    attachments,
+    onAddAttachments: handleAddAttachments,
+    onRemoveAttachment: handleRemoveAttachment,
+    onPreviewAttachment: handlePreviewAttachment,
+    hasError,
+    getFieldClassName,
+  };
+
   return (
   <div className="w-full p-10 bg-gradient-to-br from-slate-50 to-white rounded-3xl shadow-2xl mt-10 border border-slate-200">
       <div className="flex flex-col lg:flex-row gap-10">
@@ -548,7 +641,7 @@ export default function InfectionControlAuditPage() {
                 placeholder="Enter care home name"
                 required
               />
-              {getFieldError('home') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+              {hasError('home') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
             </div>
             <div>
               <label className="block font-semibold mb-1 text-slate-700">Audit Date</label>
@@ -560,7 +653,7 @@ export default function InfectionControlAuditPage() {
                 onChange={(e) => handleInputChange('date', e.target.value)}
                 required
               />
-              {getFieldError('date') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+              {hasError('date') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
             </div>
             <div>
               <label className="block font-semibold mb-1 text-slate-700">Person Completing Audit</label>
@@ -573,7 +666,7 @@ export default function InfectionControlAuditPage() {
                 placeholder="Full name and position"
                 required
               />
-              {getFieldError('personCompletingAudit') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+              {hasError('personCompletingAudit') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
             </div>
           </div>
         </div>
@@ -616,6 +709,7 @@ export default function InfectionControlAuditPage() {
                             commentValue={data.hh_facilities_available_comment}
                             onYesNoChange={(v) => handleInputChange('hh_facilities_available', v)}
                             onCommentChange={(v) => handleInputChange('hh_facilities_available_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are hand hygiene audits completed with staff?"
@@ -625,6 +719,7 @@ export default function InfectionControlAuditPage() {
                             commentValue={data.hh_audits_completed_comment}
                             onYesNoChange={(v) => handleInputChange('hh_audits_completed', v)}
                             onCommentChange={(v) => handleInputChange('hh_audits_completed_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are alcohol-based hand rubs available at points of care and communal areas?"
@@ -634,6 +729,7 @@ export default function InfectionControlAuditPage() {
                             commentValue={data.hh_alcohol_available_comment}
                             onYesNoChange={(v) => handleInputChange('hh_alcohol_available', v)}
                             onCommentChange={(v) => handleInputChange('hh_alcohol_available_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are staff observed performing hand hygiene at appropriate times (e.g. before/after resident contact)?"
@@ -643,6 +739,7 @@ export default function InfectionControlAuditPage() {
                             commentValue={data.hh_staff_observed_comment}
                             onYesNoChange={(v) => handleInputChange('hh_staff_observed', v)}
                             onCommentChange={(v) => handleInputChange('hh_staff_observed_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are posters promoting hand hygiene displayed appropriately?"
@@ -652,6 +749,7 @@ export default function InfectionControlAuditPage() {
                             commentValue={data.hh_posters_displayed_comment}
                             onYesNoChange={(v) => handleInputChange('hh_posters_displayed', v)}
                             onCommentChange={(v) => handleInputChange('hh_posters_displayed_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are residents supported or encouraged to perform hand hygiene, especially before meals?"
@@ -661,6 +759,7 @@ export default function InfectionControlAuditPage() {
                             commentValue={data.hh_residents_supported_comment}
                             onYesNoChange={(v) => handleInputChange('hh_residents_supported', v)}
                             onCommentChange={(v) => handleInputChange('hh_residents_supported_comment', v)}
+                            {...yesNoSharedProps}
                           />
                         </div>
                       </div>
@@ -678,6 +777,7 @@ export default function InfectionControlAuditPage() {
                             commentValue={data.ppe_available_stored_comment}
                             onYesNoChange={(v) => handleInputChange('ppe_available_stored', v)}
                             onCommentChange={(v) => handleInputChange('ppe_available_stored_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are staff trained in the correct use of PPE?"
@@ -687,6 +787,7 @@ export default function InfectionControlAuditPage() {
                             commentValue={data.ppe_staff_trained_comment}
                             onYesNoChange={(v) => handleInputChange('ppe_staff_trained', v)}
                             onCommentChange={(v) => handleInputChange('ppe_staff_trained_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are staff wearing PPE correctly and changing it between tasks/residents?"
@@ -696,6 +797,7 @@ export default function InfectionControlAuditPage() {
                             commentValue={data.ppe_staff_wearing_correctly_comment}
                             onYesNoChange={(v) => handleInputChange('ppe_staff_wearing_correctly', v)}
                             onCommentChange={(v) => handleInputChange('ppe_staff_wearing_correctly_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are appropriate PPE disposal bins available and used correctly?"
@@ -705,6 +807,7 @@ export default function InfectionControlAuditPage() {
                             commentValue={data.ppe_disposal_bins_comment}
                             onYesNoChange={(v) => handleInputChange('ppe_disposal_bins', v)}
                             onCommentChange={(v) => handleInputChange('ppe_disposal_bins_comment', v)}
+                            {...yesNoSharedProps}
                           />
                         </div>
                       </div>
@@ -722,6 +825,7 @@ export default function InfectionControlAuditPage() {
                             commentValue={data.cleaning_schedules_comment}
                             onYesNoChange={(v) => handleInputChange('cleaning_schedules', v)}
                             onCommentChange={(v) => handleInputChange('cleaning_schedules_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are communal areas visibly clean and free from clutter?"
@@ -731,6 +835,7 @@ export default function InfectionControlAuditPage() {
                             commentValue={data.communal_areas_clean_comment}
                             onYesNoChange={(v) => handleInputChange('communal_areas_clean', v)}
                             onCommentChange={(v) => handleInputChange('communal_areas_clean_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are frequently touched surfaces (e.g. door handles, handrails) cleaned regularly?"
@@ -740,6 +845,7 @@ export default function InfectionControlAuditPage() {
                             commentValue={data.frequently_touched_cleaned_comment}
                             onYesNoChange={(v) => handleInputChange('frequently_touched_cleaned', v)}
                             onCommentChange={(v) => handleInputChange('frequently_touched_cleaned_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Is cleaning equipment stored appropriately and colour-coded to avoid cross-contamination?"
@@ -749,6 +855,7 @@ export default function InfectionControlAuditPage() {
                             commentValue={data.cleaning_equipment_stored_comment}
                             onYesNoChange={(v) => handleInputChange('cleaning_equipment_stored', v)}
                             onCommentChange={(v) => handleInputChange('cleaning_equipment_stored_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are laundry procedures being followed correctly (e.g. separate storage, in and out signs,use of PPE)?"
@@ -758,6 +865,7 @@ export default function InfectionControlAuditPage() {
                             commentValue={data.laundry_procedures_comment}
                             onYesNoChange={(v) => handleInputChange('laundry_procedures', v)}
                             onCommentChange={(v) => handleInputChange('laundry_procedures_comment', v)}
+                            {...yesNoSharedProps}
                           />
                         </div>
                       </div>
@@ -775,6 +883,7 @@ export default function InfectionControlAuditPage() {
                             commentValue={data.clinical_waste_correct_bins_comment}
                             onYesNoChange={(v) => handleInputChange('clinical_waste_correct_bins', v)}
                             onCommentChange={(v) => handleInputChange('clinical_waste_correct_bins_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are bins emptied regularly and cleaned?"
@@ -784,6 +893,7 @@ export default function InfectionControlAuditPage() {
                             commentValue={data.bins_emptied_cleaned_comment}
                             onYesNoChange={(v) => handleInputChange('bins_emptied_cleaned', v)}
                             onCommentChange={(v) => handleInputChange('bins_emptied_cleaned_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are waste storage areas clean and secure?"
@@ -793,6 +903,7 @@ export default function InfectionControlAuditPage() {
                             commentValue={data.waste_storage_clean_secure_comment}
                             onYesNoChange={(v) => handleInputChange('waste_storage_clean_secure', v)}
                             onCommentChange={(v) => handleInputChange('waste_storage_clean_secure_comment', v)}
+                            {...yesNoSharedProps}
                           />
                         </div>
                       </div>
@@ -810,6 +921,7 @@ export default function InfectionControlAuditPage() {
                             commentValue={data.isolation_procedures_comment}
                             onYesNoChange={(v) => handleInputChange('isolation_procedures', v)}
                             onCommentChange={(v) => handleInputChange('isolation_procedures_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are care plans updated to reflect infection risk or outbreaks?"
@@ -819,6 +931,7 @@ export default function InfectionControlAuditPage() {
                             commentValue={data.care_plans_updated_comment}
                             onYesNoChange={(v) => handleInputChange('care_plans_updated', v)}
                             onCommentChange={(v) => handleInputChange('care_plans_updated_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are staff trained on identifying and reporting signs of infection?"
@@ -828,6 +941,7 @@ export default function InfectionControlAuditPage() {
                             commentValue={data.staff_trained_identify_report_comment}
                             onYesNoChange={(v) => handleInputChange('staff_trained_identify_report', v)}
                             onCommentChange={(v) => handleInputChange('staff_trained_identify_report_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are visiting policies in line with current infection control guidance?"
@@ -837,6 +951,7 @@ export default function InfectionControlAuditPage() {
                             commentValue={data.visiting_policies_aligned_comment}
                             onYesNoChange={(v) => handleInputChange('visiting_policies_aligned', v)}
                             onCommentChange={(v) => handleInputChange('visiting_policies_aligned_comment', v)}
+                            {...yesNoSharedProps}
                           />
                         </div>
                       </div>
@@ -854,6 +969,7 @@ export default function InfectionControlAuditPage() {
                             commentValue={data.staff_ipc_training_comment}
                             onYesNoChange={(v) => handleInputChange('staff_ipc_training', v)}
                             onCommentChange={(v) => handleInputChange('staff_ipc_training_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are infection control audits or spot checks conducted regularly?"
@@ -863,6 +979,7 @@ export default function InfectionControlAuditPage() {
                             commentValue={data.audits_spot_checks_comment}
                             onYesNoChange={(v) => handleInputChange('audits_spot_checks', v)}
                             onCommentChange={(v) => handleInputChange('audits_spot_checks_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are poor practices addressed through supervision or retraining?"
@@ -872,6 +989,7 @@ export default function InfectionControlAuditPage() {
                             commentValue={data.poor_practices_addressed_comment}
                             onYesNoChange={(v) => handleInputChange('poor_practices_addressed', v)}
                             onCommentChange={(v) => handleInputChange('poor_practices_addressed_comment', v)}
+                            {...yesNoSharedProps}
                           />
                         </div>
                       </div>
@@ -889,6 +1007,7 @@ export default function InfectionControlAuditPage() {
                             commentValue={data.outbreak_policy_comment}
                             onYesNoChange={(v) => handleInputChange('outbreak_policy', v)}
                             onCommentChange={(v) => handleInputChange('outbreak_policy_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are incidents/outbreaks reported to appropriate authorities (UKHSA, CQC)?"
@@ -898,6 +1017,7 @@ export default function InfectionControlAuditPage() {
                             commentValue={data.outbreaks_reported_comment}
                             onYesNoChange={(v) => handleInputChange('outbreaks_reported', v)}
                             onCommentChange={(v) => handleInputChange('outbreaks_reported_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are outbreak records and logs maintained?"
@@ -907,6 +1027,7 @@ export default function InfectionControlAuditPage() {
                             commentValue={data.outbreak_records_kept_comment}
                             onYesNoChange={(v) => handleInputChange('outbreak_records_kept', v)}
                             onCommentChange={(v) => handleInputChange('outbreak_records_kept_comment', v)}
+                            {...yesNoSharedProps}
                           />
                         </div>
                       </div>
@@ -924,6 +1045,7 @@ export default function InfectionControlAuditPage() {
                             commentValue={data.ipc_policies_up_to_date_comment}
                             onYesNoChange={(v) => handleInputChange('ipc_policies_up_to_date', v)}
                             onCommentChange={(v) => handleInputChange('ipc_policies_up_to_date_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are cleaning records maintained and signed?"
@@ -933,6 +1055,7 @@ export default function InfectionControlAuditPage() {
                             commentValue={data.cleaning_records_maintained_comment}
                             onYesNoChange={(v) => handleInputChange('cleaning_records_maintained', v)}
                             onCommentChange={(v) => handleInputChange('cleaning_records_maintained_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are incident and accident reports linked to infection risks recorded properly?"
@@ -942,6 +1065,7 @@ export default function InfectionControlAuditPage() {
                             commentValue={data.incidents_linked_to_infection_comment}
                             onYesNoChange={(v) => handleInputChange('incidents_linked_to_infection', v)}
                             onCommentChange={(v) => handleInputChange('incidents_linked_to_infection_comment', v)}
+                            {...yesNoSharedProps}
                           />
                         </div>
                       </div>
@@ -952,8 +1076,29 @@ export default function InfectionControlAuditPage() {
                         <h4 className="text-lg font-semibold text-slate-900 mb-4">Final Comments & Recommendations</h4>
                         <div>
                           <div className="flex items-start justify-between mb-2">
-                            <label className="sr-only">Final Comments</label>
-                            {renderAttachmentButton('finalComments')}
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Final Comments</label>
+                            <div className="ml-4 relative">
+                              {(attachments['finalComments']?.length ?? 0) > 0 && (
+                                <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">
+                                  {attachments['finalComments']?.length ?? 0}
+                                </span>
+                              )}
+                              <label
+                                title="Add attachment"
+                                className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100"
+                              >
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => {
+                                    handleAddAttachments('finalComments', e.target.files);
+                                    e.currentTarget.value = '';
+                                  }}
+                                  className="hidden"
+                                />
+                                <span className="text-xl font-bold">+</span>
+                              </label>
+                            </div>
                           </div>
                           <Textarea
                             data-field="finalComments"
@@ -963,7 +1108,30 @@ export default function InfectionControlAuditPage() {
                             rows={6}
                             placeholder="Enter any additional comments or recommendations based on the infection control audit findings..."
                           />
-                          {renderAttachmentPreview('finalComments')}
+                          {(attachments['finalComments']?.length ?? 0) > 0 && (
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {(attachments['finalComments'] ?? []).map((att) => (
+                                <div key={att.id} className="relative w-24 h-24 rounded overflow-hidden border border-gray-200">
+                                  <button
+                                    type="button"
+                                    onClick={() => handlePreviewAttachment({ url: att.url, name: att.name })}
+                                    className="w-full h-full"
+                                    title={att.name}
+                                  >
+                                    <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveAttachment('finalComments', att.id)}
+                                    className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-gray-200 shadow-sm"
+                                    title="Remove"
+                                  >
+                                    ×
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}

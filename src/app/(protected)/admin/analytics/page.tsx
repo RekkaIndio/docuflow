@@ -1112,7 +1112,7 @@ export default function AdminAnalyticsPage() {
               </CardHeader>
               <CardContent className="relative">
                 <div className="text-2xl font-bold">{filteredWorkspaces.length}</div>
-                <p className="text-xs text-muted-foreground">Organizations monitored</p>
+                <p className="text-xs text-muted-foreground">Organisations monitored</p>
               </CardContent>
             </Card>
 

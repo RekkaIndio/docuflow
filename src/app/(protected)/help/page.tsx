@@ -380,7 +380,7 @@ export default function HelpPage() {
                     <div className="p-6">
                       <h4 className="font-bold text-lg text-slate-900 mb-3">Setting Up Your Workspace</h4>
                       <p className="text-slate-600 mb-4 leading-relaxed">
-                        Create and configure your first workspace for optimal organization.
+                        Create and configure your first workspace for optimal organisation.
                       </p>
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-slate-500 font-medium">8 min</span>

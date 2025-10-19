@@ -227,6 +227,78 @@ const createEmptyKitchenAuditData = (): KitchenAuditData => ({
   coshh_sheets_available_comment: '',
 });
 
+interface YesNoQuestionProps {
+  label: string;
+  yesNoField: keyof KitchenAuditData;
+  commentField: keyof KitchenAuditData;
+  yesNoValue: string;
+  commentValue: string;
+  onYesNoChange: (value: string) => void;
+  onCommentChange: (value: string) => void;
+  hasError: (fieldName: string) => boolean;
+  getFieldClassName: (fieldName: string, baseClass?: string) => string;
+}
+
+const YesNoQuestion: React.FC<YesNoQuestionProps> = ({
+  label,
+  yesNoField,
+  commentField,
+  yesNoValue,
+  commentValue,
+  onYesNoChange,
+  onCommentChange,
+  hasError,
+  getFieldClassName,
+}) => {
+  return (
+    <div className="space-y-4 p-4 bg-white rounded-lg border border-slate-200 shadow-sm">
+      <div>
+        <label className="block text-sm font-semibold text-slate-800 mb-2">{label}</label>
+        <div className="flex gap-6 items-center" data-field={yesNoField}>
+          <label className="flex items-center cursor-pointer">
+            <input
+              type="radio"
+              name={yesNoField}
+              value="Yes"
+              checked={yesNoValue === 'Yes'}
+              onChange={(e) => onYesNoChange(e.target.value)}
+              className="mr-2 w-4 h-4 text-blue-600 focus:ring-blue-500"
+            />
+            <span className="text-sm font-medium text-slate-700">Yes</span>
+          </label>
+          <label className="flex items-center cursor-pointer">
+            <input
+              type="radio"
+              name={yesNoField}
+              value="No"
+              checked={yesNoValue === 'No'}
+              onChange={(e) => onYesNoChange(e.target.value)}
+              className="mr-2 w-4 h-4 text-blue-600 focus:ring-blue-500"
+            />
+            <span className="text-sm font-medium text-slate-700">No</span>
+          </label>
+        </div>
+        {hasError(yesNoField) && (
+          <p className="text-red-600 text-sm font-medium mt-2">This field is required</p>
+        )}
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-slate-700 mb-2">Comments</label>
+        <Textarea
+          value={commentValue}
+          onChange={(e) => onCommentChange(e.target.value)}
+          className={getFieldClassName(
+            commentField,
+            'w-full min-h-[72px] border border-slate-200 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors'
+          )}
+          rows={3}
+          placeholder="Add any comments or observations..."
+        />
+      </div>
+    </div>
+  );
+};
+
 const YES_NO_FIELDS: (keyof KitchenAuditData)[] = [
   'surfaces_clean','flooring_safe','walls_ceiling_good','sinks_designated','bins_clean',
   'fridges_clean_temp','temps_monitored_recorded','dry_goods_stored','opened_items_dated','raw_stored_separately',
@@ -377,6 +449,11 @@ export default function KitchenAuditPage() {
   const handleChange = (field: keyof KitchenAuditData, value: string) => {
     setData(prev => ({ ...prev, [field]: value }));
     if (value.trim() !== '' && errors.includes(field)) setErrors(prev => prev.filter(e => e !== field));
+  };
+
+  const yesNoSharedProps = {
+    hasError: getFieldError,
+    getFieldClassName,
   };
 
   const YesNoQuestion = ({
@@ -600,6 +677,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.surfaces_clean_comment}
                             onYesNoChange={(v) => handleInputChange('surfaces_clean', v)}
                             onCommentChange={(v) => handleInputChange('surfaces_clean_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Is the flooring clean, intact, and non-slip?"
@@ -609,6 +687,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.flooring_safe_comment}
                             onYesNoChange={(v) => handleInputChange('flooring_safe', v)}
                             onCommentChange={(v) => handleInputChange('flooring_safe_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are walls, ceilings, light fittings, and vents clean and in good repair?"
@@ -618,6 +697,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.walls_ceiling_good_comment}
                             onYesNoChange={(v) => handleInputChange('walls_ceiling_good', v)}
                             onCommentChange={(v) => handleInputChange('walls_ceiling_good_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are sinks clean and designated for handwashing, food prep, or equipment washing?"
@@ -627,6 +707,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.sinks_designated_comment}
                             onYesNoChange={(v) => handleInputChange('sinks_designated', v)}
                             onCommentChange={(v) => handleInputChange('sinks_designated_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are waste bins clean, covered, and emptied regularly?"
@@ -636,6 +717,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.bins_clean_comment}
                             onYesNoChange={(v) => handleInputChange('bins_clean', v)}
                             onCommentChange={(v) => handleInputChange('bins_clean_comment', v)}
+                            {...yesNoSharedProps}
                           />
                         </div>
                       </div>
@@ -653,6 +735,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.fridges_clean_temp_comment}
                             onYesNoChange={(v) => handleInputChange('fridges_clean_temp', v)}
                             onCommentChange={(v) => handleInputChange('fridges_clean_temp_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are fridge (≤ 5°C) and freezer (≤ -18°C) temperatures monitored and recorded daily?"
@@ -662,6 +745,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.temps_monitored_recorded_comment}
                             onYesNoChange={(v) => handleInputChange('temps_monitored_recorded', v)}
                             onCommentChange={(v) => handleInputChange('temps_monitored_recorded_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are dry goods stored off the floor and in sealed, labelled containers?"
@@ -671,6 +755,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.dry_goods_stored_comment}
                             onYesNoChange={(v) => handleInputChange('dry_goods_stored', v)}
                             onCommentChange={(v) => handleInputChange('dry_goods_stored_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are all opened food items dated and labelled correctly?"
@@ -680,6 +765,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.opened_items_dated_comment}
                             onYesNoChange={(v) => handleInputChange('opened_items_dated', v)}
                             onCommentChange={(v) => handleInputChange('opened_items_dated_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Is raw food stored separately from cooked/ready-to-eat foods?"
@@ -689,6 +775,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.raw_stored_separately_comment}
                             onYesNoChange={(v) => handleInputChange('raw_stored_separately', v)}
                             onCommentChange={(v) => handleInputChange('raw_stored_separately_comment', v)}
+                            {...yesNoSharedProps}
                           />
                         </div>
                       </div>
@@ -706,6 +793,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.equipment_clean_working_comment}
                             onYesNoChange={(v) => handleInputChange('equipment_clean_working', v)}
                             onCommentChange={(v) => handleInputChange('equipment_clean_working_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are chopping boards colour-coded and used appropriately?"
@@ -715,6 +803,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.chopping_boards_coloured_comment}
                             onYesNoChange={(v) => handleInputChange('chopping_boards_coloured', v)}
                             onCommentChange={(v) => handleInputChange('chopping_boards_coloured_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are knives and utensils clean, stored safely, and in good condition?"
@@ -724,6 +813,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.knives_utensils_safe_comment}
                             onYesNoChange={(v) => handleInputChange('knives_utensils_safe', v)}
                             onCommentChange={(v) => handleInputChange('knives_utensils_safe_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are kettles, toasters, microwaves, and small appliances in kitchenettes clean and safe?"
@@ -733,6 +823,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.small_appliances_clean_comment}
                             onYesNoChange={(v) => handleInputChange('small_appliances_clean', v)}
                             onCommentChange={(v) => handleInputChange('small_appliances_clean_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Is dishwasher or manual washing system (e.g. 2/3 sink method) used and effective?"
@@ -742,6 +833,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.dishwasher_effective_comment}
                             onYesNoChange={(v) => handleInputChange('dishwasher_effective', v)}
                             onCommentChange={(v) => handleInputChange('dishwasher_effective_comment', v)}
+                            {...yesNoSharedProps}
                           />
                         </div>
                       </div>
@@ -759,6 +851,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.handwashing_sinks_comment}
                             onYesNoChange={(v) => handleInputChange('handwashing_sinks', v)}
                             onCommentChange={(v) => handleInputChange('handwashing_sinks_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are staff observed following good hand hygiene practices?"
@@ -768,6 +861,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.staff_hand_hygiene_observed_comment}
                             onYesNoChange={(v) => handleInputChange('staff_hand_hygiene_observed', v)}
                             onCommentChange={(v) => handleInputChange('staff_hand_hygiene_observed_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are disposable gloves, aprons, and hairnets worn where appropriate?"
@@ -777,6 +871,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.ppe_worn_where_appropriate_comment}
                             onYesNoChange={(v) => handleInputChange('ppe_worn_where_appropriate', v)}
                             onCommentChange={(v) => handleInputChange('ppe_worn_where_appropriate_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are staff changing PPE between tasks to avoid cross-contamination?"
@@ -786,6 +881,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.ppe_changed_between_tasks_comment}
                             onYesNoChange={(v) => handleInputChange('ppe_changed_between_tasks', v)}
                             onCommentChange={(v) => handleInputChange('ppe_changed_between_tasks_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are hand hygiene and PPE posters displayed in food areas?"
@@ -795,6 +891,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.posters_displayed_food_comment}
                             onYesNoChange={(v) => handleInputChange('posters_displayed_food', v)}
                             onCommentChange={(v) => handleInputChange('posters_displayed_food_comment', v)}
+                            {...yesNoSharedProps}
                           />
                         </div>
                       </div>
@@ -812,6 +909,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.kitchenettes_clean_hazard_free_comment}
                             onYesNoChange={(v) => handleInputChange('kitchenettes_clean_hazard_free', v)}
                             onCommentChange={(v) => handleInputChange('kitchenettes_clean_hazard_free_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Is food stored safely in kitchenettes (e.g. labelled, sealed, no out-of-date items)?"
@@ -821,6 +919,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.kitchenette_food_stored_safe_comment}
                             onYesNoChange={(v) => handleInputChange('kitchenette_food_stored_safe', v)}
                             onCommentChange={(v) => handleInputChange('kitchenette_food_stored_safe_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are cleaning products stored separately and safely (not under sinks)?"
@@ -830,6 +929,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.cleaning_products_stored_comment}
                             onYesNoChange={(v) => handleInputChange('cleaning_products_stored', v)}
                             onCommentChange={(v) => handleInputChange('cleaning_products_stored_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are appliances (microwaves, kettles) PAT tested and working safely?"
@@ -839,6 +939,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.appliances_pat_comment}
                             onYesNoChange={(v) => handleInputChange('appliances_pat', v)}
                             onCommentChange={(v) => handleInputChange('appliances_pat_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Is resident use of kitchenettes risk-assessed and supported where appropriate?"
@@ -848,6 +949,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.resident_use_risk_assessed_comment}
                             onYesNoChange={(v) => handleInputChange('resident_use_risk_assessed', v)}
                             onCommentChange={(v) => handleInputChange('resident_use_risk_assessed_comment', v)}
+                            {...yesNoSharedProps}
                           />
                         </div>
                       </div>
@@ -865,6 +967,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.signs_of_pests_comment}
                             onYesNoChange={(v) => handleInputChange('signs_of_pests', v)}
                             onCommentChange={(v) => handleInputChange('signs_of_pests_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are external doors and windows sealed or fitted with fly screens?"
@@ -874,6 +977,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.doors_windows_sealed_comment}
                             onYesNoChange={(v) => handleInputChange('doors_windows_sealed', v)}
                             onCommentChange={(v) => handleInputChange('doors_windows_sealed_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Is a pest control contract in place and up to date?"
@@ -883,6 +987,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.pest_contract_in_place_comment}
                             onYesNoChange={(v) => handleInputChange('pest_contract_in_place', v)}
                             onCommentChange={(v) => handleInputChange('pest_contract_in_place_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are food items and waste stored in pest-proof containers?"
@@ -892,6 +997,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.pest_proof_storage_comment}
                             onYesNoChange={(v) => handleInputChange('pest_proof_storage', v)}
                             onCommentChange={(v) => handleInputChange('pest_proof_storage_comment', v)}
+                            {...yesNoSharedProps}
                           />
                         </div>
                       </div>
@@ -909,6 +1015,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.allergens_info_displayed_comment}
                             onYesNoChange={(v) => handleInputChange('allergens_info_displayed', v)}
                             onCommentChange={(v) => handleInputChange('allergens_info_displayed_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are special diets (e.g. gluten-free, diabetic, fortified) stored and handled separately?"
@@ -918,6 +1025,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.special_diets_separated_comment}
                             onYesNoChange={(v) => handleInputChange('special_diets_separated', v)}
                             onCommentChange={(v) => handleInputChange('special_diets_separated_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Is cross-contamination of allergen foods avoided during prep and storage?"
@@ -927,6 +1035,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.cross_contamination_avoided_comment}
                             onYesNoChange={(v) => handleInputChange('cross_contamination_avoided', v)}
                             onCommentChange={(v) => handleInputChange('cross_contamination_avoided_comment', v)}
+                            {...yesNoSharedProps}
                           />
                         </div>
                       </div>
@@ -944,6 +1053,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.cleaning_schedules_signed_comment}
                             onYesNoChange={(v) => handleInputChange('cleaning_schedules_signed', v)}
                             onCommentChange={(v) => handleInputChange('cleaning_schedules_signed_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are fridge/freezer temperature logs maintained accurately?"
@@ -953,6 +1063,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.temp_logs_maintained_comment}
                             onYesNoChange={(v) => handleInputChange('temp_logs_maintained', v)}
                             onCommentChange={(v) => handleInputChange('temp_logs_maintained_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Is food delivery and stock rotation recorded?"
@@ -962,6 +1073,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.deliveries_stock_rotation_comment}
                             onYesNoChange={(v) => handleInputChange('deliveries_stock_rotation', v)}
                             onCommentChange={(v) => handleInputChange('deliveries_stock_rotation_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are food hygiene certificates/training records for staff up to date?"
@@ -971,6 +1083,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.staff_food_training_comment}
                             onYesNoChange={(v) => handleInputChange('staff_food_training', v)}
                             onCommentChange={(v) => handleInputChange('staff_food_training_comment', v)}
+                            {...yesNoSharedProps}
                           />
                         </div>
                       </div>
@@ -988,6 +1101,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.food_waste_bins_comment}
                             onYesNoChange={(v) => handleInputChange('food_waste_bins', v)}
                             onCommentChange={(v) => handleInputChange('food_waste_bins_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are clinical or incontinence waste bins kept separate from food areas?"
@@ -997,6 +1111,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.clinical_waste_separate_comment}
                             onYesNoChange={(v) => handleInputChange('clinical_waste_separate', v)}
                             onCommentChange={(v) => handleInputChange('clinical_waste_separate_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Is recycling being managed according to local authority policy?"
@@ -1006,6 +1121,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.recycling_managed_comment}
                             onYesNoChange={(v) => handleInputChange('recycling_managed', v)}
                             onCommentChange={(v) => handleInputChange('recycling_managed_comment', v)}
+                            {...yesNoSharedProps}
                           />
                         </div>
                       </div>
@@ -1023,6 +1139,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.last_eho_actions_completed_comment}
                             onYesNoChange={(v) => handleInputChange('last_eho_actions_completed', v)}
                             onCommentChange={(v) => handleInputChange('last_eho_actions_completed_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Is the Food Hygiene Rating displayed publicly (main kitchen)?"
@@ -1032,6 +1149,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.food_hygiene_rating_displayed_comment}
                             onYesNoChange={(v) => handleInputChange('food_hygiene_rating_displayed', v)}
                             onCommentChange={(v) => handleInputChange('food_hygiene_rating_displayed_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are staff trained in food safety (minimum Level 2 Food Hygiene)?"
@@ -1041,6 +1159,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.staff_food_safety_trained_comment}
                             onYesNoChange={(v) => handleInputChange('staff_food_safety_trained', v)}
                             onCommentChange={(v) => handleInputChange('staff_food_safety_trained_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Is there a cleaning risk assessment in place for both kitchen and kitchenettes?"
@@ -1050,6 +1169,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.cleaning_risk_assessment_comment}
                             onYesNoChange={(v) => handleInputChange('cleaning_risk_assessment', v)}
                             onCommentChange={(v) => handleInputChange('cleaning_risk_assessment_comment', v)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are COSHH sheets available for any cleaning chemicals used?"
@@ -1059,6 +1179,7 @@ export default function KitchenAuditPage() {
                             commentValue={data.coshh_sheets_available_comment}
                             onYesNoChange={(v) => handleInputChange('coshh_sheets_available', v)}
                             onCommentChange={(v) => handleInputChange('coshh_sheets_available_comment', v)}
+                            {...yesNoSharedProps}
                           />
                         </div>
                       </div>

@@ -23,13 +23,13 @@ const ACCESSIBILITY_PROFILES = [
     {
         id: 'seizure-safe',
         name: 'Seizure Safe Profile',
-        description: 'Clear flashes & reduces color',
+        description: 'Clears flashes & reduces color',
         Icon: Zap
     },
     {
         id: 'vision-impaired',
         name: 'Vision Impaired Profile',
-        description: "Enhances website's visuals",
+        description: "Enhances the website's visuals",
         Icon: Eye
     },
     {

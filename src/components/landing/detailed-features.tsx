@@ -15,7 +15,7 @@ const featureItems = [
     },
     {
         icon: <Tag className="w-10 h-10 text-primary" />,
-        title: "Automated Tagging & Organization",
+        title: "Automated Tagging & Organisation",
         description: "Documents are automatically tagged and organized into relevant folders based on their content, saving you hours of manual work.",
     },
     {

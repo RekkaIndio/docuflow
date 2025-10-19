@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useWorkspace } from '@/context/workspace';
 import { ChevronDown, ChevronUp, FileText } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -18,7 +18,7 @@ interface FireSafetyAuditData {
   home: string;
   date: string;
   personCompletingAudit: string;
-  
+
   // Section 1: Fire Risk Assessment
   fireRiskAssessmentCompleted: string;
   fireRiskAssessmentCompletedComment: string;
@@ -28,7 +28,7 @@ interface FireSafetyAuditData {
   significantFindingsActionedComment: string;
   fireRiskAssessmentAccessible: string;
   fireRiskAssessmentAccessibleComment: string;
-  
+
   // Section 2: Fire Detection and Alarm Systems
   functioningFireAlarm: string;
   functioningFireAlarmComment: string;
@@ -38,7 +38,7 @@ interface FireSafetyAuditData {
   staffFamiliarAlarmSoundComment: string;
   visualAlarmsInPlace: string;
   visualAlarmsInPlaceComment: string;
-  
+
   // Section 3: Emergency Lighting
   emergencyLightingInstalled: string;
   emergencyLightingInstalledComment: string;
@@ -46,7 +46,7 @@ interface FireSafetyAuditData {
   emergencyLightingTestedMonthlyComment: string;
   fullEmergencyLightingTest: string;
   fullEmergencyLightingTestComment: string;
-  
+
   // Section 4: Fire Fighting Equipment
   fireExtinguishersAvailable: string;
   fireExtinguishersAvailableComment: string;
@@ -56,7 +56,7 @@ interface FireSafetyAuditData {
   fireBlanketsComment: string;
   staffKnowExtinguisherUse: string;
   staffKnowExtinguisherUseComment: string;
-  
+
   // Section 5: Means of Escape
   fireExitsMarked: string;
   fireExitsMarkedComment: string;
@@ -66,7 +66,7 @@ interface FireSafetyAuditData {
   fireDoorsProperComment: string;
   escapeRouteSurfaces: string;
   escapeRouteSurfacesComment: string;
-  
+
   // Section 6: Fire Drills and Evacuation Procedures
   evacuationPlanDocumented: string;
   evacuationPlanDocumentedComment: string;
@@ -76,7 +76,7 @@ interface FireSafetyAuditData {
   staffTrainedEvacuationComment: string;
   peepsInPlace: string;
   peepsInPlaceComment: string;
-  
+
   // Section 7: Staff Training and Competency
   staffFireSafetyTraining: string;
   staffFireSafetyTrainingComment: string;
@@ -86,7 +86,7 @@ interface FireSafetyAuditData {
   newStaffTrainedComment: string;
   fireWardensAppointed: string;
   fireWardensAppointedComment: string;
-  
+
   // Section 8: Signage and Information
   fireActionNotices: string;
   fireActionNoticesComment: string;
@@ -96,7 +96,7 @@ interface FireSafetyAuditData {
   assemblyPointMarkedComment: string;
   fireLogbookUpToDate: string;
   fireLogbookUpToDateComment: string;
-  
+
   // Section 9: Electrical and Equipment Safety
   patTestingCompleted: string;
   patTestingCompletedComment: string;
@@ -106,7 +106,7 @@ interface FireSafetyAuditData {
   electricalPanelsSecureComment: string;
   staffInstructedFaultyEquipment: string;
   staffInstructedFaultyEquipmentComment: string;
-  
+
   // Section 10: Housekeeping and Fire Prevention
   flammableMaterialsStored: string;
   flammableMaterialsStoredComment: string;
@@ -131,6 +131,151 @@ type AttachmentMetadata = {
   name: string;
   storagePath: string;
   downloadUrl?: string;
+};
+
+interface YesNoQuestionProps {
+  label: string;
+  yesNoField: keyof FireSafetyAuditData;
+  commentField: keyof FireSafetyAuditData;
+  yesNoValue: string;
+  commentValue: string;
+  onYesNoChange: (value: string) => void;
+  onCommentChange: (value: string) => void;
+  attachments: Record<string, AttachmentItem[]>;
+  onAddAttachments: (fieldName: string, files: FileList | null) => void;
+  onRemoveAttachment: (fieldName: string, attachmentId: string) => void;
+  onPreviewAttachment: (attachment: { url: string; name: string }) => void;
+  hasError: (fieldName: string) => boolean;
+  getFieldClassName: (fieldName: string, baseClassName: string) => string;
+}
+
+const YesNoQuestion: React.FC<YesNoQuestionProps> = ({
+  label,
+  yesNoField,
+  commentField,
+  yesNoValue,
+  commentValue,
+  onYesNoChange,
+  onCommentChange,
+  attachments,
+  onAddAttachments,
+  onRemoveAttachment,
+  onPreviewAttachment,
+  hasError,
+  getFieldClassName,
+}) => {
+  const fieldKey = yesNoField as string;
+  const commentKey = commentField as string;
+  const attachmentList = attachments[fieldKey] ?? [];
+
+  return (
+    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:border-gray-300 transition-colors">
+      <div className="space-y-3">
+        <div>
+          <div className="flex items-start justify-between">
+            <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+            <div className="ml-4 relative">
+              {attachmentList.length > 0 && (
+                <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">
+                  {attachmentList.length}
+                </span>
+              )}
+              <label
+                title="Add attachment"
+                className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100"
+              >
+                <input
+                  type="file"
+                  accept="image/*"
+                  data-field-input={fieldKey}
+                  onChange={(e) => {
+                    onAddAttachments(fieldKey, e.target.files);
+                    e.currentTarget.value = '';
+                  }}
+                  className="hidden"
+                />
+                <span className="text-xl font-bold">+</span>
+              </label>
+            </div>
+          </div>
+          <div className="flex gap-4" data-field={fieldKey}>
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="radio"
+                name={fieldKey}
+                value="Yes"
+                checked={yesNoValue === 'Yes'}
+                onChange={(e) => onYesNoChange(e.target.value)}
+                className="mr-2 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-700">Yes</span>
+            </label>
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="radio"
+                name={fieldKey}
+                value="No"
+                checked={yesNoValue === 'No'}
+                onChange={(e) => onYesNoChange(e.target.value)}
+                className="mr-2 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-700">No</span>
+            </label>
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="radio"
+                name={fieldKey}
+                value="N/A"
+                checked={yesNoValue === 'N/A'}
+                onChange={(e) => onYesNoChange(e.target.value)}
+                className="mr-2 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-700">N/A</span>
+            </label>
+          </div>
+          {hasError(fieldKey) && (
+            <p className="text-red-500 text-sm mt-1">This field is required</p>
+          )}
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Comments</label>
+          <Textarea
+            value={commentValue}
+            onChange={(e) => onCommentChange(e.target.value)}
+            className={getFieldClassName(
+              commentKey,
+              'w-full bg-white border border-gray-300 rounded-lg resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors'
+            )}
+            rows={2}
+            placeholder="Add any comments or observations..."
+          />
+        </div>
+        <div>
+          <div className="flex flex-wrap gap-2">
+            {attachmentList.map((att) => (
+              <div key={att.id} className="relative w-24 h-24 rounded overflow-hidden border border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => onPreviewAttachment({ url: att.url, name: att.name })}
+                  className="w-full h-full"
+                  title={att.name}
+                >
+                  <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+                </button>
+                <button
+                  onClick={() => onRemoveAttachment(fieldKey, att.id)}
+                  title="Remove"
+                  className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-gray-200 shadow-sm"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default function FireSafetyAuditPage() {
@@ -238,14 +383,14 @@ export default function FireSafetyAuditPage() {
   ];
 
   // Helper function to check if field has error
-  const hasError = (fieldName: string) => errors.includes(fieldName);
+  const hasError = useCallback((fieldName: string) => errors.includes(fieldName), [errors]);
   
   // Helper function to get error styling
-  const getFieldClassName = (fieldName: string, baseClassName: string) => {
-    return hasError(fieldName) 
-      ? `${baseClassName} border-red-500 bg-red-50 focus:ring-red-500 focus:border-red-500` 
+  const getFieldClassName = useCallback((fieldName: string, baseClassName: string) => {
+    return hasError(fieldName)
+      ? `${baseClassName} border-red-500 bg-red-50 focus:ring-red-500 focus:border-red-500`
       : baseClassName;
-  };
+  }, [hasError]);
   
   const [auditData, setAuditData] = useState<FireSafetyAuditData>({
     home: activeWorkspace?.name ?? '',
@@ -289,7 +434,7 @@ export default function FireSafetyAuditPage() {
     fireBlanketsComment: '',
     staffKnowExtinguisherUse: '',
     staffKnowExtinguisherUseComment: '',
-    
+
     // Section 5
     fireExitsMarked: '',
     fireExitsMarkedComment: '',
@@ -299,7 +444,7 @@ export default function FireSafetyAuditPage() {
     fireDoorsProperComment: '',
     escapeRouteSurfaces: '',
     escapeRouteSurfacesComment: '',
-    
+
     // Section 6
     evacuationPlanDocumented: '',
     evacuationPlanDocumentedComment: '',
@@ -309,7 +454,7 @@ export default function FireSafetyAuditPage() {
     staffTrainedEvacuationComment: '',
     peepsInPlace: '',
     peepsInPlaceComment: '',
-    
+
     // Section 7
     staffFireSafetyTraining: '',
     staffFireSafetyTrainingComment: '',
@@ -319,7 +464,7 @@ export default function FireSafetyAuditPage() {
     newStaffTrainedComment: '',
     fireWardensAppointed: '',
     fireWardensAppointedComment: '',
-    
+
     // Section 8
     fireActionNotices: '',
     fireActionNoticesComment: '',
@@ -329,7 +474,7 @@ export default function FireSafetyAuditPage() {
     assemblyPointMarkedComment: '',
     fireLogbookUpToDate: '',
     fireLogbookUpToDateComment: '',
-    
+
     // Section 9
     patTestingCompleted: '',
     patTestingCompletedComment: '',
@@ -339,7 +484,7 @@ export default function FireSafetyAuditPage() {
     electricalPanelsSecureComment: '',
     staffInstructedFaultyEquipment: '',
     staffInstructedFaultyEquipmentComment: '',
-    
+
     // Section 10
     flammableMaterialsStored: '',
     flammableMaterialsStoredComment: '',
@@ -499,6 +644,10 @@ export default function FireSafetyAuditPage() {
       return next;
     });
   };
+
+  const handlePreviewAttachment = useCallback((attachment: { url: string; name: string }) => {
+    setPreviewImage({ url: attachment.url, name: attachment.name });
+  }, [setPreviewImage]);
 
   // preview keyboard close (ESC)
   useEffect(() => {
@@ -693,134 +842,18 @@ export default function FireSafetyAuditPage() {
     }
   };
 
+  const yesNoSharedProps = {
+    attachments,
+    onAddAttachments: handleAddAttachments,
+    onRemoveAttachment: handleRemoveAttachment,
+    onPreviewAttachment: handlePreviewAttachment,
+    hasError,
+    getFieldClassName,
+  };
+
   const handleModalClose = () => {
     setShowModal(false);
   };
-
-  const YesNoQuestion = ({ 
-    label, 
-    yesNoField, 
-    commentField, 
-    yesNoValue, 
-    commentValue, 
-    onYesNoChange, 
-    onCommentChange 
-  }: {
-    label: string;
-    yesNoField: string;
-    commentField: string;
-    yesNoValue: string;
-    commentValue: string;
-    onYesNoChange: (value: string) => void;
-    onCommentChange: (value: string) => void;
-  }) => (
-    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:border-gray-300 transition-colors">
-      <div className="space-y-3">
-        <div>
-          <div className="flex items-start justify-between">
-            <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
-            <div className="ml-4 relative">
-              { (attachments[yesNoField]?.length ?? 0) > 0 && (
-                <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">
-                  {attachments[yesNoField]?.length}
-                </span>
-              )}
-              <label
-                title="Add attachment"
-                className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100"
-              >
-                <input
-                  type="file"
-                  accept="image/*"
-                  data-field-input={yesNoField}
-                  onChange={(e) => {
-                    handleAddAttachments(yesNoField, e.target.files);
-                    // reset the input so same file can be picked again if removed
-                    e.currentTarget.value = '';
-                  }}
-                  className="hidden"
-                />
-                <span className="text-xl font-bold">+</span>
-              </label>
-            </div>
-          </div>
-          <div className="flex gap-4" data-field={yesNoField}>
-            <label className="flex items-center cursor-pointer">
-              <input
-                type="radio"
-                name={yesNoField}
-                value="Yes"
-                checked={yesNoValue === 'Yes'}
-                onChange={(e) => onYesNoChange(e.target.value)}
-                className="mr-2 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="text-sm text-gray-700">Yes</span>
-            </label>
-            <label className="flex items-center cursor-pointer">
-              <input
-                type="radio"
-                name={yesNoField}
-                value="No"
-                checked={yesNoValue === 'No'}
-                onChange={(e) => onYesNoChange(e.target.value)}
-                className="mr-2 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="text-sm text-gray-700">No</span>
-            </label>
-            <label className="flex items-center cursor-pointer">
-              <input
-                type="radio"
-                name={yesNoField}
-                value="N/A"
-                checked={yesNoValue === 'N/A'}
-                onChange={(e) => onYesNoChange(e.target.value)}
-                className="mr-2 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="text-sm text-gray-700">N/A</span>
-            </label>
-          </div>
-          {errors.includes(yesNoField) && (
-            <p className="text-red-500 text-sm mt-1">This field is required</p>
-          )}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Comments</label>
-          <Textarea
-            value={commentValue}
-            onChange={(e) => onCommentChange(e.target.value)}
-            className="w-full bg-white border border-gray-300 rounded-lg resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
-            rows={2}
-            placeholder="Add any comments or observations..."
-          />
-        </div>
-        {/* Attachments preview */}
-        <div>
-          <div className="flex flex-wrap gap-2">
-            {(attachments[yesNoField] ?? []).map(att => (
-              <div key={att.id} className="relative w-24 h-24 rounded overflow-hidden border border-gray-200">
-                <button
-                  type="button"
-                  onClick={() => setPreviewImage({ url: att.url, name: att.name })}
-                  className="w-full h-full"
-                  title={att.name}
-                >
-                  <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
-                </button>
-                <button
-                  onClick={() => handleRemoveAttachment(yesNoField, att.id)}
-                  title="Remove"
-                  className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-gray-200 shadow-sm"
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
 
   return (
   <div className="w-full p-10 bg-gradient-to-br from-slate-50 to-white rounded-3xl shadow-2xl mt-10 border border-slate-200">
@@ -910,6 +943,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.fireRiskAssessmentCompletedComment}
                           onYesNoChange={(value) => handleInputChange('fireRiskAssessmentCompleted', value)}
                           onCommentChange={(value) => handleInputChange('fireRiskAssessmentCompletedComment', value)}
+                          {...yesNoSharedProps}
                         />
                         <YesNoQuestion
                           label="Is the fire risk assessment reviewed regularly or following any significant changes?"
@@ -919,6 +953,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.fireRiskAssessmentReviewedComment}
                           onYesNoChange={(value) => handleInputChange('fireRiskAssessmentReviewed', value)}
                           onCommentChange={(value) => handleInputChange('fireRiskAssessmentReviewedComment', value)}
+                          {...yesNoSharedProps}
                         />
                         <YesNoQuestion
                           label="Are all significant findings from the fire risk assessment acted upon and documented?"
@@ -928,6 +963,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.significantFindingsActionedComment}
                           onYesNoChange={(value) => handleInputChange('significantFindingsActioned', value)}
                           onCommentChange={(value) => handleInputChange('significantFindingsActionedComment', value)}
+                          {...yesNoSharedProps}
                         />
                         <YesNoQuestion
                           label="Is the fire risk assessment accessible to staff and relevant authorities?"
@@ -937,6 +973,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.fireRiskAssessmentAccessibleComment}
                           onYesNoChange={(value) => handleInputChange('fireRiskAssessmentAccessible', value)}
                           onCommentChange={(value) => handleInputChange('fireRiskAssessmentAccessibleComment', value)}
+                          {...yesNoSharedProps}
                         />
                       </div>
                     )}
@@ -950,6 +987,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.functioningFireAlarmComment}
                           onYesNoChange={(value) => handleInputChange('functioningFireAlarm', value)}
                           onCommentChange={(value) => handleInputChange('functioningFireAlarmComment', value)}
+                          {...yesNoSharedProps}
                         />
                         <YesNoQuestion
                           label="Are fire alarms tested weekly and records kept?"
@@ -959,6 +997,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.fireAlarmsTestedWeeklyComment}
                           onYesNoChange={(value) => handleInputChange('fireAlarmsTestedWeekly', value)}
                           onCommentChange={(value) => handleInputChange('fireAlarmsTestedWeeklyComment', value)}
+                          {...yesNoSharedProps}
                         />
                         <YesNoQuestion
                           label="Are all staff familiar with the sound of the fire alarm?"
@@ -968,6 +1007,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.staffFamiliarAlarmSoundComment}
                           onYesNoChange={(value) => handleInputChange('staffFamiliarAlarmSound', value)}
                           onCommentChange={(value) => handleInputChange('staffFamiliarAlarmSoundComment', value)}
+                          {...yesNoSharedProps}
                         />
                         <YesNoQuestion
                           label="Are visual alarms in place where needed (e.g. for residents with hearing impairments)?"
@@ -977,6 +1017,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.visualAlarmsInPlaceComment}
                           onYesNoChange={(value) => handleInputChange('visualAlarmsInPlace', value)}
                           onCommentChange={(value) => handleInputChange('visualAlarmsInPlaceComment', value)}
+                          {...yesNoSharedProps}
                         />
                       </div>
                     )}
@@ -990,6 +1031,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.emergencyLightingInstalledComment}
                           onYesNoChange={(value) => handleInputChange('emergencyLightingInstalled', value)}
                           onCommentChange={(value) => handleInputChange('emergencyLightingInstalledComment', value)}
+                          {...yesNoSharedProps}
                         />
                         <YesNoQuestion
                           label="Is emergency lighting tested monthly and records maintained?"
@@ -999,6 +1041,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.emergencyLightingTestedMonthlyComment}
                           onYesNoChange={(value) => handleInputChange('emergencyLightingTestedMonthly', value)}
                           onCommentChange={(value) => handleInputChange('emergencyLightingTestedMonthlyComment', value)}
+                          {...yesNoSharedProps}
                         />
                         <YesNoQuestion
                           label="Has a full emergency lighting test been completed within the last year?"
@@ -1008,6 +1051,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.fullEmergencyLightingTestComment}
                           onYesNoChange={(value) => handleInputChange('fullEmergencyLightingTest', value)}
                           onCommentChange={(value) => handleInputChange('fullEmergencyLightingTestComment', value)}
+                          {...yesNoSharedProps}
                         />
                       </div>
                     )}
@@ -1021,6 +1065,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.fireExtinguishersAvailableComment}
                           onYesNoChange={(value) => handleInputChange('fireExtinguishersAvailable', value)}
                           onCommentChange={(value) => handleInputChange('fireExtinguishersAvailableComment', value)}
+                          {...yesNoSharedProps}
                         />
                         <YesNoQuestion
                           label="Are all fire extinguishers serviced annually?"
@@ -1030,6 +1075,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.fireExtinguishersServicedComment}
                           onYesNoChange={(value) => handleInputChange('fireExtinguishersServiced', value)}
                           onCommentChange={(value) => handleInputChange('fireExtinguishersServicedComment', value)}
+                          {...yesNoSharedProps}
                         />
                         <YesNoQuestion
                           label="Are fire blankets provided in kitchen areas?"
@@ -1039,6 +1085,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.fireBlanketsComment}
                           onYesNoChange={(value) => handleInputChange('fireBlankets', value)}
                           onCommentChange={(value) => handleInputChange('fireBlanketsComment', value)}
+                          {...yesNoSharedProps}
                         />
                         <YesNoQuestion
                           label="Do staff know how to use fire extinguishers safely?"
@@ -1048,6 +1095,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.staffKnowExtinguisherUseComment}
                           onYesNoChange={(value) => handleInputChange('staffKnowExtinguisherUse', value)}
                           onCommentChange={(value) => handleInputChange('staffKnowExtinguisherUseComment', value)}
+                          {...yesNoSharedProps}
                         />
                       </div>
                     )}
@@ -1061,6 +1109,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.fireExitsMarkedComment}
                           onYesNoChange={(value) => handleInputChange('fireExitsMarked', value)}
                           onCommentChange={(value) => handleInputChange('fireExitsMarkedComment', value)}
+                          {...yesNoSharedProps}
                         />
                         <YesNoQuestion
                           label="Are escape routes kept clear at all times?"
@@ -1070,6 +1119,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.escapeRoutesClearComment}
                           onYesNoChange={(value) => handleInputChange('escapeRoutesClear', value)}
                           onCommentChange={(value) => handleInputChange('escapeRoutesClearComment', value)}
+                          {...yesNoSharedProps}
                         />
                         <YesNoQuestion
                           label="Are fire doors kept closed (not wedged open) and functioning properly?"
@@ -1079,6 +1129,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.fireDoorsProperComment}
                           onYesNoChange={(value) => handleInputChange('fireDoorsProper', value)}
                           onCommentChange={(value) => handleInputChange('fireDoorsProperComment', value)}
+                          {...yesNoSharedProps}
                         />
                         <YesNoQuestion
                           label="Are escape route floor surfaces free from trip hazards?"
@@ -1088,6 +1139,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.escapeRouteSurfacesComment}
                           onYesNoChange={(value) => handleInputChange('escapeRouteSurfaces', value)}
                           onCommentChange={(value) => handleInputChange('escapeRouteSurfacesComment', value)}
+                          {...yesNoSharedProps}
                         />
                       </div>
                     )}
@@ -1101,6 +1153,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.evacuationPlanDocumentedComment}
                           onYesNoChange={(value) => handleInputChange('evacuationPlanDocumented', value)}
                           onCommentChange={(value) => handleInputChange('evacuationPlanDocumentedComment', value)}
+                          {...yesNoSharedProps}
                         />
                         <YesNoQuestion
                           label="Have fire drills been conducted at least twice per year?"
@@ -1110,6 +1163,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.fireDrillsConductedComment}
                           onYesNoChange={(value) => handleInputChange('fireDrillsConducted', value)}
                           onCommentChange={(value) => handleInputChange('fireDrillsConductedComment', value)}
+                          {...yesNoSharedProps}
                         />
                         <YesNoQuestion
                           label="Are all staff trained in evacuation procedures, including use of evacuation equipment?"
@@ -1119,6 +1173,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.staffTrainedEvacuationComment}
                           onYesNoChange={(value) => handleInputChange('staffTrainedEvacuation', value)}
                           onCommentChange={(value) => handleInputChange('staffTrainedEvacuationComment', value)}
+                          {...yesNoSharedProps}
                         />
                         <YesNoQuestion
                           label="Are Personal Emergency Evacuation Plans (PEEPs) in place for all residents who need them?"
@@ -1128,6 +1183,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.peepsInPlaceComment}
                           onYesNoChange={(value) => handleInputChange('peepsInPlace', value)}
                           onCommentChange={(value) => handleInputChange('peepsInPlaceComment', value)}
+                          {...yesNoSharedProps}
                         />
                       </div>
                     )}
@@ -1141,6 +1197,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.staffFireSafetyTrainingComment}
                           onYesNoChange={(value) => handleInputChange('staffFireSafetyTraining', value)}
                           onCommentChange={(value) => handleInputChange('staffFireSafetyTrainingComment', value)}
+                          {...yesNoSharedProps}
                         />
                         <YesNoQuestion
                           label="Do staff understand their roles in the event of a fire?"
@@ -1150,6 +1207,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.staffUnderstandRolesComment}
                           onYesNoChange={(value) => handleInputChange('staffUnderstandRoles', value)}
                           onCommentChange={(value) => handleInputChange('staffUnderstandRolesComment', value)}
+                          {...yesNoSharedProps}
                         />
                         <YesNoQuestion
                           label="Are new staff trained in fire safety during their induction?"
@@ -1159,6 +1217,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.newStaffTrainedComment}
                           onYesNoChange={(value) => handleInputChange('newStaffTrained', value)}
                           onCommentChange={(value) => handleInputChange('newStaffTrainedComment', value)}
+                          {...yesNoSharedProps}
                         />
                         <YesNoQuestion
                           label="Are fire wardens/marshals appointed and trained?"
@@ -1168,6 +1227,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.fireWardensAppointedComment}
                           onYesNoChange={(value) => handleInputChange('fireWardensAppointed', value)}
                           onCommentChange={(value) => handleInputChange('fireWardensAppointedComment', value)}
+                          {...yesNoSharedProps}
                         />
                       </div>
                     )}
@@ -1181,6 +1241,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.fireActionNoticesComment}
                           onYesNoChange={(value) => handleInputChange('fireActionNotices', value)}
                           onCommentChange={(value) => handleInputChange('fireActionNoticesComment', value)}
+                          {...yesNoSharedProps}
                         />
                         <YesNoQuestion
                           label="Are fire exit signs illuminated and clearly visible?"
@@ -1190,6 +1251,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.fireExitSignsComment}
                           onYesNoChange={(value) => handleInputChange('fireExitSigns', value)}
                           onCommentChange={(value) => handleInputChange('fireExitSignsComment', value)}
+                          {...yesNoSharedProps}
                         />
                         <YesNoQuestion
                           label="Is a fire assembly point clearly marked and known by staff?"
@@ -1199,6 +1261,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.assemblyPointMarkedComment}
                           onYesNoChange={(value) => handleInputChange('assemblyPointMarked', value)}
                           onCommentChange={(value) => handleInputChange('assemblyPointMarkedComment', value)}
+                          {...yesNoSharedProps}
                         />
                         <YesNoQuestion
                           label="Is the fire logbook up to date and available for inspection?"
@@ -1208,6 +1271,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.fireLogbookUpToDateComment}
                           onYesNoChange={(value) => handleInputChange('fireLogbookUpToDate', value)}
                           onCommentChange={(value) => handleInputChange('fireLogbookUpToDateComment', value)}
+                          {...yesNoSharedProps}
                         />
                       </div>
                     )}
@@ -1221,6 +1285,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.patTestingCompletedComment}
                           onYesNoChange={(value) => handleInputChange('patTestingCompleted', value)}
                           onCommentChange={(value) => handleInputChange('patTestingCompletedComment', value)}
+                          {...yesNoSharedProps}
                         />
                         <YesNoQuestion
                           label="Are fixed wiring installations inspected and tested at least every 5 years?"
@@ -1230,6 +1295,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.fixedWiringInspectedComment}
                           onYesNoChange={(value) => handleInputChange('fixedWiringInspected', value)}
                           onCommentChange={(value) => handleInputChange('fixedWiringInspectedComment', value)}
+                          {...yesNoSharedProps}
                         />
                         <YesNoQuestion
                           label="Are electrical panels and equipment kept secure and unobstructed?"
@@ -1239,6 +1305,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.electricalPanelsSecureComment}
                           onYesNoChange={(value) => handleInputChange('electricalPanelsSecure', value)}
                           onCommentChange={(value) => handleInputChange('electricalPanelsSecureComment', value)}
+                          {...yesNoSharedProps}
                         />
                         <YesNoQuestion
                           label="Are staff instructed to report and remove faulty electrical equipment?"
@@ -1248,6 +1315,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.staffInstructedFaultyEquipmentComment}
                           onYesNoChange={(value) => handleInputChange('staffInstructedFaultyEquipment', value)}
                           onCommentChange={(value) => handleInputChange('staffInstructedFaultyEquipmentComment', value)}
+                          {...yesNoSharedProps}
                         />
                       </div>
                     )}
@@ -1261,6 +1329,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.flammableMaterialsStoredComment}
                           onYesNoChange={(value) => handleInputChange('flammableMaterialsStored', value)}
                           onCommentChange={(value) => handleInputChange('flammableMaterialsStoredComment', value)}
+                          {...yesNoSharedProps}
                         />
                         <YesNoQuestion
                           label="Are smoking policies clearly enforced and smoking areas controlled?"
@@ -1270,6 +1339,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.smokingPoliciesEnforcedComment}
                           onYesNoChange={(value) => handleInputChange('smokingPoliciesEnforced', value)}
                           onCommentChange={(value) => handleInputChange('smokingPoliciesEnforcedComment', value)}
+                          {...yesNoSharedProps}
                         />
                         <YesNoQuestion
                           label="Are linen and waste storage areas regularly cleared and well-maintained?"
@@ -1279,6 +1349,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.linenWasteStorageComment}
                           onYesNoChange={(value) => handleInputChange('linenWasteStorage', value)}
                           onCommentChange={(value) => handleInputChange('linenWasteStorageComment', value)}
+                          {...yesNoSharedProps}
                         />
                         <YesNoQuestion
                           label="Are staff aware of procedures for reporting fire hazards?"
@@ -1288,6 +1359,7 @@ export default function FireSafetyAuditPage() {
                           commentValue={auditData.staffAwareReportingHazardsComment}
                           onYesNoChange={(value) => handleInputChange('staffAwareReportingHazards', value)}
                           onCommentChange={(value) => handleInputChange('staffAwareReportingHazardsComment', value)}
+                          {...yesNoSharedProps}
                         />
                       </div>
                     )}

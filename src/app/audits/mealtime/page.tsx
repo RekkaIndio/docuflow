@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ChevronDown, ChevronUp, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -104,6 +104,161 @@ interface MealtimeData {
   feedback_gathered_comment: string;
 }
 
+type YesNoNA = 'Yes' | 'No' | 'N/A' | '';
+
+type AttachmentItem = {
+  id: string;
+  name: string;
+  url: string;
+  file?: File;
+  storagePath?: string;
+  downloadUrl?: string;
+};
+
+type AttachmentMetadata = {
+  name: string;
+  storagePath: string;
+  downloadUrl?: string;
+};
+
+const YES_NO_FIELDS: Array<keyof MealtimeData> = [
+  'dining_area_set','environment_calm','adequate_seating','tables_well_presented','room_well_lit',
+  'residents_offered_handwash','residents_offered_choice','menus_accessible','dietary_needs_identified','residents_encouraged_choice','dignity_maintained',
+  'staff_available_attentive','staff_support_sensitivity','assistance_discreet','staff_eye_level_engagement','iddsi_checked',
+  'adequate_portions','drinks_offered','residents_encouraged_eat_drink','fortified_correct','intake_monitored',
+  'residents_enjoying','social_interaction','time_to_eat','meals_served_correct_temp','second_helpings_offered',
+  'staff_ppe_if_required','hygienic_serving','spills_cleaned','food_hygiene_followed','kitchen_clean',
+  'mouth_care_supported','areas_cleaned_promptly','residents_choices_next','feedback_gathered',
+];
+
+interface YesNoQuestionProps {
+  label: string;
+  yesNoField: keyof MealtimeData;
+  commentField: keyof MealtimeData;
+  yesNoValue: YesNoNA;
+  commentValue: string;
+  onYesNoChange: (value: YesNoNA) => void;
+  onCommentChange: (value: string) => void;
+  attachments: Record<string, AttachmentItem[]>;
+  onAddAttachments: (fieldName: string, files: FileList | null) => void;
+  onRemoveAttachment: (fieldName: string, attachmentId: string) => void;
+  onPreviewAttachment: (attachment: { url: string; name: string }) => void;
+  isFieldInvalid: (fieldName: string) => boolean;
+}
+
+const YesNoQuestion: React.FC<YesNoQuestionProps> = ({
+  label,
+  yesNoField,
+  commentField,
+  yesNoValue,
+  commentValue,
+  onYesNoChange,
+  onCommentChange,
+  attachments,
+  onAddAttachments,
+  onRemoveAttachment,
+  onPreviewAttachment,
+  isFieldInvalid,
+}) => {
+  const fieldKey = yesNoField as string;
+  const commentKey = commentField as string;
+  const attachmentList = attachments[fieldKey] ?? [];
+
+  return (
+    <div
+      className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm transition-colors hover:border-blue-200"
+      data-field={fieldKey}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <label className="block text-sm font-semibold text-slate-800 leading-snug">
+          {label}
+        </label>
+        <div className="relative flex-shrink-0">
+          {attachmentList.length > 0 && (
+            <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">
+              {attachmentList.length}
+            </span>
+          )}
+          <label
+            title="Add attachment"
+            className="inline-flex items-center justify-center h-9 w-9 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100"
+          >
+            <input
+              type="file"
+              accept="image/*"
+              data-field-input={fieldKey}
+              onChange={(e) => {
+                onAddAttachments(fieldKey, e.target.files);
+                e.currentTarget.value = '';
+              }}
+              className="hidden"
+            />
+            <span className="text-xl font-bold">+</span>
+          </label>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-4 mt-4">
+        {['Yes', 'No', 'N/A'].map((option) => (
+          <label key={option} className="flex items-center gap-2 cursor-pointer text-sm text-slate-700">
+            <input
+              type="radio"
+              name={fieldKey}
+              value={option}
+              checked={yesNoValue === option}
+              onChange={(e) => onYesNoChange(e.target.value as YesNoNA)}
+              className="text-blue-600 focus:ring-blue-500"
+            />
+            <span>{option}</span>
+          </label>
+        ))}
+      </div>
+      {isFieldInvalid(fieldKey) && (
+        <p className="text-red-500 text-xs mt-2">This field is required</p>
+      )}
+      <div className="mt-4 space-y-2">
+        <label className="block text-sm font-medium text-slate-700">Comments</label>
+        <Textarea
+          value={commentValue}
+          onChange={(e) => onCommentChange(e.target.value)}
+          rows={2}
+          placeholder="Add any comments or observations..."
+          className="bg-slate-50 border-slate-200"
+          data-comment-field={commentKey}
+        />
+      </div>
+      {attachmentList.length > 0 && (
+        <div className="mt-4">
+          <div className="flex flex-wrap gap-2">
+            {attachmentList.map((att) => (
+              <div
+                key={att.id}
+                className="relative w-24 h-24 rounded-lg overflow-hidden border border-slate-200 shadow-sm"
+              >
+                <button
+                  type="button"
+                  onClick={() => onPreviewAttachment({ url: att.url, name: att.name })}
+                  className="w-full h-full"
+                  title={att.name}
+                >
+                  <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onRemoveAttachment(fieldKey, att.id)}
+                  title="Remove"
+                  className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-slate-200 shadow"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const createEmptyData = (home: string = ''): MealtimeData => ({
   home,
   date: '',
@@ -195,21 +350,6 @@ export default function MealtimeAuditPage() {
   const [savedAuditId, setSavedAuditId] = useState<string | null>(null);
   const [finalComments, setFinalComments] = useState('');
   const [errors, setErrors] = useState<string[]>([]);
-  
-  type AttachmentItem = {
-    id: string;
-    name: string;
-    url: string;
-    file?: File;
-    storagePath?: string;
-    downloadUrl?: string;
-  };
-
-  type AttachmentMetadata = {
-    name: string;
-    storagePath: string;
-    downloadUrl?: string;
-  };
   const dataFieldKeys = React.useMemo(() => Object.keys(createEmptyData()) as (keyof MealtimeData)[], []);
 
   // Attachments state: map fieldName -> AttachmentItem[]
@@ -316,29 +456,19 @@ export default function MealtimeAuditPage() {
   }, [activeWorkspace?.name, data.home]);
 
   // Helper functions
-  const getFieldError = (fieldName: string) => {
-    return errors.find(error => error.includes(fieldName));
-  };
+  const fieldHasError = useCallback((fieldName: string) => errors.includes(fieldName), [errors]);
 
-  const getFieldClassName = (fieldName: string) => {
-    const hasError = getFieldError(fieldName);
-    return hasError
-      ? "border-red-500 bg-red-50 focus:border-red-500 focus:ring-red-500"
-      : "border-gray-300 focus:border-blue-500 focus:ring-blue-500";
-  };
-
-  const handleYesNoChange = (fieldName: string, value: string) => {
-    setData(prev => ({
-      ...prev,
-      [fieldName]: value
-    }));
-    // Clear any errors for this field
-    setErrors(prev => prev.filter(error => !error.includes(fieldName)));
-  };
+  const getFieldClassName = useCallback((fieldName: string, baseClassName = '') => (
+    fieldHasError(fieldName)
+      ? `${baseClassName} border-red-500 bg-red-50 focus:ring-red-500 focus:border-red-500`
+      : baseClassName
+  ), [fieldHasError]);
 
   const handleChange = (field: keyof MealtimeData, value: string) => {
     setData(prev => ({ ...prev, [field]: value }));
-    if (value.trim() !== '' && errors.includes(field)) setErrors(prev => prev.filter(e => e !== field));
+    if (value.trim() !== '' && fieldHasError(field as string)) {
+      setErrors(prev => prev.filter(error => error !== (field as string)));
+    }
   };
 
   // Attachment handlers
@@ -393,6 +523,10 @@ export default function MealtimeAuditPage() {
     });
   };
 
+  const handlePreviewAttachment = useCallback((attachment: { url: string; name: string }) => {
+    setPreviewImage(attachment);
+  }, []);
+
   const uploadAttachmentFile = async (fieldName: string, file: File) => {
     if (!activeWorkspace?.id) {
       throw new Error('Workspace not available for attachment upload');
@@ -411,121 +545,19 @@ export default function MealtimeAuditPage() {
     const downloadUrl = await getDownloadURL(storageRef);
     return { storagePath, downloadUrl };
   };
-
-  const YesNoQuestion = ({ label, yesNoField }: { label: string; yesNoField: string; }) => {
-    const commentField = `${yesNoField}_comment`;
-    return (
-      <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-        <div className="space-y-3">
-          <div>
-            <div className="flex items-start justify-between">
-              <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
-              <div className="ml-4 relative">
-                { (attachments[yesNoField]?.length ?? 0) > 0 && (
-                  <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">
-                    {attachments[yesNoField]?.length}
-                  </span>
-                )}
-                <label
-                  title="Add attachment"
-                  className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100"
-                >
-                  <input
-                    type="file"
-                    accept="image/*"
-                    data-field-input={yesNoField}
-                    onChange={(e) => {
-                      handleAddAttachments(yesNoField, e.target.files);
-                      e.currentTarget.value = '';
-                    }}
-                    className="hidden"
-                  />
-                  <span className="text-xl font-bold">+</span>
-                </label>
-              </div>
-            </div>
-            <div className="flex gap-4" data-field={yesNoField}>
-              <label className="flex items-center">
-                <input
-                  type="radio"
-                  name={yesNoField}
-                  value="Yes"
-                  checked={data[yesNoField as keyof MealtimeData] === 'Yes'}
-                  onChange={(e) => handleYesNoChange(yesNoField, e.target.value)}
-                  className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                />
-                <span className="text-sm text-gray-700">Yes</span>
-              </label>
-              <label className="flex items-center">
-                <input
-                  type="radio"
-                  name={yesNoField}
-                  value="No"
-                  checked={data[yesNoField as keyof MealtimeData] === 'No'}
-                  onChange={(e) => handleYesNoChange(yesNoField, e.target.value)}
-                  className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                />
-                <span className="text-sm text-gray-700">No</span>
-              </label>
-            </div>
-            {getFieldError(yesNoField) && (
-              <p className="text-red-600 text-sm font-medium">This field is required</p>
-            )}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Comments</label>
-            <Textarea
-              value={data[commentField as keyof MealtimeData] as string}
-              onChange={(e) => handleChange(commentField as keyof MealtimeData, e.target.value)}
-              className="w-full p-3 border border-slate-200 rounded-lg resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-slate-50"
-              rows={2}
-              placeholder="Add any comments or observations..."
-            />
-          </div>
-          <div>
-            <div className="flex flex-wrap gap-2">
-              {(attachments[yesNoField] ?? []).map(att => (
-                <div key={att.id} className="relative w-24 h-24 rounded overflow-hidden border border-gray-200">
-                  <button
-                    type="button"
-                    onClick={() => setPreviewImage({ url: att.url, name: att.name })}
-                    className="w-full h-full"
-                    title={att.name}
-                  >
-                    <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
-                  </button>
-                  <button
-                    onClick={() => handleRemoveAttachment(yesNoField, att.id)}
-                    title="Remove"
-                    className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-gray-200 shadow-sm"
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const required = [
-    'home','date','personCompletingAudit',
-    'dining_area_set','environment_calm','adequate_seating','tables_well_presented','room_well_lit',
-    'residents_offered_handwash','residents_offered_choice','menus_accessible','dietary_needs_identified','residents_encouraged_choice','dignity_maintained',
-    'staff_available_attentive','staff_support_sensitivity','assistance_discreet','staff_eye_level_engagement','iddsi_checked',
-    'adequate_portions','drinks_offered','residents_encouraged_eat_drink','fortified_correct','intake_monitored',
-    'residents_enjoying','social_interaction','time_to_eat','meals_served_correct_temp','second_helpings_offered',
-    'staff_ppe_if_required','hygienic_serving','spills_cleaned','food_hygiene_followed','kitchen_clean',
-    'mouth_care_supported','areas_cleaned_promptly','residents_choices_next','feedback_gathered'
+  const requiredFields: Array<keyof MealtimeData> = [
+    'home',
+    'date',
+    'personCompletingAudit',
+    ...YES_NO_FIELDS,
   ];
 
   const validateForm = () => {
-  const missing = required.filter(f => !((data as unknown as Record<string, string>)[f]?.trim()));
-    setErrors(missing as string[]);
+    const missing = requiredFields.filter((field) => !String(data[field] ?? '').trim());
+    setErrors(missing.map((field) => field as string));
     if (missing.length > 0) {
-      const el = document.querySelector(`[data-field="${missing[0]}"]`);
+      const firstMissing = missing[0] as string;
+      const el = document.querySelector(`[data-field="${firstMissing}"]`);
       el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
     return missing.length === 0;
@@ -542,17 +574,7 @@ export default function MealtimeAuditPage() {
     if (!activeWorkspaceId) return alert('No active workspace selected. Please choose a workspace before saving audits.');
 
     // Compute yes/no score for mealtime questions
-    const YES_NO_FIELDS = [
-      'dining_area_set','environment_calm','adequate_seating','tables_well_presented','room_well_lit',
-      'residents_offered_handwash','residents_offered_choice','menus_accessible','dietary_needs_identified','residents_encouraged_choice','dignity_maintained',
-      'staff_available_attentive','staff_support_sensitivity','assistance_discreet','staff_eye_level_engagement','iddsi_checked',
-      'adequate_portions','drinks_offered','residents_encouraged_eat_drink','fortified_correct','intake_monitored',
-      'residents_enjoying','social_interaction','time_to_eat','meals_served_correct_temp','second_helpings_offered',
-      'staff_ppe_if_required','hygienic_serving','spills_cleaned','food_hygiene_followed','kitchen_clean',
-      'mouth_care_supported','areas_cleaned_promptly','residents_choices_next','feedback_gathered'
-    ];
-
-    const yesCount = YES_NO_FIELDS.reduce((acc, f) => acc + ((data as any)[f] === 'Yes' ? 1 : 0), 0);
+    const yesCount = YES_NO_FIELDS.reduce((acc, field) => acc + (data[field] === 'Yes' ? 1 : 0), 0);
     const totalCount = YES_NO_FIELDS.length;
     const scorePercent = totalCount > 0 ? Math.round((yesCount / totalCount) * 100) : null;
 
@@ -650,7 +672,7 @@ export default function MealtimeAuditPage() {
           console.error('Failed to persist mealtime audit via snapshot fallback', fallbackErr);
         }
       }
-      alert('Audit saved');
+      alert(`Audit completed and saved${createActionPlan ? '; an action plan will be created.' : '.'}`);
     } catch (e) {
       // eslint-disable-next-line no-console
       console.warn('Failed to save mealtime audit', e);
@@ -658,6 +680,14 @@ export default function MealtimeAuditPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const yesNoSharedProps = {
+    attachments,
+    onAddAttachments: handleAddAttachments,
+    onRemoveAttachment: handleRemoveAttachment,
+    onPreviewAttachment: handlePreviewAttachment,
+    isFieldInvalid: fieldHasError,
   };
 
   React.useEffect(() => {
@@ -759,10 +789,11 @@ export default function MealtimeAuditPage() {
               <Input
                 value={data.home}
                 onChange={(e) => handleChange('home', e.target.value)}
-                className={getFieldClassName('home')}
+                className={getFieldClassName('home', 'w-full')}
                 placeholder="Enter home name"
+                data-field="home"
               />
-              {getFieldError('home') && (
+              {fieldHasError('home') && (
                 <p className="text-red-600 text-sm font-medium mt-1">This field is required</p>
               )}
             </div>
@@ -772,9 +803,10 @@ export default function MealtimeAuditPage() {
                 type="date"
                 value={data.date}
                 onChange={(e) => handleChange('date', e.target.value)}
-                className={getFieldClassName('date')}
+                className={getFieldClassName('date', 'w-full')}
+                data-field="date"
               />
-              {getFieldError('date') && (
+              {fieldHasError('date') && (
                 <p className="text-red-600 text-sm font-medium mt-1">This field is required</p>
               )}
             </div>
@@ -783,10 +815,11 @@ export default function MealtimeAuditPage() {
               <StaffSelectInput
                 value={data.personCompletingAudit}
                 onChange={(e) => handleChange('personCompletingAudit', e.target.value)}
-                className={getFieldClassName('personCompletingAudit')}
+                className={getFieldClassName('personCompletingAudit', 'w-full')}
                 placeholder="Enter auditor name"
+                data-field="personCompletingAudit"
               />
-              {getFieldError('personCompletingAudit') && (
+              {fieldHasError('personCompletingAudit') && (
                 <p className="text-red-600 text-sm font-medium mt-1">This field is required</p>
               )}
             </div>
@@ -816,35 +849,24 @@ export default function MealtimeAuditPage() {
                     <div className="px-6 pb-6">
                       <p className="text-slate-600 mb-6 text-sm leading-relaxed">{section.guidance}</p>
                       <div className="space-y-4">
-                        {section.questions.map((question, qIndex) => (
-                          <YesNoQuestion
-                            key={qIndex}
-                            label={question.label}
-                            yesNoField={question.yesNoField}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {/* Image preview modal */}
-                  {previewImage && (
-                    <div className="fixed inset-0 z-60 flex items-center justify-center">
-                      <div className="fixed inset-0 bg-black bg-opacity-60" onClick={() => setPreviewImage(null)} />
-                      <div className="relative z-70 max-w-3xl w-full mx-4">
-                        <div className="bg-white rounded-lg overflow-hidden shadow-xl">
-                          <div className="flex justify-between items-start p-2 border-b">
-                            <div className="px-3 py-1 text-sm text-gray-700">{previewImage.name}</div>
-                            <button
-                              onClick={() => setPreviewImage(null)}
-                              className="m-2 bg-white rounded-full p-1 text-gray-700 border"
-                            >
-                              Close
-                            </button>
-                          </div>
-                          <div className="p-4 bg-black flex items-center justify-center">
-                            <img src={previewImage.url} alt={previewImage.name} className="max-h-[80vh] w-auto object-contain" />
-                          </div>
-                        </div>
+                        {section.questions.map((question) => {
+                          const yesField = question.yesNoField as keyof MealtimeData;
+                          const commentField = `${question.yesNoField}_comment` as keyof MealtimeData;
+
+                          return (
+                            <YesNoQuestion
+                              key={question.yesNoField}
+                              label={question.label}
+                              yesNoField={yesField}
+                              commentField={commentField}
+                              yesNoValue={data[yesField] as YesNoNA}
+                              commentValue={data[commentField] ?? ''}
+                              onYesNoChange={(value) => handleChange(yesField, value)}
+                              onCommentChange={(value) => handleChange(commentField, value)}
+                              {...yesNoSharedProps}
+                            />
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -884,6 +906,28 @@ export default function MealtimeAuditPage() {
                 >
                   {saving ? 'Saving...' : 'Save and Create Action Plan'}
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {previewImage && (
+          <div className="fixed inset-0 z-60 flex items-center justify-center">
+            <div className="fixed inset-0 bg-black bg-opacity-60" onClick={() => setPreviewImage(null)} />
+            <div className="relative z-70 max-w-3xl w-full mx-4">
+              <div className="bg-white rounded-lg overflow-hidden shadow-xl">
+                <div className="flex justify-between items-start p-2 border-b">
+                  <div className="px-3 py-1 text-sm text-gray-700 truncate">{previewImage.name}</div>
+                  <button
+                    onClick={() => setPreviewImage(null)}
+                    className="px-3 py-1 text-sm text-blue-600 hover:text-blue-800"
+                  >
+                    Close
+                  </button>
+                </div>
+                <div className="p-4 bg-black flex items-center justify-center">
+                  <img src={previewImage.url} alt={previewImage.name} className="max-h-[80vh] w-auto object-contain" />
+                </div>
               </div>
             </div>
           </div>

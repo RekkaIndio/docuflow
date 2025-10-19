@@ -62,7 +62,7 @@ export function FeatureGuard({
               {featureName} has been disabled by your administrator.
             </p>
             <p className="text-sm text-muted-foreground">
-              If you believe this is an error, please contact your organization administrator
+              If you believe this is an error, please contact your organisation administrator
               to enable this feature.
             </p>
             {onNavigateBack && (

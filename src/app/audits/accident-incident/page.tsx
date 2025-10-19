@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useAuth } from '@/hooks/use-auth';
 import { saveAudit, updateAudit, markAuditCompletedWithSnapshot, getLatestAuditData } from '@/lib/firestore';
@@ -39,6 +39,116 @@ type AttachmentMetadata = {
   name: string;
   storagePath: string;
   downloadUrl?: string;
+};
+
+interface AttachmentTextareaProps {
+  fieldKey: string;
+  name: string;
+  label: React.ReactNode;
+  value: string;
+  attachments: Record<string, AttachmentItem[]>;
+  onChange: (value: string) => void;
+  onAddAttachments: (fieldName: string, files: FileList | null) => void;
+  onRemoveAttachment: (fieldName: string, attachmentId: string) => void;
+  onPreviewAttachment: (attachment: { url: string; name: string }) => void;
+  placeholder?: string;
+  rows?: number;
+  className?: string;
+  disabled?: boolean;
+  required?: boolean;
+  error?: boolean;
+  errorMessage?: string;
+}
+
+const AttachmentTextarea: React.FC<AttachmentTextareaProps> = ({
+  fieldKey,
+  name,
+  label,
+  value,
+  attachments,
+  onChange,
+  onAddAttachments,
+  onRemoveAttachment,
+  onPreviewAttachment,
+  placeholder = "",
+  rows = 3,
+  className = "w-full",
+  disabled = false,
+  required = false,
+  error = false,
+  errorMessage,
+}) => {
+  const attachmentList = attachments[fieldKey] ?? [];
+
+  return (
+    <div>
+      <div className="flex items-start justify-between mb-1">
+        <label className="block text-sm font-medium text-gray-700" htmlFor={name}>
+          {label}
+        </label>
+        <div className="ml-4 relative">
+          {attachmentList.length > 0 && (
+            <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">
+              {attachmentList.length}
+            </span>
+          )}
+          <label
+            title="Add attachment"
+            className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100"
+          >
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                if (disabled) return;
+                onAddAttachments(fieldKey, e.target.files);
+                e.currentTarget.value = '';
+              }}
+              className="hidden"
+              disabled={disabled}
+            />
+            <span className="text-xl font-bold">+</span>
+          </label>
+        </div>
+      </div>
+      <Textarea
+        id={name}
+        name={name}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={className}
+        rows={rows}
+        placeholder={placeholder}
+        disabled={disabled}
+        required={required}
+      />
+      {error && errorMessage && <p className="text-red-500 text-xs mt-1">{errorMessage}</p>}
+      {attachmentList.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {attachmentList.map((att) => (
+            <div key={att.id} className="relative w-24 h-24 rounded overflow-hidden border border-gray-200">
+              <button
+                type="button"
+                onClick={() => onPreviewAttachment({ url: att.url, name: att.name })}
+                className="w-full h-full"
+                title={att.name}
+              >
+                <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+              </button>
+              <button
+                type="button"
+                onClick={() => onRemoveAttachment(fieldKey, att.id)}
+                className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-gray-200 shadow-sm"
+                title="Remove"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 };
 
 const createEmptyReport = (): AccidentIncidentReport => ({
@@ -99,7 +209,7 @@ export default function AccidentIncidentAuditPage({ startFresh = false }: { star
     });
   }
 
-  const handleAddAttachments = (fieldName: string, files: FileList | null) => {
+  const handleFilesAdded = (fieldName: string, files: FileList | null) => {
     if (!files || files.length === 0) return;
     const fileArray = Array.from(files);
     setAttachments(prev => {
@@ -113,6 +223,10 @@ export default function AccidentIncidentAuditPage({ startFresh = false }: { star
       return { ...prev, [fieldName]: [...existing, ...added] };
     });
   };
+
+  const handlePreviewAttachment = useCallback((attachment: { url: string; name: string }) => {
+    setPreviewImage(attachment);
+  }, []);
 
   const handleRemoveAttachment = (fieldName: string, id: string) => {
     setAttachments(prev => {
@@ -652,194 +766,74 @@ export default function AccidentIncidentAuditPage({ startFresh = false }: { star
                           />
                           {hasError('accidentOrIncident') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
                         </div>
-                        <div>
-                          <div className="flex items-start justify-between mb-1">
-                            <label className="block text-sm font-medium text-gray-700">
+                        <AttachmentTextarea
+                          label={
+                            <>
                               Details of Incident {hasError('details') && <span className="text-red-500">*</span>}
-                            </label>
-                            <div className="ml-4 relative">
-                              {(attachments['details']?.length ?? 0) > 0 && (
-                                <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">
-                                  {attachments['details']?.length}
-                                </span>
-                              )}
-                              <label
-                                title="Add attachment"
-                                className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100"
-                              >
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  onChange={(e) => {
-                                    handleAddAttachments('details', e.target.files);
-                                    e.currentTarget.value = '';
-                                  }}
-                                  className="hidden"
-                                />
-                                <span className="text-xl font-bold">+</span>
-                              </label>
-                            </div>
-                          </div>
-                          <Textarea
-                            className={getFieldClassName('details', "w-full bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-200")}
-                            name="details"
-                            value={currentReport.details}
-                            onChange={handleChange}
-                            placeholder="Describe what occurred..."
-                            required
-                          />
-                          {hasError('details') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {(attachments['details'] ?? []).map(att => (
-                              <div key={att.id} className="relative w-24 h-24 rounded overflow-hidden border border-gray-200">
-                                <button
-                                  type="button"
-                                  onClick={() => setPreviewImage({ url: att.url, name: att.name })}
-                                  className="w-full h-full"
-                                  title={att.name}
-                                >
-                                  <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveAttachment('details', att.id)}
-                                  className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-gray-200 shadow-sm"
-                                  title="Remove"
-                                >
-                                  ×
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
+                            </>
+                          }
+                          fieldKey="details"
+                          name="details"
+                          value={currentReport.details}
+                          attachments={attachments}
+                          onChange={(value) => updateReportField('details', value)}
+                          onAddAttachments={handleFilesAdded}
+                          onRemoveAttachment={handleRemoveAttachment}
+                          onPreviewAttachment={handlePreviewAttachment}
+                          placeholder="Describe what occurred..."
+                          className={getFieldClassName('details', "w-full bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-200")}
+                          required
+                          error={hasError('details')}
+                          errorMessage="This field is required"
+                        />
                       </div>
                     )}
                     {idx === 1 && (
                       <div className="space-y-4">
-                        <div>
-                          <div className="flex items-start justify-between mb-1">
-                            <label className="block text-sm font-medium text-gray-700">
+                        <AttachmentTextarea
+                          label={
+                            <>
                               Actions Taken {hasError('actionsTaken') && <span className="text-red-500">*</span>}
-                            </label>
-                            <div className="ml-4 relative">
-                              {(attachments['actionsTaken']?.length ?? 0) > 0 && (
-                                <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">
-                                  {attachments['actionsTaken']?.length}
-                                </span>
-                              )}
-                              <label
-                                title="Add attachment"
-                                className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100"
-                              >
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  onChange={(e) => {
-                                    handleAddAttachments('actionsTaken', e.target.files);
-                                    e.currentTarget.value = '';
-                                  }}
-                                  className="hidden"
-                                />
-                                <span className="text-xl font-bold">+</span>
-                              </label>
-                            </div>
-                          </div>
-                          <Textarea
-                            className={getFieldClassName('actionsTaken', "w-full bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-200")}
-                            name="actionsTaken"
-                            value={currentReport.actionsTaken}
-                            onChange={handleChange}
-                            placeholder="Immediate actions taken..."
-                            required
-                          />
-                          {hasError('actionsTaken') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {(attachments['actionsTaken'] ?? []).map(att => (
-                              <div key={att.id} className="relative w-24 h-24 rounded overflow-hidden border border-gray-200">
-                                <button
-                                  type="button"
-                                  onClick={() => setPreviewImage({ url: att.url, name: att.name })}
-                                  className="w-full h-full"
-                                  title={att.name}
-                                >
-                                  <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveAttachment('actionsTaken', att.id)}
-                                  className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-gray-200 shadow-sm"
-                                  title="Remove"
-                                >
-                                  ×
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
+                            </>
+                          }
+                          fieldKey="actionsTaken"
+                          name="actionsTaken"
+                          value={currentReport.actionsTaken}
+                          attachments={attachments}
+                          onChange={(value) => updateReportField('actionsTaken', value)}
+                          onAddAttachments={handleFilesAdded}
+                          onRemoveAttachment={handleRemoveAttachment}
+                          onPreviewAttachment={handlePreviewAttachment}
+                          placeholder="Immediate actions taken..."
+                          className={getFieldClassName('actionsTaken', "w-full bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-200")}
+                          required
+                          error={hasError('actionsTaken')}
+                          errorMessage="This field is required"
+                        />
                       </div>
                     )}
                     {idx === 2 && (
                       <div className="space-y-4">
-                        <div>
-                          <div className="flex items-start justify-between mb-1">
-                            <label className="block text-sm font-medium text-gray-700">
+                        <AttachmentTextarea
+                          label={
+                            <>
                               Preventative Measures {hasError('preventative') && <span className="text-red-500">*</span>}
-                            </label>
-                            <div className="ml-4 relative">
-                              {(attachments['preventative']?.length ?? 0) > 0 && (
-                                <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">
-                                  {attachments['preventative']?.length}
-                                </span>
-                              )}
-                              <label
-                                title="Add attachment"
-                                className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100"
-                              >
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  onChange={(e) => {
-                                    handleAddAttachments('preventative', e.target.files);
-                                    e.currentTarget.value = '';
-                                  }}
-                                  className="hidden"
-                                />
-                                <span className="text-xl font-bold">+</span>
-                              </label>
-                            </div>
-                          </div>
-                          <Textarea
-                            className={getFieldClassName('preventative', "w-full bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-200")}
-                            name="preventative"
-                            value={currentReport.preventative}
-                            onChange={handleChange}
-                            placeholder="Prevention measures..."
-                            required
-                          />
-                          {hasError('preventative') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {(attachments['preventative'] ?? []).map(att => (
-                              <div key={att.id} className="relative w-24 h-24 rounded overflow-hidden border border-gray-200">
-                                <button
-                                  type="button"
-                                  onClick={() => setPreviewImage({ url: att.url, name: att.name })}
-                                  className="w-full h-full"
-                                  title={att.name}
-                                >
-                                  <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveAttachment('preventative', att.id)}
-                                  className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-gray-200 shadow-sm"
-                                  title="Remove"
-                                >
-                                  ×
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
+                            </>
+                          }
+                          fieldKey="preventative"
+                          name="preventative"
+                          value={currentReport.preventative}
+                          attachments={attachments}
+                          onChange={(value) => updateReportField('preventative', value)}
+                          onAddAttachments={handleFilesAdded}
+                          onRemoveAttachment={handleRemoveAttachment}
+                          onPreviewAttachment={handlePreviewAttachment}
+                          placeholder="Prevention measures..."
+                          className={getFieldClassName('preventative', "w-full bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-200")}
+                          required
+                          error={hasError('preventative')}
+                          errorMessage="This field is required"
+                        />
                       </div>
                     )}
                     {idx === 3 && (

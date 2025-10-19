@@ -8,7 +8,7 @@ export const faqs = [
   {
     id: 'getting-started-2',
     question: 'What types of organisations can use CG-360?',
-    answer: 'CG-360 is designed for care homes, healthcare facilities, and organizations that need comprehensive document management and compliance tracking.',
+    answer: 'CG-360 is designed for care homes, healthcare facilities, and organisations that need comprehensive document management and compliance tracking.',
     category: 'Getting Started'
   },
   {
