@@ -921,6 +921,80 @@ export async function getMonthlyAuditSnapshots(workspaceId: string, monthKey?: s
     }
 }
 
+export interface AuditMonthSummary {
+    folderId: string;
+    monthKey: string;
+    name: string;
+    createdAt?: string;
+}
+
+export async function listAuditMonths(workspaceId: string, orgId?: string | null): Promise<AuditMonthSummary[]> {
+    try {
+        if (!workspaceId) {
+            return [];
+        }
+
+        let resolvedOrgId: string | null = orgId ?? null;
+        if (!resolvedOrgId) {
+            try {
+                resolvedOrgId = await resolveWorkspaceOrgId(workspaceId);
+            } catch (err) {
+                console.warn('Failed to resolve organisationId while listing audit months; defaulting to workspace scope', err);
+            }
+        }
+
+        const collected = new Map<string, AuditMonthSummary>();
+
+        const collectFrom = async (scopeOrgId: string | null) => {
+            const scopedPath = workspaceCollectionPath(workspaceId, 'folders', scopeOrgId || null);
+            if (!scopedPath) return;
+
+            const foldersRef = collection(db, scopedPath);
+            const foldersQuery = query(foldersRef, where('metadata.auditFolder', '==', true));
+            const folderSnapshot = await getDocs(foldersQuery);
+
+            folderSnapshot.forEach((docSnap) => {
+                const data = docSnap.data() as Record<string, any> | undefined;
+                const metadata = data?.metadata as Record<string, any> | undefined;
+                const monthKey = typeof metadata?.monthKey === 'string' ? metadata.monthKey : undefined;
+
+                if (!monthKey) return;
+
+                if (!collected.has(monthKey)) {
+                    const createdAtRaw = data?.createdAt as any;
+                    const createdAt = createdAtRaw?.toDate?.()
+                        ? createdAtRaw.toDate().toISOString()
+                        : typeof createdAtRaw === 'string'
+                            ? createdAtRaw
+                            : undefined;
+
+                    collected.set(monthKey, {
+                        folderId: docSnap.id,
+                        monthKey,
+                        name: typeof data?.name === 'string' ? data.name : monthKey,
+                        createdAt,
+                    });
+                }
+            });
+        };
+
+        await collectFrom(resolvedOrgId);
+
+        if (collected.size === 0 && resolvedOrgId) {
+            await collectFrom(null);
+        }
+
+        if (collected.size === 0) {
+            return [];
+        }
+
+        return Array.from(collected.values()).sort((a, b) => b.monthKey.localeCompare(a.monthKey));
+    } catch (error) {
+        console.error('Failed to list audit months', error);
+        return [];
+    }
+}
+
 /**
  * Get the latest (most recent) audit data for a specific audit type in the current month
  */
