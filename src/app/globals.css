@@ -197,6 +197,72 @@
     background-color: revert !important;
     color: revert !important;
   }
+
+  /* ADHD focus overlay */
+  body.adhd-focus-mode {
+    --adhd-focus-band-height: clamp(180px, 32vh, 360px);
+    --adhd-focus-center: 50vh;
+    --adhd-focus-start: calc(var(--adhd-focus-center) - (var(--adhd-focus-band-height) / 2));
+    --adhd-focus-end: calc(var(--adhd-focus-center) + (var(--adhd-focus-band-height) / 2));
+  }
+
+  body.adhd-focus-mode::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 2147483000;
+    background: linear-gradient(
+      to bottom,
+      rgba(8, 21, 43, 0.75) 0%,
+      rgba(8, 21, 43, 0.75) var(--adhd-focus-start),
+      rgba(8, 21, 43, 0.05) var(--adhd-focus-start),
+      rgba(8, 21, 43, 0.05) var(--adhd-focus-end),
+      rgba(8, 21, 43, 0.75) var(--adhd-focus-end),
+      rgba(8, 21, 43, 0.75) 100%
+    );
+    transition: opacity 0.2s ease;
+  }
+
+  /* Seizure safe mode removes motion and desaturates colors */
+  body.seizure-safe-mode {
+    scroll-behavior: auto !important;
+  }
+
+  body.seizure-safe-mode *,
+  body.seizure-safe-mode *::before,
+  body.seizure-safe-mode *::after {
+    animation-duration: 0.0001ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.0001ms !important;
+    transition-delay: 0ms !important;
+    animation-play-state: paused !important;
+  }
+
+  body.seizure-safe-mode::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 2147482000;
+    background: rgba(255, 255, 255, 0.32);
+    mix-blend-mode: lighten;
+  }
+
+  body.seizure-safe-mode img,
+  body.seizure-safe-mode video,
+  body.seizure-safe-mode canvas,
+  body.seizure-safe-mode svg,
+  body.seizure-safe-mode picture {
+    filter: saturate(0.55) brightness(0.96);
+  }
+
+  body.seizure-safe-mode .seizure-safe-preserve {
+    animation: initial !important;
+    transition: initial !important;
+    filter: none !important;
+  }
 }
 
 @layer components {
