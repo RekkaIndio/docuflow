@@ -157,6 +157,97 @@ interface CarePlanAuditData {
   mentalCapacityAssessmentsDocumentedComment: string;
 }
 
+interface YesNoQuestionProps {
+  label: string;
+  yesNoField: keyof CarePlanAuditData;
+  commentField: keyof CarePlanAuditData;
+  yesNoValue: string;
+  commentValue: string;
+  onYesNoChange: (value: string) => void;
+  onCommentChange: (value: string) => void;
+  renderAttachmentButton: (fieldName: string) => React.ReactNode;
+  renderAttachmentPreview: (fieldName: string) => React.ReactNode;
+  hasError: (fieldName: string) => boolean;
+}
+
+const YesNoQuestion: React.FC<YesNoQuestionProps> = ({
+  label,
+  yesNoField,
+  commentField,
+  yesNoValue,
+  commentValue,
+  onYesNoChange,
+  onCommentChange,
+  renderAttachmentButton,
+  renderAttachmentPreview,
+  hasError,
+}) => {
+  const yesNoKey = yesNoField as string;
+  const commentKey = commentField as string;
+
+  return (
+    <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+      <div className="space-y-3">
+        <div>
+          <div className="flex items-start justify-between mb-2">
+            <label className="block text-sm font-medium text-gray-700">{label}</label>
+            {renderAttachmentButton(commentKey)}
+          </div>
+          <div className="flex gap-4" data-field={yesNoKey}>
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="radio"
+                name={yesNoKey}
+                value="Yes"
+                checked={yesNoValue === 'Yes'}
+                onChange={(e) => onYesNoChange(e.target.value)}
+                className="mr-2 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-700">Yes</span>
+            </label>
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="radio"
+                name={yesNoKey}
+                value="No"
+                checked={yesNoValue === 'No'}
+                onChange={(e) => onYesNoChange(e.target.value)}
+                className="mr-2 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-700">No</span>
+            </label>
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="radio"
+                name={yesNoKey}
+                value="N/A"
+                checked={yesNoValue === 'N/A'}
+                onChange={(e) => onYesNoChange(e.target.value)}
+                className="mr-2 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-700">N/A</span>
+            </label>
+          </div>
+          {hasError(yesNoKey) && (
+            <p className="text-red-500 text-sm mt-1">This field is required</p>
+          )}
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Comments</label>
+          <Textarea
+            value={commentValue}
+            onChange={(e) => onCommentChange(e.target.value)}
+            className="w-full p-3 border border-slate-200 rounded-lg resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-slate-50"
+            rows={2}
+            placeholder="Add any comments or observations..."
+          />
+          {renderAttachmentPreview(commentKey)}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function CarePlanAuditPage() {
   const [showModal, setShowModal] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
@@ -680,6 +771,12 @@ export default function CarePlanAuditPage() {
     );
   };
 
+  const yesNoSharedProps = {
+    renderAttachmentButton,
+    renderAttachmentPreview,
+    hasError,
+  };
+
   const validateForm = () => {
     const requiredFields: (keyof CarePlanAuditData)[] = [
       'home', 'name', 'personCompletingAudit', 'residentName', 'roomNumber',
@@ -965,84 +1062,6 @@ export default function CarePlanAuditPage() {
     setErrors([]);
   };
 
-  const YesNoQuestion = ({
-    label,
-    yesNoField,
-    commentField,
-    yesNoValue,
-    commentValue,
-    onYesNoChange,
-    onCommentChange
-  }: {
-    label: string;
-    yesNoField: string;
-    commentField: string;
-    yesNoValue: string;
-    commentValue: string;
-    onYesNoChange: (value: string) => void;
-    onCommentChange: (value: string) => void;
-  }) => (
-    <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-      <div className="space-y-3">
-        <div>
-          <div className="flex items-start justify-between mb-2">
-            <label className="block text-sm font-medium text-gray-700">{label}</label>
-            {renderAttachmentButton(commentField)}
-          </div>
-          <div className="flex gap-4" data-field={yesNoField}>
-            <label className="flex items-center cursor-pointer">
-              <input
-                type="radio"
-                name={yesNoField}
-                value="Yes"
-                checked={yesNoValue === 'Yes'}
-                onChange={(e) => onYesNoChange(e.target.value)}
-                className="mr-2 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="text-sm text-gray-700">Yes</span>
-            </label>
-            <label className="flex items-center cursor-pointer">
-              <input
-                type="radio"
-                name={yesNoField}
-                value="No"
-                checked={yesNoValue === 'No'}
-                onChange={(e) => onYesNoChange(e.target.value)}
-                className="mr-2 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="text-sm text-gray-700">No</span>
-            </label>
-            <label className="flex items-center cursor-pointer">
-              <input
-                type="radio"
-                name={yesNoField}
-                value="N/A"
-                checked={yesNoValue === 'N/A'}
-                onChange={(e) => onYesNoChange(e.target.value)}
-                className="mr-2 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="text-sm text-gray-700">N/A</span>
-            </label>
-          </div>
-          {errors.includes(yesNoField) && (
-            <p className="text-red-500 text-sm mt-1">This field is required</p>
-          )}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Comments</label>
-          <textarea
-            value={commentValue}
-            onChange={(e) => onCommentChange(e.target.value)}
-            className="w-full p-3 border border-slate-200 rounded-lg resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-slate-50"
-            rows={2}
-            placeholder="Add any comments or observations..."
-          />
-          {renderAttachmentPreview(commentField)}
-        </div>
-      </div>
-    </div>
-  );
-
   return (
   <div className="w-full p-10 bg-gradient-to-br from-slate-50 to-white rounded-3xl shadow-2xl mt-10 border border-slate-200">
       <div className="flex flex-col lg:flex-row gap-10">
@@ -1159,7 +1178,7 @@ export default function CarePlanAuditPage() {
                     )}
                     {idx === 1 && (
                       <div className="space-y-4">
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Are current and initial assessments complete?"
                           yesNoField="currentInitialAssessmentsComplete"
                           commentField="currentInitialAssessmentsComment"
@@ -1168,7 +1187,7 @@ export default function CarePlanAuditPage() {
                           onYesNoChange={(value) => handleInputChange('currentInitialAssessmentsComplete', value)}
                           onCommentChange={(value) => handleInputChange('currentInitialAssessmentsComment', value)}
                         />
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Is the care plan easily accessible to all relevant staff?"
                           yesNoField="carePlanAccessible"
                           commentField="carePlanAccessibleComment"
@@ -1177,7 +1196,7 @@ export default function CarePlanAuditPage() {
                           onYesNoChange={(value) => handleInputChange('carePlanAccessible', value)}
                           onCommentChange={(value) => handleInputChange('carePlanAccessibleComment', value)}
                         />
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Has the care plan been reviewed within the last 30 days?"
                           yesNoField="carePlanReviewed30Days"
                           commentField="carePlanReviewed30DaysComment"
@@ -1186,7 +1205,7 @@ export default function CarePlanAuditPage() {
                           onYesNoChange={(value) => handleInputChange('carePlanReviewed30Days', value)}
                           onCommentChange={(value) => handleInputChange('carePlanReviewed30DaysComment', value)}
                         />
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Are all care plans in place including specific needs care plans?"
                           yesNoField="allCarePlansInPlace"
                           commentField="allCarePlansInPlaceComment"
@@ -1195,7 +1214,7 @@ export default function CarePlanAuditPage() {
                           onYesNoChange={(value) => handleInputChange('allCarePlansInPlace', value)}
                           onCommentChange={(value) => handleInputChange('allCarePlansInPlaceComment', value)}
                         />
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Are all sections of the care plan updated as needed?"
                           yesNoField="allSectionsUpdated"
                           commentField="allSectionsUpdatedComment"
@@ -1208,7 +1227,7 @@ export default function CarePlanAuditPage() {
                     )}
                     {idx === 2 && (
                       <div className="space-y-4">
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Does the care plan reflect the resident's personal history, preferences, and routines?"
                           yesNoField="reflectsPersonalHistory"
                           commentField="reflectsPersonalHistoryComment"
@@ -1217,7 +1236,7 @@ export default function CarePlanAuditPage() {
                           onYesNoChange={(value) => handleInputChange('reflectsPersonalHistory', value)}
                           onCommentChange={(value) => handleInputChange('reflectsPersonalHistoryComment', value)}
                         />
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Are goals and outcomes clearly documented and tailored to the individual?"
                           yesNoField="goalsDocumented"
                           commentField="goalsDocumentedComment"
@@ -1226,7 +1245,7 @@ export default function CarePlanAuditPage() {
                           onYesNoChange={(value) => handleInputChange('goalsDocumented', value)}
                           onCommentChange={(value) => handleInputChange('goalsDocumentedComment', value)}
                         />
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Are communication needs clearly documented?"
                           yesNoField="communicationNeedsDocumented"
                           commentField="communicationNeedsDocumentedComment"
@@ -1235,7 +1254,7 @@ export default function CarePlanAuditPage() {
                           onYesNoChange={(value) => handleInputChange('communicationNeedsDocumented', value)}
                           onCommentChange={(value) => handleInputChange('communicationNeedsDocumentedComment', value)}
                         />
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Are preferences for end-of-life care recorded and accessible?"
                           yesNoField="endOfLifePreferences"
                           commentField="endOfLifePreferencesComment"
@@ -1248,7 +1267,7 @@ export default function CarePlanAuditPage() {
                     )}
                     {idx === 3 && (
                       <div className="space-y-4">
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Are key risk assessments completed?"
                           yesNoField="keyRiskAssessmentsCompleted"
                           commentField="keyRiskAssessmentsCompletedComment"
@@ -1257,7 +1276,7 @@ export default function CarePlanAuditPage() {
                           onYesNoChange={(value) => handleInputChange('keyRiskAssessmentsCompleted', value)}
                           onCommentChange={(value) => handleInputChange('keyRiskAssessmentsCompletedComment', value)}
                         />
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Are risk levels correctly scored and explained?"
                           yesNoField="riskLevelsScored"
                           commentField="riskLevelsScoredComment"
@@ -1266,7 +1285,7 @@ export default function CarePlanAuditPage() {
                           onYesNoChange={(value) => handleInputChange('riskLevelsScored', value)}
                           onCommentChange={(value) => handleInputChange('riskLevelsScoredComment', value)}
                         />
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Are assessments reviewed regularly and linked to care plans?"
                           yesNoField="assessmentsReviewedLinked"
                           commentField="assessmentsReviewedLinkedComment"
@@ -1279,7 +1298,7 @@ export default function CarePlanAuditPage() {
                     )}
                     {idx === 4 && (
                       <div className="space-y-4">
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Are daily notes recorded consistently for all shifts?"
                           yesNoField="dailyNotesRecorded"
                           commentField="dailyNotesRecordedComment"
@@ -1288,7 +1307,7 @@ export default function CarePlanAuditPage() {
                           onYesNoChange={(value) => handleInputChange('dailyNotesRecorded', value)}
                           onCommentChange={(value) => handleInputChange('dailyNotesRecordedComment', value)}
                         />
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Do entries include appropriate detail on care delivered?"
                           yesNoField="entriesIncludeDetail"
                           commentField="entriesIncludeDetailComment"
@@ -1297,7 +1316,7 @@ export default function CarePlanAuditPage() {
                           onYesNoChange={(value) => handleInputChange('entriesIncludeDetail', value)}
                           onCommentChange={(value) => handleInputChange('entriesIncludeDetailComment', value)}
                         />
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Are logs written in a professional manner?"
                           yesNoField="logsWrittenProfessionally"
                           commentField="logsWrittenProfessionallyComment"
@@ -1306,7 +1325,7 @@ export default function CarePlanAuditPage() {
                           onYesNoChange={(value) => handleInputChange('logsWrittenProfessionally', value)}
                           onCommentChange={(value) => handleInputChange('logsWrittenProfessionallyComment', value)}
                         />
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Are missed care or refusals clearly recorded?"
                           yesNoField="missedCareRecorded"
                           commentField="missedCareRecordedComment"
@@ -1319,7 +1338,7 @@ export default function CarePlanAuditPage() {
                     )}
                     {idx === 5 && (
                       <div className="space-y-4">
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Are required charts completed daily?"
                           yesNoField="requiredChartsCompleted"
                           commentField="requiredChartsCompletedComment"
@@ -1328,7 +1347,7 @@ export default function CarePlanAuditPage() {
                           onYesNoChange={(value) => handleInputChange('requiredChartsCompleted', value)}
                           onCommentChange={(value) => handleInputChange('requiredChartsCompletedComment', value)}
                         />
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Are all entries timestamped and linked to staff?"
                           yesNoField="entriesTimestampedStaff"
                           commentField="entriesTimestampedStaffComment"
@@ -1337,7 +1356,7 @@ export default function CarePlanAuditPage() {
                           onYesNoChange={(value) => handleInputChange('entriesTimestampedStaff', value)}
                           onCommentChange={(value) => handleInputChange('entriesTimestampedStaffComment', value)}
                         />
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Is chart data used to inform care plan updates?"
                           yesNoField="chartDataUsedInform"
                           commentField="chartDataUsedInformComment"
@@ -1346,7 +1365,7 @@ export default function CarePlanAuditPage() {
                           onYesNoChange={(value) => handleInputChange('chartDataUsedInform', value)}
                           onCommentChange={(value) => handleInputChange('chartDataUsedInformComment', value)}
                         />
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Are alerts triggered appropriately?"
                           yesNoField="alertsTriggeredAppropriately"
                           commentField="alertsTriggeredAppropriatelyComment"
@@ -1359,7 +1378,7 @@ export default function CarePlanAuditPage() {
                     )}
                     {idx === 6 && (
                       <div className="space-y-4">
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Is the MAR chart accurate and up to date?"
                           yesNoField="marChartAccurate"
                           commentField="marChartAccurateComment"
@@ -1368,7 +1387,7 @@ export default function CarePlanAuditPage() {
                           onYesNoChange={(value) => handleInputChange('marChartAccurate', value)}
                           onCommentChange={(value) => handleInputChange('marChartAccurateComment', value)}
                         />
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Are medication reviews documented?"
                           yesNoField="medicationReviewsDocumented"
                           commentField="medicationReviewsDocumentedComment"
@@ -1377,7 +1396,7 @@ export default function CarePlanAuditPage() {
                           onYesNoChange={(value) => handleInputChange('medicationReviewsDocumented', value)}
                           onCommentChange={(value) => handleInputChange('medicationReviewsDocumentedComment', value)}
                         />
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Are PRN protocols uploaded and accessible?"
                           yesNoField="prnProtocolsUploaded"
                           commentField="prnProtocolsUploadedComment"
@@ -1386,7 +1405,7 @@ export default function CarePlanAuditPage() {
                           onYesNoChange={(value) => handleInputChange('prnProtocolsUploaded', value)}
                           onCommentChange={(value) => handleInputChange('prnProtocolsUploadedComment', value)}
                         />
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Are refusals or side effects recorded?"
                           yesNoField="refusalsSideEffectsRecorded"
                           commentField="refusalsSideEffectsRecordedComment"
@@ -1399,7 +1418,7 @@ export default function CarePlanAuditPage() {
                     )}
                     {idx === 7 && (
                       <div className="space-y-4">
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Are regular observations recorded as per care plan?"
                           yesNoField="regularObservationsRecorded"
                           commentField="regularObservationsRecordedComment"
@@ -1408,7 +1427,7 @@ export default function CarePlanAuditPage() {
                           onYesNoChange={(value) => handleInputChange('regularObservationsRecorded', value)}
                           onCommentChange={(value) => handleInputChange('regularObservationsRecordedComment', value)}
                         />
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Are abnormal results flagged or escalated?"
                           yesNoField="abnormalResultsFlagged"
                           commentField="abnormalResultsFlaggedComment"
@@ -1417,7 +1436,7 @@ export default function CarePlanAuditPage() {
                           onYesNoChange={(value) => handleInputChange('abnormalResultsFlagged', value)}
                           onCommentChange={(value) => handleInputChange('abnormalResultsFlaggedComment', value)}
                         />
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Are weight trends monitored and responded to?"
                           yesNoField="weightTrendsMonitored"
                           commentField="weightTrendsMonitoredComment"
@@ -1426,7 +1445,7 @@ export default function CarePlanAuditPage() {
                           onYesNoChange={(value) => handleInputChange('weightTrendsMonitored', value)}
                           onCommentChange={(value) => handleInputChange('weightTrendsMonitoredComment', value)}
                         />
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Are observations used to inform clinical decisions?"
                           yesNoField="observationsUsedClinicalDecisions"
                           commentField="observationsUsedClinicalDecisionsComment"
@@ -1439,7 +1458,7 @@ export default function CarePlanAuditPage() {
                     )}
                     {idx === 8 && (
                       <div className="space-y-4">
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Is the handover log updated for this resident?"
                           yesNoField="handoverLogUpdated"
                           commentField="handoverLogUpdatedComment"
@@ -1448,7 +1467,7 @@ export default function CarePlanAuditPage() {
                           onYesNoChange={(value) => handleInputChange('handoverLogUpdated', value)}
                           onCommentChange={(value) => handleInputChange('handoverLogUpdatedComment', value)}
                         />
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Are changes in condition logged and communicated?"
                           yesNoField="changesConditionLogged"
                           commentField="changesConditionLoggedComment"
@@ -1457,7 +1476,7 @@ export default function CarePlanAuditPage() {
                           onYesNoChange={(value) => handleInputChange('changesConditionLogged', value)}
                           onCommentChange={(value) => handleInputChange('changesConditionLoggedComment', value)}
                         />
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Are professional visits recorded?"
                           yesNoField="professionalVisitsRecorded"
                           commentField="professionalVisitsRecordedComment"
@@ -1466,7 +1485,7 @@ export default function CarePlanAuditPage() {
                           onYesNoChange={(value) => handleInputChange('professionalVisitsRecorded', value)}
                           onCommentChange={(value) => handleInputChange('professionalVisitsRecordedComment', value)}
                         />
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Are family communications recorded?"
                           yesNoField="familyCommunicationsRecorded"
                           commentField="familyCommunicationsRecordedComment"
@@ -1479,7 +1498,7 @@ export default function CarePlanAuditPage() {
                     )}
                     {idx === 9 && (
                       <div className="space-y-4">
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Are safeguarding concerns documented and actioned?"
                           yesNoField="safeguardingConcernsDocumented"
                           commentField="safeguardingConcernsDocumentedComment"
@@ -1488,7 +1507,7 @@ export default function CarePlanAuditPage() {
                           onYesNoChange={(value) => handleInputChange('safeguardingConcernsDocumented', value)}
                           onCommentChange={(value) => handleInputChange('safeguardingConcernsDocumentedComment', value)}
                         />
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Are incidents recorded promptly?"
                           yesNoField="incidentsRecordedPromptly"
                           commentField="incidentsRecordedPromptlyComment"
@@ -1497,7 +1516,7 @@ export default function CarePlanAuditPage() {
                           onYesNoChange={(value) => handleInputChange('incidentsRecordedPromptly', value)}
                           onCommentChange={(value) => handleInputChange('incidentsRecordedPromptlyComment', value)}
                         />
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Are follow-ups and investigations visible?"
                           yesNoField="followUpsInvestigationsVisible"
                           commentField="followUpsInvestigationsVisibleComment"
@@ -1506,7 +1525,7 @@ export default function CarePlanAuditPage() {
                           onYesNoChange={(value) => handleInputChange('followUpsInvestigationsVisible', value)}
                           onCommentChange={(value) => handleInputChange('followUpsInvestigationsVisibleComment', value)}
                         />
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Is there evidence of actions to reduce risk?"
                           yesNoField="actionsReduceRiskEvidence"
                           commentField="actionsReduceRiskEvidenceComment"
@@ -1519,7 +1538,7 @@ export default function CarePlanAuditPage() {
                     )}
                     {idx === 10 && (
                       <div className="space-y-4">
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Are entries timestamped and linked to user logins?"
                           yesNoField="entriesTimestampedUserLogins"
                           commentField="entriesTimestampedUserLoginsComment"
@@ -1528,7 +1547,7 @@ export default function CarePlanAuditPage() {
                           onYesNoChange={(value) => handleInputChange('entriesTimestampedUserLogins', value)}
                           onCommentChange={(value) => handleInputChange('entriesTimestampedUserLoginsComment', value)}
                         />
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Is there a clear audit trail for care plan changes?"
                           yesNoField="auditTrailCarePlanChanges"
                           commentField="auditTrailCarePlanChangesComment"
@@ -1537,7 +1556,7 @@ export default function CarePlanAuditPage() {
                           onYesNoChange={(value) => handleInputChange('auditTrailCarePlanChanges', value)}
                           onCommentChange={(value) => handleInputChange('auditTrailCarePlanChangesComment', value)}
                         />
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Are overdue reviews flagged within the system?"
                           yesNoField="overdueReviewsTasksFlagged"
                           commentField="overdueReviewsTasksFlaggedComment"
@@ -1550,7 +1569,7 @@ export default function CarePlanAuditPage() {
                     )}
                     {idx === 11 && (
                       <div className="space-y-4">
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Is consent for care and data sharing recorded?"
                           yesNoField="consentCareDataSharingRecorded"
                           commentField="consentCareDataSharingRecordedComment"
@@ -1559,7 +1578,7 @@ export default function CarePlanAuditPage() {
                           onYesNoChange={(value) => handleInputChange('consentCareDataSharingRecorded', value)}
                           onCommentChange={(value) => handleInputChange('consentCareDataSharingRecordedComment', value)}
                         />
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Are DNACPR/TEP/Respect forms current?"
                           yesNoField="dnacprTepRespectFormsCurrent"
                           commentField="dnacprTepRespectFormsCurrentComment"
@@ -1568,7 +1587,7 @@ export default function CarePlanAuditPage() {
                           onYesNoChange={(value) => handleInputChange('dnacprTepRespectFormsCurrent', value)}
                           onCommentChange={(value) => handleInputChange('dnacprTepRespectFormsCurrentComment', value)}
                         />
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Are LPA details recorded and accessible?"
                           yesNoField="lpaDetailsRecordedAccessible"
                           commentField="lpaDetailsRecordedAccessibleComment"
@@ -1577,7 +1596,7 @@ export default function CarePlanAuditPage() {
                           onYesNoChange={(value) => handleInputChange('lpaDetailsRecordedAccessible', value)}
                           onCommentChange={(value) => handleInputChange('lpaDetailsRecordedAccessibleComment', value)}
                         />
-                        <YesNoQuestion
+                        <YesNoQuestion {...yesNoSharedProps}
                           label="Are mental capacity assessments documented?"
                           yesNoField="mentalCapacityAssessmentsDocumented"
                           commentField="mentalCapacityAssessmentsDocumentedComment"

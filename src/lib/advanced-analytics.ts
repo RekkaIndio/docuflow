@@ -335,7 +335,7 @@ async function generateInsights(metrics: AnalyticsMetrics, comparisons: Comparat
     insights.push({
       type: 'opportunity' as const,
       title: 'High Performance Opportunity',
-      description: 'Your audit scores are consistently high. Consider sharing best practices with peer organizations.',
+      description: 'Your audit scores are consistently high. Consider sharing best practices with peer organisations.',
       confidence: 0.8,
       data: { averageScore: metrics.auditPerformance.averageScore }
     });

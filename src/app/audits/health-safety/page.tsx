@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { ChevronDown, ChevronUp, FileText } from "lucide-react";
 import { useAuth } from '@/hooks/use-auth';
 import { saveAudit, markAuditCompletedWithSnapshot, getLatestAuditData } from '@/lib/firestore';
@@ -178,6 +178,140 @@ type AttachmentMetadata = {
   downloadUrl?: string;
 };
 
+interface YesNoQuestionProps {
+  label: string;
+  yesNoField: keyof HealthSafetyAuditData;
+  commentField: keyof HealthSafetyAuditData;
+  yesNoValue: string;
+  commentValue: string;
+  onYesNoChange: (value: string) => void;
+  onCommentChange: (value: string) => void;
+  attachments: Record<string, AttachmentItem[]>;
+  onAddAttachments: (fieldName: string, files: FileList | null) => void;
+  onRemoveAttachment: (fieldName: string, attachmentId: string) => void;
+  onPreviewAttachment: (attachment: { url: string; name: string }) => void;
+  hasError: (fieldName: string) => boolean;
+  getFieldClassName: (fieldName: string, baseClassName: string) => string;
+}
+
+const YesNoQuestion: React.FC<YesNoQuestionProps> = ({
+  label,
+  yesNoField,
+  commentField,
+  yesNoValue,
+  commentValue,
+  onYesNoChange,
+  onCommentChange,
+  attachments,
+  onAddAttachments,
+  onRemoveAttachment,
+  onPreviewAttachment,
+  hasError,
+  getFieldClassName,
+}) => {
+  const fieldKey = yesNoField as string;
+  const commentKey = commentField as string;
+  const attachmentList = attachments[commentKey] ?? [];
+
+  return (
+    <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+      <div className="space-y-3">
+        <div>
+          <div className="flex items-start justify-between mb-2">
+            <label className="block text-sm font-medium text-gray-700">{label}</label>
+            <div className="ml-4 relative">
+              {attachmentList.length > 0 && (
+                <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">
+                  {attachmentList.length}
+                </span>
+              )}
+              <label
+                title="Add attachment"
+                className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100"
+              >
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    onAddAttachments(commentKey, e.target.files);
+                    e.currentTarget.value = '';
+                  }}
+                  className="hidden"
+                />
+                <span className="text-xl font-bold">+</span>
+              </label>
+            </div>
+          </div>
+          <div className="flex gap-4" data-field={fieldKey}>
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="radio"
+                name={fieldKey}
+                value="Yes"
+                checked={yesNoValue === 'Yes'}
+                onChange={(e) => onYesNoChange(e.target.value)}
+                className="mr-2 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-700">Yes</span>
+            </label>
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="radio"
+                name={fieldKey}
+                value="No"
+                checked={yesNoValue === 'No'}
+                onChange={(e) => onYesNoChange(e.target.value)}
+                className="mr-2 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-700">No</span>
+            </label>
+          </div>
+          {hasError(fieldKey) && (
+            <p className="text-red-500 text-sm mt-1">This field is required</p>
+          )}
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Comments</label>
+          <Textarea
+            value={commentValue}
+            onChange={(e) => onCommentChange(e.target.value)}
+            className={getFieldClassName(
+              commentKey,
+              'w-full bg-white border border-slate-200 rounded-lg resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors'
+            )}
+            rows={2}
+            placeholder="Add any comments or observations..."
+          />
+          {attachmentList.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {attachmentList.map((att) => (
+                <div key={att.id} className="relative w-24 h-24 rounded overflow-hidden border border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => onPreviewAttachment({ url: att.url, name: att.name })}
+                    className="w-full h-full"
+                    title={att.name}
+                  >
+                    <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onRemoveAttachment(commentKey, att.id)}
+                    className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-gray-200 shadow-sm"
+                    title="Remove"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function HealthSafetyAuditPage() {
   const [showModal, setShowModal] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
@@ -293,13 +427,15 @@ export default function HealthSafetyAuditPage() {
   ];
 
   // Helper functions for error handling and field styling
-  const getFieldError = (fieldName: string) => {
-    return errors.includes(fieldName);
-  };
+  const hasError = useCallback((fieldName: string) => errors.includes(fieldName), [errors]);
 
-  const getFieldClassName = (fieldName: string, baseClass = "w-full p-2 border rounded-md") => {
-    return `${baseClass} ${getFieldError(fieldName) ? 'border-red-500 bg-red-50' : 'border-gray-300'}`;
-  };
+  const getFieldClassName = useCallback((fieldName: string, baseClass = "w-full p-2 border rounded-md") => {
+    return `${baseClass} ${hasError(fieldName) ? 'border-red-500 bg-red-50' : 'border-gray-300'}`;
+  }, [hasError]);
+
+  const getTableFieldClassName = useCallback((fieldName: string, baseClass = "w-full p-1 border rounded") => {
+    return `${baseClass} ${hasError(fieldName) ? 'border-red-500 bg-red-50' : 'border-gray-300'}`;
+  }, [hasError]);
 
   const [auditData, setAuditData] = useState<HealthSafetyAuditData>({
     home: activeWorkspace?.name ?? '',
@@ -603,105 +739,9 @@ export default function HealthSafetyAuditPage() {
     return { storagePath, downloadUrl };
   };
 
-  const getAttachmentCount = (fieldName: string) => (attachments[fieldName]?.length ?? 0);
-
-  const renderAttachmentButton = (fieldName: string) => (
-    <div className="ml-4 relative">
-      {getAttachmentCount(fieldName) > 0 && (
-        <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">
-          {getAttachmentCount(fieldName)}
-        </span>
-      )}
-      <label title="Add attachment" className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100">
-        <input type="file" accept="image/*" onChange={(e) => { handleAddAttachments(fieldName, e.target.files); e.currentTarget.value = ''; }} className="hidden" />
-        <span className="text-xl font-bold">+</span>
-      </label>
-    </div>
-  );
-
-  const renderAttachmentPreview = (fieldName: string) => {
-    const list = attachments[fieldName] ?? [];
-    if (list.length === 0) return null;
-    return (
-      <div className="mt-3 flex flex-wrap gap-2">
-        {list.map(att => (
-          <div key={att.id} className="relative w-24 h-24 rounded overflow-hidden border border-gray-200">
-            <button type="button" onClick={() => setPreviewImage({ url: att.url, name: att.name })} className="w-full h-full" title={att.name}>
-              <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
-            </button>
-            <button type="button" onClick={() => handleRemoveAttachment(fieldName, att.id)} className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-gray-200 shadow-sm" title="Remove">×</button>
-          </div>
-        ))}
-      </div>
-    );
-  };
-
-  const YesNoQuestion = ({
-    label,
-    yesNoField,
-    commentField,
-    yesNoValue,
-    commentValue,
-    onYesNoChange,
-    onCommentChange
-  }: {
-    label: string;
-    yesNoField: string;
-    commentField: string;
-    yesNoValue: string;
-    commentValue: string;
-    onYesNoChange: (value: string) => void;
-    onCommentChange: (value: string) => void;
-  }) => (
-    <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-      <div className="space-y-3">
-        <div>
-          <div className="flex items-start justify-between mb-2">
-            <label className="block text-sm font-medium text-gray-700">{label}</label>
-            {renderAttachmentButton(commentField)}
-          </div>
-          <div className="flex gap-4" data-field={yesNoField}>
-            <label className="flex items-center cursor-pointer">
-              <input
-                type="radio"
-                name={yesNoField}
-                value="Yes"
-                checked={yesNoValue === 'Yes'}
-                onChange={(e) => onYesNoChange(e.target.value)}
-                className="mr-2 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="text-sm text-gray-700">Yes</span>
-            </label>
-            <label className="flex items-center cursor-pointer">
-              <input
-                type="radio"
-                name={yesNoField}
-                value="No"
-                checked={yesNoValue === 'No'}
-                onChange={(e) => onYesNoChange(e.target.value)}
-                className="mr-2 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="text-sm text-gray-700">No</span>
-            </label>
-          </div>
-          {errors.includes(yesNoField) && (
-            <p className="text-red-500 text-sm mt-1">This field is required</p>
-          )}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Comments</label>
-          <textarea
-            value={commentValue}
-            onChange={(e) => onCommentChange(e.target.value)}
-            className="w-full p-3 border border-slate-200 rounded-lg resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-slate-50"
-            rows={2}
-            placeholder="Add any comments or observations..."
-          />
-          {renderAttachmentPreview(commentField)}
-        </div>
-      </div>
-    </div>
-  );
+  const handlePreviewAttachment = useCallback((attachment: { url: string; name: string }) => {
+    setPreviewImage({ url: attachment.url, name: attachment.name });
+  }, [setPreviewImage]);
 
   const validateForm = () => {
     const requiredFields: (keyof HealthSafetyAuditData)[] = [
@@ -803,6 +843,15 @@ export default function HealthSafetyAuditPage() {
     }
   };
 
+  const yesNoSharedProps = {
+    attachments,
+    onAddAttachments: handleAddAttachments,
+    onRemoveAttachment: handleRemoveAttachment,
+    onPreviewAttachment: handlePreviewAttachment,
+    hasError,
+    getFieldClassName,
+  };
+
   const handleModalClose = () => {
     setShowModal(false);
   };
@@ -826,7 +875,7 @@ export default function HealthSafetyAuditPage() {
                 placeholder="Enter care home name"
                 required
               />
-              {getFieldError('home') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+              {hasError('home') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
             </div>
             <div>
               <label className="block font-semibold mb-1 text-slate-700">Audit Date</label>
@@ -838,7 +887,7 @@ export default function HealthSafetyAuditPage() {
                 onChange={(e) => handleInputChange('date', e.target.value)}
                 required
               />
-              {getFieldError('date') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+              {hasError('date') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
             </div>
             <div>
               <label className="block font-semibold mb-1 text-slate-700">Person Completing Audit</label>
@@ -851,7 +900,7 @@ export default function HealthSafetyAuditPage() {
                 placeholder="Full name and position"
                 required
               />
-              {getFieldError('personCompletingAudit') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+              {hasError('personCompletingAudit') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
             </div>
           </div>
         </div>
@@ -897,6 +946,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.hsa_policy_in_place_comment}
                             onYesNoChange={(value) => handleInputChange('hsa_policy_in_place', value)}
                             onCommentChange={(value) => handleInputChange('hsa_policy_in_place_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are staff aware of and trained in the Health and Safety procedures?"
@@ -906,6 +956,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.staff_trained_hsa_comment}
                             onYesNoChange={(value) => handleInputChange('staff_trained_hsa', value)}
                             onCommentChange={(value) => handleInputChange('staff_trained_hsa_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are regular Health and Safety checks carried out and documented?"
@@ -915,6 +966,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.checks_documented_comment}
                             onYesNoChange={(value) => handleInputChange('checks_documented', value)}
                             onCommentChange={(value) => handleInputChange('checks_documented_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Is there a designated Health and Safety lead or officer and poster displayed?"
@@ -924,6 +976,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.hsa_lead_poster_comment}
                             onYesNoChange={(value) => handleInputChange('hsa_lead_poster', value)}
                             onCommentChange={(value) => handleInputChange('hsa_lead_poster_comment', value)}
+                            {...yesNoSharedProps}
                           />
                         </div>
                       </div>
@@ -941,6 +994,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.risk_assessments_in_place_comment}
                             onYesNoChange={(value) => handleInputChange('risk_assessments_in_place', value)}
                             onCommentChange={(value) => handleInputChange('risk_assessments_in_place_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are risk assessments reviewed at least annually or after significant changes/incidents?"
@@ -950,6 +1004,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.risk_assessments_reviewed_comment}
                             onYesNoChange={(value) => handleInputChange('risk_assessments_reviewed', value)}
                             onCommentChange={(value) => handleInputChange('risk_assessments_reviewed_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are control measures from risk assessments in place and followed?"
@@ -959,6 +1014,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.control_measures_followed_comment}
                             onYesNoChange={(value) => handleInputChange('control_measures_followed', value)}
                             onCommentChange={(value) => handleInputChange('control_measures_followed_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are staff aware of relevant risk assessments relating to their duties?"
@@ -968,6 +1024,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.staff_aware_risk_assessments_comment}
                             onYesNoChange={(value) => handleInputChange('staff_aware_risk_assessments', value)}
                             onCommentChange={(value) => handleInputChange('staff_aware_risk_assessments_comment', value)}
+                            {...yesNoSharedProps}
                           />
                         </div>
                       </div>
@@ -985,6 +1042,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.reporting_system_clear_comment}
                             onYesNoChange={(value) => handleInputChange('reporting_system_clear', value)}
                             onCommentChange={(value) => handleInputChange('reporting_system_clear_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are all incidents recorded and investigated promptly?"
@@ -994,6 +1052,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.incidents_recorded_investigated_comment}
                             onYesNoChange={(value) => handleInputChange('incidents_recorded_investigated', value)}
                             onCommentChange={(value) => handleInputChange('incidents_recorded_investigated_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are RIDDOR-reportable incidents reported to the HSE as required?"
@@ -1003,6 +1062,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.riddor_reported_comment}
                             onYesNoChange={(value) => handleInputChange('riddor_reported', value)}
                             onCommentChange={(value) => handleInputChange('riddor_reported_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are lessons learned from incidents shared and actions implemented?"
@@ -1012,6 +1072,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.lessons_learned_shared_comment}
                             onYesNoChange={(value) => handleInputChange('lessons_learned_shared', value)}
                             onCommentChange={(value) => handleInputChange('lessons_learned_shared_comment', value)}
+                            {...yesNoSharedProps}
                           />
                         </div>
                       </div>
@@ -1029,6 +1090,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.manual_handling_training_comment}
                             onYesNoChange={(value) => handleInputChange('manual_handling_training', value)}
                             onCommentChange={(value) => handleInputChange('manual_handling_training_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are moving and handling equipment (hoists, slings, stand aids) available, well maintained, and used correctly?"
@@ -1038,6 +1100,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.handling_equipment_available_comment}
                             onYesNoChange={(value) => handleInputChange('handling_equipment_available', value)}
                             onCommentChange={(value) => handleInputChange('handling_equipment_available_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are individual manual handling risk assessments in place for residents?"
@@ -1047,6 +1110,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.individual_manual_risk_assessments_comment}
                             onYesNoChange={(value) => handleInputChange('individual_manual_risk_assessments', value)}
                             onCommentChange={(value) => handleInputChange('individual_manual_risk_assessments_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are staff using correct techniques and equipment during manual handling?"
@@ -1056,6 +1120,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.correct_techniques_used_comment}
                             onYesNoChange={(value) => handleInputChange('correct_techniques_used', value)}
                             onCommentChange={(value) => handleInputChange('correct_techniques_used_comment', value)}
+                            {...yesNoSharedProps}
                           />
                         </div>
                       </div>
@@ -1073,6 +1138,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.floors_free_from_hazards_comment}
                             onYesNoChange={(value) => handleInputChange('floors_free_from_hazards', value)}
                             onCommentChange={(value) => handleInputChange('floors_free_from_hazards_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are safety aids (grab rails, alarms, non-slip mats) secure and in good condition?"
@@ -1082,6 +1148,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.safety_aids_secure_comment}
                             onYesNoChange={(value) => handleInputChange('safety_aids_secure', value)}
                             onCommentChange={(value) => handleInputChange('safety_aids_secure_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are falls risk assessments completed and up to date?"
@@ -1091,6 +1158,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.falls_risk_assessments_comment}
                             onYesNoChange={(value) => handleInputChange('falls_risk_assessments', value)}
                             onCommentChange={(value) => handleInputChange('falls_risk_assessments_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are falls and related incidents reviewed with learning/actions recorded?"
@@ -1100,6 +1168,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.falls_incidents_reviewed_comment}
                             onYesNoChange={(value) => handleInputChange('falls_incidents_reviewed', value)}
                             onCommentChange={(value) => handleInputChange('falls_incidents_reviewed_comment', value)}
+                            {...yesNoSharedProps}
                           />
                         </div>
                       </div>
@@ -1117,6 +1186,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.handwashing_facilities_comment}
                             onYesNoChange={(value) => handleInputChange('handwashing_facilities', value)}
                             onCommentChange={(value) => handleInputChange('handwashing_facilities_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are PPE supplies available and accessible?"
@@ -1126,6 +1196,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.ppe_supplies_available_comment}
                             onYesNoChange={(value) => handleInputChange('ppe_supplies_available', value)}
                             onCommentChange={(value) => handleInputChange('ppe_supplies_available_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are waste bins in good condition and used appropriately?"
@@ -1135,6 +1206,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.waste_bins_condition_comment}
                             onYesNoChange={(value) => handleInputChange('waste_bins_condition', value)}
                             onCommentChange={(value) => handleInputChange('waste_bins_condition_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Is cleaning equipment colour-coded and stored correctly?"
@@ -1144,6 +1216,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.cleaning_equipment_coloured_comment}
                             onYesNoChange={(value) => handleInputChange('cleaning_equipment_coloured', value)}
                             onCommentChange={(value) => handleInputChange('cleaning_equipment_coloured_comment', value)}
+                            {...yesNoSharedProps}
                           />
                         </div>
                       </div>
@@ -1161,6 +1234,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.hazardous_substances_stored_comment}
                             onYesNoChange={(value) => handleInputChange('hazardous_substances_stored', value)}
                             onCommentChange={(value) => handleInputChange('hazardous_substances_stored_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are COSHH risk assessments available and up to date?"
@@ -1170,6 +1244,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.coshh_risk_assessments_comment}
                             onYesNoChange={(value) => handleInputChange('coshh_risk_assessments', value)}
                             onCommentChange={(value) => handleInputChange('coshh_risk_assessments_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are chemicals labelled correctly with safety data?"
@@ -1179,6 +1254,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.chemicals_labelled_comment}
                             onYesNoChange={(value) => handleInputChange('chemicals_labelled', value)}
                             onCommentChange={(value) => handleInputChange('chemicals_labelled_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are staff trained in handling hazardous substances?"
@@ -1188,6 +1264,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.staff_trained_hazardous_comment}
                             onYesNoChange={(value) => handleInputChange('staff_trained_hazardous', value)}
                             onCommentChange={(value) => handleInputChange('staff_trained_hazardous_comment', value)}
+                            {...yesNoSharedProps}
                           />
                         </div>
                       </div>
@@ -1205,6 +1282,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.fire_exits_marked_comment}
                             onYesNoChange={(value) => handleInputChange('fire_exits_marked', value)}
                             onCommentChange={(value) => handleInputChange('fire_exits_marked_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are extinguishers and alarms serviced and records up to date?"
@@ -1214,6 +1292,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.extinguishers_alarms_serviced_comment}
                             onYesNoChange={(value) => handleInputChange('extinguishers_alarms_serviced', value)}
                             onCommentChange={(value) => handleInputChange('extinguishers_alarms_serviced_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are staff trained and aware of fire procedures?"
@@ -1223,6 +1302,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.staff_trained_fire_comment}
                             onYesNoChange={(value) => handleInputChange('staff_trained_fire', value)}
                             onCommentChange={(value) => handleInputChange('staff_trained_fire_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Is the fire risk assessment up to date?"
@@ -1232,6 +1312,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.fire_risk_assessment_up_to_date_comment}
                             onYesNoChange={(value) => handleInputChange('fire_risk_assessment_up_to_date', value)}
                             onCommentChange={(value) => handleInputChange('fire_risk_assessment_up_to_date_comment', value)}
+                            {...yesNoSharedProps}
                           />
                         </div>
                       </div>
@@ -1249,6 +1330,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.pat_testing_comment}
                             onYesNoChange={(value) => handleInputChange('pat_testing', value)}
                             onCommentChange={(value) => handleInputChange('pat_testing_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Is fixed wiring tested and shown as maintained?"
@@ -1258,6 +1340,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.fixed_wiring_tested_comment}
                             onYesNoChange={(value) => handleInputChange('fixed_wiring_tested', value)}
                             onCommentChange={(value) => handleInputChange('fixed_wiring_tested_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are sockets and cables in good condition?"
@@ -1267,6 +1350,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.sockets_cables_good_comment}
                             onYesNoChange={(value) => handleInputChange('sockets_cables_good', value)}
                             onCommentChange={(value) => handleInputChange('sockets_cables_good_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are faulty items reported and isolated?"
@@ -1276,6 +1360,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.faulty_items_reported_comment}
                             onYesNoChange={(value) => handleInputChange('faulty_items_reported', value)}
                             onCommentChange={(value) => handleInputChange('faulty_items_reported_comment', value)}
+                            {...yesNoSharedProps}
                           />
                         </div>
                       </div>
@@ -1293,6 +1378,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.kitchen_clean_comment}
                             onYesNoChange={(value) => handleInputChange('kitchen_clean', value)}
                             onCommentChange={(value) => handleInputChange('kitchen_clean_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are food hygiene practices followed (storage, temperatures)?"
@@ -1302,6 +1388,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.food_hygiene_followed_comment}
                             onYesNoChange={(value) => handleInputChange('food_hygiene_followed', value)}
                             onCommentChange={(value) => handleInputChange('food_hygiene_followed_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are cleaning schedules signed and followed?"
@@ -1311,6 +1398,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.cleaning_schedules_signed_comment}
                             onYesNoChange={(value) => handleInputChange('cleaning_schedules_signed', value)}
                             onCommentChange={(value) => handleInputChange('cleaning_schedules_signed_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Is food stored appropriately and labelled?"
@@ -1320,6 +1408,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.food_stored_appropriately_comment}
                             onYesNoChange={(value) => handleInputChange('food_stored_appropriately', value)}
                             onCommentChange={(value) => handleInputChange('food_stored_appropriately_comment', value)}
+                            {...yesNoSharedProps}
                           />
                         </div>
                       </div>
@@ -1337,6 +1426,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.legionella_risk_assessment_comment}
                             onYesNoChange={(value) => handleInputChange('legionella_risk_assessment', value)}
                             onCommentChange={(value) => handleInputChange('legionella_risk_assessment_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are water temperatures monitored and recorded?"
@@ -1346,6 +1436,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.water_temps_monitored_comment}
                             onYesNoChange={(value) => handleInputChange('water_temps_monitored', value)}
                             onCommentChange={(value) => handleInputChange('water_temps_monitored_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are showers and infrequently used outlets flushed as required?"
@@ -1355,6 +1446,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.showers_taps_flushed_comment}
                             onYesNoChange={(value) => handleInputChange('showers_taps_flushed', value)}
                             onCommentChange={(value) => handleInputChange('showers_taps_flushed_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are staff trained in water safety where appropriate?"
@@ -1364,6 +1456,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.water_safety_training_comment}
                             onYesNoChange={(value) => handleInputChange('water_safety_training', value)}
                             onCommentChange={(value) => handleInputChange('water_safety_training_comment', value)}
+                            {...yesNoSharedProps}
                           />
                         </div>
                       </div>
@@ -1381,6 +1474,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.environment_free_from_hazards_comment}
                             onYesNoChange={(value) => handleInputChange('environment_free_from_hazards', value)}
                             onCommentChange={(value) => handleInputChange('environment_free_from_hazards_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are staff areas (rest rooms, lockers) safe and maintained?"
@@ -1390,6 +1484,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.staff_areas_safe_comment}
                             onYesNoChange={(value) => handleInputChange('staff_areas_safe', value)}
                             onCommentChange={(value) => handleInputChange('staff_areas_safe_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are break times and staff welfare managed appropriately?"
@@ -1399,6 +1494,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.break_times_managed_comment}
                             onYesNoChange={(value) => handleInputChange('break_times_managed', value)}
                             onCommentChange={(value) => handleInputChange('break_times_managed_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are lone working policies in place and followed?"
@@ -1408,6 +1504,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.lone_working_policies_comment}
                             onYesNoChange={(value) => handleInputChange('lone_working_policies', value)}
                             onCommentChange={(value) => handleInputChange('lone_working_policies_comment', value)}
+                            {...yesNoSharedProps}
                           />
                         </div>
                       </div>
@@ -1425,6 +1522,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.ppe_available_comment}
                             onYesNoChange={(value) => handleInputChange('ppe_available', value)}
                             onCommentChange={(value) => handleInputChange('ppe_available_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Is PPE stored cleanly and replaced as needed?"
@@ -1434,6 +1532,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.ppe_stored_cleanly_comment}
                             onYesNoChange={(value) => handleInputChange('ppe_stored_cleanly', value)}
                             onCommentChange={(value) => handleInputChange('ppe_stored_cleanly_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are staff trained in correct use of PPE?"
@@ -1443,6 +1542,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.staff_trained_ppe_comment}
                             onYesNoChange={(value) => handleInputChange('staff_trained_ppe', value)}
                             onCommentChange={(value) => handleInputChange('staff_trained_ppe_comment', value)}
+                            {...yesNoSharedProps}
                           />
                         </div>
                       </div>
@@ -1460,6 +1560,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.staff_hs_training_up_to_date_comment}
                             onYesNoChange={(value) => handleInputChange('staff_hs_training_up_to_date', value)}
                             onCommentChange={(value) => handleInputChange('staff_hs_training_up_to_date_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are new staff being trained in health & safety?"
@@ -1469,6 +1570,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.new_staff_trained_hs_comment}
                             onYesNoChange={(value) => handleInputChange('new_staff_trained_hs', value)}
                             onCommentChange={(value) => handleInputChange('new_staff_trained_hs_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are staff supervised and supported in their roles?"
@@ -1478,6 +1580,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.staff_supervised_supported_comment}
                             onYesNoChange={(value) => handleInputChange('staff_supervised_supported', value)}
                             onCommentChange={(value) => handleInputChange('staff_supervised_supported_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are refresher trainings scheduled where needed?"
@@ -1487,6 +1590,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.refresher_training_scheduled_comment}
                             onYesNoChange={(value) => handleInputChange('refresher_training_scheduled', value)}
                             onCommentChange={(value) => handleInputChange('refresher_training_scheduled_comment', value)}
+                            {...yesNoSharedProps}
                           />
                         </div>
                       </div>
@@ -1504,6 +1608,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.warning_signs_displayed_comment}
                             onYesNoChange={(value) => handleInputChange('warning_signs_displayed', value)}
                             onCommentChange={(value) => handleInputChange('warning_signs_displayed_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are first aid posters and information visible and accessible?"
@@ -1513,6 +1618,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.first_aid_posters_visible_comment}
                             onYesNoChange={(value) => handleInputChange('first_aid_posters_visible', value)}
                             onCommentChange={(value) => handleInputChange('first_aid_posters_visible_comment', value)}
+                            {...yesNoSharedProps}
                           />
                           <YesNoQuestion
                             label="Are residents and visitors informed of relevant safety arrangements?"
@@ -1522,6 +1628,7 @@ export default function HealthSafetyAuditPage() {
                             commentValue={auditData.residents_informed_comment}
                             onYesNoChange={(value) => handleInputChange('residents_informed', value)}
                             onCommentChange={(value) => handleInputChange('residents_informed_comment', value)}
+                            {...yesNoSharedProps}
                           />
                         </div>
                       </div>
@@ -1533,7 +1640,28 @@ export default function HealthSafetyAuditPage() {
                           <div>
                             <div className="flex items-start justify-between mb-2">
                               <label className="block text-sm font-medium text-gray-700 mb-2">Final Comments & Recommendations</label>
-                              {renderAttachmentButton('finalComments')}
+                              <div className="ml-4 relative">
+                                {(attachments['finalComments']?.length ?? 0) > 0 && (
+                                  <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">
+                                    {attachments['finalComments']?.length ?? 0}
+                                  </span>
+                                )}
+                                <label
+                                  title="Add attachment"
+                                  className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100"
+                                >
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) => {
+                                      handleAddAttachments('finalComments', e.target.files);
+                                      e.currentTarget.value = '';
+                                    }}
+                                    className="hidden"
+                                  />
+                                  <span className="text-xl font-bold">+</span>
+                                </label>
+                              </div>
                             </div>
                             <Textarea
                               data-field="finalComments"
@@ -1543,7 +1671,30 @@ export default function HealthSafetyAuditPage() {
                               rows={6}
                               placeholder="Enter any additional comments or recommendations based on the health and safety audit findings..."
                             />
-                            {renderAttachmentPreview('finalComments')}
+                            {(attachments['finalComments']?.length ?? 0) > 0 && (
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                {(attachments['finalComments'] ?? []).map((att) => (
+                                  <div key={att.id} className="relative w-24 h-24 rounded overflow-hidden border border-gray-200">
+                                    <button
+                                      type="button"
+                                      onClick={() => handlePreviewAttachment({ url: att.url, name: att.name })}
+                                      className="w-full h-full"
+                                      title={att.name}
+                                    >
+                                      <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveAttachment('finalComments', att.id)}
+                                      className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-gray-200 shadow-sm"
+                                      title="Remove"
+                                    >
+                                      ×
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>

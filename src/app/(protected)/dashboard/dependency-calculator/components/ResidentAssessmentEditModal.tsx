@@ -8,7 +8,7 @@ interface ResidentAssessmentEditModalProps {
   resident: Resident | null;
   communities: Community[];
   onSave: (updatedResident: Resident) => void;
-  FIELDS: Array<{ key: string; label: string; section: string; maxScore: number; description?: string }>;
+  FIELDS: ReadonlyArray<{ key: string; label: string; section: string; maxScore: number; description?: string }>;
   allResidents: Resident[];
 }
 
@@ -73,11 +73,11 @@ export function ResidentAssessmentEditModal({
   const completionPercentage = Math.round((completedFields / totalFields) * 100);
 
   // Group fields by section
-  const groupedFields = FIELDS.reduce((acc, field) => {
+  const groupedFields = Array.from(FIELDS).reduce((acc, field) => {
     if (!acc[field.section]) acc[field.section] = [];
     acc[field.section].push(field);
     return acc;
-  }, {} as Record<string, typeof FIELDS>);
+  }, {} as Record<string, Array<(typeof FIELDS)[number]>>);
 
   // Section configurations
   const sectionConfig = {

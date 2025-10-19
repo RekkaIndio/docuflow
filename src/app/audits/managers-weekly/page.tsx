@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useWorkspace } from '@/context/workspace';
 
 // Force dynamic rendering
@@ -129,6 +129,163 @@ interface ManagersWeeklyData {
   communal_outdoor_safe_comment: string;
 }
 
+type AttachmentItem = {
+  id: string;
+  name: string;
+  url: string;
+  file?: File;
+  storagePath?: string;
+  downloadUrl?: string;
+};
+
+type AttachmentMetadata = {
+  name: string;
+  storagePath: string;
+  downloadUrl?: string;
+};
+
+interface YesNoQuestionProps {
+  label: string;
+  field: keyof ManagersWeeklyData;
+  commentField: keyof ManagersWeeklyData;
+  value: string;
+  commentValue: string;
+  onValueChange: (field: keyof ManagersWeeklyData, value: string) => void;
+  onCommentChange: (field: keyof ManagersWeeklyData, value: string) => void;
+  attachments: Record<string, AttachmentItem[]>;
+  onAddAttachments: (fieldName: string, files: FileList | null) => void;
+  onRemoveAttachment: (fieldName: string, attachmentId: string) => void;
+  onPreviewAttachment: (attachment: { url: string; name: string }) => void;
+  isFieldInvalid: (fieldName: string) => boolean;
+}
+
+const YesNoQuestion: React.FC<YesNoQuestionProps> = ({
+  label,
+  field,
+  commentField,
+  value,
+  commentValue,
+  onValueChange,
+  onCommentChange,
+  attachments,
+  onAddAttachments,
+  onRemoveAttachment,
+  onPreviewAttachment,
+  isFieldInvalid,
+}) => {
+  const fieldKey = field as string;
+  const commentKey = commentField as string;
+  const attachmentList = attachments[fieldKey] ?? [];
+
+  return (
+    <div className="bg-slate-50 p-4 rounded-lg border border-slate-200" data-field={fieldKey}>
+      <div className="space-y-3">
+        <div>
+          <div className="flex items-start justify-between">
+            <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+            <div className="ml-4 relative">
+              {attachmentList.length > 0 && (
+                <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">
+                  {attachmentList.length}
+                </span>
+              )}
+              <label
+                title="Add attachment"
+                className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100"
+              >
+                <input
+                  type="file"
+                  accept="image/*"
+                  data-field-input={fieldKey}
+                  onChange={(e) => {
+                    onAddAttachments(fieldKey, e.target.files);
+                    e.currentTarget.value = '';
+                  }}
+                  className="hidden"
+                />
+                <span className="text-xl font-bold">+</span>
+              </label>
+            </div>
+          </div>
+          <div className="flex gap-4">
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="radio"
+                name={fieldKey}
+                value="Yes"
+                checked={value === 'Yes'}
+                onChange={(e) => onValueChange(field, e.target.value)}
+                className="mr-2 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-700">Yes</span>
+            </label>
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="radio"
+                name={fieldKey}
+                value="No"
+                checked={value === 'No'}
+                onChange={(e) => onValueChange(field, e.target.value)}
+                className="mr-2 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-700">No</span>
+            </label>
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="radio"
+                name={fieldKey}
+                value="N/A"
+                checked={value === 'N/A'}
+                onChange={(e) => onValueChange(field, e.target.value)}
+                className="mr-2 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-700">N/A</span>
+            </label>
+          </div>
+          {isFieldInvalid(fieldKey) && (
+            <p className="text-red-500 text-sm mt-1">This field is required</p>
+          )}
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Comments</label>
+          <Textarea
+            value={commentValue || ''}
+            onChange={(e) => onCommentChange(commentField, e.target.value)}
+            className="w-full p-3 border border-slate-200 rounded-lg resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-slate-50"
+            rows={2}
+            placeholder="Add any comments or observations..."
+          />
+        </div>
+
+        <div>
+          <div className="flex flex-wrap gap-2">
+            {attachmentList.map((att) => (
+              <div key={att.id} className="relative w-24 h-24 rounded overflow-hidden border border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => onPreviewAttachment({ url: att.url, name: att.name })}
+                  className="w-full h-full"
+                  title={att.name}
+                >
+                  <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+                </button>
+                <button
+                  onClick={() => onRemoveAttachment(fieldKey, att.id)}
+                  title="Remove"
+                  className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-gray-200 shadow-sm"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function ManagersWeeklyAuditPage() {
   const [currentReport, setCurrentReport] = useState(1);
   const [totalReports, setTotalReports] = useState(1);
@@ -240,21 +397,6 @@ export default function ManagersWeeklyAuditPage() {
   const [reports, setReports] = useState<ManagersWeeklyData[]>([emptyReport()]);
   const [showModal, setShowModal] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
-
-  type AttachmentItem = {
-    id: string;
-    name: string;
-    url: string;
-    file?: File;
-    storagePath?: string;
-    downloadUrl?: string;
-  };
-
-  type AttachmentMetadata = {
-    name: string;
-    storagePath: string;
-    downloadUrl?: string;
-  };
 
   // Collapsible sections state
   const [openSections, setOpenSections] = useState<{ [key: string]: boolean }>({
@@ -594,15 +736,16 @@ export default function ManagersWeeklyAuditPage() {
     }));
   };
 
-  const getFieldError = (fieldName: string) => {
-    return errors.includes(fieldName);
-  };
+  const fieldHasError = useCallback((fieldName: string) => errors.includes(fieldName), [errors]);
 
-  const getFieldClassName = (fieldName: string, baseClassName: string) => {
-    return getFieldError(fieldName)
-      ? `${baseClassName} border-red-500 bg-red-50 focus:ring-red-500 focus:border-red-500`
-      : baseClassName;
-  };
+  const getFieldClassName = useCallback(
+    (fieldName: string, baseClassName: string) => (
+      fieldHasError(fieldName)
+        ? `${baseClassName} border-red-500 bg-red-50 focus:ring-red-500 focus:border-red-500`
+        : baseClassName
+    ),
+    [fieldHasError]
+  );
 
   const handleChange = (field: keyof ManagersWeeklyData, value: string) => {
     // update active report in reports array and local data
@@ -670,6 +813,10 @@ export default function ManagersWeeklyAuditPage() {
     });
   };
 
+  const handlePreviewAttachment = useCallback((attachment: { url: string; name: string }) => {
+    setPreviewImage(attachment);
+  }, []);
+
   const uploadAttachmentFile = async (fieldName: string, file: File) => {
     if (!activeWorkspace?.id) {
       throw new Error('Workspace not available for attachment upload');
@@ -688,119 +835,6 @@ export default function ManagersWeeklyAuditPage() {
     await uploadBytes(storageRef, file);
     const downloadUrl = await getDownloadURL(storageRef);
     return { storagePath, downloadUrl };
-  };
-
-  const YesNoQuestion = ({ field, label }: { field: string; label: string }) => {
-    const yesNoField = field as keyof ManagersWeeklyData;
-    const commentField = `${field}_comment` as keyof ManagersWeeklyData;
-    const hasError = getFieldError(field);
-    return (
-      <div className="bg-slate-50 p-4 rounded-lg border border-slate-200" data-field={field}>
-        <div className="space-y-3">
-          <div>
-            <div className="flex items-start justify-between">
-              <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
-              <div className="ml-4 relative">
-                { (attachments[field]?.length ?? 0) > 0 && (
-                  <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">
-                    {attachments[field]?.length}
-                  </span>
-                )}
-                <label
-                  title="Add attachment"
-                  className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100"
-                >
-                  <input
-                    type="file"
-                    accept="image/*"
-                    data-field-input={field}
-                    onChange={(e) => {
-                      handleAddAttachments(field, e.target.files);
-                      e.currentTarget.value = '';
-                    }}
-                    className="hidden"
-                  />
-                  <span className="text-xl font-bold">+</span>
-                </label>
-              </div>
-            </div>
-            <div className="flex gap-4">
-              <label className="flex items-center cursor-pointer">
-                <input
-                  type="radio"
-                  name={field}
-                  value="Yes"
-                  checked={reports[currentReport - 1]?.[yesNoField] === 'Yes'}
-                  onChange={(e) => handleChange(yesNoField, e.target.value)}
-                  className="mr-2 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-700">Yes</span>
-              </label>
-              <label className="flex items-center cursor-pointer">
-                <input
-                  type="radio"
-                  name={field}
-                  value="No"
-                  checked={reports[currentReport - 1]?.[yesNoField] === 'No'}
-                  onChange={(e) => handleChange(yesNoField, e.target.value)}
-                  className="mr-2 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-700">No</span>
-              </label>
-              <label className="flex items-center cursor-pointer">
-                <input
-                  type="radio"
-                  name={field}
-                  value="N/A"
-                  checked={reports[currentReport - 1]?.[yesNoField] === 'N/A'}
-                  onChange={(e) => handleChange(yesNoField, e.target.value)}
-                  className="mr-2 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-700">N/A</span>
-              </label>
-            </div>
-            {errors.includes(yesNoField as string) && (
-              <p className="text-red-500 text-sm mt-1">This field is required</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Comments</label>
-            <Textarea
-              value={reports[currentReport - 1]?.[commentField] as string}
-              onChange={(e) => handleChange(commentField, e.target.value)}
-              className="w-full p-3 border border-slate-200 rounded-lg resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-slate-50"
-              rows={2}
-              placeholder="Add any comments or observations..."
-            />
-          </div>
-          {/* Attachments preview */}
-          <div>
-            <div className="flex flex-wrap gap-2">
-              {(attachments[field] ?? []).map(att => (
-                <div key={att.id} className="relative w-24 h-24 rounded overflow-hidden border border-gray-200">
-                  <button
-                    type="button"
-                    onClick={() => setPreviewImage({ url: att.url, name: att.name })}
-                    className="w-full h-full"
-                    title={att.name}
-                  >
-                    <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
-                  </button>
-                  <button
-                    onClick={() => handleRemoveAttachment(field, att.id)}
-                    title="Remove"
-                    className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-gray-200 shadow-sm"
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
   };
 
   const validateForm = () => {
@@ -1126,6 +1160,8 @@ export default function ManagersWeeklyAuditPage() {
     };
   }, []);
 
+  const activeReport = reports[currentReport - 1] ?? data;
+
   return (
     <div className="w-full p-10 bg-gradient-to-br from-slate-50 to-white rounded-3xl shadow-2xl mt-10 border border-slate-200">
       <div className="flex flex-col lg:flex-row gap-10">
@@ -1140,12 +1176,12 @@ export default function ManagersWeeklyAuditPage() {
                 type="text"
                 className={getFieldClassName('home', "w-full")}
                 name="home"
-                value={reports[currentReport - 1]?.home}
+                value={activeReport.home}
                 onChange={(e) => handleChange('home', e.target.value)}
                 placeholder="Enter care home name"
                 required
               />
-              {getFieldError('home') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+              {fieldHasError('home') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
             </div>
             <div>
               <label className="block font-semibold mb-1 text-slate-700">Audit Date</label>
@@ -1153,11 +1189,11 @@ export default function ManagersWeeklyAuditPage() {
                 type="date"
                 className={getFieldClassName('date', "w-full")}
                 name="date"
-                value={reports[currentReport - 1]?.date}
+                value={activeReport.date}
                 onChange={(e) => handleChange('date', e.target.value)}
                 required
               />
-              {getFieldError('date') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+              {fieldHasError('date') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
             </div>
             <div>
               <label className="block font-semibold mb-1 text-slate-700">Person Completing Audit</label>
@@ -1165,12 +1201,12 @@ export default function ManagersWeeklyAuditPage() {
                 type="text"
                 className={getFieldClassName('personCompletingAudit', "w-full")}
                 name="personCompletingAudit"
-                value={reports[currentReport - 1]?.personCompletingAudit}
+                value={activeReport.personCompletingAudit}
                 onChange={(e) => handleChange('personCompletingAudit', e.target.value)}
                 placeholder="Full name and position"
                 required
               />
-              {getFieldError('personCompletingAudit') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+              {fieldHasError('personCompletingAudit') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
             </div>
           </div>
         </div>
@@ -1203,9 +1239,27 @@ export default function ManagersWeeklyAuditPage() {
                     </div>
 
                     <div className="space-y-4">
-                      {section.questions.map((question, qIndex) => (
-                        <YesNoQuestion key={qIndex} label={question.label} field={question.field} />
-                      ))}
+                      {section.questions.map((question) => {
+                        const fieldKey = question.field as keyof ManagersWeeklyData;
+                        const commentKey = `${question.field}_comment` as keyof ManagersWeeklyData;
+                        return (
+                          <YesNoQuestion
+                            key={question.field}
+                            label={question.label}
+                            field={fieldKey}
+                            commentField={commentKey}
+                            value={activeReport[fieldKey] ?? ''}
+                            commentValue={activeReport[commentKey] ?? ''}
+                            onValueChange={handleChange}
+                            onCommentChange={handleChange}
+                            attachments={attachments}
+                            onAddAttachments={handleAddAttachments}
+                            onRemoveAttachment={handleRemoveAttachment}
+                            onPreviewAttachment={handlePreviewAttachment}
+                            isFieldInvalid={fieldHasError}
+                          />
+                        );
+                      })}
                     </div>
                   </div>
                 )}

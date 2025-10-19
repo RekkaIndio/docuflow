@@ -57,6 +57,8 @@ const FEATURE_ICONS: Record<FeatureModuleKey, React.ElementType> = {
   audits: ClipboardList,
   actionPlans: ClipboardList,
   policies: FileText,
+  journal: NotebookPen,
+  managerJournal: NotebookPen,
   appraisals: Users,
   rotas: Calendar,
   files: Folder,

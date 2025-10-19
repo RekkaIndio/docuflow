@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ChevronDown, ChevronUp, FileText } from 'lucide-react';
 import { useWorkspace } from '@/context/workspace';
 import { useAuth } from '@/hooks/use-auth';
@@ -134,6 +134,134 @@ type AttachmentMetadata = {
   name: string;
   storagePath: string;
   downloadUrl?: string;
+};
+
+interface YesNoQuestionProps {
+  label: string;
+  yesNoField: keyof NightVisitData;
+  commentField: keyof NightVisitData;
+  yesNoValue: string;
+  commentValue: string;
+  onYesNoChange: (value: string) => void;
+  onCommentChange: (value: string) => void;
+  attachments: Record<string, AttachmentItem[]>;
+  onAddAttachments: (fieldName: string, files: FileList | null) => void;
+  onRemoveAttachment: (fieldName: string, attachmentId: string) => void;
+  onPreviewAttachment: (attachment: { url: string; name: string }) => void;
+  isFieldInvalid: (fieldName: string) => boolean;
+}
+
+const YesNoQuestion: React.FC<YesNoQuestionProps> = ({
+  label,
+  yesNoField,
+  commentField,
+  yesNoValue,
+  commentValue,
+  onYesNoChange,
+  onCommentChange,
+  attachments,
+  onAddAttachments,
+  onRemoveAttachment,
+  onPreviewAttachment,
+  isFieldInvalid,
+}) => {
+  const fieldKey = yesNoField as string;
+  const commentKey = commentField as string;
+  const attachmentList = attachments[fieldKey] ?? [];
+
+  return (
+    <div
+      className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm transition-colors hover:border-blue-200"
+      data-field={fieldKey}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <label className="block text-sm font-semibold text-slate-800 leading-snug">
+          {label}
+        </label>
+        <div className="relative flex-shrink-0">
+          {attachmentList.length > 0 && (
+            <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">
+              {attachmentList.length}
+            </span>
+          )}
+          <label
+            title="Add attachment"
+            className="inline-flex items-center justify-center h-9 w-9 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100"
+          >
+            <input
+              type="file"
+              accept="image/*"
+              data-field-input={fieldKey}
+              onChange={(e) => {
+                onAddAttachments(fieldKey, e.target.files);
+                e.currentTarget.value = '';
+              }}
+              className="hidden"
+            />
+            <span className="text-xl font-bold">+</span>
+          </label>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-4 mt-4">
+        {['Yes', 'No', 'N/A'].map((option) => (
+          <label key={option} className="flex items-center gap-2 cursor-pointer text-sm text-slate-700">
+            <input
+              type="radio"
+              name={fieldKey}
+              value={option}
+              checked={yesNoValue === option}
+              onChange={(e) => onYesNoChange(e.target.value)}
+              className="text-blue-600 focus:ring-blue-500"
+            />
+            <span>{option}</span>
+          </label>
+        ))}
+      </div>
+      {isFieldInvalid(fieldKey) && (
+        <p className="text-red-500 text-xs mt-2">This field is required</p>
+      )}
+      <div className="mt-4 space-y-2">
+        <label className="block text-sm font-medium text-slate-700">Comments</label>
+        <Textarea
+          value={commentValue}
+          onChange={(e) => onCommentChange(e.target.value)}
+          rows={2}
+          placeholder="Add any comments or observations..."
+          className="bg-slate-50 border-slate-200"
+          data-comment-field={commentKey}
+        />
+      </div>
+      {attachmentList.length > 0 && (
+        <div className="mt-4">
+          <div className="flex flex-wrap gap-2">
+            {attachmentList.map((att) => (
+              <div
+                key={att.id}
+                className="relative w-24 h-24 rounded-lg overflow-hidden border border-slate-200 shadow-sm"
+              >
+                <button
+                  type="button"
+                  onClick={() => onPreviewAttachment({ url: att.url, name: att.name })}
+                  className="w-full h-full"
+                  title={att.name}
+                >
+                  <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onRemoveAttachment(fieldKey, att.id)}
+                  title="Remove"
+                  className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-slate-200 shadow"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default function NightVisitAuditPage() {
@@ -281,13 +409,16 @@ export default function NightVisitAuditPage() {
   };
 
   // Helper functions
-  const hasError = (fieldName: string) => errors.includes(fieldName);
+  const fieldHasError = useCallback((fieldName: string) => errors.includes(fieldName), [errors]);
 
-  const getFieldClassName = (fieldName: string, baseClassName: string) => {
-    return hasError(fieldName)
-      ? `${baseClassName} border-red-500 bg-red-50 focus:ring-red-500 focus:border-red-500`
-      : baseClassName;
-  };
+  const getFieldClassName = useCallback(
+    (fieldName: string, baseClassName: string) => (
+      fieldHasError(fieldName)
+        ? `${baseClassName} border-red-500 bg-red-50 focus:ring-red-500 focus:border-red-500`
+        : baseClassName
+    ),
+    [fieldHasError]
+  );
 
   const [data, setData] = useState<NightVisitData>({
     home: '',
@@ -397,7 +528,9 @@ export default function NightVisitAuditPage() {
 
   const handleChange = (field: keyof NightVisitData, value: string) => {
     setData(prev => ({ ...prev, [field]: value }));
-    if (value.trim() !== '' && errors.includes(field)) setErrors(prev => prev.filter(e => e !== field));
+    if (value.trim() !== '' && fieldHasError(field as string)) {
+      setErrors(prev => prev.filter(e => e !== field));
+    }
   };
 
   // Load existing attachments when workspace changes
@@ -498,6 +631,10 @@ export default function NightVisitAuditPage() {
     });
   };
 
+  const handlePreviewAttachment = useCallback((attachment: { url: string; name: string }) => {
+    setPreviewImage(attachment);
+  }, []);
+
   const uploadAttachmentFile = async (fieldName: string, file: File) => {
     if (!activeWorkspace?.id) throw new Error('Workspace not available for attachment upload');
     const orgId = activeWorkspace.organisationId || null;
@@ -531,108 +668,6 @@ export default function NightVisitAuditPage() {
       createdObjectUrls.current.clear();
     };
   }, []);
-
-  const YesNoQuestion = ({
-    label,
-    yesNoField,
-    commentField,
-    yesNoValue,
-    commentValue,
-    onYesNoChange,
-    onCommentChange
-  }: {
-    label: string;
-    yesNoField: string;
-    commentField: string;
-    yesNoValue: string;
-    commentValue: string;
-    onYesNoChange: (value: string) => void;
-    onCommentChange: (value: string) => void;
-  }) => (
-    <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm transition-colors hover:border-blue-200">
-      <div className="flex items-start justify-between gap-4">
-        <label className="block text-sm font-semibold text-slate-800 leading-snug">
-          {label}
-        </label>
-        <div className="relative flex-shrink-0">
-          {(attachments[yesNoField]?.length ?? 0) > 0 && (
-            <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">
-              {attachments[yesNoField]?.length}
-            </span>
-          )}
-          <label
-            title="Add attachment"
-            className="inline-flex items-center justify-center h-9 w-9 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100"
-          >
-            <input
-              type="file"
-              accept="image/*"
-              data-field-input={yesNoField}
-              onChange={(e) => {
-                handleAddAttachments(yesNoField, e.target.files);
-                e.currentTarget.value = '';
-              }}
-              className="hidden"
-            />
-            <span className="text-xl font-bold">+</span>
-          </label>
-        </div>
-      </div>
-      <div className="flex flex-wrap items-center gap-4 mt-4" data-field={yesNoField}>
-        {['Yes', 'No', 'N/A'].map(option => (
-          <label key={option} className="flex items-center gap-2 cursor-pointer text-sm text-slate-700">
-            <input
-              type="radio"
-              name={yesNoField}
-              value={option}
-              checked={yesNoValue === option}
-              onChange={(e) => onYesNoChange(e.target.value)}
-              className="text-blue-600 focus:ring-blue-500"
-            />
-            <span>{option}</span>
-          </label>
-        ))}
-      </div>
-      {errors.includes(yesNoField) && (
-        <p className="text-red-500 text-xs mt-2">This field is required</p>
-      )}
-      <div className="mt-4 space-y-2">
-        <label className="block text-sm font-medium text-slate-700">Comments</label>
-        <Textarea
-          value={commentValue}
-          onChange={(e) => onCommentChange(e.target.value)}
-          rows={2}
-          placeholder="Add any comments or observations..."
-          className="bg-slate-50 border-slate-200"
-          data-comment-field={commentField}
-        />
-      </div>
-      <div className="mt-4">
-        <div className="flex flex-wrap gap-2">
-          {(attachments[yesNoField] ?? []).map(att => (
-            <div key={att.id} className="relative w-24 h-24 rounded-lg overflow-hidden border border-slate-200 shadow-sm">
-              <button
-                type="button"
-                onClick={() => setPreviewImage({ url: att.url, name: att.name })}
-                className="w-full h-full"
-                title={att.name}
-              >
-                <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
-              </button>
-              <button
-                type="button"
-                onClick={() => handleRemoveAttachment(yesNoField, att.id)}
-                title="Remove"
-                className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-slate-200 shadow"
-              >
-                ×
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
 
   const validateForm = () => {
     const required: (keyof NightVisitData)[] = [
@@ -670,7 +705,7 @@ export default function NightVisitAuditPage() {
     if (!activeWorkspaceId) return alert('No active workspace selected. Please choose a workspace before saving audits.');
 
     // Compute yes/no score for night visit questions
-    const YES_NO_FIELDS = [
+    const YES_NO_FIELDS: Array<keyof NightVisitData> = [
       'sufficient_staff_on_duty','staff_present_visible','manager_on_call_contactable','agency_staff_familiar','staff_uniforms_id',
       'residents_accounted_for','call_bells_accessible','residents_checked_regularly','residents_awake_distressed_supported','bedrails_crash_mats_used_correctly',
       'external_doors_locked','fire_exits_clear','corridors_free_of_trip_hazards','lighting_sufficient','temperature_comfortable',
@@ -683,7 +718,7 @@ export default function NightVisitAuditPage() {
       'residents_out_of_bed_discomfort','lights_tvs_noise_disruptive','safeguarding_concerns_observed','atmosphere_calm_safe'
     ];
 
-    const yesCount = YES_NO_FIELDS.reduce((acc, f) => acc + ((data as any)[f] === 'Yes' ? 1 : 0), 0);
+    const yesCount = YES_NO_FIELDS.reduce((acc, field) => acc + (data[field] === 'Yes' ? 1 : 0), 0);
     const totalCount = YES_NO_FIELDS.length;
     const scorePercent = totalCount > 0 ? Math.round((yesCount / totalCount) * 100) : null;
 
@@ -744,17 +779,19 @@ export default function NightVisitAuditPage() {
 
     try {
       setSaving(true);
-  await saveAudit(payload, activeWorkspaceId, activeWorkspace?.organisationId || null);
+      await saveAudit(payload, activeWorkspaceId, activeWorkspace?.organisationId || null);
+
       const completedAt = data.date || new Date().toISOString();
       try {
         await markAuditCompletedWithSnapshot(activeWorkspaceId, 'night-visit', payload, completedAt);
       } catch (err) {
         console.warn('Failed to complete night-visit audit with snapshot', err);
       }
-  alert('Audit saved');
-  setAttachments(nextAttachmentState);
-  setAttachmentsToDelete([]);
-  setPreviewImage(null);
+
+      setAttachments(nextAttachmentState);
+      setAttachmentsToDelete([]);
+      setPreviewImage(null);
+      alert(`Audit completed and saved${createActionPlan ? '; an action plan will be created.' : '.'}`);
     } catch (e) {
       // eslint-disable-next-line no-console
       console.warn('Failed to save night-visit audit', e);
@@ -762,6 +799,14 @@ export default function NightVisitAuditPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const yesNoSharedProps = {
+    attachments,
+    onAddAttachments: handleAddAttachments,
+    onRemoveAttachment: handleRemoveAttachment,
+    onPreviewAttachment: handlePreviewAttachment,
+    isFieldInvalid: fieldHasError,
   };
 
 
@@ -785,7 +830,7 @@ export default function NightVisitAuditPage() {
                 data-field="home"
                 required
               />
-              {hasError('home') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+              {fieldHasError('home') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
             </div>
             <div>
               <label className="block font-semibold mb-1 text-slate-700">Audit Date</label>
@@ -798,7 +843,7 @@ export default function NightVisitAuditPage() {
                 data-field="date"
                 required
               />
-              {hasError('date') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+              {fieldHasError('date') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
             </div>
             <div>
               <label className="block font-semibold mb-1 text-slate-700">Person Completing Audit</label>
@@ -812,7 +857,7 @@ export default function NightVisitAuditPage() {
                 data-field="personCompletingAudit"
                 required
               />
-              {hasError('personCompletingAudit') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+              {fieldHasError('personCompletingAudit') && <p className="text-red-500 text-xs mt-1">This field is required</p>}
             </div>
           </div>
         </div>
@@ -846,19 +891,21 @@ export default function NightVisitAuditPage() {
                       </ul>
                     )}
                     <div className="space-y-4">
-                      {section.questions.map((question, qIndex) => {
+                      {section.questions.map((question) => {
                         const yesField = question.yesNoField as keyof NightVisitData;
                         const commentField = `${question.yesNoField}_comment` as keyof NightVisitData;
+
                         return (
                           <YesNoQuestion
-                            key={qIndex}
+                            key={question.yesNoField}
                             label={question.label}
-                            yesNoField={yesField as string}
-                            commentField={commentField as string}
+                            yesNoField={yesField}
+                            commentField={commentField}
                             yesNoValue={data[yesField]}
-                            commentValue={(data as any)[commentField]}
-                            onYesNoChange={(value: string) => handleChange(yesField, value)}
-                            onCommentChange={(value: string) => handleChange(commentField, value)}
+                            commentValue={data[commentField] ?? ''}
+                            onYesNoChange={(value) => handleChange(yesField, value)}
+                            onCommentChange={(value) => handleChange(commentField, value)}
+                            {...yesNoSharedProps}
                           />
                         );
                       })}

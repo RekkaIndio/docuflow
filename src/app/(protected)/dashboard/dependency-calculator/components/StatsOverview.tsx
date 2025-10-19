@@ -1,5 +1,6 @@
 "use client";
 import React, { useState } from "react";
+import { getNDPSBand } from "@/lib/staffing/ndps";
 import { Resident } from "./types";
 
 interface StatsOverviewProps {
@@ -15,15 +16,6 @@ interface StatsOverviewProps {
     Night: { nurses: number; ctms: number; carers: number; total: number } 
   };
   openAddModal?: () => void;
-}
-
-// Helper function to get NDPS band from score (based on 100-point scale)
-function getNDPSBand(score: number): { band: number; name: string } {
-  if (score <= 20) return { band: 1, name: "Low Dependency" };
-  if (score <= 40) return { band: 2, name: "Moderate Dependency" };
-  if (score <= 60) return { band: 3, name: "High Dependency" };
-  if (score <= 80) return { band: 4, name: "Very High Dependency" };
-  return { band: 5, name: "Maximum Dependency" };
 }
 
 export function StatsOverview({

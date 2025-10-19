@@ -4,10 +4,24 @@ import { useAuth } from "@/hooks/use-auth";
 import { useWorkspace } from "@/context/workspace";
 import { doc, getDoc, setDoc, serverTimestamp, collection } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { workspaceCollectionPath } from "@/lib/paths";
+import { workspaceCollectionPath, workspaceDocPath } from "@/lib/paths";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { StandardPdfBuilder, StandardPdfMetaItem } from '@/lib/pdf/standard-layout';
 import PageHeader from '@/components/page-header';
+
+import {
+  NPDS_FIELDS,
+  getDefaultAssessment as ndpsGetDefaultAssessment,
+  calculateNDPSScore as ndpsCalculateNDPSScore,
+  calculateResidentCareMinutes as ndpsCalculateResidentCareMinutes,
+  calculateNDPSStaffing as ndpsCalculateNDPSStaffing,
+  calculateStaffBreakdown as ndpsCalculateStaffBreakdown,
+  calculateResidentStaffing as ndpsCalculateResidentStaffing,
+  ceilToQuarter as ndpsCeilToQuarter,
+  ceilToHalf as ndpsCeilToHalf,
+  getNDPSBand as ndpsGetNDPSBand,
+  buildStaffingSummary,
+} from "@/lib/staffing/ndps";
 
 import {
   StatsOverview,
@@ -22,35 +36,7 @@ import {
   type Shift
 } from "./components";
 
-// NPDS Assessment Fields - Based on authentic Northwick Park Dependency Score methodology
-// Authentic NPDS uses 0-5 scoring per item: 0=Independent, 5=Totally Dependent
-const NPDS_FIELDS = [
-  // Basic Care Needs (BCN) - 12 items, max score 60 (12 × 5)
-  { key: "bcn_mobility", label: "Mobility", section: "BCN", maxScore: 5, description: "General mobility and movement" },
-  { key: "bcn_transfers", label: "Transfers", section: "BCN", maxScore: 5, description: "Moving from bed to chair, etc." },
-  { key: "bcn_washing", label: "Washing/Bathing", section: "BCN", maxScore: 5, description: "Personal hygiene" },
-  { key: "bcn_dressing", label: "Dressing", section: "BCN", maxScore: 5, description: "Getting dressed/undressed" },
-  { key: "bcn_toileting", label: "Toileting", section: "BCN", maxScore: 5, description: "Using the toilet" },
-  { key: "bcn_continence", label: "Continence", section: "BCN", maxScore: 5, description: "Bladder and bowel control" },
-  { key: "bcn_feeding", label: "Feeding", section: "BCN", maxScore: 5, description: "Eating and drinking" },
-  { key: "bcn_turning", label: "Turning in Bed", section: "BCN", maxScore: 5, description: "Changing position in bed" },
-  { key: "bcn_getting_up", label: "Getting Up", section: "BCN", maxScore: 5, description: "Rising from bed" },
-  { key: "bcn_bed_mobility", label: "Bed Mobility", section: "BCN", maxScore: 5, description: "Moving around in bed" },
-  { key: "bcn_walking", label: "Walking", section: "BCN", maxScore: 5, description: "Walking ability" },
-  { key: "bcn_stairs", label: "Stairs", section: "BCN", maxScore: 5, description: "Using stairs" },
-
-  // Special Nursing Needs (SNN) - 5 items, max score 25 (5 × 5)
-  { key: "snn_breathing", label: "Breathing Support", section: "SNN", maxScore: 5, description: "Respiratory care and oxygen" },
-  { key: "snn_drugs", label: "Medication Management", section: "SNN", maxScore: 5, description: "Medication administration" },
-  { key: "snn_skin_care", label: "Skin Care", section: "SNN", maxScore: 5, description: "Pressure area care" },
-  { key: "snn_treatment", label: "Special Treatments", section: "SNN", maxScore: 5, description: "Wound care, catheter, etc." },
-  { key: "snn_observation", label: "Monitoring/Observation", section: "SNN", maxScore: 5, description: "Vital signs, behavior monitoring" },
-
-  // Therapy Needs - 3 items (additional assessment for your organization)
-  { key: "therapy_communication", label: "Communication", section: "THERAPY", maxScore: 5, description: "Communication and cognitive support" },
-  { key: "therapy_cognitive", label: "Cognitive", section: "THERAPY", maxScore: 5, description: "Cognitive function and memory" },
-  { key: "therapy_behaviour", label: "Behaviour", section: "THERAPY", maxScore: 5, description: "Behavioral management needs" },
-];
+// NPDS Assessment Fields - see shared helpers in src/lib/staffing/ndps.ts
 
 // Note: Standard NPDS uses 17 items (BCN + SNN = 85 points max).
 // The Therapy section is an organizational addition for comprehensive assessment.
@@ -62,14 +48,15 @@ const COMMUNITY_COLORS = [
   'bg-yellow-500', 'bg-indigo-500', 'bg-pink-500', 'bg-teal-500'
 ];
 
-// Returns an object with all NPDS fields set to ""
-function getDefaultAssessment(): Omit<Resident, "name" | "room"> {
-  const assessment: any = {};
-  NPDS_FIELDS.forEach(field => {
-    assessment[field.key] = "";
-  });
-  return assessment;
-}
+const getDefaultAssessment = ndpsGetDefaultAssessment;
+const calculateNDPSScore = ndpsCalculateNDPSScore;
+const getNDPSBand = ndpsGetNDPSBand;
+const calculateResidentCareMinutes = ndpsCalculateResidentCareMinutes;
+const calculateNDPSStaffing = ndpsCalculateNDPSStaffing;
+const calculateStaffBreakdown = ndpsCalculateStaffBreakdown;
+const calculateResidentStaffing = ndpsCalculateResidentStaffing;
+const ceilToQuarter = ndpsCeilToQuarter;
+const ceilToHalf = ndpsCeilToHalf;
 
 // Generate PDF Report
 async function generatePDFReport(
@@ -77,10 +64,10 @@ async function generatePDFReport(
   communities: Community[],
   selectedCommunity: string | null,
   workspace: any,
-  calculateNDPSScore: (resident: Resident) => number,
-  getNDPSBand: (score: number) => { band: number; name: string },
-  calculateResidentCareMinutes: (resident: Resident) => { Day: number; Night: number },
-  calculateNDPSStaffing: (residents: Resident[]) => { Day: number; Night: number },
+    calculateNDPSScore: (resident: Resident) => number = ndpsCalculateNDPSScore,
+    getNDPSBand: (score: number) => { band: number; name: string } = ndpsGetNDPSBand,
+    calculateResidentCareMinutes: (resident: Resident) => { Day: number; Night: number } = ndpsCalculateResidentCareMinutes,
+    calculateNDPSStaffing: (residents: Resident[]) => { Day: number; Night: number } = ndpsCalculateNDPSStaffing,
   generateChartData: (residents: Resident[], months: number) => ChartData[]
 ) {
   const workspaceName = workspace?.name ?? 'Workspace';
@@ -359,308 +346,6 @@ function generateChartData(residents: Resident[], months: number): ChartData[] {
   }
 
   return data;
-}
-
-// Care minutes per dependency level for each care area (0-5 scale).
-// Based on clinical guidelines: higher scores = more care time needed
-// Day shift: more active care during waking hours
-const MINUTES_BY_FIELD_DAY: Record<string, Record<DependencyLevel, number>> = {
-  personalCare: { "": 0, "0": 0, "1": 8, "2": 15, "3": 22, "4": 28, "5": 35 },
-  eatingDrinking: { "": 0, "0": 0, "1": 5, "2": 10, "3": 18, "4": 25, "5": 30 },
-  medical: { "": 0, "0": 0, "1": 3, "2": 8, "3": 12, "4": 18, "5": 25 },
-  mobility: { "": 0, "0": 0, "1": 5, "2": 12, "3": 20, "4": 28, "5": 35 },
-  continence: { "": 0, "0": 0, "1": 5, "2": 10, "3": 15, "4": 22, "5": 28 },
-  skinIntegrity: { "": 0, "0": 0, "1": 3, "2": 8, "3": 12, "4": 18, "5": 25 },
-  medication: { "": 0, "0": 0, "1": 3, "2": 7, "3": 12, "4": 16, "5": 20 },
-  emotionalSupport: { "": 0, "0": 0, "1": 5, "2": 10, "3": 15, "4": 20, "5": 25 },
-  cognition: { "": 0, "0": 0, "1": 5, "2": 10, "3": 15, "4": 22, "5": 28 },
-  nightNeeds: { "": 0, "0": 0, "1": 3, "2": 8, "3": 12, "4": 18, "5": 25 },
-  additionalNeeds: { "": 0, "0": 0, "1": 0, "2": 5, "3": 12, "4": 18, "5": 25 },
-  behaviours: { "": 0, "0": 0, "1": 0, "2": 8, "3": 15, "4": 22, "5": 30 },
-  breathing: { "": 0, "0": 0, "1": 0, "2": 8, "3": 15, "4": 22, "5": 30 },
-};
-
-// Night shift: reduced care needs during sleeping hours (typically 40-50% of day)
-const MINUTES_BY_FIELD_NIGHT: Record<string, Record<DependencyLevel, number>> = {
-  personalCare: { "": 0, "0": 0, "1": 4, "2": 8, "3": 12, "4": 15, "5": 18 },
-  eatingDrinking: { "": 0, "0": 0, "1": 2, "2": 5, "3": 8, "4": 12, "5": 15 },
-  medical: { "": 0, "0": 0, "1": 2, "2": 4, "3": 6, "4": 9, "5": 12 },
-  mobility: { "": 0, "0": 0, "1": 3, "2": 6, "3": 10, "4": 14, "5": 18 },
-  continence: { "": 0, "0": 0, "1": 3, "2": 5, "3": 8, "4": 12, "5": 15 },
-  skinIntegrity: { "": 0, "0": 0, "1": 2, "2": 4, "3": 6, "4": 9, "5": 12 },
-  medication: { "": 0, "0": 0, "1": 2, "2": 4, "3": 6, "4": 8, "5": 10 },
-  emotionalSupport: { "": 0, "0": 0, "1": 2, "2": 5, "3": 8, "4": 10, "5": 12 },
-  cognition: { "": 0, "0": 0, "1": 2, "2": 5, "3": 8, "4": 12, "5": 15 },
-  nightNeeds: { "": 0, "0": 0, "1": 3, "2": 6, "3": 10, "4": 14, "5": 18 },
-  additionalNeeds: { "": 0, "0": 0, "1": 0, "2": 3, "3": 6, "4": 9, "5": 12 },
-  behaviours: { "": 0, "0": 0, "1": 0, "2": 4, "3": 8, "4": 12, "5": 15 },
-  breathing: { "": 0, "0": 0, "1": 0, "2": 4, "3": 8, "4": 12, "5": 15 },
-};
-
-// Mapping from NPDS field keys to care time calculation keys
-const FIELD_MAPPING: Record<string, string> = {
-  // Basic Care Needs (BCN) - Mobility
-  "bcn_mobility": "mobility",
-  "bcn_transfers": "mobility",
-  "bcn_bed_mobility": "mobility",
-  "bcn_walking": "mobility",
-  "bcn_stairs": "mobility",
-
-  // Basic Care Needs (BCN) - Personal Care
-  "bcn_washing": "personalCare",
-  "bcn_dressing": "personalCare",
-  "bcn_toileting": "personalCare",
-
-  // Basic Care Needs (BCN) - Other
-  "bcn_continence": "continence",
-  "bcn_feeding": "eatingDrinking",
-  "bcn_turning": "mobility",
-  "bcn_getting_up": "mobility",
-
-  // Special Nursing Needs (SNN)
-  "snn_breathing": "breathing",
-  "snn_drugs": "medication",
-  "snn_skin_care": "skinIntegrity",
-  "snn_treatment": "medical",
-  "snn_observation": "medical",
-
-  // Therapy Needs
-  "therapy_communication": "emotionalSupport",
-  "therapy_cognitive": "cognition",
-  "therapy_behaviour": "behaviours",
-};
-
-// Helper to ceil to nearest 0.25
-function ceilToQuarter(x: number) {
-  return Math.ceil(x * 4) / 4;
-}
-
-// Ceil to nearest half (0.5)
-function ceilToHalf(x: number) {
-  return Math.ceil(x * 2) / 2;
-}
-
-// Return per-resident totals in minutes for Day and Night
-function calculateResidentCareMinutes(resident: Resident): { Day: number; Night: number } {
-  let dayMinutes = 0;
-  let nightMinutes = 0;
-  for (const field of NPDS_FIELDS) {
-    const level = (resident[field.key as keyof Resident] as DependencyLevel) || "";
-    const careTimeKey = FIELD_MAPPING[field.key];
-    if (careTimeKey) {
-      const dayMap = MINUTES_BY_FIELD_DAY[careTimeKey] as Record<DependencyLevel, number> | undefined;
-      const nightMap = MINUTES_BY_FIELD_NIGHT[careTimeKey] as Record<DependencyLevel, number> | undefined;
-      dayMinutes += dayMap?.[level as DependencyLevel] ?? 0;
-      nightMinutes += nightMap?.[level as DependencyLevel] ?? 0;
-    }
-  }
-  return { Day: Math.round(dayMinutes), Night: Math.round(nightMinutes) };
-}
-
-// Calculate NPDS score for a resident (0-100 scale with Therapy)
-// Standard NPDS: BCN (12 items × 5) + SNN (5 items × 5) = 85 points
-// Extended with Therapy: BCN + SNN + THERAPY (3 items × 5) = 100 points
-function calculateNDPSScore(resident: Resident): number {
-  let bcnScore = 0;
-  let snnScore = 0;
-  let therapyScore = 0;
-
-  for (const field of NPDS_FIELDS) {
-    const level = (resident[field.key as keyof Resident] as DependencyLevel) || "";
-    let score = 0;
-
-    // Convert dependency level to numeric score (0-5 scale)
-    if (level === "0") score = 0;
-    else if (level === "1") score = 1;
-    else if (level === "2") score = 2;
-    else if (level === "3") score = 3;
-    else if (level === "4") score = 4;
-    else if (level === "5") score = 5;
-    else score = 0; // empty string or invalid
-
-    // Add to appropriate section total
-    if (field.section === "BCN") {
-      bcnScore += score;
-    } else if (field.section === "SNN") {
-      snnScore += score;
-    } else if (field.section === "THERAPY") {
-      therapyScore += score;
-    }
-  }
-
-  // Cap section scores at maximums
-  bcnScore = Math.min(bcnScore, 60);     // 12 items × 5
-  snnScore = Math.min(snnScore, 25);     // 5 items × 5
-  therapyScore = Math.min(therapyScore, 15); // 3 items × 5
-
-  return bcnScore + snnScore + therapyScore;  // Max total: 100
-}
-
-// Get NDPS band from score (based on 100-point scale with Therapy)
-// Bands distributed across the full 0-100 range for better discrimination
-function getNDPSBand(score: number): { band: number; name: string } {
-  if (score <= 20) return { band: 1, name: "Low Dependency" };        // 0-20 (20%)
-  if (score <= 40) return { band: 2, name: "Moderate Dependency" };   // 21-40 (40%)
-  if (score <= 60) return { band: 3, name: "High Dependency" };       // 41-60 (60%)
-  if (score <= 80) return { band: 4, name: "Very High Dependency" }; // 61-80 (80%)
-  return { band: 5, name: "Maximum Dependency" };                     // 81-100 (80%+)
-}
-
-// NDPS staffing ratios for 12-hour shifts (carers per resident)
-// Based on evidence-based care hours approach from /src/lib/staffing.ts
-// Ratios calculated from: (care hours per 24h) / (12h shift) = staff needed
-const NDPS_STAFFING_RATIOS_DAY = {
-  1: 1 / 10,  // Band 1 (Low): ~2h/24h → 1.4h/12h day → 1 carer per 10 residents
-  2: 1 / 6,   // Band 2 (Moderate): ~4h/24h → 2.8h/12h day → 1 carer per 6 residents
-  3: 1 / 3,   // Band 3 (High): ~6h/24h → 4.2h/12h day → 1 carer per 3 residents
-  4: 1 / 1.5, // Band 4 (Very High): ~9h/24h → 6.3h/12h day → 1 carer per 1.5 residents
-  5: 1.5,     // Band 5 (Maximum): ~12h/24h → constant care → 1.5 staff per resident
-};
-
-const NDPS_STAFFING_RATIOS_NIGHT = {
-  1: 1 / 20,  // Band 1: reduced night needs → 1 carer per 20 residents
-  2: 1 / 12,  // Band 2: 1 carer per 12 residents
-  3: 1 / 6,   // Band 3: 1 carer per 6 residents
-  4: 1 / 3,   // Band 4: 1 carer per 3 residents
-  5: 1,       // Band 5: 1 carer per resident (24/7 care needs)
-};
-
-// Calculate NDPS-based staffing for a list of residents
-function calculateNDPSStaffing(residents: Resident[]): { Day: number; Night: number } {
-  if (residents.length === 0) {
-    return { Day: 0, Night: 0 };
-  }
-  
-  const bandCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-  
-  residents.forEach(resident => {
-    const score = calculateNDPSScore(resident);
-    const band = getNDPSBand(score).band;
-    bandCounts[band as keyof typeof bandCounts]++;
-  });
-
-  let dayStaff = 0;
-  let nightStaff = 0;
-
-  for (const band of [1, 2, 3, 4, 5] as const) {
-    dayStaff += bandCounts[band] * NDPS_STAFFING_RATIOS_DAY[band];
-    nightStaff += bandCounts[band] * NDPS_STAFFING_RATIOS_NIGHT[band];
-  }
-
-  // Apply organizational minimums
-  // Minimum 2 staff for day shift if you have any residents
-  // Minimum 2 staff for night shift if you have any residents  
-  const minDayStaff = residents.length > 0 ? 2 : 0;
-  const minNightStaff = residents.length > 0 ? 2 : 0;
-
-  return {
-    Day: Math.max(minDayStaff, Math.ceil(dayStaff)),
-    Night: Math.max(minNightStaff, Math.ceil(nightStaff)),
-  };
-}
-
-// Calculate breakdown of nurses and CTMs from total staff
-function calculateStaffBreakdown(
-  residents: Resident[],
-  options?: { includeNurses?: boolean }
-): { 
-  Day: { nurses: number; ctms: number; carers: number; total: number }; 
-  Night: { nurses: number; ctms: number; carers: number; total: number } 
-} {
-  const includeNurses = options?.includeNurses ?? true;
-  // Return zeros if no residents
-  if (residents.length === 0) {
-    return {
-      Day: { nurses: 0, ctms: 0, carers: 0, total: 0 },
-      Night: { nurses: 0, ctms: 0, carers: 0, total: 0 }
-    };
-  }
-  
-  const totalStaffing = calculateNDPSStaffing(residents);
-  
-  // Fixed CTMs: 1 per shift (only if we have residents)
-  const dayCTMs = 1;
-  const nightCTMs = 1;
-  
-  // Calculate remaining staff after CTMs
-  const dayRemainingStaff = Math.max(0, totalStaffing.Day - dayCTMs);
-  const nightRemainingStaff = Math.max(0, totalStaffing.Night - nightCTMs);
-  
-  // Analyze resident dependency profile to determine nurse/carer split
-  let highDependencyCount = 0; // Band 4-5
-  let mediumDependencyCount = 0; // Band 3
-  let lowDependencyCount = 0; // Band 1-2
-  
-  residents.forEach(resident => {
-    const score = calculateNDPSScore(resident);
-    const band = getNDPSBand(score).band;
-    if (band >= 4) highDependencyCount++;
-    else if (band === 3) mediumDependencyCount++;
-    else lowDependencyCount++;
-  });
-  
-  // Calculate nurse percentage based on dependency profile
-  const totalResidents = residents.length;
-  let dayNurses = 0;
-  let nightNurses = 0;
-  
-  if (totalResidents > 0) {
-    // More direct approach: ensure nurses for high dependency residents
-    if (highDependencyCount > 0) {
-      // Minimum 1 nurse per shift if any high dependency residents
-      // Plus additional nurses for multiple high dependency residents
-      dayNurses = Math.max(1, Math.ceil(highDependencyCount * 0.5));
-      nightNurses = Math.max(1, Math.ceil(highDependencyCount * 0.3));
-    } else if (mediumDependencyCount >= 3) {
-      // If 3+ medium dependency residents, consider 1 nurse for day shift
-      dayNurses = 1;
-      nightNurses = 0;
-    }
-    // Ensure we don't exceed remaining staff
-    dayNurses = Math.min(dayNurses, dayRemainingStaff);
-    nightNurses = Math.min(nightNurses, nightRemainingStaff);
-  }
-  
-  // Remaining staff are carers
-  const dayCarers = dayRemainingStaff - dayNurses;
-  const nightCarers = nightRemainingStaff - nightNurses;
-
-  const result = {
-    Day: {
-      nurses: dayNurses,
-      ctms: dayCTMs,
-      carers: dayCarers,
-      total: dayNurses + dayCTMs + dayCarers
-    },
-    Night: {
-      nurses: nightNurses,
-      ctms: nightCTMs,
-      carers: nightCarers,
-      total: nightNurses + nightCTMs + nightCarers
-    }
-  };
-
-  if (!includeNurses) {
-    result.Day.carers += result.Day.nurses;
-    result.Day.nurses = 0;
-    result.Day.total = result.Day.ctms + result.Day.carers;
-
-    result.Night.carers += result.Night.nurses;
-    result.Night.nurses = 0;
-    result.Night.total = result.Night.ctms + result.Night.carers;
-  }
-  return result;
-}
-
-// Calculate per-resident staffing needs based on NDPS band
-function calculateResidentStaffing(resident: Resident): { Day: number; Night: number } {
-  const score = calculateNDPSScore(resident);
-  const band = getNDPSBand(score).band;
-
-  return {
-    Day: NDPS_STAFFING_RATIOS_DAY[band as keyof typeof NDPS_STAFFING_RATIOS_DAY],
-    Night: NDPS_STAFFING_RATIOS_NIGHT[band as keyof typeof NDPS_STAFFING_RATIOS_NIGHT],
-  };
 }
 
 // Compare rooms numerically when possible, otherwise fallback to string compare
@@ -1195,7 +880,7 @@ export default function DependencyCalculatorPage() {
     try {
       localStorage.setItem("dependency_residents_v1", JSON.stringify(residents));
       localStorage.setItem("dependency_communities_v1", JSON.stringify(communities));
-  localStorage.setItem("dependency_staff_actual_v1", JSON.stringify(staffActual));
+      localStorage.setItem("dependency_staff_actual_v1", JSON.stringify(staffActual));
     } catch (e) {
     }
 
@@ -1203,12 +888,40 @@ export default function DependencyCalculatorPage() {
       return;
     } // only save to Firestore for authenticated users with workspace
 
-  const ref = doc(db, workspaceCollectionPath(workspace.id, 'dependency_calculator', (workspace as any).organisationId) || `workspaces/${workspace.id}/dependency_calculator`, "default");
+    const organisationId = (workspace as any)?.organisationId;
+    const collectionPath = workspaceCollectionPath(workspace.id, 'dependency_calculator', organisationId) || `workspaces/${workspace.id}/dependency_calculator`;
+    const ref = doc(db, collectionPath, "default");
+    const summaryDocPath = workspaceDocPath(workspace.id, undefined, organisationId);
+
     const t = setTimeout(async () => {
       try {
-        // include staffActual so the user's main dependency_calculator document stays in sync
-        await setDoc(ref, { residents, communities, staffActual, schemaVersion: 1, updatedAt: serverTimestamp() }, { merge: true });
+        const staffingSummary = buildStaffingSummary(residents, { includeNurses: true });
+        const dependencyDocPayload = {
+          residents,
+          communities,
+          staffActual,
+          staffingSummary,
+          schemaVersion: 2,
+          updatedAt: serverTimestamp(),
+        };
+
+        await setDoc(ref, dependencyDocPayload, { merge: true });
+
+        if (summaryDocPath) {
+          const summaryRef = doc(db, summaryDocPath, 'rotas', 'staffing-summary');
+          await setDoc(summaryRef, {
+            ...staffingSummary,
+            workspaceId: workspace.id,
+            organisationId: organisationId ?? null,
+            residentIds: residents
+              .map((resident) => resident.id)
+              .filter((id): id is string => typeof id === 'string' && id.length > 0),
+            source: 'dependency-calculator',
+            updatedAt: serverTimestamp(),
+          }, { merge: true });
+        }
       } catch (err) {
+        console.error('Failed to persist dependency calculator data', err);
       }
     }, 600);
     return () => clearTimeout(t);

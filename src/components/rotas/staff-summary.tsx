@@ -76,6 +76,38 @@ export function StaffSummary({ staff, shifts, weekStart, weeksToShow, staffingSu
   const workingShifts = shifts.filter((shift) => shift.type !== 'AnnualLeave');
   const leaveShifts = shifts.filter((shift) => shift.type === 'AnnualLeave');
 
+  const patternMap = new Map<string, ShiftPattern>();
+  patterns.forEach((pattern) => patternMap.set(pattern.id, pattern));
+
+  const parseTimeToMinutes = (time?: string | null) => {
+    if (!time) return null;
+    const [hoursStr, minutesStr] = time.split(':');
+    const hours = Number(hoursStr);
+    const minutes = Number(minutesStr);
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
+    return hours * 60 + minutes;
+  };
+
+  const classifyShift = (shift: Shift): 'Day' | 'Night' => {
+    const pattern = patternMap.get(shift.type);
+    const normalizedType = shift.type.toLowerCase();
+    if (normalizedType.includes('night')) return 'Night';
+
+    const startMinutes = parseTimeToMinutes(shift.startTime ?? pattern?.startTime ?? null);
+    const endMinutes = parseTimeToMinutes(shift.endTime ?? pattern?.endTime ?? null);
+
+    if (startMinutes === null) return 'Day';
+
+    const startHour = Math.floor(startMinutes / 60);
+    if (startHour >= 20 || startHour < 6) return 'Night';
+
+    if (endMinutes !== null && endMinutes < startMinutes) {
+      return 'Night';
+    }
+
+    return 'Day';
+  };
+
   // Calculate shifts per staff member
   const staffShiftCounts = staff.map(member => {
     const memberShifts = workingShifts.filter(s => s.staffId === member.id);
@@ -113,6 +145,54 @@ export function StaffSummary({ staff, shifts, weekStart, weeksToShow, staffingSu
     }
   }
 
+  const dateKeys = allDates.map((date) => format(date, 'yyyy-MM-dd'));
+  const dateKeySet = new Set(dateKeys);
+  const dayAssignments: Record<string, number> = {};
+  const nightAssignments: Record<string, number> = {};
+
+  dateKeys.forEach((key) => {
+    dayAssignments[key] = 0;
+    nightAssignments[key] = 0;
+  });
+
+  workingShifts.forEach((shift) => {
+    if (!dateKeySet.has(shift.date)) return;
+    const bucket = classifyShift(shift);
+    if (bucket === 'Night') {
+      nightAssignments[shift.date] = (nightAssignments[shift.date] ?? 0) + 1;
+    } else {
+      dayAssignments[shift.date] = (dayAssignments[shift.date] ?? 0) + 1;
+    }
+  });
+
+  const dayCounts = dateKeys.map((key) => dayAssignments[key] ?? 0);
+  const nightCounts = dateKeys.map((key) => nightAssignments[key] ?? 0);
+
+  const averageDayStaff = dayCounts.length
+    ? Math.round((dayCounts.reduce((sum, value) => sum + value, 0) / dayCounts.length) * 10) / 10
+    : 0;
+  const averageNightStaff = nightCounts.length
+    ? Math.round((nightCounts.reduce((sum, value) => sum + value, 0) / nightCounts.length) * 10) / 10
+    : 0;
+
+  const lowestDayCover = dayCounts.length ? Math.min(...dayCounts) : 0;
+  const lowestNightCover = nightCounts.length ? Math.min(...nightCounts) : 0;
+
+  const requiredDayStaff = staffingSummary?.ndpsStaffing.Day ?? 0;
+  const requiredNightStaff = staffingSummary?.ndpsStaffing.Night ?? 0;
+  const dayDeficit = staffingSummary ? Math.max(0, requiredDayStaff - lowestDayCover) : 0;
+  const nightDeficit = staffingSummary ? Math.max(0, requiredNightStaff - lowestNightCover) : 0;
+  const meetsDayRequirement = staffingSummary ? dayDeficit === 0 : null;
+  const meetsNightRequirement = staffingSummary ? nightDeficit === 0 : null;
+  const isCompliant = Boolean(meetsDayRequirement && meetsNightRequirement);
+
+  const generatedRelative = (() => {
+    if (!staffingSummary) return null;
+    const generatedDate = new Date(staffingSummary.generatedAt);
+    if (Number.isNaN(generatedDate.getTime())) return null;
+    return formatDistanceToNow(generatedDate, { addSuffix: true });
+  })();
+
   const dailyCoverage = allDates.map(date => {
     const dateStr = format(date, 'yyyy-MM-dd');
     const dayShifts = workingShifts.filter(s => s.date === dateStr);
@@ -126,6 +206,9 @@ export function StaffSummary({ staff, shifts, weekStart, weeksToShow, staffingSu
   const daysWithLowCoverage = dailyCoverage.filter(d => d.shiftCount < 3).length;
   const coveragePercentage = staff.length > 0 && numDays > 0 ? Math.min(100, Math.round((totalShifts / (staff.length * numDays)) * 100)) : 0;
   const expectedShiftsPerStaff = staff.length > 0 ? totalShifts / staff.length : 0;
+  const dayDeficitLabel = dayDeficit > 0 ? `Add ${Math.ceil(dayDeficit)} for day cover` : null;
+  const nightDeficitLabel = nightDeficit > 0 ? `Add ${Math.ceil(nightDeficit)} for night cover` : null;
+  const actionItems = [dayDeficitLabel, nightDeficitLabel].filter(Boolean) as string[];
 
   let totalDayHours = 0;
   let totalNightHours = 0;

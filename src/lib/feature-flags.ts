@@ -8,6 +8,8 @@ export const DEFAULT_FEATURE_FLAGS: OrganisationFeatureFlags = {
     audits: { enabled: true, name: 'Audits', description: 'Compliance auditing system', category: 'compliance' },
     actionPlans: { enabled: true, name: 'Action Plans', description: 'Task tracking from audit findings', category: 'compliance' },
     policies: { enabled: true, name: 'Policies', description: 'Policy document management', category: 'compliance' },
+    journal: { enabled: true, name: 'Journal', description: 'Care journal and handover notes', category: 'operations' },
+    managerJournal: { enabled: true, name: 'Manager Journal', description: 'Escalation channel from managers to head office', category: 'operations' },
     appraisals: { enabled: true, name: 'Supervisions', description: 'Staff supervision tracking', category: 'operations' },
     rotas: { enabled: true, name: 'Rotas', description: 'Staff scheduling and rota management', category: 'operations' },
     files: { enabled: true, name: 'Files & Folders', description: 'Document browser and file management', category: 'core', isCore: true },

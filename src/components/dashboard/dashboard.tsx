@@ -163,6 +163,7 @@ const DASHBOARD_VIEWS = [
   "notifications",
   "audits",
   "policies",
+  "journal",
   "stats",
   "action-plans",
   "appraisals",
@@ -772,6 +773,12 @@ export function Dashboard() {
 
       window.addEventListener('navigate-to-policies', handlePoliciesNavigation as EventListener);
 
+      const handleJournalNavigation = (ev: CustomEvent) => {
+        setView('journal');
+      };
+
+      window.addEventListener('navigate-to-journal', handleJournalNavigation as EventListener);
+
       return () => {
         window.removeEventListener('navigate-to-document', navListener as EventListener);
         window.removeEventListener('navigate-to-workspace', handleWorkspaceNavigation as EventListener);
@@ -782,6 +789,7 @@ export function Dashboard() {
         window.removeEventListener('navigate-to-admin', handleAdminNavigation as EventListener);
         window.removeEventListener('navigate-to-dashboard', handleDashboardNavigation as EventListener);
         window.removeEventListener('navigate-to-policies', handlePoliciesNavigation as EventListener);
+        window.removeEventListener('navigate-to-journal', handleJournalNavigation as EventListener);
         try { window.removeEventListener('hashchange', handleHashChange); } catch (e) {}
         try { delete (window as any).__docuflow_set_doc_hash; } catch (e) {}
         try { delete (window as any).__docuflow_doc_hash; } catch (e) {}
@@ -1285,6 +1293,17 @@ export function Dashboard() {
                   </React.Suspense>
                 </FeatureGuard>
             );
+    case 'journal':
+      return (
+        <FeatureGuard feature="journal" organisationId={organisationId} onNavigateBack={() => setView('home')}>
+          <React.Suspense fallback={<div>Loading...</div>}>
+            {(() => {
+              const JournalPage = require('@/app/(protected)/journal/page').default;
+              return <JournalPage />;
+            })()}
+          </React.Suspense>
+        </FeatureGuard>
+      );
         case 'appraisals':
             return (
                 <FeatureGuard feature="appraisals" organisationId={organisationId} onNavigateBack={() => setView('home')}>
@@ -1340,23 +1359,23 @@ export function Dashboard() {
       case 'cqc-logs':
         return (
           <FeatureGuard feature="lessonsRcas" organisationId={organisationId} onNavigateBack={() => setView('home')}>
-            <div className="container mx-auto py-8 px-4">
-              <div className="text-center">
-                <h1 className="text-2xl font-bold mb-4">CQC Logs</h1>
-                <p className="text-muted-foreground">CQC Logs functionality coming soon.</p>
-              </div>
-            </div>
+            <React.Suspense fallback={<div>Loading...</div>}>
+              {(() => {
+                const CqcLogsPage = require("@/app/(protected)/cqc-logs/page").default;
+                return <CqcLogsPage />;
+              })()}
+            </React.Suspense>
           </FeatureGuard>
         );
       case 'safeguarding-logs':
         return (
           <FeatureGuard feature="lessonsRcas" organisationId={organisationId} onNavigateBack={() => setView('home')}>
-            <div className="container mx-auto py-8 px-4">
-              <div className="text-center">
-                <h1 className="text-2xl font-bold mb-4">Safeguarding Logs</h1>
-                <p className="text-muted-foreground">Safeguarding Logs functionality coming soon.</p>
-              </div>
-            </div>
+            <React.Suspense fallback={<div>Loading...</div>}>
+              {(() => {
+                const SafeguardingLogsPage = require("@/app/(protected)/safeguarding-logs/page").default;
+                return <SafeguardingLogsPage />;
+              })()}
+            </React.Suspense>
           </FeatureGuard>
         );
     default:
@@ -1388,7 +1407,14 @@ export function Dashboard() {
         </Sidebar>
 
         <SidebarInset className="flex flex-col min-h-screen w-full">
-                <TopNav onSettingsClick={() => setView('settings')} onNotificationsClick={() => setView('notifications')} unreadCount={unreadNotifications} workspaceId={workspaceId} organisationId={organisationId} />
+                <TopNav
+                  onSettingsClick={() => setView('settings')}
+                  onNotificationsClick={() => setView('notifications')}
+                  onHelpClick={() => setView('help')}
+                  unreadCount={unreadNotifications}
+                  workspaceId={workspaceId}
+                  organisationId={organisationId}
+                />
             <div className={cn(
               "flex-1 w-full",
               // Add bottom padding on mobile when chat is closed to ensure content isn't hidden behind chat button

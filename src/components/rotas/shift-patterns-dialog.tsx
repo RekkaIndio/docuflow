@@ -158,14 +158,17 @@ export function ShiftPatternsDialog({ open, onOpenChange, patterns, onSave }: Sh
       }
     }
 
-    const sanitized = drafts.map<ShiftPattern>((draft) => ({
-      id: sanitizeCode(draft.id),
-      label: draft.label.trim(),
-      startTime: draft.startTime,
-      endTime: draft.endTime,
-      color: draft.color as ShiftColorKey,
-      description: draft.description?.trim() || undefined,
-    }));
+    const sanitized = drafts.map<ShiftPattern>((draft) => {
+      const description = draft.description?.trim() || '';
+      const base: ShiftPattern = {
+        id: sanitizeCode(draft.id),
+        label: draft.label.trim(),
+        startTime: draft.startTime,
+        endTime: draft.endTime,
+        color: draft.color as ShiftColorKey,
+      };
+      return description ? { ...base, description } : base;
+    });
 
     onSave(sanitized);
   };

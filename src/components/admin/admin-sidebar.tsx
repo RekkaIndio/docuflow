@@ -11,7 +11,6 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import {
-  Settings,
   UsersRound,
   Folder as FolderIcon,
   LayoutDashboard,
@@ -24,7 +23,6 @@ import {
   Tag,
   ClipboardCheck,
 } from "lucide-react";
-import Link from 'next/link';
 import { Logo } from "@/components/icons/logo";
 import { usePathname } from 'next/navigation';
 import type { Workspace } from "@/lib/types";
@@ -137,31 +135,17 @@ export function AdminSidebar({
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter>
-        <div className="w-full">
+        <div className="w-full flex justify-center py-2">
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton onClick={() => handleNavigation(() => setView('accessibility'))} className="text-lg h-12">
-                <Accessibility className="w-6 h-6 mr-2" />
-                <span className="text-sm">Accessibility</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              {/* Use next/link for admin settings so navigation uses client router and updates URL. */}
-              <SidebarMenuButton asChild className="text-lg h-12">
-                <Link
-                  href="/admin?view=settings"
-                  className="flex items-center w-full"
-                  onClick={() => {
-                    try {
-                      if (typeof window !== 'undefined' && window.dispatchEvent) {
-                        window.dispatchEvent(new CustomEvent('admin-set-view', { detail: { view: 'settings' } }));
-                      }
-                    } catch (e) {}
-                  }}
-                >
-                  <Settings className="w-6 h-6 mr-2" />
-                  <span className="text-sm">Settings</span>
-                </Link>
+              <SidebarMenuButton
+                onClick={() => handleNavigation(() => setView('accessibility'))}
+                className="h-12 w-12 justify-center rounded-full px-0 mx-auto bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-primary/60"
+                aria-label="Accessibility"
+                title="Accessibility"
+              >
+                <Accessibility className="w-6 h-6" />
+                <span className="sr-only">Accessibility</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>

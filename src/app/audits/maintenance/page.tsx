@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ChevronDown, ChevronUp, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -135,6 +135,133 @@ type AttachmentMetadata = {
   downloadUrl?: string;
 };
 
+interface YesNoQuestionProps {
+  label: string;
+  yesNoField: string;
+  commentField: string;
+  yesNoValue: string;
+  commentValue: string;
+  onYesNoChange: (value: string) => void;
+  onCommentChange: (value: string) => void;
+  attachments: Record<string, AttachmentItem[]>;
+  onAddAttachments: (fieldName: string, files: FileList | null) => void;
+  onRemoveAttachment: (fieldName: string, attachmentId: string) => void;
+  onPreviewAttachment: (attachment: { url: string; name: string }) => void;
+  hasError: (fieldName: string) => boolean;
+}
+
+const YesNoQuestion: React.FC<YesNoQuestionProps> = ({
+  label,
+  yesNoField,
+  commentField,
+  yesNoValue,
+  commentValue,
+  onYesNoChange,
+  onCommentChange,
+  attachments,
+  onAddAttachments,
+  onRemoveAttachment,
+  onPreviewAttachment,
+  hasError,
+}) => {
+  const attachmentList = attachments[yesNoField] ?? [];
+
+  return (
+    <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+      <div className="space-y-3">
+        <div>
+          <div className="flex items-start justify-between">
+            <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+            <div className="ml-4 relative">
+              {attachmentList.length > 0 && (
+                <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">
+                  {attachmentList.length}
+                </span>
+              )}
+              <label
+                title="Add attachment"
+                className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100"
+              >
+                <input
+                  type="file"
+                  accept="image/*"
+                  data-field-input={yesNoField}
+                  onChange={(e) => {
+                    onAddAttachments(yesNoField, e.target.files);
+                    e.currentTarget.value = '';
+                  }}
+                  className="hidden"
+                />
+                <span className="text-xl font-bold">+</span>
+              </label>
+            </div>
+          </div>
+          <div className="flex gap-4" data-field={yesNoField}>
+            <label className="flex items-center">
+              <input
+                type="radio"
+                name={yesNoField}
+                value="Yes"
+                checked={yesNoValue === 'Yes'}
+                onChange={(e) => onYesNoChange(e.target.value)}
+                className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+              />
+              <span className="text-sm text-gray-700">Yes</span>
+            </label>
+            <label className="flex items-center">
+              <input
+                type="radio"
+                name={yesNoField}
+                value="No"
+                checked={yesNoValue === 'No'}
+                onChange={(e) => onYesNoChange(e.target.value)}
+                className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+              />
+              <span className="text-sm text-gray-700">No</span>
+            </label>
+          </div>
+          {hasError(yesNoField) && (
+            <p className="text-red-600 text-sm font-medium">This field is required</p>
+          )}
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Comments</label>
+          <Textarea
+            value={commentValue}
+            onChange={(e) => onCommentChange(e.target.value)}
+            className="w-full p-3 border border-slate-200 rounded-lg resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-slate-50"
+            rows={2}
+            placeholder="Add any comments or observations..."
+          />
+        </div>
+        <div>
+          <div className="flex flex-wrap gap-2">
+            {attachmentList.map(att => (
+              <div key={att.id} className="relative w-24 h-24 rounded overflow-hidden border border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => onPreviewAttachment({ url: att.url, name: att.name })}
+                  className="w-full h-full"
+                  title={att.name}
+                >
+                  <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+                </button>
+                <button
+                  onClick={() => onRemoveAttachment(yesNoField, att.id)}
+                  title="Remove"
+                  className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-gray-200 shadow-sm"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function MaintenanceAuditPage() {
   const [showModal, setShowModal] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
@@ -232,7 +359,7 @@ export default function MaintenanceAuditPage() {
     },
     {
       title: "9. Storage and Hazardous Materials",
-      guidance: "Assess storage areas for organization, security of hazardous materials, and safe storage of maintenance tools and equipment.",
+      guidance: "Assess storage areas for organisation, security of hazardous materials, and safe storage of maintenance tools and equipment.",
       questions: [
         { label: "Are all storage areas neat, accessible, and well organised?", yesNoField: "storage_areas_neat", commentField: "storage_areas_neat_comment" },
         { label: "Are COSHH items stored securely and labelled properly?", yesNoField: "coshh_items_stored_secure", commentField: "coshh_items_stored_secure_comment" },
@@ -356,6 +483,8 @@ export default function MaintenanceAuditPage() {
   const getFieldErrorStyle = (fieldName: string) => {
     return errors.includes(fieldName) ? 'border-red-500 bg-red-50' : 'border-gray-300';
   };
+
+  const hasError = useCallback((fieldName: string) => errors.includes(fieldName), [errors]);
 
   const handleInputChange = (field: keyof MaintenanceAuditData, value: string) => {
     setData(prev => ({ ...prev, [field]: value }));
@@ -523,6 +652,10 @@ export default function MaintenanceAuditPage() {
     });
   };
 
+  const handlePreviewAttachment = useCallback((attachment: { url: string; name: string }) => {
+    setPreviewImage({ url: attachment.url, name: attachment.name });
+  }, []);
+
   const uploadAttachmentFile = async (fieldName: string, file: File) => {
     if (!activeWorkspace?.id) {
       throw new Error('Workspace not available for attachment upload');
@@ -541,102 +674,6 @@ export default function MaintenanceAuditPage() {
     const downloadUrl = await getDownloadURL(storageRef);
     return { storagePath, downloadUrl };
   };
-
-  const YesNoQuestion = ({ label, yesNoField, commentField, yesNoValue, commentValue, onYesNoChange, onCommentChange }: { label: string; yesNoField: string; commentField: string; yesNoValue: string; commentValue: string; onYesNoChange: (v: string) => void; onCommentChange: (v: string) => void; }) => (
-    <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-      <div className="space-y-3">
-        <div>
-          <div className="flex items-start justify-between">
-            <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
-            <div className="ml-4 relative">
-              { (attachments[yesNoField]?.length ?? 0) > 0 && (
-                <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">
-                  {attachments[yesNoField]?.length}
-                </span>
-              )}
-              <label
-                title="Add attachment"
-                className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-50 text-blue-600 cursor-pointer border border-transparent hover:bg-blue-100"
-              >
-                <input
-                  type="file"
-                  accept="image/*"
-                  data-field-input={yesNoField}
-                  onChange={(e) => {
-                    handleAddAttachments(yesNoField, e.target.files);
-                    e.currentTarget.value = '';
-                  }}
-                  className="hidden"
-                />
-                <span className="text-xl font-bold">+</span>
-              </label>
-            </div>
-          </div>
-          <div className="flex gap-4" data-field={yesNoField}>
-            <label className="flex items-center">
-              <input
-                type="radio"
-                name={yesNoField}
-                value="Yes"
-                checked={yesNoValue === 'Yes'}
-                onChange={(e) => onYesNoChange(e.target.value)}
-                className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-              />
-              <span className="text-sm text-gray-700">Yes</span>
-            </label>
-            <label className="flex items-center">
-              <input
-                type="radio"
-                name={yesNoField}
-                value="No"
-                checked={yesNoValue === 'No'}
-                onChange={(e) => onYesNoChange(e.target.value)}
-                className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-              />
-              <span className="text-sm text-gray-700">No</span>
-            </label>
-          </div>
-          {errors.includes(yesNoField) && (
-            <p className="text-red-600 text-sm font-medium">This field is required</p>
-          )}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Comments</label>
-          <Textarea
-            value={commentValue}
-            onChange={(e) => onCommentChange(e.target.value)}
-            className="w-full p-3 border border-slate-200 rounded-lg resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-slate-50"
-            rows={2}
-            placeholder="Add any comments or observations..."
-          />
-        </div>
-        {/* Attachments preview */}
-        <div>
-          <div className="flex flex-wrap gap-2">
-            {(attachments[yesNoField] ?? []).map(att => (
-              <div key={att.id} className="relative w-24 h-24 rounded overflow-hidden border border-gray-200">
-                <button
-                  type="button"
-                  onClick={() => setPreviewImage({ url: att.url, name: att.name })}
-                  className="w-full h-full"
-                  title={att.name}
-                >
-                  <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
-                </button>
-                <button
-                  onClick={() => handleRemoveAttachment(yesNoField, att.id)}
-                  title="Remove"
-                  className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-600 border border-gray-200 shadow-sm"
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 
   const validateForm = () => {
     const required: (keyof MaintenanceAuditData)[] = [
@@ -869,6 +906,11 @@ export default function MaintenanceAuditPage() {
                             commentValue={data[question.commentField as keyof MaintenanceAuditData]}
                             onYesNoChange={(v) => handleChange(question.yesNoField as keyof MaintenanceAuditData, v)}
                             onCommentChange={(v) => handleChange(question.commentField as keyof MaintenanceAuditData, v)}
+                            attachments={attachments}
+                            onAddAttachments={handleAddAttachments}
+                            onRemoveAttachment={handleRemoveAttachment}
+                            onPreviewAttachment={handlePreviewAttachment}
+                            hasError={hasError}
                           />
                         ))}
                       </div>
