@@ -1,8 +1,9 @@
 "use client";
 
+import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, TrendingUp, Clock, ShieldCheck, CheckCircle2, OctagonAlert } from "lucide-react";
-import type { StaffMember, Shift } from "./rotas-view";
+import type { StaffMember, Shift, ShiftPattern } from "./rotas-view";
 import { addDays, addWeeks, format, formatDistanceToNow } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -20,6 +21,7 @@ interface StaffSummaryProps {
   weekStart: Date;
   weeksToShow: number;
   staffingSummary: NDPSStaffingSummary | null;
+  patterns: ShiftPattern[];
 }
 
 function parseTimeString(time?: string | null) {
@@ -31,9 +33,9 @@ function parseTimeString(time?: string | null) {
   return { hour, minute };
 }
 
-function calculateShiftDurationHours(shift: Shift): number {
-  const start = parseTimeString(shift.startTime);
-  const end = parseTimeString(shift.endTime);
+function calculateShiftDurationHours(shift: Shift, pattern?: ShiftPattern): number {
+  const start = parseTimeString(shift.startTime ?? pattern?.startTime ?? null);
+  const end = parseTimeString(shift.endTime ?? pattern?.endTime ?? null);
   if (!start || !end) return 0;
 
   let hours = end.hour - start.hour;
@@ -52,19 +54,23 @@ function calculateShiftDurationHours(shift: Shift): number {
   return total > 0 ? Math.round(total * 100) / 100 : 0;
 }
 
-function isNightShift(shift: Shift): boolean {
-  const type = (shift.type || "").toLowerCase();
-  if (type.includes("night")) return true;
+function classifyShift(shift: Shift, pattern?: ShiftPattern): "Day" | "Night" {
+  const normalizedType = (shift.type ?? "").toLowerCase();
+  if (normalizedType.includes("night")) return "Night";
 
-  const start = parseTimeString(shift.startTime);
-  const end = parseTimeString(shift.endTime);
-  if (!start || !end) return false;
+  const start = parseTimeString(shift.startTime ?? pattern?.startTime ?? null);
+  const end = parseTimeString(shift.endTime ?? pattern?.endTime ?? null);
+  if (!start) return "Day";
 
-  if (end.hour < start.hour || (end.hour === start.hour && end.minute < start.minute)) {
-    return true;
+  const startHour = start.hour;
+  if (startHour >= 20 || startHour < 6) return "Night";
+
+  if (end) {
+    const endsBefore = end.hour < start.hour || (end.hour === start.hour && end.minute < start.minute);
+    if (endsBefore) return "Night";
   }
 
-  return start.hour >= 20 || start.hour < 6;
+  return "Day";
 }
 
 function formatStaffValue(value: number): string {
@@ -72,51 +78,26 @@ function formatStaffValue(value: number): string {
   return rounded.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 }
 
-export function StaffSummary({ staff, shifts, weekStart, weeksToShow, staffingSummary }: StaffSummaryProps) {
-  const workingShifts = shifts.filter((shift) => shift.type !== 'AnnualLeave');
-  const leaveShifts = shifts.filter((shift) => shift.type === 'AnnualLeave');
+export function StaffSummary({ staff, shifts, weekStart, weeksToShow, staffingSummary, patterns }: StaffSummaryProps) {
+  const patternMap = useMemo(() => {
+    const map = new Map<string, ShiftPattern>();
+    patterns.forEach((pattern) => map.set(pattern.id, pattern));
+    return map;
+  }, [patterns]);
 
-  const patternMap = new Map<string, ShiftPattern>();
-  patterns.forEach((pattern) => patternMap.set(pattern.id, pattern));
+  const workingShifts = shifts.filter((shift) => shift.type !== "AnnualLeave");
+  const leaveShifts = shifts.filter((shift) => shift.type === "AnnualLeave");
 
-  const parseTimeToMinutes = (time?: string | null) => {
-    if (!time) return null;
-    const [hoursStr, minutesStr] = time.split(':');
-    const hours = Number(hoursStr);
-    const minutes = Number(minutesStr);
-    if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
-    return hours * 60 + minutes;
-  };
-
-  const classifyShift = (shift: Shift): 'Day' | 'Night' => {
-    const pattern = patternMap.get(shift.type);
-    const normalizedType = shift.type.toLowerCase();
-    if (normalizedType.includes('night')) return 'Night';
-
-    const startMinutes = parseTimeToMinutes(shift.startTime ?? pattern?.startTime ?? null);
-    const endMinutes = parseTimeToMinutes(shift.endTime ?? pattern?.endTime ?? null);
-
-    if (startMinutes === null) return 'Day';
-
-    const startHour = Math.floor(startMinutes / 60);
-    if (startHour >= 20 || startHour < 6) return 'Night';
-
-    if (endMinutes !== null && endMinutes < startMinutes) {
-      return 'Night';
-    }
-
-    return 'Day';
-  };
-
-  // Calculate shifts per staff member
-  const staffShiftCounts = staff.map(member => {
-    const memberShifts = workingShifts.filter(s => s.staffId === member.id);
+  const staffShiftCounts = staff.map((member) => {
+    const memberShifts = workingShifts.filter((s) => s.staffId === member.id);
     const memberLeaveHours = leaveShifts
-      .filter(s => s.staffId === member.id)
+      .filter((s) => s.staffId === member.id)
       .reduce((total, leaveShift) => total + (leaveShift.leave?.totalHours ?? 0), 0);
-    
-    // Calculate total hours
-    const totalHours = memberShifts.reduce((sum, shift) => sum + calculateShiftDurationHours(shift), 0);
+
+    const totalHours = memberShifts.reduce((sum, shift) => {
+      const pattern = patternMap.get(shift.type);
+      return sum + calculateShiftDurationHours(shift, pattern);
+    }, 0);
 
     return {
       member,
@@ -126,39 +107,31 @@ export function StaffSummary({ staff, shifts, weekStart, weeksToShow, staffingSu
     };
   });
 
-  // Sort by shift count descending
   const sortedStaff = [...staffShiftCounts].sort((a, b) => b.shiftCount - a.shiftCount);
 
   const totalShifts = workingShifts.length;
   const averageShiftsPerStaff = staff.length > 0 ? Math.round((totalShifts / staff.length) * 10) / 10 : 0;
   const totalLeaveHours = leaveShifts.reduce((total, leaveShift) => total + (leaveShift.leave?.totalHours ?? 0), 0);
 
-  // Calculate coverage for each day
   const allDates: Date[] = [];
-  const visibleDateSet = new Set<string>();
-  for (let week = 0; week < weeksToShow; week++) {
-    const weekStartDate = addWeeks(weekStart, week);
-    for (let day = 0; day < 7; day++) {
-      const currentDate = addDays(weekStartDate, day);
-      allDates.push(currentDate);
-      visibleDateSet.add(format(currentDate, 'yyyy-MM-dd'));
+  for (let weekIndex = 0; weekIndex < weeksToShow; weekIndex += 1) {
+    const weekStartDate = addWeeks(weekStart, weekIndex);
+    for (let day = 0; day < 7; day += 1) {
+      allDates.push(addDays(weekStartDate, day));
     }
   }
 
-  const dateKeys = allDates.map((date) => format(date, 'yyyy-MM-dd'));
-  const dateKeySet = new Set(dateKeys);
+  const dateKeys = allDates.map((date) => format(date, "yyyy-MM-dd"));
+  const visibleDateSet = new Set(dateKeys);
+
   const dayAssignments: Record<string, number> = {};
   const nightAssignments: Record<string, number> = {};
 
-  dateKeys.forEach((key) => {
-    dayAssignments[key] = 0;
-    nightAssignments[key] = 0;
-  });
-
   workingShifts.forEach((shift) => {
-    if (!dateKeySet.has(shift.date)) return;
-    const bucket = classifyShift(shift);
-    if (bucket === 'Night') {
+    if (!visibleDateSet.has(shift.date)) return;
+    const pattern = patternMap.get(shift.type);
+    const bucket = classifyShift(shift, pattern);
+    if (bucket === "Night") {
       nightAssignments[shift.date] = (nightAssignments[shift.date] ?? 0) + 1;
     } else {
       dayAssignments[shift.date] = (dayAssignments[shift.date] ?? 0) + 1;
@@ -168,60 +141,30 @@ export function StaffSummary({ staff, shifts, weekStart, weeksToShow, staffingSu
   const dayCounts = dateKeys.map((key) => dayAssignments[key] ?? 0);
   const nightCounts = dateKeys.map((key) => nightAssignments[key] ?? 0);
 
-  const averageDayStaff = dayCounts.length
-    ? Math.round((dayCounts.reduce((sum, value) => sum + value, 0) / dayCounts.length) * 10) / 10
-    : 0;
-  const averageNightStaff = nightCounts.length
-    ? Math.round((nightCounts.reduce((sum, value) => sum + value, 0) / nightCounts.length) * 10) / 10
-    : 0;
+  const dailyCoverage = dateKeys.map((key) => ({
+    key,
+    shiftCount: (dayAssignments[key] ?? 0) + (nightAssignments[key] ?? 0),
+  }));
 
-  const lowestDayCover = dayCounts.length ? Math.min(...dayCounts) : 0;
-  const lowestNightCover = nightCounts.length ? Math.min(...nightCounts) : 0;
-
-  const requiredDayStaff = staffingSummary?.ndpsStaffing.Day ?? 0;
-  const requiredNightStaff = staffingSummary?.ndpsStaffing.Night ?? 0;
-  const dayDeficit = staffingSummary ? Math.max(0, requiredDayStaff - lowestDayCover) : 0;
-  const nightDeficit = staffingSummary ? Math.max(0, requiredNightStaff - lowestNightCover) : 0;
-  const meetsDayRequirement = staffingSummary ? dayDeficit === 0 : null;
-  const meetsNightRequirement = staffingSummary ? nightDeficit === 0 : null;
-  const isCompliant = Boolean(meetsDayRequirement && meetsNightRequirement);
-
-  const generatedRelative = (() => {
-    if (!staffingSummary) return null;
-    const generatedDate = new Date(staffingSummary.generatedAt);
-    if (Number.isNaN(generatedDate.getTime())) return null;
-    return formatDistanceToNow(generatedDate, { addSuffix: true });
-  })();
-
-  const dailyCoverage = allDates.map(date => {
-    const dateStr = format(date, 'yyyy-MM-dd');
-    const dayShifts = workingShifts.filter(s => s.date === dateStr);
-    return {
-      date,
-      shiftCount: dayShifts.length,
-    };
-  });
-
-  const numDays = visibleDateSet.size;
-  const daysWithLowCoverage = dailyCoverage.filter(d => d.shiftCount < 3).length;
-  const coveragePercentage = staff.length > 0 && numDays > 0 ? Math.min(100, Math.round((totalShifts / (staff.length * numDays)) * 100)) : 0;
+  const numDays = dateKeys.length;
+  const daysWithLowCoverage = dailyCoverage.filter((entry) => entry.shiftCount < 3).length;
+  const coveragePercentage =
+    staff.length > 0 && numDays > 0
+      ? Math.min(100, Math.round((totalShifts / (staff.length * numDays)) * 100))
+      : 0;
   const expectedShiftsPerStaff = staff.length > 0 ? totalShifts / staff.length : 0;
-  const dayDeficitLabel = dayDeficit > 0 ? `Add ${Math.ceil(dayDeficit)} for day cover` : null;
-  const nightDeficitLabel = nightDeficit > 0 ? `Add ${Math.ceil(nightDeficit)} for night cover` : null;
-  const actionItems = [dayDeficitLabel, nightDeficitLabel].filter(Boolean) as string[];
 
   let totalDayHours = 0;
   let totalNightHours = 0;
 
   workingShifts.forEach((shift) => {
     if (!visibleDateSet.has(shift.date)) return;
-    const duration = calculateShiftDurationHours(shift);
+    const pattern = patternMap.get(shift.type);
+    const duration = calculateShiftDurationHours(shift, pattern);
     if (duration <= 0) return;
-    if (isNightShift(shift)) {
-      totalNightHours += duration;
-    } else {
-      totalDayHours += duration;
-    }
+    const bucket = classifyShift(shift, pattern);
+    if (bucket === "Night") totalNightHours += duration;
+    else totalDayHours += duration;
   });
 
   const dayShiftEquivalent = numDays > 0 ? totalDayHours / 12 : 0;
@@ -364,9 +307,7 @@ export function StaffSummary({ staff, shifts, weekStart, weeksToShow, staffingSu
         </CardHeader>
         <CardContent>
           {sortedStaff.length === 0 ? (
-            <div className="py-6 text-center text-sm text-muted-foreground">
-              No staff assigned yet
-            </div>
+            <div className="py-6 text-center text-sm text-muted-foreground">No staff assigned yet</div>
           ) : (
             <div className="space-y-3">
               {sortedStaff.slice(0, 10).map(({ member, shiftCount, totalHours, leaveHours }) => (
