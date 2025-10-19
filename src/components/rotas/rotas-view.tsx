@@ -17,7 +17,7 @@ import { PrintRota } from "./print-rota";
 import { format, startOfWeek, addWeeks, subWeeks, addDays, startOfMonth, endOfMonth } from "date-fns";
 import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { workspaceDocPath } from "@/lib/paths";
+import { workspaceDocPath, workspaceCollectionPath } from "@/lib/paths";
 import { useToast } from "@/hooks/use-toast";
 import { sendRotaEmails } from "@/actions/rotas";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -72,6 +72,13 @@ export interface RotaData {
 interface RotasViewProps {
   workspace: Workspace;
 }
+ 
+interface NDPSStaffingSummary {
+  recommendedDay: number;
+  recommendedNight: number;
+  residentCount: number;
+  generatedAt?: string | null;
+}
 
 const defaultShiftPatterns: ShiftPattern[] = [
   { id: 'AM', label: 'Morning', startTime: '07:00', endTime: '15:00', color: 'blue' },
@@ -79,6 +86,114 @@ const defaultShiftPatterns: ShiftPattern[] = [
   { id: 'Night', label: 'Night', startTime: '23:00', endTime: '07:00', color: 'indigo' },
   { id: 'Full', label: 'Full Day', startTime: '07:00', endTime: '23:00', color: 'green' },
 ];
+
+type DependencyLevel = "" | "0" | "1" | "2" | "3" | "4" | "5";
+
+const NPDS_FIELD_SECTIONS: Record<string, "BCN" | "SNN" | "THERAPY"> = {
+  bcn_mobility: "BCN",
+  bcn_transfers: "BCN",
+  bcn_washing: "BCN",
+  bcn_dressing: "BCN",
+  bcn_toileting: "BCN",
+  bcn_continence: "BCN",
+  bcn_feeding: "BCN",
+  bcn_turning: "BCN",
+  bcn_getting_up: "BCN",
+  bcn_bed_mobility: "BCN",
+  bcn_walking: "BCN",
+  bcn_stairs: "BCN",
+  snn_breathing: "SNN",
+  snn_drugs: "SNN",
+  snn_skin_care: "SNN",
+  snn_treatment: "SNN",
+  snn_observation: "SNN",
+  therapy_communication: "THERAPY",
+  therapy_cognitive: "THERAPY",
+  therapy_behaviour: "THERAPY",
+};
+
+const NDPS_STAFFING_RATIOS_DAY: Record<1 | 2 | 3 | 4 | 5, number> = {
+  1: 1 / 10,
+  2: 1 / 6,
+  3: 1 / 3,
+  4: 1 / 1.5,
+  5: 1.5,
+};
+
+const NDPS_STAFFING_RATIOS_NIGHT: Record<1 | 2 | 3 | 4 | 5, number> = {
+  1: 1 / 20,
+  2: 1 / 12,
+  3: 1 / 6,
+  4: 1 / 3,
+  5: 1,
+};
+
+function calculateNDPSScoreFromResident(resident: Record<string, unknown>): number {
+  let bcnScore = 0;
+  let snnScore = 0;
+  let therapyScore = 0;
+
+  for (const [fieldKey, section] of Object.entries(NPDS_FIELD_SECTIONS)) {
+    const raw = resident[fieldKey];
+    const value = typeof raw === "string" ? raw : raw !== undefined && raw !== null ? String(raw) : "";
+    const numeric = Number.parseInt(value, 10);
+    const score = Number.isFinite(numeric) ? Math.min(Math.max(numeric, 0), 5) : 0;
+
+    if (section === "BCN") {
+      bcnScore += score;
+    } else if (section === "SNN") {
+      snnScore += score;
+    } else {
+      therapyScore += score;
+    }
+  }
+
+  return Math.min(bcnScore, 60) + Math.min(snnScore, 25) + Math.min(therapyScore, 15);
+}
+
+function getNDPSBandFromScore(score: number): 1 | 2 | 3 | 4 | 5 {
+  if (score <= 20) return 1;
+  if (score <= 40) return 2;
+  if (score <= 60) return 3;
+  if (score <= 80) return 4;
+  return 5;
+}
+
+function calculateNDPSStaffingForResidents(residents: Array<Record<string, unknown>>): { Day: number; Night: number } {
+  if (residents.length === 0) {
+    return { Day: 0, Night: 0 };
+  }
+
+  const bandCounts: Record<1 | 2 | 3 | 4 | 5, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+
+  for (const resident of residents) {
+    const score = calculateNDPSScoreFromResident(resident);
+    const band = getNDPSBandFromScore(score);
+    bandCounts[band] += 1;
+  }
+
+  let dayStaff = 0;
+  let nightStaff = 0;
+
+  // Object.keys returns string[] which doesn't match the numeric union keys (1|2|3|4|5).
+  // Use Object.entries and convert the key to a number to satisfy TypeScript.
+  for (const [bandKeyStr, count] of Object.entries(bandCounts) as [string, number][]) {
+    const band = Number(bandKeyStr) as 1 | 2 | 3 | 4 | 5;
+    dayStaff += count * NDPS_STAFFING_RATIOS_DAY[band];
+    nightStaff += count * NDPS_STAFFING_RATIOS_NIGHT[band];
+  }
+
+  const hasResidents = residents.length > 0;
+  const minDay = hasResidents ? 2 : 0;
+  const minNight = hasResidents ? 2 : 0;
+  const requiredDay = Math.ceil(dayStaff);
+  const requiredNight = Math.ceil(nightStaff);
+
+  return {
+    Day: Math.max(minDay, requiredDay),
+    Night: Math.max(minNight, requiredNight),
+  };
+}
 
 // Calculate hours between two time strings (HH:mm format)
 function calculateShiftHours(startTime: string, endTime: string): number {
@@ -135,6 +250,7 @@ export function RotasView({ workspace }: RotasViewProps) {
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
   const [activeTab, setActiveTab] = useState<'schedule' | 'hours'>('schedule');
   const [contractedHoursConfig, setContractedHoursConfig] = useState<Record<string, { contractedHours: number; hoursType: 'weekly' | 'monthly' }>>({});
+  const [staffingSummary, setStaffingSummary] = useState<NDPSStaffingSummary | null>(null);
   const { toast } = useToast();
   const [isEmailing, startEmailRotaTransition] = useTransition();
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
@@ -261,6 +377,72 @@ export function RotasView({ workspace }: RotasViewProps) {
     };
     
     loadStaff();
+  }, [workspaceId, organisationId]);
+
+  useEffect(() => {
+    if (!workspaceId) {
+      setStaffingSummary(null);
+      return;
+    }
+
+    const dependencyPath = workspaceCollectionPath(workspaceId, 'dependency_calculator', organisationId || null);
+    if (!dependencyPath) {
+      setStaffingSummary(null);
+      return;
+    }
+
+    const dependencyRef = doc(db, dependencyPath, 'default');
+    const unsubscribe = onSnapshot(
+      dependencyRef,
+      (snapshot) => {
+        if (!snapshot.exists()) {
+          setStaffingSummary(null);
+          return;
+        }
+
+        const data = snapshot.data() as Record<string, unknown>;
+        const residentsRaw = (data as any)?.residents;
+        const residents = Array.isArray(residentsRaw) ? (residentsRaw as Array<Record<string, unknown>>) : [];
+
+        if (residents.length === 0) {
+          setStaffingSummary(null);
+          return;
+        }
+
+        const recommended = calculateNDPSStaffingForResidents(residents);
+
+        const resolveTimestamp = (value: unknown): string | null => {
+          if (!value) return null;
+          if (typeof value === 'string') {
+            const parsed = new Date(value);
+            return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+          }
+          if (typeof (value as { toDate?: () => Date }).toDate === 'function') {
+            try {
+              return (value as { toDate: () => Date }).toDate().toISOString();
+            } catch {
+              return null;
+            }
+          }
+          return null;
+        };
+
+        const updatedAtIso = resolveTimestamp((data as any)?.updatedAt) ?? resolveTimestamp((data as any)?.savedAt);
+
+        setStaffingSummary({
+          recommendedDay: recommended.Day,
+          recommendedNight: recommended.Night,
+          residentCount: residents.length,
+          generatedAt: updatedAtIso,
+        });
+      },
+      (error) => {
+        console.error('Failed to load dependency staffing summary:', error);
+        setStaffingSummary(null);
+      }
+    );
+
+    return () => unsubscribe();
   }, [workspaceId, organisationId]);
 
   // Load rota data for the current period
@@ -732,7 +914,6 @@ export function RotasView({ workspace }: RotasViewProps) {
                     shifts={allShifts}
                     weekStart={currentWeekStart}
                     weeksToShow={weeksToShow}
-                    patterns={shiftPatterns}
                     staffingSummary={staffingSummary}
                   />
                 </div>
