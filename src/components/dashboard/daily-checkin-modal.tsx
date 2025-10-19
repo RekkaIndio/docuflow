@@ -630,7 +630,7 @@ export default function DailyCheckinModal({ workspaceId, open: controlledOpen, o
           );
           setFallsInjuries(data.falls?.injuries || '');
           setFallsWitnessed(data.falls?.witnessed || '');
-          setFallsUnwitnessed(data.falls?.unwitnessed ?? data.falls?.time ?? '');
+          setFallsUnwitnessed(data.falls?.unwitnessed ?? '');
 
           setCqcNotifications(data.cqcNotifications ?? '');
           setSafeguards(data.safeguards ?? '');
@@ -715,7 +715,6 @@ export default function DailyCheckinModal({ workspaceId, open: controlledOpen, o
         count: fallsCount === '' ? 0 : Number(fallsCount),
         injuries: fallsInjuries,
         witnessed: fallsWitnessed,
-        time: fallsUnwitnessed,
         unwitnessed: fallsUnwitnessed,
       };
 
