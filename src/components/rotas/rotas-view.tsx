@@ -510,7 +510,7 @@ export function RotasView({ workspace }: RotasViewProps) {
           workspaceId,
           organisationId: organisationId || null,
           workspaceName: workspace.name || 'Workspace',
-          weekStartIso: currentWeekStart.toISOString(),
+          weekStartKey: format(currentWeekStart, 'yyyy-MM-dd'),
           weeksToShow: weeksCount,
         });
 

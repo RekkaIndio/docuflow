@@ -1,6 +1,6 @@
 'use server';
 
-import { addDays, format, parseISO } from 'date-fns';
+import { addDays, format, parse, parseISO } from 'date-fns';
 import { workspaceDocPath } from '@/lib/paths';
 import { sendWithMailgun } from '@/lib/mailgun';
 import { adminDb } from '@/lib/firebase-admin';
@@ -9,7 +9,7 @@ interface SendRotaEmailsInput {
   workspaceId: string;
   organisationId?: string | null;
   workspaceName: string;
-  weekStartIso: string;
+  weekStartKey: string;
   weeksToShow: number;
 }
 
@@ -132,16 +132,20 @@ export async function sendRotaEmails({
   workspaceId,
   organisationId,
   workspaceName,
-  weekStartIso,
+  weekStartKey,
   weeksToShow,
 }: SendRotaEmailsInput): Promise<SendRotaEmailsResult> {
   if (!workspaceId) {
     throw new Error('Workspace ID is required to send rota emails.');
   }
 
-  const weekStartDate = new Date(weekStartIso);
+  if (!weekStartKey) {
+    throw new Error('Week start key is required to send rota emails.');
+  }
+
+  const weekStartDate = parse(weekStartKey, 'yyyy-MM-dd', new Date());
   if (Number.isNaN(weekStartDate.getTime())) {
-    throw new Error('Invalid week start date provided.');
+    throw new Error('Invalid week start key provided.');
   }
 
   const totalWeeks = Math.max(1, weeksToShow);
@@ -164,8 +168,8 @@ export async function sendRotaEmails({
   for (let offset = 0; offset < totalWeeks; offset += 1) {
     const weekDate = addDays(weekStartDate, offset * 7);
     const weekKey = format(weekDate, 'yyyy-MM-dd');
-  const rotaRef = adminDb.doc(`${workspacePath}/rotas/${weekKey}`);
-  const rotaSnap = await rotaRef.get();
+    const rotaRef = adminDb.doc(`${workspacePath}/rotas/${weekKey}`);
+    const rotaSnap = await rotaRef.get();
     if (!rotaSnap.exists) {
       continue;
     }
@@ -197,7 +201,7 @@ export async function sendRotaEmails({
       continue;
     }
 
-  const staffInfo = staffLookup.get(staffId) ?? staffLookup.get(staffId.toLowerCase());
+    const staffInfo = staffLookup.get(staffId) ?? staffLookup.get(staffId.toLowerCase());
     const recipientEmail = staffInfo?.email;
 
     if (!recipientEmail) {
