@@ -630,7 +630,7 @@ export default function DailyCheckinModal({ workspaceId, open: controlledOpen, o
           );
           setFallsInjuries(data.falls?.injuries || '');
           setFallsWitnessed(data.falls?.witnessed || '');
-          setFallsUnwitnessed(data.falls?.unwitnessed ?? '');
+          setFallsUnwitnessed(data.falls?.unwitnessed ?? data.falls?.time ?? '');
 
           setCqcNotifications(data.cqcNotifications ?? '');
           setSafeguards(data.safeguards ?? '');
