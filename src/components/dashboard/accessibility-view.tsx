@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Minus, Plus, RotateCcw } from "lucide-react";
+import { Minus, Plus, RotateCcw, Zap, Eye, Brain, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import type { Workspace } from "@/lib/types";
 import { SidebarTrigger } from "../ui/sidebar";
 
@@ -17,6 +18,33 @@ interface AccessibilityViewProps {
 const FONT_SIZE_STORAGE_KEY = 'docuflow-font-size';
 const DEFAULT_FONT_SIZE = 100; // 100% = normal size
 const COLOR_THEME_STORAGE_KEY = 'docuflow-color-theme';
+
+const ACCESSIBILITY_PROFILES = [
+    {
+        id: 'seizure-safe',
+        name: 'Seizure Safe Profile',
+        description: 'Clear flashes & reduces color',
+        Icon: Zap
+    },
+    {
+        id: 'vision-impaired',
+        name: 'Vision Impaired Profile',
+        description: "Enhances website's visuals",
+        Icon: Eye
+    },
+    {
+        id: 'adhd-friendly',
+        name: 'ADHD Friendly Profile',
+        description: 'More focus & fewer distractions',
+        Icon: Brain
+    },
+    {
+        id: 'cognitive-disability',
+        name: 'Cognitive Disability Profile',
+        description: 'Assists with reading & focusing',
+        Icon: Target
+    }
+];
 
 // Dyslexia-friendly color themes based on WCAG guidelines
 const COLOR_THEMES = [
@@ -57,6 +85,20 @@ const COLOR_THEMES = [
 export function AccessibilityView({ workspace }: AccessibilityViewProps) {
     const [fontSize, setFontSize] = useState(DEFAULT_FONT_SIZE);
     const [selectedTheme, setSelectedTheme] = useState('default');
+    const [profileStates, setProfileStates] = useState<Record<string, boolean>>(() =>
+        ACCESSIBILITY_PROFILES.reduce<Record<string, boolean>>((acc, profile) => {
+            acc[profile.id] = false;
+            return acc;
+        }, {})
+    );
+
+    // Placeholder handler until profile presets are wired into the accessibility system
+    const handleProfileToggle = (profileId: string, nextValue: boolean) => {
+        setProfileStates((prev) => ({
+            ...prev,
+            [profileId]: nextValue,
+        }));
+    };
 
     // Load saved font size on mount
     useEffect(() => {
@@ -147,6 +189,43 @@ export function AccessibilityView({ workspace }: AccessibilityViewProps) {
                 </div>
                 
                 <div className="max-w-2xl space-y-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Choose the right accessibility profile for you</CardTitle>
+                            <CardDescription>
+                                Toggle a preset to preview upcoming accessibility bundles. We will connect these to real settings soon.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            {ACCESSIBILITY_PROFILES.map(({ id, name, description, Icon }) => (
+                                <div
+                                    key={id}
+                                    className={`flex items-center justify-between gap-4 rounded-2xl border p-4 transition-colors ${
+                                        profileStates[id]
+                                            ? 'border-blue-200 bg-blue-50 dark:bg-blue-950/20'
+                                            : 'border-slate-200 bg-white dark:bg-slate-900'
+                                    }`}
+                                >
+                                    <div className="flex-1">
+                                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{name}</p>
+                                        <p className="text-sm text-muted-foreground">{description}</p>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                            {profileStates[id] ? 'On' : 'Off'}
+                                        </span>
+                                        <Switch
+                                            checked={profileStates[id]}
+                                            onCheckedChange={(value) => handleProfileToggle(id, value)}
+                                            aria-label={name}
+                                        />
+                                        <Icon className="h-6 w-6 text-blue-500" />
+                                    </div>
+                                </div>
+                            ))}
+                        </CardContent>
+                    </Card>
+
                     <Card>
                         <CardHeader>
                             <CardTitle>Text Size</CardTitle>
