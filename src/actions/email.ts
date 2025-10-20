@@ -156,3 +156,49 @@ export async function sendInvitationEmail({
     throw new Error('Failed to send invitation email.');
   }
 }
+
+interface SendOnboardingInviteEmailProps {
+  recipientEmail: string;
+  organisationName?: string | null;
+  onboardingLink: string;
+  expiresInHours?: number;
+  senderName?: string | null;
+}
+
+export async function sendOnboardingInviteEmail({
+  recipientEmail,
+  organisationName,
+  onboardingLink,
+  expiresInHours = 168,
+  senderName,
+}: SendOnboardingInviteEmailProps): Promise<void> {
+  const mailCollectionRef = collection(db, 'mail');
+  const prettyOrganisation = organisationName || 'your organisation';
+  const friendlySender = senderName || 'CG360 Onboarding Team';
+  const expiryText = expiresInHours >= 24 ? `${Math.round(expiresInHours / 24)} days` : `${expiresInHours} hours`;
+
+  try {
+    await addDoc(mailCollectionRef, {
+      to: [recipientEmail],
+      message: {
+        subject: `Help us set up ${prettyOrganisation} on CG360`,
+        html: `
+          <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+            <h2>Let's get your CG360 workspace ready</h2>
+            <p>Hello,</p>
+            <p>${friendlySender} has invited you to share a few onboarding details so we can configure CG360 for <b>${prettyOrganisation}</b>.</p>
+            <p>The form takes around 3 minutes and asks for the key contacts who will manage your teams.</p>
+            <p style="margin: 24px 0;">
+              <a href="${onboardingLink}" style="display: inline-block; background: #0f172a; color: #fff; padding: 12px 28px; border-radius: 6px; text-decoration: none; font-weight: bold;">Open onboarding snapshot</a>
+            </p>
+            <p>This secure link expires in ${expiryText}. If it stops working, reply to this email and we'll refresh it.</p>
+            <p>Thank you!<br/>The CG360 Team</p>
+          </div>
+        `,
+      },
+    });
+  } catch (error) {
+    console.error('Error creating onboarding invite email trigger document:', error);
+    throw new Error('Failed to send onboarding invite email.');
+  }
+}

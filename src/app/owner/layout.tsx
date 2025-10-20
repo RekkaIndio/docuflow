@@ -77,7 +77,7 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="border-b bg-white/70 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-4">
+        <div className="flex w-full items-center justify-between px-4 py-4 sm:px-6 lg:px-10 xl:px-16 2xl:px-20">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-slate-400">CG360 owner</p>
             <h1 className="text-lg font-semibold text-slate-800">Platform Control Centre</h1>
@@ -94,7 +94,7 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-6xl px-4 py-8">{children}</main>
+      <main className="w-full px-4 py-10 sm:px-6 lg:px-10 xl:px-16 2xl:px-20">{children}</main>
     </div>
   );
 }

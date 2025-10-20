@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { auth } from '@/lib/firebase';
 import {
@@ -32,6 +33,11 @@ import {
   Database,
   Server,
   Clock,
+  Copy,
+  AlertTriangle,
+  CheckCircle2,
+  Clock3,
+  Send,
 } from 'lucide-react';
 
 type OrganisationSummary = {
@@ -75,6 +81,43 @@ type InviteSummary = {
   role: string | null;
 };
 
+type OnboardingInviteDraft = {
+  organisation?: {
+    name: string | null;
+    serviceType: string | null;
+    locationCount: number | null;
+    notes: string | null;
+  } | null;
+  ownerContact?: {
+    name?: string | null;
+    email?: string | null;
+    notKnown?: boolean;
+  } | null;
+  managementContacts?: Array<{ name?: string | null; email?: string | null; notKnown?: boolean }>;
+  status?: string | null;
+  updatedAt?: string | null;
+  notes?: string | null;
+};
+
+type OnboardingInvite = {
+  token: string;
+  recipientEmail: string | null;
+  organisationName: string | null;
+  contactName: string | null;
+  status: 'pending' | 'submitted' | 'expired' | string;
+  createdAt: string | null;
+  expiresAt: string | null;
+  submittedAt: string | null;
+  draft: OnboardingInviteDraft | null;
+};
+
+type OnboardingInviteFormState = {
+  recipientEmail: string;
+  organisationName: string;
+  contactName: string;
+  expiresInHours: number;
+};
+
 type FeatureModule = {
   name: string;
   description?: string | null;
@@ -108,16 +151,30 @@ type OrganisationDetail = {
   featureFlags: FeatureFlagsState;
 };
 
+type ProvisionedWorkspace = {
+  id: string;
+  name: string;
+};
+
+type SeededMemberSummary = {
+  id: string | null;
+  email: string;
+  role: string | null;
+  workspaceIds: string[];
+  teamAssignments: Record<string, string[]>;
+  userCreated: boolean;
+  emailSent: boolean;
+  error?: string | null;
+};
+
 type ProvisionResponse = {
   organisation: {
     id: string;
     name: string;
     ownerId: string | null;
   };
-  workspace: {
-    id: string;
-    name: string;
-  };
+  workspaces: ProvisionedWorkspace[];
+  workspace?: ProvisionedWorkspace | null;
   owner: {
     id: string;
     email: string;
@@ -125,13 +182,55 @@ type ProvisionResponse = {
   };
   passwordLink: string | null;
   userCreated: boolean;
+  seededMembers?: SeededMemberSummary[];
+};
+
+type MemberRoleKey = 'member' | 'admin' | 'owner';
+
+type TeamKey =
+  | 'admin'
+  | 'staff'
+  | 'inspection'
+  | 'management'
+  | 'nurses'
+  | 'carers'
+  | 'ctm'
+  | 'domestic'
+  | 'maintenance'
+  | 'kitchen'
+  | 'activities';
+
+type ProvisionMemberForm = {
+  id: string;
+  name: string;
+  email: string;
+  role: MemberRoleKey;
+  workspaceIndices: number[];
+  teamKeys: TeamKey[];
+  sendInvite: boolean;
 };
 
 type ProvisionFormState = {
   organisationName: string;
+  organisationSlug: string;
   ownerName: string;
   ownerEmail: string;
-  workspaceName: string;
+  workspaceCount: number;
+  workspaceNames: string[];
+  workspaceLimit: number | '';
+  serviceType: string;
+  cqcRegistrationNumber: string;
+  registeredLocations: number | '';
+  timezone: string;
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  postcode: string;
+  country: string;
+  primaryContactName: string;
+  primaryContactEmail: string;
+  primaryContactPhone: string;
+  members: ProvisionMemberForm[];
 };
 
 type WorkspaceFormState = {
@@ -139,8 +238,6 @@ type WorkspaceFormState = {
   ownerId: string;
   memberIds: string;
 };
-
-type MemberRoleKey = 'member' | 'admin' | 'owner';
 
 type MemberFormState = {
   email: string;
@@ -208,12 +305,66 @@ type UserStatistics = {
   roleDistribution: Record<string, number>;
 };
 
-const DEFAULT_PROVISION_FORM: ProvisionFormState = {
+const MAX_PROVISION_WORKSPACES = 10;
+
+const TEAM_OPTIONS: Array<{ key: TeamKey; label: string; description: string }> = [
+  { key: 'admin', label: 'Admin', description: 'Leadership, managers, and heads of service' },
+  { key: 'staff', label: 'Staff', description: 'Front-line care staff and general workforce' },
+  { key: 'inspection', label: 'Inspection', description: 'Regulatory or external inspection read-only access' },
+  { key: 'management', label: 'Management', description: 'Registered managers and senior leadership contacts' },
+  { key: 'nurses', label: 'Nurses', description: 'Registered nursing staff across the service' },
+  { key: 'carers', label: 'Carers', description: 'Care assistants and support workers' },
+  { key: 'ctm', label: 'CTM', description: 'Care team managers overseeing rostering and compliance' },
+  { key: 'domestic', label: 'Domestic', description: 'Housekeeping and domestic services team' },
+  { key: 'maintenance', label: 'Maintenance', description: 'Maintenance and facilities staff' },
+  { key: 'kitchen', label: 'Kitchen', description: 'Catering and kitchen staff members' },
+  { key: 'activities', label: 'Activities', description: 'Lifestyle and wellbeing coordinators' },
+];
+
+const TIMEZONE_OPTIONS = [
+  { value: 'Europe/London', label: 'GMT / BST — United Kingdom' },
+  { value: 'Europe/Dublin', label: 'GMT / IST — Ireland' },
+  { value: 'Europe/Guernsey', label: 'GMT / BST — Channel Islands' },
+  { value: 'Europe/Isle_of_Man', label: 'GMT / BST — Isle of Man' },
+];
+
+const generateProvisionMemberId = () =>
+  typeof globalThis !== 'undefined' && globalThis.crypto && 'randomUUID' in globalThis.crypto
+    ? globalThis.crypto.randomUUID()
+    : `member-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+const createProvisionMember = (workspaceCount: number): ProvisionMemberForm => ({
+  id: generateProvisionMemberId(),
+  name: '',
+  email: '',
+  role: 'member',
+  workspaceIndices: workspaceCount > 0 ? [0] : [],
+  teamKeys: [],
+  sendInvite: true,
+});
+
+const createDefaultProvisionForm = (): ProvisionFormState => ({
   organisationName: '',
+  organisationSlug: '',
   ownerName: '',
   ownerEmail: '',
-  workspaceName: '',
-};
+  workspaceCount: 1,
+  workspaceNames: [''],
+  workspaceLimit: '',
+  serviceType: '',
+  cqcRegistrationNumber: '',
+  registeredLocations: '',
+  timezone: 'Europe/London',
+  addressLine1: '',
+  addressLine2: '',
+  city: '',
+  postcode: '',
+  country: 'United Kingdom',
+  primaryContactName: '',
+  primaryContactEmail: '',
+  primaryContactPhone: '',
+  members: [],
+});
 
 const DEFAULT_WORKSPACE_FORM: WorkspaceFormState = {
   name: '',
@@ -236,6 +387,13 @@ const DEFAULT_INVITE_FORM: InviteFormState = {
   expiresInHours: 72,
 };
 
+const DEFAULT_ONBOARDING_INVITE_FORM: OnboardingInviteFormState = {
+  recipientEmail: '',
+  organisationName: '',
+  contactName: '',
+  expiresInHours: 7 * 24,
+};
+
 function normaliseInviteUrl(token: string): string {
   if (typeof window !== 'undefined') {
     const origin = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
@@ -243,6 +401,15 @@ function normaliseInviteUrl(token: string): string {
   }
   const base = process.env.NEXT_PUBLIC_APP_URL || 'https://app.docuflow.ai';
   return `${base.replace(/\/$/, '')}/accept-invite?token=${token}`;
+}
+
+function normaliseOnboardingUrl(token: string): string {
+  if (typeof window !== 'undefined') {
+    const origin = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
+    return `${origin.replace(/\/$/, '')}/onboarding/${token}`;
+  }
+  const base = process.env.NEXT_PUBLIC_APP_URL || 'https://app.docuflow.ai';
+  return `${base.replace(/\/$/, '')}/onboarding/${token}`;
 }
 
 async function readJson<T>(response: Response): Promise<T> {
@@ -255,14 +422,14 @@ const OwnerConsolePage: React.FC = () => {
 
   const [organisations, setOrganisations] = useState<OrganisationSummary[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [form, setForm] = useState<ProvisionFormState>(DEFAULT_PROVISION_FORM);
+  const [form, setForm] = useState<ProvisionFormState>(() => createDefaultProvisionForm());
   const [provisioning, setProvisioning] = useState<boolean>(false);
   const [lastProvision, setLastProvision] = useState<ProvisionResponse | null>(null);
 
   const [selectedOrganisationId, setSelectedOrganisationId] = useState<string | null>(null);
   const [organisationDetail, setOrganisationDetail] = useState<OrganisationDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState<boolean>(false);
-  const [mainTab, setMainTab] = useState<'dashboard' | 'organisations' | 'users'>('dashboard');
+  const [mainTab, setMainTab] = useState<'dashboard' | 'organisations' | 'users' | 'onboarding'>('dashboard');
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
 
   const [workspaceForm, setWorkspaceForm] = useState<WorkspaceFormState>(DEFAULT_WORKSPACE_FORM);
@@ -275,6 +442,13 @@ const OwnerConsolePage: React.FC = () => {
   const [inviteForm, setInviteForm] = useState<InviteFormState>(DEFAULT_INVITE_FORM);
   const [inviteCreating, setInviteCreating] = useState<boolean>(false);
   const [inviteDeleting, setInviteDeleting] = useState<string | null>(null);
+
+  const [onboardingInvites, setOnboardingInvites] = useState<OnboardingInvite[]>([]);
+  const [onboardingLoading, setOnboardingLoading] = useState<boolean>(false);
+  const [onboardingForm, setOnboardingForm] = useState<OnboardingInviteFormState>(DEFAULT_ONBOARDING_INVITE_FORM);
+  const [onboardingCreating, setOnboardingCreating] = useState<boolean>(false);
+  const [onboardingActioningToken, setOnboardingActioningToken] = useState<string | null>(null);
+  const [hasLoadedOnboarding, setHasLoadedOnboarding] = useState<boolean>(false);
 
   const [featureFlagsSaving, setFeatureFlagsSaving] = useState<string | null>(null);
 
@@ -302,6 +476,21 @@ const OwnerConsolePage: React.FC = () => {
       latestOrgCreatedAt: latest?.createdAt ?? null,
     };
   }, [organisations]);
+
+  const onboardingMetrics = useMemo(() => {
+    const total = onboardingInvites.length;
+    const pending = onboardingInvites.filter((invite) => invite.status === 'pending').length;
+    const submitted = onboardingInvites.filter((invite) => invite.status === 'submitted').length;
+    const expired = onboardingInvites.filter((invite) => invite.status === 'expired').length;
+    const latest = onboardingInvites[0] ?? null;
+    return {
+      total,
+      pending,
+      submitted,
+      expired,
+      latest,
+    } as const;
+  }, [onboardingInvites]);
 
   const authedFetch = useCallback(async (input: RequestInfo | URL, init: RequestInit = {}) => {
     const headers = new Headers(init.headers);
@@ -367,6 +556,7 @@ const OwnerConsolePage: React.FC = () => {
   useEffect(() => {
     fetchOrganisations();
   }, [fetchOrganisations]);
+
 
   const fetchSystemHealth = useCallback(async () => {
     setHealthLoading(true);
@@ -445,13 +635,138 @@ const OwnerConsolePage: React.FC = () => {
     }
   }, [authedFetch, toast]);
 
-  const handleChange = (field: keyof ProvisionFormState) => (event: ChangeEvent<HTMLInputElement>) => {
-    setForm((prev) => ({ ...prev, [field]: event.target.value }));
+  const fetchOnboardingInvites = useCallback(async () => {
+    setOnboardingLoading(true);
+    try {
+      const response = await authedFetch('/api/admin/onboarding', { cache: 'no-store' });
+      if (!response.ok) {
+        const payload = await readJson<{ error?: string }>(response);
+        throw new Error(payload.error || 'Failed to load onboarding invites');
+      }
+      const payload = await readJson<{ invites?: OnboardingInvite[] }>(response);
+      setOnboardingInvites(Array.isArray(payload.invites) ? payload.invites : []);
+    } catch (error) {
+      console.error('[owner console] failed to load onboarding invites', error);
+      toast({
+        title: 'Unable to load onboarding invites',
+        description: error instanceof Error ? error.message : 'Please try again later.',
+        variant: 'destructive',
+      });
+    } finally {
+      setOnboardingLoading(false);
+      setHasLoadedOnboarding(true);
+    }
+  }, [authedFetch, toast]);
+
+  useEffect(() => {
+    if (mainTab === 'onboarding' && !hasLoadedOnboarding) {
+      fetchOnboardingInvites();
+    }
+  }, [mainTab, hasLoadedOnboarding, fetchOnboardingInvites]);
+
+  const handleTextFieldChange = (field: 'organisationName' | 'organisationSlug' | 'ownerName' | 'ownerEmail') =>
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const { value } = event.target;
+      setForm((prev) => ({ ...prev, [field]: value }));
+    };
+
+  const handleWorkspaceCountChange = (value: string) => {
+    const parsed = Number.parseInt(value, 10);
+    const nextCount = Number.isFinite(parsed) ? Math.min(Math.max(parsed, 1), MAX_PROVISION_WORKSPACES) : 1;
+    setForm((prev) => {
+      const nextNames = [...prev.workspaceNames];
+      const nextMembers = prev.members.map((member) => ({
+        ...member,
+        workspaceIndices: member.workspaceIndices.filter((index) => index < nextCount),
+      }));
+      if (nextCount > nextNames.length) {
+        return {
+          ...prev,
+          workspaceCount: nextCount,
+          workspaceNames: [...nextNames, ...Array(nextCount - nextNames.length).fill('')],
+          members: nextMembers,
+        };
+      }
+      return {
+        ...prev,
+        workspaceCount: nextCount,
+        workspaceNames: nextNames.slice(0, nextCount),
+        members: nextMembers,
+      };
+    });
+  };
+
+  const handleWorkspaceNameChange = (index: number, value: string) => {
+    setForm((prev) => {
+      const nextNames = [...prev.workspaceNames];
+      nextNames[index] = value;
+      return {
+        ...prev,
+        workspaceNames: nextNames,
+      };
+    });
+  };
+
+  const handleProvisionMemberChange = (memberId: string, updates: Partial<ProvisionMemberForm>) => {
+    setForm((prev) => ({
+      ...prev,
+      members: prev.members.map((member) => (member.id === memberId ? { ...member, ...updates } : member)),
+    }));
+  };
+
+  const handleProvisionMemberWorkspaceToggle = (memberId: string, workspaceIndex: number) => {
+    setForm((prev) => ({
+      ...prev,
+      members: prev.members.map((member) => {
+        if (member.id !== memberId) return member;
+        const exists = member.workspaceIndices.includes(workspaceIndex);
+        const workspaceIndices = exists
+          ? member.workspaceIndices.filter((index) => index !== workspaceIndex)
+          : [...member.workspaceIndices, workspaceIndex].sort((a, b) => a - b);
+        return { ...member, workspaceIndices };
+      }),
+    }));
+  };
+
+  const handleProvisionMemberTeamToggle = (memberId: string, teamKey: TeamKey) => {
+    setForm((prev) => ({
+      ...prev,
+      members: prev.members.map((member) => {
+        if (member.id !== memberId) return member;
+        const exists = member.teamKeys.includes(teamKey);
+        const teamKeys = exists
+          ? member.teamKeys.filter((key) => key !== teamKey)
+          : [...member.teamKeys, teamKey];
+        return { ...member, teamKeys };
+      }),
+    }));
+  };
+
+  const handleProvisionMemberInviteToggle = (memberId: string, sendInvite: boolean) => {
+    handleProvisionMemberChange(memberId, { sendInvite });
+  };
+
+  const handleProvisionMemberRemove = (memberId: string) => {
+    setForm((prev) => ({
+      ...prev,
+      members: prev.members.filter((member) => member.id !== memberId),
+    }));
+  };
+
+  const handleProvisionMemberAdd = () => {
+    setForm((prev) => ({
+      ...prev,
+      members: [...prev.members, createProvisionMember(prev.workspaceCount)],
+    }));
   };
 
   const handleProvision = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!form.organisationName.trim() || !form.ownerEmail.trim()) {
+    const organisationName = form.organisationName.trim();
+    const ownerEmail = form.ownerEmail.trim();
+    const ownerName = form.ownerName.trim();
+
+    if (!organisationName || !ownerEmail) {
       toast({
         title: 'Missing details',
         description: 'Organisation name and owner email are required.',
@@ -460,18 +775,131 @@ const OwnerConsolePage: React.FC = () => {
       return;
     }
 
+    const organisationSlug = form.organisationSlug.trim();
+    const workspaceLimitValue =
+      typeof form.workspaceLimit === 'number'
+        ? form.workspaceLimit
+        : Number.isFinite(Number.parseInt(String(form.workspaceLimit), 10))
+          ? Number.parseInt(String(form.workspaceLimit), 10)
+          : null;
+    const serviceType = form.serviceType.trim();
+    const cqcRegistrationNumber = form.cqcRegistrationNumber.trim();
+    const registeredLocationsValue =
+      typeof form.registeredLocations === 'number'
+        ? form.registeredLocations
+        : Number.isFinite(Number.parseInt(String(form.registeredLocations), 10))
+          ? Number.parseInt(String(form.registeredLocations), 10)
+          : null;
+    const timezone = form.timezone.trim();
+    const addressLine1 = form.addressLine1.trim();
+    const addressLine2 = form.addressLine2.trim();
+    const city = form.city.trim();
+    const postcode = form.postcode.trim();
+    const country = form.country.trim();
+    const primaryContactName = form.primaryContactName.trim();
+    const primaryContactEmail = form.primaryContactEmail.trim();
+    const primaryContactPhone = form.primaryContactPhone.trim();
+
+    const trimmedWorkspaceNames = form.workspaceNames.map((value) => value.trim()).filter(Boolean);
+    const targetWorkspaceCount = Math.max(
+      1,
+      Math.min(form.workspaceCount || trimmedWorkspaceNames.length || 1, MAX_PROVISION_WORKSPACES)
+    );
+    const workspaceNames: string[] = trimmedWorkspaceNames.slice(0, targetWorkspaceCount);
+    const baseName = organisationName || 'Workspace';
+
+    while (workspaceNames.length < targetWorkspaceCount) {
+      const ordinal = workspaceNames.length + 1;
+      const fallbackName = ordinal === 1 ? `${baseName} Workspace` : `${baseName} Workspace ${ordinal}`;
+      workspaceNames.push(fallbackName);
+    }
+
+    const workspacesPayload = workspaceNames.map((name) => ({ name }));
+
+    const initialMembersPayload = form.members
+      .map((member) => ({
+        ...member,
+        email: member.email.trim(),
+        name: member.name.trim(),
+        workspaceIndices: member.workspaceIndices.filter((index) => index >= 0 && index < targetWorkspaceCount),
+      }))
+      .filter((member) => member.email.length > 0)
+      .map((member) => ({
+        name: member.name || null,
+        email: member.email,
+        role: member.role,
+        workspaceIndices: member.workspaceIndices,
+        teamKeys: member.teamKeys,
+        sendInvite: member.sendInvite,
+      }));
+
+    const requestPayload: Record<string, any> = {
+      organisationName,
+      ownerName: ownerName || null,
+      ownerEmail,
+      workspaceCount: targetWorkspaceCount,
+      workspaces: workspacesPayload,
+      workspaceName: workspacesPayload[0]?.name ?? null,
+      sendPasswordEmail: true,
+    };
+
+    if (organisationSlug) requestPayload.organisationSlug = organisationSlug;
+    if (workspaceLimitValue !== null && !Number.isNaN(workspaceLimitValue)) {
+      requestPayload.workspaceLimit = workspaceLimitValue;
+    }
+
+    const serviceProfile = serviceType || cqcRegistrationNumber || (registeredLocationsValue !== null && !Number.isNaN(registeredLocationsValue))
+      ? {
+          serviceType: serviceType || null,
+          cqcRegistrationNumber: cqcRegistrationNumber || null,
+          registeredLocations:
+            registeredLocationsValue !== null && !Number.isNaN(registeredLocationsValue)
+              ? registeredLocationsValue
+              : null,
+        }
+      : null;
+    if (serviceProfile) {
+      requestPayload.serviceProfile = serviceProfile;
+    }
+
+    if (timezone) {
+      requestPayload.timezone = timezone;
+    }
+
+    const address = addressLine1 || addressLine2 || city || postcode || country
+      ? {
+          line1: addressLine1 || null,
+          line2: addressLine2 || null,
+          city: city || null,
+          postcode: postcode || null,
+          country: country || null,
+        }
+      : null;
+    if (address) {
+      requestPayload.address = address;
+    }
+
+    const primaryContact = primaryContactName || primaryContactEmail || primaryContactPhone
+      ? {
+          name: primaryContactName || null,
+          email: primaryContactEmail || null,
+          phone: primaryContactPhone || null,
+        }
+      : null;
+    if (primaryContact) {
+      requestPayload.primaryContact = primaryContact;
+    }
+
+    if (initialMembersPayload.length > 0) {
+      requestPayload.initialMembers = initialMembersPayload;
+    }
+
     setProvisioning(true);
     try {
       const response = await authedFetch('/api/admin/organisations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          organisationName: form.organisationName.trim(),
-          ownerName: form.ownerName.trim() || null,
-          ownerEmail: form.ownerEmail.trim(),
-          workspaceName: form.workspaceName.trim() || null,
-          sendPasswordEmail: true,
-        }),
+        body: JSON.stringify(requestPayload),
       });
 
       const payload = await readJson<ProvisionResponse & { error?: string }>(response);
@@ -479,13 +907,47 @@ const OwnerConsolePage: React.FC = () => {
         throw new Error(payload.error || 'Failed to provision organisation');
       }
 
-      setLastProvision(payload);
-      setForm(DEFAULT_PROVISION_FORM);
+      const normalisedWorkspaces = Array.isArray(payload.workspaces) && payload.workspaces.length > 0
+        ? payload.workspaces
+        : payload.workspace
+          ? [payload.workspace]
+          : [];
+
+      setLastProvision({
+        ...payload,
+        workspaces: normalisedWorkspaces,
+        workspace: payload.workspace ?? normalisedWorkspaces[0] ?? null,
+      });
+      setForm(createDefaultProvisionForm());
       await fetchOrganisations();
+      const workspaceSummary = normalisedWorkspaces.length > 1
+        ? `${normalisedWorkspaces.length} workspaces`
+        : normalisedWorkspaces[0]?.name ?? 'workspace';
+      const successfulSeededCount = Array.isArray(payload.seededMembers)
+        ? payload.seededMembers.filter((member) => !member?.error).length
+        : 0;
+      const seededSummary = successfulSeededCount
+        ? ` and ${successfulSeededCount} team member${successfulSeededCount === 1 ? '' : 's'}`
+        : '';
       toast({
         title: 'Organisation provisioned',
-        description: `${payload.organisation.name} is ready to go.`,
+        description: `${payload.organisation.name} is ready with ${workspaceSummary}${seededSummary}.`,
       });
+      const failedSeededMembers = Array.isArray(payload.seededMembers)
+        ? payload.seededMembers.filter((member) => member?.error)
+        : [];
+      if (failedSeededMembers.length > 0) {
+        const failureDescription = failedSeededMembers
+          .slice(0, 3)
+          .map((member) => `${member.email}: ${member.error}`)
+          .join(' • ');
+        const remainingFailures = failedSeededMembers.length - Math.min(3, failedSeededMembers.length);
+        toast({
+          title: 'Some members could not be provisioned',
+          description: `${failureDescription}${remainingFailures > 0 ? ` • +${remainingFailures} more` : ''}`,
+          variant: 'destructive',
+        });
+      }
     } catch (error) {
       console.error('[owner console] failed to provision organisation', error);
       toast({
@@ -746,6 +1208,112 @@ const OwnerConsolePage: React.FC = () => {
     }
   };
 
+  const handleOnboardingInviteCreate = async () => {
+    const email = onboardingForm.recipientEmail.trim();
+    if (!email) {
+      toast({
+        title: 'Recipient email required',
+        description: 'Enter an email address to send the onboarding snapshot link.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const organisationName = onboardingForm.organisationName.trim();
+    const contactName = onboardingForm.contactName.trim();
+    const expiresInHours = Number.isFinite(onboardingForm.expiresInHours)
+      ? Math.min(Math.max(Math.floor(onboardingForm.expiresInHours), 1), 30 * 24)
+      : DEFAULT_ONBOARDING_INVITE_FORM.expiresInHours;
+
+    setOnboardingCreating(true);
+    try {
+      const response = await authedFetch('/api/admin/onboarding/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipientEmail: email,
+          organisationName: organisationName || undefined,
+          contactName: contactName || undefined,
+          expiresInHours,
+        }),
+      });
+      const payload = await readJson<{ error?: string; invite?: { token?: string | null } }>(response);
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to create onboarding invite');
+      }
+
+      const inviteToken = payload.invite?.token ?? null;
+      const inviteUrl = inviteToken ? normaliseOnboardingUrl(inviteToken) : null;
+      await fetchOnboardingInvites();
+      setOnboardingForm(DEFAULT_ONBOARDING_INVITE_FORM);
+      toast({
+        title: 'Onboarding invite sent',
+        description: inviteUrl ? `Link copied: ${inviteUrl}` : 'Invite recorded and email queued.',
+      });
+      if (inviteUrl && navigator?.clipboard?.writeText) {
+        try {
+          await navigator.clipboard.writeText(inviteUrl);
+        } catch (copyError) {
+          console.warn('[owner console] failed to copy onboarding invite URL', copyError);
+        }
+      }
+    } catch (error) {
+      console.error('[owner console] failed to create onboarding invite', error);
+      toast({
+        title: 'Unable to send onboarding invite',
+        description: error instanceof Error ? error.message : 'Please try again later.',
+        variant: 'destructive',
+      });
+    } finally {
+      setOnboardingCreating(false);
+    }
+  };
+
+  const handleOnboardingInviteCopy = async (token: string) => {
+    const inviteUrl = normaliseOnboardingUrl(token);
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(inviteUrl);
+        toast({ title: 'Onboarding link copied', description: inviteUrl });
+      } else {
+        throw new Error('Clipboard not available');
+      }
+    } catch (error) {
+      console.warn('[owner console] fallback copy for onboarding link', error);
+      toast({
+        title: 'Copy failed',
+        description: inviteUrl,
+      });
+    }
+  };
+
+  const handleOnboardingInviteReopen = async (token: string) => {
+    setOnboardingActioningToken(token);
+    try {
+      const response = await authedFetch(`/api/onboarding/${token}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reopen' }),
+      });
+      const payload = await readJson<{ error?: string }>(response);
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to reopen invite');
+      }
+
+      await fetchOnboardingInvites();
+      toast({ title: 'Invite reopened', description: 'The onboarding link is live again.' });
+    } catch (error) {
+      console.error('[owner console] failed to reopen onboarding invite', error);
+      toast({
+        title: 'Unable to reopen invite',
+        description: error instanceof Error ? error.message : 'Please try again later.',
+        variant: 'destructive',
+      });
+    } finally {
+      setOnboardingActioningToken(null);
+    }
+  };
+
   const handleUserUpdate = useCallback(async (userId: string, updates: { role?: string; status?: string }) => {
     setUserUpdating(userId);
     try {
@@ -804,42 +1372,44 @@ const OwnerConsolePage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-muted/40 to-background">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-10 px-4 py-10 sm:px-6 lg:px-8">
-        <header className="rounded-3xl border border-border/70 bg-card/80 p-6 shadow-sm backdrop-blur">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-            <div className="space-y-2">
+      <div className="mx-auto flex w-full max-w-none flex-col gap-12 px-4 py-12 sm:px-6 lg:px-8 xl:px-12 2xl:px-16">
+        <header className="rounded-3xl border border-border/60 bg-card/80 p-8 shadow-md backdrop-blur">
+          <div className="grid gap-8 xl:grid-cols-[minmax(0,1.2fr)_minmax(260px,0.8fr)] xl:items-start">
+            <div className="space-y-3">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Owner console</p>
               <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Provision and orchestrate client workspaces</h1>
               <p className="max-w-2xl text-sm text-muted-foreground">
                 Build beautiful onboarding experiences for every tenant. Provision organisations, curate access, and toggle capability flags without leaving this console.
               </p>
             </div>
-            <Button variant="secondary" onClick={fetchOrganisations} disabled={loading} className="self-start lg:self-center">
-              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
-              Refresh data
-            </Button>
+            <div className="flex items-start justify-end">
+              <Button variant="secondary" onClick={fetchOrganisations} disabled={loading} className="h-11 rounded-full px-6">
+                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
+                Refresh data
+              </Button>
+            </div>
           </div>
 
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Card className="border-none bg-muted/40">
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
+            <Card className="border border-border/60 bg-muted/30">
               <CardHeader className="pb-2">
                 <CardDescription>Total organisations</CardDescription>
                 <CardTitle className="text-2xl font-semibold">{aggregateMetrics.totalOrgs}</CardTitle>
               </CardHeader>
             </Card>
-            <Card className="border-none bg-muted/40">
+            <Card className="border border-border/60 bg-muted/30">
               <CardHeader className="pb-2">
                 <CardDescription>Total workspaces</CardDescription>
                 <CardTitle className="text-2xl font-semibold">{aggregateMetrics.totalWorkspaces}</CardTitle>
               </CardHeader>
             </Card>
-            <Card className="border-none bg-muted/40">
+            <Card className="border border-border/60 bg-muted/30">
               <CardHeader className="pb-2">
                 <CardDescription>Total members</CardDescription>
                 <CardTitle className="text-2xl font-semibold">{aggregateMetrics.totalMembers}</CardTitle>
               </CardHeader>
             </Card>
-            <Card className="border-none bg-muted/40">
+            <Card className="border border-border/60 bg-muted/30">
               <CardHeader className="pb-2">
                 <CardDescription>Latest organisation</CardDescription>
                 <CardTitle className="text-base font-semibold">
@@ -859,11 +1429,12 @@ const OwnerConsolePage: React.FC = () => {
           </div>
         </header>
 
-        <Tabs value={mainTab} onValueChange={(value) => setMainTab(value as 'dashboard' | 'organisations' | 'users')}>
-          <TabsList className="mb-6 grid grid-cols-3 rounded-full bg-muted/60 p-1">
-            <TabsTrigger value="dashboard" className="rounded-full">Dashboard</TabsTrigger>
-            <TabsTrigger value="organisations" className="rounded-full">Organisations</TabsTrigger>
-            <TabsTrigger value="users" className="rounded-full">Users</TabsTrigger>
+        <Tabs value={mainTab} onValueChange={(value) => setMainTab(value as 'dashboard' | 'organisations' | 'users' | 'onboarding')}>
+          <TabsList className="mb-8 flex w-full flex-wrap gap-2 rounded-2xl border border-border/60 bg-card/80 p-1">
+            <TabsTrigger value="dashboard" className="rounded-2xl px-6 py-2">Dashboard</TabsTrigger>
+            <TabsTrigger value="onboarding" className="rounded-2xl px-6 py-2">Onboarding</TabsTrigger>
+            <TabsTrigger value="organisations" className="rounded-2xl px-6 py-2">Organisations</TabsTrigger>
+            <TabsTrigger value="users" className="rounded-2xl px-6 py-2">Users</TabsTrigger>
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-6">
@@ -972,117 +1543,809 @@ const OwnerConsolePage: React.FC = () => {
             </section>
           </TabsContent>
 
-          <TabsContent value="organisations" className="space-y-6">
-            <section className="grid gap-6 lg:grid-cols-[1.35fr,1fr] xl:grid-cols-[1.2fr,1fr]">
-          <Card className="overflow-hidden border border-border/70 shadow-sm">
-            <CardHeader className="space-y-1 border-b bg-muted/40 px-6 py-5">
-              <CardTitle className="text-xl font-semibold">Provision a new organisation</CardTitle>
-              <CardDescription>Create the tenant, seed a starter workspace, and issue the owner credentials in one step.</CardDescription>
-            </CardHeader>
-            <CardContent className="px-6 py-6">
-              <form className="grid gap-4 sm:grid-cols-2" onSubmit={handleProvision}>
-                <div className="sm:col-span-2">
-                  <Label htmlFor="organisationName">Organisation name</Label>
-                  <Input id="organisationName" value={form.organisationName} onChange={handleChange('organisationName')} required placeholder="Acme Care Group" className="mt-2" />
-                </div>
+          <TabsContent value="onboarding" className="space-y-6">
+            <section className="rounded-3xl border border-border/70 bg-card/80 p-6 shadow-sm backdrop-blur">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <Label htmlFor="ownerName">Owner name</Label>
-                  <Input id="ownerName" value={form.ownerName} onChange={handleChange('ownerName')} placeholder="Samantha Riley" className="mt-2" />
+                  <h2 className="text-xl font-semibold tracking-tight">Onboarding pipeline</h2>
+                  <p className="text-sm text-muted-foreground">Send onboarding snapshots, capture management contacts, and monitor progress.</p>
                 </div>
-                <div>
-                  <Label htmlFor="ownerEmail">Owner email</Label>
-                  <Input id="ownerEmail" type="email" value={form.ownerEmail} onChange={handleChange('ownerEmail')} required placeholder="owner@example.com" className="mt-2" />
-                </div>
-                <div className="sm:col-span-2">
-                  <Label htmlFor="workspaceName">Default workspace</Label>
-                  <Input id="workspaceName" value={form.workspaceName} onChange={handleChange('workspaceName')} placeholder="Head Office" className="mt-2" />
-                </div>
-                <div className="sm:col-span-2 flex justify-end">
-                  <Button type="submit" disabled={provisioning} className="min-w-[12rem]">
-                    {provisioning && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Provision workspace
-                  </Button>
-                </div>
-              </form>
+                <Button variant="outline" size="sm" onClick={fetchOnboardingInvites} disabled={onboardingLoading}>
+                  {onboardingLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
+                  Refresh list
+                </Button>
+              </div>
 
-              {lastProvision && (
-                <div className="mt-8 rounded-2xl border border-border/80 bg-muted/30 p-5 text-sm">
-                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                    <div className="space-y-1">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Latest provision</p>
-                      <p>
-                        <span className="font-medium">{lastProvision.organisation.name}</span> for <span className="font-medium">{lastProvision.owner.email}</span> with workspace <span className="font-medium">{lastProvision.workspace.name}</span>.
-                      </p>
-                    </div>
-                    <Badge variant={lastProvision.userCreated ? 'default' : 'secondary'} className="w-fit">
-                      {lastProvision.userCreated ? 'New user created' : 'Existing user linked'}
-                    </Badge>
-                  </div>
-                  {lastProvision.passwordLink && (
-                    <div className="mt-3 truncate text-xs text-muted-foreground">
-                      Password link: <a href={lastProvision.passwordLink} className="underline" target="_blank" rel="noreferrer">{lastProvision.passwordLink}</a>
-                    </div>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="border border-border/70 shadow-sm">
-            <CardHeader className="border-b bg-muted/40 px-6 py-5">
-              <CardTitle className="text-xl font-semibold">Recent organisations</CardTitle>
-              <CardDescription>Tap any tenant row to open its workspace cockpit.</CardDescription>
-            </CardHeader>
-            <CardContent className="px-0 py-0">
-              <ScrollArea className="h-[28rem]">
-                <Table>
-                  <TableHeader className="sticky top-0 z-10 bg-muted/60 backdrop-blur">
-                    <TableRow>
-                      <TableHead className="pl-6">Organisation</TableHead>
-                      <TableHead className="hidden md:table-cell">Workspaces</TableHead>
-                      <TableHead className="hidden lg:table-cell">Members</TableHead>
-                      <TableHead className="pr-6 text-right">Created</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {loading ? (
-                      <TableRow>
-                        <TableCell colSpan={4} className="px-6 text-center text-muted-foreground">
-                          Loading organisations…
-                        </TableCell>
-                      </TableRow>
-                    ) : organisations.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={4} className="px-6 py-12 text-center text-muted-foreground">
-                          No organisations yet. Provision your first tenant to get started.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      organisations.map((org) => (
-                        <TableRow
-                          key={org.id}
-                          onClick={() => handleOpenOrganisation(org.id)}
-                          className={cn(
-                            'cursor-pointer transition-colors hover:bg-muted/30',
-                            selectedOrganisationId === org.id && 'bg-muted/50'
-                          )}
-                        >
-                          <TableCell className="pl-6">
-                            <div className="font-medium">{org.name}</div>
-                            <p className="text-xs text-muted-foreground">Owner ID: {org.ownerId ?? '—'}</p>
-                          </TableCell>
-                          <TableCell className="hidden md:table-cell">{org.workspaceCount}</TableCell>
-                          <TableCell className="hidden lg:table-cell">{org.memberCount}</TableCell>
-                          <TableCell className="pr-6 text-right text-sm text-muted-foreground">{org.createdAt ? new Date(org.createdAt).toLocaleString() : '—'}</TableCell>
-                        </TableRow>
-                      ))
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <Card className="border-none bg-muted/40">
+                  <CardHeader className="pb-2">
+                    <CardDescription>Total invites</CardDescription>
+                    <CardTitle className="text-2xl font-semibold">{onboardingMetrics.total}</CardTitle>
+                    {onboardingMetrics.latest && (
+                      <p className="text-xs font-medium text-muted-foreground">Latest sent {onboardingMetrics.latest.createdAt ? new Date(onboardingMetrics.latest.createdAt).toLocaleString() : 'just now'}</p>
                     )}
-                  </TableBody>
-                </Table>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        </section>
+                  </CardHeader>
+                </Card>
+                <Card className="border-none bg-muted/40">
+                  <CardHeader className="pb-2">
+                    <CardDescription>Pending responses</CardDescription>
+                    <CardTitle className="flex items-center gap-2 text-2xl font-semibold">
+                      <Clock3 className="h-5 w-5 text-amber-500" />
+                      {onboardingMetrics.pending}
+                    </CardTitle>
+                  </CardHeader>
+                </Card>
+                <Card className="border-none bg-muted/40">
+                  <CardHeader className="pb-2">
+                    <CardDescription>Submitted snapshots</CardDescription>
+                    <CardTitle className="flex items-center gap-2 text-2xl font-semibold">
+                      <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                      {onboardingMetrics.submitted}
+                    </CardTitle>
+                  </CardHeader>
+                </Card>
+                <Card className="border-none bg-muted/40">
+                  <CardHeader className="pb-2">
+                    <CardDescription>Expired links</CardDescription>
+                    <CardTitle className="flex items-center gap-2 text-2xl font-semibold">
+                      <AlertTriangle className="h-5 w-5 text-rose-500" />
+                      {onboardingMetrics.expired}
+                    </CardTitle>
+                  </CardHeader>
+                </Card>
+              </div>
+            </section>
+
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.15fr)] xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+              <Card className="rounded-3xl border border-border/70 bg-card/95 shadow-xl ring-1 ring-border/50">
+                <CardHeader className="space-y-3 rounded-t-3xl border-b border-border/60 bg-gradient-to-r from-muted/70 via-card to-muted/40 px-6 py-6">
+                  <CardTitle className="text-lg font-semibold tracking-tight">Send an onboarding snapshot</CardTitle>
+                  <CardDescription>Invite a client contact to share organisation basics, managers, and go-live notes.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-5 px-6 py-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="onboarding-email">Recipient email</Label>
+                    <Input
+                      id="onboarding-email"
+                      type="email"
+                      placeholder="client.owner@example.com"
+                      value={onboardingForm.recipientEmail}
+                      onChange={(event) => setOnboardingForm((prev) => ({ ...prev, recipientEmail: event.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="onboarding-organisation">Organisation name</Label>
+                    <Input
+                      id="onboarding-organisation"
+                      placeholder="Acme Care Group"
+                      value={onboardingForm.organisationName}
+                      onChange={(event) => setOnboardingForm((prev) => ({ ...prev, organisationName: event.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="onboarding-contact">Primary contact name</Label>
+                    <Input
+                      id="onboarding-contact"
+                      placeholder="Samantha Riley"
+                      value={onboardingForm.contactName}
+                      onChange={(event) => setOnboardingForm((prev) => ({ ...prev, contactName: event.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="onboarding-expiry">Expiry (hours)</Label>
+                    <Input
+                      id="onboarding-expiry"
+                      type="number"
+                      min={1}
+                      max={30 * 24}
+                      value={onboardingForm.expiresInHours}
+                      onChange={(event) => {
+                        const parsed = Number.parseInt(event.target.value, 10);
+                        setOnboardingForm((prev) => ({ ...prev, expiresInHours: Number.isNaN(parsed) ? prev.expiresInHours : parsed }));
+                      }}
+                    />
+                    <p className="text-xs text-muted-foreground">Links default to 7 days. Adjust if you need a shorter or longer window.</p>
+                  </div>
+                  <Button onClick={handleOnboardingInviteCreate} disabled={onboardingCreating} className="w-full">
+                    {onboardingCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                    Send invite
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    We&apos;ll email the recipient and save a draft so you can follow along here. Invites can be reopened if a client needs more time.
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-3xl border border-border/70 bg-card/95 shadow-xl ring-1 ring-border/50">
+                <CardHeader>
+                  <CardTitle>Recent onboarding invites</CardTitle>
+                  <CardDescription>Newest first. Track who has responded and what they&apos;ve shared.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {onboardingLoading && onboardingInvites.length === 0 ? (
+                    <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />Loading invites…
+                    </div>
+                  ) : onboardingInvites.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No onboarding invites yet. Send one to get started.</p>
+                  ) : (
+                    <ScrollArea className="max-h-[32rem] pr-2">
+                      <div className="space-y-4">
+                        {onboardingInvites.map((invite) => {
+                          const status = (invite.status || 'pending').toLowerCase();
+                          const statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
+                          const statusClasses =
+                            status === 'submitted'
+                              ? 'border-emerald-200 bg-emerald-100 text-emerald-700'
+                              : status === 'expired'
+                                ? 'border-rose-200 bg-rose-100 text-rose-700'
+                                : 'border-amber-200 bg-amber-100 text-amber-700';
+                          const statusIcon =
+                            status === 'submitted' ? <CheckCircle2 className="h-3.5 w-3.5" /> : status === 'expired' ? <AlertTriangle className="h-3.5 w-3.5" /> : <Clock3 className="h-3.5 w-3.5" />;
+                          const managementCount = invite.draft?.managementContacts?.length ?? 0;
+                          const ownerEmail = invite.draft?.ownerContact?.email ?? invite.recipientEmail ?? '—';
+                          return (
+                            <div key={invite.token} className="rounded-2xl border border-border/70 bg-muted/30 p-4 shadow-sm">
+                              <div className="flex flex-wrap items-center justify-between gap-3">
+                                <div>
+                                  <p className="text-sm font-semibold text-foreground">
+                                    {invite.organisationName || invite.draft?.organisation?.name || 'Untitled organisation'}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    Sent to {invite.recipientEmail || 'unknown'}{invite.contactName ? ` • Contact ${invite.contactName}` : ''}
+                                  </p>
+                                </div>
+                                <Badge className={cn('flex items-center gap-1.5 border px-2 py-0.5 text-xs font-medium', statusClasses)}>
+                                  {statusIcon}
+                                  {statusLabel}
+                                </Badge>
+                              </div>
+
+                              <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+                                <span>Created: {invite.createdAt ? new Date(invite.createdAt).toLocaleString() : '—'}</span>
+                                <span>Expires: {invite.expiresAt ? new Date(invite.expiresAt).toLocaleString() : '—'}</span>
+                                <span>Owner contact: {ownerEmail}</span>
+                                <span>Managers captured: {managementCount}</span>
+                                {invite.submittedAt && <span>Submitted: {new Date(invite.submittedAt).toLocaleString()}</span>}
+                                {invite.draft?.notes && <span>Notes: {invite.draft.notes}</span>}
+                              </div>
+
+                              <div className="mt-3 flex flex-wrap items-center gap-2">
+                                <Button size="sm" variant="outline" onClick={() => handleOnboardingInviteCopy(invite.token)}>
+                                  <Copy className="mr-2 h-4 w-4" />Copy link
+                                </Button>
+                                {(status === 'submitted' || status === 'expired') && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleOnboardingInviteReopen(invite.token)}
+                                    disabled={onboardingActioningToken === invite.token}
+                                  >
+                                    {onboardingActioningToken === invite.token ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
+                                    Reopen link
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </ScrollArea>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="organisations" className="space-y-10">
+            <section className="grid gap-10 xl:grid-cols-[minmax(0,1.65fr)_minmax(360px,1fr)] 2xl:grid-cols-[minmax(0,1.85fr)_minmax(400px,1fr)]">
+              <Card className="rounded-3xl border border-border/70 bg-card/95 shadow-xl ring-1 ring-border/50">
+                <CardHeader className="space-y-6 rounded-t-3xl border-b border-border/60 bg-gradient-to-r from-muted/70 via-card to-muted/40 px-8 py-8">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="space-y-3">
+                      <CardTitle className="text-2xl font-semibold tracking-tight">Provision a new organisation</CardTitle>
+                      <CardDescription className="text-sm leading-relaxed">
+                        Launch a tenant, seed the right workspaces, and invite the leadership team in one guided flow.
+                        Every field below shapes the initial governance experience, so take your time — nothing is hidden in secondary modals.
+                      </CardDescription>
+                    </div>
+                    <div className="grid h-full gap-3 sm:grid-cols-3 lg:grid-cols-1">
+                      <div className="rounded-2xl border border-border/50 bg-background/70 px-4 py-3 shadow-sm">
+                        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">
+                          <Sparkles className="h-3.5 w-3.5" /> Guided steps
+                        </p>
+                        <p className="mt-2 text-sm text-muted-foreground">Organisation identity • Owners • Workspaces • Team seeding</p>
+                      </div>
+                      <div className="rounded-2xl border border-border/50 bg-background/70 px-4 py-3 shadow-sm">
+                        <p className="text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">Current total</p>
+                        <p className="mt-1 text-2xl font-semibold">{aggregateMetrics.totalOrgs}</p>
+                        <p className="text-xs text-muted-foreground">Active organisations across the platform</p>
+                      </div>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="px-8 py-8">
+                  <form className="space-y-10" onSubmit={handleProvision}>
+                    <div className="space-y-6">
+                      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">Organisation essentials</p>
+                          <h3 className="mt-2 text-lg font-semibold">Core identity and guardrails</h3>
+                          <p className="text-sm text-muted-foreground">Give the tenant a name, optional slug, and workspace allowance. These can be revised later, but establishing them now keeps onboarding tidy.</p>
+                        </div>
+                      </div>
+                      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                        <div className="sm:col-span-2 xl:col-span-3 space-y-2">
+                          <Label htmlFor="organisationName">Organisation name</Label>
+                          <Input
+                            id="organisationName"
+                            value={form.organisationName}
+                            onChange={handleTextFieldChange('organisationName')}
+                            required
+                            placeholder="Acme Care Group"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="organisationSlug">Organisation slug (optional)</Label>
+                          <Input
+                            id="organisationSlug"
+                            value={form.organisationSlug}
+                            onChange={handleTextFieldChange('organisationSlug')}
+                            placeholder="acme-care"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="workspaceLimit">Workspace limit</Label>
+                          <Input
+                            id="workspaceLimit"
+                            type="number"
+                            min={1}
+                            value={form.workspaceLimit === '' ? '' : String(form.workspaceLimit)}
+                            onChange={(event) => {
+                              const { value } = event.target;
+                              setForm((prev) => ({
+                                ...prev,
+                                workspaceLimit:
+                                  value === ''
+                                    ? ''
+                                    : Number.isNaN(Number.parseInt(value, 10))
+                                      ? prev.workspaceLimit
+                                      : Math.max(1, Number.parseInt(value, 10)),
+                              }));
+                            }}
+                            placeholder="Unlimited"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Timezone</Label>
+                          <Select value={form.timezone} onValueChange={(value) => setForm((prev) => ({ ...prev, timezone: value }))}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select timezone" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {TIMEZONE_OPTIONS.map((tz) => (
+                                <SelectItem key={tz.value} value={tz.value}>
+                                  {tz.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-6 border-t border-dashed border-border/60 pt-8">
+                      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">Owner account</p>
+                          <h3 className="mt-2 text-lg font-semibold">Primary contact and workspace cadence</h3>
+                          <p className="text-sm text-muted-foreground">The owner receives the welcome email and password link. Choose how many workspaces they step into on day one.</p>
+                        </div>
+                      </div>
+                      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                        <div className="space-y-2">
+                          <Label htmlFor="ownerName">Owner name</Label>
+                          <Input
+                            id="ownerName"
+                            value={form.ownerName}
+                            onChange={handleTextFieldChange('ownerName')}
+                            placeholder="Samantha Riley"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="ownerEmail">Owner email</Label>
+                          <Input
+                            id="ownerEmail"
+                            type="email"
+                            value={form.ownerEmail}
+                            onChange={handleTextFieldChange('ownerEmail')}
+                            required
+                            placeholder="owner@example.com"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="workspaceCount">Workspaces to create</Label>
+                          <Input
+                            id="workspaceCount"
+                            type="number"
+                            min={1}
+                            max={MAX_PROVISION_WORKSPACES}
+                            step={1}
+                            value={String(form.workspaceCount)}
+                            onChange={(event) => handleWorkspaceCountChange(event.target.value)}
+                            placeholder="Number of workspaces"
+                            aria-label="Number of workspaces to create"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-6 border-t border-dashed border-border/60 pt-8">
+                      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">Workspace naming</p>
+                          <h3 className="mt-2 text-lg font-semibold">Label the environments</h3>
+                          <p className="text-sm text-muted-foreground">Head Office, Residential Homes, Regional hubs — use language the client recognises. We’ll scaffold folders and teams around these labels.</p>
+                        </div>
+                        <Badge variant="outline" className="w-fit rounded-full bg-muted/40 px-3 py-1 text-xs uppercase tracking-wide text-muted-foreground">
+                          {form.workspaceNames.length} entries
+                        </Badge>
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        {form.workspaceNames.map((name, index) => {
+                          const inputId = `workspace-name-${index}`;
+                          return (
+                            <div key={inputId} className="space-y-2 rounded-2xl border border-border/50 bg-background/70 p-4 shadow-sm">
+                              <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
+                                <span>Workspace {index + 1}</span>
+                                {index === 0 ? <span className="uppercase tracking-wide">Primary</span> : null}
+                              </div>
+                              <Input
+                                id={inputId}
+                                value={name}
+                                onChange={(event) => handleWorkspaceNameChange(index, event.target.value)}
+                                placeholder={index === 0 ? 'Head Office' : `Team ${index + 1}`}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="space-y-6 border-t border-dashed border-border/60 pt-8">
+                      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">Service profile</p>
+                          <h3 className="mt-2 text-lg font-semibold">Tailor compliance & capacity</h3>
+                          <p className="text-sm text-muted-foreground">Optional but powerful — this metadata feeds AI flows, compulsory documents, and regulatory framing.</p>
+                        </div>
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-3">
+                        <div className="space-y-2">
+                          <Label htmlFor="serviceType">Service type</Label>
+                          <Input
+                            id="serviceType"
+                            value={form.serviceType}
+                            onChange={(event) => setForm((prev) => ({ ...prev, serviceType: event.target.value }))}
+                            placeholder="Residential care (Elderly)"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="cqcRegistrationNumber">CQC registration number</Label>
+                          <Input
+                            id="cqcRegistrationNumber"
+                            value={form.cqcRegistrationNumber}
+                            onChange={(event) => setForm((prev) => ({ ...prev, cqcRegistrationNumber: event.target.value }))}
+                            placeholder="1-123456789"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="registeredLocations">Registered locations</Label>
+                          <Input
+                            id="registeredLocations"
+                            type="number"
+                            min={0}
+                            value={form.registeredLocations === '' ? '' : String(form.registeredLocations)}
+                            onChange={(event) => {
+                              const { value } = event.target;
+                              setForm((prev) => ({
+                                ...prev,
+                                registeredLocations:
+                                  value === ''
+                                    ? ''
+                                    : Number.isNaN(Number.parseInt(value, 10))
+                                      ? prev.registeredLocations
+                                      : Math.max(0, Number.parseInt(value, 10)),
+                              }));
+                            }}
+                            placeholder="e.g. 5"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-6 border-t border-dashed border-border/60 pt-8">
+                      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">Operational context</p>
+                          <h3 className="mt-2 text-lg font-semibold">Where the service lives</h3>
+                          <p className="text-sm text-muted-foreground">Timezone and address power scheduling, rotas, and policy headers. Accuracy here keeps downstream records consistent.</p>
+                        </div>
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-3">
+                        <div className="space-y-2 sm:col-span-2">
+                          <Label htmlFor="addressLine1">Address line 1</Label>
+                          <Input
+                            id="addressLine1"
+                            value={form.addressLine1}
+                            onChange={(event) => setForm((prev) => ({ ...prev, addressLine1: event.target.value }))}
+                            placeholder="123 Main Street"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="addressLine2">Address line 2 (optional)</Label>
+                          <Input
+                            id="addressLine2"
+                            value={form.addressLine2}
+                            onChange={(event) => setForm((prev) => ({ ...prev, addressLine2: event.target.value }))}
+                            placeholder="Suite 2"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="city">City</Label>
+                          <Input
+                            id="city"
+                            value={form.city}
+                            onChange={(event) => setForm((prev) => ({ ...prev, city: event.target.value }))}
+                            placeholder="Leeds"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="postcode">Postcode</Label>
+                          <Input
+                            id="postcode"
+                            value={form.postcode}
+                            onChange={(event) => setForm((prev) => ({ ...prev, postcode: event.target.value }))}
+                            placeholder="LS1 1AA"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="country">Country</Label>
+                          <Input
+                            id="country"
+                            value={form.country}
+                            onChange={(event) => setForm((prev) => ({ ...prev, country: event.target.value }))}
+                            placeholder="United Kingdom"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-6 border-t border-dashed border-border/60 pt-8">
+                      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">Primary contact</p>
+                          <h3 className="mt-2 text-lg font-semibold">Who handles billing and onboarding</h3>
+                          <p className="text-sm text-muted-foreground">This information surfaces in invoices, onboarding emails, and audit trails.</p>
+                        </div>
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-3">
+                        <div className="space-y-2">
+                          <Label htmlFor="primaryContactName">Contact name</Label>
+                          <Input
+                            id="primaryContactName"
+                            value={form.primaryContactName}
+                            onChange={(event) => setForm((prev) => ({ ...prev, primaryContactName: event.target.value }))}
+                            placeholder="Finance Team"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="primaryContactEmail">Contact email</Label>
+                          <Input
+                            id="primaryContactEmail"
+                            type="email"
+                            value={form.primaryContactEmail}
+                            onChange={(event) => setForm((prev) => ({ ...prev, primaryContactEmail: event.target.value }))}
+                            placeholder="finance@example.com"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="primaryContactPhone">Contact phone</Label>
+                          <Input
+                            id="primaryContactPhone"
+                            type="tel"
+                            value={form.primaryContactPhone}
+                            onChange={(event) => setForm((prev) => ({ ...prev, primaryContactPhone: event.target.value }))}
+                            placeholder="+44 20 1234 5678"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-6 border-t border-dashed border-border/60 pt-8">
+                      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">Seed the team</p>
+                          <h3 className="mt-2 text-lg font-semibold">Invite colleagues into the right teams</h3>
+                          <p className="text-sm text-muted-foreground">Create accounts, allocate workspace access, and drop them into default teams. We’ll email password links automatically unless you toggle it off.</p>
+                        </div>
+                        <Button type="button" variant="outline" size="sm" onClick={handleProvisionMemberAdd} className="rounded-full">
+                          <Plus className="mr-2 h-4 w-4" /> Add team member
+                        </Button>
+                      </div>
+                      {form.members.length === 0 ? (
+                        <div className="rounded-2xl border border-dashed border-border/60 bg-muted/20 px-6 py-8 text-sm text-muted-foreground">
+                          No team members added yet. Use “Add team member” to pre-seed managers, nurses, or compliance leads.
+                        </div>
+                      ) : (
+                        <div className="space-y-5">
+                          {form.members.map((member, index) => (
+                            <div key={member.id} className="space-y-5 rounded-2xl border border-border/60 bg-background/80 p-5 shadow-sm">
+                              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div>
+                                  <p className="text-sm font-semibold">Team member {index + 1}</p>
+                                  <p className="text-xs text-muted-foreground">Assign workspaces, staffing teams, and invite preferences.</p>
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleProvisionMemberRemove(member.id)}
+                                  aria-label="Remove team member"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                              <div className="grid gap-4 sm:grid-cols-3">
+                                <div className="space-y-2">
+                                  <Label>Name</Label>
+                                  <Input
+                                    value={member.name}
+                                    onChange={(event) => handleProvisionMemberChange(member.id, { name: event.target.value })}
+                                    placeholder="Jordan Blake"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>Email</Label>
+                                  <Input
+                                    type="email"
+                                    value={member.email}
+                                    onChange={(event) => handleProvisionMemberChange(member.id, { email: event.target.value })}
+                                    placeholder="colleague@example.com"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>Role</Label>
+                                  <Select
+                                    value={member.role}
+                                    onValueChange={(value) => handleProvisionMemberChange(member.id, { role: value as MemberRoleKey })}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select role" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="member">Member</SelectItem>
+                                      <SelectItem value="admin">Admin</SelectItem>
+                                      <SelectItem value="owner">Owner</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="text-xs uppercase tracking-wide text-muted-foreground">Workspace access</Label>
+                                <div className="flex flex-wrap gap-3">
+                                  {form.workspaceNames.map((name, workspaceIndex) => {
+                                    const workspaceLabel = name || `Workspace ${workspaceIndex + 1}`;
+                                    const checked = member.workspaceIndices.includes(workspaceIndex);
+                                    return (
+                                      <label
+                                        key={`${member.id}-workspace-${workspaceIndex}`}
+                                        className="flex items-center gap-2 rounded-xl border border-border/60 bg-muted/30 px-3 py-2 text-sm"
+                                      >
+                                        <Checkbox
+                                          checked={checked}
+                                          onCheckedChange={() => handleProvisionMemberWorkspaceToggle(member.id, workspaceIndex)}
+                                        />
+                                        <span>{workspaceLabel}</span>
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="text-xs uppercase tracking-wide text-muted-foreground">Team placement</Label>
+                                <div className="flex flex-wrap gap-3">
+                                  {TEAM_OPTIONS.map((team) => {
+                                    const checked = member.teamKeys.includes(team.key);
+                                    return (
+                                      <label
+                                        key={`${member.id}-team-${team.key}`}
+                                        className="flex flex-col gap-1 rounded-xl border border-border/60 bg-muted/30 px-3 py-2"
+                                      >
+                                        <span className="flex items-center gap-2 text-sm font-medium">
+                                          <Checkbox
+                                            checked={checked}
+                                            onCheckedChange={() => handleProvisionMemberTeamToggle(member.id, team.key)}
+                                          />
+                                          {team.label}
+                                        </span>
+                                        <span className="text-xs text-muted-foreground">{team.description}</span>
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                              <div className="flex flex-col gap-3 rounded-xl border border-dashed border-border/60 bg-muted/20 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+                                <div>
+                                  <p className="text-sm font-medium">Send invite email</p>
+                                  <p className="text-xs text-muted-foreground">Toggle off to create the account silently and share the password later.</p>
+                                </div>
+                                <Switch
+                                  checked={member.sendInvite}
+                                  onCheckedChange={(checked) => handleProvisionMemberInviteToggle(member.id, Boolean(checked))}
+                                />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col gap-4 border-t border-dashed border-border/60 pt-8 sm:flex-row sm:items-center sm:justify-end">
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        <Sparkles className="h-4 w-4" />
+                        <span>We’ll sync owner custom claims, create default teams, and email password links automatically.</span>
+                      </div>
+                      <Button type="submit" disabled={provisioning} className="min-w-[14rem] rounded-full">
+                        {provisioning && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Provision organisation
+                      </Button>
+                    </div>
+                  </form>
+                </CardContent>
+              </Card>
+
+              <div className="space-y-6 xl:sticky xl:top-28">
+                <Card className="rounded-3xl border border-border/70 bg-card/95 shadow-lg">
+                  <CardHeader className="space-y-3 border-b border-border/60 px-6 py-6">
+                    <CardTitle className="text-lg font-semibold">Rollout playbook</CardTitle>
+                    <CardDescription className="text-sm">Quick reminders before you hit “Provision”.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4 px-6 py-6 text-sm text-muted-foreground">
+                    <div className="flex items-start gap-3">
+                      <Users className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                      <p>Double-check the owner email — we’ll validate and send a password reset immediately after provisioning.</p>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <Building className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                      <p>Workspace names become the folder roots for documents, evidence, and action plans.</p>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <ShieldCheck className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                      <p>Service profile metadata tunes audit checklists, so capture it when you can.</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="rounded-3xl border border-border/70 bg-card/95 shadow-lg">
+                  <CardHeader className="space-y-2 border-b border-border/60 px-6 py-6">
+                    <CardTitle className="text-lg font-semibold">Latest provision</CardTitle>
+                    <CardDescription className="text-sm">The most recent tenant rollout in a snapshot.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4 px-6 py-6 text-sm">
+                    {lastProvision ? (
+                      <div className="space-y-5">
+                        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                          <div>
+                            <p className="text-base font-semibold">{lastProvision.organisation.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Owner {lastProvision.owner.email} •{' '}
+                              {lastProvision.workspaces.length > 1
+                                ? `${lastProvision.workspaces.length} workspaces`
+                                : lastProvision.workspaces[0]?.name ?? lastProvision.workspace?.name ?? '1 workspace'}
+                            </p>
+                          </div>
+                          <Badge variant={lastProvision.userCreated ? 'default' : 'secondary'} className="w-fit rounded-full">
+                            {lastProvision.userCreated ? 'New user created' : 'Existing user linked'}
+                          </Badge>
+                        </div>
+                        {lastProvision.workspaces.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {lastProvision.workspaces.map((workspace) => (
+                              <Badge key={workspace.id} variant="outline" className="rounded-full text-xs">
+                                {workspace.name}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                        {Array.isArray(lastProvision.seededMembers) && lastProvision.seededMembers.length > 0 && (
+                          <div className="space-y-2">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Seeded team members</p>
+                            <div className="space-y-1">
+                              {lastProvision.seededMembers.slice(0, 4).map((member) => (
+                                <div key={`${member.email}-${member.id ?? 'seeded'}`} className="flex items-center justify-between text-xs">
+                                  <span className="truncate pr-3">{member.email}</span>
+                                  <span className={member.error ? 'text-destructive' : 'text-muted-foreground'}>
+                                    {member.error ? 'Failed' : member.emailSent ? 'Invite sent' : 'Created'}
+                                  </span>
+                                </div>
+                              ))}
+                              {lastProvision.seededMembers.length > 4 && (
+                                <p className="text-xs text-muted-foreground">+{lastProvision.seededMembers.length - 4} more</p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        {lastProvision.passwordLink && (
+                          <div className="truncate text-xs text-muted-foreground">
+                            Password link: <a href={lastProvision.passwordLink} className="underline" target="_blank" rel="noreferrer">{lastProvision.passwordLink}</a>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-border/60 bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
+                        Provision a tenant to see a live summary here.
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card className="rounded-3xl border border-border/70 bg-card/95 shadow-lg">
+                  <CardHeader className="space-y-2 border-b border-border/60 px-6 py-6">
+                    <CardTitle className="text-lg font-semibold">Recent organisations</CardTitle>
+                    <CardDescription className="text-sm">Tap any tenant row to jump straight into its cockpit.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="px-0 py-0">
+                    <ScrollArea className="h-[32rem]">
+                      <Table>
+                        <TableHeader className="sticky top-0 z-10 bg-muted/70 backdrop-blur">
+                          <TableRow>
+                            <TableHead className="pl-6">Organisation</TableHead>
+                            <TableHead className="hidden md:table-cell">Workspaces</TableHead>
+                            <TableHead className="hidden lg:table-cell">Members</TableHead>
+                            <TableHead className="pr-6 text-right">Created</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {loading ? (
+                            <TableRow>
+                              <TableCell colSpan={4} className="px-6 py-10 text-center text-muted-foreground">
+                                Loading organisations…
+                              </TableCell>
+                            </TableRow>
+                          ) : organisations.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={4} className="px-6 py-12 text-center text-muted-foreground">
+                                No organisations yet. Provision your first tenant to get started.
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            organisations.map((org) => (
+                              <TableRow
+                                key={org.id}
+                                onClick={() => handleOpenOrganisation(org.id)}
+                                className={cn(
+                                  'cursor-pointer transition-colors hover:bg-muted/30',
+                                  selectedOrganisationId === org.id && 'bg-muted/40'
+                                )}
+                              >
+                                <TableCell className="pl-6">
+                                  <div className="font-medium">{org.name}</div>
+                                  <p className="text-xs text-muted-foreground">Owner ID: {org.ownerId ?? '—'}</p>
+                                </TableCell>
+                                <TableCell className="hidden md:table-cell">{org.workspaceCount}</TableCell>
+                                <TableCell className="hidden lg:table-cell">{org.memberCount}</TableCell>
+                                <TableCell className="pr-6 text-right text-sm text-muted-foreground">{org.createdAt ? new Date(org.createdAt).toLocaleString() : '—'}</TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+              </div>
+            </section>
           </TabsContent>
 
           <TabsContent value="users" className="space-y-6">
@@ -1290,7 +2553,7 @@ const OwnerConsolePage: React.FC = () => {
         </Tabs>
 
       <Dialog open={!!selectedOrganisationId} onOpenChange={(open) => { if (!open) handleCloseOrganisation(); }}>
-        <DialogContent className="max-w-6xl overflow-hidden border border-border/70 bg-card/95 p-0 shadow-2xl">
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden border border-border/70 bg-card/95 p-0 shadow-2xl">
           <div className="border-b bg-muted/50 px-6 py-5">
             <div className="flex flex-col gap-1">
               <DialogHeader className="flex flex-row items-center justify-between gap-4 p-0">
@@ -1311,17 +2574,20 @@ const OwnerConsolePage: React.FC = () => {
               Loading organisation…
             </div>
           ) : organisationDetail ? (
-            <div className="px-6 pb-6">
-              <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabKey)}>
-                <TabsList className="mb-6 grid grid-cols-5 rounded-full bg-muted/60 p-1">
-                  <TabsTrigger value="overview" className="rounded-full">Overview</TabsTrigger>
-                  <TabsTrigger value="workspaces" className="rounded-full">Workspaces</TabsTrigger>
-                  <TabsTrigger value="members" className="rounded-full">Members</TabsTrigger>
-                  <TabsTrigger value="invites" className="rounded-full">Invites</TabsTrigger>
-                  <TabsTrigger value="features" className="rounded-full">Feature Flags</TabsTrigger>
-                </TabsList>
+            <div className="flex max-h-[calc(90vh-6rem)] flex-col">
+              <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabKey)} className="flex flex-1 flex-col">
+                <div className="px-6 pb-4 pt-2">
+                  <TabsList className="grid grid-cols-5 rounded-full bg-muted/60 p-1">
+                    <TabsTrigger value="overview" className="rounded-full">Overview</TabsTrigger>
+                    <TabsTrigger value="workspaces" className="rounded-full">Workspaces</TabsTrigger>
+                    <TabsTrigger value="members" className="rounded-full">Members</TabsTrigger>
+                    <TabsTrigger value="invites" className="rounded-full">Invites</TabsTrigger>
+                    <TabsTrigger value="features" className="rounded-full">Feature Flags</TabsTrigger>
+                  </TabsList>
+                </div>
 
-                <TabsContent value="overview" className="space-y-4">
+                <div className="flex-1 space-y-6 overflow-y-auto px-6 pb-6">
+                  <TabsContent value="overview" className="space-y-4">
                   <div className="grid gap-4 md:grid-cols-2">
                     <Card>
                       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -1689,6 +2955,7 @@ const OwnerConsolePage: React.FC = () => {
                     </CardContent>
                   </Card>
                 </TabsContent>
+                </div>
               </Tabs>
             </div>
           ) : (
