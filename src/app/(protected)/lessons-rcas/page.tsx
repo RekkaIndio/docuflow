@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Trash2, NotebookPen, Loader2, RefreshCcw } from 'lucide-react';
+import { Plus, Trash2, NotebookPen, Loader2, RefreshCcw, Calendar as CalendarIcon, Clock, CheckCircle2, AlertCircle, Info, Lightbulb, Target, type LucideIcon } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import PageHeader from '@/components/page-header';
 import { useWorkspace } from '@/context/workspace';
@@ -21,6 +21,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as DatePickerCalendar } from '@/components/ui/calendar';
 
 const EMPTY_ACTION_ROW = { action: '', owner: '', timescale: '', status: '' };
 
@@ -91,6 +93,119 @@ const RECORD_LABELS: Record<TrackerRecord['recordType'], string> = {
   'lessons-learned': 'Lessons Learned',
   'root-cause-analysis': 'Root Cause Analysis',
 };
+
+const MONTH_LABELS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+] as const;
+
+const MONTH_SHORT_LABELS = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+] as const;
+
+const monthLabelFromKey = (monthKey: string) => {
+  const [yearPart, monthPart] = monthKey.split('-');
+  const monthIndex = Number(monthPart) - 1;
+  if (!yearPart || Number.isNaN(monthIndex) || monthIndex < 0 || monthIndex > 11) {
+    return monthKey;
+  }
+  return `${MONTH_LABELS[monthIndex]} ${yearPart}`;
+};
+
+const getMonthKeyFromDate = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
+};
+
+const monthKeyToDate = (monthKey: string) => {
+  const [yearPart, monthPart] = monthKey.split('-');
+  const year = Number(yearPart);
+  const month = Number(monthPart) - 1;
+  if (Number.isNaN(year) || Number.isNaN(month) || month < 0 || month > 11) {
+    return null;
+  }
+  return new Date(year, month, 1);
+};
+
+const getMonthIndex = (monthKey: string) => {
+  const [yearPart, monthPart] = monthKey.split('-');
+  const year = Number(yearPart);
+  const month = Number(monthPart);
+  if (Number.isNaN(year) || Number.isNaN(month)) {
+    return null;
+  }
+  return year * 12 + (month - 1);
+};
+
+const sortMonthKeysDesc = (a: string, b: string) => {
+  const aIndex = getMonthIndex(a);
+  const bIndex = getMonthIndex(b);
+  if (aIndex === null || bIndex === null) {
+    return 0;
+  }
+  return bIndex - aIndex;
+};
+
+const RECORD_TYPE_TO_TAB: Record<TrackerRecord['recordType'], 'lessons' | 'rca'> = {
+  'lessons-learned': 'lessons',
+  'root-cause-analysis': 'rca',
+};
+
+type TrackerCardMeta = {
+  type: TrackerRecord['recordType'];
+  title: string;
+  description: string;
+  accentGradient: string;
+  iconGradient: string;
+  iconColor: string;
+  icon: LucideIcon;
+  emptyHint: string;
+};
+
+const TRACKER_CARD_META: TrackerCardMeta[] = [
+  {
+    type: 'lessons-learned',
+    title: 'Lessons Learned Entry',
+    description: 'Capture insights and improvements identified after incidents or reviews.',
+    accentGradient: 'from-amber-500 to-orange-500',
+    iconGradient: 'from-amber-100 to-orange-100',
+    iconColor: 'text-amber-600',
+    icon: Lightbulb,
+    emptyHint: 'Switch to the Lessons tab to record what was learned this month.',
+  },
+  {
+    type: 'root-cause-analysis',
+    title: 'Root Cause Analysis',
+    description: 'Document findings from detailed investigations and assure follow-up.',
+    accentGradient: 'from-indigo-500 to-blue-500',
+    iconGradient: 'from-indigo-100 to-blue-100',
+    iconColor: 'text-indigo-600',
+    icon: Target,
+    emptyHint: 'Use the RCA tab to add a new investigation and track resulting actions.',
+  },
+];
 
 const formatDateTime = (value: Date) => {
   try {
@@ -376,6 +491,7 @@ export default function LessonsRcasPage() {
 
   const workspaceId = workspace?.id ?? '';
   const organisationId = workspace?.organisationId ?? null;
+  const workspaceName = workspace?.name ?? '';
   const isWorkspaceSelected = Boolean(workspaceId);
 
   const [lessonsForm, setLessonsForm] = useState({ ...LESSONS_FORM_TEMPLATE });
@@ -392,7 +508,133 @@ export default function LessonsRcasPage() {
   const [rcaSaving, setRcaSaving] = useState(false);
   const [trackerLoading, setTrackerLoading] = useState(false);
   const [trackerRecords, setTrackerRecords] = useState<TrackerRecord[]>([]);
+  const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
+  const [selectedMonthDate, setSelectedMonthDate] = useState<Date | null>(null);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<TrackerRecord | null>(null);
+
+  const currentMonthKey = useMemo(() => getMonthKeyFromDate(new Date()), []);
+
+  const monthCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    trackerRecords.forEach(record => {
+      const key = getMonthKeyFromDate(record.createdAt);
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    return counts;
+  }, [trackerRecords]);
+
+  const monthsWithData = useMemo(() => Object.keys(monthCounts).sort(sortMonthKeysDesc), [monthCounts]);
+
+  const earliestYear = useMemo(() => {
+    if (trackerRecords.length === 0) {
+      return null;
+    }
+    const oldest = trackerRecords[trackerRecords.length - 1]?.createdAt;
+    return oldest ? oldest.getFullYear() : null;
+  }, [trackerRecords]);
+
+  const currentYear = useMemo(() => new Date().getFullYear(), []);
+
+  const availableYears = useMemo(() => {
+    if (earliestYear === null) {
+      return [] as number[];
+    }
+    const years: number[] = [];
+    for (let year = currentYear; year >= earliestYear; year -= 1) {
+      years.push(year);
+    }
+    return years;
+  }, [currentYear, earliestYear]);
+
+  const monthsGroupedByYear = useMemo(() => {
+    if (availableYears.length === 0) {
+      return {} as Record<number, { monthKey: string; monthIndex: number; label: string; count: number }[]>;
+    }
+    const result: Record<number, { monthKey: string; monthIndex: number; label: string; count: number }[]> = {};
+    availableYears.forEach(year => {
+      result[year] = MONTH_LABELS.map((label, index) => {
+        const monthKey = `${year}-${String(index + 1).padStart(2, '0')}`;
+        return {
+          monthKey,
+          monthIndex: index,
+          label,
+          count: monthCounts[monthKey] ?? 0,
+        };
+      });
+    });
+    return result;
+  }, [availableYears, monthCounts]);
+
+  const recordsByMonth = useMemo(() => {
+    const map: Record<string, TrackerRecord[]> = {};
+    trackerRecords.forEach(record => {
+      const key = getMonthKeyFromDate(record.createdAt);
+      if (!map[key]) {
+        map[key] = [];
+      }
+      map[key].push(record);
+    });
+    Object.keys(map).forEach(key => {
+      map[key].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    });
+    return map;
+  }, [trackerRecords]);
+
+  const selectedMonthRecords = selectedMonthKey ? recordsByMonth[selectedMonthKey] ?? [] : [];
+
+  const selectedMonthRecordsByType = useMemo(() => {
+    const map: Record<TrackerRecord['recordType'], TrackerRecord[]> = {
+      'lessons-learned': [],
+      'root-cause-analysis': [],
+    };
+    selectedMonthRecords.forEach(record => {
+      map[record.recordType].push(record);
+    });
+    return map;
+  }, [selectedMonthRecords]);
+
+  const selectedMonthLabel = useMemo(() => (selectedMonthKey ? monthLabelFromKey(selectedMonthKey) : null), [selectedMonthKey]);
+  const selectedMonthRecordCount = selectedMonthRecords.length;
+  const totalRecordTypes = TRACKER_CARD_META.length;
+  const completedRecordTypes = TRACKER_CARD_META.reduce((count, meta) => count + (selectedMonthRecordsByType[meta.type].length > 0 ? 1 : 0), 0);
+
+  useEffect(() => {
+    if (trackerRecords.length === 0) {
+      if (selectedMonthKey !== null) {
+        setSelectedMonthKey(null);
+      }
+      if (selectedMonthDate !== null) {
+        setSelectedMonthDate(null);
+      }
+      return;
+    }
+
+    if (!selectedMonthKey) {
+      const fallbackKey = monthsWithData[0] ?? currentMonthKey;
+      setSelectedMonthKey(fallbackKey);
+      setSelectedMonthDate(monthKeyToDate(fallbackKey) ?? null);
+      return;
+    }
+
+    if (!selectedMonthDate) {
+      setSelectedMonthDate(monthKeyToDate(selectedMonthKey) ?? null);
+    }
+  }, [trackerRecords, monthsWithData, selectedMonthKey, selectedMonthDate, currentMonthKey]);
+
+  const handleSelectMonth = (monthKey: string) => {
+    setSelectedMonthKey(monthKey);
+    setSelectedMonthDate(monthKeyToDate(monthKey) ?? null);
+  };
+
+  const handleDatePickerSelect = (value?: Date) => {
+    if (!value) {
+      return;
+    }
+    const monthKey = getMonthKeyFromDate(value);
+    handleSelectMonth(monthKey);
+    setDatePickerOpen(false);
+  };
 
   const loadTrackerRecords = useCallback(async () => {
     if (!workspaceId) {
@@ -566,111 +808,138 @@ export default function LessonsRcasPage() {
   };
 
   return (
-    <div className="space-y-6 pb-12">
-      <PageHeader
-        title="Lessons Learned & RCA"
-        subtitle="Capture learning, complete root cause investigations, and keep corrective actions on track."
-        leading={<NotebookPen className="h-6 w-6" />}
-      />
+    <>
+      <div className="space-y-6 pb-12">
+        <PageHeader
+          title="Lessons Learned & RCA"
+          subtitle="Capture learning, complete root cause investigations, and keep corrective actions on track."
+          leading={<NotebookPen className="h-6 w-6" />}
+        />
 
-      <div className="px-4 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-[1800px] space-y-6">
-          {!isWorkspaceSelected ? (
-            <Card className="border-dashed">
-              <CardHeader>
-                <CardTitle>Select a workspace</CardTitle>
-                <CardDescription>
-                  Choose a workspace from the sidebar to capture lessons learned and root cause analysis records.
-                </CardDescription>
-              </CardHeader>
-            </Card>
-          ) : (
-            <Tabs value={activeTab} onValueChange={val => setActiveTab(val as 'lessons' | 'rca' | 'tracker')} className="space-y-6">
-              <TabsList className="grid h-auto w-full max-w-2xl grid-cols-3 items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
-                <TabsTrigger
-                  className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                  value="lessons"
-                >
-                  Lessons Learned
-                </TabsTrigger>
-                <TabsTrigger
-                  className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                  value="rca"
-                >
-                  Root Cause Analysis
-                </TabsTrigger>
-                <TabsTrigger
-                  className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                  value="tracker"
-                >
-                  Tracker
-                </TabsTrigger>
-              </TabsList>
+        <div className="px-4 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-[1800px]">
+            {!isWorkspaceSelected ? (
+              <Card className="border-dashed">
+                <CardHeader>
+                  <CardTitle>Select a workspace</CardTitle>
+                  <CardDescription>
+                    Choose a workspace from the sidebar to capture lessons learned and root cause analysis records.
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+            ) : (
+              <Tabs value={activeTab} onValueChange={val => setActiveTab(val as 'lessons' | 'rca' | 'tracker')} className="space-y-6">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <TabsList className="grid h-auto w-full max-w-xl grid-cols-3 items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+                    <TabsTrigger
+                      className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                      value="lessons"
+                    >
+                      Lessons Learned
+                    </TabsTrigger>
+                    <TabsTrigger
+                      className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                      value="rca"
+                    >
+                      Root Cause Analysis
+                    </TabsTrigger>
+                    <TabsTrigger
+                      className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                      value="tracker"
+                    >
+                      Tracker
+                    </TabsTrigger>
+                  </TabsList>
+                </div>
 
-              <p className="text-sm text-slate-500">
-                Capture new insights, complete investigations, or revisit historic submissions from a single page.
-              </p>
+                <p className="text-sm text-slate-600">
+                  Capture new insights, complete investigations, or revisit historic submissions from a single page.
+                </p>
 
-                  <TabsContent value="lessons" className="space-y-6">
-                    <div className="grid gap-6 lg:grid-cols-[minmax(0,320px),1fr] xl:grid-cols-[minmax(0,360px),1fr]">
-                  <Card className="h-fit border border-slate-200 shadow-sm">
-                    <CardHeader className="space-y-1 border-b border-slate-200 bg-slate-50/60">
-                      <CardTitle className="text-lg">Quick record options</CardTitle>
-                      <CardDescription>Prefill key context before completing the full lessons learned form.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4 p-6">
-                      <div className="space-y-2">
-                        <Label htmlFor="quick-lessons-date">Date &amp; Time</Label>
-                        <Input
-                          id="quick-lessons-date"
-                          type="datetime-local"
-                          value={lessonsForm.date}
-                          onChange={event => updateLessonsField('date', event.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="quick-lessons-event">Type of Event</Label>
-                        <Input
-                          id="quick-lessons-event"
-                          placeholder="e.g. inspection, fall"
-                          value={lessonsForm.eventType}
-                          onChange={event => updateLessonsField('eventType', event.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="quick-lessons-location">Location / Unit</Label>
-                        <Input
-                          id="quick-lessons-location"
-                          placeholder="Location / Unit"
-                          value={lessonsForm.location}
-                          onChange={event => updateLessonsField('location', event.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="quick-lessons-people">People Involved</Label>
-                        <Textarea
-                          id="quick-lessons-people"
-                          rows={3}
-                          placeholder="Staff, residents, families"
-                          value={lessonsForm.peopleInvolved}
-                          onChange={event => updateLessonsField('peopleInvolved', event.target.value)}
-                        />
-                      </div>
-                      <Button type="button" variant="outline" className="w-full" onClick={() => setActiveTab('rca')}>
-                        Switch to RCA
-                      </Button>
-                    </CardContent>
-                  </Card>
+                <TabsContent value="lessons" className="mt-6 space-y-6">
+                  <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+                    <div className="w-full flex-shrink-0 lg:w-[360px] xl:w-[400px] lg:self-start lg:sticky lg:top-24 lg:h-fit">
+                      <div className="flex flex-col gap-4">
+                          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
+                            <div className="flex items-start gap-4">
+                              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
+                                <NotebookPen className="h-6 w-6" />
+                              </div>
+                              <div>
+                                <h2 className="text-xl font-semibold text-blue-900">Lessons Learned</h2>
+                                <p className="mt-1 text-sm leading-relaxed text-slate-500">
+                                  Capture reflective learning following incidents, audits, or improvement work.
+                                </p>
+                              </div>
+                            </div>
+                            {workspaceName ? (
+                              <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50 p-3 text-sm text-slate-600">
+                                <span className="font-semibold text-slate-800">Workspace:</span> {workspaceName}
+                              </div>
+                            ) : null}
+                          </div>
 
-                  <Card className="border border-slate-200 shadow-sm">
-              <CardHeader className="space-y-2 border-b border-slate-200 bg-white px-6 py-6 sm:px-8">
-                <CardTitle className="text-2xl font-semibold text-blue-900">Lessons Learned Record</CardTitle>
-                <CardDescription className="text-base text-slate-500">
-                  Capture reflective learning following incidents, audits, or improvement work.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-6 sm:p-8">
-                <form className="space-y-8" onSubmit={handleLessonsSubmit}>
+                          <Card className="rounded-2xl border border-slate-200 bg-white shadow-md">
+                            <CardHeader className="space-y-1 border-b border-slate-200 bg-slate-50/60">
+                              <CardTitle className="text-lg text-blue-900">Quick record options</CardTitle>
+                              <CardDescription>Prefill key context before completing the full lessons learned form.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4 p-6">
+                              <div className="space-y-2">
+                                <Label htmlFor="quick-lessons-date">Date &amp; Time</Label>
+                                <Input
+                                  id="quick-lessons-date"
+                                  type="datetime-local"
+                                  value={lessonsForm.date}
+                                  onChange={event => updateLessonsField('date', event.target.value)}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="quick-lessons-event">Type of Event</Label>
+                                <Input
+                                  id="quick-lessons-event"
+                                  placeholder="e.g. inspection, fall"
+                                  value={lessonsForm.eventType}
+                                  onChange={event => updateLessonsField('eventType', event.target.value)}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="quick-lessons-location">Location / Unit</Label>
+                                <Input
+                                  id="quick-lessons-location"
+                                  placeholder="Location / Unit"
+                                  value={lessonsForm.location}
+                                  onChange={event => updateLessonsField('location', event.target.value)}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="quick-lessons-people">People Involved</Label>
+                                <Textarea
+                                  id="quick-lessons-people"
+                                  rows={3}
+                                  placeholder="Staff, residents, families"
+                                  value={lessonsForm.peopleInvolved}
+                                  onChange={event => updateLessonsField('peopleInvolved', event.target.value)}
+                                />
+                              </div>
+                              <Button type="button" variant="outline" className="w-full" onClick={() => setActiveTab('rca')}>
+                                Switch to RCA
+                              </Button>
+                            </CardContent>
+                          </Card>
+                      </div>
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                        <Card className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+                          <CardHeader className="space-y-2 border-b border-slate-200 bg-white px-6 py-6 sm:px-8">
+                            <CardTitle className="text-2xl font-semibold text-blue-900">Lessons Learned Record</CardTitle>
+                            <CardDescription className="text-base text-slate-500">
+                              Capture reflective learning following incidents, audits, or improvement work.
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent className="p-6 sm:p-8">
+                            <form className="space-y-8" onSubmit={handleLessonsSubmit}>
                   <div className="space-y-6 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
                     <div className="space-y-2">
                       <h3 className="text-lg font-semibold text-blue-900">Event Overview</h3>
@@ -842,70 +1111,95 @@ export default function LessonsRcasPage() {
                 </form>
               </CardContent>
             </Card>
-            </div>
-          </TabsContent>
+          </div>
+        </div>
+      </TabsContent>
 
-          <TabsContent value="rca" className="space-y-6">
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,320px),1fr] xl:grid-cols-[minmax(0,360px),1fr]">
-                  <Card className="h-fit border border-slate-200 shadow-sm">
-                    <CardHeader className="space-y-1 border-b border-slate-200 bg-slate-50/60">
-                      <CardTitle className="text-lg">Quick investigation setup</CardTitle>
-                      <CardDescription>Capture the essentials before working through the full RCA.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4 p-6">
-                      <div className="space-y-2">
-                        <Label htmlFor="quick-rca-date">Date &amp; Time of Event</Label>
-                        <Input
-                          id="quick-rca-date"
-                          type="datetime-local"
-                          value={rcaForm.date}
-                          onChange={event => updateRcaField('date', event.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="quick-rca-event">Type of Event</Label>
-                        <Input
-                          id="quick-rca-event"
-                          placeholder="e.g. fall, medication error"
-                          value={rcaForm.eventType}
-                          onChange={event => updateRcaField('eventType', event.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="quick-rca-location">Location / Unit</Label>
-                        <Input
-                          id="quick-rca-location"
-                          placeholder="Location / Unit"
-                          value={rcaForm.location}
-                          onChange={event => updateRcaField('location', event.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="quick-rca-people">People Involved</Label>
-                        <Textarea
-                          id="quick-rca-people"
-                          rows={3}
-                          placeholder="Staff, residents, witnesses"
-                          value={rcaForm.peopleInvolved}
-                          onChange={event => updateRcaField('peopleInvolved', event.target.value)}
-                        />
-                      </div>
-                      <Button type="button" variant="outline" className="w-full" onClick={() => setActiveTab('lessons')}>
-                        Switch to Lessons
-                      </Button>
-                    </CardContent>
-                  </Card>
+                <TabsContent value="rca" className="mt-6 space-y-6">
+                  <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+                    <div className="w-full flex-shrink-0 lg:w-[360px] xl:w-[400px] lg:self-start lg:sticky lg:top-24 lg:h-fit">
+                      <div className="flex flex-col gap-4">
+                          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
+                            <div className="flex items-start gap-4">
+                              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
+                                <NotebookPen className="h-6 w-6" />
+                              </div>
+                              <div>
+                                <h2 className="text-xl font-semibold text-blue-900">Root Cause Analysis</h2>
+                                <p className="mt-1 text-sm leading-relaxed text-slate-500">
+                                  Document investigative findings, contributing factors, and corrective actions.
+                                </p>
+                              </div>
+                            </div>
+                            {workspaceName ? (
+                              <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50 p-3 text-sm text-slate-600">
+                                <span className="font-semibold text-slate-800">Workspace:</span> {workspaceName}
+                              </div>
+                            ) : null}
+                          </div>
 
-                  <Card className="border border-slate-200 shadow-sm">
-              <CardHeader className="space-y-2 border-b border-slate-200 bg-white px-6 py-6 sm:px-8">
-                <CardTitle className="text-2xl font-semibold text-blue-900">Root Cause Analysis</CardTitle>
-                <CardDescription className="text-base text-slate-500">
-                  Document investigative findings, contributing factors, and corrective actions.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-6 sm:p-8">
-                <form className="space-y-8" onSubmit={handleRcaSubmit}>
-                  <div className="space-y-6 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
+                          <Card className="rounded-2xl border border-slate-200 bg-white shadow-md">
+                            <CardHeader className="space-y-1 border-b border-slate-200 bg-slate-50/60">
+                              <CardTitle className="text-lg text-blue-900">Quick investigation setup</CardTitle>
+                              <CardDescription>Capture the essentials before working through the full RCA.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4 p-6">
+                              <div className="space-y-2">
+                                <Label htmlFor="quick-rca-date">Date &amp; Time of Event</Label>
+                                <Input
+                                  id="quick-rca-date"
+                                  type="datetime-local"
+                                  value={rcaForm.date}
+                                  onChange={event => updateRcaField('date', event.target.value)}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="quick-rca-event">Type of Event</Label>
+                                <Input
+                                  id="quick-rca-event"
+                                  placeholder="e.g. fall, medication error"
+                                  value={rcaForm.eventType}
+                                  onChange={event => updateRcaField('eventType', event.target.value)}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="quick-rca-location">Location / Unit</Label>
+                                <Input
+                                  id="quick-rca-location"
+                                  placeholder="Location / Unit"
+                                  value={rcaForm.location}
+                                  onChange={event => updateRcaField('location', event.target.value)}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="quick-rca-people">People Involved</Label>
+                                <Textarea
+                                  id="quick-rca-people"
+                                  rows={3}
+                                  placeholder="Staff, residents, witnesses"
+                                  value={rcaForm.peopleInvolved}
+                                  onChange={event => updateRcaField('peopleInvolved', event.target.value)}
+                                />
+                              </div>
+                              <Button type="button" variant="outline" className="w-full" onClick={() => setActiveTab('lessons')}>
+                                Switch to Lessons
+                              </Button>
+                            </CardContent>
+                          </Card>
+                      </div>
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <Card className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+                        <CardHeader className="space-y-2 border-b border-slate-200 bg-white px-6 py-6 sm:px-8">
+                          <CardTitle className="text-2xl font-semibold text-blue-900">Root Cause Analysis</CardTitle>
+                          <CardDescription className="text-base text-slate-500">
+                            Document investigative findings, contributing factors, and corrective actions.
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="p-6 sm:p-8">
+                          <form className="space-y-8" onSubmit={handleRcaSubmit}>
+                            <div className="space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
                     <div className="space-y-2">
                       <h3 className="text-lg font-semibold text-blue-900">Investigation Overview</h3>
                       <p className="text-sm text-slate-500">Summarise the event under investigation and the evidence gathered.</p>
@@ -1108,84 +1402,316 @@ export default function LessonsRcasPage() {
               </CardContent>
             </Card>
             </div>
-          </TabsContent>
+          </div>
+        </TabsContent>
 
-            <TabsContent value="tracker" className="space-y-8">
-              <Card className="bg-white rounded-2xl border border-slate-200 shadow-xl">
-                <CardHeader className="border-b border-slate-200 bg-white px-6 py-6 sm:px-8">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="space-y-1 text-left">
-                      <CardTitle className="text-2xl font-semibold text-blue-900">Lessons &amp; RCA Tracker</CardTitle>
-                      <CardDescription className="text-base text-slate-500">Browse previously saved lessons learned records and root cause analyses.</CardDescription>
+                <TabsContent value="tracker" className="mt-6 space-y-6">
+                  <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+                    <div className="w-full flex-shrink-0 lg:w-[360px] xl:w-[400px] lg:self-start lg:sticky lg:top-24 lg:h-fit">
+                      <div className="flex flex-col gap-4">
+                        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
+                          <div className="flex items-start gap-4">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
+                              <NotebookPen className="h-6 w-6" />
+                            </div>
+                            <div>
+                              <h2 className="text-xl font-semibold text-blue-900">History &amp; Insights</h2>
+                              <p className="mt-1 text-sm leading-relaxed text-slate-500">
+                                Drill into saved lessons learned entries and root cause analyses organised by month.
+                              </p>
+                            </div>
+                          </div>
+                          {workspaceName ? (
+                            <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50 p-3 text-sm text-slate-600">
+                              <span className="font-semibold text-slate-800">Workspace:</span> {workspaceName}
+                            </div>
+                          ) : null}
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-md">
+                          <div className="space-y-2">
+                            <h3 className="text-lg font-semibold text-blue-900">Capture something new</h3>
+                            <p className="text-sm text-slate-500">Start a fresh submission or refresh the tracker to pull the latest updates.</p>
+                          </div>
+                          <div className="mt-4 grid gap-3">
+                            <Button type="button" variant="outline" onClick={() => setActiveTab('lessons')}>
+                              New Lessons Learned
+                            </Button>
+                            <Button type="button" variant="outline" onClick={() => setActiveTab('rca')}>
+                              New Root Cause Analysis
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              onClick={() => void loadTrackerRecords()}
+                              disabled={trackerLoading}
+                              className="flex items-center justify-center"
+                            >
+                              {trackerLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
+                              Refresh Records
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => void loadTrackerRecords()}
-                      disabled={trackerLoading}
-                      className="w-full sm:w-auto"
-                    >
-                      {trackerLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
-                      Refresh
-                    </Button>
+
+                    <div className="min-w-0 flex-1 space-y-6">
+                      {trackerLoading && trackerRecords.length === 0 ? (
+                        <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white py-14">
+                          <Loader2 className="h-6 w-6 animate-spin text-blue-700" />
+                        </div>
+                      ) : trackerRecords.length === 0 ? (
+                        <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-10 text-center">
+                          <AlertCircle className="mx-auto mb-3 h-6 w-6 text-slate-400" />
+                          <p className="text-sm text-slate-500">
+                            No records saved yet. Capture a lesson learned or RCA to see it appear here.
+                          </p>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="space-y-6">
+                            {availableYears.map(year => {
+                              const entries = monthsGroupedByYear[year] ?? [];
+                              const isSelectedYear = selectedMonthKey?.startsWith(String(year)) ?? false;
+                              const savedMonthsCount = entries.reduce((total, entry) => total + (entry.count > 0 ? 1 : 0), 0);
+                              return (
+                                <div key={year} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                                  <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                                    <div>
+                                      <h2 className="text-lg font-semibold text-blue-900">{year} Tracker</h2>
+                                      <p className="text-sm text-slate-500">Choose a month to review lessons learned and RCA history.</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs font-medium uppercase tracking-wide text-slate-400">{savedMonthsCount} months saved</span>
+                                      {isSelectedYear && (
+                                        <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                                          <PopoverTrigger asChild>
+                                            <Button
+                                              variant="outline"
+                                              className="flex items-center gap-2 border-slate-200 bg-white text-xs font-medium text-slate-700 hover:border-blue-300 hover:bg-blue-50"
+                                            >
+                                              <CalendarIcon className="h-4 w-4" />
+                                              <span>Jump to month</span>
+                                            </Button>
+                                          </PopoverTrigger>
+                                          <PopoverContent className="w-auto p-0" align="end">
+                                            <DatePickerCalendar
+                                              mode="single"
+                                              selected={selectedMonthDate ?? undefined}
+                                              defaultMonth={selectedMonthDate ?? new Date()}
+                                              onSelect={handleDatePickerSelect}
+                                              captionLayout="dropdown"
+                                              fromYear={Math.max(2020, availableYears[availableYears.length - 1] ?? currentYear)}
+                                              toYear={currentYear + 1}
+                                              showOutsideDays
+                                            />
+                                          </PopoverContent>
+                                        </Popover>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+                                    {entries.map(entry => {
+                                      const hasData = entry.count > 0;
+                                      const isSelected = selectedMonthKey === entry.monthKey;
+                                      return (
+                                        <button
+                                          key={entry.monthKey}
+                                          type="button"
+                                          onClick={() => handleSelectMonth(entry.monthKey)}
+                                          className={`text-left rounded-xl border p-4 transition-all focus:outline-none focus:ring-2 focus:ring-blue-200 ${
+                                            hasData
+                                              ? 'bg-white hover:border-blue-300 hover:shadow-md'
+                                              : 'border-dashed border-slate-300 bg-slate-50 text-slate-500 hover:border-slate-300'
+                                          } ${isSelected ? 'border-blue-500 ring-2 ring-blue-200' : ''}`}
+                                        >
+                                          <div className="flex items-center justify-between">
+                                            <span className={`text-sm font-semibold ${hasData ? 'text-slate-900' : 'text-slate-500'}`}>
+                                              {MONTH_SHORT_LABELS[entry.monthIndex]}
+                                            </span>
+                                            {hasData ? (
+                                              <span className="text-xs font-medium text-blue-600">
+                                                {entry.count === 1 ? '1 entry' : `${entry.count} entries`}
+                                              </span>
+                                            ) : (
+                                              <span className="text-xs">No records</span>
+                                            )}
+                                          </div>
+                                          <div className="mt-3 text-xs text-slate-600">{entry.label}</div>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {selectedMonthKey && (
+                            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                              <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                                <div>
+                                  <h3 className="text-xl font-semibold text-blue-900">{selectedMonthLabel || 'Tracker history'}</h3>
+                                  <p className="text-sm text-slate-600">
+                                    {completedRecordTypes} of {totalRecordTypes} record types captured • {selectedMonthRecordCount} total entries
+                                  </p>
+                                </div>
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                                  <span className="inline-flex items-center gap-1 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+                                    <Clock className="h-3.5 w-3.5" />
+                                    {selectedMonthRecordCount} saved
+                                  </span>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => void loadTrackerRecords()}
+                                    disabled={trackerLoading}
+                                    className="w-full sm:w-auto"
+                                  >
+                                    {trackerLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
+                                    Refresh
+                                  </Button>
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                                {TRACKER_CARD_META.map(meta => {
+                                  const recordsForType = selectedMonthRecordsByType[meta.type];
+                                  const latestRecord = recordsForType[0] ?? null;
+                                  const hasRecord = recordsForType.length > 0;
+                                  const isCurrentSelection = selectedMonthKey === currentMonthKey;
+                                  const statusBadgeClasses = hasRecord
+                                    ? 'border border-emerald-200 bg-emerald-100 text-emerald-700'
+                                    : isCurrentSelection
+                                      ? 'border border-blue-200 bg-blue-50 text-blue-600'
+                                      : 'border border-slate-200 bg-slate-100 text-slate-600';
+                                  const statusText = hasRecord ? 'Saved' : isCurrentSelection ? 'Pending' : 'No records';
+                                  const Icon = meta.icon;
+                                  return (
+                                    <div
+                                      key={meta.type}
+                                      className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-white to-slate-50/60 p-5 shadow-sm transition-all hover:shadow-lg"
+                                    >
+                                      <div className={`relative h-1 w-full rounded-full bg-gradient-to-r ${meta.accentGradient}`} />
+                                      <div className="relative z-10 mt-4 flex items-start justify-between gap-3">
+                                        <div className="flex items-start gap-3">
+                                          <div className={`rounded-xl bg-gradient-to-br p-2.5 shadow-sm ${meta.iconGradient}`}>
+                                            <Icon className={`h-4 w-4 ${meta.iconColor}`} />
+                                          </div>
+                                          <div>
+                                            <h4 className="text-base font-semibold text-slate-900">{meta.title}</h4>
+                                            <p className="text-xs text-slate-500">{meta.description}</p>
+                                          </div>
+                                        </div>
+                                        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusBadgeClasses}`}>
+                                          {hasRecord ? <CheckCircle2 className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
+                                          {statusText}
+                                        </span>
+                                      </div>
+                                      <div className="relative z-10 mt-4 flex flex-1 flex-col justify-between gap-3 text-sm text-slate-700">
+                                        {hasRecord ? (
+                                          <div className="space-y-2 text-xs text-slate-600">
+                                            <div className="flex items-center gap-2">
+                                              <CalendarIcon className="h-3.5 w-3.5 text-slate-400" />
+                                              Saved {latestRecord ? formatDateTime(latestRecord.createdAt) : '—'}
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                              <Clock className="h-3.5 w-3.5 text-slate-400" />
+                                              {recordsForType.length === 1 ? '1 entry captured' : `${recordsForType.length} entries captured`}
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          <p className="text-xs text-slate-500">{meta.emptyHint}</p>
+                                        )}
+                                        <div className="flex items-center gap-3">
+                                          {hasRecord ? (
+                                            <Button
+                                              type="button"
+                                              size="sm"
+                                              variant="outline"
+                                              onClick={() => latestRecord && setSelectedRecord(latestRecord)}
+                                              className="flex-1"
+                                            >
+                                              <Info className="mr-2 h-4 w-4" />
+                                              View latest entry
+                                            </Button>
+                                          ) : (
+                                            <div className="text-xs text-slate-500">
+                                              {isCurrentSelection ? 'No records captured yet this month.' : 'No records saved for this month.'}
+                                            </div>
+                                          )}
+                                          {isCurrentSelection && (
+                                            <Button
+                                              type="button"
+                                              size="icon"
+                                              variant="ghost"
+                                              onClick={() => setActiveTab(RECORD_TYPE_TO_TAB[meta.type])}
+                                              className="ml-auto h-9 w-9 rounded-full border border-blue-200 bg-blue-50 text-blue-600 hover:border-blue-300 hover:bg-blue-100"
+                                            >
+                                              <Plus className="h-4 w-4" />
+                                            </Button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+
+                              <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                                {selectedMonthRecords.length === 0 ? (
+                                  <div className="p-10 text-center text-sm text-slate-500">
+                                    No records saved for {selectedMonthLabel ?? 'this month'} yet.
+                                  </div>
+                                ) : (
+                                  <Table>
+                                    <TableHeader className="bg-muted/60">
+                                      <TableRow className="text-xs uppercase tracking-wide">
+                                        <TableHead className="w-48">Type</TableHead>
+                                        <TableHead>Summary</TableHead>
+                                        <TableHead className="w-48">Date &amp; Time</TableHead>
+                                        <TableHead className="w-48">Recorded By</TableHead>
+                                        <TableHead className="w-32 text-right">Actions</TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {selectedMonthRecords.map(record => (
+                                        <TableRow key={`${record.recordType}-${record.id}`} className="transition-colors hover:bg-muted/40">
+                                          <TableCell>
+                                            <Badge variant={record.recordType === 'lessons-learned' ? 'secondary' : 'default'}>
+                                              {RECORD_LABELS[record.recordType]}
+                                            </Badge>
+                                          </TableCell>
+                                          <TableCell className="text-sm text-slate-500">
+                                            <span className="line-clamp-2">
+                                              {record.recordType === 'lessons-learned'
+                                                ? record.form.summaryOfEvents || record.form.description || '—'
+                                                : record.form.summary || record.form.eventType || '—'}
+                                            </span>
+                                          </TableCell>
+                                          <TableCell className="text-sm font-medium text-foreground">{formatDateTime(record.createdAt)}</TableCell>
+                                          <TableCell className="text-sm text-slate-500">{record.createdBy?.name || record.createdBy?.email || 'Unknown'}</TableCell>
+                                          <TableCell className="text-right">
+                                            <Button size="sm" variant="outline" onClick={() => setSelectedRecord(record)}>
+                                              View details
+                                            </Button>
+                                          </TableCell>
+                                        </TableRow>
+                                      ))}
+                                    </TableBody>
+                                  </Table>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-6 p-6 sm:p-8">
-                  {trackerLoading && trackerRecords.length === 0 ? (
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                      {Array.from({ length: 6 }).map((_, index) => (
-                        <div key={index} className="h-28 animate-pulse rounded-2xl border border-dashed border-slate-200 bg-muted/40" />
-                      ))}
-                    </div>
-                  ) : trackerRecords.length === 0 ? (
-                    <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-10 text-center">
-                      <p className="text-sm text-slate-500">
-                        No records saved yet. Capture a lesson learned or RCA to see it appear here.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                      <Table>
-                        <TableHeader className="bg-muted/60">
-                          <TableRow className="text-xs uppercase tracking-wide">
-                            <TableHead className="w-48">Type</TableHead>
-                            <TableHead>Summary</TableHead>
-                            <TableHead className="w-48">Date &amp; Time</TableHead>
-                            <TableHead className="w-48">Recorded By</TableHead>
-                            <TableHead className="w-32 text-right">Actions</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {trackerRecords.map(record => (
-                            <TableRow key={`${record.recordType}-${record.id}`} className="transition-colors hover:bg-muted/40">
-                              <TableCell>
-                                <Badge variant={record.recordType === 'lessons-learned' ? 'secondary' : 'default'}>{RECORD_LABELS[record.recordType]}</Badge>
-                              </TableCell>
-                              <TableCell className="text-sm text-slate-500">
-                                <span className="line-clamp-2">
-                                  {record.recordType === 'lessons-learned'
-                                    ? record.form.summaryOfEvents || record.form.description || '—'
-                                    : record.form.summary || record.form.eventType || '—'}
-                                </span>
-                              </TableCell>
-                              <TableCell className="text-sm font-medium text-foreground">{formatDateTime(record.createdAt)}</TableCell>
-                              <TableCell className="text-sm text-slate-500">{record.createdBy?.name || record.createdBy?.email || 'Unknown'}</TableCell>
-                              <TableCell className="text-right">
-                                <Button size="sm" variant="outline" onClick={() => setSelectedRecord(record)}>
-                                  View details
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-          )}
+                </TabsContent>
+              </Tabs>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1221,6 +1747,6 @@ export default function LessonsRcasPage() {
             ) : null}
           </DialogContent>
         </Dialog>
-    </div>
+    </>
   );
 }
