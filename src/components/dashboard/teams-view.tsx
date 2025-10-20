@@ -68,6 +68,18 @@ interface Manager {
   updatedAt?: string;
 }
 
+interface AdminStaff {
+  id: string;
+  name: string;
+  roles: string;
+  email: string;
+  phone: string;
+  contractedHours?: number;
+  hoursType?: 'weekly' | 'monthly';
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 interface Nurse {
   id: string;
   name: string;
@@ -194,6 +206,13 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
   const [newManager, setNewManager] = useState<{ name: string; roles: string; email: string; phone: string; contractedHours: number | ''; hoursType: 'weekly' | 'monthly' }>({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' });
   const [managersError, setManagersError] = useState<string | null>(null);
 
+  // Admin staff state
+  const [admins, setAdmins] = useState<AdminStaff[]>([]);
+  const [adminsLoading, setAdminsLoading] = useState(false);
+  const [editingAdmin, setEditingAdmin] = useState<string | null>(null);
+  const [newAdmin, setNewAdmin] = useState<{ name: string; roles: string; email: string; phone: string; contractedHours: number | ''; hoursType: 'weekly' | 'monthly' }>({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' });
+  const [adminsError, setAdminsError] = useState<string | null>(null);
+
   // Nurses state
   const [nurses, setNurses] = useState<Nurse[]>([]);
   const [nursesLoading, setNursesLoading] = useState(false);
@@ -311,6 +330,37 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
       console.warn('Failed to fetch pending invites', e);
     }
   };
+
+  // Load admin staff from workspace
+  useEffect(() => {
+    const loadAdmins = async () => {
+      if (!workspaceId) return;
+
+      setAdminsLoading(true);
+
+      try {
+        const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId));
+        const workspaceSnap = await getDoc(workspaceRef);
+
+        if (workspaceSnap.exists()) {
+          const data = workspaceSnap.data();
+          const adminsData = data.admins || [];
+          setAdmins(adminsData);
+        }
+      } catch (error: any) {
+        console.error('Failed to load admin staff:', error);
+        if (error?.code === 'permission-denied' || (error?.message && error.message.toLowerCase().includes('permission'))) {
+          setAdminsError('Missing or insufficient Firestore permissions to read workspace data.');
+        } else {
+          setAdminsError('Failed to load admin staff.');
+        }
+      } finally {
+        setAdminsLoading(false);
+      }
+    };
+
+    loadAdmins();
+  }, [workspaceId, organisationId]);
 
   useEffect(() => {
     const loadManagers = async () => {
@@ -525,6 +575,60 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     
     loadActivities();
   }, [workspaceId, organisationId]);
+
+  // Add admin staff to Firebase
+  const addAdminToFirebase = async (admin: AdminStaff) => {
+    if (!workspaceId) return false;
+
+    try {
+      const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId));
+      await updateDoc(workspaceRef, {
+        admins: arrayUnion(admin)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to add admin staff to Firebase:', error);
+      setAdminsError('Failed to save admin staff member');
+      return false;
+    }
+  };
+
+  // Update admin staff in Firebase
+  const updateAdminInFirebase = async (oldAdmin: AdminStaff, newAdmin: AdminStaff) => {
+    if (!workspaceId) return false;
+
+    try {
+      const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId));
+      await updateDoc(workspaceRef, {
+        admins: arrayRemove(oldAdmin)
+      });
+      await updateDoc(workspaceRef, {
+        admins: arrayUnion(newAdmin)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to update admin staff in Firebase:', error);
+      setAdminsError('Failed to update admin staff member');
+      return false;
+    }
+  };
+
+  // Remove admin staff from Firebase
+  const removeAdminFromFirebase = async (admin: AdminStaff) => {
+    if (!workspaceId) return false;
+
+    try {
+      const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId || workspace?.organisationId));
+      await updateDoc(workspaceRef, {
+        admins: arrayRemove(admin)
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to remove admin staff from Firebase:', error);
+      setAdminsError('Failed to remove admin staff member');
+      return false;
+    }
+  };
 
   // Add manager to Firebase
   const addManagerToFirebase = async (manager: Manager) => {
@@ -996,6 +1100,67 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
       console.error('Failed to remove activity from Firebase:', error);
       setActivitiesError('Failed to remove activity');
       return false;
+    }
+  };
+
+  const handleAddAdmin = async () => {
+    if (!newAdmin.name || !newAdmin.email || !newAdmin.phone) return;
+
+    const adminToAdd: AdminStaff = {
+      id: Date.now().toString(),
+      name: newAdmin.name,
+      roles: newAdmin.roles,
+      email: newAdmin.email,
+      phone: newAdmin.phone,
+      contractedHours: typeof newAdmin.contractedHours === 'number' && !isNaN(newAdmin.contractedHours) ? newAdmin.contractedHours : 40,
+      hoursType: newAdmin.hoursType || 'weekly',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    setAdmins(prev => [...prev, adminToAdd]);
+    setNewAdmin({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' });
+    setAdminsError(null);
+
+    const success = await addAdminToFirebase(adminToAdd);
+    if (!success) {
+      setAdmins(prev => prev.filter(a => a.id !== adminToAdd.id));
+    } else {
+      try { await setContractedHoursForStaff(adminToAdd.id, adminToAdd.contractedHours ?? 40, adminToAdd.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to persist contracted hours mapping after adding admin staff', e); }
+    }
+  };
+
+  const handleUpdateAdmin = async (adminId: string, updatedData: Partial<AdminStaff>) => {
+    const originalAdmin = admins.find(a => a.id === adminId);
+    if (!originalAdmin) return;
+
+    const updatedAdmin: AdminStaff = {
+      ...originalAdmin,
+      ...updatedData,
+      updatedAt: new Date().toISOString()
+    };
+
+    setAdmins(prev => prev.map(a => a.id === adminId ? updatedAdmin : a));
+    setEditingAdmin(null);
+    setAdminsError(null);
+
+    const success = await updateAdminInFirebase(originalAdmin, updatedAdmin);
+    if (!success) {
+      setAdmins(prev => prev.map(a => a.id === adminId ? originalAdmin : a));
+    } else {
+      try { await setContractedHoursForStaff(updatedAdmin.id, updatedAdmin.contractedHours ?? 40, updatedAdmin.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to update contracted hours mapping for admin staff', e); }
+    }
+  };
+
+  const handleDeleteAdmin = async (admin: AdminStaff) => {
+    setAdmins(prev => prev.filter(a => a.id !== admin.id));
+    setAdminsError(null);
+
+    const success = await removeAdminFromFirebase(admin);
+    if (!success) {
+      setAdmins(prev => [...prev, admin]);
+    } else {
+      try { await removeContractedHoursForStaff(admin.id); } catch (e) { console.warn('Failed to remove contracted hours mapping for admin staff', e); }
     }
   };
 
@@ -1673,7 +1838,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
             )}
       <main className="flex-1 p-6 overflow-y-auto">
         <Tabs defaultValue="teams" className="w-full">
-          <TabsList className="grid w-[1200px] grid-cols-9 bg-white border border-gray-200 rounded-lg mb-6">
+          <TabsList className="grid w-[1320px] grid-cols-10 bg-white border border-gray-200 rounded-lg mb-6">
             <TabsTrigger value="teams" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
               Teams
@@ -1681,6 +1846,10 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
             <TabsTrigger value="management" className="flex items-center gap-2">
               <UserCheck className="w-4 h-4" />
               Management
+            </TabsTrigger>
+            <TabsTrigger value="admin" className="flex items-center gap-2">
+              <UserCheck className="w-4 h-4" />
+              Admin
             </TabsTrigger>
             <TabsTrigger value="nurses" className="flex items-center gap-2">
               <UserCheck className="w-4 h-4" />
@@ -1999,6 +2168,166 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                           onSave={(updatedData) => handleUpdateManager(manager.id, updatedData)}
                           onDelete={() => handleDeleteManager(manager)}
                           disabled={managersLoading}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="admin" className="mt-6">
+            <div className="space-y-6">
+              {/* Error Display */}
+              {adminsError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-red-600" />
+                    <p className="text-red-800 font-medium">Error</p>
+                  </div>
+                  <p className="text-red-700 text-sm mt-1">{adminsError}</p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setAdminsError(null)}
+                    className="mt-2 text-red-600 hover:text-red-700"
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              )}
+
+              {/* Add New Admin Staff Form */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Plus className="w-5 h-5 text-blue-600" />
+                    Add New Admin Staff
+                  </CardTitle>
+                  <CardDescription>
+                    Add administrative staff responsible for office and compliance tasks.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Name</label>
+                      <Input
+                        placeholder="Enter staff name"
+                        value={newAdmin.name}
+                        onChange={(e) => setNewAdmin(prev => ({ ...prev, name: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Roles</label>
+                      <Select value={newAdmin.roles || 'Administrator'} onValueChange={(value: string) => setNewAdmin(prev => ({ ...prev, roles: value }))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Administrator">Administrator</SelectItem>
+                          <SelectItem value="Office Staff">Office Staff</SelectItem>
+                          <SelectItem value="Compliance">Compliance</SelectItem>
+                          <SelectItem value="Reception">Reception</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Email Address</label>
+                      <Input
+                        type="email"
+                        placeholder="admin@example.com"
+                        value={newAdmin.email}
+                        onChange={(e) => setNewAdmin(prev => ({ ...prev, email: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Phone Number</label>
+                      <Input
+                        type="tel"
+                        placeholder="+44 123 456 7890"
+                        value={newAdmin.phone}
+                        onChange={(e) => setNewAdmin(prev => ({ ...prev, phone: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Contracted Hours</label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={168}
+                        value={newAdmin.contractedHours === '' ? '' : String(newAdmin.contractedHours)}
+                        onChange={(e) => setNewAdmin(prev => ({ ...prev, contractedHours: e.target.value === '' ? '' : parseInt(e.target.value, 10) }))}
+                        placeholder="e.g. 37.5"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Hours Type</label>
+                      <Select value={newAdmin.hoursType} onValueChange={(v: 'weekly' | 'monthly') => setNewAdmin(prev => ({ ...prev, hoursType: v }))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <Button
+                      onClick={handleAddAdmin}
+                      disabled={!newAdmin.name || !newAdmin.roles || !newAdmin.email || !newAdmin.phone || adminsLoading}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      {adminsLoading ? 'Adding...' : 'Add Admin Staff'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Admin Staff List */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <UserCheck className="w-5 h-5 text-indigo-600" />
+                    Admin Team ({admins.length})
+                    {adminsLoading && (
+                      <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                    )}
+                  </CardTitle>
+                  <CardDescription>
+                    Manage administrative staff who support daily operations.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {adminsLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                      <span className="ml-3 text-gray-600">Loading admin staff...</span>
+                    </div>
+                  ) : admins.length === 0 ? (
+                    <div className="text-center py-8">
+                      <UserCheck className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-500 font-medium">No admin staff assigned</p>
+                      <p className="text-sm text-gray-400 mt-1">
+                        Add admin staff using the form above.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {admins.map((admin) => (
+                        <AdminCard
+                          key={admin.id}
+                          admin={admin}
+                          isEditing={editingAdmin === admin.id}
+                          onEdit={() => setEditingAdmin(admin.id)}
+                          onCancelEdit={() => setEditingAdmin(null)}
+                          onSave={(updatedData) => handleUpdateAdmin(admin.id, updatedData)}
+                          onDelete={() => handleDeleteAdmin(admin)}
+                          disabled={adminsLoading}
                         />
                       ))}
                     </div>
@@ -3032,6 +3361,217 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
   );
 }
 
+
+// Admin Card Component with Edit Functionality
+interface AdminCardProps {
+  admin: AdminStaff;
+  isEditing: boolean;
+  onEdit: () => void;
+  onCancelEdit: () => void;
+  onSave: (updatedData: Partial<AdminStaff>) => void;
+  onDelete: () => void;
+  disabled: boolean;
+}
+
+function AdminCard({ admin, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: AdminCardProps) {
+  const [editForm, setEditForm] = useState<{ name: string; roles: string; email: string; phone: string; contractedHours: number | ''; hoursType: 'weekly' | 'monthly' }>({
+    name: admin.name,
+    roles: admin.roles,
+    email: admin.email,
+    phone: admin.phone,
+    contractedHours: admin.contractedHours ?? 40,
+    hoursType: admin.hoursType ?? 'weekly',
+  });
+
+  const handleSave = () => {
+    if (editForm.name && editForm.email && editForm.phone) {
+      onSave({
+        name: editForm.name,
+        roles: editForm.roles,
+        email: editForm.email,
+        phone: editForm.phone,
+        contractedHours: typeof editForm.contractedHours === 'number' && !isNaN(editForm.contractedHours) ? editForm.contractedHours : (admin.contractedHours ?? 40),
+        hoursType: editForm.hoursType,
+      });
+    }
+  };
+
+  const handleCancel = () => {
+    setEditForm({
+      name: admin.name,
+      roles: admin.roles,
+      email: admin.email,
+      phone: admin.phone,
+      contractedHours: admin.contractedHours ?? 40,
+      hoursType: admin.hoursType ?? 'weekly',
+    });
+    onCancelEdit();
+  };
+
+  if (isEditing) {
+    return (
+      <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">Name</label>
+            <Input
+              value={editForm.name}
+              onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+              placeholder="Admin staff name"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">Roles</label>
+            <Select value={editForm.roles || 'Administrator'} onValueChange={(value: string) => setEditForm(prev => ({ ...prev, roles: value }))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Administrator">Administrator</SelectItem>
+                <SelectItem value="Office Staff">Office Staff</SelectItem>
+                <SelectItem value="Compliance">Compliance</SelectItem>
+                <SelectItem value="Reception">Reception</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">Email</label>
+            <Input
+              type="email"
+              value={editForm.email}
+              onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
+              placeholder="admin@example.com"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">Phone</label>
+            <Input
+              type="tel"
+              value={editForm.phone}
+              onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
+              placeholder="+44 123 456 7890"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">Contracted Hours</label>
+            <Input
+              type="number"
+              min={1}
+              max={168}
+              value={editForm.contractedHours === '' ? '' : String(editForm.contractedHours)}
+              onChange={(e) => setEditForm(prev => ({ ...prev, contractedHours: e.target.value === '' ? '' : parseInt(e.target.value, 10) }))}
+              placeholder="e.g. 37.5"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">Hours Type</label>
+            <Select value={editForm.hoursType} onValueChange={(v: 'weekly' | 'monthly') => setEditForm(prev => ({ ...prev, hoursType: v }))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="weekly">Weekly</SelectItem>
+                <SelectItem value="monthly">Monthly</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleCancel}
+            disabled={disabled}
+          >
+            <X className="w-4 h-4 mr-2" />
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleSave}
+            disabled={!editForm.name || !editForm.roles || !editForm.email || !editForm.phone || disabled}
+            className="bg-green-600 hover:bg-green-700"
+          >
+            <Save className="w-4 h-4 mr-2" />
+            Save Changes
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg border border-indigo-100">
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-6 gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-3 bg-indigo-100 rounded-full">
+            <UserCheck className="w-5 h-5 text-indigo-600" />
+          </div>
+          <div>
+            <p className="font-semibold text-gray-900">{admin.name}</p>
+            <p className="text-sm text-indigo-600 font-medium">Admin Staff</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <UserCheck className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{admin.roles}</p>
+            <p className="text-xs text-gray-500">Roles</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <Mail className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{admin.email}</p>
+            <p className="text-xs text-gray-500">Email address</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <Phone className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{admin.phone}</p>
+            <p className="text-xs text-gray-500">Phone number</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-full">
+            <Clock className="w-4 h-4 text-gray-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">{admin.contractedHours ?? 40}h/{(admin.hoursType || 'weekly') === 'weekly' ? 'wk' : 'mo'}</p>
+            <p className="text-xs text-gray-500">Contracted</p>
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 ml-4">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onEdit}
+          disabled={disabled}
+          className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-100"
+        >
+          <Edit className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onDelete}
+          disabled={disabled}
+          className="text-red-600 hover:text-red-700 hover:bg-red-100"
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 // Manager Card Component with Edit Functionality
 interface ManagerCardProps {
