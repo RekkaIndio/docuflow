@@ -221,7 +221,7 @@ export default function JournalPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const organisationId = (workspace as any)?.organisationId ?? null;
-  const { isEnabled } = useFeatureFlags(organisationId);
+  const { isEnabled } = useFeatureFlags(organisationId, workspace?.id ?? null);
 
   const [staffEntries, setStaffEntries] = useState<JournalEntry[]>([]);
   const [managerEntries, setManagerEntries] = useState<JournalEntry[]>([]);

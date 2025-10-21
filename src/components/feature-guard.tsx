@@ -6,10 +6,12 @@ import { Button } from '@/components/ui/button';
 import { ShieldOff, ArrowLeft } from 'lucide-react';
 import { useFeatureFlags } from '@/hooks/use-feature-flags';
 import type { FeatureModuleKey } from '@/lib/types';
+import { useAuth } from '@/hooks/use-auth';
 
 interface FeatureGuardProps {
   feature: FeatureModuleKey;
   organisationId?: string | null;
+  workspaceId?: string | null;
   children: React.ReactNode;
   fallback?: React.ReactNode;
   onNavigateBack?: () => void;
@@ -22,11 +24,21 @@ interface FeatureGuardProps {
 export function FeatureGuard({
   feature,
   organisationId,
+  workspaceId,
   children,
   fallback,
   onNavigateBack,
 }: FeatureGuardProps) {
-  const { isEnabled, featureFlags, loading } = useFeatureFlags(organisationId);
+  const { user } = useAuth();
+  const { isEnabled, featureFlags, loading } = useFeatureFlags(organisationId, workspaceId);
+
+  const featureContext = React.useMemo(
+    () => ({
+      teams: (user as any)?.teamKeys ?? [],
+      role: (user as any)?.role ?? null,
+    }),
+    [user],
+  );
 
   if (loading) {
     return (
@@ -39,7 +51,7 @@ export function FeatureGuard({
     );
   }
 
-  if (!isEnabled(feature)) {
+  if (!isEnabled(feature, featureContext)) {
     if (fallback) {
       return <>{fallback}</>;
     }

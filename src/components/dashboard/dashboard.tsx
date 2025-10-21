@@ -256,11 +256,11 @@ export function Dashboard() {
 
   // Primitive workspace identifiers to avoid repeated optional chaining and
   // to allow stable primitive deps in hooks.
-  const workspaceId = activeWorkspace?.id || '';
-  const organisationId = (activeWorkspace as any)?.organisationId || undefined;
+    const workspaceId = activeWorkspace?.id ?? null;
+    const organisationId = (activeWorkspace as any)?.organisationId || undefined;
 
   // Load feature flags for the organisation
-  const { isEnabled } = useFeatureFlags(organisationId);
+    const { isEnabled } = useFeatureFlags(organisationId, workspaceId);
 
 
   useEffect(() => {
@@ -1141,7 +1141,7 @@ export function Dashboard() {
   switch (view) {
     case 'home':
       return (
-        <FeatureGuard feature="dashboard" organisationId={organisationId} onNavigateBack={() => setView('home')}>
+        <FeatureGuard feature="dashboard" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
           <DashboardHome 
             workspace={activeWorkspace} 
             onSelect={handleSelect} 
@@ -1152,7 +1152,7 @@ export function Dashboard() {
       );
         case 'daily':
             return (
-                <FeatureGuard feature="dailyCheckins" organisationId={organisationId} onNavigateBack={() => setView('home')}>
+                <FeatureGuard feature="dailyCheckins" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
                   <React.Suspense fallback={<div>Loading...</div>}>
                     {(() => {
                       const DailyPage = require("./daily").default;
@@ -1163,19 +1163,19 @@ export function Dashboard() {
             );
     case 'teams':
       return (
-        <FeatureGuard feature="teams" organisationId={organisationId} onNavigateBack={() => setView('home')}>
+        <FeatureGuard feature="teams" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
           {activeWorkspace ? <TeamsView workspace={activeWorkspace} /> : <div className="p-6">No workspace</div>}
         </FeatureGuard>
       );
     case 'settings':
       return (
-        <FeatureGuard feature="settings" organisationId={organisationId} onNavigateBack={() => setView('home')}>
+        <FeatureGuard feature="settings" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
           {activeWorkspace ? <SettingsView workspace={activeWorkspace} /> : <div className="p-6">No workspace</div>}
         </FeatureGuard>
       );
     case 'accessibility':
       return (
-        <FeatureGuard feature="accessibility" organisationId={organisationId} onNavigateBack={() => setView('home')}>
+        <FeatureGuard feature="accessibility" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
           {activeWorkspace ? (
             <React.Suspense fallback={<div>Loading...</div>}>
               {(() => {
@@ -1197,7 +1197,7 @@ export function Dashboard() {
       );
     case 'notifications':
       return (
-        <FeatureGuard feature="notifications" organisationId={organisationId} onNavigateBack={() => setView('home')}>
+        <FeatureGuard feature="notifications" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
           {workspaceId ? <NotificationsView workspaceId={workspaceId} onBack={() => setView('home')} /> : <div className="p-6">No workspace</div>}
         </FeatureGuard>
       );
@@ -1211,20 +1211,20 @@ export function Dashboard() {
       ) : <div className="p-6">No workspace</div>;
     case 'tags':
       return (
-        <FeatureGuard feature="tags" organisationId={organisationId} onNavigateBack={() => setView('home')}>
+        <FeatureGuard feature="tags" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
           {activeWorkspace ? <TagsView workspace={activeWorkspace} onSelectDocument={handleSelect} /> : <div className="p-6">No workspace</div>}
         </FeatureGuard>
       );
     case 'renewals':
       return (
-        <FeatureGuard feature="renewals" organisationId={organisationId} onNavigateBack={() => setView('home')}>
+        <FeatureGuard feature="renewals" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
           {workspaceId ? <RenewalsView workspaceId={workspaceId} onSelectDocument={handleSelect} /> : null}
         </FeatureGuard>
       );
   /* Outstanding Evidence removed; evidence folders are part of main folders */
     case 'files':
       return (
-        <FeatureGuard feature="files" organisationId={organisationId} onNavigateBack={() => setView('home')}>
+        <FeatureGuard feature="files" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
           {selected?.type === "document" ? (() => {
                 // Use a custom onBack that prefers prevViewRef (if set) to return
                 // the user to the Policies page when they opened a policy from there.
@@ -1256,7 +1256,7 @@ export function Dashboard() {
       );
         case 'dependency-calculator':
             return (
-                <FeatureGuard feature="dependencyCalculator" organisationId={organisationId} onNavigateBack={() => setView('home')}>
+                <FeatureGuard feature="dependencyCalculator" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
                   <React.Suspense fallback={<div>Loading...</div>}>
                     {(() => {
                       const DependencyCalculatorPage = require("@/app/(protected)/dashboard/dependency-calculator/page").default;
@@ -1267,7 +1267,7 @@ export function Dashboard() {
             );
         case 'audits':
             return (
-                <FeatureGuard feature="audits" organisationId={organisationId} onNavigateBack={() => setView('home')}>
+                <FeatureGuard feature="audits" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
                   <React.Suspense fallback={<div>Loading...</div>}>
                     {(() => {
                       const AuditsPage = require("@/app/audits/page").default;
@@ -1278,13 +1278,13 @@ export function Dashboard() {
             );
     case 'stats':
       return (
-        <FeatureGuard feature="stats" organisationId={organisationId} onNavigateBack={() => setView('home')}>
-          <StatsView workspaceId={workspaceId} organisationId={organisationId} />
+        <FeatureGuard feature="stats" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
+          <StatsView workspaceId={workspaceId ?? undefined} organisationId={organisationId ?? undefined} />
         </FeatureGuard>
       );
         case 'policies':
             return (
-                <FeatureGuard feature="policies" organisationId={organisationId} onNavigateBack={() => setView('home')}>
+                <FeatureGuard feature="policies" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
                   <React.Suspense fallback={<div>Loading...</div>}>
                     {(() => {
                       const PoliciesPage = require("@/app/policies/page").default;
@@ -1295,7 +1295,7 @@ export function Dashboard() {
             );
     case 'journal':
       return (
-        <FeatureGuard feature="journal" organisationId={organisationId} onNavigateBack={() => setView('home')}>
+        <FeatureGuard feature="journal" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
           <React.Suspense fallback={<div>Loading...</div>}>
             {(() => {
               const JournalPage = require('@/app/(protected)/journal/page').default;
@@ -1306,7 +1306,7 @@ export function Dashboard() {
       );
         case 'appraisals':
             return (
-                <FeatureGuard feature="appraisals" organisationId={organisationId} onNavigateBack={() => setView('home')}>
+                <FeatureGuard feature="appraisals" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
                   <React.Suspense fallback={<div>Loading...</div>}>
                     {(() => {
                       const AppraisalsPage = require("@/app/(protected)/appraisals/page").default;
@@ -1317,7 +1317,7 @@ export function Dashboard() {
             );
         case 'action-plans':
             return (
-                <FeatureGuard feature="actionPlans" organisationId={organisationId} onNavigateBack={() => setView('home')}>
+                <FeatureGuard feature="actionPlans" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
                   <React.Suspense fallback={<div>Loading...</div>}>
                     {(() => {
                       const ActionPlansPage = require("@/app/(protected)/action-plans/page").default;
@@ -1328,7 +1328,7 @@ export function Dashboard() {
             );
         case 'rotas':
             return (
-              <FeatureGuard feature="rotas" organisationId={organisationId} onNavigateBack={() => setView('home')}>
+              <FeatureGuard feature="rotas" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
                 {activeWorkspace ? (
                   <React.Suspense fallback={<div>Loading...</div>}>
                     {(() => {
@@ -1347,7 +1347,7 @@ export function Dashboard() {
             );
       case 'lessons-rcas':
         return (
-          <FeatureGuard feature="lessonsRcas" organisationId={organisationId} onNavigateBack={() => setView('home')}>
+          <FeatureGuard feature="lessonsRcas" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
             <React.Suspense fallback={<div>Loading...</div>}>
               {(() => {
                 const LessonsPage = require('@/app/(protected)/lessons-rcas/page').default;

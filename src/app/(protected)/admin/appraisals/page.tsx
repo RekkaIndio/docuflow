@@ -1,13 +1,21 @@
 "use client";
-import React, { useState, useEffect, useMemo } from "react";
-import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { FileText, User, Calendar, Target, Award, TrendingUp, Heart, CheckCircle } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as DatePickerCalendar } from "@/components/ui/calendar";
+import { FileText, User, Calendar, Target, Award, TrendingUp, Heart, CheckCircle, CheckCircle2, AlertCircle, Info, RefreshCcw, Loader2, Clock, Plus } from "lucide-react";
+import type { Appraisal } from "@/types";
 import AdminPageHeader from '@/components/admin/admin-page-header';
 import ManagerSearchSelect from "@/components/admin/manager-search-select";
 import { useAdminWorkspaces } from '@/context/admin-workspaces';
@@ -28,83 +36,216 @@ interface Manager {
   updatedAt?: string;
 }
 
+type AppraisalTrackerRecord = Appraisal & {
+  id: string;
+  appraisalDateParsed: Date;
+  createdAtParsed: Date | null;
+  updatedAtParsed: Date | null;
+  managerId: string;
+  managerName: string;
+  workspaceName?: string;
+};
+
+const OVERALL_RATING_LABELS: Record<Appraisal['overallRating'], string> = {
+  exceeds: 'Exceeds expectations',
+  meets: 'Meets expectations',
+  'requires-improvement': 'Requires improvement',
+  unsatisfactory: 'Unsatisfactory',
+};
+
+const MONTH_LABELS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+] as const;
+
+const MONTH_SHORT_LABELS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+] as const;
+
+const getMonthKeyFromDate = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  return `${year}-${month}`;
+};
+
+const monthLabelFromKey = (monthKey: string) => {
+  const [yearPart, monthPart] = monthKey.split("-");
+  const monthIndex = Number(monthPart) - 1;
+  if (!yearPart || Number.isNaN(monthIndex) || monthIndex < 0 || monthIndex > 11) {
+    return monthKey;
+  }
+  return `${MONTH_LABELS[monthIndex]} ${yearPart}`;
+};
+
+const monthKeyToDate = (monthKey: string) => {
+  const [yearPart, monthPart] = monthKey.split("-");
+  const year = Number(yearPart);
+  const month = Number(monthPart) - 1;
+  if (Number.isNaN(year) || Number.isNaN(month) || month < 0 || month > 11) {
+    return null;
+  }
+  return new Date(year, month, 1);
+};
+
+const getMonthIndex = (monthKey: string) => {
+  const [yearPart, monthPart] = monthKey.split("-");
+  const year = Number(yearPart);
+  const month = Number(monthPart);
+  if (Number.isNaN(year) || Number.isNaN(month)) {
+    return null;
+  }
+  return year * 12 + (month - 1);
+};
+
+const sortMonthKeysDesc = (a: string, b: string) => {
+  const aIndex = getMonthIndex(a);
+  const bIndex = getMonthIndex(b);
+  if (aIndex === null || bIndex === null) {
+    return 0;
+  }
+  return bIndex - aIndex;
+};
+
+const formatDateOnly = (value?: string | Date | null) => {
+  if (!value) return "—";
+  const parsed = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(parsed.getTime())) return typeof value === "string" ? value : "—";
+  try {
+    return parsed.toLocaleDateString(undefined, { dateStyle: "medium" });
+  } catch {
+    return parsed.toISOString();
+  }
+};
+
+const formatDateTime = (value?: string | Date | null) => {
+  if (!value) return "—";
+  const parsed = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(parsed.getTime())) return typeof value === "string" ? value : "—";
+  try {
+    return parsed.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  } catch {
+    return parsed.toISOString();
+  }
+};
+
+const safeParseDate = (value?: string | null) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+  return parsed;
+};
+
 export default function AppraisalsPage() {
   const adminWorkspaces = useAdminWorkspaces();
   const defaultAdminWorkspace = adminWorkspaces && adminWorkspaces.length > 0 ? adminWorkspaces[0] : null;
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [viewMode, setViewMode] = useState<'form' | 'tracker'>('form');
+  const [activeTab, setActiveTab] = useState<'form' | 'tracker'>('form');
 
   // Managers and appraisals for tracker
-  const [managers, setManagers] = useState<Manager[] | null>(null);
-  const [appraisals, setAppraisals] = useState<any[] | null>(null);
-  const TRACKER_STORAGE_KEY = 'docuflow.admin.appraisals.tracker.v1';
-  const [trackerState, setTrackerState] = useState<Record<string, Record<string, boolean>>>({});
+  const [managers, setManagers] = useState<Manager[]>([]);
+  const [appraisals, setAppraisals] = useState<Appraisal[]>([]);
+  const [trackerLoading, setTrackerLoading] = useState(false);
+  const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
+  const [selectedMonthDate, setSelectedMonthDate] = useState<Date | null>(null);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
-    try {
-      const raw = typeof window !== 'undefined' ? window.localStorage.getItem(TRACKER_STORAGE_KEY) : null;
-      if (raw) setTrackerState(JSON.parse(raw));
-    } catch (e) {}
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
   }, []);
 
-  const saveTrackerState = (next: Record<string, Record<string, boolean>>) => {
-    setTrackerState(next);
-    try { if (typeof window !== 'undefined') window.localStorage.setItem(TRACKER_STORAGE_KEY, JSON.stringify(next)); } catch (e) {}
-  };
-
-  const toggleTracker = (managerId: string, yearKey: string) => {
-    const cur = trackerState[managerId] || {};
-    const nextFor = { ...cur, [yearKey]: !cur[yearKey] };
-    saveTrackerState({ ...trackerState, [managerId]: nextFor });
-  };
-
-  useEffect(() => {
-    let mounted = true;
-    const fetchManagers = async () => {
-      try {
-        if (!defaultAdminWorkspace || !defaultAdminWorkspace.id) {
+  const loadManagers = useCallback(async () => {
+    try {
+      if (!defaultAdminWorkspace || !defaultAdminWorkspace.id) {
+        if (isMountedRef.current) {
           setManagers([]);
-          return;
         }
-        const docPath = workspaceDocPath(defaultAdminWorkspace.id, undefined, defaultAdminWorkspace.organisationId);
-        const ref = doc(db, docPath);
-        const snap = await getDoc(ref);
-        if (!mounted) return;
-        if (!snap.exists()) {
-          setManagers([]);
-          return;
-        }
-        const data = snap.data() as any;
-        const mgrs = Array.isArray(data?.managers) ? data.managers : [];
-        setManagers(mgrs);
-      } catch (err) {
-        console.error('Error loading managers for tracker', err);
+        return;
+      }
+      const docPath = workspaceDocPath(defaultAdminWorkspace.id, undefined, defaultAdminWorkspace.organisationId);
+      const ref = doc(db, docPath);
+      const snap = await getDoc(ref);
+      if (!isMountedRef.current) return;
+      if (!snap.exists()) {
+        setManagers([]);
+        return;
+      }
+      const data = snap.data() as any;
+      const mgrs = Array.isArray(data?.managers) ? data.managers : [];
+      setManagers(mgrs);
+    } catch (err) {
+      console.error('Error loading managers for tracker', err);
+      if (isMountedRef.current) {
         setManagers([]);
       }
-    };
+    }
+  }, [defaultAdminWorkspace]);
 
-    const fetchAppraisals = async () => {
-      try {
-        const res = await fetch('/api/admin/appraisals');
-        if (!mounted) return;
-        if (!res.ok) {
-          setAppraisals([]);
-          return;
-        }
-        const data = await res.json();
-        // Expect array of appraisals with managerId and appraisalDate or createdAt
-        setAppraisals(Array.isArray(data) ? data : (data?.items || []));
-      } catch (err) {
-        console.error('Error loading appraisals', err);
+  const loadAppraisals = useCallback(async () => {
+    try {
+      if (!isMountedRef.current) return;
+      setTrackerLoading(true);
+      const res = await fetch('/api/admin/appraisals');
+      if (!isMountedRef.current) return;
+      if (!res.ok) {
+        setAppraisals([]);
+        return;
+      }
+      const data = await res.json();
+      const items = Array.isArray(data?.appraisals)
+        ? data.appraisals
+        : Array.isArray(data)
+          ? data
+          : Array.isArray(data?.items)
+            ? data.items
+            : [];
+      setAppraisals(items as Appraisal[]);
+    } catch (err) {
+      console.error('Error loading appraisals', err);
+      if (isMountedRef.current) {
         setAppraisals([]);
       }
-    };
+    } finally {
+      if (isMountedRef.current) {
+        setTrackerLoading(false);
+      }
+    }
+  }, []);
 
-    fetchManagers();
-    fetchAppraisals();
-    return () => { mounted = false; };
-  }, [defaultAdminWorkspace]);
+  useEffect(() => {
+    void loadManagers();
+  }, [loadManagers]);
+
+  useEffect(() => {
+    void loadAppraisals();
+  }, [loadAppraisals]);
 
   // If URL contains managerId & year, prefill the form after managers are loaded
   useEffect(() => {
@@ -119,33 +260,214 @@ export default function AppraisalsPage() {
       if (year) {
         setAppraisalDate(`${year}-01-01`);
       }
-      setViewMode('form');
+      setActiveTab('form');
     }
   }, [managers, searchParams]);
 
-  const trackerYears = useMemo(() => {
-    const currentYear = new Date().getFullYear();
-    const years: number[] = [];
-    for (let y = currentYear; y <= currentYear + 4; y++) years.push(y);
-    return years;
-  }, []);
+  const trackerRecords = useMemo(() => {
+    if (!appraisals || appraisals.length === 0) {
+      return [] as AppraisalTrackerRecord[];
+    }
+    return appraisals
+      .map(appraisal => {
+        const appraisalDate = safeParseDate(appraisal.appraisalDate) ?? safeParseDate(appraisal.createdAt) ?? new Date();
+        const createdAtParsed = safeParseDate(appraisal.createdAt);
+        const updatedAtParsed = safeParseDate(appraisal.updatedAt);
+        const id = appraisal.id ?? `${appraisal.managerId}-${appraisalDate.toISOString()}`;
+        return {
+          ...appraisal,
+          id,
+          appraisalDateParsed: appraisalDate,
+          createdAtParsed,
+          updatedAtParsed,
+        } satisfies AppraisalTrackerRecord;
+      })
+      .sort((a, b) => b.appraisalDateParsed.getTime() - a.appraisalDateParsed.getTime());
+  }, [appraisals]);
 
-  // Build a quick map of completed years per manager from appraisals
-  const completedMap = useMemo(() => {
-    const map: Record<string, Record<string, boolean>> = {};
-    if (!appraisals || !Array.isArray(appraisals)) return map;
-    appraisals.forEach((a: any) => {
-      const mid = a.managerId || a.manager?.id || a.managerId;
-      const dateStr = a.appraisalDate || a.createdAt || a.updatedAt || a.date;
-      if (!mid || !dateStr) return;
-      const d = new Date(dateStr);
-      if (isNaN(d.getTime())) return;
-      const y = String(d.getFullYear());
-      if (!map[mid]) map[mid] = {};
-      map[mid][y] = true;
+  const monthCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    trackerRecords.forEach(record => {
+      const key = getMonthKeyFromDate(record.appraisalDateParsed);
+      counts[key] = (counts[key] ?? 0) + 1;
+    });
+    return counts;
+  }, [trackerRecords]);
+
+  const monthsWithData = useMemo(() => Object.keys(monthCounts).sort(sortMonthKeysDesc), [monthCounts]);
+  const currentYear = useMemo(() => new Date().getFullYear(), []);
+  const currentMonthKey = useMemo(() => getMonthKeyFromDate(new Date()), []);
+
+  const earliestYear = useMemo(() => {
+    if (trackerRecords.length === 0) return null;
+    return trackerRecords.reduce((min, record) => Math.min(min, record.appraisalDateParsed.getFullYear()), Number.POSITIVE_INFINITY);
+  }, [trackerRecords]);
+
+  const latestYear = useMemo(() => {
+    if (trackerRecords.length === 0) return null;
+    return trackerRecords.reduce((max, record) => Math.max(max, record.appraisalDateParsed.getFullYear()), Number.NEGATIVE_INFINITY);
+  }, [trackerRecords]);
+
+  const availableYears = useMemo(() => {
+    const startYear = earliestYear !== null ? Math.min(earliestYear, currentYear) : currentYear;
+    const endYear = latestYear !== null ? Math.max(latestYear, currentYear) : currentYear;
+    const years: number[] = [];
+    for (let year = endYear; year >= startYear; year -= 1) {
+      years.push(year);
+    }
+    return years;
+  }, [earliestYear, latestYear, currentYear]);
+
+  const monthsGroupedByYear = useMemo(() => {
+    const result: Record<number, { monthKey: string; monthIndex: number; label: string; count: number }[]> = {};
+    if (availableYears.length === 0) return result;
+    availableYears.forEach(year => {
+      result[year] = MONTH_LABELS.map((label, index) => {
+        const monthKey = `${year}-${String(index + 1).padStart(2, '0')}`;
+        return {
+          monthKey,
+          monthIndex: index,
+          label,
+          count: monthCounts[monthKey] ?? 0,
+        };
+      });
+    });
+    return result;
+  }, [availableYears, monthCounts]);
+
+  const recordsByMonth = useMemo(() => {
+    const map: Record<string, AppraisalTrackerRecord[]> = {};
+    trackerRecords.forEach(record => {
+      const key = getMonthKeyFromDate(record.appraisalDateParsed);
+      if (!map[key]) {
+        map[key] = [];
+      }
+      map[key].push(record);
+    });
+    Object.keys(map).forEach(key => {
+      map[key].sort((a, b) => b.appraisalDateParsed.getTime() - a.appraisalDateParsed.getTime());
     });
     return map;
-  }, [appraisals]);
+  }, [trackerRecords]);
+
+  useEffect(() => {
+    const fallbackKey = monthsWithData[0] ?? currentMonthKey;
+    if (!selectedMonthKey && fallbackKey) {
+      setSelectedMonthKey(fallbackKey);
+      setSelectedMonthDate(monthKeyToDate(fallbackKey));
+      return;
+    }
+    if (selectedMonthKey && trackerRecords.length > 0 && !monthsWithData.includes(selectedMonthKey)) {
+      setSelectedMonthKey(fallbackKey);
+      setSelectedMonthDate(monthKeyToDate(fallbackKey));
+    }
+  }, [monthsWithData, selectedMonthKey, trackerRecords.length, currentMonthKey]);
+
+  useEffect(() => {
+    if (!selectedMonthKey) return;
+    const nextDate = monthKeyToDate(selectedMonthKey);
+    setSelectedMonthDate(prev => {
+      if (prev && nextDate && prev.getTime() === nextDate.getTime()) {
+        return prev;
+      }
+      return nextDate;
+    });
+  }, [selectedMonthKey]);
+
+  const selectedMonthRecords = selectedMonthKey ? recordsByMonth[selectedMonthKey] ?? [] : [];
+  const selectedMonthLabel = useMemo(() => (selectedMonthKey ? monthLabelFromKey(selectedMonthKey) : null), [selectedMonthKey]);
+  const selectedMonthRecordCount = selectedMonthRecords.length;
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    selectedMonthRecords.forEach(record => {
+      const key = record.status ?? 'unknown';
+      counts[key] = (counts[key] ?? 0) + 1;
+    });
+    return counts;
+  }, [selectedMonthRecords]);
+
+  const managersWithRecords = useMemo(() => {
+    const set = new Set<string>();
+    selectedMonthRecords.forEach(record => {
+      if (record.managerId) {
+        set.add(record.managerId);
+      }
+    });
+    return set;
+  }, [selectedMonthRecords]);
+
+  const pendingManagers = useMemo(() => managers.filter(manager => !managersWithRecords.has(manager.id)), [managers, managersWithRecords]);
+  const completedManagerCount = useMemo(() => {
+    const set = new Set<string>();
+    selectedMonthRecords.forEach(record => {
+      if (record.status === 'completed' && record.managerId) {
+        set.add(record.managerId);
+      }
+    });
+    return set.size;
+  }, [selectedMonthRecords]);
+
+  const trackerSummaryCards = useMemo(() => {
+    const totalManagers = managers.length;
+    return [
+      {
+        key: 'completed',
+        title: 'Completed appraisals',
+        count: statusCounts['completed'] ?? 0,
+        description:
+          statusCounts['completed'] && statusCounts['completed'] > 0
+            ? `${completedManagerCount} manager${completedManagerCount === 1 ? '' : 's'} signed off`
+            : 'No completed records yet',
+        accentGradient: 'from-emerald-500 to-teal-500',
+        iconGradient: 'from-emerald-100 to-teal-100',
+        iconColor: 'text-emerald-600',
+        icon: CheckCircle2,
+      },
+      {
+        key: 'draft',
+        title: 'Draft appraisals',
+        count: statusCounts['draft'] ?? 0,
+        description:
+          statusCounts['draft'] && statusCounts['draft'] > 0
+            ? 'Awaiting completion'
+            : 'No drafts captured',
+        accentGradient: 'from-amber-500 to-orange-500',
+        iconGradient: 'from-amber-100 to-orange-100',
+        iconColor: 'text-amber-600',
+        icon: AlertCircle,
+      },
+      {
+        key: 'pending',
+        title: 'Pending managers',
+        count: pendingManagers.length,
+        description:
+          totalManagers > 0
+            ? `${pendingManagers.length} of ${totalManagers} manager${totalManagers === 1 ? '' : 's'} outstanding`
+            : 'Managers without an appraisal this month',
+        accentGradient: 'from-slate-500 to-slate-700',
+        iconGradient: 'from-slate-100 to-slate-200',
+        iconColor: 'text-slate-700',
+        icon: User,
+      },
+    ];
+  }, [completedManagerCount, managers.length, pendingManagers.length, statusCounts]);
+
+  const handleSelectMonth = useCallback((monthKey: string) => {
+    setSelectedMonthKey(monthKey);
+    setSelectedMonthDate(monthKeyToDate(monthKey));
+  }, []);
+
+  const handleDatePickerSelect = useCallback(
+    (value?: Date) => {
+      if (!value) return;
+      const monthKey = getMonthKeyFromDate(value);
+      handleSelectMonth(monthKey);
+      setDatePickerOpen(false);
+    },
+    [handleSelectMonth]
+  );
+
+
   const [selectedManager, setSelectedManager] = useState<Manager | null>(null);
   const [role, setRole] = useState("");
   const [appraiser, setAppraiser] = useState("");
@@ -194,6 +516,38 @@ export default function AppraisalsPage() {
   
   // Loading state
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState<AppraisalTrackerRecord | null>(null);
+
+  const prefillAppraisalForManager = useCallback(
+    (manager: Manager, monthKey?: string) => {
+      setSelectedManager(manager);
+      setRole(prev => prev || 'Home Manager');
+      if (monthKey) {
+        const targetDate = monthKeyToDate(monthKey);
+        if (targetDate) {
+          const iso = targetDate.toISOString().split('T')[0];
+          setAppraisalDate(iso);
+        }
+      }
+      setActiveTab('form');
+      if (manager?.id) {
+        try {
+          const params = new URLSearchParams({ managerId: manager.id });
+          if (monthKey) {
+            const [year] = monthKey.split('-');
+            if (year) {
+              params.set('year', year);
+            }
+          }
+          router.push(`/admin/appraisals?${params.toString()}`);
+        } catch (err) {
+          // ignore routing errors (e.g. during static export)
+          console.warn('Unable to update appraisal URL parameters', err);
+        }
+      }
+    },
+    [router, setActiveTab, setAppraisalDate, setRole, setSelectedManager]
+  );
 
   const handleSaveAppraisal = async (status: 'draft' | 'completed') => {
     if (!selectedManager) {
@@ -263,9 +617,8 @@ export default function AppraisalsPage() {
   const handleSaveDraft = () => handleSaveAppraisal('draft');
   const handleCompleteAppraisal = () => handleSaveAppraisal('completed');
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/10">
-      {/* Header */}
-      <>
+    <>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/10">
         <AdminPageHeader
           title="Home Manager – Annual Appraisal"
           subtitle="Annual review and development for Home Managers"
@@ -283,111 +636,300 @@ export default function AppraisalsPage() {
             New Appraisal
           </Button>
         </div>
-      </>
 
-  <div className="w-full p-10 bg-gradient-to-br from-slate-50 to-white rounded-3xl shadow-2xl mt-10 border border-slate-200">
-        {/* Tabs and main content area: render tracker OR the two-column form layout */}
-        <div>
-          <div className="mb-4">
-            <div className="flex items-center gap-2">
-              <button onClick={() => setViewMode('form')} className={`px-3 py-1 rounded-md ${viewMode === 'form' ? 'bg-white text-slate-900' : 'bg-transparent text-slate-500'}`}>Form</button>
-              <button onClick={() => setViewMode('tracker')} className={`px-3 py-1 rounded-md ${viewMode === 'tracker' ? 'bg-white text-slate-900' : 'bg-transparent text-slate-500'}`}>Tracker</button>
+        <div className="w-full p-10 bg-gradient-to-br from-slate-50 to-white rounded-3xl shadow-2xl mt-10 border border-slate-200">
+          <Tabs value={activeTab} onValueChange={val => setActiveTab(val as 'form' | 'tracker')} className="space-y-8">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <TabsList className="grid h-auto w-full max-w-xl grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+              <TabsTrigger
+                value="form"
+                className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              >
+                New appraisal
+              </TabsTrigger>
+              <TabsTrigger
+                value="tracker"
+                className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              >
+                Tracker
+              </TabsTrigger>
+            </TabsList>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <Button variant="outline" onClick={() => setActiveTab('form')}>
+                Start appraisal
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => void loadAppraisals()}
+                disabled={trackerLoading}
+                className="flex items-center gap-2"
+              >
+                {trackerLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
+                Refresh data
+              </Button>
             </div>
           </div>
 
-          {/* TRACKER VIEW */}
-          {viewMode === 'tracker' && (
-            <div className="px-4 sm:px-8 lg:px-16">
-              <div className="w-full">
-                <div className="bg-white/90 rounded-2xl shadow-xl border border-blue-100 p-6 sm:p-10 mb-8 min-h-[240px] flex flex-col justify-between">
-                  <div className="flex items-center gap-3 mb-6">
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="text-blue-500"><rect x="3" y="3" width="18" height="18" rx="4" fill="currentColor" /></svg>
+          <TabsContent value="tracker" className="mt-6 space-y-8">
+            <div className="grid gap-6 xl:grid-cols-3">
+              {trackerSummaryCards.map(card => {
+                const Icon = card.icon;
+                return (
+                  <div
+                    key={card.key}
+                    className="relative overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/60 p-6 shadow-sm"
+                  >
+                    <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${card.accentGradient}`} />
+                    <div className="flex items-start gap-4">
+                      <div className={`rounded-xl bg-gradient-to-br p-3 shadow-sm ${card.iconGradient}`}>
+                        <Icon className={`h-5 w-5 ${card.iconColor}`} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-slate-500">{card.title}</p>
+                        <p className="mt-1 text-3xl font-semibold text-slate-900">{card.count}</p>
+                        <p className="mt-1 text-xs text-slate-500">{card.description}</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold text-blue-900">Monthly tracker</h2>
+                  <p className="text-sm text-slate-500">Jump between months to review appraisal activity and drill into records.</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4" />
+                        Jump to month
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="end">
+                      <DatePickerCalendar
+                        mode="single"
+                        selected={selectedMonthDate ?? undefined}
+                        defaultMonth={selectedMonthDate ?? new Date()}
+                        onSelect={handleDatePickerSelect}
+                        captionLayout="dropdown"
+                        fromYear={Math.max(2020, availableYears[availableYears.length - 1] ?? currentYear)}
+                        toYear={currentYear + 1}
+                        showOutsideDays
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <Button
+                    variant="outline"
+                    onClick={() => void loadAppraisals()}
+                    disabled={trackerLoading}
+                    className="flex items-center gap-2"
+                  >
+                    {trackerLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
+                    Refresh
+                  </Button>
+                </div>
+              </div>
+
+              <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+                {availableYears.length === 0 ? (
+                  <div className="col-span-full rounded-xl border border-dashed border-slate-200 bg-slate-50 py-12 text-center text-sm text-slate-500">
+                    No appraisal history captured yet. Create a new record to populate this tracker.
+                  </div>
+                ) : (
+                  availableYears.flatMap(year => {
+                    const entries = monthsGroupedByYear[year] ?? [];
+                    return entries.map(entry => {
+                      const hasData = entry.count > 0;
+                      const isSelected = selectedMonthKey === entry.monthKey;
+                      return (
+                        <button
+                          key={entry.monthKey}
+                          type="button"
+                          onClick={() => handleSelectMonth(entry.monthKey)}
+                          className={`relative rounded-2xl border p-4 text-left transition-all focus:outline-none focus:ring-2 focus:ring-blue-200 ${
+                            hasData
+                              ? 'bg-white hover:border-blue-300 hover:shadow-md'
+                              : 'border-dashed border-slate-300 bg-slate-50 text-slate-500 hover:border-slate-300'
+                          } ${isSelected ? 'border-blue-500 ring-2 ring-blue-200' : ''}`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className={`text-sm font-semibold ${hasData ? 'text-slate-900' : 'text-slate-500'}`}>
+                              {MONTH_SHORT_LABELS[entry.monthIndex]}
+                            </span>
+                            {hasData ? (
+                              <span className="text-xs font-medium text-blue-600">
+                                {entry.count === 1 ? '1 record' : `${entry.count} records`}
+                              </span>
+                            ) : (
+                              <span className="text-xs">No records</span>
+                            )}
+                          </div>
+                          <div className="mt-3 text-xs text-slate-600">{entry.label}</div>
+                        </button>
+                      );
+                    });
+                  })
+                )}
+              </div>
+
+              {selectedMonthKey ? (
+                <div className="mt-8 space-y-6">
+                  <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:flex-row lg:items-center lg:justify-between">
                     <div>
-                      <h2 className="text-2xl font-bold text-blue-900 leading-tight">Appraisals Tracker</h2>
-                      <div className="text-blue-700 text-sm mt-1">Overview of manager appraisals by year</div>
+                      <h3 className="text-lg font-semibold text-blue-900">{selectedMonthLabel ?? 'Selected month'}</h3>
+                      <p className="text-sm text-slate-500">{selectedMonthRecordCount} appraisal{selectedMonthRecordCount === 1 ? '' : 's'} recorded</p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+                        <Clock className="h-3.5 w-3.5" />
+                        {selectedMonthRecordCount} saved
+                      </span>
+                      <Button
+                        variant="outline"
+                        onClick={() => void loadAppraisals()}
+                        disabled={trackerLoading}
+                        className="flex items-center gap-2"
+                      >
+                        {trackerLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
+                        Refresh
+                      </Button>
                     </div>
                   </div>
 
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full border-collapse border border-gray-200 shadow-sm rounded-lg overflow-hidden">
-                      <thead>
-                        <tr className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-                          <th className="py-4 px-6 text-left font-semibold border-b border-blue-500">Manager</th>
-                          {trackerYears.map((y) => (
-                            <th key={y} className={`py-4 px-6 font-semibold border-b border-blue-500 text-center ${y === new Date().getFullYear() ? 'bg-blue-700' : ''}`}>
-                              {y}
-                            </th>
+                  {pendingManagers.length > 0 ? (
+                    <div className="rounded-2xl border border-dashed border-amber-200 bg-amber-50/60 p-5 text-sm text-amber-700">
+                      {pendingManagers.length} manager{pendingManagers.length === 1 ? ' is' : 's are'} still outstanding for this month.
+                    </div>
+                  ) : null}
+
+                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                    {managers.map(manager => {
+                      const hasRecord = selectedMonthRecords.some(record => record.managerId === manager.id);
+                      const latestRecord = selectedMonthRecords.find(record => record.managerId === manager.id);
+                      const status = latestRecord?.status ?? 'pending';
+                      const statusBadgeClasses =
+                        status === 'completed'
+                          ? 'border border-emerald-200 bg-emerald-100 text-emerald-700'
+                          : status === 'draft'
+                            ? 'border border-amber-200 bg-amber-100 text-amber-700'
+                            : 'border border-slate-200 bg-slate-100 text-slate-600';
+                      return (
+                        <div
+                          key={manager.id}
+                          className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white to-slate-50/60 p-5 shadow-sm transition-all hover:shadow-lg"
+                        >
+                          <div className="relative flex items-start justify-between gap-3">
+                            <div>
+                              <h4 className="text-base font-semibold text-slate-900">{manager.name}</h4>
+                              <p className="text-xs text-slate-500">{manager.workspaceName ?? 'Workspace not set'}</p>
+                            </div>
+                            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusBadgeClasses}`}>
+                              {status === 'completed' ? 'Completed' : status === 'draft' ? 'Draft' : 'Pending'}
+                            </span>
+                          </div>
+                          <div className="mt-4 flex flex-1 flex-col justify-between gap-3 text-xs text-slate-600">
+                            {hasRecord && latestRecord ? (
+                              <>
+                                <div className="flex items-center gap-2">
+                                  <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                                  Saved {formatDateOnly(latestRecord.appraisalDateParsed)}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <User className="h-3.5 w-3.5 text-slate-400" />
+                                  Appraiser: {latestRecord.appraiser || '—'}
+                                </div>
+                              </>
+                            ) : (
+                              <p>No appraisal captured this month.</p>
+                            )}
+                          </div>
+                          <div className="mt-4 flex items-center gap-3">
+                                                  {hasRecord && latestRecord ? (
+                                                    <Button
+                                                      type="button"
+                                                      size="sm"
+                                                      variant="outline"
+                                                      onClick={() => setSelectedRecord(latestRecord)}
+                                                      className="flex-1"
+                                                    >
+                                                      <Info className="mr-2 h-4 w-4" /> View record
+                                                    </Button>
+                                                  ) : (
+                                                    <div className="text-xs text-slate-500">No records yet.</div>
+                                                  )}
+                            {!hasRecord && (
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => prefillAppraisalForManager(manager, selectedMonthKey ?? undefined)}
+                                className="ml-auto h-9 w-9 rounded-full border border-blue-200 bg-blue-50 text-blue-600 hover:border-blue-300 hover:bg-blue-100"
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                    {selectedMonthRecords.length === 0 ? (
+                      <div className="p-10 text-center text-sm text-slate-500">
+                        No appraisals saved for {selectedMonthLabel ?? 'this month'} yet.
+                      </div>
+                    ) : (
+                      <Table>
+                        <TableHeader className="bg-muted/60">
+                          <TableRow className="text-xs uppercase tracking-wide">
+                            <TableHead className="w-48">Manager</TableHead>
+                            <TableHead>Summary</TableHead>
+                            <TableHead className="w-48">Appraisal date</TableHead>
+                            <TableHead className="w-48">Status</TableHead>
+                            <TableHead className="w-32 text-right">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {selectedMonthRecords.map(record => (
+                            <TableRow key={record.id} className="transition-colors hover:bg-muted/40">
+                              <TableCell>
+                                <div className="flex flex-col text-sm">
+                                  <span className="font-semibold text-foreground">{record.managerName}</span>
+                                  <span className="text-xs text-slate-500">{record.workspaceName ?? record.workspaceId}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-sm text-slate-500">
+                                <span className="line-clamp-2">
+                                  {record.summaryCommentsAppraiser || record.summaryCommentsAppraisee || record.periodCovered || '—'}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-sm font-medium text-foreground">{formatDateOnly(record.appraisalDateParsed)}</TableCell>
+                              <TableCell>
+                                <Badge variant={record.status === 'completed' ? 'secondary' : 'outline'}>{record.status ?? 'unknown'}</Badge>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button size="sm" variant="outline" onClick={() => setSelectedRecord(record)}>
+                                  View details
+                                </Button>
+                              </TableCell>
+                            </TableRow>
                           ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(managers || []).map((m: Manager, idx: number) => {
-                          const managerId = m.id || `${m.name}-${idx}`;
-                          const storedFor = trackerState[managerId] || {};
-                          const completedFor = completedMap[managerId] || {};
-                          return (
-                            <tr key={managerId} className={`transition-colors ${idx % 2 === 0 ? 'bg-white hover:bg-gray-50' : 'bg-gray-50 hover:bg-gray-100'} border-b border-gray-200`}>
-                              <td className="py-4 px-6 font-medium text-gray-900 border-r border-gray-200">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedManager(m);
-                                    setRole('Home Manager');
-                                    setViewMode('form');
-                                  }}
-                                  className="text-left w-full text-gray-900 hover:underline"
-                                >
-                                  {m.name}
-                                </button>
-                              </td>
-                              {trackerYears.map((yr) => {
-                                const yearKey = String(yr);
-                                const prefilled = !!completedFor[yearKey];
-                                const stored = storedFor[yearKey];
-                                const checked = stored || prefilled;
-                                return (
-                                  <td key={yearKey} className={`py-4 px-6 text-center border-r border-gray-200 cursor-pointer transition-all duration-200 hover:bg-blue-100 hover:shadow-inner ${yr === new Date().getFullYear() ? 'bg-blue-50' : ''}`} onClick={() => {
-                                    if (checked) {
-                                      toggleTracker(managerId, yearKey);
-                                    } else {
-                                      // Immediately prefill the form client-side so the '+' is responsive
-                                      setSelectedManager(m);
-                                      setRole('Home Manager');
-                                      setAppraisalDate(`${yearKey}-01-01`);
-                                      setViewMode('form');
-                                      // update the URL so the state is shareable
-                                      try {
-                                        router.push(`/admin/appraisals?managerId=${encodeURIComponent(managerId)}&year=${yearKey}`);
-                                      } catch (e) {
-                                        // ignore router errors
-                                      }
-                                    }
-                                  }}>
-                                    <div className="relative inline-block">
-                                      {checked ? (
-                                        <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shadow-md bg-blue-500 text-white">✓</div>
-                                      ) : (
-                                        <div className="w-10 h-10 rounded-full border-2 border-gray-300 border-dashed flex items-center justify-center text-gray-400 hover:border-blue-400 transition-colors">
-                                          <span className="text-xs">+</span>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </td>
-                                );
-                              })}
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                        </TableBody>
+                      </Table>
+                    )}
                   </div>
                 </div>
-              </div>
+              ) : null}
             </div>
-          )}
+          </TabsContent>
 
-          {/* FORM VIEW */}
-          {viewMode === 'form' && (
+          <TabsContent value="form" className="mt-6">
             <div className="flex flex-col lg:flex-row gap-10">
               {/* Left panel for details, sticky and NOT part of the form */}
               <div className="w-full lg:w-[480px] flex-shrink-0 bg-white rounded-2xl p-6 border border-slate-200 shadow-xl mb-8 lg:mb-0 self-start">
@@ -937,10 +1479,216 @@ export default function AppraisalsPage() {
                 </form>
               </div>
             </div>
-          )}
-
+          </TabsContent>
+        </Tabs>
         </div>
       </div>
-    </div>
+
+      <Dialog open={!!selectedRecord} onOpenChange={open => setSelectedRecord(open ? selectedRecord : null)}>
+    <DialogContent className="flex max-h-[85vh] min-h-[60vh] w-full max-w-4xl flex-col overflow-hidden border border-slate-200 bg-white p-0 shadow-2xl">
+      {selectedRecord ? (
+        <>
+          <DialogHeader className="border-b px-6 py-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="space-y-2">
+                <DialogTitle className="text-lg font-semibold text-slate-900">
+                  {selectedRecord.managerName}
+                </DialogTitle>
+                <DialogDescription className="text-sm text-slate-500">
+                  {selectedRecord.role || 'Role not specified'} • {formatDateOnly(selectedRecord.appraisalDateParsed)}
+                </DialogDescription>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant={selectedRecord.status === 'completed' ? 'secondary' : 'outline'} className="capitalize">
+                  {selectedRecord.status ?? 'unknown'}
+                </Badge>
+                <Badge variant="outline">{OVERALL_RATING_LABELS[selectedRecord.overallRating] ?? 'Rating not set'}</Badge>
+                {(() => {
+                  const managerForRecord = managers.find(manager => manager.id === selectedRecord.managerId);
+                  if (!managerForRecord) return null;
+                  return (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        prefillAppraisalForManager(managerForRecord, getMonthKeyFromDate(selectedRecord.appraisalDateParsed));
+                        setSelectedRecord(null);
+                      }}
+                    >
+                      Prefill form
+                    </Button>
+                  );
+                })()}
+              </div>
+            </div>
+          </DialogHeader>
+          <ScrollArea className="flex-1 overflow-y-auto bg-muted/20 px-6 pb-6">
+            <div className="mx-auto w-full max-w-3xl space-y-6 py-6 pr-2">
+              <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h3 className="text-base font-semibold text-blue-900">Overview</h3>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Appraiser</p>
+                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700">{selectedRecord.appraiser || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Workspace</p>
+                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700">{selectedRecord.workspaceName ?? selectedRecord.workspaceId}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Period covered</p>
+                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700">{selectedRecord.periodCovered || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Recorded on</p>
+                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700">{formatDateTime(selectedRecord.createdAtParsed ?? selectedRecord.appraisalDateParsed)}</p>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Summary comments (appraiser)</p>
+                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700 whitespace-pre-line">
+                      {selectedRecord.summaryCommentsAppraiser || '—'}
+                    </p>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Summary comments (appraisee)</p>
+                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700 whitespace-pre-line">
+                      {selectedRecord.summaryCommentsAppraisee || '—'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h3 className="text-base font-semibold text-blue-900">Performance insights</h3>
+                <div className="grid gap-4 md:grid-cols-2">
+                  {[
+                    { label: 'Care quality & compliance', value: selectedRecord.careQualityCompliance },
+                    { label: 'Leadership & people management', value: selectedRecord.leadershipPeopleManagement },
+                    { label: 'Resident outcomes & engagement', value: selectedRecord.residentOutcomesEngagement },
+                    { label: 'Business & operational performance', value: selectedRecord.businessOperationalPerformance },
+                  ].map(item => (
+                    <div key={item.label} className="space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">{item.label}</p>
+                      <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700 whitespace-pre-line">
+                        {item.value || '—'}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h3 className="text-base font-semibold text-blue-900">Objectives & development</h3>
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Previous objectives</p>
+                    <div className="mt-3 space-y-3">
+                      {(selectedRecord.previousObjectives ?? []).map((objective, index) => (
+                        <div key={`${objective.objective}-${index}`} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                          <p className="text-sm font-semibold text-slate-800">Objective {index + 1}</p>
+                          <p className="mt-1 text-xs uppercase tracking-wide text-slate-500">Status: {objective.status || '—'}</p>
+                          <p className="mt-2 text-sm text-slate-700 whitespace-pre-line">{objective.objective || '—'}</p>
+                          {objective.comments ? (
+                            <p className="mt-2 text-xs text-slate-500">Comments: {objective.comments}</p>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                    <p className="mt-3 text-xs text-slate-500">
+                      {selectedRecord.previousObjectivesOverallComments || 'No overall comments recorded.'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Objectives for next 12 months</p>
+                    <ul className="mt-2 space-y-2 text-sm text-slate-700">
+                      {(selectedRecord.nextObjectives ?? []).filter(obj => obj && obj.trim().length > 0).map((obj, index) => (
+                        <li key={`${obj}-${index}`} className="rounded-xl border border-slate-200 bg-white px-4 py-2">
+                          {obj}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Strengths & achievements</p>
+                      <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700 whitespace-pre-line">
+                        {selectedRecord.strengthsAchievements || '—'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Development needs</p>
+                      <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700 whitespace-pre-line">
+                        {selectedRecord.developmentNeeds || '—'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h3 className="text-base font-semibold text-blue-900">Career development & wellbeing</h3>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Training completed</p>
+                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700 whitespace-pre-line">
+                      {selectedRecord.trainingCompleted || '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Training required</p>
+                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700 whitespace-pre-line">
+                      {selectedRecord.trainingRequired || '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Career aspirations</p>
+                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700 whitespace-pre-line">
+                      {selectedRecord.careerAspirations || '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Managing role demands</p>
+                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700 whitespace-pre-line">
+                      {selectedRecord.managingDemands || '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Senior management support</p>
+                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700 whitespace-pre-line">
+                      {selectedRecord.seniorManagementSupport || '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Reasonable adjustments</p>
+                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700 whitespace-pre-line">
+                      {selectedRecord.reasonableAdjustments || '—'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h3 className="text-base font-semibold text-blue-900">Signatures & acknowledgement</h3>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Manager signature</p>
+                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700">{selectedRecord.managerSignature || '—'}</p>
+                    <p className="text-xs text-slate-500">{formatDateOnly(selectedRecord.managerSignatureDate)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Appraiser signature</p>
+                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700">{selectedRecord.appraiserSignature || '—'}</p>
+                    <p className="text-xs text-slate-500">{formatDateOnly(selectedRecord.appraiserSignatureDate)}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </ScrollArea>
+        </>
+      ) : null}
+    </DialogContent>
+  </Dialog>
+    </>
   );
 }

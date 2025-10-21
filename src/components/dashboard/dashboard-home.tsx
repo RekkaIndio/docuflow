@@ -1787,7 +1787,8 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
     const isMobile = useIsMobile();
     const { user } = useAuth();
     const organisationId = (workspace as any)?.organisationId ?? (user as any)?.organisationId ?? null;
-    const { isEnabled } = useFeatureFlags(organisationId);
+    const workspaceId = workspace?.id ?? null;
+    const { isEnabled } = useFeatureFlags(organisationId, workspaceId);
     const journalFeatureEnabled = isEnabled('journal');
     const roleRaw = (user as any)?.role ?? '';
     const role = typeof roleRaw === 'string' ? roleRaw.trim().toLowerCase() : '';
