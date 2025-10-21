@@ -96,6 +96,42 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Missing orgId or admin authorization' }, { status: 403 });
     }
 
+    const groupCache = new Map<string, Map<string, any>>();
+    const loadGroupsForOrg = async (orgKey?: string | null) => {
+      if (!orgKey) return null;
+      if (groupCache.has(orgKey)) {
+        return groupCache.get(orgKey)!;
+      }
+      try {
+        const snap = await adminDb.collection(`organisations/${orgKey}/workspace-groups`).get();
+        const map = new Map<string, any>();
+        snap.forEach((docSnap: any) => {
+          const data = docSnap.data() || {};
+          const createdAt = data.createdAt && typeof data.createdAt.toDate === 'function' ? data.createdAt.toDate().toISOString() : null;
+          const updatedAt = data.updatedAt && typeof data.updatedAt.toDate === 'function' ? data.updatedAt.toDate().toISOString() : null;
+          const workspaceIds = Array.isArray(data.workspaceIds) ? data.workspaceIds.filter((v: any) => typeof v === 'string') : [];
+          map.set(docSnap.id, {
+            id: docSnap.id,
+            organisationId: orgKey,
+            name: typeof data.name === 'string' ? data.name : docSnap.id,
+            description: typeof data.description === 'string' ? data.description : null,
+            color: typeof data.color === 'string' ? data.color : null,
+            workspaceIds,
+            workspaceCount: workspaceIds.length,
+            createdAt,
+            updatedAt,
+          });
+        });
+        groupCache.set(orgKey, map);
+        return map;
+      } catch (groupErr) {
+        console.warn('Failed to load workspace groups while listing workspaces', groupErr);
+        const empty = new Map<string, any>();
+        groupCache.set(orgKey, empty);
+        return empty;
+      }
+    };
+
     const workspaces = await Promise.all(
       snaps.docs.map(async (doc: any) => {
         const workspaceData = doc.data();
@@ -105,6 +141,17 @@ export async function GET(req: Request) {
         const docOrgId = parent && parent.id ? parent.id : orgId || undefined;
 
         const { folders } = await fetchWorkspaceStructure(doc.id, docOrgId);
+
+        const workspaceGroupId: string | null = workspaceData.workspaceGroupId || workspaceData.groupId || null;
+        let workspaceGroup: any = (workspaceData.workspaceGroup && typeof workspaceData.workspaceGroup === 'object') ? workspaceData.workspaceGroup : null;
+        if (workspaceGroupId && (!workspaceGroup || workspaceGroup.id !== workspaceGroupId)) {
+          const map = await loadGroupsForOrg(docOrgId);
+          if (map && map.has(workspaceGroupId)) {
+            workspaceGroup = map.get(workspaceGroupId);
+          }
+        }
+        const workspaceGroupColor = workspaceData.workspaceGroupColor || workspaceGroup?.color || null;
+        const derivedRegion = workspaceData.region || workspaceGroup?.name || null;
 
         // attempt occupancy and scores as before, but prefer org-scoped path for this workspace
         let totalBeds: number | undefined = undefined;
@@ -181,6 +228,10 @@ export async function GET(req: Request) {
           organisationId: docOrgId,
           ...workspaceData,
           folders,
+          region: derivedRegion,
+          workspaceGroupId,
+          workspaceGroup: workspaceGroup || null,
+          workspaceGroupColor,
           totalBeds,
           occupiedBeds,
           occupancy: (typeof totalBeds === 'number' && typeof occupiedBeds === 'number' && totalBeds > 0) ? (occupiedBeds / totalBeds) : workspaceData.occupancy ?? null,
@@ -251,11 +302,54 @@ export async function POST(req: Request) {
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
+    const rawGroup = body.workspaceGroupId !== undefined ? body.workspaceGroupId : body.groupId;
+    let groupPayload: { id: string; name: string; color: string | null } | null = null;
+    if (rawGroup !== undefined) {
+      const trimmed = rawGroup === null ? null : String(rawGroup).trim();
+      const targetGroupId = trimmed || null;
+      if (targetGroupId) {
+        const groupRef = adminDb.doc(`organisations/${orgId}/workspace-groups/${targetGroupId}`);
+        const groupSnap = await groupRef.get();
+        if (!groupSnap.exists) {
+          return NextResponse.json({ error: 'Workspace group not found' }, { status: 404 });
+        }
+        const groupData = groupSnap.data() || {};
+        groupPayload = {
+          id: targetGroupId,
+          name: typeof groupData.name === 'string' ? groupData.name : targetGroupId,
+          color: typeof groupData.color === 'string' ? groupData.color : null,
+        };
+        payload.workspaceGroupId = groupPayload.id;
+        payload.workspaceGroup = groupPayload;
+        payload.workspaceGroupColor = groupPayload.color || null;
+        payload.region = groupPayload.name;
+      } else {
+        payload.workspaceGroupId = null;
+        payload.workspaceGroup = null;
+        payload.workspaceGroupColor = null;
+      }
+    }
+
     let workspaceId: string;
 
     // Create org-scoped workspace
     const wsRef = await adminDb.collection(`organisations/${orgId}/workspaces`).add({ ...payload, organisationId: orgId });
     workspaceId = wsRef.id;
+
+    if (groupPayload) {
+      try {
+        const groupRef = adminDb.doc(`organisations/${orgId}/workspace-groups/${groupPayload.id}`);
+        await groupRef.set(
+          {
+            workspaceIds: admin.firestore.FieldValue.arrayUnion(workspaceId),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+      } catch (groupErr) {
+        console.warn('Failed to add workspace to group during creation', groupErr);
+      }
+    }
 
     // Ensure organisation user records exist for owner and members so security rules
     // that check organisations/{orgId}/users/{uid} succeed for client requests.

@@ -1,5 +1,17 @@
 import type { OrganisationTeamKey } from '@/lib/team-roles';
 
+export type WorkspaceGroup = {
+  id: string;
+  organisationId: string;
+  name: string;
+  description?: string | null;
+  color?: string | null;
+  workspaceIds?: string[];
+  workspaceCount?: number;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
 export type User = {
   id: string;
   name: string | null;
@@ -15,6 +27,16 @@ export type Workspace = {
   name: string;
   folders: (Folder | Document)[];
   ownerId?: string;
+  organisationId?: string | null;
+  members?: Array<string | User>;
+  region?: string | null;
+  workspaceGroupId?: string | null;
+  workspaceGroup?: WorkspaceGroup | null;
+  workspaceGroupColor?: string | null;
+  complianceScore?: number | null;
+  staffCount?: number | null;
+  staffingLevel?: number | null;
+  latestDailyCheckinAt?: string | null;
   // Optional occupancy data used by admin and dashboard views (0..1)
   occupancy?: number;
   // Optional explicit bed counts
@@ -199,43 +221,16 @@ export type Supervision = {
   createdBy: string;
 }
 
-export type RdComplianceProfessionalVisitor = {
-  name: string;
-  role: string;
-  comments: string;
-};
-
-export type RdComplianceStaffEntry = {
-  name: string;
-  role: string;
-  safeguarding: string;
-  cqc: string;
-  mcaDols: string;
-  iddsiKnowledge: string;
-  fileChecklist: Record<string, string>;
-  fileComments: string;
-};
-
 export type RdComplianceAudit = {
   id?: string;
   workspaceId: string;
   organisationId?: string | null;
-  workspaceName?: string;
-  home: string;
-  auditDate: string;
-  monthKey?: string;
-  announced: 'announced' | 'unannounced';
-  visitDuration?: string;
-  registeredManager?: string;
-  responsiblePerson?: string;
-  occupancy?: string;
-  previousActionPlanStatus?: 'met' | 'partly-met' | 'not-met';
-  actionPlanRequired: 'yes' | 'no';
-  status: 'draft' | 'completed';
-  createdAt: string;
-  updatedAt: string;
-  createdBy: string;
-  formData: Record<string, any>;
-  professionalVisitors: RdComplianceProfessionalVisitor[];
-  staffEntries: RdComplianceStaffEntry[];
+  auditDate?: string | null;
+  submittedAt?: string | null;
+  assessorName?: string | null;
+  status?: 'pending' | 'in-progress' | 'completed' | 'archived';
+  score?: number | null;
+  findings?: Record<string, any>;
+  actionItems?: Array<{ id?: string; summary: string; dueDate?: string | null; ownerId?: string | null; status?: 'open' | 'in-progress' | 'completed' }>;
+  notes?: string | null;
 };

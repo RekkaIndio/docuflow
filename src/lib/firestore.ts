@@ -96,7 +96,7 @@ export async function deleteDocument(workspaceId: string, documentId: string, or
 
 
 import { collection, getDocs, doc, getDoc, addDoc, query, where, Timestamp, setDoc, deleteDoc, writeBatch, updateDoc, orderBy, limit, serverTimestamp } from "firebase/firestore";
-import type { Workspace, Folder, Document, User } from './types';
+import type { Workspace, Folder, Document, User, WorkspaceGroup } from './types';
 import { db, storage } from './firebase';
 import { ref, deleteObject, uploadBytes, getDownloadURL } from "firebase/storage";
 
@@ -313,7 +313,18 @@ export async function getWorkspacesForUser(userId: string, orgIdOverride?: strin
             if (resp.ok) {
                 const data = await resp.json();
                 if (data && Array.isArray(data.workspaces)) {
-                    return data.workspaces.map((w: any) => ({ id: w.id, name: w.name, ownerId: w.ownerId, members: w.members || [], organisationId: w.organisationId || null, folders: w.folders || [] }));
+                    return data.workspaces.map((w: any) => ({
+                        id: w.id,
+                        name: w.name,
+                        ownerId: w.ownerId,
+                        members: w.members || [],
+                        organisationId: w.organisationId || null,
+                        folders: w.folders || [],
+                        region: w.region || w.workspaceGroup?.name || null,
+                        workspaceGroupId: w.workspaceGroupId || w.groupId || null,
+                        workspaceGroup: w.workspaceGroup || w.group || null,
+                        workspaceGroupColor: w.workspaceGroupColor || w.workspaceGroup?.color || null,
+                    }));
                 }
             } else {
                 // debug logging removed: admin fetch returned non-ok status
@@ -337,7 +348,18 @@ export async function getWorkspacesForUser(userId: string, orgIdOverride?: strin
                         const filtered = data2.workspaces.filter((w: any) => {
                             const members = Array.isArray(w.members) ? w.members : [];
                             return members.includes(userId) || w.ownerId === userId;
-                        }).map((w: any) => ({ id: w.id, name: w.name, ownerId: w.ownerId, members: w.members || [], organisationId: w.organisationId || null, folders: w.folders || [] }));
+                        }).map((w: any) => ({
+                            id: w.id,
+                            name: w.name,
+                            ownerId: w.ownerId,
+                            members: w.members || [],
+                            organisationId: w.organisationId || null,
+                            folders: w.folders || [],
+                            region: w.region || w.workspaceGroup?.name || null,
+                            workspaceGroupId: w.workspaceGroupId || w.groupId || null,
+                            workspaceGroup: w.workspaceGroup || w.group || null,
+                            workspaceGroupColor: w.workspaceGroupColor || w.workspaceGroup?.color || null,
+                        }));
                         if (filtered.length > 0) return filtered;
                     }
                 } else {
@@ -1342,6 +1364,7 @@ export async function createWorkspace(workspace: Omit<Workspace, 'id' | 'folders
         throw error;
     }
 }
+
 
 /**
  * Admin helper: return all care homes. This reads a top-level `care-homes` collection
