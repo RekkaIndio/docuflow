@@ -141,9 +141,10 @@ export function AppSidebar({
   
   // Get organisation ID from active workspace
   const organisationId = (activeWorkspace as any)?.organisationId;
+  const workspaceId = activeWorkspace?.id ?? null;
   
   // Load feature flags for the organisation
-  const { isEnabled, loading: flagsLoading } = useFeatureFlags(organisationId);
+  const { isEnabled, loading: flagsLoading } = useFeatureFlags(organisationId, workspaceId);
 
   const handleNavigation = (action: () => void) => {
     action();

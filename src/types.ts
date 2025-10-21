@@ -1,9 +1,13 @@
+import type { OrganisationTeamKey } from '@/lib/team-roles';
 
 export type User = {
   id: string;
   name: string | null;
   email: string | null;
   avatarUrl: string | null;
+  organisationId?: string | null;
+  role?: string | null;
+  teamKeys?: OrganisationTeamKey[] | null;
 };
 
 export type Workspace = {
@@ -194,3 +198,44 @@ export type Supervision = {
   updatedAt: string;
   createdBy: string;
 }
+
+export type RdComplianceProfessionalVisitor = {
+  name: string;
+  role: string;
+  comments: string;
+};
+
+export type RdComplianceStaffEntry = {
+  name: string;
+  role: string;
+  safeguarding: string;
+  cqc: string;
+  mcaDols: string;
+  iddsiKnowledge: string;
+  fileChecklist: Record<string, string>;
+  fileComments: string;
+};
+
+export type RdComplianceAudit = {
+  id?: string;
+  workspaceId: string;
+  organisationId?: string | null;
+  workspaceName?: string;
+  home: string;
+  auditDate: string;
+  monthKey?: string;
+  announced: 'announced' | 'unannounced';
+  visitDuration?: string;
+  registeredManager?: string;
+  responsiblePerson?: string;
+  occupancy?: string;
+  previousActionPlanStatus?: 'met' | 'partly-met' | 'not-met';
+  actionPlanRequired: 'yes' | 'no';
+  status: 'draft' | 'completed';
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+  formData: Record<string, any>;
+  professionalVisitors: RdComplianceProfessionalVisitor[];
+  staffEntries: RdComplianceStaffEntry[];
+};

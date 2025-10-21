@@ -1,9 +1,13 @@
+import type { OrganisationTeamKey } from './team-roles';
+
 export type User = {
   id: string;
   name: string | null;
   email: string | null;
   avatarUrl: string | null;
   organisationId?: string | null;
+  role?: string | null;
+  teamKeys?: OrganisationTeamKey[] | null;
 };
 
 export type Organisation = {
@@ -143,10 +147,22 @@ export type FeatureModule = {
   category?: 'core' | 'compliance' | 'operations' | 'communication' | 'analytics';
   // Core features cannot be disabled
   isCore?: boolean;
+  teamAccess?: Partial<Record<OrganisationTeamKey, boolean>>;
 };
 
 export type OrganisationFeatureFlags = {
   modules: Record<FeatureModuleKey, FeatureModule>;
   updatedAt?: any; // Firestore timestamp
   updatedBy?: string; // User ID who made the change
+};
+
+export type FeatureModuleOverride = {
+  enabled?: boolean;
+  teamAccess?: Partial<Record<OrganisationTeamKey, boolean>>;
+};
+
+export type WorkspaceFeatureFlagOverrides = {
+  modules: Partial<Record<FeatureModuleKey, FeatureModuleOverride>>;
+  updatedAt?: any;
+  updatedBy?: string | null;
 };
