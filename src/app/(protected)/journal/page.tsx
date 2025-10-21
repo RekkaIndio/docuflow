@@ -5,6 +5,7 @@ import { useWorkspace } from '@/context/workspace';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { useFeatureFlags } from '@/hooks/use-feature-flags';
+import { useWorkspaceStaff } from '@/hooks/use-workspace-staff';
 import { submitJournalEntry, respondToJournalEntry, closeJournalEntry } from '@/actions/journal';
 import type { JournalEntry, JournalEntryAnswer, JournalMood } from '@/lib/types';
 import { getWorkspaceCollectionRef } from '@/lib/firestore';
@@ -174,7 +175,21 @@ const JournalEntryNarrative = ({ entry, textSize = 'base' }: { entry: JournalEnt
   return null;
 };
 
-const MANAGER_ROLE_KEYS = ['manager', 'clinical lead', 'deputy', 'operations manager', 'admin', 'owner', 'head office', 'head-office'];
+const MANAGER_ROLE_KEYS = [
+  'manager',
+  'management',
+  'registered manager',
+  'workspace manager',
+  'deputy manager',
+  'regional manager',
+  'clinical lead',
+  'deputy',
+  'operations manager',
+  'admin',
+  'owner',
+  'head office',
+  'head-office',
+];
 const HEAD_OFFICE_ROLE_KEYS = ['admin', 'owner', 'head office', 'head-office'];
 
 const formatDateTime = (iso?: string | null) => {
@@ -214,7 +229,7 @@ const toIsoString = (value: unknown): string => {
   return new Date().toISOString();
 };
 
-type TabsValue = string;
+type TabsValue = 'my' | 'team' | 'tracker' | 'manager-submit' | 'head-office';
 
 export default function JournalPage() {
   const workspace = useWorkspace();
@@ -222,6 +237,7 @@ export default function JournalPage() {
   const { toast } = useToast();
   const organisationId = (workspace as any)?.organisationId ?? null;
   const { isEnabled } = useFeatureFlags(organisationId, workspace?.id ?? null);
+  const { staff } = useWorkspaceStaff({ workspace });
 
   const [staffEntries, setStaffEntries] = useState<JournalEntry[]>([]);
   const [managerEntries, setManagerEntries] = useState<JournalEntry[]>([]);
@@ -236,11 +252,106 @@ export default function JournalPage() {
   const [entryLoading, setEntryLoading] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState<TabsValue>('my');
 
-  const roleRaw = (user as any)?.role ?? '';
-  const role = typeof roleRaw === 'string' ? roleRaw.toLowerCase() : '';
-  const isManager = MANAGER_ROLE_KEYS.includes(role);
-  const isHeadOffice = HEAD_OFFICE_ROLE_KEYS.includes(role);
-  const managerFeatureEnabled = isEnabled('managerJournal');
+  const rawRole = (user as any)?.role ?? '';
+  const matchingStaffMember = useMemo(() => {
+    if (!user) return null;
+    const email = typeof user.email === 'string' ? user.email.toLowerCase().trim() : null;
+    const name = typeof user.name === 'string' ? user.name.toLowerCase().trim() : null;
+    return staff.find((member) => {
+      const memberEmail = typeof member.email === 'string' ? member.email.toLowerCase().trim() : null;
+      const memberName = typeof member.name === 'string' ? member.name.toLowerCase().trim() : null;
+      if (email && memberEmail && email === memberEmail) return true;
+      if (name && memberName && name === memberName) return true;
+      return false;
+    }) || null;
+  }, [staff, user]);
+
+  const roleCandidates = useMemo(() => {
+    const collected: string[] = [];
+    const pushRole = (value: unknown) => {
+      if (!value) return;
+      if (Array.isArray(value)) {
+        value.forEach((item) => pushRole(item));
+        return;
+      }
+      if (typeof value === 'string') {
+        const normalised = value.toLowerCase().trim();
+        if (normalised) collected.push(normalised);
+      }
+    };
+
+    pushRole(rawRole);
+    pushRole((user as any)?.roles);
+    pushRole((user as any)?.roleTitle);
+    pushRole((user as any)?.position);
+    pushRole(matchingStaffMember?.role);
+
+    return Array.from(new Set(collected));
+  }, [rawRole, user, matchingStaffMember]);
+
+  const role = roleCandidates[0] ?? '';
+
+  const teamKeys = useMemo(() => {
+    const sets: Array<unknown> = [];
+    const candidateTeamFields = ['teamKeys', 'teams', 'teamAssignments', 'teamMemberships'];
+    candidateTeamFields.forEach((field) => {
+      const value = (user as any)?.[field];
+      if (value) sets.push(value);
+    });
+
+    if (matchingStaffMember?.category) {
+      sets.push(matchingStaffMember.category);
+    }
+
+    const flattened: string[] = [];
+    const pushTeam = (value: unknown) => {
+      if (!value) return;
+      if (Array.isArray(value)) {
+        value.forEach((item) => pushTeam(item));
+        return;
+      }
+      if (typeof value === 'string') {
+        const normalised = value.toLowerCase().trim();
+        if (normalised) flattened.push(normalised);
+      }
+    };
+
+    sets.forEach((value) => pushTeam(value));
+
+    return Array.from(new Set(flattened));
+  }, [user, matchingStaffMember]);
+
+  const isManagementTeam = teamKeys.includes('management');
+  const isHeadOfficeTeam = teamKeys.includes('head office') || teamKeys.includes('head-office');
+
+  const isManager = roleCandidates.some((candidate) => MANAGER_ROLE_KEYS.includes(candidate)) || isManagementTeam;
+  const isHeadOffice = roleCandidates.some((candidate) => HEAD_OFFICE_ROLE_KEYS.includes(candidate)) || isHeadOfficeTeam;
+
+  const derivedRoleForServer = role
+    || (isHeadOfficeTeam ? 'head office'
+      : isManagementTeam ? 'manager'
+        : null);
+  const actorRole = derivedRoleForServer || null;
+
+  const managerFeatureEnabled = isEnabled('managerJournal', {
+    role: role || (roleCandidates[1] ?? rawRole) || null,
+    teams: teamKeys,
+  });
+
+  const availableTabs = useMemo<TabsValue[]>(() => {
+    if (isHeadOffice) {
+      const tabs: TabsValue[] = [];
+      if (managerFeatureEnabled) tabs.push('head-office');
+      tabs.push('tracker');
+      return tabs;
+    }
+    if (isManager) {
+      const tabs: TabsValue[] = ['team', 'tracker'];
+      if (managerFeatureEnabled) tabs.push('manager-submit');
+      return tabs;
+    }
+    return ['my'];
+  }, [isManager, isHeadOffice, managerFeatureEnabled]);
 
   useEffect(() => {
     if (!workspace?.id) {
@@ -364,13 +475,14 @@ export default function JournalPage() {
 
   useEffect(() => {
     if (!workspace?.id) {
-      setActiveTab('my');
+      if (activeTab !== 'my') setActiveTab('my');
       return;
     }
-    if (isManager && staffEntries.length > 0 && activeTab === 'my') {
-      setActiveTab('my');
+
+    if (!availableTabs.includes(activeTab)) {
+      setActiveTab(availableTabs[0]);
     }
-  }, [workspace?.id, isManager, staffEntries.length, activeTab]);
+  }, [workspace?.id, availableTabs, activeTab]);
 
   useEffect(() => {
     if (!selectedMood) {
@@ -438,6 +550,8 @@ export default function JournalPage() {
     [managerEntries],
   );
 
+  const tabTriggerClassName = 'w-full rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground sm:w-auto';
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!workspace?.id || !user?.id) return;
@@ -474,7 +588,7 @@ export default function JournalPage() {
           id: user.id,
           name: user.name,
           email: user.email,
-          role: (user as any)?.role ?? null,
+          role: actorRole,
         },
         content: compiledContent,
         answers: preparedAnswers,
@@ -510,7 +624,7 @@ export default function JournalPage() {
           id: user.id,
           name: user.name,
           email: user.email,
-          role: (user as any)?.role ?? null,
+          role: actorRole,
         },
         content: managerEntryContent,
         isAnonymous: false,
@@ -547,7 +661,7 @@ export default function JournalPage() {
           id: user.id,
           name: user.name,
           email: user.email,
-          role: (user as any)?.role ?? null,
+          role: actorRole,
         },
         entryType: kind,
       });
@@ -577,7 +691,7 @@ export default function JournalPage() {
           id: user.id,
           name: user.name,
           email: user.email,
-          role: (user as any)?.role ?? null,
+          role: actorRole,
         },
         entryType: kind,
       });
@@ -615,27 +729,32 @@ export default function JournalPage() {
         subtitle="Share how you and your team are feeling. Entries stay within your organisation and managers respond here so everything is captured as evidence."
         leading={<NotebookPen className="h-6 w-6" />}
       />
-      <div className="px-4 sm:px-6 lg:px-8 pb-12 space-y-6">
+      <div className="px-4 sm:px-6 lg:px-8 pb-12">
+        <div className="mx-auto max-w-[1800px] space-y-6">
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabsValue)} className="space-y-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <TabsList className="grid h-auto w-full max-w-xl grid-cols-3 items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+            {!isManager && !isHeadOffice && (
+              <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="my">My journal</TabsTrigger>
+            )}
+            {isManager && (
+              <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="team">Team inbox</TabsTrigger>
+            )}
+            {(isManager || isHeadOffice) && (
+              <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="tracker">Monthly tracker</TabsTrigger>
+            )}
+            {isManager && managerFeatureEnabled && (
+              <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="manager-submit">Escalate to head office</TabsTrigger>
+            )}
+            {isHeadOffice && managerFeatureEnabled && (
+              <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="head-office">Escalations inbox</TabsTrigger>
+            )}
+          </TabsList>
+        </div>
 
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabsValue)}>
-        <TabsList className="flex flex-wrap gap-2">
-          <TabsTrigger value="my">My journal</TabsTrigger>
-          {isManager && (
-            <TabsTrigger value="team">Team journal</TabsTrigger>
-          )}
-          {(isManager || isHeadOffice) && (
-            <TabsTrigger value="tracker">Monthly tracker</TabsTrigger>
-          )}
-          {isManager && managerFeatureEnabled && (
-            <TabsTrigger value="manager-submit">Manager → Head office</TabsTrigger>
-          )}
-          {isHeadOffice && managerFeatureEnabled && (
-            <TabsTrigger value="head-office">Head office queue</TabsTrigger>
-          )}
-        </TabsList>
-
-        <TabsContent value="my" className="space-y-6">
-          <Card>
+        {!isManager && !isHeadOffice && (
+          <TabsContent value="my" className="mt-6 space-y-6">
+            <Card>
             <CardHeader>
               <CardTitle>How are you feeling today?</CardTitle>
               <CardDescription>Capture reflections, wins, challenges or anything headspace-related. You can choose to stay anonymous.</CardDescription>
@@ -710,50 +829,51 @@ export default function JournalPage() {
             </CardContent>
           </Card>
 
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <UserCheck className="h-4 w-4 text-muted-foreground" />
-              <h2 className="text-lg font-semibold">Your recent entries</h2>
-            </div>
-            {myEntries.length === 0 ? (
-              <Card>
-                <CardContent className="py-8 text-center text-muted-foreground">
-                  Your non-anonymous entries will appear here once submitted.
-                </CardContent>
-              </Card>
-            ) : (
-              myEntries.map((entry) => (
-                <Card key={entry.id}>
-                  <CardHeader className="space-y-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant={entry.status === 'closed' ? 'secondary' : 'outline'}>{entry.status === 'closed' ? 'Closed' : 'Awaiting response'}</Badge>
-                        <MoodBadge mood={entry.mood} />
-                      </div>
-                      <span className="text-sm text-muted-foreground">{formatDateTime(entry.createdAt)}</span>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4 border-t pt-4">
-                    <JournalEntryNarrative entry={entry} />
-                    {entry.response && (
-                      <div className="space-y-2 rounded-md border bg-muted/40 p-4 text-sm">
-                        <div className="flex flex-wrap items-center gap-2 text-muted-foreground">
-                          <ShieldCheck className="h-4 w-4" />
-                          <span>Response from {entry.response.responderName || 'manager'}</span>
-                          <span>· {formatDateTime(entry.response.respondedAt)}</span>
-                        </div>
-                        <p className="whitespace-pre-line leading-relaxed">{entry.response.text}</p>
-                      </div>
-                    )}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <UserCheck className="h-4 w-4 text-muted-foreground" />
+                <h2 className="text-lg font-semibold">Your recent entries</h2>
+              </div>
+              {myEntries.length === 0 ? (
+                <Card>
+                  <CardContent className="py-8 text-center text-muted-foreground">
+                    Your non-anonymous entries will appear here once submitted.
                   </CardContent>
                 </Card>
-              ))
-            )}
-          </div>
-        </TabsContent>
+              ) : (
+                myEntries.map((entry) => (
+                  <Card key={entry.id}>
+                    <CardHeader className="space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant={entry.status === 'closed' ? 'secondary' : 'outline'}>{entry.status === 'closed' ? 'Closed' : 'Awaiting response'}</Badge>
+                          <MoodBadge mood={entry.mood} />
+                        </div>
+                        <span className="text-sm text-muted-foreground">{formatDateTime(entry.createdAt)}</span>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4 border-t pt-4">
+                      <JournalEntryNarrative entry={entry} />
+                      {entry.response && (
+                        <div className="space-y-2 rounded-md border bg-muted/40 p-4 text-sm">
+                          <div className="flex flex-wrap items-center gap-2 text-muted-foreground">
+                            <ShieldCheck className="h-4 w-4" />
+                            <span>Response from {entry.response.responderName || 'manager'}</span>
+                            <span>· {formatDateTime(entry.response.respondedAt)}</span>
+                          </div>
+                          <p className="whitespace-pre-line leading-relaxed">{entry.response.text}</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          </TabsContent>
+        )}
 
         {isManager && (
-          <TabsContent value="team" className="space-y-4">
+          <TabsContent value="team" className="mt-6 space-y-4">
             {staffEntries.length === 0 ? (
               <Card>
                 <CardContent className="py-8 text-center text-muted-foreground">
@@ -824,7 +944,7 @@ export default function JournalPage() {
         )}
 
         {(isManager || isHeadOffice) && (
-          <TabsContent value="tracker" className="space-y-4">
+          <TabsContent value="tracker" className="mt-6 space-y-4">
             <Card>
               <CardHeader className="space-y-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -911,7 +1031,7 @@ export default function JournalPage() {
         )}
 
         {isManager && managerFeatureEnabled && (
-          <TabsContent value="manager-submit" className="space-y-6">
+          <TabsContent value="manager-submit" className="mt-6 space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>Escalate to head office</CardTitle>
@@ -968,7 +1088,7 @@ export default function JournalPage() {
         )}
 
         {isHeadOffice && managerFeatureEnabled && (
-          <TabsContent value="head-office" className="space-y-4">
+          <TabsContent value="head-office" className="mt-6 space-y-4">
             {managerEntries.length === 0 ? (
               <Card>
                 <CardContent className="py-8 text-center text-muted-foreground">
@@ -1027,8 +1147,9 @@ export default function JournalPage() {
             )}
           </TabsContent>
         )}
-      </Tabs>
+          </Tabs>
+        </div>
+      </div>
     </div>
-  </div>
   );
 }

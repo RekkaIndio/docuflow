@@ -1,6 +1,56 @@
 import { NextResponse } from 'next/server';
-import { adminDb, adminAuth } from '@/lib/firebase-admin';
+import admin, { adminDb, adminAuth } from '@/lib/firebase-admin';
 import crypto from 'crypto';
+import type { DocumentReference } from 'firebase-admin/firestore';
+
+type ResolvedWorkspaceRef = {
+  ref: DocumentReference;
+  organisationId: string | null;
+};
+
+async function resolveWorkspaceReference(workspaceId: string, orgId: string | null): Promise<ResolvedWorkspaceRef> {
+  let fallbackOrgId = orgId ?? null;
+
+  if (orgId) {
+    const orgScopedRef = adminDb.doc(`organisations/${orgId}/workspaces/${workspaceId}`);
+    const snap = await orgScopedRef.get();
+    if (snap.exists) {
+      return { ref: orgScopedRef, organisationId: orgId };
+    }
+  }
+
+  const topLevelRef = adminDb.collection('workspaces').doc(workspaceId);
+  const topSnap = await topLevelRef.get();
+  if (topSnap.exists) {
+    const data = topSnap.data() as any;
+    const derivedOrgId = (data && data.organisationId) || fallbackOrgId || null;
+    return { ref: topLevelRef, organisationId: derivedOrgId };
+  }
+
+  try {
+    const cgSnap = await adminDb
+      .collectionGroup('workspaces')
+      .where(admin.firestore.FieldPath.documentId(), '==', workspaceId)
+      .limit(1)
+      .get();
+
+    if (!cgSnap.empty) {
+      const docSnap = cgSnap.docs[0];
+      const parentCollection = docSnap.ref.parent;
+      const parentOrg = parentCollection?.parent;
+      const derivedOrgId = parentOrg ? parentOrg.id : ((docSnap.data() as any)?.organisationId ?? fallbackOrgId ?? null);
+      return { ref: docSnap.ref, organisationId: derivedOrgId ?? null };
+    }
+  } catch (err) {
+    console.warn('resolveWorkspaceReference collectionGroup lookup failed', err);
+  }
+
+  const fallbackRef = orgId
+    ? adminDb.doc(`organisations/${orgId}/workspaces/${workspaceId}`)
+    : topLevelRef;
+
+  return { ref: fallbackRef, organisationId: fallbackOrgId };
+}
 
 export async function POST(req: Request) {
   try {
@@ -41,9 +91,25 @@ export async function POST(req: Request) {
 
     const workspaceIdFromToken = tokenData.workspaceId || null;
     const workspaceOrgIdFromToken = tokenData.workspaceOrgId || null;
+
+    let resolvedWorkspaceOrgId = workspaceOrgIdFromToken || null;
+    let resolvedWorkspaceRef: DocumentReference | null = null;
+
+    if (workspaceIdFromToken) {
+      try {
+        const resolved = await resolveWorkspaceReference(workspaceIdFromToken, workspaceOrgIdFromToken || null);
+        if (resolved) {
+          resolvedWorkspaceRef = resolved.ref;
+          resolvedWorkspaceOrgId = resolved.organisationId ?? resolvedWorkspaceOrgId;
+        }
+      } catch (err) {
+        console.warn('Failed to resolve workspace reference for login token', err);
+      }
+    }
+
     const assignedWorkspace = workspaceIdFromToken ? {
       id: workspaceIdFromToken,
-      organisationId: workspaceOrgIdFromToken || null
+      organisationId: resolvedWorkspaceOrgId || null
     } : null;
 
     // Check if user already exists in Firestore
@@ -75,27 +141,12 @@ export async function POST(req: Request) {
       }
 
       // Add user to workspace members if workspace specified
-      if (workspaceIdFromToken) {
+      if (workspaceIdFromToken && resolvedWorkspaceRef) {
         try {
-          let wsRef;
-          if (workspaceOrgIdFromToken) {
-            wsRef = adminDb.doc(`organisations/${workspaceOrgIdFromToken}/workspaces/${workspaceIdFromToken}`);
-          } else {
-            wsRef = adminDb.collection('workspaces').doc(workspaceIdFromToken);
-          }
-          await wsRef.update({ members: adminDb.FieldValue.arrayUnion(uid) });
+          await resolvedWorkspaceRef.update({ members: admin.firestore.FieldValue.arrayUnion(uid) });
         } catch (err) {
           try {
-            let wsRef;
-            if (workspaceOrgIdFromToken) {
-              wsRef = adminDb.doc(`organisations/${workspaceOrgIdFromToken}/workspaces/${workspaceIdFromToken}`);
-            } else {
-              wsRef = adminDb.collection('workspaces').doc(workspaceIdFromToken);
-            }
-            const wsSnap = await wsRef.get();
-            if (!wsSnap.exists) {
-              await wsRef.set({ members: [uid] }, { merge: true });
-            }
+            await resolvedWorkspaceRef.set({ members: admin.firestore.FieldValue.arrayUnion(uid) }, { merge: true });
           } catch (err2) {
             console.warn('Failed to attach existing user to workspace members from token:', err2);
           }
@@ -103,22 +154,22 @@ export async function POST(req: Request) {
       }
 
       // Create organisation user record if org specified
-      if (workspaceOrgIdFromToken) {
+      if (resolvedWorkspaceOrgId) {
         try {
-          const orgUserRef = adminDb.doc(`organisations/${workspaceOrgIdFromToken}/users/${uid}`);
+          const orgUserRef = adminDb.doc(`organisations/${resolvedWorkspaceOrgId}/users/${uid}`);
           const orgUserSnap = await orgUserRef.get();
           if (!orgUserSnap.exists) {
             await orgUserRef.set({
               id: uid,
               role: 'Member',
-              organisationId: workspaceOrgIdFromToken,
+              organisationId: resolvedWorkspaceOrgId,
               createdAt: adminDb.FieldValue.serverTimestamp()
             }, { merge: true });
           }
 
           // Ensure top-level user has organisationId
           const topUserRef = adminDb.collection('users').doc(uid);
-          await topUserRef.set({ organisationId: workspaceOrgIdFromToken }, { merge: true });
+          await topUserRef.set({ organisationId: resolvedWorkspaceOrgId }, { merge: true });
         } catch (err) {
           console.warn('Failed to create organisation user record for existing user:', err);
         }
@@ -162,12 +213,12 @@ export async function POST(req: Request) {
         const userSnap = await userRef.get();
         if (!userSnap.exists) {
           const nowIso = new Date().toISOString();
-          await userRef.set({
+            await userRef.set({
             email,
             createdAt: nowIso,
             createdFromInvite: true,
             workspaceId: workspaceIdFromToken || null,
-            organisationId: workspaceOrgIdFromToken || null
+              organisationId: resolvedWorkspaceOrgId || null
           });
         }
       } catch (e) {
@@ -175,27 +226,12 @@ export async function POST(req: Request) {
       }
 
       // Add to workspace members if specified
-      if (workspaceIdFromToken) {
+      if (workspaceIdFromToken && resolvedWorkspaceRef) {
         try {
-          let wsRef;
-          if (workspaceOrgIdFromToken) {
-            wsRef = adminDb.doc(`organisations/${workspaceOrgIdFromToken}/workspaces/${workspaceIdFromToken}`);
-          } else {
-            wsRef = adminDb.collection('workspaces').doc(workspaceIdFromToken);
-          }
-          await wsRef.update({ members: adminDb.FieldValue.arrayUnion(authUid) });
+          await resolvedWorkspaceRef.update({ members: admin.firestore.FieldValue.arrayUnion(authUid) });
         } catch (e) {
           try {
-            let wsRef;
-            if (workspaceOrgIdFromToken) {
-              wsRef = adminDb.doc(`organisations/${workspaceOrgIdFromToken}/workspaces/${workspaceIdFromToken}`);
-            } else {
-              wsRef = adminDb.collection('workspaces').doc(workspaceIdFromToken);
-            }
-            const wsSnap = await wsRef.get();
-            if (!wsSnap.exists) {
-              await wsRef.set({ members: [authUid] }, { merge: true });
-            }
+            await resolvedWorkspaceRef.set({ members: admin.firestore.FieldValue.arrayUnion(authUid) }, { merge: true });
           } catch (err2) {
             console.warn('Failed to add invited user to workspace members:', err2);
           }
@@ -203,19 +239,19 @@ export async function POST(req: Request) {
       }
 
       // Create organisation user record if org specified
-      if (workspaceOrgIdFromToken) {
+      if (resolvedWorkspaceOrgId) {
         try {
-          const orgUserRef = adminDb.doc(`organisations/${workspaceOrgIdFromToken}/users/${authUid}`);
+          const orgUserRef = adminDb.doc(`organisations/${resolvedWorkspaceOrgId}/users/${authUid}`);
           await orgUserRef.set({
             id: authUid,
             role: 'Member',
-            organisationId: workspaceOrgIdFromToken,
+            organisationId: resolvedWorkspaceOrgId,
             createdAt: adminDb.FieldValue.serverTimestamp()
           }, { merge: true });
 
           // Ensure top-level user has organisationId
           const topUserRef = adminDb.collection('users').doc(authUid);
-          await topUserRef.set({ organisationId: workspaceOrgIdFromToken }, { merge: true });
+          await topUserRef.set({ organisationId: resolvedWorkspaceOrgId }, { merge: true });
         } catch (err) {
           console.warn('Failed to create organisation user record for new user:', err);
         }

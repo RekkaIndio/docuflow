@@ -331,6 +331,96 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     }
   };
 
+  const sendWorkspaceInvite = async (
+    email: string,
+    {
+      displayName,
+      expiresInHours,
+      temporaryRole,
+    }: { displayName?: string; expiresInHours?: number; temporaryRole?: string } = {}
+  ) => {
+    if (!workspaceId || !email) return;
+
+    try {
+      const inviterName = (window as any)?.CURRENT_USER_NAME || 'Workspace Manager';
+      const workspaceName = workspace?.name || '';
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+
+      try {
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          const idToken = await currentUser.getIdToken();
+          if (idToken) headers['authorization'] = `Bearer ${idToken}`;
+        }
+      } catch (tokenErr) {
+        console.warn('Failed to retrieve ID token for invite request', tokenErr);
+      }
+
+      if (!headers.authorization) headers['x-admin-secret'] = (window as any)?.__ADMIN_SECRET || '';
+
+      const payload: Record<string, any> = {
+        email,
+        workspaceId,
+        workspaceOrgId: organisationId || null,
+        inviterName,
+        workspaceName,
+      };
+
+      if (typeof expiresInHours === 'number' && Number.isFinite(expiresInHours) && expiresInHours > 0) {
+        payload.expiresInHours = expiresInHours;
+      }
+      if (temporaryRole) {
+        payload.temporaryRole = temporaryRole;
+      }
+
+      const resp = await fetch('/api/admin/invite', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+      });
+      const data = await resp.json();
+
+      if (!data.ok) {
+        console.warn('Invite API responded with error', data);
+        toast({
+          title: 'Invite failed',
+          description: data?.error || `Failed to create invite for ${email}`,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const targetLabel = displayName && displayName.trim() ? `${displayName} (${email})` : email;
+      if (!data.emailSent) {
+        console.warn('Invite token created but email not sent:', data.error);
+        toast({
+          title: 'Invite created',
+          description: `Created invite token for ${targetLabel} (email not sent)`,
+        });
+      } else {
+        toast({
+          title: 'Invite sent',
+          description: `Magic link sent to ${targetLabel}`,
+        });
+      }
+
+      try {
+        fetchPendingInvites();
+      } catch (refreshErr) {
+        console.warn('Failed to refresh pending invites after sending invite', refreshErr);
+      }
+
+      console.info('Invite created for', email);
+    } catch (err) {
+      console.error('Failed to call invite API', err);
+      toast({
+        title: 'Invite failed',
+        description: `Failed to send invite to ${email}`,
+        variant: 'destructive',
+      });
+    }
+  };
+
   // Load admin staff from workspace
   useEffect(() => {
     const loadAdmins = async () => {
@@ -1127,6 +1217,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
       setAdmins(prev => prev.filter(a => a.id !== adminToAdd.id));
     } else {
       try { await setContractedHoursForStaff(adminToAdd.id, adminToAdd.contractedHours ?? 40, adminToAdd.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to persist contracted hours mapping after adding admin staff', e); }
+      await sendWorkspaceInvite(adminToAdd.email, { displayName: adminToAdd.name });
     }
   };
 
@@ -1196,47 +1287,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
       } catch (e) {
         console.warn('Failed to persist contracted hours mapping after adding manager', e);
       }
-      // On success, create/send an invite token via server API (magic-link)
-      try {
-        const inviterName = (window as any)?.CURRENT_USER_NAME || 'Workspace Manager';
-  const workspaceName = workspace?.name || '';
-
-        // Build headers: prefer Firebase ID token in Authorization header
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        try {
-          const currentUser = auth.currentUser;
-          if (currentUser) {
-            const idToken = await currentUser.getIdToken();
-            if (idToken) headers['authorization'] = `Bearer ${idToken}`;
-          }
-        } catch (e) {
-          // ignore token retrieval errors
-        }
-        if (!headers.authorization) headers['x-admin-secret'] = (window as any)?.__ADMIN_SECRET || '';
-
-        const resp = await fetch('/api/admin/invite', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ email: managerToAdd.email, workspaceId: workspaceId, workspaceOrgId: organisationId || null, inviterName, workspaceName })
-        });
-        const data = await resp.json();
-        if (!data.ok) {
-          console.warn('Invite API responded with error', data);
-          toast({ title: 'Invite failed', description: data?.error || 'Failed to create invite', variant: 'destructive' });
-        } else {
-          if (!data.emailSent) {
-            console.warn('Invite token created but email not sent:', data.error);
-            toast({ title: 'Invite created', description: `Created invite token for ${managerToAdd.email} (email not sent)` });
-          } else {
-            toast({ title: 'Invite sent', description: `Magic link sent to ${managerToAdd.email}` });
-          }
-          // Refresh the pending invites list so count and items update whenever token was created
-          try { fetchPendingInvites(); } catch (e) { /* ignore */ }
-          console.info('Invite created for', managerToAdd.email);
-        }
-      } catch (e) {
-        console.error('Failed to call invite API', e);
-      }
+      await sendWorkspaceInvite(managerToAdd.email, { displayName: managerToAdd.name });
     }
   };
 
@@ -1370,42 +1421,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
         // read selected duration for this team (default to 24 hours)
         const expiresInHours = inviteDurations[teamId] || 24;
         if (isInspection) {
-          try {
-            const inviterName = (window as any)?.CURRENT_USER_NAME || 'Workspace Manager';
-            const workspaceName = workspace?.name || '';
-            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-            try {
-              const currentUser = auth.currentUser;
-              if (currentUser) {
-                const idToken = await currentUser.getIdToken();
-                if (idToken) headers['authorization'] = `Bearer ${idToken}`;
-              }
-            } catch (e) {
-              // ignore
-            }
-            if (!headers.authorization) headers['x-admin-secret'] = (window as any)?.__ADMIN_SECRET || '';
-
-            const resp = await fetch('/api/admin/invite', {
-              method: 'POST',
-              headers,
-              body: JSON.stringify({ email, workspaceId: workspace.id, workspaceOrgId: organisationId || null, inviterName, workspaceName, expiresInHours, temporaryRole: 'inspection_readonly' })
-            });
-            const data = await resp.json();
-            if (!data.ok) {
-              console.warn('Invite API responded with error for inspection invite', data);
-              toast({ title: 'Invite failed', description: data?.error || 'Failed to create invite', variant: 'destructive' });
-            } else {
-              if (data.emailSent) {
-                toast({ title: 'Invite sent', description: `Magic link sent to ${email}` });
-              } else {
-                toast({ title: 'Invite created', description: `Created invite token for ${email} (email not sent)` });
-              }
-              try { fetchPendingInvites(); } catch (e) { /* ignore */ }
-            }
-          } catch (err) {
-            console.error('Failed to create inspection invite', err);
-            toast({ title: 'Invite failed', description: 'Failed to create invite', variant: 'destructive' });
-          }
+          await sendWorkspaceInvite(email, { expiresInHours, temporaryRole: 'inspection_readonly' });
         }
       } catch (error) {
         console.error("Error adding email to team in Firestore:", error);
@@ -1458,6 +1474,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
       setNurses(prev => prev.filter(n => n.id !== nurseToAdd.id));
     } else {
       try { await setContractedHoursForStaff(nurseToAdd.id, nurseToAdd.contractedHours ?? 40, nurseToAdd.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to persist contracted hours mapping after adding nurse', e); }
+      await sendWorkspaceInvite(nurseToAdd.email, { displayName: nurseToAdd.name });
     }
   };
 
@@ -1510,6 +1527,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
       setCarers(prev => prev.filter(c => c.id !== carerToAdd.id));
     } else {
       try { await setContractedHoursForStaff(carerToAdd.id, carerToAdd.contractedHours ?? 40, carerToAdd.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to persist contracted hours mapping after adding carer', e); }
+      await sendWorkspaceInvite(carerToAdd.email, { displayName: carerToAdd.name });
     }
   };
 
@@ -1562,6 +1580,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     }
     else {
       try { await setContractedHoursForStaff(ctmToAdd.id, ctmToAdd.contractedHours ?? 40, ctmToAdd.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to persist contracted hours mapping after adding ctm', e); }
+      await sendWorkspaceInvite(ctmToAdd.email, { displayName: ctmToAdd.name });
     }
   };
 
@@ -1618,6 +1637,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     }
     else {
       try { await setContractedHoursForStaff(domesticToAdd.id, domesticToAdd.contractedHours ?? 40, domesticToAdd.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to persist contracted hours mapping after adding domestic', e); }
+      await sendWorkspaceInvite(domesticToAdd.email, { displayName: domesticToAdd.name });
     }
   };
 
@@ -1674,6 +1694,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     }
     else {
       try { await setContractedHoursForStaff(maintenanceToAdd.id, maintenanceToAdd.contractedHours ?? 40, maintenanceToAdd.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to persist contracted hours mapping after adding maintenance', e); }
+      await sendWorkspaceInvite(maintenanceToAdd.email, { displayName: maintenanceToAdd.name });
     }
   };
 
@@ -1730,6 +1751,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     }
     else {
       try { await setContractedHoursForStaff(kitchenToAdd.id, kitchenToAdd.contractedHours ?? 40, kitchenToAdd.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to persist contracted hours mapping after adding kitchen', e); }
+      await sendWorkspaceInvite(kitchenToAdd.email, { displayName: kitchenToAdd.name });
     }
   };
 
@@ -1786,6 +1808,7 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     }
     else {
       try { await setContractedHoursForStaff(activityToAdd.id, activityToAdd.contractedHours ?? 40, activityToAdd.hoursType ?? 'weekly'); } catch (e) { console.warn('Failed to persist contracted hours mapping after adding activity', e); }
+      await sendWorkspaceInvite(activityToAdd.email, { displayName: activityToAdd.name });
     }
   };
 
@@ -1838,44 +1861,44 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
             )}
       <main className="flex-1 p-6 overflow-y-auto">
         <Tabs defaultValue="teams" className="w-full">
-          <TabsList className="grid w-[1320px] grid-cols-10 bg-white border border-gray-200 rounded-lg mb-6">
-            <TabsTrigger value="teams" className="flex items-center gap-2">
+          <TabsList className="grid h-auto w-full grid-cols-10 items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm mb-6">
+              <TabsTrigger value="teams" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
               <Users className="w-4 h-4" />
               Teams
             </TabsTrigger>
-            <TabsTrigger value="management" className="flex items-center gap-2">
+              <TabsTrigger value="management" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
               <UserCheck className="w-4 h-4" />
               Management
             </TabsTrigger>
-            <TabsTrigger value="admin" className="flex items-center gap-2">
+              <TabsTrigger value="admin" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
               <UserCheck className="w-4 h-4" />
               Admin
             </TabsTrigger>
-            <TabsTrigger value="nurses" className="flex items-center gap-2">
+              <TabsTrigger value="nurses" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
               <UserCheck className="w-4 h-4" />
               Nurses
             </TabsTrigger>
-            <TabsTrigger value="carers" className="flex items-center gap-2">
+              <TabsTrigger value="carers" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
               <UserCheck className="w-4 h-4" />
               Carers
             </TabsTrigger>
-            <TabsTrigger value="ctm" className="flex items-center gap-2">
+              <TabsTrigger value="ctm" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
               <UserCheck className="w-4 h-4" />
               CTM
             </TabsTrigger>
-            <TabsTrigger value="domestic" className="flex items-center gap-2">
+              <TabsTrigger value="domestic" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
               <UserCheck className="w-4 h-4" />
               Domestic
             </TabsTrigger>
-            <TabsTrigger value="maintenance" className="flex items-center gap-2">
+              <TabsTrigger value="maintenance" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
               <UserCheck className="w-4 h-4" />
               Maintenance
             </TabsTrigger>
-            <TabsTrigger value="kitchen" className="flex items-center gap-2">
+              <TabsTrigger value="kitchen" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
               <UserCheck className="w-4 h-4" />
               Kitchen
             </TabsTrigger>
-            <TabsTrigger value="activities" className="flex items-center gap-2">
+              <TabsTrigger value="activities" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
               <UserCheck className="w-4 h-4" />
               Activities
             </TabsTrigger>

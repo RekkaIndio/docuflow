@@ -43,7 +43,21 @@ interface CloseJournalEntryParams {
   entryType: JournalEntryKind;
 }
 
-const MANAGER_ROLE_KEYS = ['manager', 'clinical lead', 'deputy', 'operations manager', 'admin', 'owner', 'head office', 'head-office'];
+const MANAGER_ROLE_KEYS = [
+  'manager',
+  'management',
+  'registered manager',
+  'workspace manager',
+  'deputy manager',
+  'regional manager',
+  'clinical lead',
+  'deputy',
+  'operations manager',
+  'admin',
+  'owner',
+  'head office',
+  'head-office',
+];
 const HEAD_OFFICE_ROLE_KEYS = ['admin', 'owner', 'head office', 'head-office'];
 
 const collectionNameForKind = (kind: JournalEntryKind) =>

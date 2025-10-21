@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Users, FileText, FileSpreadsheet, FileIcon, FileX2, Briefcase, Clock, User, TrendingUp, TrendingDown, Minus, Calendar, CalendarCheck2, BarChart3, Edit3, FileCheck, CheckCircle, AlertCircle, ClipboardList, ClipboardCheck, ChevronRight, Shield, Heart, Tag, NotebookPen } from "lucide-react";
 import type { Workspace, Document, Folder as FolderType } from "@/lib/types";
 import type { ReactNode } from "react";
-import { useMemo, useEffect, useState } from "react";
+import { useMemo, useEffect, useState, useCallback } from "react";
 import { useAuth } from '@/hooks/use-auth';
 import { useFeatureFlags } from '@/hooks/use-feature-flags';
 import {
@@ -212,6 +212,9 @@ const DashboardHero = ({
     onStaffingTrendsClick,
     isDailyCheckinOpen,
     onDailyModalChange,
+    showJournalAlert,
+    openJournalCount,
+    onJournalClick,
 }: {
     workspace?: Workspace | null;
     headerLogo: string | null;
@@ -230,6 +233,9 @@ const DashboardHero = ({
     onStaffingTrendsClick?: () => void;
     isDailyCheckinOpen?: boolean;
     onDailyModalChange?: (open: boolean) => void;
+    showJournalAlert?: boolean;
+    openJournalCount?: number;
+    onJournalClick?: () => void;
 }) => {
     const metrics = [
         {
@@ -255,6 +261,14 @@ const DashboardHero = ({
             Icon: FileText,
         },
     ];
+
+    const metricsGridClasses = `mt-8 grid grid-cols-1 gap-4 ${showJournalAlert ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`;
+
+    const pendingJournalLabel = (() => {
+        if (!openJournalCount || openJournalCount <= 0) return 'Awaiting review';
+        if (openJournalCount === 1) return '1 entry awaiting';
+        return `${openJournalCount} entries awaiting`;
+    })();
 
     return (
         <section className="relative overflow-hidden rounded-3xl border border-border/50 bg-gradient-to-br from-primary to-accent text-primary-foreground shadow-2xl">
@@ -300,7 +314,7 @@ const DashboardHero = ({
                     </div>
 
                     {/* Quick Metrics Cards */}
-                    <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <div className={metricsGridClasses}>
                         {/* Occupancy Card */}
                         <MiniOccupancyCard
                             workspaceId={workspaceId}
@@ -354,6 +368,47 @@ const DashboardHero = ({
                                 </div>
                             }
                         />
+
+                        {showJournalAlert ? (
+                            <div
+                                role="button"
+                                tabIndex={0}
+                                onClick={onJournalClick}
+                                onKeyDown={(event) => {
+                                    if (event.key === 'Enter' || event.key === ' ') {
+                                        event.preventDefault();
+                                        onJournalClick?.();
+                                    }
+                                }}
+                                className="group relative flex min-h-[140px] cursor-pointer flex-col justify-between rounded-2xl border border-amber-400/60 bg-gradient-to-br from-amber-500/25 via-amber-500/15 to-amber-500/5 p-5 backdrop-blur-md shadow-[0_0_18px_rgba(251,191,36,0.28)] transition-all duration-300 hover:shadow-[0_0_26px_rgba(251,191,36,0.35)] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div className="rounded-xl bg-amber-500/30 p-3 text-amber-50">
+                                        <NotebookPen className="h-5 w-5" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-white/80">
+                                            Journal alerts
+                                            <span className="inline-flex items-center rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-semibold text-white">
+                                                {pendingJournalLabel}
+                                            </span>
+                                        </div>
+                                        <div className="text-xl font-bold text-white">
+                                            {openJournalCount ?? 0}
+                                        </div>
+                                        <div className="text-xs text-white/70">
+                                            {openJournalCount === 1
+                                                ? 'Entry awaiting your response'
+                                                : 'Entries awaiting your response'}
+                                        </div>
+                                    </div>
+                                    <ChevronRight className="h-5 w-5 text-white/70 transition-transform group-hover:translate-x-1" />
+                                </div>
+                                <p className="mt-4 text-xs text-white/65">
+                                    Open reflective journal submissions are waiting for leadership follow-up.
+                                </p>
+                            </div>
+                        ) : null}
 
                         {/* Staffing Card */}
                         <MiniStaffingCard
@@ -1797,6 +1852,11 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
     const isHeadOfficeRole = HEAD_OFFICE_ROLE_KEYS.includes(role) || isAdminUser;
     const shouldShowJournalCard = journalFeatureEnabled && (isManagerRole || isHeadOfficeRole);
     const [openJournalCount, setOpenJournalCount] = useState<number>(0);
+    const navigateToJournal = useCallback(() => {
+        if (typeof window === "undefined") return;
+        window.dispatchEvent(new CustomEvent("dashboard:navigate", { detail: { view: "journal" } }));
+    }, []);
+    const showJournalAlertCard = shouldShowJournalCard && openJournalCount > 0;
 
     // Header logo (follows same logic as TopNav: prefer user's profilePicture, then uploadedLogo, with workspace fallback)
     const [headerLogo, setHeaderLogo] = useState<string | null>(null);
@@ -2416,13 +2476,9 @@ const navigateToAuditForm = (auditKey: string) => {
             });
         }
 
-        if (shouldShowJournalCard && openJournalCount > 0) {
+        if (showJournalAlertCard) {
             const noun = openJournalCount === 1 ? "entry" : "entries";
             const awaitingLabel = `${openJournalCount} awaiting`;
-            const navigateToJournal = () => {
-                if (typeof window === "undefined") return;
-                window.dispatchEvent(new CustomEvent("dashboard:navigate", { detail: { view: "journal" } }));
-            };
 
             items.push({
                 id: "journal-attention",
@@ -2491,7 +2547,8 @@ const navigateToAuditForm = (auditKey: string) => {
         monthlyAuditStatus,
         monthlyStatusLoaded,
         openJournalCount,
-        shouldShowJournalCard,
+        showJournalAlertCard,
+        navigateToJournal,
         navigateToAuditForm,
         onSelect,
         setIsDailyCheckinModalOpen,
@@ -2521,6 +2578,9 @@ const navigateToAuditForm = (auditKey: string) => {
                 onStaffingTrendsClick={() => setIsStaffingTrendsModalOpen(true)}
                 isDailyCheckinOpen={isDailyCheckinModalOpen}
                 onDailyModalChange={setIsDailyCheckinModalOpen}
+                showJournalAlert={showJournalAlertCard}
+                openJournalCount={openJournalCount}
+                onJournalClick={navigateToJournal}
             />
             <ExecutiveSummary
                             documents={documents}

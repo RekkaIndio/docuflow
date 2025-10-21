@@ -5,6 +5,27 @@ import renderInviteEmail from '@/email-templates/invite/invite';
 
 const INVITE_EXPIRY_DAYS = 7;
 
+function resolveAppUrl(req: Request): string {
+  const envUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL;
+  if (envUrl) return envUrl;
+
+  const forwardedHost = req.headers.get('x-forwarded-host');
+  const host = forwardedHost || req.headers.get('host');
+  if (host) {
+    const protoHeader = req.headers.get('x-forwarded-proto');
+    const protocol = protoHeader || (host.includes('localhost') ? 'http' : 'https');
+    return `${protocol}://${host}`;
+  }
+
+  try {
+    const { origin } = new URL(req.url);
+    return origin;
+  } catch (error) {
+    console.warn('Failed to resolve app URL from request, falling back to localhost', error);
+    return 'http://localhost:3000';
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -76,7 +97,7 @@ export async function POST(req: Request) {
     await tokenRef.set(tokenDoc);
 
     // Build invite link
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.APP_URL || 'http://localhost:3000');
+    const appUrl = resolveAppUrl(req);
     const inviteLink = `${appUrl.replace(/\/$/, '')}/accept-invite?token=${encodeURIComponent(tokenId)}`;
 
     // Render email
