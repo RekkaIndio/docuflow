@@ -17,6 +17,18 @@ export type Organisation = {
   createdAt?: any;
 };
 
+export type WorkspaceGroup = {
+  id: string;
+  organisationId: string;
+  name: string;
+  description?: string | null;
+  color?: string | null;
+  workspaceIds?: string[];
+  workspaceCount?: number;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
 export type Workspace = {
   id: string;
   name: string;
@@ -24,7 +36,15 @@ export type Workspace = {
   organisationId?: string | null;
   evidenceFolders?: (Folder | Document)[]; // Separate folder structure for evidence
   ownerId?: string;
-  members?: string[];
+  members?: Array<string | User>;
+  region?: string | null;
+  workspaceGroupId?: string | null;
+  workspaceGroup?: WorkspaceGroup | null;
+  workspaceGroupColor?: string | null;
+  complianceScore?: number | null;
+  staffCount?: number | null;
+  staffingLevel?: number | null;
+  latestDailyCheckinAt?: string | null;
   profilePicture?: string; // Added profilePicture property to the Workspace type
   // Optional occupancy data used by admin and dashboard views (0..1)
   occupancy?: number;
