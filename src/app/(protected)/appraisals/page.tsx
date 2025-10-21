@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import ActivitiesSupervisionForm from "./activities-supervision/page";
 import AdminSupervisionForm from "./admin-supervision/page";
 import StaffAppraisalForm from "./staff-appraisal/page";
@@ -24,6 +24,10 @@ import { useWorkspace } from "@/context/workspace";
 import { workspaceCollectionPath } from '@/lib/paths';
 import { generateAppraisalPDFWithLogo, getAppraisalPDFFilename } from '@/lib/appraisal-pdf-generator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Button } from '@/components/ui/button';
+import { Calendar as DatePickerCalendar } from '@/components/ui/calendar';
+import { Calendar as CalendarIcon } from 'lucide-react';
 
 // Mapping of tracker roles to their appraisals
 const trackerAppraisalMapping = {
@@ -56,37 +60,53 @@ const appraisalCards = [
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-type HistoryEntry = {
-  slug: string;
-  title: string;
-  month: number;
-  year: number;
-  role?: string;
-  hasSnapshot: boolean;
+type TrackerRoleSummary = {
+  role: string;
+  completedSlugs: string[];
+  remainingSlugs: string[];
+  percentComplete: number;
+  totalAppraisals: number;
+  slugStatus: Record<string, { hasSnapshot: boolean }>;
 };
 
-type HistoryGroup = {
+type TrackerMonthSummary = {
   key: string;
   month: number;
   year: number;
-  entries: HistoryEntry[];
+  roles: TrackerRoleSummary[];
+  totalAppraisals: number;
+  totalCompleted: number;
+  percentComplete: number;
+  hasData: boolean;
+};
+
+const getTrackerMonthKey = (month: number, year: number) => `${year}-${String(month + 1).padStart(2, "0")}`;
+
+const parseTrackerMonthKey = (key: string): { month: number; year: number } | null => {
+  if (!key) return null;
+  const [yearPart, monthPart] = key.split('-');
+  const parsedYear = Number(yearPart);
+  const parsedMonth = Number(monthPart) - 1;
+  if (!Number.isFinite(parsedYear) || !Number.isFinite(parsedMonth)) return null;
+  const month = Math.max(0, Math.min(11, parsedMonth));
+  return { month, year: parsedYear };
 };
 
 export default function AppraisalsPage() {
   const { user } = useAuth();
   const workspace = useWorkspace();
-  const [tab, setTab] = useState<'appraisals' | 'tracker' | 'history'>('appraisals');
+  const [tab, setTab] = useState<'appraisals' | 'tracker'>('appraisals');
   const [currentView, setCurrentView] = useState<string | null>(null);
   const [trackerModal, setTrackerModal] = useState<{ role: string; month: number; year: number } | null>(null);
   const [completionStatus, setCompletionStatus] = useState<Record<string, Record<string, boolean>>>({});
   const [currentMonth, setCurrentMonth] = useState<number | null>(null);
   const [currentYear, setCurrentYear] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedHistoryMonthKey, setSelectedHistoryMonthKey] = useState<string | null>(null);
+  const [selectedTrackerMonthKey, setSelectedTrackerMonthKey] = useState<string | null>(null);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
 
   const [additionalReportModal, setAdditionalReportModal] = useState<{ appraisal: string; title: string } | null>(null);
   const [appraisalData, setAppraisalData] = useState<Record<string, any>>({});
-  const [pdfViewer, setPdfViewer] = useState<{ appraisal: string; month: number; year?: number; content: string | null } | null>(null);
   const [readOnlyViewer, setReadOnlyViewer] = useState<{ appraisal: string; month: number; year: number; formData?: any } | null>(null);
   const [confirmCreateModal, setConfirmCreateModal] = useState<{ appraisal: string; month: number; year: number } | null>(null);
 
@@ -341,10 +361,11 @@ export default function AppraisalsPage() {
     });
   };
 
-    const handleOpenTrackerModal = (role: string, month: number) => {
-      // Use the activeYear for the active column so that early-month behaviour (before the 7th) is respected
-      const year = month === activeMonth ? activeYear : inferYearForMonth(month);
-      setTrackerModal({ role, month, year });
+    const handleOpenTrackerModal = (role: string, month: number, explicitYear?: number) => {
+      const derivedYear = typeof explicitYear === 'number'
+        ? explicitYear
+        : (month === activeMonth ? activeYear : inferYearForMonth(month));
+      setTrackerModal({ role, month, year: derivedYear });
     };
 
     const handleCloseTrackerModal = () => {
@@ -512,30 +533,6 @@ export default function AppraisalsPage() {
       const parsed = parseCompletionKey(key);
       return parsed.slug === appraisalSlug && parsed.month === month && parsed.year === year && roleMap[key];
     });
-  };
-
-  const getCompletionPercentage = (role: string, month: number) => {
-    const appraisals = trackerAppraisalMapping[role as keyof typeof trackerAppraisalMapping] || [];
-    if (appraisals.length === 0) return 0;
-
-    // Use active year for the active month so the audits-style 7th reset is respected across the UI
-    const { activeMonth, activeYear } = calculateResetInfo();
-    const year = month === activeMonth ? activeYear : inferYearForMonth(month);
-
-    const completed = appraisals.filter(appraisal => {
-      // 1) Check saved appraisalData by scanning keys (robust to legacy vs new keys)
-      if (appraisalData) {
-        for (const k of Object.keys(appraisalData)) {
-          const parsed = parseCompletionKey(k);
-          if (parsed.slug === appraisal && parsed.month === month && parsed.year === year) return true;
-        }
-      }
-
-      // 2) Check completionStatus map using parsed keys
-      return doesRoleHaveCompletionForMonth(completionStatus[role], appraisal, month, year);
-    }).length;
-
-    return Math.round((completed / appraisals.length) * 100);
   };
 
   // Check if an appraisal card (by slug) has been completed for the active month/year
@@ -766,192 +763,6 @@ export default function AppraisalsPage() {
     return `${name} ${year}`;
   };
 
-  const historyGroups = useMemo<HistoryGroup[]>(() => {
-    const monthMap = new Map<string, { key: string; month: number; year: number; entries: Map<string, HistoryEntry> }>();
-
-    const recordEntry = (slug: string, month: number, year: number, options?: { role?: string; hasSnapshot?: boolean }) => {
-      if (!Number.isFinite(month) || !Number.isFinite(year)) return;
-      if (month < 0 || month > 11) return;
-
-      const normalizedMonth = Number(month);
-      const normalizedYear = Number(year);
-      const key = `${normalizedYear}-${String(normalizedMonth).padStart(2, '0')}`;
-
-      if (!monthMap.has(key)) {
-        monthMap.set(key, {
-          key,
-          month: normalizedMonth,
-          year: normalizedYear,
-          entries: new Map<string, HistoryEntry>(),
-        });
-      }
-
-      const group = monthMap.get(key)!;
-      const entryKey = `${slug}-${normalizedYear}-${normalizedMonth}`;
-      const existing = group.entries.get(entryKey);
-
-      if (existing) {
-        if (!existing.role && options?.role) {
-          existing.role = options.role;
-        }
-        existing.hasSnapshot = existing.hasSnapshot || Boolean(options?.hasSnapshot);
-        group.entries.set(entryKey, existing);
-        return;
-      }
-
-      group.entries.set(entryKey, {
-        slug,
-        title: getAppraisalTitle(slug),
-        month: normalizedMonth,
-        year: normalizedYear,
-        role: options?.role,
-        hasSnapshot: Boolean(options?.hasSnapshot),
-      });
-    };
-
-    Object.entries(appraisalData || {}).forEach(([key, value]) => {
-      const parsed = parseCompletionKey(key);
-      recordEntry(parsed.slug, parsed.month, parsed.year, {
-        role: value?.role || value?.data?.role,
-        hasSnapshot: true,
-      });
-    });
-
-    Object.entries(completionStatus || {}).forEach(([role, roleMap]) => {
-      Object.entries(roleMap || {}).forEach(([key, completed]) => {
-        if (!completed) return;
-        const parsed = parseCompletionKey(key);
-        recordEntry(parsed.slug, parsed.month, parsed.year, { role, hasSnapshot: false });
-      });
-    });
-
-    return Array.from(monthMap.values())
-      .map(group => ({
-        key: group.key,
-        month: group.month,
-        year: group.year,
-        entries: Array.from(group.entries.values()).sort((a, b) => a.title.localeCompare(b.title)),
-      }))
-      .sort((a, b) => {
-        if (a.year !== b.year) return b.year - a.year;
-        return b.month - a.month;
-      });
-  }, [appraisalData, completionStatus]);
-
-  useEffect(() => {
-    if (!historyGroups.length) {
-      if (selectedHistoryMonthKey !== null) {
-        setSelectedHistoryMonthKey(null);
-      }
-      return;
-    }
-
-    const hasSelected = selectedHistoryMonthKey && historyGroups.some(group => group.key === selectedHistoryMonthKey);
-    if (!hasSelected) {
-      setSelectedHistoryMonthKey(historyGroups[0].key);
-    }
-  }, [historyGroups, selectedHistoryMonthKey]);
-
-  const selectedHistoryGroup = historyGroups.find(group => group.key === selectedHistoryMonthKey) || null;
-
-  useEffect(() => {
-    if (!pdfViewer?.content) return;
-    const url = pdfViewer.content;
-    return () => {
-      try {
-        URL.revokeObjectURL(url);
-      } catch {
-        /* ignore */
-      }
-    };
-  }, [pdfViewer]);
-
-  const handleViewPDF = async (appraisal: string, month: number, year?: number) => {
-    try {
-      // 1) Try to find snapshot in the tracker appraisalData using year-aware keys
-      const effectiveYear = typeof year === 'number' ? year : inferYearForMonth(month);
-      const exactKey = `${appraisal}-${effectiveYear}-${month}`;
-      let formData = appraisalData[exactKey]?.data;
-
-      // 2) If not found, try to find any appraisalData key that matches slug/month/year
-      if (!formData) {
-        for (const k of Object.keys(appraisalData || {})) {
-          const parsed = parseCompletionKey(k);
-          if (parsed.slug === appraisal && parsed.month === month && parsed.year === effectiveYear) {
-            formData = appraisalData[k]?.data;
-            break;
-          }
-        }
-      }
-
-      // 3) If still not found, fallback to collection query (prefer matching year)
-      if (!formData) {
-        formData = await getAppraisalDataFromCollection(appraisal, month, effectiveYear);
-      }
-
-      // 4) Fallback to localStorage heuristics
-      if (!formData) {
-        const possibleKeys = [
-          `${appraisal}-form`,
-          `${appraisal.replace(/-/g, '')}form`,
-          appraisal,
-          `${appraisal}-data`
-        ];
-
-        for (const key of possibleKeys) {
-          const storedData = localStorage.getItem(key);
-          if (storedData) {
-            formData = JSON.parse(storedData);
-            break;
-          }
-        }
-
-        if (!formData) {
-          for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key && (key.includes(appraisal) || key.includes('form'))) {
-              const storedData = localStorage.getItem(key);
-              if (storedData) {
-                try {
-                  const parsed = JSON.parse(storedData);
-                  if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
-                    formData = parsed;
-                    break;
-                  }
-                } catch (e) {
-                  // Ignore parsing errors
-                }
-              }
-            }
-          }
-        }
-      }
-
-      if (formData) {
-        // Generate PDF using the new PDF generator with logo
-        const pdfData = await generateAppraisalPDFWithLogo({
-          appraisalType: appraisal,
-          formData: formData,
-          month: month,
-          year: effectiveYear,
-        });
-
-        // Create a data URL for the PDF to display in iframe
-        const blob = new Blob([pdfData as any], { type: 'application/pdf' });
-        const pdfUrl = URL.createObjectURL(blob);
-
-        setPdfViewer({ appraisal, month, year: effectiveYear, content: pdfUrl });
-      } else {
-        // If no data found, show placeholder
-        const effectiveYear = typeof year === 'number' ? year : inferYearForMonth(month);
-        setPdfViewer({ appraisal, month, year: effectiveYear, content: null });
-      }
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      const effectiveYear = typeof year === 'number' ? year : inferYearForMonth(month);
-      setPdfViewer({ appraisal, month, year: effectiveYear, content: null });
-    }
-  };
 
   const handleDownloadPDF = async (appraisal: string, month: number, year?: number) => {
     try {
@@ -1112,6 +923,223 @@ export default function AppraisalsPage() {
   };
   // Determine the currently active month/year based on the audits reset rule
   const { activeMonth, activeYear } = calculateResetInfo();
+
+  const slugToRoleMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    Object.entries(trackerAppraisalMapping).forEach(([role, slugs]) => {
+      slugs.forEach(slug => {
+        map[slug] = role;
+      });
+    });
+    return map;
+  }, []);
+
+  const trackerMonths = useMemo<TrackerMonthSummary[]>(() => {
+    type RoleEntry = { statusBySlug: Map<string, { hasSnapshot: boolean }> };
+    type MonthEntry = { month: number; year: number; roles: Map<string, RoleEntry> };
+
+    const monthMap = new Map<string, MonthEntry>();
+
+    const ensureMonthEntry = (month: number, year: number) => {
+      const key = getTrackerMonthKey(month, year);
+      if (!monthMap.has(key)) {
+        monthMap.set(key, {
+          month,
+          year,
+          roles: new Map<string, RoleEntry>(),
+        });
+      }
+      return monthMap.get(key)!;
+    };
+
+    const ensureRoleEntry = (entry: MonthEntry, role: string) => {
+      if (!entry.roles.has(role)) {
+        entry.roles.set(role, { statusBySlug: new Map() });
+      }
+      return entry.roles.get(role)!;
+    };
+
+    const recordCompletion = (role: string, slug: string, month: number, year: number, hasSnapshot: boolean) => {
+      if (!Number.isFinite(month) || month < 0 || month > 11 || !Number.isFinite(year)) return;
+      const monthEntry = ensureMonthEntry(month, year);
+      const roleEntry = ensureRoleEntry(monthEntry, role);
+      const existing = roleEntry.statusBySlug.get(slug);
+      roleEntry.statusBySlug.set(slug, {
+        hasSnapshot: existing?.hasSnapshot || hasSnapshot,
+      });
+    };
+
+    Object.entries(completionStatus || {}).forEach(([role, roleMap]) => {
+      Object.entries(roleMap || {}).forEach(([key, completed]) => {
+        if (!completed) return;
+        const parsed = parseCompletionKey(key);
+        const { slug, month, year } = parsed;
+        const resolvedRole = trackerAppraisalMapping[role as keyof typeof trackerAppraisalMapping] ? role : slugToRoleMap[slug];
+        if (!resolvedRole) return;
+        recordCompletion(resolvedRole, slug, month, year, false);
+      });
+    });
+
+    Object.entries(appraisalData || {}).forEach(([key]) => {
+      const parsed = parseCompletionKey(key);
+      const { slug, month, year } = parsed;
+      const role = slugToRoleMap[slug];
+      if (!role) return;
+      recordCompletion(role, slug, month, year, true);
+    });
+
+    ensureMonthEntry(activeMonth, activeYear);
+    const now = new Date();
+    ensureMonthEntry(now.getMonth(), now.getFullYear());
+
+    const rolesArray = Object.keys(trackerAppraisalMapping);
+
+    const summaries = Array.from(monthMap.entries()).map(([key, monthEntry]) => {
+      const roles: TrackerRoleSummary[] = rolesArray.map(role => {
+        const slugs = trackerAppraisalMapping[role as keyof typeof trackerAppraisalMapping];
+        const roleEntry = monthEntry.roles.get(role);
+        const completedSlugs = slugs.filter(slug => roleEntry?.statusBySlug.has(slug));
+        const remainingSlugs = slugs.filter(slug => !roleEntry?.statusBySlug.has(slug));
+        const slugStatus = completedSlugs.reduce((acc, slug) => {
+          acc[slug] = {
+            hasSnapshot: roleEntry?.statusBySlug.get(slug)?.hasSnapshot ?? false,
+          };
+          return acc;
+        }, {} as Record<string, { hasSnapshot: boolean }>);
+        const totalAppraisals = slugs.length;
+        const percentComplete = totalAppraisals === 0 ? 0 : Math.round((completedSlugs.length / totalAppraisals) * 100);
+        return {
+          role,
+          completedSlugs,
+          remainingSlugs,
+          percentComplete,
+          totalAppraisals,
+          slugStatus,
+        };
+      });
+
+      const totalAppraisals = roles.reduce((sum, role) => sum + role.totalAppraisals, 0);
+      const totalCompleted = roles.reduce((sum, role) => sum + role.completedSlugs.length, 0);
+      const percentComplete = totalAppraisals === 0 ? 0 : Math.round((totalCompleted / totalAppraisals) * 100);
+      const hasData = totalCompleted > 0;
+
+      return {
+        key,
+        month: monthEntry.month,
+        year: monthEntry.year,
+        roles,
+        totalAppraisals,
+        totalCompleted,
+        percentComplete,
+        hasData,
+      };
+    });
+
+    return summaries.sort((a, b) => {
+      if (a.year !== b.year) return b.year - a.year;
+      return b.month - a.month;
+    });
+  }, [completionStatus, appraisalData, activeMonth, activeYear, slugToRoleMap]);
+
+  const trackerMonthByKey = useMemo(() => {
+    const map = new Map<string, TrackerMonthSummary>();
+    trackerMonths.forEach(month => {
+      map.set(month.key, month);
+    });
+    return map;
+  }, [trackerMonths]);
+
+  const trackedYears = useMemo(() => {
+    const set = new Set<number>();
+    trackerMonths.forEach(month => set.add(month.year));
+    set.add(activeYear);
+    return Array.from(set).sort((a, b) => b - a);
+  }, [trackerMonths, activeYear]);
+
+  const monthKeysWithData = useMemo(() => {
+    return new Set(trackerMonths.filter(month => month.hasData).map(month => month.key));
+  }, [trackerMonths]);
+
+  const totalAppraisalsPerMonth = useMemo(() => {
+    return Object.values(trackerAppraisalMapping).reduce((sum, slugs) => sum + slugs.length, 0);
+  }, []);
+
+  const getEmptyMonthSummary = useCallback((key: string): TrackerMonthSummary => {
+    const parsed = parseTrackerMonthKey(key) ?? { month: activeMonth, year: activeYear };
+    const roles: TrackerRoleSummary[] = Object.keys(trackerAppraisalMapping).map(role => {
+      const slugs = trackerAppraisalMapping[role as keyof typeof trackerAppraisalMapping];
+      return {
+        role,
+        completedSlugs: [],
+        remainingSlugs: [...slugs],
+        percentComplete: 0,
+        totalAppraisals: slugs.length,
+        slugStatus: {},
+      };
+    });
+    const totalAppraisals = roles.reduce((sum, role) => sum + role.totalAppraisals, 0);
+    return {
+      key: getTrackerMonthKey(parsed.month, parsed.year),
+      month: parsed.month,
+      year: parsed.year,
+      roles,
+      totalAppraisals,
+      totalCompleted: 0,
+      percentComplete: 0,
+      hasData: false,
+    };
+  }, [activeMonth, activeYear]);
+
+  const selectedTrackerMonth = useMemo<TrackerMonthSummary | null>(() => {
+    if (!selectedTrackerMonthKey) return null;
+    return trackerMonthByKey.get(selectedTrackerMonthKey) ?? getEmptyMonthSummary(selectedTrackerMonthKey);
+  }, [selectedTrackerMonthKey, trackerMonthByKey, getEmptyMonthSummary]);
+
+  const selectedTrackerMonthDate = useMemo(() => {
+    if (!selectedTrackerMonth) return undefined;
+    const normalized = new Date(selectedTrackerMonth.year, selectedTrackerMonth.month, 1);
+    if (Number.isNaN(normalized.getTime())) return undefined;
+    return normalized;
+  }, [selectedTrackerMonth]);
+
+  const isSelectedMonthActive = selectedTrackerMonth ? (selectedTrackerMonth.month === activeMonth && selectedTrackerMonth.year === activeYear) : false;
+  const selectedTrackerMonthLabel = selectedTrackerMonth ? formatMonthLabel(selectedTrackerMonth.month, selectedTrackerMonth.year) : '';
+  const selectedTrackerProgress = selectedTrackerMonth ? `${selectedTrackerMonth.totalCompleted}/${selectedTrackerMonth.totalAppraisals}` : `0/${totalAppraisalsPerMonth}`;
+
+  useEffect(() => {
+    const activeKey = getTrackerMonthKey(activeMonth, activeYear);
+    if (trackerMonths.length === 0) {
+      setSelectedTrackerMonthKey(prev => prev ?? activeKey);
+      return;
+    }
+    setSelectedTrackerMonthKey(prev => {
+      if (prev && (trackerMonthByKey.has(prev) || prev === activeKey)) {
+        return prev;
+      }
+      if (trackerMonthByKey.has(activeKey)) {
+        return activeKey;
+      }
+      return trackerMonths[0]?.key ?? activeKey;
+    });
+  }, [trackerMonths, trackerMonthByKey, activeMonth, activeYear]);
+
+  const handleSelectTrackerMonth = useCallback((monthKey: string) => {
+    setSelectedTrackerMonthKey(monthKey);
+  }, []);
+
+  const handleDatePickerSelect = useCallback((date: Date | undefined) => {
+    if (!date) return;
+    const normalized = new Date(date.getFullYear(), date.getMonth(), 1);
+    if (Number.isNaN(normalized.getTime())) return;
+    const monthKey = getTrackerMonthKey(normalized.getMonth(), normalized.getFullYear());
+    handleSelectTrackerMonth(monthKey);
+    setDatePickerOpen(false);
+  }, [handleSelectTrackerMonth]);
+
+  const isViewingPastMonth = selectedTrackerMonth ? (
+    selectedTrackerMonth.year < activeYear ||
+    (selectedTrackerMonth.year === activeYear && selectedTrackerMonth.month < activeMonth)
+  ) : false;
   return (
     <div>
       {/* Header with countdown matching audits reset (7th of month) */}
@@ -1165,12 +1193,15 @@ export default function AppraisalsPage() {
         )}
       />
       {/* Tabs below header */}
-      <Tabs value={tab} onValueChange={(value) => setTab(value as 'appraisals' | 'tracker' | 'history')} className="mb-8">
-        <TabsList className="grid h-auto items-center w-full max-w-2xl grid-cols-3 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
-          <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="appraisals">Appraisals</TabsTrigger>
-          <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="tracker">Tracker</TabsTrigger>
-          <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="history">Audit History</TabsTrigger>
-        </TabsList>
+      <div className="px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-[1800px]">
+          <Tabs value={tab} onValueChange={(value) => setTab(value as 'appraisals' | 'tracker')} className="mb-8">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <TabsList className="grid h-auto w-full max-w-xl grid-cols-2 items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+                <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="appraisals">Appraisals</TabsTrigger>
+                <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="tracker">Tracker</TabsTrigger>
+              </TabsList>
+            </div>
 
         <TabsContent value="appraisals" className="mt-6">
         <div className="px-4 sm:px-8 lg:px-16">
@@ -1310,220 +1341,260 @@ export default function AppraisalsPage() {
 
       <TabsContent value="tracker" className="mt-6">
         <div className="px-4 sm:px-8 lg:px-16">
-          <div className="w-full">
-            <div className="bg-white/90 rounded-2xl shadow-xl border border-blue-100 p-6 sm:p-10 mb-8 min-h-[500px] flex flex-col justify-between">
-              <div className="flex items-center gap-3 mb-6">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="text-blue-500"><rect x="3" y="3" width="18" height="18" rx="4" fill="currentColor" /></svg>
-                <div>
-                  <h2 className="text-2xl font-bold text-blue-900 leading-tight">Supervision & Appraisal Tracker</h2>
-                  <div className="text-blue-700 text-sm mt-1">Overview of staff supervisions and appraisals by month</div>
+          <div className="space-y-8">
+            {loading ? (
+              <div className="flex items-center justify-center py-16">
+                <div className="flex items-center space-x-2 text-gray-600">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+                  <span>Loading tracker data...</span>
                 </div>
               </div>
-              {loading ? (
-                <div className="flex items-center justify-center py-12">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                    <span className="text-gray-600">Loading tracker data...</span>
+            ) : trackerMonths.length === 0 && !selectedTrackerMonth ? (
+              <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center text-sm text-gray-600">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-blue-50 text-blue-500">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-current">
+                    <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+                <h3 className="mb-2 text-lg font-semibold text-gray-900">No tracker history yet</h3>
+                <p className="mb-4">Complete your first supervision or appraisal to see monthly progress.</p>
+                <button
+                  onClick={() => setTab('appraisals')}
+                  className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:shadow-md"
+                >
+                  Start an appraisal
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50/80 to-indigo-50/80 p-6 shadow-sm">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h2 className="text-xl font-semibold text-blue-900">Supervision &amp; Appraisal Tracker</h2>
+                      <p className="text-sm text-blue-900/80">Monitor monthly completion progress across teams.</p>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-blue-900">
+                      <span>{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-xs font-semibold text-blue-700 shadow-sm">
+                        {(selectedTrackerMonth?.percentComplete ?? 0)}% complete
+                      </span>
+                    </div>
                   </div>
                 </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full border-collapse border border-gray-200 shadow-sm rounded-lg overflow-hidden">
-                    <thead>
-                      <tr className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-                        <th className="py-4 px-6 text-left font-semibold border-b border-blue-500">Staff member & Role</th>
-                        {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((m, idx) => (
-                          <th key={m} className={`py-4 px-6 font-semibold border-b border-blue-500 text-center ${idx === activeMonth ? 'bg-blue-700' : ''}`}>
-                            {m}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[
-                        'Deputy',
-                        'Clinical lead & Nurses',
-                        'Senior/Care team managers',
-                        'Admin staff',
-                        'Maintenance staff',
-                        'Activities staff',
-                        'Kitchen staff',
-                        'Domestic staff',
-                      ].map((role, idx) => (
-                        <tr key={role} className={`transition-colors ${idx % 2 === 0 ? 'bg-white hover:bg-gray-50' : 'bg-gray-50 hover:bg-gray-100'} border-b border-gray-200`}>
-                          <td className="py-4 px-6 font-medium text-gray-900 border-r border-gray-200">{role}</td>
-                          {Array.from({ length: 12 }).map((_, i) => {
-                            const percentage = getCompletionPercentage(role, i);
-                            const isActiveCell = i === activeMonth;
+
+                <div className="space-y-6">
+                  {trackedYears.map((year) => {
+                    const monthsForYear = trackerMonths.filter(month => month.year === year);
+                    const savedCount = monthsForYear.filter(month => month.hasData).length;
+                    const isSelectedYear = selectedTrackerMonth?.year === year;
+
+                    return (
+                      <div key={year} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <h2 className="text-lg font-semibold text-gray-900">{year} tracker</h2>
+                            <p className="text-sm text-gray-500">Select a month to review completions.</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                              {savedCount} saved
+                            </span>
+                            {isSelectedYear && (
+                              <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    className="flex items-center gap-2 border-gray-200 bg-white text-xs font-medium text-gray-700 hover:border-blue-300 hover:bg-blue-50"
+                                  >
+                                    <CalendarIcon className="h-4 w-4" />
+                                    <span>Jump to month</span>
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="end">
+                                  <DatePickerCalendar
+                                    mode="single"
+                                    selected={selectedTrackerMonthDate}
+                                    defaultMonth={selectedTrackerMonthDate ?? new Date(year, 0, 1)}
+                                    onSelect={handleDatePickerSelect}
+                                    captionLayout="dropdown"
+                                    fromYear={Math.max(2020, new Date().getFullYear() - 5)}
+                                    toYear={new Date().getFullYear() + 2}
+                                    showOutsideDays
+                                  />
+                                </PopoverContent>
+                              </Popover>
+                            )}
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+                          {MONTH_NAMES.map((monthLabel, index) => {
+                            const monthKey = getTrackerMonthKey(index, year);
+                            const monthSummary = trackerMonthByKey.get(monthKey);
+                            const isSelected = selectedTrackerMonthKey === monthKey;
+                            const hasData = monthKeysWithData.has(monthKey);
+                            const completionPercent = monthSummary?.percentComplete ?? 0;
+                            const completedCount = monthSummary?.totalCompleted ?? 0;
+                            const totalCount = monthSummary?.totalAppraisals ?? totalAppraisalsPerMonth;
                             return (
-                              <td
-                                key={i}
-                                className={`py-4 px-6 text-center border-r border-gray-200 cursor-pointer transition-all duration-200 hover:bg-blue-100 hover:shadow-inner ${
-                                  isActiveCell ? 'bg-blue-50' : ''
-                                }`}
-                                onClick={() => handleOpenTrackerModal(role, i)}
+                              <button
+                                key={monthKey}
+                                type="button"
+                                onClick={() => handleSelectTrackerMonth(monthKey)}
+                                className={`text-left rounded-xl border p-4 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-200 ${
+                                  hasData ? 'bg-white hover:border-indigo-400 hover:shadow-md' : 'border-dashed border-gray-300 bg-slate-50 text-gray-500 hover:border-gray-300'
+                                } ${isSelected ? 'border-indigo-500 ring-2 ring-indigo-200' : ''}`}
                               >
-                                {percentage > 0 ? (
-                                  <div className="flex flex-col items-center space-y-1">
-                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shadow-md ${
-                                      percentage === 100 
-                                        ? 'bg-green-500 text-white' 
-                                        : percentage > 0 
-                                          ? 'bg-blue-500 text-white' 
-                                          : 'bg-gray-200 text-gray-600'
-                                    }`}>
-                                      {percentage === 100 ? '✓' : percentage > 0 ? `${percentage}%` : ''}
-                                    </div>
-                                    {percentage > 0 && percentage < 100 && (
-                                      <div className="w-8 h-1 bg-gray-200 rounded-full overflow-hidden">
-                                        <div 
-                                          className="h-full bg-blue-500 transition-all duration-300" 
-                                          style={{ width: `${percentage}%` }}
-                                        ></div>
-                                      </div>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <div className="w-10 h-10 rounded-full border-2 border-gray-300 border-dashed flex items-center justify-center text-gray-400 hover:border-blue-400 transition-colors">
-                                    <span className="text-xs">+</span>
-                                  </div>
-                                )}
-                              </td>
+                                <div className="flex items-center justify-between">
+                                  <span className={`text-sm font-semibold ${hasData ? 'text-gray-900' : 'text-gray-500'}`}>
+                                    {monthLabel.slice(0, 3)}
+                                  </span>
+                                  {hasData ? (
+                                    <span className="text-xs font-semibold text-indigo-600">{completionPercent}%</span>
+                                  ) : (
+                                    <span className="text-xs text-gray-400">No data</span>
+                                  )}
+                                </div>
+                                <div className="mt-3 text-xs text-gray-600">
+                                  {hasData ? `${completedCount}/${totalCount} complete` : 'Tracker not started'}
+                                </div>
+                              </button>
                             );
                           })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </TabsContent>
-
-      <TabsContent value="history" className="mt-6">
-        <div className="px-4 sm:px-8 lg:px-16">
-          {historyGroups.length === 0 ? (
-            <div className="py-16 text-center">
-              <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gray-100 text-gray-400">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="text-current">
-                  <path d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
-              <h3 className="mb-2 text-xl font-semibold text-gray-900">No Completed Appraisals</h3>
-              <p className="mb-6 text-gray-600">Complete some appraisals to see them in your history.</p>
-              <button
-                onClick={() => setTab('appraisals')}
-                className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-3 font-medium text-white transition-shadow hover:shadow-lg"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-current">
-                  <path d="M12 4v16m8-8H4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                Start an Appraisal
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              <div className="overflow-x-auto pb-3">
-                <div className="flex min-w-max gap-3">
-                  {historyGroups.map(group => {
-                    const isActive = group.key === selectedHistoryMonthKey;
-                    return (
-                      <button
-                        key={group.key}
-                        onClick={() => setSelectedHistoryMonthKey(group.key)}
-                        className={`flex min-w-[170px] flex-col rounded-xl border px-4 py-3 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${isActive ? 'border-blue-600 bg-blue-600 text-white shadow-lg' : 'border-gray-200 bg-white text-gray-700 hover:border-blue-400 hover:text-blue-700'}`}
-                      >
-                        <span className="text-sm font-semibold">{formatMonthLabel(group.month, group.year)}</span>
-                        <span className={`mt-1 text-xs ${isActive ? 'text-blue-100' : 'text-gray-500'}`}>
-                          {group.entries.length} completed {group.entries.length === 1 ? 'appraisal' : 'appraisals'}
-                        </span>
-                      </button>
+                        </div>
+                      </div>
                     );
                   })}
                 </div>
-              </div>
 
-              {selectedHistoryGroup && selectedHistoryGroup.entries.length > 0 ? (
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {selectedHistoryGroup.entries.map(entry => (
-                    <div
-                      key={`${entry.slug}-${entry.year}-${entry.month}`}
-                      onClick={() => openReadOnlyViewer(entry.slug, entry.month, entry.year)}
-                      className="group relative flex flex-col gap-4 rounded-2xl border border-gray-200 bg-white p-5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 cursor-pointer"
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex items-start gap-3">
-                          <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-green-100 text-green-600">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-current">
-                              <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                          </span>
-                          <div>
-                            <div className="text-sm font-semibold text-gray-900 transition-colors group-hover:text-blue-700">{entry.title}</div>
-                            <div className="text-xs text-gray-500">{formatMonthLabel(entry.month, entry.year)}</div>
-                            {entry.role && <div className="mt-1 text-xs text-gray-500">{entry.role}</div>}
+                {selectedTrackerMonth && (
+                  <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                    <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                      <div>
+                        <h3 className="text-xl font-semibold text-gray-900">{selectedTrackerMonthLabel || 'Tracker summary'}</h3>
+                        <p className="text-sm text-gray-600">{selectedTrackerProgress} appraisals completed</p>
+                        {isViewingPastMonth && (
+                          <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
+                            Reviewing a past month
                           </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              handleViewPDF(entry.slug, entry.month, entry.year);
-                            }}
-                            className="inline-flex items-center gap-1 rounded-lg border border-blue-200 px-2 py-1 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-50"
-                          >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="text-current">
-                              <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                              <path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                            View
-                          </button>
-                          <button
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              handleDownloadPDF(entry.slug, entry.month, entry.year);
-                            }}
-                            className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2 py-1 text-xs font-medium text-gray-600 transition-colors hover:border-gray-300 hover:text-gray-800"
-                          >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="text-current">
-                              <path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                            Download
-                          </button>
-                        </div>
+                        )}
                       </div>
-                      {!entry.hasSnapshot && (
-                        <div className="flex items-center gap-2 text-xs text-amber-600">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="text-current">
-                            <path d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                          Snapshot will be rebuilt when opened.
-                        </div>
-                      )}
+                      <span className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+                        {selectedTrackerMonth.percentComplete}% complete
+                      </span>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center text-sm text-gray-600">
-                  {(() => {
-                    if (!selectedHistoryMonthKey) return 'Select a month to view completed appraisals.';
-                    const [yearPart, monthPart] = selectedHistoryMonthKey.split('-');
-                    const parsedMonth = Number(monthPart);
-                    const parsedYear = Number(yearPart);
-                    if (Number.isFinite(parsedMonth) && Number.isFinite(parsedYear)) {
-                      return `No appraisals stored for ${formatMonthLabel(parsedMonth, parsedYear)}.`;
-                    }
-                    return 'No appraisals stored for the selected month.';
-                  })()}
-                </div>
-              )}
-            </div>
-          )}
+
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                      {selectedTrackerMonth.roles.map(roleSummary => {
+                        const isComplete = roleSummary.percentComplete === 100;
+                        const outstandingCount = roleSummary.remainingSlugs.length;
+                        return (
+                          <div
+                            key={roleSummary.role}
+                            className="group relative flex h-full flex-col justify-between rounded-xl border border-gray-200/60 bg-gradient-to-br from-white to-gray-50/40 p-5 shadow-sm transition-all hover:shadow-lg"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <h4 className="text-base font-semibold text-gray-900">{roleSummary.role}</h4>
+                                <p className="text-xs text-gray-500">{roleSummary.completedSlugs.length}/{roleSummary.totalAppraisals} completed</p>
+                              </div>
+                              <div className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold ${
+                                isComplete ? 'bg-emerald-500 text-white' : roleSummary.percentComplete > 0 ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'
+                              }`}>
+                                {isComplete ? '✓' : `${roleSummary.percentComplete}%`}
+                              </div>
+                            </div>
+
+                            <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-gray-200">
+                              <div
+                                className={`${isComplete ? 'bg-emerald-500' : 'bg-blue-500'} h-2 rounded-full transition-all`}
+                                style={{ width: `${roleSummary.percentComplete}%` }}
+                              />
+                            </div>
+
+                            <div className="mt-5 space-y-4 text-sm">
+                              {roleSummary.completedSlugs.length > 0 && (
+                                <div>
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Completed</p>
+                                  <div className="mt-2 space-y-2">
+                                    {roleSummary.completedSlugs.map(slug => (
+                                      <div key={slug} className="flex items-center justify-between rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-emerald-700">
+                                        <span className="font-medium">{getAppraisalTitle(slug)}</span>
+                                        <button
+                                          onClick={() => openReadOnlyViewer(slug, selectedTrackerMonth.month, selectedTrackerMonth.year)}
+                                          className="text-xs font-semibold text-emerald-700 underline decoration-emerald-400 hover:text-emerald-800"
+                                        >
+                                          View
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {roleSummary.remainingSlugs.length > 0 && (
+                                <div>
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">Outstanding</p>
+                                  <div className="mt-2 space-y-2">
+                                    {roleSummary.remainingSlugs.map(slug => (
+                                      <div key={slug} className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-700">
+                                        <span>{getAppraisalTitle(slug)}</span>
+                                        <button
+                                          onClick={() => {
+                                            if (!selectedTrackerMonth) return;
+                                            if (isSelectedMonthActive) {
+                                              proceedToAppraisal(slug, selectedTrackerMonth.month, selectedTrackerMonth.year);
+                                            } else {
+                                              setConfirmCreateModal({ appraisal: slug, month: selectedTrackerMonth.month, year: selectedTrackerMonth.year });
+                                            }
+                                          }}
+                                          className={`rounded-md px-2 py-1 text-xs font-semibold transition ${
+                                            isSelectedMonthActive
+                                              ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                              : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                          }`}
+                                        >
+                                          {isSelectedMonthActive ? 'Start' : 'Prepare'}
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="mt-6 flex flex-wrap items-center gap-3 text-xs">
+                              <button
+                                onClick={() => {
+                                  if (!selectedTrackerMonth) return;
+                                  handleOpenTrackerModal(roleSummary.role, selectedTrackerMonth.month, selectedTrackerMonth.year);
+                                }}
+                                className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 transition hover:border-blue-300 hover:bg-blue-100"
+                              >
+                                Manage {isSelectedMonthActive ? 'this month' : 'appraisals'}
+                              </button>
+                              {outstandingCount > 0 && isSelectedMonthActive && (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-amber-700">
+                                  {outstandingCount} outstanding
+                                </span>
+                              )}
+                              {roleSummary.completedSlugs.length === 0 && outstandingCount === 0 && (
+                                <span className="rounded-full border border-gray-200 bg-gray-100 px-3 py-1 text-gray-500">No appraisals configured</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </TabsContent>
     </Tabs>
+        </div>
+      </div>
 
       {trackerModal && (
         <TrackerModal
@@ -1591,64 +1662,6 @@ export default function AppraisalsPage() {
                   Cancel
                 </button>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* PDF Viewer Modal */}
-      {pdfViewer && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">
-                  {appraisalCards.find(card => card.slug === pdfViewer.appraisal)?.title || pdfViewer.appraisal}
-                </h3>
-                <p className="text-sm text-gray-600">{MONTH_NAMES[pdfViewer.month]} {pdfViewer.year ?? new Date().getFullYear()}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleDownloadPDF(pdfViewer.appraisal, pdfViewer.month, pdfViewer.year)}
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-current">
-                    <path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                  Download
-                </button>
-                <button
-                  onClick={() => setPdfViewer(null)}
-                  className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-current">
-                    <path d="M6 18L18 6M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            <div className="p-6 max-h-[calc(90vh-120px)] overflow-auto">
-              {pdfViewer.content ? (
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <iframe
-                    src={pdfViewer.content}
-                    className="w-full h-[600px] border border-gray-200 rounded-lg"
-                    title={`${pdfViewer.appraisal} PDF`}
-                  />
-                </div>
-              ) : (
-                <div className="text-center py-16">
-                  <div className="w-16 h-16 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center mx-auto mb-4">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-current">
-                      <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No PDF Available</h3>
-                  <p className="text-gray-600 mb-4">The appraisal data could not be loaded for PDF generation.</p>
-                  <p className="text-sm text-gray-500">File: {appraisalCards.find(card => card.slug === pdfViewer.appraisal)?.title || pdfViewer.appraisal}_{MONTH_NAMES[pdfViewer.month]}_{pdfViewer.year ?? new Date().getFullYear()}_Report.pdf</p>
-                </div>
-              )}
             </div>
           </div>
         </div>
