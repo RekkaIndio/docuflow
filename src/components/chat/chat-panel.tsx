@@ -355,6 +355,28 @@ export function ChatPanel({ selectedItem, onFolderAdd, organisationId }: ChatPan
     return documents;
   };
 
+  // Listen for user doc changes to keep profilePicture in sync
+  useEffect(() => {
+    let unsub: (() => void) | null = null;
+    const load = async () => {
+      try {
+        if (!user?.id) return;
+        const { doc, onSnapshot } = await import('firebase/firestore');
+        const userDocRef = doc(db, 'users', user.id);
+        unsub = onSnapshot(userDocRef, (snap) => {
+          if (!snap.exists()) return;
+          const data = snap.data() as any;
+          // keep profilePicture in sync
+          if (data?.profilePicture) setProfilePicture(data.profilePicture as string ?? undefined);
+        });
+      } catch (e) {
+        // ignore
+      }
+    };
+    load();
+    return () => { if (unsub) unsub(); };
+  }, [user?.id]);
+
   // Enhanced natural language intent detection
   const detectIntent = (userInput: string): UserIntent => {
     const raw = userInput || '';
@@ -5049,7 +5071,7 @@ I used the latest dependency recommendation (day carers ${recDayCarers}, day nur
       <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-4 text-white">
         <div className="flex items-center gap-3">
           <Avatar className="w-10 h-10 border-2 border-blue-200">
-            <AvatarImage src={'/Neurodiversity_Symbol.png'} alt="CareBot AI" />
+            <AvatarImage src={profilePicture || '/Neurodiversity_Symbol.png'} alt="CareBot AI" />
             <AvatarFallback className="bg-gray-500 text-white text-sm font-semibold">AI</AvatarFallback>
           </Avatar>
           <div>
@@ -5062,7 +5084,7 @@ I used the latest dependency recommendation (day carers ${recDayCarers}, day nur
         {messages.length === 0 && !isTyping ? (
           <div className="flex flex-col items-center justify-center min-h-[240px] text-center text-gray-600">
             <Avatar className="w-16 h-16 border-2 border-blue-200 mb-4">
-              <AvatarImage src={'/Neurodiversity_Symbol.png'} alt="CareBot AI" />
+              <AvatarImage src={profilePicture || '/Neurodiversity_Symbol.png'} alt="CareBot AI" />
               <AvatarFallback className="bg-gray-500 text-white text-sm font-semibold">AI</AvatarFallback>
             </Avatar>
             <h4 className="text-lg font-semibold text-gray-800">Doc - Document Assistant</h4>
@@ -5106,7 +5128,7 @@ I used the latest dependency recommendation (day carers ${recDayCarers}, day nur
             <div key={index} className={cn("flex items-start gap-3", message.sender === 'user' ? 'justify-end' : '')}>
               {message.sender === 'ai' && (
                 <Avatar className="w-10 h-10 border-2 border-blue-200">
-                  <AvatarImage src={'/Neurodiversity_Symbol.png'} alt={mockUser.name || undefined} />
+                  <AvatarImage src={profilePicture || mockUser.avatarUrl || '/Neurodiversity_Symbol.png'} alt={mockUser.name || undefined} />
                   <AvatarFallback className="bg-gray-500 text-white text-sm font-semibold">AI</AvatarFallback>
                 </Avatar>
               )}
@@ -5134,7 +5156,7 @@ I used the latest dependency recommendation (day carers ${recDayCarers}, day nur
          {isTyping && (
           <div className="flex items-start gap-3">
             <Avatar className="w-10 h-10 border-2 border-blue-200">
-              <AvatarImage src={'/Neurodiversity_Symbol.png'} alt="AI" />
+              <AvatarImage src={profilePicture || '/Neurodiversity_Symbol.png'} alt="AI" />
               <AvatarFallback className="bg-blue-500 text-white text-sm font-semibold">AI</AvatarFallback>
             </Avatar>
             <div className="max-w-[75%] rounded-2xl p-4 text-sm bg-white border border-gray-200 shadow-sm">

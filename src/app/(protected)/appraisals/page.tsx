@@ -1193,20 +1193,17 @@ export default function AppraisalsPage() {
         )}
       />
       {/* Tabs below header */}
-      <div className="px-4 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-[1800px]">
-          <Tabs value={tab} onValueChange={(value) => setTab(value as 'appraisals' | 'tracker')} className="mb-8">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <TabsList className="grid h-auto w-full max-w-xl grid-cols-2 items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
-                <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="appraisals">Appraisals</TabsTrigger>
-                <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="tracker">Tracker</TabsTrigger>
-              </TabsList>
-            </div>
+      <div className="p-6">
+        <Tabs value={tab} onValueChange={(value) => setTab(value as 'appraisals' | 'tracker')} className="w-full">
+          <TabsList className="grid h-auto w-full max-w-lg grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+            <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="appraisals">Appraisals</TabsTrigger>
+            <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="tracker">Tracker</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="appraisals" className="mt-6">
-        <div className="px-4 sm:px-8 lg:px-16">
-          {currentView === null && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+          <TabsContent value="appraisals" className="mt-6">
+            <div>
+              {currentView === null && (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {appraisalCards.map(({ title, slug }) => {
                 const completed = isAppraisalCompleted(slug);
                 return (
@@ -1214,7 +1211,7 @@ export default function AppraisalsPage() {
                     key={title}
                     role="button"
                     onClick={() => setCurrentView(slug)}
-                    className={`group relative overflow-hidden rounded-2xl shadow-lg border transition-all duration-300 cursor-pointer hover:shadow-xl hover:-translate-y-1 min-h-[200px] flex flex-col ${
+                    className={`group relative overflow-hidden rounded-2xl shadow-lg border transition-all duration-300 cursor-pointer hover:shadow-xl hover:-translate-y-1 min-h-[220px] flex flex-col ${
                       completed 
                         ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200 hover:border-green-300' 
                         : 'bg-white/90 border-blue-100 hover:border-blue-200'
@@ -1593,7 +1590,6 @@ export default function AppraisalsPage() {
         </div>
       </TabsContent>
     </Tabs>
-        </div>
       </div>
 
       {trackerModal && (
