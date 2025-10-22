@@ -26,26 +26,43 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Search in completed_policies collection
-    const draftsQuery = adminDb.collection('completed_policies')
-      .where('status', '==', 'draft');
+    // Search in completed_policies collection. Prefer an `in` query so we include
+    // entries saved with legacy `completed` status as well as current drafts.
+    let draftsSnapshot;
+    try {
+      draftsSnapshot = await adminDb
+        .collection('completed_policies')
+        .where('status', 'in', ['draft', 'completed'])
+        .get();
+    } catch (statusInErr) {
+      console.warn('Falling back to full completed_policies fetch:', statusInErr);
+      draftsSnapshot = await adminDb.collection('completed_policies').get();
+    }
 
     // Search in organisation-scoped policies collection via collectionGroup('policies')
-    const publishedQuery = adminDb.collectionGroup('policies')
-      .where('status', '==', 'published');
-
-    const [draftsSnapshot, publishedSnapshot] = await Promise.all([
-      draftsQuery.get(),
-      publishedQuery.get()
-    ]);
+    // Include both published and legacy completed entries so the chatbot can access
+    // policies that have been saved but not re-published yet.
+    let publishedSnapshot;
+    try {
+      publishedSnapshot = await adminDb
+        .collectionGroup('policies')
+        .where('status', 'in', ['published', 'completed'])
+        .get();
+    } catch (statusInErr) {
+      console.warn('Falling back to unrestricted policies collectionGroup fetch:', statusInErr);
+      publishedSnapshot = await adminDb.collectionGroup('policies').get();
+    }
 
     const allPolicies: PolicyDocument[] = [];
 
     // Process drafts
     draftsSnapshot.docs.forEach((doc: any) => {
       const data = doc.data() as PolicyDocument;
+      // Backwards compatibility: treat missing status as completed
+      const status = data.status || 'completed';
       allPolicies.push({
         ...data,
+        status,
         id: doc.id
       });
     });
@@ -101,7 +118,7 @@ export async function POST(request: NextRequest) {
       storagePath: policy.storagePath || null,
       createdAt: policy.createdAt,
       folderId: 'policies',
-      status: policy.status === 'published' ? 'current' : 'draft',
+      status: policy.status === 'published' ? 'current' : 'completed',
       tags: ['policy'],
       summary: `Policy document: ${policy.meta?.title || policy.policyName}`
     }));
@@ -123,7 +140,7 @@ export async function POST(request: NextRequest) {
       storagePath: bestMatch.storagePath || null,
       createdAt: bestMatch.createdAt,
       folderId: 'policies',
-      status: bestMatch.status === 'published' ? 'current' : 'draft',
+      status: bestMatch.status === 'published' ? 'current' : 'completed',
       tags: ['policy'],
       summary: `Policy document: ${bestMatch.meta?.title || bestMatch.policyName}`
     };
