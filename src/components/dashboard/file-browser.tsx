@@ -176,13 +176,15 @@ export function FileBrowser({
           </svg>
         )}
         actions={(
-          <>
+          // Add a small gap between action buttons so they aren't flush together
+          <div className="flex items-center gap-2">
             <NewFolderDialog
                workspaceId={folder?.workspaceId || ""}
                parentId={folder?.id || 'root'}
                onFolderCreated={onFolderAdd}
              >
-              <Button variant="outline" size="sm" className="h-8 sm:h-10 bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-sm px-3">
+              {/* Use the Button size prop instead of hardcoded heights so it matches UploadButton */}
+              <Button variant="outline" size="sm" className="bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-sm px-3">
                 <Plus className="mr-2 h-4 w-4" />
                 New Folder
               </Button>
@@ -194,7 +196,7 @@ export function FileBrowser({
               organisationId={organisationId || null}
                size="sm"
              />
-          </>
+          </div>
         )}
       />
 
@@ -203,8 +205,10 @@ export function FileBrowser({
           <div className="flex items-center gap-2 text-lg font-semibold">
             {/* Sidebar toggle is provided by the Sidebar rail between sidebar and content */}
             <div className="flex items-center gap-1.5 text-sm sm:text-lg">
-              {breadcrumb.map((b, index) => (
-
+              {breadcrumb
+                // Filter out root breadcrumb entry so Home icon/text is not shown
+                .filter(b => b.id !== 'root')
+                .map((b, index) => (
                 <div key={b.id} className="flex items-center gap-1.5">
                     <Button 
                         variant="link" 
@@ -212,8 +216,7 @@ export function FileBrowser({
                         className="p-0 font-semibold text-muted-foreground hover:text-primary disabled:text-foreground disabled:no-underline"
                         disabled={index === breadcrumb.length - 1}
                     >
-                        {b.id === 'root' ? <Home className="w-4 h-4 sm:w-5 sm:h-5" /> : null}
-                        <span className="max-w-[100px] sm:max-w-none truncate">{b.id === 'root' ? 'Home' : b.name}</span>
+                        <span className="max-w-[100px] sm:max-w-none truncate">{b.name}</span>
                     </Button>
                     {index < breadcrumb.length - 1 && (
                         <ChevronRight className="w-4 h-4 text-muted-foreground" />

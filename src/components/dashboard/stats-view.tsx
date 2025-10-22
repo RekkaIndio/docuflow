@@ -10,6 +10,8 @@ import { TrendingUp, TrendingDown, Minus, FileText, Shield, Wrench, Lock, Flame,
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Area, AreaChart, RadialBarChart, RadialBar, Legend } from 'recharts';
 import PageHeader from '../page-header';
+import DetailedAuditCards from './stats/detailed-audit-cards';
+import RotaTrends from './rota-trends';
 import { AUDIT_TYPES, AUDIT_DISPLAY_NAMES, type AuditType } from '@/lib/audit-types';
 import { Badge } from '@/components/ui/badge';
 
@@ -631,82 +633,7 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
     ];
   };
 
-  const getDetailedAuditCards = () => {
-    return ((Array.isArray(AUDIT_TYPES) ? AUDIT_TYPES : []) as AuditType[]).map((key: AuditType, index) => {
-      const score = latestScores?.[key as any]?.scorePercent ?? null;
-      const yesCount = latestScores?.[key as any]?.yesCount ?? null;
-      const totalCount = latestScores?.[key as any]?.totalCount ?? null;
-      const updatedAt = latestScores?.[key as any]?.updatedAt ?? null;
-
-      const iconMap: Record<string, any> = {
-        'care-plan': <FileText className="h-5 w-5 text-blue-600" />,
-        'health-safety': <Shield className="h-5 w-5 text-green-600" />,
-        'maintenance': <Wrench className="h-5 w-5 text-yellow-600" />,
-        'restrictive-practice': <Lock className="h-5 w-5 text-purple-600" />,
-        'fire-safety': <Flame className="h-5 w-5 text-red-600" />,
-        'infection-control': <Biohazard className="h-5 w-5 text-orange-600" />,
-        'mealtime': <Utensils className="h-5 w-5 text-cyan-600" />,
-        'night-visit': <Moon className="h-5 w-5 text-indigo-600" />,
-        'staff-file': <Users className="h-5 w-5 text-teal-600" />,
-        'kitchen': <Soup className="h-5 w-5 text-emerald-600" />,
-        'falls': <AlertTriangle className="h-5 w-5 text-amber-600" />
-      };
-
-      const title = AUDIT_DISPLAY_NAMES[key] || key;
-      const icon = iconMap[key] || <FileText className="h-5 w-5 text-gray-600" />;
-      const trend = trends[key];
-
-      return (
-        score !== null && (
-          <Card key={index} className="bg-white/80 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                {icon}
-                {title}
-              </CardTitle>
-              <CardDescription>
-                {yesCount !== null && totalCount !== null
-                  ? `${yesCount} of ${totalCount} questions passed`
-                  : 'No data available'
-                }
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16">
-                    <OccupancyPie
-                      percent={score ?? 0}
-                      size={64}
-                      strokeWidth={8}
-                      gradientColors={getGradientColors(score)}
-                      centerFontSize={14}
-                    />
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold" style={{ color: getScoreColor(score) }}>
-                      {score !== null ? `${score}%` : 'N/A'}
-                    </div>
-                    <div className="text-sm text-gray-600">Current Score</div>
-                  </div>
-                </div>
-                {trend && (
-                  <div className="text-right">
-                    <TrendIndicator auditType={key} />
-                  </div>
-                )}
-              </div>
-              {updatedAt && (
-                <div className="text-xs text-gray-500 mt-4">
-                  Last updated: {new Date(updatedAt).toLocaleDateString()}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )
-      );
-    }).filter(Boolean);
-  };
+  // Detailed audit cards moved to a modular component
 
   // Function to get color based on score percentage
   const getScoreColor = (score: number | null) => {
@@ -1124,6 +1051,11 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
                 />
               </AreaChart>
             </ChartContainer>
+            
+            {/* Rota trends card inserted here */}
+            <div className="mt-6">
+              <RotaTrends workspaceId={workspaceId} organisationId={organisationId} />
+            </div>
           </CardContent>
         </Card>
 
@@ -1229,7 +1161,7 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
             </Badge>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {getDetailedAuditCards()}
+            <DetailedAuditCards latestScores={latestScores} trends={trends} />
           </div>
         </div>
       </div>
