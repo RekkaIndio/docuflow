@@ -48,6 +48,31 @@ const COMMUNITY_COLORS = [
   'bg-yellow-500', 'bg-indigo-500', 'bg-pink-500', 'bg-teal-500'
 ];
 
+type StaffActualState = {
+  Day: { nurse: number; ctm: number; senior: number; carer: number };
+  Night: { nurse: number; ctm: number; senior: number; carer: number };
+};
+
+const createDefaultStaffActual = (): StaffActualState => ({
+  Day: { nurse: 0, ctm: 0, senior: 0, carer: 0 },
+  Night: { nurse: 0, ctm: 0, senior: 0, carer: 0 },
+});
+
+const normalizeStaffActual = (input: any): StaffActualState => ({
+  Day: {
+    nurse: Number(input?.Day?.nurse ?? 0),
+    ctm: Number(input?.Day?.ctm ?? 0),
+    senior: Number(input?.Day?.senior ?? 0),
+    carer: Number(input?.Day?.carer ?? 0),
+  },
+  Night: {
+    nurse: Number(input?.Night?.nurse ?? 0),
+    ctm: Number(input?.Night?.ctm ?? 0),
+    senior: Number(input?.Night?.senior ?? 0),
+    carer: Number(input?.Night?.carer ?? 0),
+  },
+});
+
 const getDefaultAssessment = ndpsGetDefaultAssessment;
 const calculateNDPSScore = ndpsCalculateNDPSScore;
 const getNDPSBand = ndpsGetNDPSBand;
@@ -410,6 +435,7 @@ export default function DependencyCalculatorPage() {
   const [residents, setResidents] = useState<Resident[]>([]);
   const { user, loading: authLoading } = useAuth();
   const workspace = useWorkspace();
+  const workspaceOrganisationId = (workspace as any)?.organisationId ?? null;
   const [communities, setCommunities] = useState<Community[]>([]);
   const [selectedCommunity, setSelectedCommunity] = useState<string | null>(null);
     const [modalOpen, setModalOpen] = useState(false);
@@ -424,13 +450,7 @@ export default function DependencyCalculatorPage() {
       communityId: null,
     });
   const [staff, setStaff] = useState<Record<Shift, number>>({ Day: 0, Night: 0 });
-  const [staffActual, setStaffActual] = useState<{
-    Day: { nurse: number; ctm: number; senior: number; carer: number };
-    Night: { nurse: number; ctm: number; senior: number; carer: number };
-  }>({
-    Day: { nurse: 0, ctm: 0, senior: 0, carer: 0 },
-    Night: { nurse: 0, ctm: 0, senior: 0, carer: 0 },
-  });
+  const [staffActual, setStaffActual] = useState<StaffActualState>(() => createDefaultStaffActual());
 
   // UX Enhancement States
   const [isSaving, setIsSaving] = useState(false);
@@ -443,11 +463,12 @@ export default function DependencyCalculatorPage() {
   }, []);
 
     function openAddModal() {
+      const baseAssessment = getDefaultAssessment();
       const newResident: Resident = {
+        ...baseAssessment,
         id: genId(),
         name: "",
         room: "",
-        ...getDefaultAssessment(),
         communityId: selectedCommunity ?? null,
         createdAt: Date.now(),
         updatedAt: Date.now(),
@@ -471,6 +492,34 @@ export default function DependencyCalculatorPage() {
         }
         return [...prev, updatedResident];
       });
+
+      if (updatedResident.id) {
+        setCommunities(prev => {
+          const next = prev.map(community => ({
+            ...community,
+            residentIds: Array.isArray(community.residentIds)
+              ? community.residentIds.filter(residentId => residentId !== updatedResident.id)
+              : [],
+          }));
+
+          if (updatedResident.communityId) {
+            const targetIdx = next.findIndex(c => c.id === updatedResident.communityId);
+            if (targetIdx >= 0) {
+              const currentIds = new Set(next[targetIdx].residentIds ?? []);
+              if (typeof updatedResident.id === 'string' && updatedResident.id) {
+                currentIds.add(updatedResident.id);
+              }
+              next[targetIdx] = {
+                ...next[targetIdx],
+                residentIds: Array.from(currentIds),
+              };
+            }
+          }
+
+          return next;
+        });
+      }
+
       setEditModalOpen(false);
       setEditingResident(null);
     }
@@ -673,10 +722,37 @@ export default function DependencyCalculatorPage() {
       // If user is signed in and workspace is available, prefer Firestore
       if (user && workspace) {
         try {
-          const ref = doc(db, workspaceCollectionPath(workspace.id, 'dependency_calculator', (workspace as any).organisationId) || `workspaces/${workspace.id}/dependency_calculator`, "default");
-          const snap = await getDoc(ref);
+          const organisationId = workspaceOrganisationId;
+          const hasOrgScope = typeof organisationId === 'string' && organisationId.length > 0;
+          const orgPath = workspaceCollectionPath(workspace.id, "dependency_calculator", organisationId);
+          const fallbackPath = hasOrgScope ? null : workspaceCollectionPath(workspace.id, "dependency_calculator");
+          const orgRef = orgPath ? doc(db, orgPath, "default") : null;
+          const fallbackRef = fallbackPath ? doc(db, fallbackPath, "default") : null;
 
-          if (snap.exists()) {
+          let snap: any = null;
+          let snapSource: 'org' | 'fallback' | null = null;
+
+          if (orgRef) {
+            const orgSnap = await getDoc(orgRef);
+            if (orgSnap.exists()) {
+              snap = orgSnap;
+              snapSource = 'org';
+            }
+          }
+
+          if (!snap && fallbackRef && (!orgRef || fallbackRef.path !== orgRef.path)) {
+            try {
+              const legacySnap = await getDoc(fallbackRef);
+              if (legacySnap.exists()) {
+                snap = legacySnap;
+                snapSource = 'fallback';
+              }
+            } catch (fallbackErr) {
+              console.warn('Unable to read legacy dependency calculator data (fallback path)', fallbackErr);
+            }
+          }
+
+          if (snap && snap.exists()) {
             const data = snap.data();
 
             if (Array.isArray(data.residents)) {
@@ -701,6 +777,42 @@ export default function DependencyCalculatorPage() {
                 setCommunities(normalizedComm);
               }
             }
+
+            if (data && typeof data.staffActual === "object") {
+              const normalizedStaffActual = normalizeStaffActual(data.staffActual);
+              if (!cancelled) {
+                setStaffActual(normalizedStaffActual);
+                try {
+                  localStorage.setItem("dependency_staff_actual_v1", JSON.stringify(normalizedStaffActual));
+                } catch {}
+              }
+            }
+
+            if (snapSource === 'fallback' && orgRef && (!fallbackRef || orgRef.path !== fallbackRef.path)) {
+              try {
+                await setDoc(orgRef, {
+                  ...data,
+                  schemaVersion: 2,
+                  migratedAt: serverTimestamp(),
+                  migratedFrom: fallbackPath ? `${fallbackPath}/default` : undefined,
+                }, { merge: true });
+              } catch (migrationErr) {
+                console.warn('Failed to migrate dependency calculator data to org-scoped path', migrationErr);
+              }
+            }
+
+            if (!hasOrgScope && snapSource === 'org' && fallbackRef && (!orgRef || fallbackRef.path !== orgRef.path)) {
+              try {
+                await setDoc(fallbackRef, {
+                  ...data,
+                  schemaVersion: 2,
+                  migratedAt: serverTimestamp(),
+                  migratedFrom: orgPath ? `${orgPath}/default` : undefined,
+                }, { merge: true });
+              } catch (mirrorErr) {
+                console.warn('Failed to mirror dependency calculator data to legacy workspace path', mirrorErr);
+              }
+            }
           } else {
             // Check for old user-scoped data and migrate if found
             try {
@@ -717,8 +829,15 @@ export default function DependencyCalculatorPage() {
                   migratedFrom: `users/${user.id}/dependency_calculator/default`,
                   schemaVersion: 2
                 };
-                
-                await setDoc(ref, migrationData, { merge: true });
+
+                const seenPaths = new Set<string>();
+                const targets = [orgRef, fallbackRef];
+                for (const target of targets) {
+                  if (!target) continue;
+                  if (seenPaths.has(target.path)) continue;
+                  seenPaths.add(target.path);
+                  await setDoc(target, migrationData, { merge: true });
+                }
                 
                 // Set the migrated data
                 if (Array.isArray(oldData.residents) && !cancelled) {
@@ -739,6 +858,14 @@ export default function DependencyCalculatorPage() {
                     residentIds: Array.isArray(c.residentIds) ? c.residentIds : [],
                   }));
                   setCommunities(normalizedComm);
+                }
+
+                if (oldData && typeof oldData.staffActual === "object" && !cancelled) {
+                  const normalizedStaffActual = normalizeStaffActual(oldData.staffActual);
+                  setStaffActual(normalizedStaffActual);
+                  try {
+                    localStorage.setItem("dependency_staff_actual_v1", JSON.stringify(normalizedStaffActual));
+                  } catch {}
                 }
                 
                 // Don't delete old data immediately - let user verify migration worked
@@ -763,6 +890,15 @@ export default function DependencyCalculatorPage() {
                   try {
                     const parsed = JSON.parse(rawComm);
                     if (Array.isArray(parsed) && !cancelled) setCommunities(parsed);
+                  } catch {}
+                }
+                const rawStaffActual = localStorage.getItem("dependency_staff_actual_v1");
+                if (rawStaffActual) {
+                  try {
+                    const parsed = JSON.parse(rawStaffActual);
+                    if (parsed && !cancelled) {
+                      setStaffActual(normalizeStaffActual(parsed));
+                    }
                   } catch {}
                 }
               }
@@ -791,6 +927,15 @@ export default function DependencyCalculatorPage() {
                   }
                 } catch {}
               }
+              const rawStaffActual = localStorage.getItem("dependency_staff_actual_v1");
+              if (rawStaffActual) {
+                try {
+                  const parsed = JSON.parse(rawStaffActual);
+                  if (parsed && !cancelled) {
+                    setStaffActual(normalizeStaffActual(parsed));
+                  }
+                } catch {}
+              }
             }
           }
         } catch (err) {
@@ -815,6 +960,15 @@ export default function DependencyCalculatorPage() {
                 const parsed = JSON.parse(rawComm);
                 if (Array.isArray(parsed) && !cancelled) {
                   setCommunities(parsed);
+                }
+              } catch {}
+            }
+            const rawStaffActual = localStorage.getItem("dependency_staff_actual_v1");
+            if (rawStaffActual) {
+              try {
+                const parsed = JSON.parse(rawStaffActual);
+                if (parsed && !cancelled) {
+                  setStaffActual(normalizeStaffActual(parsed));
                 }
               } catch {}
             }
@@ -848,6 +1002,13 @@ export default function DependencyCalculatorPage() {
               }));
               if (!cancelled) setCommunities(normalizedComm);
             }
+            if (data && typeof data.staffActual === "object" && !cancelled) {
+              const normalizedStaffActual = normalizeStaffActual(data.staffActual);
+              setStaffActual(normalizedStaffActual);
+              try {
+                localStorage.setItem("dependency_staff_actual_v1", JSON.stringify(normalizedStaffActual));
+              } catch {}
+            }
           }
         } catch (err) {
         }
@@ -867,13 +1028,22 @@ export default function DependencyCalculatorPage() {
               setResidents(normalized);
             }
           }
+          const rawStaffActual = localStorage.getItem("dependency_staff_actual_v1");
+          if (rawStaffActual) {
+            try {
+              const parsed = JSON.parse(rawStaffActual);
+              if (parsed && !cancelled) {
+                setStaffActual(normalizeStaffActual(parsed));
+              }
+            } catch {}
+          }
         } catch (e) {
         }
       }
     }
   if (!authLoading) load();
     return () => { cancelled = true; };
-  }, [user?.id, workspace?.id, authLoading]);
+  }, [user?.id, workspace?.id, workspaceOrganisationId, authLoading]);
 
   // Persist: write to localStorage immediately and to Firestore (debounced) when signed in
   React.useEffect(() => {
@@ -888,10 +1058,32 @@ export default function DependencyCalculatorPage() {
       return;
     } // only save to Firestore for authenticated users with workspace
 
-    const organisationId = (workspace as any)?.organisationId;
-    const collectionPath = workspaceCollectionPath(workspace.id, 'dependency_calculator', organisationId) || `workspaces/${workspace.id}/dependency_calculator`;
-    const ref = doc(db, collectionPath, "default");
-    const summaryDocPath = workspaceDocPath(workspace.id, undefined, organisationId);
+          const organisationId = workspaceOrganisationId;
+    const hasOrgScope = typeof organisationId === 'string' && organisationId.length > 0;
+    const orgCollectionPath = workspaceCollectionPath(workspace.id, "dependency_calculator", organisationId);
+    const fallbackCollectionPath = hasOrgScope ? null : workspaceCollectionPath(workspace.id, "dependency_calculator");
+
+    const dependencyDocRefsMap = new Map<string, ReturnType<typeof doc>>();
+    if (orgCollectionPath) {
+      const ref = doc(db, `${orgCollectionPath}/default`);
+      dependencyDocRefsMap.set(ref.path, ref);
+    }
+    if (fallbackCollectionPath) {
+      const ref = doc(db, `${fallbackCollectionPath}/default`);
+      dependencyDocRefsMap.set(ref.path, ref);
+    }
+
+    const orgWorkspaceDocPath = workspaceDocPath(workspace.id, undefined, organisationId);
+    const fallbackWorkspaceDocPath = hasOrgScope ? null : workspaceDocPath(workspace.id);
+    const summaryDocRefsMap = new Map<string, ReturnType<typeof doc>>();
+    if (orgWorkspaceDocPath) {
+      const ref = doc(db, `${orgWorkspaceDocPath}/rotas/staffing-summary`);
+      summaryDocRefsMap.set(ref.path, ref);
+    }
+    if (fallbackWorkspaceDocPath) {
+      const ref = doc(db, `${fallbackWorkspaceDocPath}/rotas/staffing-summary`);
+      summaryDocRefsMap.set(ref.path, ref);
+    }
 
     const t = setTimeout(async () => {
       try {
@@ -905,11 +1097,13 @@ export default function DependencyCalculatorPage() {
           updatedAt: serverTimestamp(),
         };
 
-        await setDoc(ref, dependencyDocPayload, { merge: true });
-
-        if (summaryDocPath) {
-          const summaryRef = doc(db, summaryDocPath, 'rotas', 'staffing-summary');
-          await setDoc(summaryRef, {
+        const dependencyDocRefs = Array.from(dependencyDocRefsMap.values());
+        const dependencyResults = await Promise.allSettled(
+          dependencyDocRefs.map((targetRef) => setDoc(targetRef, dependencyDocPayload, { merge: true }))
+        );
+        const summaryDocRefs = Array.from(summaryDocRefsMap.values());
+        const summaryResults = await Promise.allSettled(
+          summaryDocRefs.map((summaryRef) => setDoc(summaryRef, {
             ...staffingSummary,
             workspaceId: workspace.id,
             organisationId: organisationId ?? null,
@@ -918,14 +1112,22 @@ export default function DependencyCalculatorPage() {
               .filter((id): id is string => typeof id === 'string' && id.length > 0),
             source: 'dependency-calculator',
             updatedAt: serverTimestamp(),
-          }, { merge: true });
+          }, { merge: true }))
+        );
+
+        const hasSuccess = [...dependencyResults, ...summaryResults].some((res) => res.status === 'fulfilled');
+        if (!hasSuccess) {
+          const errors = [...dependencyResults, ...summaryResults]
+            .filter((res): res is PromiseRejectedResult => res.status === 'rejected')
+            .map((res) => res.reason);
+          throw errors.length ? errors[0] : new Error('Dependency calculator persistence failed');
         }
       } catch (err) {
         console.error('Failed to persist dependency calculator data', err);
       }
     }, 600);
     return () => clearTimeout(t);
-  }, [residents, communities, staffActual, user?.id, workspace?.id]);
+  }, [residents, communities, staffActual, user?.id, workspace?.id, workspaceOrganisationId]);
   // Expandable resident table component. Accepts optional residentsProp to render a filtered set.
   function ResidentTable({
     residentsProp,

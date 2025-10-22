@@ -19,9 +19,68 @@ import { TeamCard } from "@/components/ui/team-card";
 import { ActionCard } from '@/components/ui/action-card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandInput, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
-import { db } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { workspaceCollectionPath, workspaceBasePath, workspaceDocPath } from '@/lib/paths';
- 
+
+const MAX_AI_STRING_FIELD = 800;
+const MAX_AI_CONTEXT_LENGTH = 1600;
+const MAX_AI_ARRAY_ITEMS = 10;
+const MAX_AI_OBJECT_KEYS = 30;
+const MAX_AI_DEPTH = 4;
+
+const clipString = (value: string | undefined | null, limit = MAX_AI_STRING_FIELD) => {
+  if (!value) return value ?? undefined;
+  return value.length > limit ? `${value.slice(0, limit)}…` : value;
+};
+
+const summariseExtractedJson = (extracted?: Record<string, any>) => {
+  if (!extracted || typeof extracted !== 'object') return undefined;
+  const summary: Record<string, any> = {};
+
+  const addString = (key: string, limit = MAX_AI_STRING_FIELD) => {
+    const val = extracted[key];
+    if (typeof val === 'string' && val.trim()) {
+      summary[key] = clipString(val, limit);
+    }
+  };
+
+  const addArray = (key: string, limit = 5) => {
+    const val = extracted[key];
+    if (Array.isArray(val) && val.length > 0) {
+      summary[key] = val.slice(0, limit);
+    }
+  };
+
+  addString('summary');
+  addArray('keyFindings');
+  addArray('highlights');
+  addArray('risks');
+  addArray('actions');
+
+  if (Array.isArray(extracted.sections) && extracted.sections.length > 0) {
+    summary.sections = extracted.sections.slice(0, 3).map((section: any) => ({
+      title: section?.title,
+      summary: clipString(
+        typeof section?.summary === 'string'
+          ? section.summary
+          : typeof section?.content === 'string'
+            ? section.content
+            : undefined,
+        MAX_AI_STRING_FIELD,
+      ),
+    }));
+  }
+
+  const numericEntries = Object.entries(extracted)
+    .filter(([, value]) => typeof value === 'number')
+    .slice(0, 10);
+  if (numericEntries.length > 0) {
+    summary.metrics = Object.fromEntries(numericEntries);
+  }
+
+  return Object.keys(summary).length > 0 ? summary : undefined;
+};
+
 interface ChatMessage {
   sender: 'user' | 'ai';
   text: string;
@@ -50,7 +109,6 @@ interface ChatPanelProps {
 interface UserIntent {
   type: string;
   originalInput?: string;
-  // optional extras for certain intents
   auditType?: string;
   modalType?: string;
   specificAppraisal?: string;
@@ -58,7 +116,6 @@ interface UserIntent {
   searchTerm?: string;
   folderName?: string;
   userName?: string;
-  // Additional optional intent properties used in code
   pagePath?: string;
   openDocument?: boolean;
   fileName?: string;
@@ -67,9 +124,188 @@ interface UserIntent {
   specificAudit?: string;
   createAudit?: boolean;
   documentType?: string;
-  // allow arbitrary extra properties
   [key: string]: any;
 }
+
+type DependencyPoint = {
+  date: string;
+  totalStaff: number;
+  carers: number;
+  ns: number;
+  levels: Record<string, number>;
+  sourceUser?: string;
+  id?: string;
+};
+
+type DependencyStaffingBreakdown = {
+  day: { carers: number; ns: number; total: number };
+  night: { carers: number; ns: number; total: number };
+  totals: { dayHours: number; nightHours: number; overallHours: number };
+};
+
+type DependencyLatest = {
+  savedAt: string;
+  totalStaff: number;
+  carers: number;
+  ns: number;
+  residentsCount: number;
+  dependencyLevels: Record<string, number>;
+  staffing: DependencyStaffingBreakdown;
+  sourceUser?: string;
+  id?: string;
+};
+
+const DEPENDENCY_LEVEL_SYNONYMS: Record<string, string[]> = {
+  Low: ['low dependency', 'low dependancy', 'low', 'band 1', 'band one', 'level 1'],
+  Moderate: ['moderate dependency', 'moderate dependancy', 'moderate', 'band 2', 'band two', 'level 2'],
+  High: ['high dependency', 'high dependancy', 'high', 'band 3', 'band three', 'level 3'],
+  'Very High': ['very high dependency', 'very high dependancy', 'very high', 'band 4', 'band four', 'level 4'],
+  Complex: ['complex dependency', 'complex dependancy', 'complex', 'maximum', 'max', 'band 5', 'band five', 'level 5'],
+};
+
+type NormalizedShift = {
+  id: string | null;
+  staffId: string | null;
+  staffName: string | null;
+  role: string | null;
+  type: string | null;
+  location: string | null;
+  date: string | null;
+  dayKey: string | null;
+  dayName: string;
+  dayNumber: number;
+  displayDate: string;
+  startTime: string | null;
+  endTime: string | null;
+  notes: string | null;
+};
+
+type RotaDaySummary = {
+  dayKey: string;
+  dayName: string;
+  dayNumber: number;
+  displayDate: string;
+  total: number;
+  roles: Record<string, number>;
+  types: Record<string, number>;
+  staff: string[];
+  shifts: NormalizedShift[];
+};
+
+type RotaQuickAnswerContext = {
+  question: string;
+  normalizedShifts: NormalizedShift[];
+  normalizedUserShifts: NormalizedShift[];
+  roleCounts: Record<string, number>;
+  typeCounts: Record<string, number>;
+  daySummaries: Record<string, RotaDaySummary>;
+  staffMap: Record<string, { name: string; shifts: NormalizedShift[]; variants: string[] }>;
+  weekRangeLabel: string;
+};
+
+const SHIFT_TYPE_SYNONYMS: Record<string, string[]> = {
+  night: ['night', 'overnight', 'pm', 'late night'],
+  day: ['day', 'daytime', 'am', 'morning'],
+  late: ['late', 'late shift', 'twilight', 'evening'],
+  early: ['early', 'early shift', 'dawn'],
+};
+
+const documentToAiContext = (doc: Document) => ({
+  id: doc.id,
+  name: doc.name,
+  summary: clipString(doc.summary),
+  folderId: doc.folderId,
+  tags: Array.isArray(doc.tags) ? doc.tags.slice(0, 10) : undefined,
+  renewalDate: doc.renewalDate,
+  extracted: summariseExtractedJson(doc.extractedJson),
+});
+
+const clampForAI = (value: any, depth = 0): any => {
+  if (value === null || value === undefined) return value ?? null;
+  if (typeof value === 'string') return clipString(value);
+  if (typeof value === 'number' || typeof value === 'boolean') return value;
+  if (value instanceof Date) return value.toISOString();
+  if (Array.isArray(value)) {
+    if (depth >= MAX_AI_DEPTH) {
+      return value.slice(0, MAX_AI_ARRAY_ITEMS).map((item) =>
+        typeof item === 'string'
+          ? clipString(item)
+          : typeof item === 'number' || typeof item === 'boolean'
+            ? item
+            : '[nested]'
+      );
+    }
+    return value
+      .slice(0, MAX_AI_ARRAY_ITEMS)
+      .map((item) => clampForAI(item, depth + 1));
+  }
+  if (typeof value === 'object') {
+    const entries = Object.entries(value).slice(0, MAX_AI_OBJECT_KEYS);
+    const result: Record<string, any> = {};
+    for (const [key, val] of entries) {
+      result[key] = clampForAI(val, depth + 1);
+    }
+    return result;
+  }
+  const asString = String(value);
+  return clipString(asString);
+};
+
+const serializeForAI = (value: any) => {
+  if (value === undefined) return undefined;
+  try {
+    const clamped = clampForAI(value);
+    return JSON.stringify(clamped);
+  } catch (err) {
+    const fallback = clipString(String(value), MAX_AI_CONTEXT_LENGTH);
+    try {
+      return JSON.stringify(fallback);
+    } catch {
+      return fallback;
+    }
+  }
+};
+
+const serializeJsonForAI = (value: any) => {
+  if (value === undefined) return undefined;
+  const clamped = clampForAI(value);
+  try {
+    return JSON.stringify(clamped);
+  } catch {
+    return JSON.stringify(clampForAI(String(value)));
+  }
+};
+
+const askAIWithWorkspaceData = async (
+  query: string,
+  {
+    documentData,
+    relatedDocuments,
+    workspaceExtras,
+    extraContext,
+  }: {
+    documentData?: any;
+    relatedDocuments?: any;
+    workspaceExtras?: Record<string, any>;
+    extraContext?: Record<string, any>;
+  },
+  buildWorkspaceContext: (extras?: Record<string, any>) => string | undefined
+) => {
+  const documentJson = serializeJsonForAI(documentData ?? {});
+  const relatedJson = serializeJsonForAI(relatedDocuments);
+  const workspaceContext = buildWorkspaceContext(workspaceExtras) ?? '{}';
+  const extrasJson = serializeForAI(extraContext);
+
+  const result = await chatWithDocuments({
+    query,
+    documentJson: documentJson ?? '{}',
+    relatedDocumentsJson: relatedJson,
+    workspaceContext,
+    extraContext: extrasJson,
+  });
+
+  return result.answer;
+};
 
 export function ChatPanel({ selectedItem, onFolderAdd, organisationId }: ChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -100,7 +336,8 @@ export function ChatPanel({ selectedItem, onFolderAdd, organisationId }: ChatPan
   // Enhanced natural language intent detection
   const detectIntent = (userInput: string): UserIntent => {
     const raw = userInput || '';
-    const input = raw.toLowerCase().trim();
+    const normalized = raw.replace(/[’‘`]/g, "'");
+    const input = normalized.toLowerCase().trim();
     
     // Audit query patterns - check these FIRST before document search
     const auditPatterns = [
@@ -140,6 +377,34 @@ export function ChatPanel({ selectedItem, onFolderAdd, organisationId }: ChatPan
           originalInput: userInput
         };
       }
+    }
+
+    if (/(how\s+many|number|count|total)\s+(of\s+)?(residents?|people|individuals?)/i.test(input)) {
+      return {
+        type: 'dependency_query',
+        originalInput: userInput
+      };
+    }
+
+    if (/(low|moderate|high|very\s+high|complex)\s+depend(?:e|a)nc(?:y|ies)?\s+residents?/i.test(input)) {
+      return {
+        type: 'dependency_query',
+        originalInput: userInput
+      };
+    }
+
+    if (/depend(?:e|a)nc(?:y|ies)?\s+(levels?|bands?).*(residents?|people)/i.test(input)) {
+      return {
+        type: 'dependency_query',
+        originalInput: userInput
+      };
+    }
+
+    if (/(residents?|people).*(depend(?:e|a)nc(?:y|ies)?)/i.test(input)) {
+      return {
+        type: 'dependency_query',
+        originalInput: userInput
+      };
     }
 
     // Multi-document query patterns
@@ -408,10 +673,17 @@ export function ChatPanel({ selectedItem, onFolderAdd, organisationId }: ChatPan
       /(search\s+for|find)\s+(user|person)\s+(.+)/i
     ];
 
+    // If the captured phrase looks like a rota/shift/query (e.g. "who is on rota this week"), skip user search
+    const ROTA_HINTS = /(rota|shift|roster|schedule|on duty|on-duty|working|cover|covering)/i;
     for (const pattern of userPatterns) {
       const match = input.match(pattern);
       if (match) {
-        const userName = (match[4] || match[2] || match[3] || '').trim();
+        const captured = (match[4] || match[2] || match[3] || '').trim();
+        if (captured && ROTA_HINTS.test(captured)) {
+          // skip - let rota detection handle this input
+          continue;
+        }
+        const userName = captured;
         return {
           type: 'user_search',
           userName: userName,
@@ -907,6 +1179,28 @@ export function ChatPanel({ selectedItem, onFolderAdd, organisationId }: ChatPan
       }
     }
 
+    if (/(shift|rota|roster|schedule)/i.test(input) && /(who|when|how many|coverage|cover|working|on duty|today|tonight|tomorrow|week|next|this|staff|team)/i.test(input)) {
+      return {
+        type: 'rotas_query',
+        originalInput: userInput
+      };
+    }
+
+    if (/(when\s+am\s+i\s+working|what\s+are\s+my\s+shifts|do\s+i\s+work\s+(today|tomorrow)|is\s+my\s+shift)/i.test(input)) {
+      return {
+        type: 'rotas_query',
+        originalInput: userInput
+      };
+    }
+
+    if (/(who(?:'s|’s)?\s+on|who\s+is\s+on|who(?:'s|’s)?\s+working|who\s+is\s+working|who(?:'s|’s)?\s+in|who\s+is\s+in|who(?:'s|’s)?\s+on\s+duty|who\s+is\s+on\s+duty)/i.test(input)
+      && /(today|tonight|tomorrow|sun|mon|tue|tues|wed|thu|thur|thurs|fri|sat|weekend|weekday|shift|floor|cover|duty)/i.test(input)) {
+      return {
+        type: 'rotas_query',
+        originalInput: userInput
+      };
+    }
+
     // Lessons Learned and RCA query patterns
     const lessonsRcaPatterns = [
       /(show|display|get|give|tell|what|how)\s+(me\s+)?(the\s+)?(latest\s+)?lessons?\s+learned/i,
@@ -945,11 +1239,715 @@ export function ChatPanel({ selectedItem, onFolderAdd, organisationId }: ChatPan
     }
   };
 
+  const buildDependencyQuickAnswer = (question: string, latest?: DependencyLatest | null) => {
+    if (!question || !latest) return null;
+
+    const cleaned = question
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .replace(/\s+/g, ' ') // collapse whitespace
+      .trim();
+
+    if (!cleaned) return null;
+
+    const answers: string[] = [];
+    const hasCountIntent = /(how many|how much|number|count|total)/.test(cleaned);
+    const mentionsResidents = /(resident|people|individual)/.test(cleaned);
+
+    const safeNumber = (value: unknown) => {
+      const num = typeof value === 'number' ? value : Number(value);
+      return Number.isFinite(num) ? num : 0;
+    };
+
+    const formatStaff = (value: unknown) => {
+      const num = safeNumber(value);
+      return Number.isInteger(num) ? num.toString() : num.toFixed(1);
+    };
+
+    if ((hasCountIntent || cleaned.includes('resident count')) && mentionsResidents) {
+      answers.push(`Total residents assessed: ${safeNumber(latest.residentsCount)}`);
+    }
+
+    const dependencyLevels = latest.dependencyLevels || {};
+    for (const [level, count] of Object.entries(dependencyLevels)) {
+      const synonyms = DEPENDENCY_LEVEL_SYNONYMS[level] || [];
+      const matches = synonyms.some((syn) => cleaned.includes(syn));
+      if (matches && (hasCountIntent || cleaned.includes('resident'))) {
+        answers.push(`${level} residents: ${safeNumber(count)}`);
+      }
+    }
+
+    const wantsStaff = /(staff|headcount|workforce|team)/.test(cleaned);
+    const wantsCarers = /(carers?|care staff|caregivers?|support workers?)/.test(cleaned);
+    const wantsNurses = /(nurses?|nursing|senior|registered|rgns?|rgns?|ns\b)/.test(cleaned);
+    const wantsTotals = /(total|overall|combined|across)/.test(cleaned);
+    const wantsRequirement = /(require|need|needed|recommended|should)/.test(cleaned);
+    const mentionsDay = /(day|daytime|day-shift|day shift|am)/.test(cleaned);
+    const mentionsNight = /(night|overnight|nighttime|pm)/.test(cleaned);
+    const staffing = latest.staffing;
+
+    if (staffing && (wantsStaff || wantsCarers || wantsNurses) && (hasCountIntent || wantsRequirement)) {
+      const day = staffing.day ?? { carers: 0, ns: 0, total: 0 };
+      const night = staffing.night ?? { carers: 0, ns: 0, total: 0 };
+
+      if ((wantsStaff && !mentionsDay && !mentionsNight) || wantsTotals) {
+        const carersTotal = safeNumber(day.carers) + safeNumber(night.carers);
+        const nsTotal = safeNumber(day.ns) + safeNumber(night.ns);
+        const aggregateTotal = safeNumber(latest.totalStaff || carersTotal + nsTotal);
+        answers.push(
+          `Recommended total staff across 24h: ${formatStaff(aggregateTotal)} (Carers ${formatStaff(carersTotal)}, Nurses/Seniors ${formatStaff(nsTotal)})`
+        );
+      }
+
+      if (mentionsDay) {
+        const detailParts: string[] = [];
+        if (wantsCarers || wantsStaff) detailParts.push(`Carers ${formatStaff(day.carers)}`);
+        if (wantsNurses || wantsStaff) detailParts.push(`Nurses/Seniors ${formatStaff(day.ns)}`);
+        const total = formatStaff(day.total);
+        const detail = detailParts.length ? detailParts.join(', ') : `Total ${total}`;
+        answers.push(`Day shift recommended: ${detail}${detailParts.length ? ` (Total ${total})` : ''}`);
+      }
+
+      if (mentionsNight) {
+        const detailParts: string[] = [];
+        if (wantsCarers || wantsStaff) detailParts.push(`Carers ${formatStaff(night.carers)}`);
+        if (wantsNurses || wantsStaff) detailParts.push(`Nurses/Seniors ${formatStaff(night.ns)}`);
+        const total = formatStaff(night.total);
+        const detail = detailParts.length ? detailParts.join(', ') : `Total ${total}`;
+        answers.push(`Night shift recommended: ${detail}${detailParts.length ? ` (Total ${total})` : ''}`);
+      }
+
+      if (!mentionsDay && !mentionsNight && wantsCarers) {
+        answers.push(
+          `Carers required → Day ${formatStaff(day.carers)}, Night ${formatStaff(night.carers)}`
+        );
+      }
+
+      if (!mentionsDay && !mentionsNight && wantsNurses) {
+        answers.push(
+          `Nurses/Seniors required → Day ${formatStaff(day.ns)}, Night ${formatStaff(night.ns)}`
+        );
+      }
+    }
+
+    if (!answers.length) return null;
+
+    const savedLabel = formatDateSafe(latest.savedAt) || '';
+    const header = savedLabel ? `latest dependency snapshot from ${savedLabel}` : 'latest dependency snapshot';
+    return `Here’s what I found from the ${header}:
+${answers.map((ans) => `- ${ans}`).join('\n')}`;
+  };
+
+  const buildRotaQuickAnswer = (context: RotaQuickAnswerContext): string | null => {
+    const {
+      question,
+      normalizedShifts,
+      normalizedUserShifts,
+      roleCounts,
+      typeCounts,
+      daySummaries,
+      staffMap,
+      weekRangeLabel,
+    } = context;
+
+    if (!question || !normalizedShifts || normalizedShifts.length === 0) return null;
+
+    const asciiQuestion = question.replace(/[’‘`]/g, "'");
+
+    const cleaned = asciiQuestion
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (!cleaned) return null;
+
+    const totalShifts = normalizedShifts.length;
+    const uniqueStaffNames = new Set<string>();
+    normalizedShifts.forEach((shift) => {
+      if (shift.staffName && shift.staffName.toLowerCase() !== 'unassigned') {
+        uniqueStaffNames.add(shift.staffName);
+      }
+    });
+    const uniqueStaffCount = uniqueStaffNames.size;
+
+    let weekendShifts = 0;
+    let weekdayShifts = 0;
+    normalizedShifts.forEach((shift) => {
+      if (shift.dayNumber === 0 || shift.dayNumber === 6) weekendShifts += 1;
+      else if (shift.dayNumber >= 1 && shift.dayNumber <= 5) weekdayShifts += 1;
+    });
+
+    const formatCounts = (counts: Record<string, number>, limit = 5) => {
+      const entries = Object.entries(counts || {})
+        .filter(([, value]) => Number.isFinite(value) && value > 0)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, limit)
+        .map(([label, value]) => `${label} (${value})`);
+      return entries.length ? entries.join(', ') : 'Not recorded';
+    };
+
+    const describeShiftLine = (shift: NormalizedShift) => {
+      const staff = shift.staffName || 'Unassigned';
+      const role = shift.role ? ` – ${shift.role}` : '';
+      let time = 'Time TBC';
+      if (shift.startTime && shift.endTime) time = `${shift.startTime}–${shift.endTime}`;
+      else if (shift.startTime) time = `Start ${shift.startTime}`;
+      else if (shift.endTime) time = `Ends ${shift.endTime}`;
+      const location = shift.location ? ` @ ${shift.location}` : '';
+      return `• ${staff}${role} • ${time}${location}`;
+    };
+
+    const daySummariesList = Object.values(daySummaries || {});
+
+    const dayAliasList = [
+      { name: 'Sunday', patterns: ['sunday', 'sun'] },
+      { name: 'Monday', patterns: ['monday', 'mon'] },
+      { name: 'Tuesday', patterns: ['tuesday', 'tue', 'tues'] },
+      { name: 'Wednesday', patterns: ['wednesday', 'wed'] },
+      { name: 'Thursday', patterns: ['thursday', 'thu', 'thur', 'thurs'] },
+      { name: 'Friday', patterns: ['friday', 'fri'] },
+      { name: 'Saturday', patterns: ['saturday', 'sat'] },
+    ];
+
+    const requestedDays: string[] = [];
+    let tomorrowRequested = false;
+    for (const alias of dayAliasList) {
+      if (alias.patterns.some((pattern) => cleaned.includes(pattern))) {
+        requestedDays.push(alias.name);
+      }
+    }
+
+    const todayName = new Date().toLocaleDateString('en-GB', { weekday: 'long' });
+    const tomorrowDate = new Date();
+    tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+    const tomorrowName = tomorrowDate.toLocaleDateString('en-GB', { weekday: 'long' });
+
+    if (cleaned.includes('today')) requestedDays.push(todayName);
+    if (cleaned.includes('tomorrow')) {
+      requestedDays.push(tomorrowName);
+      tomorrowRequested = true;
+    }
+    if (cleaned.includes('tonight')) requestedDays.push(todayName);
+
+    const requestedDaySet = Array.from(new Set(requestedDays));
+    const weekendRequested = /weekend/.test(cleaned);
+    const weekdaysRequested = /weekdays?/.test(cleaned);
+
+    const wantsWho = /\bwho\b/.test(cleaned) || cleaned.includes("who's") || cleaned.includes('whos');
+    const wantsCount = /(how many|number|count|total)/.test(cleaned);
+    const mentionsShiftWord = /(shift|rota|roster|schedule)/.test(cleaned);
+    const wantsNext = /\bnext\b/.test(cleaned) || cleaned.includes('upcoming') || cleaned.includes('soon');
+    const referencesSelf = /(\bmy\b|\bi\b|\bme\b|i\sam|am\si)/.test(cleaned) && mentionsShiftWord;
+    const mentionsCover = /(cover|coverage|on duty|on-duty|duty|staffing)/.test(cleaned);
+    const mentionsStaffWord = /(staff|team|people|personnel|workers|employees)/.test(cleaned);
+    const mentionsTypeWord = /(night|overnight|day shift|daytime|morning|evening|late|early|pm|am|tonight)/.test(cleaned);
+
+    const staffEntries = Object.values(staffMap || {});
+    let matchedStaffEntry: { name: string; shifts: NormalizedShift[]; variants: string[] } | null = null;
+    outerStaff: for (const entry of staffEntries) {
+      if (!entry || !entry.name || entry.name.toLowerCase() === 'unassigned') continue;
+      for (const variant of entry.variants) {
+        if (!variant || variant.length < 3) continue;
+        if (cleaned.includes(variant)) {
+          matchedStaffEntry = entry;
+          break outerStaff;
+        }
+      }
+    }
+
+    let matchedRoleLabel: string | null = null;
+    const roleEntries = Object.entries(roleCounts || {});
+    const ROLE_SYNONYM_HINTS: Record<string, string[]> = {
+      nurse: ['nurse', 'nurses', 'registered nurse', 'rgn', 'rgns'],
+      carer: ['carer', 'carers', 'care assistant', 'support worker', 'care staff'],
+      senior: ['senior', 'senior carer', 'senior staff'],
+      manager: ['manager', 'managers', 'home manager'],
+      therapy: ['therapy', 'therapist', 'physio', 'physiotherapist'],
+      doctor: ['doctor', 'doctors', 'gp', 'physician'],
+      chef: ['chef', 'chefs', 'cook', 'kitchen'],
+      domestic: ['domestic', 'housekeeper', 'cleaner', 'cleaning'],
+      admin: ['admin', 'administrator', 'administration'],
+      maintenance: ['maintenance', 'handyman', 'estates'],
+    };
+
+    for (const [roleLabel] of roleEntries) {
+      const roleLower = roleLabel.toLowerCase();
+      const candidateSet = new Set<string>([roleLower]);
+      const tokens = roleLower.split(/[^a-z0-9]+/).filter(Boolean);
+      tokens.forEach((token) => candidateSet.add(token));
+      if (roleLower.endsWith('s')) candidateSet.add(roleLower.slice(0, -1));
+      for (const [hintKey, hintVariants] of Object.entries(ROLE_SYNONYM_HINTS)) {
+        if (roleLower.includes(hintKey)) {
+          hintVariants.forEach((variant) => candidateSet.add(variant));
+        }
+      }
+      for (const candidate of candidateSet) {
+        if (candidate.length < 3) continue;
+        if (cleaned.includes(candidate)) {
+          matchedRoleLabel = roleLabel;
+          break;
+        }
+      }
+      if (matchedRoleLabel) break;
+    }
+
+    let matchedTypeLabel: string | null = null;
+    const typeEntries = Object.entries(typeCounts || {});
+    for (const [typeLabel] of typeEntries) {
+      const typeLower = typeLabel.toLowerCase();
+      const candidateSet = new Set<string>([typeLower, typeLower.replace(/\s+/g, '')]);
+      const synonyms = SHIFT_TYPE_SYNONYMS[typeLower];
+      if (synonyms) synonyms.forEach((variant) => candidateSet.add(variant));
+      if (typeLower.endsWith('s')) candidateSet.add(typeLower.slice(0, -1));
+      for (const candidate of candidateSet) {
+        if (candidate.length < 3) continue;
+        if (cleaned.includes(candidate)) {
+          matchedTypeLabel = typeLabel;
+          break;
+        }
+      }
+      if (matchedTypeLabel) break;
+    }
+
+    if (!matchedTypeLabel && mentionsTypeWord) {
+      if (typeCounts['Night'] && (cleaned.includes('night') || cleaned.includes('overnight'))) {
+        matchedTypeLabel = 'Night';
+      } else if (typeCounts['Day'] && (cleaned.includes('day shift') || cleaned.includes('day'))) {
+        matchedTypeLabel = 'Day';
+      }
+    }
+
+    const formatShiftTime = (shift: NormalizedShift) => {
+      if (shift.startTime && shift.endTime) return `${shift.startTime}–${shift.endTime}`;
+      if (shift.startTime) return `Start ${shift.startTime}`;
+      if (shift.endTime) return `Ends ${shift.endTime}`;
+      return 'Time TBC';
+    };
+
+    const describeUserShift = (shift: NormalizedShift) => {
+      const dateLabel = shift.displayDate || shift.dayName || shift.dayKey || 'Date not set';
+      const timeLabel = formatShiftTime(shift);
+      const roleLabel = shift.role ? ` (${shift.role})` : '';
+      const locationLabel = shift.location ? ` @ ${shift.location}` : '';
+      return `- ${dateLabel}: ${timeLabel}${roleLabel}${locationLabel}`;
+    };
+
+    // ========== New quick answers: per-person shifts, next shift, unassigned shifts, tonight counts, dependency-gap ===========
+
+    // Helper: get shifts for a staff name (case-insensitive match against variants and names)
+    const findStaffEntryByName = (name: string) => {
+      if (!name) return null;
+      const low = name.toLowerCase();
+      for (const entry of staffEntries) {
+        if (!entry || !entry.name) continue;
+        if (entry.name.toLowerCase() === low) return entry;
+        for (const v of entry.variants || []) {
+          if (v && low.includes(v.toLowerCase())) return entry;
+        }
+      }
+      return null;
+    };
+
+    // Next shift for the current user (references normalizedUserShifts)
+    if (referencesSelf) {
+      const now = new Date();
+      const upcoming = [...normalizedUserShifts]
+        .map(s => ({ s, dt: convertToDateTime(s) }))
+        .filter(o => o.dt && o.dt.getTime() >= now.getTime())
+        .sort((a, b) => (a.dt as Date).getTime() - (b.dt as Date).getTime());
+      if (upcoming.length === 0) {
+        // still handle generic 'my shifts' requests above; fall through
+      } else if (cleaned.includes('next') || cleaned.includes('upcoming') || cleaned.includes('when is my next') || cleaned.includes("what's my next")) {
+        const next = upcoming[0].s;
+        return `Your next shift: ${next.displayDate || next.dayName || next.dayKey} • ${formatShiftTime(next)}${next.role ? ` (${next.role})` : ''}${next.location ? ` @ ${next.location}` : ''}`;
+      }
+    }
+
+    // Specific person shifts: "what shifts does Alice have this week"
+    const personMatch = cleaned.match(/what\s+shifts\s+does\s+([a-z ]{2,50})\s+have|when\s+is\s+([a-z ]{2,50})\s+working|what\s+shifts\s+does\s+([a-z ]{2,50})/i);
+    if (personMatch) {
+      const name = (personMatch[1] || personMatch[2] || personMatch[3] || '').trim();
+      const entry = findStaffEntryByName(name);
+      if (!entry) return `I couldn't find a staff member matching "${name}" in this rota.`;
+      if (!entry.shifts || entry.shifts.length === 0) return `${entry.name} has no shifts scheduled for ${weekRangeLabel}.`;
+      const lines = entry.shifts
+        .map((s) => `${s.displayDate || s.dayName || s.dayKey}: ${formatShiftTime(s)}${s.role ? ` (${s.role})` : ''}${s.location ? ` @ ${s.location}` : ''}`);
+      return `${entry.name}'s shifts for ${weekRangeLabel}:
+${lines.map(l => `- ${l}`).join('\n')}`;
+    }
+
+    // Unassigned shifts this week / unassigned night shifts
+    if (cleaned.includes('unassigned') || cleaned.includes('no one assigned') || cleaned.includes('not assigned')) {
+      const unassigned = normalizedShifts.filter(s => !s.staffName || s.staffName.toLowerCase() === 'unassigned');
+      const nightOnly = cleaned.includes('night') || cleaned.includes('overnight');
+      const filtered = nightOnly ? unassigned.filter(s => (s.type || '').toLowerCase().includes('night')) : unassigned;
+      if (!filtered.length) return `No unassigned ${nightOnly ? 'night ' : ''}shifts found for ${weekRangeLabel}.`;
+      const list = filtered.slice(0, 20).map(s => `- ${s.dayName} ${s.displayDate || s.dayKey || ''} • ${s.role || 'Role not set'} • ${formatShiftTime(s)}${s.location ? ` @ ${s.location}` : ''}`);
+      return [`Unassigned ${nightOnly ? 'night ' : ''}shifts for ${weekRangeLabel}:`, ...list].join('\n');
+    }
+
+    // How many carers/nurses tonight
+    if (cleaned.includes('tonight') || cleaned.includes('today') || cleaned.includes('this evening')) {
+      const tonightName = new Date().toLocaleDateString('en-GB', { weekday: 'long' });
+      const tonightKey = new Date().toISOString().slice(0,10);
+      const tonightShifts = normalizedShifts.filter(s => s.dayKey === tonightKey || s.dayName === tonightName);
+      if (cleaned.includes('how many') || cleaned.includes('how many carers') || cleaned.includes('carers') || cleaned.includes('nurses')) {
+        const carers = tonightShifts.filter(s => (s.role || '').toLowerCase().includes('carer') || (s.role || '').toLowerCase().includes('support')).length;
+        const nurses = tonightShifts.filter(s => (s.role || '').toLowerCase().includes('nurse') || (s.role || '').toLowerCase().includes('rgn')).length;
+        return `Tonight (${weekRangeLabel}): Carers ${carers}, Nurses ${nurses}, Total shifts: ${tonightShifts.length}`;
+      }
+    }
+
+    // Dependency-gap check (requires dependency snapshot) — if user mentions 'shortage' or 'understaff' or 'requirement'
+    if (/(shortage|understaff|short-staff|under-staffed|requirement|recommended|need|should)/i.test(cleaned) && (cleaned.includes('staff') || cleaned.includes('carer') || cleaned.includes('nurse'))) {
+      // We cannot call server endpoints here directly in the quick-answer; instruct caller to use AI fallback if not available.
+      // But we have workspace extras in scope in the caller; the caller passes dependency snapshot into workspaceExtras for AI. For quickanswer we'll attempt a minimal check using roleCounts vs staffing if available in daySummaries.
+      try {
+        // Compare total scheduled carers and nurses vs roleCounts recommendation if present in daySummaries metadata (not always available)
+        const aggregated = Object.values(daySummaries).reduce((acc: any, ds: RotaDaySummary) => {
+          acc.carers = (acc.carers || 0) + (ds.roles?.Carer || ds.roles?.carer || 0);
+          acc.nurses = (acc.nurses || 0) + (ds.roles?.Nurse || ds.roles?.nurse || 0);
+          acc.days = (acc.days || 0) + 1;
+          return acc;
+        }, {} as any);
+        if (!aggregated.days) return null;
+        return `Scheduled this week: ~${aggregated.carers} carers and ~${aggregated.nurses} nurses across ${aggregated.days} day(s). For a detailed gap analysis I can compare the rota to the latest dependency snapshot — would you like that?`;
+      } catch (e) {
+        // noop - fallthrough to other answers or AI
+      }
+    }
+
+
+    const convertToDateTime = (shift: NormalizedShift) => {
+      if (!shift.dayKey) return null;
+      const time = shift.startTime && /^\d{2}:\d{2}$/.test(shift.startTime) ? `${shift.startTime}:00` : '00:00:00';
+      const isoString = `${shift.dayKey}T${time}`;
+      const dt = new Date(isoString);
+      return Number.isNaN(dt.getTime()) ? null : dt;
+    };
+
+    const describeDaySummary = (summary: RotaDaySummary) => {
+      const header = `**${summary.dayName}${summary.displayDate ? ` (${summary.displayDate})` : ''}**`;
+      const staffList = summary.staff.length
+        ? summary.staff.slice(0, wantsWho ? 12 : 8).join(', ')
+        : 'No named staff recorded';
+      const roleBreakdown = formatCounts(summary.roles);
+      const typeBreakdown = Object.keys(summary.types || {}).length ? formatCounts(summary.types) : null;
+      const highlightLines: string[] = [];
+      if (matchedRoleLabel) {
+        const roleCount = summary.roles?.[matchedRoleLabel] || 0;
+        highlightLines.push(`${matchedRoleLabel}: ${roleCount} shift(s)`);
+      }
+      if (matchedTypeLabel) {
+        const typeCount = summary.types?.[matchedTypeLabel] || 0;
+        highlightLines.push(`${matchedTypeLabel} shifts: ${typeCount}`);
+      }
+      const detailLines = summary.shifts
+        .slice(0, wantsWho ? 12 : 8)
+        .map((shift) => describeShiftLine(shift))
+        .join('\n');
+
+      return [
+        header,
+        `- Total shifts: ${summary.total}`,
+        `- Staff: ${staffList}`,
+        `- Roles: ${roleBreakdown}`,
+        typeBreakdown ? `- Shift types: ${typeBreakdown}` : null,
+        highlightLines.length ? `- Highlights: ${highlightLines.join(' • ')}` : null,
+        detailLines ? `\n${detailLines}` : null,
+      ]
+        .filter(Boolean)
+        .join('\n');
+    };
+
+    if (referencesSelf) {
+      if (!normalizedUserShifts.length) {
+        return `I couldn’t find any shifts assigned to you for ${weekRangeLabel}.`;
+      }
+
+      const sortedUserShifts = [...normalizedUserShifts].sort((a, b) => {
+        const aDt = convertToDateTime(a);
+        const bDt = convertToDateTime(b);
+        if (aDt && bDt) return aDt.getTime() - bDt.getTime();
+        if (aDt) return -1;
+        if (bDt) return 1;
+        return (a.dayKey || '').localeCompare(b.dayKey || '');
+      });
+
+      const userLines = sortedUserShifts.map((shift) => describeUserShift(shift)).join('\n');
+      let response = `Here are your shifts for ${weekRangeLabel}:
+${userLines}`;
+
+      if (wantsNext) {
+        const now = new Date();
+        const nextShift = sortedUserShifts.find((shift) => {
+          const dt = convertToDateTime(shift);
+          return dt && dt.getTime() >= now.getTime();
+        });
+        if (nextShift) {
+          response += `
+Next shift: ${nextShift.displayDate || nextShift.dayName || nextShift.dayKey} • ${formatShiftTime(nextShift)}${
+            nextShift.location ? ` @ ${nextShift.location}` : ''
+          }`;
+        }
+      }
+
+      return response;
+    }
+
+    if (matchedStaffEntry) {
+      const filteredShifts = requestedDaySet.length
+        ? matchedStaffEntry.shifts.filter((shift) => requestedDaySet.includes(shift.dayName))
+        : matchedStaffEntry.shifts;
+
+      if (!filteredShifts.length) {
+        const dayLabel = requestedDaySet.length ? requestedDaySet.join(' & ') : 'this rota';
+        return `${matchedStaffEntry.name} is not scheduled ${requestedDaySet.length ? `on ${dayLabel}` : `for ${weekRangeLabel}`} in the current rota.`;
+      }
+
+      const sortedShifts = [...filteredShifts].sort((a, b) => {
+        const aDt = convertToDateTime(a);
+        const bDt = convertToDateTime(b);
+        if (aDt && bDt) return aDt.getTime() - bDt.getTime();
+        if (aDt) return -1;
+        if (bDt) return 1;
+        return (a.dayKey || '').localeCompare(b.dayKey || '');
+      });
+
+      const staffLines = sortedShifts.map((shift) => describeUserShift(shift)).join('\n');
+      const dayLabel = requestedDaySet.length ? requestedDaySet.join(' & ') : 'this week';
+      return `${matchedStaffEntry.name} has ${sortedShifts.length} shift${sortedShifts.length === 1 ? '' : 's'} scheduled for ${dayLabel}.
+${staffLines}`;
+    }
+
+    if (requestedDaySet.length > 0) {
+      const sections: string[] = [];
+      for (const dayName of requestedDaySet) {
+        const matches = daySummariesList.filter((summary) => summary.dayName.toLowerCase() === dayName.toLowerCase());
+        if (!matches.length) {
+          sections.push(`**${dayName}**
+- No shifts recorded in this rota.`);
+          continue;
+        }
+        const summary = matches.sort((a, b) => (a.dayKey || '').localeCompare(b.dayKey || ''))[0];
+        sections.push(describeDaySummary(summary));
+      }
+      const dayLabel = requestedDaySet.join(' & ');
+      const baseResponse = `Coverage for ${dayLabel} (${weekRangeLabel}):
+
+    ${sections.join('\n\n')}`;
+      if (tomorrowRequested && !sections.some((section) => !section.includes('No shifts'))) {
+        return `${baseResponse}
+
+    If you were expecting named staff for tomorrow, please ensure tomorrow's rota has been published.`;
+      }
+      return baseResponse;
+    }
+
+    if (weekendRequested) {
+      const weekendSummaries = daySummariesList.filter((summary) => summary.dayNumber === 0 || summary.dayNumber === 6);
+      if (!weekendSummaries.length) {
+        return `No weekend shifts recorded for ${weekRangeLabel}.`;
+      }
+
+      const weekendTotal = weekendSummaries.reduce((sum, summary) => sum + summary.total, 0);
+      const weekendStaff = new Set<string>();
+      const weekendRoles: Record<string, number> = {};
+      const weekendTypes: Record<string, number> = {};
+
+      weekendSummaries.forEach((summary) => {
+        summary.staff.forEach((staff) => {
+          if (staff && staff.toLowerCase() !== 'unassigned') weekendStaff.add(staff);
+        });
+        Object.entries(summary.roles || {}).forEach(([role, count]) => {
+          weekendRoles[role] = (weekendRoles[role] || 0) + count;
+        });
+        Object.entries(summary.types || {}).forEach(([type, count]) => {
+          weekendTypes[type] = (weekendTypes[type] || 0) + count;
+        });
+      });
+
+      const highlightLines: string[] = [];
+      if (matchedRoleLabel) highlightLines.push(`${matchedRoleLabel}: ${weekendRoles[matchedRoleLabel] || 0}`);
+      if (matchedTypeLabel) highlightLines.push(`${matchedTypeLabel}: ${weekendTypes[matchedTypeLabel] || 0}`);
+
+      const weekendSample = weekendSummaries
+        .flatMap((summary) => summary.shifts)
+        .slice(0, wantsWho ? 12 : 8)
+        .map((shift) => describeShiftLine(shift))
+        .join('\n');
+
+      return [
+        `Weekend coverage (${weekRangeLabel}):`,
+        `- Total shifts: ${weekendTotal}`,
+        `- Staff: ${weekendStaff.size ? Array.from(weekendStaff).join(', ') : 'No named staff recorded'}`,
+        `- Roles: ${formatCounts(weekendRoles)}`,
+        Object.keys(weekendTypes).length ? `- Shift types: ${formatCounts(weekendTypes)}` : null,
+        highlightLines.length ? `- Highlights: ${highlightLines.join(' • ')}` : null,
+        weekendSample ? `\n${weekendSample}` : null,
+      ]
+        .filter(Boolean)
+        .join('\n');
+    }
+
+    if (weekdaysRequested) {
+      const weekdaySummaries = daySummariesList.filter((summary) => summary.dayNumber >= 1 && summary.dayNumber <= 5);
+      if (!weekdaySummaries.length) {
+        return `No weekday shifts recorded for ${weekRangeLabel}.`;
+      }
+
+      const weekdayTotal = weekdaySummaries.reduce((sum, summary) => sum + summary.total, 0);
+      const weekdayStaff = new Set<string>();
+      const weekdayRoles: Record<string, number> = {};
+      const weekdayTypes: Record<string, number> = {};
+
+      weekdaySummaries.forEach((summary) => {
+        summary.staff.forEach((staff) => {
+          if (staff && staff.toLowerCase() !== 'unassigned') weekdayStaff.add(staff);
+        });
+        Object.entries(summary.roles || {}).forEach(([role, count]) => {
+          weekdayRoles[role] = (weekdayRoles[role] || 0) + count;
+        });
+        Object.entries(summary.types || {}).forEach(([type, count]) => {
+          weekdayTypes[type] = (weekdayTypes[type] || 0) + count;
+        });
+      });
+
+      const weekdaySample = weekdaySummaries
+        .flatMap((summary) => summary.shifts)
+        .slice(0, wantsWho ? 12 : 8)
+        .map((shift) => describeShiftLine(shift))
+        .join('\n');
+
+      return [
+        `Weekday coverage (${weekRangeLabel}):`,
+        `- Total shifts: ${weekdayTotal}`,
+        `- Staff: ${weekdayStaff.size ? Array.from(weekdayStaff).join(', ') : 'No named staff recorded'}`,
+        `- Roles: ${formatCounts(weekdayRoles)}`,
+        Object.keys(weekdayTypes).length ? `- Shift types: ${formatCounts(weekdayTypes)}` : null,
+        weekdaySample ? `\n${weekdaySample}` : null,
+      ]
+        .filter(Boolean)
+        .join('\n');
+    }
+
+    if (matchedTypeLabel) {
+      const totalTypeCount = typeCounts[matchedTypeLabel] || 0;
+      const perDayLines = daySummariesList
+        .filter((summary) => (summary.types?.[matchedTypeLabel] || 0) > 0)
+        .sort((a, b) => (a.dayKey || '').localeCompare(b.dayKey || ''))
+        .map((summary) => `${summary.dayName}: ${summary.types?.[matchedTypeLabel] || 0}`)
+        .join(', ');
+
+      return [
+        `${matchedTypeLabel} shifts for ${weekRangeLabel}:`,
+        `- Total: ${totalTypeCount}`,
+        perDayLines ? `- By day: ${perDayLines}` : null,
+      ]
+        .filter(Boolean)
+        .join('\n');
+    }
+
+    if (matchedRoleLabel) {
+      const totalRoleCount = roleCounts[matchedRoleLabel] || 0;
+      const perDayLines = daySummariesList
+        .filter((summary) => (summary.roles?.[matchedRoleLabel] || 0) > 0)
+        .sort((a, b) => (a.dayKey || '').localeCompare(b.dayKey || ''))
+        .map((summary) => `${summary.dayName}: ${summary.roles?.[matchedRoleLabel] || 0}`)
+        .join(', ');
+
+      return [
+        `${matchedRoleLabel} shifts for ${weekRangeLabel}:`,
+        `- Total: ${totalRoleCount}`,
+        perDayLines ? `- By day: ${perDayLines}` : null,
+      ]
+        .filter(Boolean)
+        .join('\n');
+    }
+
+    if (wantsCount || mentionsCover || mentionsStaffWord || cleaned.includes('overview') || cleaned.includes('summary')) {
+      // Direct weekly 'who' query: prefer explicit 'this week' phrasing but allow generic 'week' when no specific day was requested
+      const weekRequested = cleaned.includes('this week') || cleaned.includes('this-week') || (cleaned.includes('week') && requestedDaySet.length === 0);
+      if (wantsWho && weekRequested) {
+        const staffSummary = staffEntries
+          .filter((entry) => entry && entry.name && entry.name.toLowerCase() !== 'unassigned')
+          .map((entry) => ({ name: entry.name, count: entry.shifts.length }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 20)
+          .map((s) => `${s.name}: ${s.count} shift${s.count === 1 ? '' : 's'}`);
+
+        if (!staffSummary.length) {
+          return `No named staff scheduled for ${weekRangeLabel}.`;
+        }
+
+        return [
+          `Staff scheduled for ${weekRangeLabel}:`,
+          ...staffSummary.map((line) => `- ${line}`),
+        ].join('\n');
+      }
+
+      const topStaff = staffEntries
+        .filter((entry) => entry.name && entry.name.toLowerCase() !== 'unassigned')
+        .sort((a, b) => b.shifts.length - a.shifts.length)
+        .slice(0, 3)
+        .map((entry) => `${entry.name} (${entry.shifts.length})`)
+        .join(', ');
+
+      const busiestDay = daySummariesList
+        .filter((summary) => summary.dayNumber >= 0)
+        .sort((a, b) => b.total - a.total)[0];
+
+      return [
+        `Rota summary for ${weekRangeLabel}:`,
+        `- Total shifts: ${totalShifts}`,
+        `- Unique staff scheduled: ${uniqueStaffCount}`,
+        `- Weekday shifts: ${weekdayShifts}; Weekend shifts: ${weekendShifts}`,
+        busiestDay ? `- Busiest day: ${busiestDay.dayName} (${busiestDay.displayDate}) with ${busiestDay.total} shift(s)` : null,
+        Object.keys(roleCounts || {}).length ? `- Top roles: ${formatCounts(roleCounts)}` : null,
+        Object.keys(typeCounts || {}).length ? `- Shift types: ${formatCounts(typeCounts)}` : null,
+        topStaff ? `- Busiest team members: ${topStaff}` : null,
+        normalizedUserShifts.length ? `- Your scheduled shifts: ${normalizedUserShifts.length}` : null,
+      ]
+        .filter(Boolean)
+        .join('\n');
+    }
+
+    // If we reached here, fall back to AI
+    return null;
+  };
+
 
   const handleSend = async () => {
 
   const inputVal = input;
   const intent = detectIntent(inputVal);
+
+  const baseWorkspaceContext = {
+    workspaceId: selectedItem.workspaceId ?? null,
+    organisationId: organisationId ?? null,
+    selectedItem: {
+      id: (selectedItem as any)?.id ?? null,
+      name: (selectedItem as any)?.name ?? null,
+      type: selectedItem.type,
+    },
+    activeDocumentId: activeDoc?.id ?? null,
+    lastContextDocumentId: lastContext?.doc?.id ?? null,
+    user: user
+      ? {
+          id: user.id,
+          name: user.name ?? undefined,
+          email: user.email ?? undefined,
+        }
+      : null,
+  };
+
+  const buildWorkspaceContext = (extras?: Record<string, any>) =>
+    serializeForAI({
+      ...baseWorkspaceContext,
+      intent: intent.type,
+      ...extras,
+    });
 
     // Multi-document query support
     if (intent && intent.type === 'multi_document_query') {
@@ -977,7 +1975,11 @@ export function ChatPanel({ selectedItem, onFolderAdd, organisationId }: ChatPan
       // If not enough, fallback to server
       if (multiResults.length < 2) {
         const workspaceId = selectedItem.workspaceId;
-        const orgId = organisationId || null;
+        const orgId =
+          organisationId ||
+          (selectedItem as any)?.organisationId ||
+          (selectedItem as any)?.organisation?.id ||
+          null;
         if (workspaceId) {
           const searchRes = await fetch('/api/search-documents', {
             method: 'POST',
@@ -999,11 +2001,34 @@ export function ChatPanel({ selectedItem, onFolderAdd, organisationId }: ChatPan
         return;
       }
       // Synthesize answer using all selected documents
-      const docsJsonArr = multiResults.slice(0, 3).map(doc => doc.extractedJson || {});
-      const synthResult = await chatWithDocuments({
-        query: inputVal,
-        documentJson: JSON.stringify(docsJsonArr)
-      });
+      const documentData = {
+        mode: 'multi_document_query',
+        totalDocuments: multiResults.length,
+        documents: multiResults.slice(0, 3).map((doc) => ({
+          ...documentToAiContext(doc),
+          extractedJson: doc.extractedJson,
+        })),
+        additionalDocuments: multiResults.slice(3, 6).map(documentToAiContext),
+      };
+
+      const aiAnswer = await askAIWithWorkspaceData(
+        inputVal,
+        {
+          documentData,
+          relatedDocuments: multiResults.slice(0, 5).map(documentToAiContext),
+          workspaceExtras: {
+            mode: 'multi_document_query',
+            workspaceId: selectedItem.workspaceId,
+            organisationId,
+          },
+          extraContext: {
+            intent: intent.type,
+            originalQuery: inputVal,
+            consideredDocumentIds: multiResults.slice(0, 5).map((doc) => doc.id),
+          },
+        },
+        buildWorkspaceContext
+      );
       // Prepare cards for UI
       const documentCards = multiResults.slice(0, 3).map(doc => ({
         id: doc.id,
@@ -1013,7 +2038,7 @@ export function ChatPanel({ selectedItem, onFolderAdd, organisationId }: ChatPan
         subtitle: doc.folderId ? `Folder: ${doc.folderId}` : undefined,
         summary: doc.summary
       }));
-      appendMessages([{ sender: 'user', text: inputVal }, { sender: 'ai', text: synthResult.answer, documents: documentCards }]);
+      appendMessages([{ sender: 'user', text: inputVal }, { sender: 'ai', text: aiAnswer, documents: documentCards }]);
       setInput('');
       setIsTyping(false);
       return;
@@ -1035,130 +2060,167 @@ export function ChatPanel({ selectedItem, onFolderAdd, organisationId }: ChatPan
         }
 
         const originalInput = intent.originalInput?.toLowerCase() || '';
+        const orgContext = organisationId || null;
+        const auditPayload: Record<string, any> = {
+          mode: 'audit_query',
+          variant: 'status',
+          originalInput: inputVal,
+          requestedAudit: intent.auditType || 'all',
+        };
+        let variant: 'trend' | 'comments' | 'scores' | 'status' = 'status';
+        let hasData = false;
 
-        // Enhanced audit data querying based on user intent
         if (originalInput.includes('trend') || originalInput.includes('performance')) {
-          // Get audit trends
+          variant = 'trend';
+          auditPayload.variant = 'trend';
           const { getMonthlyAuditSnapshots } = await import('@/lib/firestore');
-          const snapshots = await getMonthlyAuditSnapshots(workspaceId, undefined, organisationId || null);
-          let response = '📊 **Audit Trends**\n\n';
-
-          Object.entries(snapshots).forEach(([auditType, auditData]) => {
-            const data = auditData as any[]; // Type assertion for audit data
-            if (data && data.length > 0) {
-              const latest = data[0]; // Already sorted by snapshotCreatedAt desc
-              response += `**${auditType.replace(/-/g, ' ')}**\n`;
-              response += `• Latest score: ${latest.scorePercent || 'N/A'}%\n`;
-              response += `• Completed: ${data.length} time(s) this month\n`;
-              if (latest.comments) {
-                response += `• Comments: ${latest.comments}\n`;
-              }
-              response += '\n';
-            }
-          });
-
-          if (Object.keys(snapshots).length === 0) {
-            response = 'No audit data found for this month.';
+          const snapshots = await getMonthlyAuditSnapshots(workspaceId, undefined, orgContext);
+          const trendData = Object.entries(snapshots || {})
+            .map(([auditType, auditHistory]) => {
+              const history = (auditHistory as any[]).slice(0, 6).map((entry) => ({
+                snapshotCreatedAt: entry.snapshotCreatedAt,
+                scorePercent: entry.scorePercent,
+                comments: entry.comments,
+                areasForImprovement: entry.areasForImprovement,
+                goodPractice: entry.goodPractice,
+                actionRequired: entry.actionRequired,
+              }));
+              return {
+                auditType,
+                latest: history[0] || null,
+                historyLength: history.length,
+                history,
+              };
+            })
+            .filter((entry) => entry.historyLength > 0);
+          if (trendData.length === 0) {
+            appendMessages({ sender: 'ai', text: 'No audit data found for recent trends.' });
+            setIsTyping(false);
+            return;
           }
-
-          appendMessages({ sender: 'ai', text: response });
+          hasData = true;
+          auditPayload.trends = trendData;
         } else if (originalInput.includes('comment')) {
-          // Get audit comments
+          variant = 'comments';
+          auditPayload.variant = 'comments';
           const { getMonthlyAuditSnapshots } = await import('@/lib/firestore');
-          const snapshots = await getMonthlyAuditSnapshots(workspaceId, undefined, organisationId || null);
-          let response = '💬 **Audit Comments**\n\n';
-
-          Object.entries(snapshots).forEach(([auditType, auditData]) => {
-            const data = auditData as any[]; // Type assertion for audit data
-            if (data && data.length > 0) {
-              const latest = data[0];
-              if (latest.comments || latest.areasForImprovement || latest.goodPractice || latest.actionRequired) {
-                response += `**${auditType.replace(/-/g, ' ')}**\n`;
-                if (latest.comments) response += `• Comments: ${latest.comments}\n`;
-                if (latest.areasForImprovement) response += `• Areas for improvement: ${latest.areasForImprovement}\n`;
-                if (latest.goodPractice) response += `• Good practice: ${latest.goodPractice}\n`;
-                if (latest.actionRequired) response += `• Action required: ${latest.actionRequired}\n`;
-                response += '\n';
-              }
-            }
-          });
-
-          if (response === '💬 **Audit Comments**\n\n') {
-            response = 'No audit comments found for this month.';
+          const snapshots = await getMonthlyAuditSnapshots(workspaceId, undefined, orgContext);
+          const commentData = Object.entries(snapshots || {})
+            .map(([auditType, auditHistory]) => {
+              const latestWithNotes = (auditHistory as any[]).find((entry) =>
+                Boolean(entry.comments || entry.areasForImprovement || entry.goodPractice || entry.actionRequired)
+              );
+              if (!latestWithNotes) return null;
+              return {
+                auditType,
+                comments: latestWithNotes.comments,
+                areasForImprovement: latestWithNotes.areasForImprovement,
+                goodPractice: latestWithNotes.goodPractice,
+                actionRequired: latestWithNotes.actionRequired,
+                snapshotCreatedAt: latestWithNotes.snapshotCreatedAt,
+              };
+            })
+            .filter(Boolean);
+          if (commentData.length === 0) {
+            appendMessages({ sender: 'ai', text: 'No audit comments found for this month.' });
+            setIsTyping(false);
+            return;
           }
-
-          appendMessages({ sender: 'ai', text: response });
+          hasData = true;
+          auditPayload.comments = commentData;
         } else if (originalInput.includes('score') || originalInput.includes('result')) {
-          // Get audit scores/results
-          const { getLatestAuditData } = await import('@/lib/firestore');
-          const auditType = intent.auditType || 'all';
-
-          if (auditType === 'all') {
-            // Get all audit types and their latest scores
-            const { getMonthlyAuditCompletionStatus } = await import('@/lib/firestore');
-            const completionStatus = await getMonthlyAuditCompletionStatus(workspaceId, organisationId || null);
-            const auditTypes = Object.keys(completionStatus);
-
-            let response = 'Latest audit scores:\n\n';
-            let hasData = false;
-
+          variant = 'scores';
+          auditPayload.variant = 'scores';
+          const { getLatestAuditData, getMonthlyAuditCompletionStatus } = await import('@/lib/firestore');
+          const requestedAudit = intent.auditType || 'all';
+          if (requestedAudit === 'all') {
+            const completionStatus = await getMonthlyAuditCompletionStatus(workspaceId, orgContext);
+            const auditTypes = Object.keys(completionStatus || {});
+            const scoreEntries: Array<{ auditType: string; scorePercent?: number | null; snapshotCreatedAt?: string | null }> = [];
             for (const type of auditTypes) {
-              const latest = await getLatestAuditData(workspaceId, type);
-              if (latest && latest.scorePercent !== undefined) {
-                response += `${type.replace(/-/g, ' ')}: ${latest.scorePercent}%\n`;
+              const latest = await getLatestAuditData(workspaceId, type, undefined, orgContext);
+              if (latest) {
                 hasData = true;
+                scoreEntries.push({
+                  auditType: type,
+                  scorePercent: latest.scorePercent ?? null,
+                  snapshotCreatedAt: latest.snapshotCreatedAt ?? null,
+                });
               }
             }
-
             if (!hasData) {
-              response = 'No audit scores found for this month.';
+              appendMessages({ sender: 'ai', text: 'No audit scores found for this month.' });
+              setIsTyping(false);
+              return;
             }
-
-            appendMessages({ sender: 'ai', text: response });
+            auditPayload.latestScores = scoreEntries;
           } else {
-            const latest = await getLatestAuditData(workspaceId, auditType);
-            if (latest && latest.scorePercent !== undefined) {
-              appendMessages({ sender: 'ai', text: `Latest score for ${auditType.replace(/-/g, ' ')} audit: ${latest.scorePercent}%` });
-            } else {
-              appendMessages({ sender: 'ai', text: `No recent scores found for ${auditType.replace(/-/g, ' ')} audit.` });
+            const latest = await getLatestAuditData(workspaceId, requestedAudit, undefined, orgContext);
+            if (!latest) {
+              appendMessages({ sender: 'ai', text: `No recent scores found for ${requestedAudit.replace(/-/g, ' ')} audit.` });
+              setIsTyping(false);
+              return;
             }
+            hasData = true;
+            auditPayload.latestScore = {
+              auditType: requestedAudit,
+              scorePercent: latest.scorePercent ?? null,
+              snapshotCreatedAt: latest.snapshotCreatedAt ?? null,
+              comments: latest.comments ?? null,
+            };
           }
         } else {
-          // General audit status query
-          const { getMonthlyAuditCompletionStatus } = await import('@/lib/firestore');
-          const completionStatus = await getMonthlyAuditCompletionStatus(workspaceId, organisationId || null);
-          const auditTypes = Object.keys(completionStatus);
-
-          let response = 'Here is the current audit status:\n\n';
-          const completed = auditTypes.filter(type => completionStatus[type]);
-          const pending = auditTypes.filter(type => !completionStatus[type]);
-
-          if (completed.length > 0) {
-            response += `✅ Completed audits: ${completed.map(type => type.replace(/-/g, ' ')).join(', ')}\n`;
+          variant = 'status';
+          auditPayload.variant = 'status';
+          const { getMonthlyAuditCompletionStatus, getLatestAuditData } = await import('@/lib/firestore');
+          const completionStatus = await getMonthlyAuditCompletionStatus(workspaceId, orgContext);
+          const auditTypes = Object.keys(completionStatus || {});
+          if (auditTypes.length === 0) {
+            appendMessages({ sender: 'ai', text: 'No audit status information available yet.' });
+            setIsTyping(false);
+            return;
           }
-          if (pending.length > 0) {
-            response += `⏳ Pending audits: ${pending.map(type => type.replace(/-/g, ' ')).join(', ')}\n`;
-          }
+          hasData = true;
+          const statusEntries = auditTypes.map((type) => ({
+            auditType: type,
+            isCompletedThisMonth: Boolean(completionStatus?.[type]),
+          }));
 
-          // Get latest scores if available
-          const { getLatestAuditData } = await import('@/lib/firestore');
-          const latestScores: any[] = [];
-          for (const type of auditTypes) {
-            const latest = await getLatestAuditData(workspaceId, type);
+          const latestScores: Array<{ auditType: string; scorePercent?: number | null }> = [];
+          for (const type of auditTypes.slice(0, 12)) {
+            const latest = await getLatestAuditData(workspaceId, type, undefined, orgContext);
             if (latest && latest.scorePercent !== undefined) {
-              latestScores.push({ type, score: latest.scorePercent });
+              latestScores.push({ auditType: type, scorePercent: latest.scorePercent });
             }
           }
 
-          if (latestScores.length > 0) {
-            response += '\nLatest audit scores:\n';
-            latestScores.forEach(({ type, score }) => {
-              response += `${type.replace(/-/g, ' ')}: ${score}%\n`;
-            });
-          }
-
-          appendMessages({ sender: 'ai', text: response });
+          auditPayload.status = {
+            completion: statusEntries,
+            latestScores,
+          };
         }
+
+        if (!hasData) {
+          appendMessages({ sender: 'ai', text: 'No audit information could be retrieved.' });
+          setIsTyping(false);
+          return;
+        }
+
+        const aiAnswer = await askAIWithWorkspaceData(
+          inputVal,
+          {
+            documentData: auditPayload,
+            workspaceExtras: { auditVariant: variant, requestedAudit: auditPayload.requestedAudit },
+            extraContext: {
+              variant,
+              requestedAudit: auditPayload.requestedAudit,
+              originalInput,
+            },
+          },
+          buildWorkspaceContext
+        );
+
+        appendMessages({ sender: 'ai', text: aiAnswer });
       } catch (error) {
         console.error('Error fetching audit data:', error);
         appendMessages({ sender: 'ai', text: 'Sorry, I couldn\'t fetch the audit information. Please try again.' });
@@ -1181,331 +2243,229 @@ export function ChatPanel({ selectedItem, onFolderAdd, organisationId }: ChatPan
           return;
         }
 
-        const orgId = organisationId || (selectedItem as any).organisation?.id || null;
+        const orgId =
+          organisationId ||
+          (selectedItem as any)?.organisationId ||
+          (selectedItem as any)?.organisation?.id ||
+          null;
 
-        // Try to get dependency data from user's snapshots or calculate from current data
-        const userIdToUse = user?.id ?? mockUser.id;
-        if (!userIdToUse) {
-          appendMessages({ sender: 'ai', text: 'User authentication required for dependency data.' });
+        const respondWithDependencySummary = async (
+          variant: 'trend' | 'latest',
+          payload: Record<string, any>,
+          summaryText: string
+        ) => {
+          const aiAnswer = await askAIWithWorkspaceData(
+            inputVal,
+            {
+              documentData: {
+                mode: 'dependency_query',
+                variant,
+                summaryText,
+                data: payload,
+              },
+              workspaceExtras: {
+                dependencyVariant: variant,
+              },
+              extraContext: {
+                variant,
+                requestedTerms: intent.originalInput,
+              },
+            },
+            buildWorkspaceContext
+          );
+
+          appendMessages({ sender: 'ai', text: aiAnswer });
+        };
+
+        const wantsTrend = /trend|history|over time|over the last|last week|last month|change|changes|compare|since/i.test(
+          intent.originalInput?.toLowerCase() || ''
+        );
+
+        const headers: Record<string, string> = {};
+
+        try {
+          const currentUser = auth.currentUser;
+          if (currentUser) {
+            const idToken = await currentUser.getIdToken();
+            if (idToken) headers.authorization = `Bearer ${idToken}`;
+          }
+        } catch (tokenErr) {
+          console.warn('Failed to resolve auth token for dependency trends API', tokenErr);
+        }
+
+        if (typeof window !== 'undefined' && !headers.authorization) {
+          const adminSecret = (window as any)?.__ADMIN_SECRET;
+          if (adminSecret) headers['x-admin-secret'] = adminSecret;
+        }
+
+        if (!headers.authorization && !headers['x-admin-secret']) {
+          appendMessages({
+            sender: 'ai',
+            text: 'Authentication is required to view dependency data. Please sign in again.',
+          });
           setIsTyping(false);
           return;
         }
 
-        const originalInput = intent.originalInput?.toLowerCase() || '';
-        const wantsTrend = /trend|history|over time|over the last|last week|last month|change|changes|compare|since/i.test(originalInput);
+        const apiUrl =
+          `/api/workspaces/${workspaceId}/dependency-trends` +
+          (orgId ? `?orgId=${encodeURIComponent(orgId)}` : '');
 
-  const { collection, getDocs, query, orderBy, limit, doc: docFn, getDoc } = await import('firebase/firestore');
-  let snapshotsCol = collection(db, 'users', userIdToUse, 'dependency_calculator_snapshots');
+        const apiRes = await fetch(apiUrl, { headers });
 
-        // If the user asked for trends/history, fetch multiple snapshots and compute changes
+        if (!apiRes.ok) {
+          const fallbackText =
+            apiRes.status === 403
+              ? 'You do not have permission to view the dependency data for this workspace.'
+              : apiRes.status === 401
+              ? 'Authentication expired. Please refresh and sign in again to view dependency data.'
+              : 'Sorry, I couldn’t fetch the dependency information. Please try again later.';
+          console.error('Dependency trends API returned error', apiRes.status, await apiRes.text().catch(() => ''));
+          appendMessages({ sender: 'ai', text: fallbackText });
+          setIsTyping(false);
+          return;
+        }
+
+        const apiData = (await apiRes.json()) as {
+          points?: DependencyPoint[];
+          latest?: DependencyLatest | null;
+        };
+
+        const points = Array.isArray(apiData?.points) ? apiData.points : [];
+        const latest = apiData?.latest ?? null;
+
         if (wantsTrend) {
-          // Fetch up to 12 most recent snapshots (client-visible history)
-          const maxSnapshots = 12;
-          let snapshotsQuery = query(snapshotsCol, orderBy('savedAt', 'desc'), limit(maxSnapshots));
-          let snapshotsSnap = await getDocs(snapshotsQuery);
-
-          // If user has no snapshots, try workspace-level fallback (owner or members)
-          if (snapshotsSnap.empty) {
-            try {
-              // Attempt to read workspace settings to find owner or a member
-              const settingsPath = workspaceCollectionPath(workspaceId, 'settings', orgId || null);
-              const settingsColRef = collection(db, settingsPath);
-              const settingsRef = docFn(settingsColRef, 'occupancy');
-              const settingsSnap = await getDoc(settingsRef);
-              const ownerId = settingsSnap && settingsSnap.exists() ? (settingsSnap.data() as any).ownerId : null;
-
-              // prefer workspace owner, else try first member listed on workspace doc
-              let candidateUserId: string | null = ownerId || null;
-              if (!candidateUserId) {
-                // read workspace doc members fallback
-                try {
-                  const wsRef = docFn(db, workspaceDocPath(workspaceId, undefined, orgId || null));
-                  const wsSnap = await getDoc(wsRef);
-                  if (wsSnap && wsSnap.exists()) {
-                    const wsData = wsSnap.data() as any;
-                    if (Array.isArray(wsData.members) && wsData.members.length > 0) candidateUserId = wsData.members[0];
-                    else if (typeof wsData.ownerId === 'string') candidateUserId = wsData.ownerId;
-                  }
-                } catch (e) {
-                  // ignore
-                }
-              }
-
-              if (candidateUserId) {
-                snapshotsCol = collection(db, 'users', candidateUserId, 'dependency_calculator_snapshots');
-                snapshotsQuery = query(snapshotsCol, orderBy('savedAt', 'desc'), limit(maxSnapshots));
-                snapshotsSnap = await getDocs(snapshotsQuery);
-              }
-            } catch (e) {
-              // ignore fallback errors and continue
-            }
-          }
-
-          if (snapshotsSnap.empty) {
-            // First try workspace-level snapshots directly from Firestore (client-side)
-            try {
-              const wsSnapshotsCol = collection(db, workspaceCollectionPath(workspaceId, 'dependency_calculator_snapshots', orgId || null));
-              const wsQuery = query(wsSnapshotsCol, orderBy('savedAt', 'desc'), limit(maxSnapshots));
-              const wsSnap = await getDocs(wsQuery);
-              if (!wsSnap.empty) {
-                const docs = wsSnap.docs.map(d => d.data()).reverse();
-                const { computeStaffing } = await import('@/lib/staffing');
-                const pointsFromWs: Array<{ date: string; totalStaff: number; carers: number; ns: number; levels: Record<string, number> }> = [];
-                for (const s of docs) {
-                  const residents = s.residents || [];
-                  if (!Array.isArray(residents) || residents.length === 0) continue;
-                  const staffingResult = computeStaffing(residents, s.options || {});
-                  const roundedDay = staffingResult.totals.rounded.day;
-                  const roundedNight = staffingResult.totals.rounded.night;
-                  const totalStaff = (roundedDay.all || 0) + (roundedNight.all || 0);
-                  const carers = (roundedDay.carers || 0) + (roundedNight.carers || 0);
-                  const ns = (roundedDay.ns || 0) + (roundedNight.ns || 0);
-                  const levelCounts: Record<string, number> = {};
-                  staffingResult.perResident.forEach((r) => { if (r.level) levelCounts[r.level] = (levelCounts[r.level] || 0) + 1; });
-                  const date = s.savedAt ? formatDateSafe(s.savedAt) : formatDateSafe(s.updatedAt || s.createdAt);
-                  pointsFromWs.push({ date, totalStaff, carers, ns, levels: levelCounts });
-                }
-
-                if (pointsFromWs.length > 0) {
-                  const first = pointsFromWs[0];
-                  const last = pointsFromWs[pointsFromWs.length - 1];
-                  const diff = last.totalStaff - first.totalStaff;
-                  const pctChange = first.totalStaff > 0 ? ((diff / first.totalStaff) * 100) : NaN;
-
-                  const bandDeltas: Record<string, number> = {};
-                  const allBands = new Set<string>([...Object.keys(first.levels), ...Object.keys(last.levels)]);
-                  allBands.forEach(b => { bandDeltas[b] = (last.levels[b] || 0) - (first.levels[b] || 0); });
-
-                  let response = `📈 **Dependency Trends (last ${pointsFromWs.length} snapshots)**\n\n`;
-                  response += `• Period: ${first.date} → ${last.date}\n`;
-                  response += `• Recommended total staff (day+night): ${first.totalStaff} → ${last.totalStaff} (${isNaN(pctChange) ? 'N/A' : (pctChange >= 0 ? '+' : '') + pctChange.toFixed(1) + '%'})\n`;
-                  response += `• Carers: ${first.carers} → ${last.carers}\n`;
-                  response += `• Nurses/Seniors: ${first.ns} → ${last.ns}\n\n`;
-
-                  response += `**Band changes (first → last):**\n`;
-                  Object.entries(bandDeltas).forEach(([band, delta]) => { const sign = delta > 0 ? '+' : ''; response += `• ${band}: ${ (first.levels[band] || 0) } → ${ (last.levels[band] || 0) } (${sign}${delta})\n`; });
-
-                  response += `\n**Snapshot totals:**\n`;
-                  response += pointsFromWs.map(p => `${p.date}: ${p.totalStaff}`).join(' | ');
-
-                  appendMessages({ sender: 'ai', text: response });
-                  setIsTyping(false);
-                  return;
-                }
-              }
-            } catch (e) {
-              // ignore client-side workspace read failures and fall back to server API
-            }
-
-            // Try workspace-level aggregation API as a fallback (server-side aggregation may include workspace snapshots)
-            try {
-              const apiUrl = `/api/workspaces/${workspaceId}/dependency-trends` + (orgId ? `?orgId=${encodeURIComponent(orgId)}` : '');
-              const apiRes = await fetch(apiUrl);
-              if (apiRes.ok) {
-                const apiData = await apiRes.json();
-                const apiPoints = Array.isArray(apiData?.points) ? apiData.points : [];
-                if (apiPoints.length > 0) {
-                  // Map API points to local points array shape and continue
-                  const pointsFromApi: Array<{ date: string; totalStaff: number; carers: number; ns: number; levels: Record<string, number> }> = apiPoints.map((p: any) => ({
-                    date: p.date,
-                    totalStaff: Number(p.totalStaff || 0),
-                    carers: Number(p.carers || 0),
-                    ns: Number(p.ns || 0),
-                    levels: p.levels || {}
-                  }));
-
-                  // Use pointsFromApi directly to compute the response
-                  const first = pointsFromApi[0];
-                  const last = pointsFromApi[pointsFromApi.length - 1];
-                  const diff = last.totalStaff - first.totalStaff;
-                  const pctChange = first.totalStaff > 0 ? ((diff / first.totalStaff) * 100) : NaN;
-
-                  const bandDeltas: Record<string, number> = {};
-                  const allBands = new Set<string>([...Object.keys(first.levels), ...Object.keys(last.levels)]);
-                  allBands.forEach(b => {
-                    bandDeltas[b] = (last.levels[b] || 0) - (first.levels[b] || 0);
-                  });
-
-                  let response = `📈 **Dependency Trends (last ${pointsFromApi.length} snapshots)**\n\n`;
-                  response += `• Period: ${first.date} → ${last.date}\n`;
-                  response += `• Recommended total staff (day+night): ${first.totalStaff} → ${last.totalStaff} (${isNaN(pctChange) ? 'N/A' : (pctChange >= 0 ? '+' : '') + pctChange.toFixed(1) + '%'})\n`;
-                  response += `• Carers: ${first.carers} → ${last.carers}\n`;
-                  response += `• Nurses/Seniors: ${first.ns} → ${last.ns}\n\n`;
-
-                  response += `**Band changes (first → last):**\n`;
-                  Object.entries(bandDeltas).forEach(([band, delta]) => {
-                    const sign = delta > 0 ? '+' : '';
-                    response += `• ${band}: ${ (first.levels[band] || 0) } → ${ (last.levels[band] || 0) } (${sign}${delta})\n`;
-                  });
-
-                  response += `\n**Snapshot totals:**\n`;
-                  response += pointsFromApi.map(p => `${p.date}: ${p.totalStaff}`).join(' | ');
-
-                  appendMessages({ sender: 'ai', text: response });
-                  setIsTyping(false);
-                  return;
-                }
-              }
-            } catch (e) {
-              // ignore API failures and fall back to the existing message below
-            }
-
-            appendMessages({ sender: 'ai', text: 'No dependency history found. Please create a few Dependency Calculator snapshots first.' });
+          if (!points.length) {
+            appendMessages({
+              sender: 'ai',
+              text: 'No dependency history found. Please create a few Dependency Calculator snapshots first.',
+            });
             setIsTyping(false);
             return;
           }
 
-          const { computeStaffing } = await import('@/lib/staffing');
-
-          // Build an ordered array from oldest -> newest
-          const docs = snapshotsSnap.docs.map(d => d.data()).reverse();
-
-          const points: Array<{ date: string; totalStaff: number; carers: number; ns: number; levels: Record<string, number> }> = [];
-
-          for (const snap of docs) {
-            const residents = snap.residents || [];
-            const options = snap.options || {};
-            if (residents.length === 0) continue;
-            const staffingResult = computeStaffing(residents, options);
-            const roundedDay = staffingResult.totals.rounded.day;
-            const roundedNight = staffingResult.totals.rounded.night;
-            const totalStaff = (roundedDay.all || 0) + (roundedNight.all || 0);
-            const carers = (roundedDay.carers || 0) + (roundedNight.carers || 0);
-            const ns = (roundedDay.ns || 0) + (roundedNight.ns || 0);
-            const date = snap.savedAt ? formatDateSafe(snap.savedAt) : formatDateSafe(snap.updatedAt || snap.createdAt);
-            points.push({ date, totalStaff, carers, ns, levels: {} });
-          }
-
-          if (points.length === 0) {
-            appendMessages({ sender: 'ai', text: 'No usable dependency snapshots found to generate trends.' });
-            setIsTyping(false);
-            return;
-          }
-
-          const first = points[0];
-          const last = points[points.length - 1];
+          const sortedPoints = [...points].sort(
+            (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+          );
+          const trimmedPoints = sortedPoints.slice(-12);
+          const first = trimmedPoints[0];
+          const last = trimmedPoints[trimmedPoints.length - 1];
           const diff = last.totalStaff - first.totalStaff;
-          const pctChange = first.totalStaff > 0 ? ((diff / first.totalStaff) * 100) : NaN;
+          const pctChange = first.totalStaff > 0 ? (diff / first.totalStaff) * 100 : NaN;
 
-          // Compute band deltas between first and last
           const bandDeltas: Record<string, number> = {};
-          const allBands = new Set<string>([...Object.keys(first.levels), ...Object.keys(last.levels)]);
-          allBands.forEach(b => {
-            bandDeltas[b] = (last.levels[b] || 0) - (first.levels[b] || 0);
+          const bandKeys = new Set<string>([
+            ...Object.keys(first.levels || {}),
+            ...Object.keys(last.levels || {}),
+          ]);
+          bandKeys.forEach((key) => {
+            const startValue = first.levels?.[key] ?? 0;
+            const endValue = last.levels?.[key] ?? 0;
+            bandDeltas[key] = endValue - startValue;
           });
 
-          // Build response
-          let response = `📈 **Dependency Trends (last ${points.length} snapshots)**\n\n`;
-          response += `• Period: ${first.date} → ${last.date}\n`;
-          response += `• Recommended total staff (day+night): ${first.totalStaff} → ${last.totalStaff} (${isNaN(pctChange) ? 'N/A' : (pctChange >= 0 ? '+' : '') + pctChange.toFixed(1) + '%'})\n`;
-          response += `• Carers: ${first.carers} → ${last.carers}\n`;
-          response += `• Nurses/Seniors: ${first.ns} → ${last.ns}\n\n`;
+          const periodText = `${formatDateSafe(first.date) || first.date} → ${
+            formatDateSafe(last.date) || last.date
+          }`;
+          let summary = `📈 **Dependency Trends (${trimmedPoints.length} snapshots)**\n\n`;
+          summary += `• Period: ${periodText}\n`;
+          summary += `• Recommended total staff: ${first.totalStaff} → ${last.totalStaff}`;
+          if (!Number.isNaN(pctChange)) {
+            summary += ` (${pctChange >= 0 ? '+' : ''}${pctChange.toFixed(1)}%)`;
+          }
+          summary += `\n`;
+          summary += `• Carers: ${first.carers} → ${last.carers}\n`;
+          summary += `• Nurses/Seniors: ${first.ns} → ${last.ns}\n\n`;
+          summary += `**Band changes:**\n`;
+          if (bandKeys.size === 0) {
+            summary += '• No band data recorded.\n';
+          } else {
+            bandKeys.forEach((key) => {
+              const startValue = first.levels?.[key] ?? 0;
+              const endValue = last.levels?.[key] ?? 0;
+              const delta = bandDeltas[key];
+              const sign = delta > 0 ? '+' : '';
+              summary += `• ${key}: ${startValue} → ${endValue} (${sign}${delta})\n`;
+            });
+          }
+          summary += `\n**Snapshot totals:**\n`;
+          summary += trimmedPoints
+            .map((point) => `${formatDateSafe(point.date) || point.date}: ${point.totalStaff}`)
+            .join(' | ');
 
-          response += `**Band changes (first → last):**\n`;
-          Object.entries(bandDeltas).forEach(([band, delta]) => {
-            const sign = delta > 0 ? '+' : '';
-            response += `• ${band}: ${ (first.levels[band] || 0) } → ${ (last.levels[band] || 0) } (${sign}${delta})\n`;
-          });
-
-          // Include a small sparkline-like list of totalStaff values
-          response += `\n**Snapshot totals:**\n`;
-          response += points.map(p => `${p.date}: ${p.totalStaff}`).join(' | ');
-
-          appendMessages({ sender: 'ai', text: response });
+          await respondWithDependencySummary(
+            'trend',
+            {
+              points: trimmedPoints,
+              first,
+              last,
+              diff,
+              pctChange: Number.isNaN(pctChange) ? null : pctChange,
+              bandDeltas,
+              source: 'workspace_api',
+            },
+            summary
+          );
           setIsTyping(false);
           return;
         }
 
-        // Default: return the latest snapshot (existing behavior)
-        // Default: return the latest snapshot (existing behavior)
-        let snapshotsQuery = query(snapshotsCol, orderBy('savedAt', 'desc'), limit(1));
-        let snapshotsSnap = await getDocs(snapshotsQuery);
-
-        // If user has no personal snapshots, try workspace-level fallback (owner/members)
-        if (snapshotsSnap.empty) {
-          try {
-              const settingsPath = workspaceCollectionPath(workspaceId, 'settings', orgId || null);
-              const settingsColRef = collection(db, settingsPath);
-              const settingsRef = docFn(settingsColRef, 'occupancy');
-              const settingsSnap = await getDoc(settingsRef);
-            const ownerId = settingsSnap && settingsSnap.exists() ? (settingsSnap.data() as any).ownerId : null;
-            let candidateUserId: string | null = ownerId || null;
-            if (!candidateUserId) {
-                  const wsRef = docFn(db, workspaceDocPath(workspaceId, undefined, orgId || null));
-                  const wsSnap = await getDoc(wsRef);
-              if (wsSnap && wsSnap.exists()) {
-                const wsData = wsSnap.data() as any;
-                if (Array.isArray(wsData.members) && wsData.members.length > 0) candidateUserId = wsData.members[0];
-                else if (typeof wsData.ownerId === 'string') candidateUserId = wsData.ownerId;
-              }
-            }
-            if (candidateUserId) {
-              snapshotsCol = collection(db, 'users', candidateUserId, 'dependency_calculator_snapshots');
-              snapshotsQuery = query(snapshotsCol, orderBy('savedAt', 'desc'), limit(1));
-              snapshotsSnap = await getDocs(snapshotsQuery);
-            }
-          } catch (e) {
-            // ignore and continue
-          }
+        if (!latest) {
+          appendMessages({
+            sender: 'ai',
+            text: 'No dependency data found. Please use the Dependency Calculator to create staffing calculations first.',
+          });
+          setIsTyping(false);
+          return;
         }
 
-        let response = '';
-
-        if (!snapshotsSnap.empty) {
-          const latestSnapshot = snapshotsSnap.docs[0].data();
-          const { computeStaffing } = await import('@/lib/staffing');
-
-          // Process the snapshot data
-          const residents = latestSnapshot.residents || [];
-          const options = latestSnapshot.options || {};
-
-          if (residents.length > 0) {
-            const staffingResult = computeStaffing(residents, options);
-
-            response = `📊 **Latest Dependency Analysis**\n\n`;
-            response += `**Residents:** ${residents.length} total\n\n`;
-
-            // Breakdown by dependency level
-            const levelCounts: Record<string, number> = {};
-            staffingResult.perResident.forEach(r => {
-              if (r.level) {
-                levelCounts[r.level] = (levelCounts[r.level] || 0) + 1;
-              }
-            });
-
-            response += `**Dependency Levels:**\n`;
-            Object.entries(levelCounts).forEach(([level, count]) => {
-              response += `• ${level}: ${count} resident(s)\n`;
-            });
-
-            response += `\n**Staffing Requirements:**\n`;
-            response += `**Day Shift:**\n`;
-            response += `• Carers: ${staffingResult.totals.rounded.day.carers}\n`;
-            response += `• Nurses/Seniors: ${staffingResult.totals.rounded.day.ns}\n`;
-            response += `• Total: ${staffingResult.totals.rounded.day.all}\n\n`;
-
-            response += `**Night Shift:**\n`;
-            response += `• Carers: ${staffingResult.totals.rounded.night.carers}\n`;
-            response += `• Nurses/Seniors: ${staffingResult.totals.rounded.night.ns}\n`;
-            response += `• Total: ${staffingResult.totals.rounded.night.all}\n\n`;
-
-            response += `**Total Hours (24h):**\n`;
-            response += `• Day: ${staffingResult.totals.hours.day.all.toFixed(1)} hours\n`;
-            response += `• Night: ${staffingResult.totals.hours.night.all.toFixed(1)} hours\n`;
-
-            const saveDate = latestSnapshot.savedAt ? new Date(latestSnapshot.savedAt).toLocaleString() : 'Unknown';
-            response += `\n*Data from: ${saveDate}*`;
-          } else {
-            response = 'No resident dependency data found in the latest snapshot.';
-          }
-        } else {
-          response = 'No dependency data found. Please use the Dependency Calculator to create staffing calculations first.';
+        const quickAnswer = buildDependencyQuickAnswer(intent.originalInput ?? inputVal, latest);
+        if (quickAnswer) {
+          appendMessages({ sender: 'ai', text: quickAnswer });
+          setIsTyping(false);
+          return;
         }
 
-        appendMessages({ sender: 'ai', text: response });
+        const savedLabel = formatDateSafe(latest.savedAt) || new Date(latest.savedAt).toLocaleString();
+        const dependencyLevels = latest.dependencyLevels || {};
+        const levelEntries = Object.entries(dependencyLevels);
+        const levelSection = levelEntries.length
+          ? levelEntries.map(([level, count]) => `• ${level}: ${count} resident(s)`).join('\n')
+          : 'No dependency level breakdown available.';
+
+        const staffing = latest.staffing;
+        const dayHours = Number.isFinite(staffing.totals.dayHours) ? staffing.totals.dayHours : 0;
+        const nightHours = Number.isFinite(staffing.totals.nightHours) ? staffing.totals.nightHours : 0;
+        const overallHours = Number.isFinite(staffing.totals.overallHours)
+          ? staffing.totals.overallHours
+          : dayHours + nightHours;
+
+        const summaryText =
+          `📊 **Latest Dependency Analysis**\n\n` +
+          `Saved at: ${savedLabel}\n` +
+          `Residents assessed: ${latest.residentsCount ?? 0}\n` +
+          `Recommended total staff (24h): ${latest.totalStaff}\n\n` +
+          `**Dependency Levels:**\n${levelSection}\n\n` +
+          `**Staffing Requirements:**\n` +
+          `Day shift → Carers ${staffing.day.carers}, Nurses/Seniors ${staffing.day.ns}, Total ${staffing.day.total}\n` +
+          `Night shift → Carers ${staffing.night.carers}, Nurses/Seniors ${staffing.night.ns}, Total ${staffing.night.total}\n\n` +
+          `**Total Hours:**\n` +
+          `Day: ${dayHours.toFixed(1)} hours | Night: ${nightHours.toFixed(1)} hours | Overall: ${overallHours.toFixed(1)} hours`;
+
+        const trimmedPoints = points.slice(-6);
+
+        await respondWithDependencySummary(
+          'latest',
+          {
+            latest,
+            recentPoints: trimmedPoints,
+            source: 'workspace_api',
+          },
+          summaryText
+        );
       } catch (error) {
         console.error('Error fetching dependency data:', error);
-        appendMessages({ sender: 'ai', text: 'Sorry, I couldn\'t fetch the dependency information. Please try again.' });
+        appendMessages({ sender: 'ai', text: 'Sorry, I couldn’t fetch the dependency information. Please try again.' });
       } finally {
         setIsTyping(false);
       }
@@ -1761,25 +2721,65 @@ export function ChatPanel({ selectedItem, onFolderAdd, organisationId }: ChatPan
         }
 
         const { getAllWorkspaces } = await import('@/lib/firestore');
-        const workspaces = await getAllWorkspaces();
-        const workspace = workspaces.find(w => w.id === workspaceId);
+        const workspaces = await getAllWorkspaces((selectedItem as any)?.organisationId || organisationId || undefined);
+        const workspace = workspaces.find(w => w.id === workspaceId) || ((selectedItem as any)?.type === 'workspace' ? (selectedItem as any) : null);
 
-        if (workspace) {
-          let response = `🏢 **Workspace Information**\n\n` +
-            `**Name:** ${workspace.name || 'Unnamed'}\n` +
-            `**Owner:** ${workspace.ownerId || 'Unknown'}\n` +
-            `**Members:** ${workspace.members?.length || 0}\n` +
-            `**Created:** Unknown\n`;
-
-          if (workspace.totalBeds && workspace.occupiedBeds !== undefined) {
-            const occupancyRate = workspace.totalBeds > 0 ? ((workspace.occupiedBeds / workspace.totalBeds) * 100).toFixed(1) : '0';
-            response += `**Bed Occupancy:** ${workspace.occupiedBeds}/${workspace.totalBeds} (${occupancyRate}%)\n`;
-          }
-
-          appendMessages({ sender: 'ai', text: response });
-        } else {
+        if (!workspace) {
           appendMessages({ sender: 'ai', text: 'Could not retrieve workspace information.' });
+          setIsTyping(false);
+          return;
         }
+
+        const memberCount = Array.isArray(workspace.members) ? workspace.members.length : 0;
+        const occupancyRate =
+          workspace.totalBeds && workspace.occupiedBeds !== undefined && workspace.totalBeds > 0
+            ? (workspace.occupiedBeds / workspace.totalBeds) * 100
+            : null;
+
+        const summaryText =
+          `Workspace "${workspace.name || 'Unnamed'}" has ${memberCount} member(s)` +
+          (occupancyRate !== null
+            ? ` and is currently at ${occupancyRate.toFixed(1)}% bed occupancy (${workspace.occupiedBeds}/${workspace.totalBeds}).`
+            : '.');
+
+        const aiAnswer = await askAIWithWorkspaceData(
+          inputVal,
+          {
+            documentData: {
+              mode: 'workspace_info',
+              workspace: {
+                id: workspace.id,
+                name: workspace.name || null,
+                ownerId: workspace.ownerId || null,
+                members: memberCount,
+                organisationId: (workspace as any).organisationId || organisationId || null,
+                region: (workspace as any).region || null,
+                workspaceGroup: (workspace as any).workspaceGroup || null,
+                workspaceGroupColor: (workspace as any).workspaceGroupColor || null,
+                createdAt: (workspace as any).createdAt || null,
+              },
+              occupancy: occupancyRate !== null
+                ? {
+                    occupiedBeds: workspace.occupiedBeds,
+                    totalBeds: workspace.totalBeds,
+                    occupancyRate: Number(occupancyRate.toFixed(2)),
+                  }
+                : undefined,
+              summaryText,
+            },
+            workspaceExtras: {
+              memberCount,
+              hasOccupancy: occupancyRate !== null,
+            },
+            extraContext: {
+              originalInput: intent.originalInput,
+              infoType: 'workspace_overview',
+            },
+          },
+          buildWorkspaceContext
+        );
+
+        appendMessages({ sender: 'ai', text: aiAnswer });
       } catch (error) {
         console.error('Error fetching workspace information:', error);
         appendMessages({ sender: 'ai', text: 'Sorry, I couldn\'t fetch workspace information. Please try again.' });
@@ -1986,24 +2986,56 @@ export function ChatPanel({ selectedItem, onFolderAdd, organisationId }: ChatPan
         }
 
         const { getAllWorkspaces } = await import('@/lib/firestore');
-        const workspaces = await getAllWorkspaces();
-        const workspace = workspaces.find(w => w.id === workspaceId);
+        const workspaces = await getAllWorkspaces((selectedItem as any)?.organisationId || organisationId || undefined);
+        const workspace = workspaces.find(w => w.id === workspaceId) || ((selectedItem as any)?.type === 'workspace' ? (selectedItem as any) : null);
 
-        if (workspace && workspace.totalBeds && workspace.occupiedBeds !== undefined) {
-          const occupancyRate = workspace.totalBeds > 0 ? ((workspace.occupiedBeds / workspace.totalBeds) * 100).toFixed(1) : '0';
-          const availableBeds = workspace.totalBeds - workspace.occupiedBeds;
-          
-          const response = `🏥 **Bed Occupancy Information**\n\n` +
-            `**Total Beds:** ${workspace.totalBeds}\n` +
-            `**Occupied Beds:** ${workspace.occupiedBeds}\n` +
-            `**Available Beds:** ${availableBeds}\n` +
-            `**Occupancy Rate:** ${occupancyRate}%\n` +
-            `**Status:** ${parseFloat(occupancyRate) > 90 ? 'High' : parseFloat(occupancyRate) > 70 ? 'Moderate' : 'Low'} occupancy`;
-          
-          appendMessages({ sender: 'ai', text: response });
-        } else {
+        if (!workspace || workspace.totalBeds === undefined || workspace.occupiedBeds === undefined) {
           appendMessages({ sender: 'ai', text: 'No occupancy data available for this workspace.' });
+          setIsTyping(false);
+          return;
         }
+
+        const occupancyRate = workspace.totalBeds > 0 ? (workspace.occupiedBeds / workspace.totalBeds) * 100 : 0;
+        const availableBeds = workspace.totalBeds - workspace.occupiedBeds;
+        const status = occupancyRate > 90 ? 'high' : occupancyRate > 70 ? 'moderate' : 'low';
+
+        const summaryText =
+          `🏥 Occupancy overview for ${workspace.name || 'this workspace'}:\n` +
+          `Beds occupied ${workspace.occupiedBeds}/${workspace.totalBeds} (${occupancyRate.toFixed(1)}%). Available beds: ${availableBeds}. Overall status: ${status.toUpperCase()}.`;
+
+        const aiAnswer = await askAIWithWorkspaceData(
+          inputVal,
+          {
+            documentData: {
+              mode: 'occupancy_data',
+              workspace: {
+                id: workspace.id,
+                name: workspace.name || null,
+                region: (workspace as any).region || null,
+                workspaceGroup: (workspace as any).workspaceGroup || null,
+              },
+              totals: {
+                totalBeds: workspace.totalBeds,
+                occupiedBeds: workspace.occupiedBeds,
+                availableBeds,
+                occupancyRate: Number(occupancyRate.toFixed(2)),
+                status,
+              },
+              summaryText,
+            },
+            workspaceExtras: {
+              occupancyRate: Number(occupancyRate.toFixed(2)),
+              availableBeds,
+            },
+            extraContext: {
+              originalInput: intent.originalInput,
+              metricType: 'occupancy',
+            },
+          },
+          buildWorkspaceContext
+        );
+
+        appendMessages({ sender: 'ai', text: aiAnswer });
       } catch (error) {
         console.error('Error fetching occupancy data:', error);
         appendMessages({ sender: 'ai', text: 'Sorry, I couldn\'t fetch occupancy data. Please try again.' });
@@ -2321,24 +3353,78 @@ export function ChatPanel({ selectedItem, onFolderAdd, organisationId }: ChatPan
         const actionPlansQuery = query(actionPlansCol, orderBy('createdAt', 'desc'), limit(5));
         const snapshot = await getDocs(actionPlansQuery);
 
-        if (!snapshot.empty) {
-          let response = '📋 **Recent Action Plans**\n\n';
-          snapshot.docs.forEach((doc, index) => {
-            const data = doc.data() as any;
-            const monthKey = data.monthKey || 'Unknown';
-            const totalItems = data.totalItems || 0;
-            const completedItems = data.completedItems || 0;
-            const isComplete = data.isComplete || false;
-            const statusIcon = isComplete ? '✅' : '⏳';
-            
-            response += `${index + 1}. ${statusIcon} **${monthKey}**\n`;
-            response += `   Progress: ${completedItems}/${totalItems} items completed\n`;
-            response += `   Status: ${isComplete ? 'Complete' : 'In Progress'}\n\n`;
-          });
-          appendMessages({ sender: 'ai', text: response });
-        } else {
+        if (snapshot.empty) {
           appendMessages({ sender: 'ai', text: 'No action plans found in this workspace.' });
+          setIsTyping(false);
+          return;
         }
+
+        const plans = snapshot.docs.map((docSnap) => {
+          const data = docSnap.data() as any;
+          const items = Array.isArray(data.items) ? data.items.slice(0, 25) : undefined;
+          const normalizedItems = items?.map((item: any) => ({
+            id: item.id ?? null,
+            title: item.title ?? item.text ?? null,
+            status: item.status ?? null,
+            owner: item.owner ?? item.assignedTo ?? null,
+            dueDate: item.dueDate ?? null,
+            completedAt: item.completedAt ?? null,
+          }));
+          return {
+            id: docSnap.id,
+            monthKey: data.monthKey || 'Unknown',
+            totalItems: data.totalItems ?? (Array.isArray(items) ? items.length : 0),
+            completedItems: data.completedItems ?? (Array.isArray(items) ? items.filter((i: any) => i.status === 'complete').length : 0),
+            overdueItems: data.overdueItems ?? null,
+            isComplete: Boolean(data.isComplete),
+            summary: data.summary || null,
+            owner: data.ownerName || data.createdBy || null,
+            tags: Array.isArray(data.tags) ? data.tags.slice(0, 10) : undefined,
+            updatedAt: data.updatedAt || data.modifiedAt || null,
+            itemsPreview: normalizedItems,
+          };
+        });
+
+        const totalPlans = plans.length;
+        const completedPlans = plans.filter((plan) => plan.isComplete).length;
+        const inProgressPlans = totalPlans - completedPlans;
+        const totalItems = plans.reduce((acc, plan) => acc + (plan.totalItems || 0), 0);
+        const completedItems = plans.reduce((acc, plan) => acc + (plan.completedItems || 0), 0);
+        const outstandingItems = totalItems - completedItems;
+
+        let summaryText = '📋 Recent Action Plans\n\n';
+        summaryText += `Total plans reviewed: ${totalPlans}. Completed: ${completedPlans}. In progress: ${inProgressPlans}.\n`;
+        summaryText += `Across these plans there are ${totalItems} tracked items with ${outstandingItems} still outstanding.`;
+
+        const aiAnswer = await askAIWithWorkspaceData(
+          inputVal,
+          {
+            documentData: {
+              mode: 'action_plans_query',
+              plans,
+              metrics: {
+                totalPlans,
+                completedPlans,
+                inProgressPlans,
+                totalItems,
+                completedItems,
+                outstandingItems,
+              },
+              summaryText,
+            },
+            workspaceExtras: {
+              actionPlanCount: totalPlans,
+              outstandingActionItems: outstandingItems,
+            },
+            extraContext: {
+              originalInput: intent.originalInput,
+              resultScope: 'recent_action_plans',
+            },
+          },
+          buildWorkspaceContext
+        );
+
+        appendMessages({ sender: 'ai', text: aiAnswer });
       } catch (error) {
         console.error('Error fetching action plans:', error);
         appendMessages({ sender: 'ai', text: 'Sorry, I couldn\'t fetch the action plans information. Please try again.' });
@@ -2548,36 +3634,327 @@ export function ChatPanel({ selectedItem, onFolderAdd, organisationId }: ChatPan
           return;
         }
 
-        // Get current week's rota
+        // Get current week's rota (match app: week starts on Monday)
         const today = new Date();
+        // compute days since Monday (0..6)
+        const todayDay = today.getDay();
+        const daysSinceMonday = (todayDay + 6) % 7; // if today is Monday -> 0, Sunday -> 6
         const startOfWeek = new Date(today);
-        startOfWeek.setDate(today.getDate() - today.getDay()); // Start of week (Sunday)
-        const weekKey = startOfWeek.toISOString().split('T')[0];
+        startOfWeek.setHours(0, 0, 0, 0);
+        startOfWeek.setDate(today.getDate() - daysSinceMonday);
+
+        // Build local yyyy-mm-dd week key (use local date, not UTC iso) to match rotas storage
+        const localDateKey = (d: Date) => {
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, '0');
+          const dd = String(d.getDate()).padStart(2, '0');
+          return `${y}-${m}-${dd}`;
+        };
+        const weekKey = localDateKey(startOfWeek);
 
         const { doc, getDoc } = await import('firebase/firestore');
-        const rotaRef = doc(db, workspaceCollectionPath(workspaceId, 'rotas', orgId), weekKey);
+        const rotaCollectionPath = workspaceCollectionPath(workspaceId, 'rotas', orgId);
+        const rotaRef = doc(db, rotaCollectionPath, weekKey);
         const rotaSnap = await getDoc(rotaRef);
 
-        if (rotaSnap.exists()) {
-          const rotaData = rotaSnap.data() as any;
-          const shifts = rotaData.shifts || [];
-          const userShifts = shifts.filter((shift: any) => shift.staffId === userId);
-
-          if (userShifts.length > 0) {
-            let response = `📅 **Your Rota for Week of ${startOfWeek.toLocaleDateString()}**\n\n`;
-            userShifts.forEach((shift: any, index: number) => {
-              const date = new Date(shift.date).toLocaleDateString();
-              const timeRange = shift.startTime && shift.endTime ? `${shift.startTime} - ${shift.endTime}` : 'Time TBC';
-              const type = shift.type || 'Regular';
-              response += `${index + 1}. **${date}**: ${timeRange} (${type})\n`;
-            });
-            appendMessages({ sender: 'ai', text: response });
-          } else {
-            appendMessages({ sender: 'ai', text: 'No shifts found for you in the current week.' });
-          }
-        } else {
+        if (!rotaSnap.exists()) {
           appendMessages({ sender: 'ai', text: 'No rota data found for the current week.' });
+          // Debug helper: show which document path was checked so we can verify alignment with the UI
+          appendMessages({ sender: 'ai', text: `Checked rota document path: ${rotaCollectionPath}/${weekKey}` });
+          setIsTyping(false);
+          return;
         }
+
+        const rotaData = rotaSnap.data() as any;
+        const shifts: any[] = Array.isArray(rotaData?.shifts) ? rotaData.shifts : [];
+
+        if (shifts.length === 0) {
+          appendMessages({ sender: 'ai', text: 'No scheduled shifts were found for this week.' });
+          setIsTyping(false);
+          return;
+        }
+
+        const weekEnd = new Date(startOfWeek);
+        weekEnd.setDate(startOfWeek.getDate() + 6);
+        const weekLabel = formatDateSafe(startOfWeek) || startOfWeek.toLocaleDateString();
+        const weekEndLabel = formatDateSafe(weekEnd) || weekEnd.toLocaleDateString();
+        const weekRangeLabel = `${weekLabel} – ${weekEndLabel}`;
+
+        const normalizeName = (value?: string | null) =>
+          typeof value === 'string' ? value.trim() : undefined;
+
+        const normalizedShifts: NormalizedShift[] = shifts.slice(0, 120).map((shift) => {
+          let resolvedDate: Date | null = null;
+          const rawDate = shift.date ?? shift.day ?? shift.dayKey ?? null;
+          if (rawDate instanceof Date) {
+            resolvedDate = rawDate;
+          } else if (rawDate && typeof rawDate === 'object' && typeof rawDate?.toDate === 'function') {
+            try {
+              const tsDate = rawDate.toDate();
+              if (tsDate && !Number.isNaN(tsDate.getTime())) resolvedDate = tsDate;
+            } catch (err) {}
+          } else if (typeof rawDate === 'number') {
+            const numDate = new Date(rawDate);
+            if (!Number.isNaN(numDate.getTime())) resolvedDate = numDate;
+          } else if (typeof rawDate === 'string' && rawDate.trim().length > 0) {
+            const strDate = new Date(rawDate);
+            if (!Number.isNaN(strDate.getTime())) resolvedDate = strDate;
+          }
+
+          const parsedLegacy = !resolvedDate && shift.dayKey && typeof shift.dayKey === 'string'
+            ? new Date(shift.dayKey)
+            : null;
+          if (!resolvedDate && parsedLegacy && !Number.isNaN(parsedLegacy.getTime())) {
+            resolvedDate = parsedLegacy;
+          }
+
+          const validDate = resolvedDate && !Number.isNaN(resolvedDate.getTime()) ? resolvedDate : null;
+          const isoDate = validDate ? validDate.toISOString().split('T')[0] : (typeof shift.dayKey === 'string' ? shift.dayKey : null);
+          const dayName = validDate
+            ? validDate.toLocaleDateString('en-GB', { weekday: 'long' })
+            : 'Unscheduled';
+          const dayNumber = validDate ? validDate.getDay() : -1;
+          const displayDate = validDate
+            ? validDate.toLocaleDateString('en-GB', { weekday: 'short', month: 'short', day: 'numeric' })
+            : (typeof shift.displayDate === 'string' && shift.displayDate.length > 0
+                ? shift.displayDate
+                : typeof shift.date === 'string'
+                  ? shift.date
+                  : 'Date not set');
+
+          return {
+            id: shift.id ?? null,
+            staffId: shift.staffId ?? null,
+            staffName: normalizeName(
+              shift.staffName ||
+              shift.staffFullName ||
+              shift.staffDisplayName ||
+              shift.staff ||
+              shift.staffEmail ||
+              shift.userName ||
+              (typeof shift.staff === 'object' ? shift.staff?.name : undefined) ||
+              (typeof shift.user === 'object' ? shift.user?.name : undefined)
+            ) || null,
+            role: shift.role || shift.staffRole || null,
+            type: shift.type || shift.shiftType || shift.category || null,
+            location: shift.location || shift.unit || shift.floor || shift.area || null,
+            date: typeof shift.date === 'string' ? shift.date : isoDate,
+            dayKey: isoDate,
+            dayName,
+            dayNumber,
+            displayDate,
+            startTime: shift.startTime || shift.start || shift.start_time || null,
+            endTime: shift.endTime || shift.end || shift.end_time || null,
+            notes: shift.notes || shift.comment || shift.description || null,
+          };
+        });
+
+        const userIdentifiers = new Set(
+          [user?.id, user?.email, user?.name]
+            .filter(Boolean)
+            .map((val) => String(val).trim().toLowerCase())
+        );
+
+        const normalizedUserShifts = normalizedShifts.filter((shift) => {
+          if (!shift) return false;
+          if (shift.staffId && userIdentifiers.has(String(shift.staffId).toLowerCase())) return true;
+          if (!shift.staffName) return false;
+          const lower = shift.staffName.toLowerCase();
+          for (const ident of userIdentifiers) {
+            if (!ident) continue;
+            if (lower === ident || lower.includes(ident)) return true;
+          }
+          return false;
+        });
+
+        const shiftsByDay: Record<string, RotaDaySummary> = {};
+        const roleCounts: Record<string, number> = {};
+        const typeCounts: Record<string, number> = {};
+        const staffMap: Record<string, { name: string; shifts: NormalizedShift[]; variants: string[] }> = {};
+
+        normalizedShifts.forEach((shift) => {
+          if (!shift) return;
+
+          const staffName = (shift.staffName || 'Unassigned').trim();
+          const staffKey = staffName.toLowerCase();
+          if (!staffMap[staffKey]) {
+            const nameParts = staffName.split(/\s+/).filter((part) => part.length > 2);
+            const variants = new Set<string>([staffKey]);
+            nameParts.forEach((part) => variants.add(part.toLowerCase()));
+            staffMap[staffKey] = {
+              name: staffName,
+              shifts: [],
+              variants: Array.from(variants),
+            };
+          }
+          staffMap[staffKey].shifts.push(shift);
+
+          const dayKey = shift.dayKey || 'unscheduled';
+          if (!shiftsByDay[dayKey]) {
+            shiftsByDay[dayKey] = {
+              dayKey,
+              dayName: shift.dayName,
+              dayNumber: shift.dayNumber,
+              displayDate: shift.displayDate,
+              total: 0,
+              roles: {},
+              types: {},
+              staff: [],
+              shifts: [],
+            };
+          }
+
+          const daySummary = shiftsByDay[dayKey];
+          daySummary.total += 1;
+          daySummary.shifts.push(shift);
+
+          if (staffName && !daySummary.staff.includes(staffName)) {
+            daySummary.staff.push(staffName);
+          }
+
+          if (shift.role) {
+            daySummary.roles[shift.role] = (daySummary.roles[shift.role] || 0) + 1;
+            roleCounts[shift.role] = (roleCounts[shift.role] || 0) + 1;
+          }
+
+          if (shift.type) {
+            daySummary.types[shift.type] = (daySummary.types[shift.type] || 0) + 1;
+            typeCounts[shift.type] = (typeCounts[shift.type] || 0) + 1;
+          }
+        });
+
+        let summaryText = `📅 Rota overview for ${weekLabel} to ${weekEndLabel}\n\n`;
+        if (normalizedUserShifts.length > 0) {
+          summaryText += `You have ${normalizedUserShifts.length} shift(s) scheduled this week.`;
+        } else {
+          summaryText += 'No personal shifts were found for this account. Showing workspace coverage overview instead.';
+        }
+
+        const quickAnswer = buildRotaQuickAnswer({
+          question: intent.originalInput ?? inputVal,
+          normalizedShifts,
+          normalizedUserShifts,
+          roleCounts,
+          typeCounts,
+          daySummaries: shiftsByDay,
+          staffMap,
+          weekRangeLabel,
+        });
+
+        if (quickAnswer) {
+          appendMessages({ sender: 'ai', text: quickAnswer });
+          setIsTyping(false);
+          return;
+        }
+
+        // If user asked about shortages/requirements, perform a dependency-gap check using server dependency-trends
+        const shortageHint = /(shortage|understaff|short-staff|under-staffed|requirement|recommended|need|should|gap|shortfall)/i;
+        const wantsGapAnalysis = shortageHint.test((intent.originalInput || inputVal) as string);
+        if (wantsGapAnalysis) {
+          try {
+            // get id token for auth
+            const currentUser = auth.currentUser as any;
+            const idToken = currentUser ? await currentUser.getIdToken() : null;
+            if (!idToken) {
+              appendMessages({ sender: 'ai', text: 'I need you to be signed in to check staffing requirements.' });
+              setIsTyping(false);
+              return;
+            }
+
+            const dtUrl = `/api/workspaces/${workspaceId}/dependency-trends${orgId ? `?orgId=${encodeURIComponent(orgId)}` : ''}`;
+            const dtRes = await fetch(dtUrl, { headers: { Authorization: `Bearer ${idToken}` } });
+            if (!dtRes.ok) {
+              appendMessages({ sender: 'ai', text: `Could not fetch dependency recommendations (${dtRes.status}). Falling back to a basic summary.` });
+              setIsTyping(false);
+              return;
+            }
+            const dtJson = await dtRes.json();
+            const latest = dtJson?.latest;
+            if (!latest || !latest.staffing) {
+              appendMessages({ sender: 'ai', text: `No dependency recommendations available to compare. I can still summarise scheduled staff if that helps.` });
+              setIsTyping(false);
+              return;
+            }
+
+            // Build per-day scheduled carers/nurses
+            const perDay: Record<string, { carers: number; nurses: number; total: number; dayName: string }> = {};
+            for (const [dayKey, summary] of Object.entries(shiftsByDay)) {
+              const carers = Object.entries(summary.roles || {}).reduce((sum, [r, c]) => sum + (/(carer|care|support)/i.test(r) ? c : 0), 0);
+              const nurses = Object.entries(summary.roles || {}).reduce((sum, [r, c]) => sum + (/(nurse|rgn|registered)/i.test(r) ? c : 0), 0);
+              perDay[dayKey] = { carers, nurses, total: summary.total, dayName: summary.dayName };
+            }
+
+            const recDayCarers = Number(latest.staffing?.day?.carers ?? 0);
+            const recDayNurses = Number(latest.staffing?.day?.ns ?? 0);
+            const recNightCarers = Number(latest.staffing?.night?.carers ?? 0);
+            const recNightNurses = Number(latest.staffing?.night?.ns ?? 0);
+
+            const shortages: string[] = [];
+            for (const [dayKey, vals] of Object.entries(perDay)) {
+              // For simplicity compare day vs recommended day and night vs recommended night using counts from summary.types if available
+              const dayCarersScheduled = vals.carers; // coarse
+              const dayNursesScheduled = vals.nurses;
+
+              if (dayCarersScheduled < recDayCarers) {
+                shortages.push(`${vals.dayName}: carers short by ${recDayCarers - dayCarersScheduled}`);
+              }
+              if (dayNursesScheduled < recDayNurses) {
+                shortages.push(`${vals.dayName}: nurses short by ${recDayNurses - dayNursesScheduled}`);
+              }
+            }
+
+            if (shortages.length === 0) {
+              appendMessages({ sender: 'ai', text: `Based on the latest dependency recommendations, this rota meets recommended staffing levels for the week (${weekRangeLabel}).` });
+            } else {
+              appendMessages({ sender: 'ai', text: `Staffing gaps detected for ${weekRangeLabel}:
+${shortages.map(s => `- ${s}`).join('\n')}
+
+I used the latest dependency recommendation (day carers ${recDayCarers}, day nurses ${recDayNurses}). I can propose extra shifts to close these gaps if you'd like.` });
+            }
+            setIsTyping(false);
+            return;
+          } catch (err) {
+            console.error('Dependency gap check failed:', err);
+            appendMessages({ sender: 'ai', text: 'Could not complete dependency gap analysis — try again or ask me to run a summary.' });
+            setIsTyping(false);
+            return;
+          }
+        }
+
+        const aiAnswer = await askAIWithWorkspaceData(
+          inputVal,
+          {
+            documentData: {
+              mode: 'rota_query',
+              variant: normalizedUserShifts.length > 0 ? 'user_specific' : 'workspace_overview',
+              week: {
+                start: startOfWeek.toISOString(),
+                end: weekEnd.toISOString(),
+                label: `Week of ${weekLabel}`,
+              },
+              totalShifts: normalizedShifts.length,
+              userShifts: normalizedUserShifts,
+              coverageByDay: shiftsByDay,
+              roleCounts,
+              typeCounts,
+              allShiftsPreview: normalizedShifts,
+              summaryText,
+            },
+            workspaceExtras: {
+              rotaWeekStart: weekKey,
+              rotaTotalShifts: normalizedShifts.length,
+              rotaUserShiftCount: normalizedUserShifts.length,
+            },
+            extraContext: {
+              originalInput: intent.originalInput,
+              weekKey,
+              queryVariant: normalizedUserShifts.length > 0 ? 'user_specific' : 'workspace_overview',
+            },
+          },
+          buildWorkspaceContext
+        );
+
+        appendMessages({ sender: 'ai', text: aiAnswer });
       } catch (error) {
         console.error('Error fetching rotas:', error);
         appendMessages({ sender: 'ai', text: 'Sorry, I couldn\'t fetch the rota information. Please try again.' });
@@ -2731,9 +4108,20 @@ export function ChatPanel({ selectedItem, onFolderAdd, organisationId }: ChatPan
       // current selected document is the intended target. Only use the
       // selectedItem document when the intent is NOT a document/file search.
       if (!usedContextDoc && selectedItem.type === 'document' && intent.type !== 'document_search' && intent.type !== 'file_search') {
+        const workspaceContextStr = buildWorkspaceContext({ entryPoint: 'selected_document' });
+        const relatedDocumentsStr = serializeForAI([documentToAiContext(selectedItem)]);
+        const extraContextStr = serializeForAI({
+          source: 'selected_document_chat',
+          createdAt: selectedItem.createdAt,
+          renewalDate: (selectedItem as any)?.renewalDate ?? null,
+        });
+
         result = await chatWithDocuments({
           query: userInput,
           documentJson: JSON.stringify(selectedItem.extractedJson || {}),
+          workspaceContext: workspaceContextStr,
+          relatedDocumentsJson: relatedDocumentsStr,
+          extraContext: extraContextStr,
         });
 
         const createdDate = formatDateSafe(selectedItem.createdAt);
@@ -2755,9 +4143,22 @@ export function ChatPanel({ selectedItem, onFolderAdd, organisationId }: ChatPan
       // If selectedItem is a folder and no specific document context, use folder chat
       if (!usedContextDoc && selectedItem.type === 'folder' && intent.type === 'general_query') {
         try {
+          const folderDocs = getAllDocuments([selectedItem]);
+          const workspaceContextStr = buildWorkspaceContext({
+            entryPoint: 'folder_general_query',
+            folderId: (selectedItem as any)?.id ?? null,
+            folderName: (selectedItem as any)?.name ?? null,
+            documentCount: folderDocs.length,
+          });
+          const extraContextStr = serializeForAI({
+            query: userInput,
+            folderId: (selectedItem as any)?.id ?? null,
+          });
           result = await chatWithFolder({
             query: userInput,
-            documentsJson: JSON.stringify(getAllDocuments([selectedItem])),
+            documentsJson: JSON.stringify(folderDocs),
+            workspaceContext: workspaceContextStr,
+            extraContext: extraContextStr,
           });
           appendMessages({ sender: 'ai', text: result.answer });
           setIsTyping(false);
@@ -2773,9 +4174,22 @@ export function ChatPanel({ selectedItem, onFolderAdd, organisationId }: ChatPan
 
       if ((activeDoc && !shouldSearchNewDocument) || usedContextDoc) {
         const docToUse = usedContextDoc || activeDoc;
+        const workspaceContextStr = buildWorkspaceContext({
+          entryPoint: usedContextDoc ? 'follow_up_document' : 'active_document',
+          referenceDocumentId: docToUse?.id ?? null,
+        });
+        const relatedDocumentsStr = serializeForAI(docToUse ? [documentToAiContext(docToUse)] : []);
+        const extraContextStr = serializeForAI({
+          source: usedContextDoc ? 'follow_up' : 'active_document',
+          query: userInput,
+        });
+
         result = await chatWithDocuments({
           query: userInput,
           documentJson: JSON.stringify(docToUse?.extractedJson || {}),
+          workspaceContext: workspaceContextStr,
+          relatedDocumentsJson: relatedDocumentsStr,
+          extraContext: extraContextStr,
         });
 
         const activeCreated = formatDateSafe(docToUse?.createdAt);
@@ -2849,7 +4263,24 @@ export function ChatPanel({ selectedItem, onFolderAdd, organisationId }: ChatPan
           return;
         }
 
-        result = await chatWithDocuments({ query: userInput, documentJson: JSON.stringify(bestDoc.extractedJson || {}) });
+        const workspaceContextStr = buildWorkspaceContext({
+          entryPoint: 'client_search',
+          searchSource: 'client',
+          clientResultCount: clientResults.length,
+        });
+        const relatedDocumentsStr = serializeForAI(clientResults.slice(0, 5).map(documentToAiContext));
+        const extraContextStr = serializeForAI({
+          searchTerm: searchQuery,
+          matchedDocumentId: bestDoc.id,
+        });
+
+        result = await chatWithDocuments({
+          query: userInput,
+          documentJson: JSON.stringify(bestDoc.extractedJson || {}),
+          workspaceContext: workspaceContextStr,
+          relatedDocumentsJson: relatedDocumentsStr,
+          extraContext: extraContextStr,
+        });
         const documentCard = {
           id: bestDoc.id,
           name: bestDoc.name,
@@ -2926,7 +4357,28 @@ export function ChatPanel({ selectedItem, onFolderAdd, organisationId }: ChatPan
         return;
       }
 
-      result = await chatWithDocuments({ query: userInput, documentJson: JSON.stringify(bestDoc.extractedJson || {}) });
+      const workspaceContextStr = buildWorkspaceContext({
+        entryPoint: 'server_search',
+        searchSource: 'server',
+        totalMatches: Array.isArray(results) ? results.length : undefined,
+      });
+      const relatedDocumentsStr = serializeForAI(
+        Array.isArray(results)
+          ? (results as Document[]).slice(0, 5).map((doc) => documentToAiContext(doc))
+          : []
+      );
+      const extraContextStr = serializeForAI({
+        searchTerm: searchQuery,
+        matchedDocumentId: bestDoc.id,
+      });
+
+      result = await chatWithDocuments({
+        query: userInput,
+        documentJson: JSON.stringify(bestDoc.extractedJson || {}),
+        workspaceContext: workspaceContextStr,
+        relatedDocumentsJson: relatedDocumentsStr,
+        extraContext: extraContextStr,
+      });
 
       // If the user explicitly asked to open the document we navigate; otherwise only highlight
       if (typeof window !== 'undefined' && window.dispatchEvent) {

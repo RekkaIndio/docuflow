@@ -9,6 +9,7 @@
  */
 
 import {ai} from '@/ai/genkit';
+import { generateOpenAIAnswer, isOpenAIEnabled } from '@/ai/openai-utils';
 import {z} from 'genkit';
 
 
@@ -41,6 +42,9 @@ const ChatWithDocumentsInputSchema = z.object({
   documentJson: z.string().optional(),
   documentId: z.string().optional(),
   workspaceId: z.string().optional(),
+  workspaceContext: z.string().optional(),
+  extraContext: z.string().optional(),
+  relatedDocumentsJson: z.string().optional(),
 });
 export type ChatWithDocumentsInput = z.infer<typeof ChatWithDocumentsInputSchema>;
 
@@ -111,7 +115,61 @@ export async function chatWithDocuments(input: ChatWithDocumentsInput): Promise<
     }
   }
 
+  if (isOpenAIEnabled()) {
+    try {
+      return await chatWithDocumentsOpenAI(input);
+    } catch (err) {
+      console.warn('OpenAI chatWithDocuments failed, falling back to Genkit prompt.', err);
+    }
+  }
+
   return chatWithDocumentsFlow(input as any);
+}
+
+const parseJson = (value?: string) => {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return trimmed;
+  }
+};
+
+async function chatWithDocumentsOpenAI(input: ChatWithDocumentsInput): Promise<ChatWithDocumentsOutput> {
+  const contextSections = [
+    {
+      title: 'Document metadata',
+      payload: {
+        documentId: input.documentId ?? null,
+        workspaceId: input.workspaceId ?? null,
+      },
+    },
+    {
+      title: 'Primary document content',
+      payload: parseJson(input.documentJson),
+    },
+    {
+      title: 'Related documents',
+      payload: parseJson(input.relatedDocumentsJson),
+    },
+    {
+      title: 'Workspace context',
+      payload: parseJson(input.workspaceContext),
+    },
+    {
+      title: 'Additional context',
+      payload: parseJson(input.extraContext),
+    },
+  ];
+
+  const { answer } = await generateOpenAIAnswer({
+    query: input.query,
+    contextSections,
+  });
+
+  return { answer };
 }
 
 const prompt = ai.definePrompt({
@@ -120,6 +178,15 @@ const prompt = ai.definePrompt({
   output: {schema: ChatWithDocumentsOutputSchema},
   tools: [webSearch],
   prompt: `You are a helpful document assistant. First, use the provided document content to answer the user's question. If the document doesn't contain the answer, you can use the webSearch tool to find relevant information from the internet.
+
+Workspace Context:
+{{{workspaceContext}}}
+
+Related Documents:
+{{{relatedDocumentsJson}}}
+
+Additional Context:
+{{{extraContext}}}
 
 Document Content:
 {{{documentJson}}}
