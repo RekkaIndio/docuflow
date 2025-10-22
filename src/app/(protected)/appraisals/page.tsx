@@ -1292,46 +1292,46 @@ export default function AppraisalsPage() {
             </div>
           )}
           {currentView === 'senior-carer-supervision' && (
-            <div><button onClick={handleBackToAppraisals} className="mb-4 p-2 text-primary hover:text-primary/80">← Back to Appraisals</button><SeniorCarerSupervisionForm onSave={handleFormSave} workspaceId={workspace?.id} /></div>
+            <div className="w-full"><button onClick={handleBackToAppraisals} className="mb-4 p-2 text-primary hover:text-primary/80">← Back to Appraisals</button><SeniorCarerSupervisionForm onSave={handleFormSave} workspaceId={workspace?.id} /></div>
           )}
           {currentView === 'reception-supervision' && (
-            <div><button onClick={handleBackToAppraisals} className="mb-4 p-2 text-primary hover:text-primary/80">← Back to Appraisals</button><ReceptionSupervisionForm onSave={handleFormSave} workspaceId={workspace?.id} /></div>
+            <div className="w-full"><button onClick={handleBackToAppraisals} className="mb-4 p-2 text-primary hover:text-primary/80">← Back to Appraisals</button><ReceptionSupervisionForm onSave={handleFormSave} workspaceId={workspace?.id} /></div>
           )}
           {currentView === 'nurses-supervision' && (
-            <div><button onClick={handleBackToAppraisals} className="mb-4 p-2 text-primary hover:text-primary/80">← Back to Appraisals</button><NursesSupervisionForm onSave={handleFormSave} workspaceId={workspace?.id} /></div>
+            <div className="w-full"><button onClick={handleBackToAppraisals} className="mb-4 p-2 text-primary hover:text-primary/80">← Back to Appraisals</button><NursesSupervisionForm onSave={handleFormSave} workspaceId={workspace?.id} /></div>
           )}
           {currentView === 'maintenence-person-supervision' && (
-            <div><button onClick={handleBackToAppraisals} className="mb-4 p-2 text-primary hover:text-primary/80">← Back to Appraisals</button><MaintenencePersonSupervisionForm onSave={handleFormSave} workspaceId={workspace?.id} /></div>
+            <div className="w-full"><button onClick={handleBackToAppraisals} className="mb-4 p-2 text-primary hover:text-primary/80">← Back to Appraisals</button><MaintenencePersonSupervisionForm onSave={handleFormSave} workspaceId={workspace?.id} /></div>
           )}
           {currentView === 'kitchen-assistant-supervision' && (
-            <div><button onClick={handleBackToAppraisals} className="mb-4 p-2 text-primary hover:text-primary/80">← Back to Appraisals</button><KitchenAssistantSupervisionForm onSave={handleFormSave} workspaceId={workspace?.id} /></div>
+            <div className="w-full"><button onClick={handleBackToAppraisals} className="mb-4 p-2 text-primary hover:text-primary/80">← Back to Appraisals</button><KitchenAssistantSupervisionForm onSave={handleFormSave} workspaceId={workspace?.id} /></div>
           )}
           {currentView === 'housekeeping-supervision' && (
-            <div><button onClick={handleBackToAppraisals} className="mb-4 p-2 text-primary hover:text-primary/80">← Back to Appraisals</button><HousekeepingSupervisionForm onSave={handleFormSave} workspaceId={workspace?.id} /></div>
+            <div className="w-full"><button onClick={handleBackToAppraisals} className="mb-4 p-2 text-primary hover:text-primary/80">← Back to Appraisals</button><HousekeepingSupervisionForm onSave={handleFormSave} workspaceId={workspace?.id} /></div>
           )}
           {currentView === 'domestic-staff-supervision' && (
-            <div><button onClick={handleBackToAppraisals} className="mb-4 p-2 text-primary hover:text-primary/80">← Back to Appraisals</button><DomesticStaffSupervisionForm onSave={handleFormSave} workspaceId={workspace?.id} /></div>
+            <div className="w-full"><button onClick={handleBackToAppraisals} className="mb-4 p-2 text-primary hover:text-primary/80">← Back to Appraisals</button><DomesticStaffSupervisionForm onSave={handleFormSave} workspaceId={workspace?.id} /></div>
           )}
           {currentView === 'deputy-supervision' && (
-            <div><button onClick={handleBackToAppraisals} className="mb-4 p-2 text-primary hover:text-primary/80">← Back to Appraisals</button><DeputySupervisionForm onSave={handleFormSave} workspaceId={workspace?.id} /></div>
+            <div className="w-full"><button onClick={handleBackToAppraisals} className="mb-4 p-2 text-primary hover:text-primary/80">← Back to Appraisals</button><DeputySupervisionForm onSave={handleFormSave} workspaceId={workspace?.id} /></div>
           )}
           {currentView === 'chef-supervision' && (
-            <div><button onClick={handleBackToAppraisals} className="mb-4 p-2 text-primary hover:text-primary/80">← Back to Appraisals</button><ChefSupervisionForm onSave={handleFormSave} workspaceId={workspace?.id} /></div>
+            <div className="w-full"><button onClick={handleBackToAppraisals} className="mb-4 p-2 text-primary hover:text-primary/80">← Back to Appraisals</button><ChefSupervisionForm onSave={handleFormSave} workspaceId={workspace?.id} /></div>
           )}
           {currentView === 'clinical-lead-supervision' && (
-            <div><button onClick={handleBackToAppraisals} className="mb-4 p-2 text-primary hover:text-primary/80">← Back to Appraisals</button><ClinicalLeadSupervisionForm onSave={handleFormSave} workspaceId={workspace?.id} /></div>
+            <div className="w-full"><button onClick={handleBackToAppraisals} className="mb-4 p-2 text-primary hover:text-primary/80">← Back to Appraisals</button><ClinicalLeadSupervisionForm onSave={handleFormSave} workspaceId={workspace?.id} /></div>
           )}
           {currentView === 'activities-supervision' && (
-            <div><button onClick={handleBackToAppraisals} className="mb-4 p-2 text-primary hover:text-primary/80">← Back to Appraisals</button><ActivitiesSupervisionForm onSave={handleFormSave} workspaceId={workspace?.id} /></div>
+            <div className="w-full"><button onClick={handleBackToAppraisals} className="mb-4 p-2 text-primary hover:text-primary/80">← Back to Appraisals</button><ActivitiesSupervisionForm onSave={handleFormSave} workspaceId={workspace?.id} /></div>
           )}
           {currentView === 'admin-supervision' && (
-            <div><button onClick={handleBackToAppraisals} className="mb-4 p-2 text-primary hover:text-primary/80">← Back to Appraisals</button><AdminSupervisionForm onSave={handleFormSave} workspaceId={workspace?.id} /></div>
+            <div className="w-full"><button onClick={handleBackToAppraisals} className="mb-4 p-2 text-primary hover:text-primary/80">← Back to Appraisals</button><AdminSupervisionForm onSave={handleFormSave} workspaceId={workspace?.id} /></div>
           )}
           {currentView === 'staff-appraisal' && (
-            <div><button onClick={handleBackToAppraisals} className="mb-4 p-2 text-primary hover:text-primary/80">← Back to Appraisals</button><StaffAppraisalForm onSave={handleFormSave} workspaceId={workspace?.id} /></div>
+            <div className="w-full"><button onClick={handleBackToAppraisals} className="mb-4 p-2 text-primary hover:text-primary/80">← Back to Appraisals</button><StaffAppraisalForm onSave={handleFormSave} workspaceId={workspace?.id} /></div>
           )}
           {currentView === 'carers-supervision' && (
-            <div><button onClick={handleBackToAppraisals} className="mb-4 p-2 text-primary hover:text-primary/80">← Back to Appraisals</button><CarersSupervisionForm onSave={handleFormSave} workspaceId={workspace?.id} /></div>
+            <div className="w-full"><button onClick={handleBackToAppraisals} className="mb-4 p-2 text-primary hover:text-primary/80">← Back to Appraisals</button><CarersSupervisionForm onSave={handleFormSave} workspaceId={workspace?.id} /></div>
           )}
         </div>
       </TabsContent>

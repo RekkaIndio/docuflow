@@ -288,7 +288,7 @@ export default function AuditHistoryPage() {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-16 py-8">
+      <div className="w-full max-w-none px-4 sm:px-8 lg:px-16 py-8">
         {Object.keys(completedByType).length === 0 ? (
           <div className="text-center py-16">
             <div className="w-20 h-20 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center mx-auto mb-6">

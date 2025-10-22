@@ -10,6 +10,7 @@ import { TrendingUp, TrendingDown, Minus, FileText, Shield, Wrench, Lock, Flame,
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Area, AreaChart, RadialBarChart, RadialBar, Legend } from 'recharts';
 import PageHeader from '../page-header';
+import { AUDIT_TYPES, AUDIT_DISPLAY_NAMES, type AuditType } from '@/lib/audit-types';
 import { Badge } from '@/components/ui/badge';
 
 export function StatsView({ workspaceId, organisationId }: { workspaceId?: string, organisationId?: string }) {
@@ -94,6 +95,8 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
   });
 
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  // Raw latest audit scores snapshot (keys are audit keys like 'care-plan')
+  const [latestScores, setLatestScores] = useState<Record<string, any>>({});
 
   useEffect(() => {
     if (!workspaceId) return;
@@ -105,6 +108,8 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
       const docRef = doc(collection(db, workspaceCollectionPath(workspaceId, 'settings', organisationId)), 'audit_latest_scores');
       const unsub = onSnapshot(docRef, (snap) => {
         const data: any = snap.exists() ? snap.data() : {};
+        // keep raw snapshot so we can render all audits dynamically
+        setLatestScores(data || {});
         // DEV DEBUG: attach raw snapshot to window so developers can inspect in console
         try { (window as any).__DEBUG_audit_latest_scores = data; } catch (e) {}
           const cp = data['care-plan'] ?? null;
@@ -526,44 +531,30 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
   };
 
   const calculateOverallStats = () => {
-    const scores = [
-      { score: carePlanScore, yesCount: carePlanYesCount, totalCount: carePlanTotalCount },
-      { score: hsScore, yesCount: hsYesCount, totalCount: hsTotalCount },
-      { score: maintenanceScore, yesCount: maintenanceYesCount, totalCount: maintenanceTotalCount },
-      { score: restrictiveScore, yesCount: restrictiveYesCount, totalCount: restrictiveTotalCount },
-      { score: fireScore, yesCount: fireYesCount, totalCount: fireTotalCount },
-      { score: infectionScore, yesCount: infectionYesCount, totalCount: infectionTotalCount },
-      { score: mealtimeScore, yesCount: mealtimeYesCount, totalCount: mealtimeTotalCount },
-      { score: nightScore, yesCount: nightYesCount, totalCount: nightTotalCount },
-      { score: staffFileScore, yesCount: staffFileYesCount, totalCount: staffFileTotalCount },
-      { score: kitchenScore, yesCount: kitchenYesCount, totalCount: kitchenTotalCount },
-      { score: fallsScore, yesCount: fallsYesCount, totalCount: fallsTotalCount }
-    ];
+    // Use AUDIT_TYPES to determine expected audits and use latestScores map for values
+    const auditKeys = (Array.isArray(AUDIT_TYPES) ? AUDIT_TYPES : []) as AuditType[];
 
-    const validScores = scores.filter(item =>
-      item.score !== null && item.yesCount !== null && item.totalCount !== null
-    );
+    let totalYesCount = 0;
+    let totalQuestions = 0;
+    let completed = 0;
 
-    if (validScores.length === 0) {
-      return {
-        totalYesCount: 0,
-        totalQuestions: 0,
-        overallPercentage: null,
-        auditsCompleted: 0,
-        totalAudits: 11
-      };
-    }
+    auditKeys.forEach((key: AuditType) => {
+      const item = latestScores?.[key as any];
+      if (item && typeof item.yesCount === 'number' && typeof item.totalCount === 'number') {
+        totalYesCount += item.yesCount;
+        totalQuestions += item.totalCount;
+        completed++;
+      }
+    });
 
-    const totalYesCount = validScores.reduce((sum, item) => sum + item.yesCount!, 0);
-    const totalQuestions = validScores.reduce((sum, item) => sum + item.totalCount!, 0);
     const overallPercentage = totalQuestions > 0 ? Math.round((totalYesCount / totalQuestions) * 100) : null;
 
     return {
       totalYesCount,
       totalQuestions,
       overallPercentage,
-      auditsCompleted: validScores.length,
-      totalAudits: 11
+      auditsCompleted: completed,
+      totalAudits: auditKeys.length || 0
     };
   };
 
@@ -604,41 +595,21 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
 
   // Helper functions for charts and data
   const getAuditChartData = () => {
-    const audits = [
-      { name: 'Care Plan', score: carePlanScore },
-      { name: 'Health & Safety', score: hsScore },
-      { name: 'Maintenance', score: maintenanceScore },
-      { name: 'Restrictive Practice', score: restrictiveScore },
-      { name: 'Fire Safety', score: fireScore },
-      { name: 'Infection Control', score: infectionScore },
-      { name: 'Mealtime', score: mealtimeScore },
-      { name: 'Night Visit', score: nightScore },
-      { name: 'Staff File', score: staffFileScore },
-      { name: 'Kitchen', score: kitchenScore },
-      { name: 'Falls Prevention', score: fallsScore }
-    ];
-    return audits.filter(audit => audit.score !== null);
+    return ((Array.isArray(AUDIT_TYPES) ? AUDIT_TYPES : []) as AuditType[])
+      .map((key: AuditType) => ({ name: AUDIT_DISPLAY_NAMES[key] || key, score: latestScores?.[key as any]?.scorePercent ?? null }))
+      .filter(a => a.score !== null);
   };
 
   const getAuditStatusData = () => {
-    const audits = [
-      { key: 'care-plan', name: 'Care Plan', score: carePlanScore },
-      { key: 'health-safety', name: 'Health & Safety', score: hsScore },
-      { key: 'maintenance', name: 'Maintenance', score: maintenanceScore },
-      { key: 'restrictive-practice', name: 'Restrictive Practice', score: restrictiveScore },
-      { key: 'fire-safety', name: 'Fire Safety', score: fireScore },
-      { key: 'infection-control', name: 'Infection Control', score: infectionScore },
-      { key: 'mealtime', name: 'Mealtime', score: mealtimeScore },
-      { key: 'night-visit', name: 'Night Visit', score: nightScore },
-      { key: 'staff-file', name: 'Staff File', score: staffFileScore },
-      { key: 'kitchen', name: 'Kitchen', score: kitchenScore },
-      { key: 'falls', name: 'Falls Prevention', score: fallsScore }
-    ];
-
-    return audits.map(audit => ({
-      ...audit,
-      status: audit.score === null ? 'pending' : audit.score >= 80 ? 'completed' : 'in-progress'
-    }));
+    return ((Array.isArray(AUDIT_TYPES) ? AUDIT_TYPES : []) as AuditType[]).map((key: AuditType) => {
+      const score = latestScores?.[key as any]?.scorePercent ?? null;
+      return {
+        key,
+        name: AUDIT_DISPLAY_NAMES[key] || key,
+        score,
+        status: score === null ? 'pending' : score >= 80 ? 'completed' : 'in-progress'
+      };
+    });
   };
 
   const getTrendSummary = () => {
@@ -661,155 +632,80 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
   };
 
   const getDetailedAuditCards = () => {
-    const audits = [
-      {
-        title: 'Care Plan',
-        score: carePlanScore,
-        yesCount: carePlanYesCount,
-        totalCount: carePlanTotalCount,
-        updatedAt: carePlanUpdatedAt,
-        icon: <FileText className="h-5 w-5 text-blue-600" />,
-        trend: trends['care-plan']
-      },
-      {
-        title: 'Health & Safety',
-        score: hsScore,
-        yesCount: hsYesCount,
-        totalCount: hsTotalCount,
-        updatedAt: hsUpdatedAt,
-        icon: <Shield className="h-5 w-5 text-green-600" />,
-        trend: trends['health-safety']
-      },
-      {
-        title: 'Maintenance',
-        score: maintenanceScore,
-        yesCount: maintenanceYesCount,
-        totalCount: maintenanceTotalCount,
-        updatedAt: maintenanceUpdatedAt,
-        icon: <Wrench className="h-5 w-5 text-yellow-600" />,
-        trend: trends['maintenance']
-      },
-      {
-        title: 'Restrictive Practice',
-        score: restrictiveScore,
-        yesCount: restrictiveYesCount,
-        totalCount: restrictiveTotalCount,
-        updatedAt: restrictiveUpdatedAt,
-        icon: <Lock className="h-5 w-5 text-purple-600" />,
-        trend: trends['restrictive-practice']
-      },
-      {
-        title: 'Fire Safety',
-        score: fireScore,
-        yesCount: fireYesCount,
-        totalCount: fireTotalCount,
-        updatedAt: fireUpdatedAt,
-        icon: <Flame className="h-5 w-5 text-red-600" />,
-        trend: trends['fire-safety']
-      },
-      {
-        title: 'Infection Control',
-        score: infectionScore,
-        yesCount: infectionYesCount,
-        totalCount: infectionTotalCount,
-        updatedAt: infectionUpdatedAt,
-        icon: <Biohazard className="h-5 w-5 text-orange-600" />,
-        trend: trends['infection-control']
-      },
-      {
-        title: 'Mealtime',
-        score: mealtimeScore,
-        yesCount: mealtimeYesCount,
-        totalCount: mealtimeTotalCount,
-        updatedAt: mealtimeUpdatedAt,
-        icon: <Utensils className="h-5 w-5 text-cyan-600" />,
-        trend: trends['mealtime']
-      },
-      {
-        title: 'Night Visit',
-        score: nightScore,
-        yesCount: nightYesCount,
-        totalCount: nightTotalCount,
-        updatedAt: nightUpdatedAt,
-        icon: <Moon className="h-5 w-5 text-indigo-600" />,
-        trend: trends['night-visit']
-      },
-      {
-        title: 'Staff File',
-        score: staffFileScore,
-        yesCount: staffFileYesCount,
-        totalCount: staffFileTotalCount,
-        updatedAt: staffFileUpdatedAt,
-        icon: <Users className="h-5 w-5 text-teal-600" />,
-        trend: trends['staff-file']
-      },
-      {
-        title: 'Kitchen',
-        score: kitchenScore,
-        yesCount: kitchenYesCount,
-        totalCount: kitchenTotalCount,
-        updatedAt: kitchenUpdatedAt,
-        icon: <Soup className="h-5 w-5 text-emerald-600" />,
-        trend: trends['kitchen']
-      },
-      {
-        title: 'Falls Prevention',
-        score: fallsScore,
-        yesCount: fallsYesCount,
-        totalCount: fallsTotalCount,
-        updatedAt: fallsUpdatedAt,
-        icon: <AlertTriangle className="h-5 w-5 text-amber-600" />,
-        trend: trends['falls']
-      }
-    ];
+    return ((Array.isArray(AUDIT_TYPES) ? AUDIT_TYPES : []) as AuditType[]).map((key: AuditType, index) => {
+      const score = latestScores?.[key as any]?.scorePercent ?? null;
+      const yesCount = latestScores?.[key as any]?.yesCount ?? null;
+      const totalCount = latestScores?.[key as any]?.totalCount ?? null;
+      const updatedAt = latestScores?.[key as any]?.updatedAt ?? null;
 
-    return audits.filter(audit => audit.score !== null).map((audit, index) => (
-      <Card key={index} className="bg-white/80 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            {audit.icon}
-            {audit.title}
-          </CardTitle>
-          <CardDescription>
-            {audit.yesCount !== null && audit.totalCount !== null
-              ? `${audit.yesCount} of ${audit.totalCount} questions passed`
-              : 'No data available'
-            }
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16">
-                <OccupancyPie
-                  percent={audit.score ?? 0}
-                  size={64}
-                  strokeWidth={8}
-                  gradientColors={getGradientColors(audit.score)}
-                  centerFontSize={14}
-                />
-              </div>
-              <div>
-                <div className="text-2xl font-bold" style={{ color: getScoreColor(audit.score) }}>
-                  {audit.score !== null ? `${audit.score}%` : 'N/A'}
+      const iconMap: Record<string, any> = {
+        'care-plan': <FileText className="h-5 w-5 text-blue-600" />,
+        'health-safety': <Shield className="h-5 w-5 text-green-600" />,
+        'maintenance': <Wrench className="h-5 w-5 text-yellow-600" />,
+        'restrictive-practice': <Lock className="h-5 w-5 text-purple-600" />,
+        'fire-safety': <Flame className="h-5 w-5 text-red-600" />,
+        'infection-control': <Biohazard className="h-5 w-5 text-orange-600" />,
+        'mealtime': <Utensils className="h-5 w-5 text-cyan-600" />,
+        'night-visit': <Moon className="h-5 w-5 text-indigo-600" />,
+        'staff-file': <Users className="h-5 w-5 text-teal-600" />,
+        'kitchen': <Soup className="h-5 w-5 text-emerald-600" />,
+        'falls': <AlertTriangle className="h-5 w-5 text-amber-600" />
+      };
+
+      const title = AUDIT_DISPLAY_NAMES[key] || key;
+      const icon = iconMap[key] || <FileText className="h-5 w-5 text-gray-600" />;
+      const trend = trends[key];
+
+      return (
+        score !== null && (
+          <Card key={index} className="bg-white/80 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                {icon}
+                {title}
+              </CardTitle>
+              <CardDescription>
+                {yesCount !== null && totalCount !== null
+                  ? `${yesCount} of ${totalCount} questions passed`
+                  : 'No data available'
+                }
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16">
+                    <OccupancyPie
+                      percent={score ?? 0}
+                      size={64}
+                      strokeWidth={8}
+                      gradientColors={getGradientColors(score)}
+                      centerFontSize={14}
+                    />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold" style={{ color: getScoreColor(score) }}>
+                      {score !== null ? `${score}%` : 'N/A'}
+                    </div>
+                    <div className="text-sm text-gray-600">Current Score</div>
+                  </div>
                 </div>
-                <div className="text-sm text-gray-600">Current Score</div>
+                {trend && (
+                  <div className="text-right">
+                    <TrendIndicator auditType={key} />
+                  </div>
+                )}
               </div>
-            </div>
-            {audit.trend && (
-              <div className="text-right">
-                <TrendIndicator auditType={audit.title.toLowerCase().replace(' ', '-')} />
-              </div>
-            )}
-          </div>
-          {audit.updatedAt && (
-            <div className="text-xs text-gray-500 mt-4">
-              Last updated: {new Date(audit.updatedAt).toLocaleDateString()}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    ));
+              {updatedAt && (
+                <div className="text-xs text-gray-500 mt-4">
+                  Last updated: {new Date(updatedAt).toLocaleDateString()}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )
+      );
+    }).filter(Boolean);
   };
 
   // Function to get color based on score percentage
