@@ -1,4 +1,5 @@
 import type { OrganisationTeamKey } from '@/lib/team-roles';
+import type { CqcRegulationMatch } from '@/lib/cqc-regulations';
 
 export type WorkspaceGroup = {
   id: string;
@@ -71,6 +72,16 @@ export type Document = {
   folderId?: string;
   storagePath?: string;
   downloadUrl?: string;
+  summary?: string;
+  tags?: string[];
+  renewalDate?: string | null;
+  status?: string;
+  statusText?: string;
+  subtitle?: string;
+  url?: string;
+  lastReviewed?: string;
+  nextReviewRequired?: string;
+  regulations?: CqcRegulationMatch[];
 };
 
 export type JournalEntry = {

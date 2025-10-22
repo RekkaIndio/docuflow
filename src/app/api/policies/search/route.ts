@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
+import { extractCqcRegulationsFromText } from '@/lib/cqc-regulations';
 
 interface PolicyDocument {
   id: string;
@@ -100,50 +101,42 @@ export async function POST(request: NextRequest) {
     // Find the best match (most relevant)
     const bestMatch = matchingPolicies[0];
 
-    // Convert to the format expected by the chat system
-    const results = matchingPolicies.slice(0, 5).map(policy => ({
-      id: policy.id,
-      name: policy.meta?.title || policy.policyName || 'Untitled Policy',
-      extractedJson: {
-        content: policy.content,
-        title: policy.meta?.title || policy.policyName,
-        effectiveDate: policy.meta?.effectiveDate,
-        reviewDate: policy.meta?.reviewDate,
-        version: policy.meta?.version || policy.version,
-        appliesTo: policy.meta?.appliesTo,
-        type: 'policy',
-        status: policy.status
-      },
-      pdfPath: policy.pdfPath || null,
-      storagePath: policy.storagePath || null,
-      createdAt: policy.createdAt,
-      folderId: 'policies',
-      status: policy.status === 'published' ? 'current' : 'completed',
-      tags: ['policy'],
-      summary: `Policy document: ${policy.meta?.title || policy.policyName}`
-    }));
+    const toResult = (policy: PolicyDocument) => {
+      const regulations = extractCqcRegulationsFromText(policy.content);
 
-    const bestMatchResult = {
-      id: bestMatch.id,
-      name: bestMatch.meta?.title || bestMatch.policyName || 'Untitled Policy',
-      extractedJson: {
-        content: bestMatch.content,
-        title: bestMatch.meta?.title || bestMatch.policyName,
-        effectiveDate: bestMatch.meta?.effectiveDate,
-        reviewDate: bestMatch.meta?.reviewDate,
-        version: bestMatch.meta?.version || bestMatch.version,
-        appliesTo: bestMatch.meta?.appliesTo,
-        type: 'policy',
-        status: bestMatch.status
-      },
-      pdfPath: bestMatch.pdfPath || null,
-      storagePath: bestMatch.storagePath || null,
-      createdAt: bestMatch.createdAt,
-      folderId: 'policies',
-      status: bestMatch.status === 'published' ? 'current' : 'completed',
-      tags: ['policy'],
-      summary: `Policy document: ${bestMatch.meta?.title || bestMatch.policyName}`
+      return {
+        id: policy.id,
+        name: policy.meta?.title || policy.policyName || 'Untitled Policy',
+        extractedJson: {
+          content: policy.content,
+          title: policy.meta?.title || policy.policyName,
+          effectiveDate: policy.meta?.effectiveDate,
+          reviewDate: policy.meta?.reviewDate,
+          version: policy.meta?.version || policy.version,
+          appliesTo: policy.meta?.appliesTo,
+          type: 'policy',
+          status: policy.status,
+          regulations: regulations.map(({ code, label, title, summary, url }) => ({
+            code,
+            label,
+            title,
+            summary,
+            url,
+          })),
+        },
+        pdfPath: policy.pdfPath || null,
+        storagePath: policy.storagePath || null,
+        createdAt: policy.createdAt,
+        folderId: 'policies',
+        status: policy.status === 'published' ? 'current' : 'completed',
+        tags: ['policy'],
+        summary: `Policy document: ${policy.meta?.title || policy.policyName}`,
+        regulations,
+      };
     };
+
+    const results = matchingPolicies.slice(0, 5).map(toResult);
+    const bestMatchResult = toResult(bestMatch);
 
     return NextResponse.json({
       results,

@@ -1,4 +1,4 @@
-import { FileText, CalendarClock, AlertTriangle, CheckCircle } from 'lucide-react';
+import { FileText, AlertTriangle, CheckCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { handleDocumentClick } from '@/lib/document-utils';
@@ -94,7 +94,6 @@ export function DocumentCard({
     <div className="space-y-2">
       <div 
         className={cn(
-  summary,
           "p-3 rounded-lg flex items-center justify-between cursor-pointer hover:shadow-sm transition-shadow",
           config.bgColor,
           config.borderColor,
@@ -130,9 +129,15 @@ export function DocumentCard({
         </div>
       </div>
       
+      {summary && (
+        <p className="text-xs text-gray-600 px-3 pb-2 leading-snug break-words">
+          {summary}
+        </p>
+      )}
+
       {/* Additional metadata */}
       {(lastReviewed || nextReviewRequired) && (
-        <div className="text-xs text-gray-500 px-3">
+        <div className="text-xs text-gray-500 px-3 pb-2">
           {lastReviewed && `Last reviewed: ${lastReviewed}`}
           {lastReviewed && nextReviewRequired && ' • '}
           {nextReviewRequired && `Next review required ${nextReviewRequired}`}

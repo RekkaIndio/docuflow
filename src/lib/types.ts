@@ -1,4 +1,5 @@
 import type { OrganisationTeamKey } from './team-roles';
+import type { CqcRegulationMatch } from './cqc-regulations';
 
 export type User = {
   id: string;
@@ -84,7 +85,14 @@ export type Document = {
   storagePath?: string;
   downloadUrl?: string; // Direct download URL for PDF or other files
   tags?: string[];
-  renewalDate?: string; // ISO string or null
+  renewalDate?: string | null; // ISO string or null
+  status?: 'current' | 'due-soon' | 'overdue' | 'updated' | string;
+  statusText?: string;
+  subtitle?: string;
+  url?: string;
+  lastReviewed?: string;
+  nextReviewRequired?: string;
+  regulations?: CqcRegulationMatch[];
 };
 
 export type JournalMood = 'happy' | 'neutral' | 'sad' | 'angry';

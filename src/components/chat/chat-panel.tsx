@@ -4,7 +4,7 @@ import type { Document, Folder } from "@/lib/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { CornerDownLeft, Share2 } from "lucide-react";
+import { CornerDownLeft, Share2, ExternalLink, Plus } from "lucide-react";
 import React, { useState, useRef, useEffect } from "react";
 import Fuse from 'fuse.js';
 import { useAuth } from '@/hooks/use-auth';
@@ -20,7 +20,9 @@ import { ActionCard } from '@/components/ui/action-card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandInput, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
 import { auth, db } from '@/lib/firebase';
+import { collection } from 'firebase/firestore';
 import { workspaceCollectionPath, workspaceBasePath, workspaceDocPath } from '@/lib/paths';
+import type { CqcRegulationMatch } from '@/lib/cqc-regulations';
 
 const MAX_AI_STRING_FIELD = 800;
 const MAX_AI_CONTEXT_LENGTH = 1600;
@@ -94,10 +96,21 @@ interface ChatMessage {
     summary?: string;
     lastReviewed?: string;
     nextReviewRequired?: string;
+    regulations?: CqcRegulationMatch[];
   }>;
   users?: Array<{ id?: string; name?: string; email?: string; role?: string; avatarUrl?: string; createdAt?: string }>;
   teams?: Array<{ id: string; name: string; memberCount?: number; description?: string }>;
   actions?: Array<{ id: string; title: string; description?: string; status?: string; dueDate?: string; priority?: string }>;
+    regulation?: CqcRegulationMatch;
+  audits?: Array<{
+    auditType?: string;
+    name?: string;
+    isCompletedThisMonth?: boolean;
+    scorePercent?: number | null;
+    snapshotCreatedAt?: string | null;
+    downloadUrl?: string | null;
+    documentId?: string | null;
+  }>;
 }
 
 interface ChatPanelProps {
@@ -217,6 +230,14 @@ const documentToAiContext = (doc: Document) => ({
   folderId: doc.folderId,
   tags: Array.isArray(doc.tags) ? doc.tags.slice(0, 10) : undefined,
   renewalDate: doc.renewalDate,
+  cqcRegulations: Array.isArray(doc.regulations)
+    ? doc.regulations.slice(0, 5).map((reg: CqcRegulationMatch) => ({
+        code: reg.code,
+        label: reg.label,
+        title: reg.title,
+        summary: clipString(reg.summary, 200),
+      }))
+    : undefined,
   extracted: summariseExtractedJson(doc.extractedJson),
 });
 
@@ -322,6 +343,7 @@ export function ChatPanel({ selectedItem, onFolderAdd, organisationId }: ChatPan
   const { user } = useAuth();
   const [profilePicture, setProfilePicture] = useState<string | undefined>(user?.avatarUrl ?? mockUser.avatarUrl ?? undefined);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
 
   const getAllDocuments = (items: (Document | Folder)[]): Document[] => {
@@ -705,67 +727,16 @@ export function ChatPanel({ selectedItem, onFolderAdd, organisationId }: ChatPan
     for (const pattern of auditOpeningPatterns) {
       const match = input.match(pattern);
       if (match) {
-        let auditName = (match[1] || match[2] || '').trim();
+        const auditName = (match[1] || match[2] || '').trim()
+          .replace(/\b(the|me|my|an|a|for|about|on|let's|let\s+us|can\s+you|could\s+you|please|take\s+me|go\s+to|navigate\s+to|i\s+want|i\s+need|to\s+see|to\s+view|to\s+open)\b/g, '')
+          .trim();
 
-        // Remove common words that aren't part of the audit name
-        auditName = auditName.replace(/\b(the|me|my|an|a|for|about|on|let's|let\s+us|can\s+you|could\s+you|please|take\s+me|go\s+to|navigate\s+to|i\s+want|i\s+need|to\s+see|to\s+view|to\s+open)\b/g, '').trim();
-
-        // Map common variations to standard audit names
-        const auditMappings: Record<string, string> = {
-          'hand hygiene': 'hand-hygiene',
-          'handhygiene': 'hand-hygiene',
-          'accident incident': 'accident-incident',
-          'accidentincident': 'accident-incident',
-          'accident and incident': 'accident-incident',
-          'call bell monitoring': 'call-bell-monitoring',
-          'callbellmonitoring': 'call-bell-monitoring',
-          'call bell': 'call-bell-monitoring',
-          'care plan': 'care-plan',
-          'careplan': 'care-plan',
-          'equipment': 'equipment',
-          'fire safety': 'fire-safety',
-          'firesafety': 'fire-safety',
-          'health safety': 'health-safety',
-          'healthsafety': 'health-safety',
-          'infection control': 'infection-control',
-          'infectioncontrol': 'infection-control',
-          'kitchen': 'kitchen',
-          'kitchen & kitchenettes': 'kitchen',
-          'maintenance': 'maintenance',
-          'managers weekly': 'managers-weekly',
-          'managersweekly': 'managers-weekly',
-          'weekly managers': 'managers-weekly',
-          'mealtime': 'mealtime',
-          'meal time': 'mealtime',
-          'night visit': 'night-visit',
-          'nightvisit': 'night-visit',
-          'restrictive practice': 'restrictive-practice',
-          'restrictivepractice': 'restrictive-practice',
-          'staff file': 'staff-file',
-          'stafffile': 'staff-file',
-          'weight monitoring': 'weight-monitoring',
-          'weightmonitoring': 'weight-monitoring',
-          'wound monitoring': 'wound-monitoring',
-          'woundmonitoring': 'wound-monitoring',
-          'risk register': 'risk-register',
-          'riskregister': 'risk-register'
-        };
-
-        // Try to find a matching audit type
-        let auditType = auditMappings[auditName.toLowerCase()] || auditName.toLowerCase().replace(/\s+/g, '-');
-
-        // If we still don't have a valid audit type, try fuzzy matching
-        if (!Object.values(auditMappings).includes(auditType)) {
-          const auditTypes = Object.values(auditMappings);
-          // Simple fuzzy match - find the closest match
-          for (const type of auditTypes) {
-            if (auditName.toLowerCase().includes(type.replace(/-/g, ' ')) ||
-                type.replace(/-/g, ' ').includes(auditName.toLowerCase())) {
-              auditType = type;
-              break;
-            }
-          }
-        }
+        const resolved = resolveAuditTypeFromName(auditName);
+        const fallback = auditName
+          ? auditName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+          : '';
+        const auditType = resolved || (fallback && fallback !== 'audit' ? fallback : null);
+        if (!auditType) continue;
 
         return {
           type: 'open_audit',
@@ -777,12 +748,12 @@ export function ChatPanel({ selectedItem, onFolderAdd, organisationId }: ChatPan
 
     // Audit data querying patterns
     const auditDataPatterns = [
-      /(?:show|tell|get|give)\s+(?:me\s+)?(?:the\s+)?(.+?)\s+audit\s+(?:data|results|information|details|trends|comments|scores)/i,
-      /(?:what\s+(?:are|is)\s+)?(?:the\s+)?(.+?)\s+audit\s+(?:results|data|comments|scores|trends)/i,
-      /(?:show|tell|get)\s+(?:me\s+)?(?:the\s+)?audit\s+(?:data|results|information)\s+(?:for|about|on)\s+(.+)/i,
+      /(?:show|tell|get|give)\s+(?:me\s+)?(?:the\s+)?(.+?)\s+audit\s+(?:data|results|information|details|trends|comments|scores|overview|summary|status|report|insights?)/i,
+      /(?:what\s+(?:are|is)\s+)?(?:the\s+)?(.+?)\s+audit\s+(?:results|data|comments|scores|trends|overview|summary|status|report|insights?)/i,
+      /(?:show|tell|get)\s+(?:me\s+)?(?:the\s+)?audit\s+(?:data|results|information|overview|summary|status|report)\s+(?:for|about|on)\s+(.+)/i,
       /(?:what\s+(?:are|is)\s+)?(?:the\s+)?comments?\s+(?:in|for|from)\s+(?:the\s+)?(.+?)\s+audit/i,
       /(?:how\s+did|what\s+were)\s+(?:the\s+)?(.+?)\s+audit\s+(?:results|scores|perform)/i,
-      /(?:audit\s+)?(?:data|results|information|trends)\s+(?:for|about|on)\s+(.+?)\s+audit/i
+      /(?:audit\s+)?(?:data|results|information|trends|overview|summary|status|report|insights?)\s+(?:for|about|on)\s+(.+?)\s+audit/i
     ];
 
     for (const pattern of auditDataPatterns) {
@@ -793,76 +764,43 @@ export function ChatPanel({ selectedItem, onFolderAdd, organisationId }: ChatPan
         // Remove common words that aren't part of the audit name
         auditName = auditName.replace(/\b(the|me|my|an|a|for|about|on|in|from|are|is|what|show|tell|get|give|how|did|were|audit|data|results|information|details|trends|comments|scores|perform|latest|all|recent)\b/g, '').trim();
 
-        let auditType: string;
+        let auditType: string | null = null;
 
         // Handle special cases for "latest" or "all" queries
         if (input.toLowerCase().includes('latest') || input.toLowerCase().includes('all')) {
           auditType = 'all';
         } else {
-          // Map common variations to standard audit names (same mapping as above)
-          const auditMappings: Record<string, string> = {
-            'hand hygiene': 'hand-hygiene',
-            'handhygiene': 'hand-hygiene',
-            'accident incident': 'accident-incident',
-            'accidentincident': 'accident-incident',
-            'accident and incident': 'accident-incident',
-            'call bell monitoring': 'call-bell-monitoring',
-            'callbellmonitoring': 'call-bell-monitoring',
-            'call bell': 'call-bell-monitoring',
-            'care plan': 'care-plan',
-            'careplan': 'care-plan',
-            'equipment': 'equipment',
-            'fire safety': 'fire-safety',
-            'firesafety': 'fire-safety',
-            'health safety': 'health-safety',
-            'healthsafety': 'health-safety',
-            'infection control': 'infection-control',
-            'infectioncontrol': 'infection-control',
-            'kitchen': 'kitchen',
-            'kitchen & kitchenettes': 'kitchen',
-            'maintenance': 'maintenance',
-            'managers weekly': 'managers-weekly',
-            'managersweekly': 'managers-weekly',
-            'weekly managers': 'managers-weekly',
-            'mealtime': 'mealtime',
-            'meal time': 'mealtime',
-            'night visit': 'night-visit',
-            'nightvisit': 'night-visit',
-            'restrictive practice': 'restrictive-practice',
-            'restrictivepractice': 'restrictive-practice',
-            'staff file': 'staff-file',
-            'stafffile': 'staff-file',
-            'weight monitoring': 'weight-monitoring',
-            'weightmonitoring': 'weight-monitoring',
-            'wound monitoring': 'wound-monitoring',
-            'woundmonitoring': 'wound-monitoring',
-            'risk register': 'risk-register',
-            'riskregister': 'risk-register'
-          };
+          auditType = resolveAuditTypeFromName(auditName);
+        }
 
-          // Try to find a matching audit type
-          auditType = auditMappings[auditName.toLowerCase()] || auditName.toLowerCase().replace(/\s+/g, '-');
-
-          // If we still don't have a valid audit type, try fuzzy matching
-          if (!Object.values(auditMappings).includes(auditType)) {
-            const auditTypes = Object.values(auditMappings);
-            // Simple fuzzy match - find the closest match
-            for (const type of auditTypes) {
-              if (auditName.toLowerCase().includes(type.replace(/-/g, ' ')) ||
-                  type.replace(/-/g, ' ').includes(auditName.toLowerCase())) {
-                auditType = type;
-                break;
-              }
-            }
-          }
+        if (!auditType) {
+          const fallback = auditName
+            ? auditName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+            : '';
+          auditType = fallback && fallback !== 'audit' ? fallback : 'all';
         }
 
         return {
           type: 'audit_query',
-          auditType: auditType,
+          auditType,
           originalInput: userInput
         };
       }
+    }
+
+    const simpleAuditStatusMatch = input.match(/^(?:show|give|provide|get|tell|share)?\s*(?:me\s+)?(?:the\s+)?(.+?)\s+audit(?:\s+(?:overview|summary|status|information|info|details|report|insights?))?$/i);
+    if (simpleAuditStatusMatch) {
+      const auditName = simpleAuditStatusMatch[1]?.trim() || '';
+      const resolved = resolveAuditTypeFromName(auditName);
+      const fallback = auditName
+        ? auditName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+        : '';
+      const auditType = resolved || (fallback && fallback !== 'audit' ? fallback : 'all');
+      return {
+        type: 'audit_query',
+        auditType,
+        originalInput: userInput,
+      };
     }
 
     // Create audit patterns
@@ -877,71 +815,20 @@ export function ChatPanel({ selectedItem, onFolderAdd, organisationId }: ChatPan
     for (const pattern of createAuditPatterns) {
       const match = input.match(pattern);
       if (match) {
-        let auditName = (match[1] || match[2] || '').trim();
+        const auditName = (match[1] || match[2] || '').trim()
+          .replace(/\b(a|an|new|the|let's|let\s+us|can\s+you|could\s+you|please|i\s+want|i\s+need|i\s+would\s+like|to\s+create|to\s+start|to\s+begin|to\s+make|to\s+do|to\s+perform|to\s+conduct|for|about|on)\b/g, '')
+          .trim();
 
-        // Remove common words that aren't part of the audit name
-        auditName = auditName.replace(/\b(a|an|new|the|let's|let\s+us|can\s+you|could\s+you|please|i\s+want|i\s+need|i\s+would\s+like|to\s+create|to\s+start|to\s+begin|to\s+make|to\s+do|to\s+perform|to\s+conduct|for|about|on)\b/g, '').trim();
-
-        // Map common variations to standard audit names
-        const auditMappings: Record<string, string> = {
-          'hand hygiene': 'hand-hygiene',
-          'handhygiene': 'hand-hygiene',
-          'accident incident': 'accident-incident',
-          'accidentincident': 'accident-incident',
-          'accident and incident': 'accident-incident',
-          'call bell monitoring': 'call-bell-monitoring',
-          'callbellmonitoring': 'call-bell-monitoring',
-          'call bell': 'call-bell-monitoring',
-          'care plan': 'care-plan',
-          'careplan': 'care-plan',
-          'equipment': 'equipment',
-          'fire safety': 'fire-safety',
-          'firesafety': 'fire-safety',
-          'health safety': 'health-safety',
-          'healthsafety': 'health-safety',
-          'infection control': 'infection-control',
-          'infectioncontrol': 'infection-control',
-          'kitchen': 'kitchen',
-          'kitchen & kitchenettes': 'kitchen',
-          'maintenance': 'maintenance',
-          'managers weekly': 'managers-weekly',
-          'managersweekly': 'managers-weekly',
-          'weekly managers': 'managers-weekly',
-          'mealtime': 'mealtime',
-          'meal time': 'mealtime',
-          'night visit': 'night-visit',
-          'nightvisit': 'night-visit',
-          'restrictive practice': 'restrictive-practice',
-          'restrictivepractice': 'restrictive-practice',
-          'staff file': 'staff-file',
-          'stafffile': 'staff-file',
-          'weight monitoring': 'weight-monitoring',
-          'weightmonitoring': 'weight-monitoring',
-          'wound monitoring': 'wound-monitoring',
-          'woundmonitoring': 'wound-monitoring',
-          'risk register': 'risk-register',
-          'riskregister': 'risk-register'
-        };
-
-        // Try to find a matching audit type
-        let auditType = auditMappings[auditName.toLowerCase()] || auditName.toLowerCase().replace(/\s+/g, '-');
-
-        // If we still don't have a valid audit type, try fuzzy matching
-        if (!Object.values(auditMappings).includes(auditType)) {
-          const auditTypes = Object.values(auditMappings);
-          // Simple fuzzy match - find the closest match
-          for (const type of auditTypes) {
-            if (auditName.toLowerCase().includes(type.replace(/-/g, ' ')) ||
-                type.replace(/-/g, ' ').includes(auditName.toLowerCase())) {
-              auditType = type;
-              break;
-            }
-          }
-        }
+        const resolved = resolveAuditTypeFromName(auditName);
+        const fallback = auditName
+          ? auditName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+          : '';
+        const auditType = resolved || (fallback && fallback !== 'audit' ? fallback : null);
+        if (!auditType) continue;
 
         return {
           type: 'create_audit',
-          auditType: auditType,
+          auditType,
           createAudit: true,
           originalInput: userInput
         };
@@ -1918,6 +1805,220 @@ ${staffLines}`;
   };
 
 
+  const AUDIT_NAME_MAP: Record<string, string> = {
+    'accident-incident': 'Accident and Incident Audit',
+    'infection-control': 'Infection Control Audit',
+    'fire-safety': 'Fire Safety Audit',
+    'health-safety': 'Health and Safety Audit',
+    'kitchen': 'Kitchen Audit',
+    'maintenance': 'Maintenance Audit',
+    'equipment': 'Equipment Audit',
+    'hand-hygiene': 'Hand Hygiene Audit',
+    'care-plan': 'Care Plan Audit',
+    'call-bell-monitoring': 'Call Bell Monitoring Audit',
+    'mealtime': 'Mealtime Audit',
+    'managers-weekly': 'Managers Weekly Audit',
+    'managers-monthly': 'Managers Monthly Audit',
+    'night-visit': 'Night Visit Audit',
+    'restrictive-practice': 'Restrictive Practice Audit',
+    'staff-file': 'Staff File Audit',
+    'weight-monitoring': 'Weight Monitoring Audit',
+    'wound-monitoring': 'Wound Monitoring Audit',
+    'risk-register': 'Risk Register Audit',
+  };
+
+  const AUDIT_SLUG_SYNONYMS: Record<string, string> = {
+    'accident incident': 'accident-incident',
+    'accidentincident': 'accident-incident',
+    'accident and incident': 'accident-incident',
+    'call bell monitoring': 'call-bell-monitoring',
+    'callbellmonitoring': 'call-bell-monitoring',
+    'call bell': 'call-bell-monitoring',
+    'care plan': 'care-plan',
+    'careplan': 'care-plan',
+    'equipment': 'equipment',
+    'fire safety': 'fire-safety',
+    'firesafety': 'fire-safety',
+    'health safety': 'health-safety',
+    'healthsafety': 'health-safety',
+    'infection control': 'infection-control',
+    'infectioncontrol': 'infection-control',
+    'kitchen & kitchenettes': 'kitchen',
+    'kitchenettes': 'kitchen',
+    'kitchen': 'kitchen',
+    'maintenance': 'maintenance',
+    'managers weekly': 'managers-weekly',
+    'weekly managers': 'managers-weekly',
+    'managersweekly': 'managers-weekly',
+    'managers monthly': 'managers-monthly',
+    'managersmonthly': 'managers-monthly',
+    'mealtime': 'mealtime',
+    'meal time': 'mealtime',
+    'night visit': 'night-visit',
+    'nightvisit': 'night-visit',
+    'hand hygiene': 'hand-hygiene',
+    'handhygiene': 'hand-hygiene',
+    'restrictive practice': 'restrictive-practice',
+    'restrictivepractice': 'restrictive-practice',
+    'staff file': 'staff-file',
+    'stafffile': 'staff-file',
+    'weight monitoring': 'weight-monitoring',
+    'weightmonitoring': 'weight-monitoring',
+    'wound monitoring': 'wound-monitoring',
+    'woundmonitoring': 'wound-monitoring',
+    'risk register': 'risk-register',
+    'riskregister': 'risk-register',
+  };
+
+  const resolveAuditTypeFromName = (rawName?: string | null) => {
+    if (!rawName) return null;
+    const cleaned = rawName
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!cleaned) return null;
+    if (AUDIT_NAME_MAP[cleaned]) return cleaned;
+    if (AUDIT_SLUG_SYNONYMS[cleaned]) return AUDIT_SLUG_SYNONYMS[cleaned];
+    const dashed = cleaned.replace(/\s+/g, '-');
+    if (AUDIT_NAME_MAP[dashed]) return dashed;
+    if (AUDIT_SLUG_SYNONYMS[dashed]) return AUDIT_SLUG_SYNONYMS[dashed];
+    for (const [key, slug] of Object.entries(AUDIT_SLUG_SYNONYMS)) {
+      if (cleaned.includes(key)) return slug;
+    }
+    return null;
+  };
+
+  const formatAuditName = (auditType: string | undefined | null) => {
+    if (!auditType) return 'Audit';
+    const slug = auditType.toLowerCase();
+    if (AUDIT_NAME_MAP[slug]) return AUDIT_NAME_MAP[slug];
+    const words = slug
+      .split('-')
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1));
+    return words.length > 0 ? `${words.join(' ')} Audit` : 'Audit';
+  };
+
+  const extractCompletedBy = (latest: any): string | null => {
+    if (!latest || typeof latest !== 'object') return null;
+    const candidateObjects = [
+      latest.completedBy,
+      latest.auditor,
+      latest.assessor,
+      latest.inspector,
+      latest.manager,
+      latest.owner,
+      latest.user,
+      latest.staff,
+    ];
+    for (const item of candidateObjects) {
+      if (item && typeof item === 'object') {
+        const nestedName = item.name || item.fullName || item.displayName;
+        if (typeof nestedName === 'string' && nestedName.trim()) return nestedName.trim();
+      }
+    }
+    const candidateKeys = [
+      'completedBy',
+      'completed_by',
+      'completedByName',
+      'completedByFullName',
+      'completedByUser',
+      'auditor',
+      'auditedBy',
+      'auditorName',
+      'inspector',
+      'inspectorName',
+      'performedBy',
+      'conductedBy',
+      'author',
+      'authorName',
+      'submittedBy',
+      'reviewedBy',
+      'managerName',
+      'ownerName',
+      'staffName',
+      'userName',
+      'assessorName',
+      'recordedBy',
+      'createdBy',
+    ];
+    for (const key of candidateKeys) {
+      const value = latest[key] ?? latest?.meta?.[key];
+      if (typeof value === 'string' && value.trim()) return value.trim();
+    }
+    return null;
+  };
+
+  const extractAuditHighlightLines = (latest: any): string[] => {
+    if (!latest || typeof latest !== 'object') return [];
+    const lines: string[] = [];
+    const addLine = (label: string, value: string | null | undefined) => {
+      if (typeof value === 'string' && value.trim()) {
+        lines.push(`${label}${label.endsWith(':') ? '' : ':'} ${value.trim()}`);
+      }
+    };
+    addLine('Comments', latest.comments);
+    addLine('Summary', latest.summary ?? latest.finalComments);
+    if (Array.isArray(latest.areasForImprovement) && latest.areasForImprovement.length > 0) {
+      lines.push(`Areas for improvement: ${latest.areasForImprovement.slice(0, 3).join('; ')}`);
+    }
+    if (Array.isArray(latest.goodPractice) && latest.goodPractice.length > 0) {
+      lines.push(`Good practice: ${latest.goodPractice.slice(0, 3).join('; ')}`);
+    }
+    if (Array.isArray(latest.actionRequired) && latest.actionRequired.length > 0) {
+      lines.push(`Action required: ${latest.actionRequired.slice(0, 3).join('; ')}`);
+    }
+    return lines.slice(0, 4);
+  };
+
+  const resolveAuditDocumentInfo = async (
+    workspaceId: string,
+    orgId: string | null | undefined,
+    latest: any
+  ): Promise<{ downloadUrl: string | null; documentId: string | null }> => {
+    let downloadUrl: string | null = null;
+    let documentId: string | null = null;
+    try {
+      const maybeDocId =
+        latest?.pdfDocId ||
+        latest?.extractedJson?.pdfDocId ||
+        latest?.documentId ||
+        latest?.extractedJson?.documentId ||
+        null;
+      const maybeStoragePath = latest?.storagePath || latest?.extractedJson?.storagePath || null;
+      if (!maybeDocId && !maybeStoragePath) {
+        return { downloadUrl, documentId };
+      }
+      const docsColPath = workspaceCollectionPath(workspaceId, 'documents', orgId || null);
+      const { collection, doc, getDoc, query, where, getDocs } = await import('firebase/firestore');
+      if (maybeDocId) {
+        const docRef = doc(collection(db, docsColPath), maybeDocId);
+        const snap = await getDoc(docRef);
+        if (snap.exists()) {
+          const data = snap.data() as any;
+          downloadUrl = data.downloadUrl ?? null;
+          documentId = snap.id;
+          return { downloadUrl, documentId };
+        }
+      }
+      if (maybeStoragePath) {
+        const q = query(collection(db, docsColPath), where('storagePath', '==', maybeStoragePath));
+        const snaps = await getDocs(q);
+        if (!snaps.empty) {
+          const refDoc = snaps.docs[0];
+          const data = refDoc.data() as any;
+          downloadUrl = data.downloadUrl ?? null;
+          documentId = refDoc.id;
+        }
+      }
+    } catch (err) {
+      console.warn('resolveAuditDocumentInfo failed', err);
+    }
+    return { downloadUrl, documentId };
+  };
+
+
   const handleSend = async () => {
 
   const inputVal = input;
@@ -2036,7 +2137,8 @@ ${staffLines}`;
         status: 'current' as const,
         url: `/documents/${doc.id}`,
         subtitle: doc.folderId ? `Folder: ${doc.folderId}` : undefined,
-        summary: doc.summary
+        summary: doc.summary,
+        regulations: doc.regulations,
       }));
       appendMessages([{ sender: 'user', text: inputVal }, { sender: 'ai', text: aiAnswer, documents: documentCards }]);
       setInput('');
@@ -2174,6 +2276,62 @@ ${staffLines}`;
           auditPayload.variant = 'status';
           const { getMonthlyAuditCompletionStatus, getLatestAuditData } = await import('@/lib/firestore');
           const completionStatus = await getMonthlyAuditCompletionStatus(workspaceId, orgContext);
+          const requestedAudit = auditPayload.requestedAudit || 'all';
+
+          if (requestedAudit !== 'all') {
+            hasData = true;
+            const latest = await getLatestAuditData(workspaceId, requestedAudit, undefined, orgContext);
+            const isCompletedThisMonth = Boolean(completionStatus?.[requestedAudit]);
+            const friendlyName = formatAuditName(requestedAudit);
+            let resolvedDoc: { downloadUrl: string | null; documentId: string | null } = {
+              downloadUrl: null,
+              documentId: null,
+            };
+            if (latest) {
+              resolvedDoc = await resolveAuditDocumentInfo(workspaceId, orgContext || null, latest);
+            }
+            const downloadUrl = isCompletedThisMonth ? resolvedDoc.downloadUrl : null;
+            const documentId = isCompletedThisMonth ? resolvedDoc.documentId : null;
+            const snapshotDate = isCompletedThisMonth
+              ? latest?.snapshotCreatedAt ?? latest?.auditDate ?? null
+              : null;
+            const scorePercent = isCompletedThisMonth ? latest?.scorePercent ?? null : null;
+
+            const auditEntry: NonNullable<ChatMessage['audits']>[number] = {
+              auditType: requestedAudit,
+              name: friendlyName,
+              isCompletedThisMonth,
+              scorePercent,
+              snapshotCreatedAt: snapshotDate,
+              downloadUrl,
+              documentId,
+            };
+
+            const completedDate = formatDateSafe(latest?.auditDate || latest?.snapshotCreatedAt);
+            const completedBy = extractCompletedBy(latest);
+            const scoreText = typeof scorePercent === 'number' ? `Score: ${scorePercent}%` : null;
+            const highlightLines = isCompletedThisMonth ? extractAuditHighlightLines(latest) : [];
+            let messageText: string;
+
+            if (isCompletedThisMonth && latest) {
+              const summaryParts: string[] = [`The ${friendlyName} is completed for this month.`];
+              if (completedDate) summaryParts.push(`Completed on ${completedDate}`);
+              if (completedBy) summaryParts.push(`by ${completedBy}`);
+              if (scoreText) summaryParts.push(scoreText);
+              messageText = summaryParts.join(' ') + '.';
+              if (highlightLines.length > 0) {
+                messageText += `\n\nKey notes:\n${highlightLines.slice(0, 3).map((line: string) => `• ${line}`).join('\n')}`;
+              }
+              messageText += `\n\nLet me know if you'd like to review or share this audit.`;
+            } else {
+              messageText = `I can't find a ${friendlyName.toLowerCase()} completed for this month yet. Would you like me to open the ${friendlyName.toLowerCase()} form so you can complete it now?`;
+            }
+
+            appendMessages({ sender: 'ai', text: messageText, audits: [auditEntry] });
+            setIsTyping(false);
+            return;
+          }
+
           const auditTypes = Object.keys(completionStatus || {});
           if (auditTypes.length === 0) {
             appendMessages({ sender: 'ai', text: 'No audit status information available yet.' });
@@ -2206,7 +2364,57 @@ ${staffLines}`;
           return;
         }
 
-        const aiAnswer = await askAIWithWorkspaceData(
+        // Build an audits array for UI cards (completed vs incomplete)
+        let auditsArray: ChatMessage['audits'] = [];
+        try {
+          const { getMonthlyAuditCompletionStatus, getLatestAuditData } = await import('@/lib/firestore');
+          const completionStatus = await getMonthlyAuditCompletionStatus(workspaceId, orgContext);
+          const requestedAudit = auditPayload.requestedAudit || 'all';
+          const auditTypes = requestedAudit === 'all'
+            ? Object.keys(completionStatus || {})
+            : [requestedAudit];
+          for (const type of auditTypes) {
+            try {
+              const latest = await getLatestAuditData(workspaceId, type, undefined, orgContext);
+              const friendlyName = formatAuditName(type);
+              const isCompletedThisMonth = Boolean(completionStatus?.[type]);
+              let resolvedDoc: { downloadUrl: string | null; documentId: string | null } = {
+                downloadUrl: null,
+                documentId: null,
+              };
+              if (latest) {
+                resolvedDoc = await resolveAuditDocumentInfo(workspaceId, orgContext || null, latest);
+              }
+              const downloadUrl = isCompletedThisMonth ? resolvedDoc.downloadUrl : null;
+              const documentId = isCompletedThisMonth ? resolvedDoc.documentId : null;
+              const snapshotCreatedAt = isCompletedThisMonth
+                ? latest?.snapshotCreatedAt ?? latest?.auditDate ?? null
+                : null;
+              const scorePercent = isCompletedThisMonth ? latest?.scorePercent ?? null : null;
+
+              auditsArray.push({
+                auditType: type,
+                name: friendlyName,
+                isCompletedThisMonth,
+                scorePercent,
+                snapshotCreatedAt,
+                downloadUrl,
+                documentId,
+              });
+            } catch (e) {
+              auditsArray.push({
+                auditType: type,
+                name: formatAuditName(type),
+                isCompletedThisMonth: Boolean(completionStatus?.[type]),
+              });
+            }
+          }
+        } catch (e) {
+          auditsArray = [];
+        }
+
+        // Sanitize AI answer: strip raw Firebase storage download URLs to avoid exposing long storage links
+        const aiRawAnswer = await askAIWithWorkspaceData(
           inputVal,
           {
             documentData: auditPayload,
@@ -2220,7 +2428,11 @@ ${staffLines}`;
           buildWorkspaceContext
         );
 
-        appendMessages({ sender: 'ai', text: aiAnswer });
+        // Remove firebase storage URLs like https://firebasestorage.googleapis.com/ and long gs:// links
+        const storageUrlPattern = /(https?:\/\/[^\s)]+(?:firebasestorage|storage\.googleapis)[^\s)]*|gs:\/\/[\w\-/.]+)/gi;
+        const aiAnswer = String(aiRawAnswer || '').replace(storageUrlPattern, '[document attached below]');
+
+        appendMessages({ sender: 'ai', text: aiAnswer, audits: auditsArray });
       } catch (error) {
         console.error('Error fetching audit data:', error);
         appendMessages({ sender: 'ai', text: 'Sorry, I couldn\'t fetch the audit information. Please try again.' });
@@ -3771,7 +3983,6 @@ ${staffLines}`;
         const roleCounts: Record<string, number> = {};
         const typeCounts: Record<string, number> = {};
         const staffMap: Record<string, { name: string; shifts: NormalizedShift[]; variants: string[] }> = {};
-
         normalizedShifts.forEach((shift) => {
           if (!shift) return;
 
@@ -4130,7 +4341,8 @@ I used the latest dependency recommendation (day carers ${recDayCarers}, day nur
           name: selectedItem.name,
           status: 'current' as const,
           url: `/documents/${selectedItem.id}`,
-          subtitle: createdDate ? `Created: ${createdDate}` : undefined
+          subtitle: createdDate ? `Created: ${createdDate}` : undefined,
+          regulations: (selectedItem as Document).regulations,
         };
 
         appendMessages({ sender: 'ai', text: result.answer, documents: [documentCard] });
@@ -4198,7 +4410,8 @@ I used the latest dependency recommendation (day carers ${recDayCarers}, day nur
           name: docToUse?.name,
           status: 'current' as const,
           url: `/documents/${docToUse?.id}`,
-          subtitle: docToUse?.folderId ? `Folder: ${docToUse?.folderId}` : (activeCreated ? `Created: ${activeCreated}` : undefined)
+          subtitle: docToUse?.folderId ? `Folder: ${docToUse?.folderId}` : (activeCreated ? `Created: ${activeCreated}` : undefined),
+          regulations: docToUse?.regulations,
         };
 
         appendMessages({ sender: 'ai', text: result.answer, documents: [{ ...documentCard, id: documentCard.id || '', name: documentCard.name || 'Untitled' }] });
@@ -4258,7 +4471,7 @@ I used the latest dependency recommendation (day carers ${recDayCarers}, day nur
             }, 150);
           }
 
-    appendMessages({ sender: 'ai', text: `Opening "${bestDoc.name}" for you.`, documents: [{ id: bestDoc.id, name: bestDoc.name, url: `/documents/${bestDoc.id}` }] });
+    appendMessages({ sender: 'ai', text: `Opening "${bestDoc.name}" for you.`, documents: [{ id: bestDoc.id, name: bestDoc.name, url: `/documents/${bestDoc.id}`, regulations: bestDoc.regulations }] });
           setIsTyping(false);
           return;
         }
@@ -4286,7 +4499,8 @@ I used the latest dependency recommendation (day carers ${recDayCarers}, day nur
           name: bestDoc.name,
           status: 'current' as const,
           url: `/documents/${bestDoc.id}`,
-          subtitle: bestDoc.folderId ? `Folder: ${bestDoc.folderId}` : undefined
+          subtitle: bestDoc.folderId ? `Folder: ${bestDoc.folderId}` : undefined,
+          regulations: bestDoc.regulations,
         };
 
         // If the user explicitly asked to open the document we navigate; otherwise only highlight
@@ -4391,20 +4605,23 @@ I used the latest dependency recommendation (day carers ${recDayCarers}, day nur
         }, 150);
       }
 
-        const documentCards = results.slice(0, 3).map((doc: any) => {
+      const documentCards = results.slice(0, 3).map((doc: any) => {
         const created = formatDateSafe(doc.createdAt);
         const lastReviewed = doc.lastReviewed || created || '';
         const nextReview = doc.nextReviewRequired || (doc.renewalDate ? `by ${formatDateSafe(doc.renewalDate)}` : '');
         return {
-        id: doc.id,
-        name: doc.name,
-        status: doc.status || (doc.renewalDate ? (new Date(doc.renewalDate) < new Date() ? 'overdue' : new Date(doc.renewalDate) < new Date(Date.now() + 60 * 24 * 60 * 60 * 1000) ? 'due-soon' : 'current') : 'current'),
-        statusText: doc.statusText,
-        subtitle: doc.subtitle || (created ? `Created: ${created}` : undefined),
-        url: doc.url || `/documents/${doc.id}`,
-        lastReviewed: lastReviewed || undefined,
-        nextReviewRequired: nextReview || undefined
-      }});
+          id: doc.id,
+          name: doc.name,
+          status: doc.status || (doc.renewalDate ? (new Date(doc.renewalDate) < new Date() ? 'overdue' : new Date(doc.renewalDate) < new Date(Date.now() + 60 * 24 * 60 * 60 * 1000) ? 'due-soon' : 'current') : 'current'),
+          statusText: doc.statusText,
+          subtitle: doc.subtitle || (created ? `Created: ${created}` : undefined),
+          url: doc.url || `/documents/${doc.id}`,
+          lastReviewed: lastReviewed || undefined,
+          nextReviewRequired: nextReview || undefined,
+          summary: doc.summary,
+          regulations: doc.regulations,
+        };
+      });
 
       let responsePrefix = '';
       if (intent.type === 'document_search') {
@@ -4424,6 +4641,8 @@ I used the latest dependency recommendation (day carers ${recDayCarers}, day nur
           nextReviewRequired?: string;
           renewalDate?: string | Date;
           createdAt?: string | Date;
+          summary?: string;
+          regulations?: CqcRegulationMatch[];
         }
 
         interface DocumentCardData {
@@ -4435,6 +4654,8 @@ I used the latest dependency recommendation (day carers ${recDayCarers}, day nur
           url?: string;
           lastReviewed?: string;
           nextReviewRequired?: string;
+          summary?: string;
+          regulations?: CqcRegulationMatch[];
         }
 
         appendMessages({ sender: 'ai', text: responsePrefix + (result.answer as string), documents: (documentCards as DocumentCardData[]).map((doc: DocumentCardData) => ({ ...doc, id: doc.id || '', name: doc.name || 'Untitled' })) });
@@ -4472,15 +4693,15 @@ I used the latest dependency recommendation (day carers ${recDayCarers}, day nur
   const renderMessage = (message: ChatMessage) => {
     return (
       <div>
-        <p className="whitespace-pre-wrap leading-relaxed">{message.text}</p>
+        <p className="whitespace-pre-wrap break-words leading-relaxed">{message.text}</p>
         
         {/* Document cards */}
         {message.documents && message.documents.length > 0 && (
-          <div className="mt-3 space-y-2">
+          <div className="mt-3 space-y-3">
             {message.documents.map((doc) => (
-              <div key={doc.id} className="bg-gray-50 border border-gray-100 p-3 rounded-lg">
-                <div className="flex items-center gap-4">
-                  <div className="flex-1 min-w-0">
+              <div key={doc.id} className="bg-gray-50 border border-gray-100 p-4 rounded-xl">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
+                  <div className="flex-1 min-w-0 space-y-3">
                     <DocumentCard
                       id={doc.id}
                       name={String(doc.name || 'Untitled')}
@@ -4490,11 +4711,32 @@ I used the latest dependency recommendation (day carers ${recDayCarers}, day nur
                       summary={doc.summary}
                       url={doc.url}
                       onClick={() => onOpenDocument(doc)}
+                      lastReviewed={doc.lastReviewed}
+                      nextReviewRequired={doc.nextReviewRequired}
                     />
-                    {doc.summary && <p className="text-xs text-gray-600 mt-2">{doc.summary}</p>}
+
+                    {doc.regulations && doc.regulations.length > 0 && (
+                      <div className="mt-2">
+                        <div className="flex flex-wrap gap-2">
+                          {doc.regulations.slice(0, 6).map((reg) => (
+                            <a
+                              key={`${doc.id}-${reg.code}`}
+                              href={reg.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-2 rounded-md border border-blue-200 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50"
+                              aria-label={`View guidance for Regulation ${reg.code}`}
+                            >
+                              View guidance
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
-                  <div className="flex-shrink-0 flex items-center">
+                  <div className="flex-shrink-0 sm:pt-1">
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button size="sm" variant="ghost" className="whitespace-nowrap">
@@ -4520,6 +4762,58 @@ I used the latest dependency recommendation (day carers ${recDayCarers}, day nur
                       </PopoverContent>
                     </Popover>
                   </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Regulation card */}
+        {message.regulation && (
+          <div className="mt-3 flex">
+            <a href={message.regulation.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-md border border-blue-200 px-2 py-1 text-sm font-medium text-blue-700 hover:bg-blue-50">
+              View guidance
+              <ExternalLink className="w-4 h-4" />
+            </a>
+          </div>
+        )}
+
+        {/* Audits */}
+        {message.audits && message.audits.length > 0 && (
+          <div className="mt-3 space-y-2">
+            {message.audits.map((a) => (
+              <div key={a.auditType} className="flex items-center justify-between bg-gray-50 border border-gray-100 p-3 rounded-md">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-gray-900 truncate">{a.name || (a.auditType ? a.auditType.replace(/-/g, ' ') : 'Unnamed audit')}</div>
+                  {(a.scorePercent !== null && a.scorePercent !== undefined) && (
+                    <div className="text-xs text-gray-500 mt-1">Latest score: {a.scorePercent}%{a.snapshotCreatedAt ? ` • ${formatDateSafe(a.snapshotCreatedAt)}` : ''}</div>
+                  )}
+                </div>
+                <div className="flex-shrink-0 ml-4 flex items-center gap-2">
+                  {a.downloadUrl ? (
+                    <Button size="sm" variant="outline" onClick={() => { window.open(a.downloadUrl || '', '_blank'); }}>
+                      Download
+                    </Button>
+                  ) : a.isCompletedThisMonth ? (
+                    <Button size="sm" variant="outline" onClick={() => {
+                      if (typeof window !== 'undefined' && window.dispatchEvent) {
+                        window.dispatchEvent(new CustomEvent('navigate-to-audits'));
+                        setTimeout(() => {
+                          window.dispatchEvent(new CustomEvent('open-specific-audit', { detail: { auditType: a.auditType } }));
+                        }, 300);
+                      }
+                    }}>
+                      View audit
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="ghost" onClick={() => {
+                      if (typeof window !== 'undefined' && window.dispatchEvent) {
+                        window.dispatchEvent(new CustomEvent('navigate-to-audits', { detail: { auditType: a.auditType } }));
+                      }
+                    }}>
+                      <Plus className="w-4 h-4 mr-1" /> Complete audit
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}
@@ -4733,6 +5027,14 @@ I used the latest dependency recommendation (day carers ${recDayCarers}, day nur
     }
   };
 
+  const handleRegulationFollowUp = (regulation: CqcRegulationMatch, documentName?: string) => {
+    const prompt = `Explain how Regulation ${regulation.code} (${regulation.title}) applies to the "${documentName || 'policy'}" policy.`;
+    setInput(prompt);
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 0);
+  };
+
   const onShareDocument = (doc: { id?: string; name?: string; url?: string }) => {
     // This function is intentionally left to be used as a trigger that opens the Popover.
     // Actual share occurs when selecting a team in the Popover.
@@ -4809,13 +5111,13 @@ I used the latest dependency recommendation (day carers ${recDayCarers}, day nur
                 </Avatar>
               )}
               <div className={cn(
-                  "max-w-[75%] rounded-2xl p-4 text-sm shadow-sm",
+                  "max-w-[75%] min-w-0 rounded-2xl p-4 text-sm shadow-sm",
                   message.sender === 'user' 
                     ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-br-md' 
                     : 'bg-white border border-gray-200'
               )}>
                 {message.sender === 'ai' ? renderMessage(message) : (
-                  <p className="whitespace-pre-wrap leading-relaxed">{message.text}</p>
+                  <p className="whitespace-pre-wrap break-words leading-relaxed">{message.text}</p>
                 )}
               </div>
                {message.sender === 'user' && (
@@ -4855,6 +5157,7 @@ I used the latest dependency recommendation (day carers ${recDayCarers}, day nur
             onKeyDown={handleKeyPress}
             disabled={isTyping}
             rows={1}
+            ref={inputRef}
           />
           <div className="absolute top-1/2 right-3 -translate-y-1/2 flex gap-2">
             <Button 
