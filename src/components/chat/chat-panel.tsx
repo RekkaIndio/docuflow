@@ -22,6 +22,7 @@ import { Command, CommandInput, CommandEmpty, CommandGroup, CommandItem, Command
 import { auth, db } from '@/lib/firebase';
 import { collection } from 'firebase/firestore';
 import { workspaceCollectionPath, workspaceBasePath, workspaceDocPath } from '@/lib/paths';
+import { getCqcRegulationDetail } from '@/lib/cqc-regulations';
 import type { CqcRegulationMatch } from '@/lib/cqc-regulations';
 
 const MAX_AI_STRING_FIELD = 800;
@@ -101,7 +102,7 @@ interface ChatMessage {
   users?: Array<{ id?: string; name?: string; email?: string; role?: string; avatarUrl?: string; createdAt?: string }>;
   teams?: Array<{ id: string; name: string; memberCount?: number; description?: string }>;
   actions?: Array<{ id: string; title: string; description?: string; status?: string; dueDate?: string; priority?: string }>;
-    regulation?: CqcRegulationMatch;
+  regulation?: (CqcRegulationMatch & { snippet?: string });
   audits?: Array<{
     auditType?: string;
     name?: string;
@@ -137,7 +138,20 @@ interface UserIntent {
   specificAudit?: string;
   createAudit?: boolean;
   documentType?: string;
+  regulationCode?: string;
+  regulationFocus?: string;
+  regulationQuestion?: string;
   [key: string]: any;
+}
+
+interface RegulationConversationContext {
+  code?: string | null;
+  title?: string;
+  summary: string;
+  question: string;
+  url?: string | null;
+  focus?: string | null;
+  sources?: Array<{ title?: string; url: string }>;
 }
 
 type DependencyPoint = {
@@ -241,6 +255,13 @@ const documentToAiContext = (doc: Document) => ({
   extracted: summariseExtractedJson(doc.extractedJson),
 });
 
+const REGULATION_MESSAGE_TEMPLATE = (detail: CqcRegulationMatch, summary?: string) => {
+  const heading = detail.label || (detail.code ? `Regulation ${detail.code}` : 'CQC Guidance');
+  const body = (summary ?? detail.summary ?? '').trim();
+  const urlLine = detail.url ? `Source: ${detail.url}` : '';
+  return [heading, body, urlLine].filter(Boolean).join('\n\n');
+};
+
 const clampForAI = (value: any, depth = 0): any => {
   if (value === null || value === undefined) return value ?? null;
   if (typeof value === 'string') return clipString(value);
@@ -340,6 +361,7 @@ export function ChatPanel({ selectedItem, onFolderAdd, organisationId }: ChatPan
   const [isTyping, setIsTyping] = useState(false);
   const [activeDoc, setActiveDoc] = useState<Document | null>(null);
   const [lastContext, setLastContext] = useState<{ doc?: Document; topic?: string } | null>(null);
+  const [lastRegulationContext, setLastRegulationContext] = useState<RegulationConversationContext | null>(null);
   const { user } = useAuth();
   const [profilePicture, setProfilePicture] = useState<string | undefined>(user?.avatarUrl ?? mockUser.avatarUrl ?? undefined);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -448,6 +470,34 @@ export function ChatPanel({ selectedItem, onFolderAdd, organisationId }: ChatPan
       return {
         type: 'dependency_query',
         originalInput: userInput
+      };
+    }
+
+    const regulationMatch = raw.match(/(?:cqc\s+)?regulation\s+(\d{1,2}[A-Za-z]?)(?:\s+(.*))?/i);
+    if (regulationMatch) {
+      const regulationCode = regulationMatch[1]?.trim();
+      const regulationFocus = regulationMatch[2]?.trim();
+      if (regulationCode) {
+        return {
+          type: 'cqc_regulation_query',
+          regulationCode,
+          regulationFocus: regulationFocus || undefined,
+          regulationQuestion: userInput,
+          originalInput: userInput,
+        };
+      }
+    }
+
+    const mentionsCqc = /\bcqc\b/i.test(input) || /care\s+quality\s+commission/i.test(normalized);
+    const cqcQueryHint = /(say|guidance|guidelines|standard|standards|require|requirements?|expect|expects|expectation|expectations|regulation|regulations|rules?|overview|stance|policy|policies|duty|duties|obligations?)/i;
+    if (mentionsCqc && cqcQueryHint.test(input)) {
+      const focusMatch = raw.match(/\b(?:about|regarding|on|for)\s+([^?!.]+)/i);
+      const regulationFocus = focusMatch ? focusMatch[1].trim() : undefined;
+      return {
+        type: 'cqc_regulation_query',
+        regulationFocus,
+        regulationQuestion: userInput,
+        originalInput: userInput,
       };
     }
 
@@ -2042,35 +2092,63 @@ ${staffLines}`;
 
 
   const handleSend = async () => {
+    const inputVal = input;
+    let intent = detectIntent(inputVal);
 
-  const inputVal = input;
-  const intent = detectIntent(inputVal);
+    if (intent.type !== 'cqc_regulation_query' && lastRegulationContext) {
+      const followUpPatterns = [/\b(this|that|the|same)\s+regulation\b/i];
+      const referencesLastCode = lastRegulationContext.code
+        ? new RegExp(`\\b${lastRegulationContext.code}\\b`, 'i').test(inputVal)
+        : false;
+      const mentionsRegulationWord = /\bregulation\b/i.test(inputVal);
+      const hasExplicitNumber = /\bregulation\s*\d/i.test(inputVal);
+      const pronounFollowUp =
+        !mentionsRegulationWord &&
+        intent.type === 'general_query' &&
+        /\b(it|that)\b/i.test(inputVal) &&
+        /(say|require|cover|apply|mean|guidance|expect)/i.test(inputVal);
+      const isFollowUp =
+        followUpPatterns.some((pattern) => pattern.test(inputVal)) ||
+        referencesLastCode ||
+        (mentionsRegulationWord && !hasExplicitNumber) ||
+        pronounFollowUp;
 
-  const baseWorkspaceContext = {
-    workspaceId: selectedItem.workspaceId ?? null,
-    organisationId: organisationId ?? null,
-    selectedItem: {
-      id: (selectedItem as any)?.id ?? null,
-      name: (selectedItem as any)?.name ?? null,
-      type: selectedItem.type,
-    },
-    activeDocumentId: activeDoc?.id ?? null,
-    lastContextDocumentId: lastContext?.doc?.id ?? null,
-    user: user
-      ? {
-          id: user.id,
-          name: user.name ?? undefined,
-          email: user.email ?? undefined,
-        }
-      : null,
-  };
+      if (isFollowUp) {
+        intent = {
+          type: 'cqc_regulation_query',
+          regulationCode: lastRegulationContext.code ?? undefined,
+          regulationFocus: lastRegulationContext.focus ?? undefined,
+          regulationQuestion: inputVal,
+          originalInput: inputVal,
+        };
+      }
+    }
 
-  const buildWorkspaceContext = (extras?: Record<string, any>) =>
-    serializeForAI({
-      ...baseWorkspaceContext,
-      intent: intent.type,
-      ...extras,
-    });
+    const baseWorkspaceContext = {
+      workspaceId: selectedItem.workspaceId ?? null,
+      organisationId: organisationId ?? null,
+      selectedItem: {
+        id: (selectedItem as any)?.id ?? null,
+        name: (selectedItem as any)?.name ?? null,
+        type: selectedItem.type,
+      },
+      activeDocumentId: activeDoc?.id ?? null,
+      lastContextDocumentId: lastContext?.doc?.id ?? null,
+      user: user
+        ? {
+            id: user.id,
+            name: user.name ?? undefined,
+            email: user.email ?? undefined,
+          }
+        : null,
+    };
+
+    const buildWorkspaceContext = (extras?: Record<string, any>) =>
+      serializeForAI({
+        ...baseWorkspaceContext,
+        intent: intent.type,
+        ...extras,
+      });
 
     // Multi-document query support
     if (intent && intent.type === 'multi_document_query') {
@@ -2169,6 +2247,214 @@ ${staffLines}`;
     }
 
     if (inputVal.trim() === '') return;
+
+    if (intent.type === 'cqc_regulation_query') {
+      appendMessages({ sender: 'user', text: inputVal });
+      setInput('');
+      setIsTyping(true);
+      try {
+        const code = intent.regulationCode?.toUpperCase() || lastRegulationContext?.code || undefined;
+        const seedDetail = code ? getCqcRegulationDetail(code) : null;
+        const effectiveQuestion = intent.regulationQuestion ?? inputVal;
+        const effectiveFocus = intent.regulationFocus ?? lastRegulationContext?.focus ?? null;
+
+        const normaliseRegCode = (value: string) => value.replace(/[^0-9a-z]/gi, '').toUpperCase();
+        const collectPoliciesForRegulation = (regCode: string | undefined | null): Document[] => {
+          if (!regCode) return [];
+          const target = normaliseRegCode(regCode);
+          const seen = new Map<string, Document>();
+
+          const considerDoc = (doc: Document | null | undefined) => {
+            if (!doc || !Array.isArray(doc.regulations)) return;
+            const matches = doc.regulations.some((reg) => reg?.code && normaliseRegCode(reg.code) === target);
+            if (matches) seen.set(doc.id, doc);
+          };
+
+          if (selectedItem) {
+            if (selectedItem.type === 'document') {
+              considerDoc(selectedItem as Document);
+            } else if (selectedItem.type === 'folder') {
+              getAllDocuments([selectedItem]).forEach(considerDoc);
+            }
+          }
+
+          considerDoc(activeDoc);
+          considerDoc(lastContext?.doc);
+
+          return Array.from(seen.values());
+        };
+
+        let summaryText = seedDetail?.summary ?? lastRegulationContext?.summary ?? '';
+        let resolvedUrl: string | null = seedDetail?.url ?? lastRegulationContext?.url ?? null;
+        let sources: Array<{ title?: string; url: string }> = lastRegulationContext?.sources ? [...lastRegulationContext.sources] : [];
+        let detail = seedDetail || (lastRegulationContext?.code
+          ? {
+              code: lastRegulationContext.code,
+              label: lastRegulationContext.title ?? `Regulation ${lastRegulationContext.code}`,
+              title: lastRegulationContext.title ?? 'CQC Guidance',
+              summary: lastRegulationContext.summary,
+              url: lastRegulationContext.url ?? undefined,
+            }
+          : null);
+
+        try {
+          const response = await fetch('/api/cqc/query', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              question: effectiveQuestion,
+              regulationCode: code,
+              focus: effectiveFocus,
+            }),
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            if (typeof data?.summary === 'string' && data.summary.trim()) {
+              summaryText = data.summary.trim();
+            }
+            if (typeof data?.url === 'string' && data.url.trim()) {
+              resolvedUrl = data.url.trim();
+            }
+            if (Array.isArray(data?.sources)) {
+              const combined = new Map((sources || []).map((item) => [item.url, item]));
+              data.sources.forEach((item: any) => {
+                if (!item || typeof item.url !== 'string') return;
+                const url = String(item.url);
+                if (!combined.has(url)) {
+                  combined.set(url, {
+                    url,
+                    title: typeof item.title === 'string' ? item.title : undefined,
+                  });
+                }
+              });
+              sources = Array.from(combined.values());
+            }
+            if (!detail && data?.regulation?.code) {
+              const apiReg = data.regulation;
+              detail = {
+                code: apiReg.code,
+                label: apiReg.label ?? `Regulation ${apiReg.code}`,
+                title: apiReg.title ?? 'CQC Guidance',
+                summary: summaryText || '',
+                url: apiReg.url ?? resolvedUrl ?? undefined,
+              };
+            }
+          } else if (response.status === 503) {
+            summaryText = summaryText || 'OpenAI integration is not available right now.';
+          }
+        } catch (regError) {
+          console.error('Failed to fetch regulation guidance:', regError);
+        }
+
+        if (!resolvedUrl && sources.length > 0) {
+          const preferred = sources.find((source) => /cqc\.org\.uk/i.test(source.url));
+          resolvedUrl = (preferred ?? sources[0]).url;
+        }
+
+        const trimmedSummary = summaryText || 'I could not retrieve the CQC guidance just now.';
+        const targetDetail = detail
+          ? ({
+              ...detail,
+              summary: detail.summary || trimmedSummary,
+              url: resolvedUrl ?? detail.url,
+            } as CqcRegulationMatch)
+          : null;
+
+        let relatedPolicies = targetDetail?.code ? collectPoliciesForRegulation(targetDetail.code) : [];
+        const workspaceIdForRegSearch =
+          (selectedItem as any)?.workspaceId ??
+          activeDoc?.workspaceId ??
+          lastContext?.doc?.workspaceId ??
+          null;
+
+        if (targetDetail?.code && relatedPolicies.length < 3 && workspaceIdForRegSearch) {
+          try {
+            const searchResponse = await fetch('/api/policies/search', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                workspaceId: workspaceIdForRegSearch,
+                organisationId: organisationId ?? null,
+                query: targetDetail.code,
+              }),
+            });
+
+            if (searchResponse.ok) {
+              const searchData = await searchResponse.json();
+              const resultDocs: any[] = Array.isArray(searchData?.results) ? searchData.results : [];
+              const seen = new Map(relatedPolicies.map((doc) => [doc.id, doc]));
+
+              resultDocs.forEach((raw) => {
+                if (!raw || typeof raw !== 'object' || !raw.id || seen.has(raw.id)) return;
+                const matchesRegulation = Array.isArray(raw.regulations)
+                  ? raw.regulations.some((reg: any) => typeof reg?.code === 'string' && normaliseRegCode(reg.code) === normaliseRegCode(String(targetDetail.code)))
+                  : false;
+                const mentionsCode = matchesRegulation || (typeof raw.summary === 'string' && raw.summary.includes(targetDetail.label ?? targetDetail.code));
+                if (matchesRegulation || mentionsCode) {
+                  seen.set(raw.id, raw as Document);
+                }
+              });
+
+              relatedPolicies = Array.from(seen.values()).slice(0, 3);
+            }
+          } catch (err) {
+            console.warn('Failed to cross-reference policies for regulation', err);
+          }
+        }
+
+        let messageText = targetDetail
+          ? REGULATION_MESSAGE_TEMPLATE(targetDetail, trimmedSummary)
+          : [`CQC Guidance`, trimmedSummary, resolvedUrl ?? ''].filter((part) => part && part.trim()).join('\n\n');
+
+        if (sources.length > 0) {
+          const sourceLines = sources.slice(0, 3).map((source) => {
+            const label = source.title ? `${source.title} - ` : '';
+            return `- ${label}${source.url}`;
+          });
+          messageText += `\n\nSources:\n${sourceLines.join('\n')}`;
+        }
+
+        if (relatedPolicies.length > 0) {
+          const policyLines = relatedPolicies.slice(0, 3).map((doc) => {
+            const link = doc.url ?? doc.downloadUrl;
+            return `- ${doc.name}${link ? ` (${link})` : ''}`;
+          });
+          messageText += `\n\nRelated workspace policies:\n${policyLines.join('\n')}`;
+        }
+
+        const documentsPayload = relatedPolicies.slice(0, 3).map((doc) => ({
+          id: doc.id,
+          name: doc.name,
+          summary: doc.summary,
+          url: doc.url ?? doc.downloadUrl,
+          regulations: doc.regulations,
+        }));
+
+        appendMessages({
+          sender: 'ai',
+          text: messageText,
+          regulation: targetDetail ? { ...targetDetail, snippet: trimmedSummary } : undefined,
+          documents: documentsPayload.length ? documentsPayload : undefined,
+        });
+
+        setLastRegulationContext({
+          code: targetDetail?.code ?? lastRegulationContext?.code ?? null,
+          title: targetDetail?.title ?? lastRegulationContext?.title,
+          summary: trimmedSummary,
+          question: effectiveQuestion,
+          url: resolvedUrl ?? targetDetail?.url ?? null,
+          focus: effectiveFocus ?? null,
+          sources,
+        });
+      } catch (error) {
+        console.error('Error resolving regulation query:', error);
+        appendMessages({ sender: 'ai', text: 'Sorry, I could not fetch that regulation just now.' });
+      } finally {
+        setIsTyping(false);
+      }
+      return;
+    }
 
     // Handle audit query
     if (intent.type === 'audit_query') {

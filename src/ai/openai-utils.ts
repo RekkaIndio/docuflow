@@ -19,6 +19,12 @@ function getClient(): OpenAI {
   return cachedClient;
 }
 
+export const getDefaultOpenAIModel = () => DEFAULT_MODEL;
+
+export function getOpenAIClient(): OpenAI {
+  return getClient();
+}
+
 export function isOpenAIEnabled(): boolean {
   try {
     return Boolean(resolveApiKey());
