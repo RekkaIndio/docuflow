@@ -946,7 +946,8 @@ export function Dashboard() {
   const handleDocumentDelete = async (document: Document) => {
     if (!activeWorkspace) return;
     try {
-      await deleteDocument(activeWorkspace.id, document.id);
+      const orgIdForDelete = document.organisationId ?? activeWorkspace.organisationId ?? null;
+      await deleteDocument(activeWorkspace.id, document.id, orgIdForDelete);
       // Update workspace and selection together so the UI updates immediately.
       setActiveWorkspace(prev => {
         if (!prev) return null;
@@ -1250,6 +1251,7 @@ export function Dashboard() {
           onDocumentUpdate={handleDocumentUpdate}
           breadcrumb={breadcrumb}
           onBreadcrumbClick={handleBreadcrumbClick}
+          organisationId={organisationId || null}
         />
       )}
         </FeatureGuard>

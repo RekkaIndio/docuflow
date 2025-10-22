@@ -76,6 +76,7 @@ export type Document = {
   fileType: 'pdf' | 'csv' | 'txt' | 'xlsx' | 'doc' | 'docx';
   createdAt: string;
   owner: User;
+  organisationId?: string | null;
   extractedJson?: Record<string, any>;
   summary?: string;
   // Optional vector embedding for semantic search (stored as an array of numbers)

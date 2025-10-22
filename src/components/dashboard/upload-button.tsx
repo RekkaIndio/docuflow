@@ -32,6 +32,7 @@ interface UploadButtonProps {
     onDocumentAdd: (document: Document) => void;
     workspaceId?: string;
     folderId?: string;
+  organisationId?: string | null;
     size?: "sm" | "default" | "lg";
 }
 
@@ -69,7 +70,7 @@ const formatFileSize = (bytes: number) => {
 }
 
 
-export function UploadButton({ onDocumentAdd, workspaceId, folderId, size = "default" }: UploadButtonProps) {
+export function UploadButton({ onDocumentAdd, workspaceId, folderId, organisationId, size = "default" }: UploadButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploads, setUploads] = useState<FileUpload[]>([]);
@@ -98,8 +99,11 @@ export function UploadButton({ onDocumentAdd, workspaceId, folderId, size = "def
 
   // Handle renewal date change for a specific file
   const handleRenewalDateChange = (index: number, date: string) => {
-    setUploads(prev => prev.map((u, i) => i === index ? { ...u, renewalDate: date } : u));
-  };
+      setUploads(prev => prev.map((u, i) => {
+        const normalized = date && date.trim().length > 0 ? date : undefined;
+        return i === index ? { ...u, renewalDate: normalized } : u;
+      }));
+    };
 
   const processFile = async (upload: FileUpload, index: number): Promise<void> => {
     if (!workspaceId || !folderId) {
@@ -114,7 +118,12 @@ export function UploadButton({ onDocumentAdd, workspaceId, folderId, size = "def
       // 1. Upload to Firebase Storage
       setUploads(prev => prev.map((u, i) => i === index ? { ...u, status: "uploading", progress: 25 } : u));
       const storage = getStorage();
-      const storagePath = `${workspaceId}/${folderId}/${Date.now()}-${upload.file.name}`;
+      const safeFileName = upload.file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const storageBasePath = organisationId
+        ? `organisations/${organisationId}/workspaces/${workspaceId}`
+        : `workspaces/${workspaceId}`;
+      const folderSegment = folderId && folderId !== 'root' ? `folders/${folderId}` : 'root';
+      const storagePath = `${storageBasePath}/documents/${folderSegment}/${Date.now()}-${safeFileName}`;
       const storageRef = ref(storage, storagePath);
       await uploadBytes(storageRef, upload.file);
 
@@ -158,6 +167,7 @@ export function UploadButton({ onDocumentAdd, workspaceId, folderId, size = "def
       // Ensure workspaceId and storagePath are not empty
       const safeWorkspaceId = workspaceId || 'unknown-workspace';
       const safeStoragePath = storagePath || 'unknown-path';
+      const safeOrganisationId = organisationId ?? null;
       const newDoc: Omit<Document, 'id'> = {
         name: docName,
         type: 'document',
@@ -171,12 +181,13 @@ export function UploadButton({ onDocumentAdd, workspaceId, folderId, size = "def
         tags,
         summary,
         renewalDate: upload.renewalDate ?? undefined, // Ensure undefined if not set
+        organisationId: safeOrganisationId,
       }
 
       // 4. Save metadata to Firestore
       const docId = await saveDocument(newDoc);
 
-      onDocumentAdd({ ...newDoc, id: docId, folderId });
+      onDocumentAdd({ ...newDoc, id: docId, folderId, organisationId: safeOrganisationId });
       setUploads(prev => prev.map((u, i) => i === index ? { ...u, status: "completed", progress: 100 } : u));
 
       // --- ALERT LOGIC: If uploaded to 'audits' folder, send email to Admin team ---
@@ -187,14 +198,17 @@ export function UploadButton({ onDocumentAdd, workspaceId, folderId, size = "def
           let adminTeamName = 'Admin';
 
           // 1) Workspace-scoped Admin team (subcollection)
-            try {
+          try {
             if (workspaceId) {
-              const teamsQuery = query(collection(db, workspaceCollectionPath(workspaceId, 'teams')), where("name", "==", "Admin"));
-              const teamsSnap = await getDocs(teamsQuery);
-              if (!teamsSnap.empty) {
-                const adminTeam = teamsSnap.docs[0].data();
-                emails = Array.isArray(adminTeam.emails) ? adminTeam.emails : [];
-                adminTeamName = adminTeam.name || adminTeamName;
+              const teamsPath = workspaceCollectionPath(workspaceId, 'teams', organisationId || null);
+              if (teamsPath) {
+                const teamsQuery = query(collection(db, teamsPath), where("name", "==", "Admin"));
+                const teamsSnap = await getDocs(teamsQuery);
+                if (!teamsSnap.empty) {
+                  const adminTeam = teamsSnap.docs[0].data();
+                  emails = Array.isArray(adminTeam.emails) ? adminTeam.emails : [];
+                  adminTeamName = adminTeam.name || adminTeamName;
+                }
               }
             }
           } catch (e) {
@@ -227,12 +241,15 @@ export function UploadButton({ onDocumentAdd, workspaceId, folderId, size = "def
             try {
               // Try workspace subcollection fixed id
                 if (workspaceId) {
-                const adminDocRef = doc(db, workspaceCollectionPath(workspaceId, 'teams'), `admin-${workspaceId}`);
-                const adminSnap = await getDoc(adminDocRef);
-                if (adminSnap.exists()) {
-                  const adminTeam = adminSnap.data() as any;
-                  emails = Array.isArray(adminTeam.emails) ? adminTeam.emails : [];
-                  adminTeamName = adminTeam.name || adminTeamName;
+                const teamsPath = workspaceCollectionPath(workspaceId, 'teams', organisationId || null);
+                if (teamsPath) {
+                  const adminDocRef = doc(db, teamsPath, `admin-${workspaceId}`);
+                  const adminSnap = await getDoc(adminDocRef);
+                  if (adminSnap.exists()) {
+                    const adminTeam = adminSnap.data() as any;
+                    emails = Array.isArray(adminTeam.emails) ? adminTeam.emails : [];
+                    adminTeamName = adminTeam.name || adminTeamName;
+                  }
                 }
               }
               // Legacy fallback: top-level by id

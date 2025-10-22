@@ -52,6 +52,7 @@ interface FileBrowserProps {
   onDocumentUpdate?: (document: Document) => void;
   breadcrumb: (Folder | { id: 'root', name: string, type: 'folder' })[];
   onBreadcrumbClick: (folderId: string) => void;
+  organisationId?: string | null;
 }
 
 const getFileIcon = (fileType: Document["fileType"]) => {
@@ -79,6 +80,7 @@ export function FileBrowser({
   onDocumentUpdate,
   breadcrumb,
   onBreadcrumbClick,
+  organisationId,
 }: FileBrowserProps) {
   const isMobile = useIsMobile();
 
@@ -189,6 +191,7 @@ export function FileBrowser({
                onDocumentAdd={onDocumentAdd}
                workspaceId={folder?.workspaceId}
                folderId={folder?.id || 'root'}
+              organisationId={organisationId || null}
                size="sm"
              />
           </>
