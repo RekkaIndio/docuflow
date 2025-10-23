@@ -171,6 +171,7 @@ const DASHBOARD_VIEWS = [
   "lessons-rcas",
   "cqc-logs",
   "safeguarding-logs",
+  "risk-assessment",
   "help",
 ] as const;
 
@@ -1354,6 +1355,17 @@ export function Dashboard() {
               {(() => {
                 const LessonsPage = require('@/app/(protected)/lessons-rcas/page').default;
                 return <LessonsPage />;
+              })()}
+            </React.Suspense>
+          </FeatureGuard>
+        );
+      case 'risk-assessment':
+        return (
+          <FeatureGuard feature="riskAssessment" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
+            <React.Suspense fallback={<div>Loading...</div>}>
+              {(() => {
+                const RiskAssessmentPage = require('@/app/(protected)/risk-assessment/page').default;
+                return <RiskAssessmentPage />;
               })()}
             </React.Suspense>
           </FeatureGuard>

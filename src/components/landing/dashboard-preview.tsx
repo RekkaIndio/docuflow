@@ -71,7 +71,7 @@ const MockChatPanel = () => (
             <div className="flex items-start gap-2">
                 <Bot className="w-5 h-5 text-primary flex-shrink-0" />
                 <div className="text-xs bg-muted/50 p-2 rounded-md">
-                    <p>I've analyzed "Project Plan.pdf". Key deadlines are in Q3. Would you like me to summarize them?</p>
+                    <p>I've analysed "Project Plan.pdf". Key deadlines are in Q3. Would you like me to summarize them?</p>
                 </div>
             </div>
              <div className="flex items-start gap-2 justify-end">

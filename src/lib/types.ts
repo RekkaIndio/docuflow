@@ -167,7 +167,8 @@ export type FeatureModuleKey =
   | 'dailyCheckins'
   | 'accessibility'
   | 'settings'
-  | 'lessonsRcas';
+  | 'lessonsRcas'
+  | 'riskAssessment';
 
 export type FeatureModule = {
   enabled: boolean;

@@ -11,7 +11,7 @@ const featureItems = [
     {
         icon: <Cpu className="w-10 h-10 text-primary" />,
         title: "Intelligent Data Extraction",
-        description: "Our AI engine analyzes your documents, extracts structured data, and converts it into a usable JSON format for queries.",
+        description: "Our AI engine analyses your documents, extracts structured data, and converts it into a usable JSON format for queries.",
     },
     {
         icon: <Tag className="w-10 h-10 text-primary" />,

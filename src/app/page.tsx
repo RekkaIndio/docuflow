@@ -486,7 +486,7 @@ const workflowStages: WorkflowStage[] = [
     subtitle: "Dashboards keep leaders coaching, not chasing data across disconnected tools.",
     bullets: [
       "Live compliance scores by service, domain, and key question",
-      "Staff supervision coverage and training matrix",
+      "Staff supervision and tracking coverage at a glance",
       "Action plan momentum tracked in real time"
     ],
     icon: Users,

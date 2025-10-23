@@ -211,7 +211,7 @@ export default function CallBellMonitoringAuditPage() {
       label: "2. Call Bell Analysis",
       name: "callBellAnalysis",
       guidance: [
-        "Analyze call bell data over the specified period.",
+        "Analyse call bell data over the specified period.",
         "Document patterns and busiest times."
       ]
     },

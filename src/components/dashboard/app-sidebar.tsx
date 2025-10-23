@@ -32,6 +32,7 @@ import {
   ChevronDown,
   ChevronRight,
   NotebookPen,
+  AlertTriangle,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Logo } from "@/components/icons/logo";
@@ -65,7 +66,7 @@ interface AppSidebarProps {
   workspaces: Workspace[];
   activeWorkspace: Workspace | null;
   onWorkspaceChange: (workspaceId: string) => void;
-  setView: React.Dispatch<React.SetStateAction<'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'dependency-calculator' | 'daily' | 'notifications' | 'audits' | 'policies' | 'journal' | 'stats' | 'action-plans' | 'appraisals' | 'rotas' | 'lessons-rcas' | 'cqc-logs' | 'safeguarding-logs' | 'help'>>;
+  setView: React.Dispatch<React.SetStateAction<'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'dependency-calculator' | 'daily' | 'notifications' | 'audits' | 'policies' | 'journal' | 'stats' | 'action-plans' | 'appraisals' | 'rotas' | 'lessons-rcas' | 'cqc-logs' | 'safeguarding-logs' | 'risk-assessment' | 'help'>>;
   onGoToFiles: () => void;
   onCreateWorkspace: (name: string) => void;
   dailyEntry?: any;
@@ -284,6 +285,16 @@ export function AppSidebar({
               </SidebarMenuSubItem>
             </SidebarMenuSub>
           )}
+        </SidebarMenuItem>
+      )}
+      
+      {/* Risk Assessment */}
+      {isEnabled('riskAssessment') && (
+        <SidebarMenuItem>
+          <SidebarMenuButton onClick={() => handleNavigation(() => setView('risk-assessment'))} isActive={currentView === 'risk-assessment'} className="text-lg h-14">
+            <AlertTriangle className="w-7 h-7 mr-2" />
+            <span className="text-lg">Risk Assessment</span>
+          </SidebarMenuButton>
         </SidebarMenuItem>
       )}
       
