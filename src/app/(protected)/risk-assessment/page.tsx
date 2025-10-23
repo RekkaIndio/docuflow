@@ -39,6 +39,7 @@ const RISK_ASSESSMENT_FORM_TEMPLATE = {
     visitors: false,
     contractors: false,
     deliveryPersonnel: false,
+    residents: false
   },
   likelihood: '',
   riskPrevention: '',
@@ -213,6 +214,7 @@ const renderRiskAssessmentDetail = (form: Record<string, any>) => {
     visitors: 'Visitors',
     contractors: 'Contractors',
     deliveryPersonnel: 'Delivery Personnel',
+    residents: 'Residents',
   };
 
   const sections: { title: string; fields: FieldDescriptor[] }[] = [
@@ -567,24 +569,64 @@ export default function RiskAssessmentPage() {
                   <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
                     <div className="w-full flex-shrink-0 lg:w-[360px] xl:w-[400px] lg:self-start lg:sticky lg:top-24 lg:h-fit">
                       <div className="flex flex-col gap-4">
-                          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
-                            <div className="flex items-start gap-4">
-                              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-red-50 text-red-700">
-                                <AlertTriangle className="h-6 w-6" />
-                              </div>
-                              <div>
-                                <h2 className="text-xl font-semibold text-red-900">Risk Assessment</h2>
-                                <p className="mt-1 text-sm leading-relaxed text-slate-500">
-                                  Document potential risks and implement prevention strategies.
-                                </p>
-                              </div>
+                        <Card className="rounded-2xl border border-slate-200 bg-white shadow-md">
+                          <CardHeader className="space-y-1 border-b border-slate-200 bg-slate-50/60">
+                            <CardTitle className="text-lg text-blue-900">Assessment Details</CardTitle>
+                            <CardDescription>Basic information about the assessment.</CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-4 p-6">
+                            <div className="space-y-2">
+                              <Label htmlFor="quick-careHomeName">Care Home Name</Label>
+                              <Input
+                                id="quick-careHomeName"
+                                value={form.careHomeName}
+                                onChange={event => updateField('careHomeName', event.target.value)}
+                              />
                             </div>
-                            {workspaceName ? (
-                              <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50 p-3 text-sm text-slate-600">
-                                <span className="font-semibold text-slate-800">Workspace:</span> {workspaceName}
-                              </div>
-                            ) : null}
-                          </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="quick-risk">Risk</Label>
+                              <Input
+                                id="quick-risk"
+                                value={form.risk}
+                                onChange={event => updateField('risk', event.target.value)}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="quick-assessmentConductedBy">Assessment Conducted By</Label>
+                              <Input
+                                id="quick-assessmentConductedBy"
+                                value={form.assessmentConductedBy}
+                                onChange={event => updateField('assessmentConductedBy', event.target.value)}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="quick-position">Position</Label>
+                              <Input
+                                id="quick-position"
+                                value={form.position}
+                                onChange={event => updateField('position', event.target.value)}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="quick-dateOfAssessment">Date of Assessment</Label>
+                              <Input
+                                id="quick-dateOfAssessment"
+                                type="date"
+                                value={form.dateOfAssessment}
+                                onChange={event => updateField('dateOfAssessment', event.target.value)}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="quick-reviewDate">Review Date</Label>
+                              <Input
+                                id="quick-reviewDate"
+                                type="date"
+                                value={form.reviewDate}
+                                onChange={event => updateField('reviewDate', event.target.value)}
+                              />
+                            </div>
+                          </CardContent>
+                        </Card>
                       </div>
                     </div>
 
@@ -598,39 +640,6 @@ export default function RiskAssessmentPage() {
                           </CardHeader>
                           <CardContent className="p-6 sm:p-8">
                             <form className="space-y-8" onSubmit={handleSubmit}>
-                              <div className="space-y-6 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
-                                <div className="space-y-2">
-                                  <h3 className="text-lg font-semibold text-red-900">Assessment Details</h3>
-                                  <p className="text-sm text-slate-500">Basic information about the assessment.</p>
-                                </div>
-                                <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-                                  <div className="space-y-2">
-                                    <Label htmlFor="careHomeName">Care Home Name</Label>
-                                    <Input id="careHomeName" value={form.careHomeName} onChange={e => updateField('careHomeName', e.target.value)} />
-                                  </div>
-                                  <div className="space-y-2">
-                                    <Label htmlFor="risk">Risk</Label>
-                                    <Input id="risk" value={form.risk} onChange={e => updateField('risk', e.target.value)} />
-                                  </div>
-                                  <div className="space-y-2">
-                                    <Label htmlFor="assessmentConductedBy">Assessment Conducted By</Label>
-                                    <Input id="assessmentConductedBy" value={form.assessmentConductedBy} onChange={e => updateField('assessmentConductedBy', e.target.value)} />
-                                  </div>
-                                  <div className="space-y-2">
-                                    <Label htmlFor="position">Position</Label>
-                                    <Input id="position" value={form.position} onChange={e => updateField('position', e.target.value)} />
-                                  </div>
-                                  <div className="space-y-2">
-                                    <Label htmlFor="dateOfAssessment">Date of Assessment</Label>
-                                    <Input id="dateOfAssessment" type="date" value={form.dateOfAssessment} onChange={e => updateField('dateOfAssessment', e.target.value)} />
-                                  </div>
-                                  <div className="space-y-2">
-                                    <Label htmlFor="reviewDate">Review Date</Label>
-                                    <Input id="reviewDate" type="date" value={form.reviewDate} onChange={e => updateField('reviewDate', e.target.value)} />
-                                  </div>
-                                </div>
-                              </div>
-
                               <div className="space-y-6 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
                                 <div className="space-y-2">
                                   <h3 className="text-lg font-semibold text-red-900">Hazard Description</h3>
@@ -654,6 +663,7 @@ export default function RiskAssessmentPage() {
                                     { key: 'visitors' as const, label: 'Visitors' },
                                     { key: 'contractors' as const, label: 'Contractors' },
                                     { key: 'deliveryPersonnel' as const, label: 'Delivery Personnel' },
+                                    { key: 'residents' as const, label: 'Residents' },
                                   ].map(option => (
                                     <label key={option.key} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm">
                                       <Checkbox checked={form.personsAtRisk[option.key]} onCheckedChange={checked => updatePersonsAtRisk(option.key, !!checked)} />
