@@ -21,11 +21,12 @@ import { Badge } from "../ui/badge";
 import { UploadButton } from "./upload-button";
 import { NewFolderDialog } from "./new-folder-dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query as fsQuery, orderBy, limit, where, getDocs } from "firebase/firestore";
+import { format, startOfWeek, addDays } from "date-fns";
 import { db } from "@/lib/firebase";
 import { workspaceDocPath, workspaceCollectionPath, workspaceBasePath } from '@/lib/paths';
 import { getWorkspaceCollectionRef, getWorkspaceDocRef, getMonthlyAuditCompletionStatus } from '@/lib/firestore';
 import { AUDIT_TYPES, AUDIT_DISPLAY_NAMES, AuditType } from '@/lib/audit-types';
+import { collection, doc, onSnapshot, query as fsQuery, where, orderBy, limit, getDocs, getDoc, setDoc } from "firebase/firestore";
 import OccupancyPie from '@/components/admin/occupancy-pie';
 import OverviewCards from './overview-cards';
 // consolidated imports above
@@ -39,6 +40,7 @@ import { ComplianceOverviewModal } from './ComplianceOverviewModal';
 import { openDocument } from '@/lib/document-utils';
 import AuditDonut from './audit-donut';
 import { StaffingOverviewCard } from './staffing-overview-card';
+import { useRouter } from 'next/navigation';
 
 // Component to display trend indicators
 // Local styles for the pulsing pending state. Using a box-shadow animation on
@@ -203,6 +205,7 @@ const DashboardHero = ({
     onDocumentAdd,
     onFolderAdd,
     onComplianceOverviewClick,
+    onStatsClick,
     isTodayCompleted,
     onDailyEntryUpdate,
     dailyEntry,
@@ -225,6 +228,7 @@ const DashboardHero = ({
     onDocumentAdd: (document: Document) => void;
     onFolderAdd: (folder: FolderType) => void;
     onComplianceOverviewClick?: () => void;
+    onStatsClick?: () => void;
     isTodayCompleted: boolean;
     onDailyEntryUpdate?: (entry: any) => void;
     dailyEntry?: any;
@@ -303,16 +307,6 @@ const DashboardHero = ({
                     <div className="flex flex-wrap items-center gap-3">
                        
                     
-                        {onComplianceOverviewClick ? (
-                            <Button
-                                variant="outline"
-                                size="lg"
-                                className="border-white/50 bg-white/10 text-white hover:bg-white/20 hover:border-white/60 backdrop-blur-sm shadow-md transition-all"
-                                onClick={onComplianceOverviewClick}
-                            >
-                                View compliance overview
-                            </Button>
-                        ) : null}
                     </div>
 
                     {/* Quick Metrics Cards */}
@@ -423,8 +417,8 @@ const DashboardHero = ({
                     </div>
                 </div>
 
-                <div className="flex flex-col justify-between gap-6 rounded-2xl border border-white/20 bg-gradient-to-br from-white/15 to-white/5 p-7 backdrop-blur-md shadow-lg">
-                    <div className="space-y-3">
+                <div className="flex flex-col gap-4 rounded-2xl border border-white/20 bg-gradient-to-br from-white/15 to-white/5 p-7 backdrop-blur-md shadow-lg">
+                    <div className="space-y-2">
                         <div className="flex items-center justify-between">
                             <span className="text-sm font-bold uppercase tracking-wider text-white">Health snapshot</span>
                             <Badge className={`${isTodayCompleted ? "bg-emerald-500/30 border-emerald-400/50 text-emerald-100" : "bg-red-500/30 border-red-400/50 text-red-100"} border backdrop-blur-sm shadow-md`}>
@@ -436,23 +430,9 @@ const DashboardHero = ({
                         </p>
                     </div>
 
-                    <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
                         <AuditDonut completed={healthScore?.overallScore || 0} total={100} />
                         <div className="space-y-3 text-sm text-white/75">
-                            <div className="flex items-center gap-2">
-                                <Shield className="h-4 w-4 text-emerald-200" />
-                                <span>
-                                    {healthScore ? `Overall health: ${healthScore.overallScore}%` : "No health data yet"}
-                                </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <ClipboardList className="h-4 w-4 text-sky-200" />
-                                <span>{overallStats.auditsCompleted} audits completed this month</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <FileText className="h-4 w-4 text-indigo-200" />
-                                <span>{actionableItems.docsThisWeekCount} documents uploaded in the last 7 days</span>
-                            </div>
                             {healthScore && (
                                 <div className="mt-3 pt-3 border-t border-white/20">
                                     <div className="text-xs text-white/60 mb-2">Component breakdown:</div>
@@ -468,7 +448,28 @@ const DashboardHero = ({
                         </div>
                     </div>
 
-
+                    {onComplianceOverviewClick && (
+                        <div className="mt-4 flex gap-3">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="border-white/50 bg-white/10 text-white hover:bg-white/20 hover:border-white/60 backdrop-blur-sm shadow-md transition-all flex-1"
+                                onClick={onComplianceOverviewClick}
+                            >
+                                View compliance overview
+                            </Button>
+                            {onStatsClick && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="border-white/50 bg-white/10 text-white hover:bg-white/20 hover:border-white/60 backdrop-blur-sm shadow-md transition-all flex-1"
+                                    onClick={onStatsClick}
+                                >
+                                    View stats
+                                </Button>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
         </section>
@@ -1653,6 +1654,7 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
         window.dispatchEvent(new CustomEvent("dashboard:navigate", { detail: { view: "journal" } }));
     }, []);
     const showJournalAlertCard = shouldShowJournalCard && openJournalCount > 0;
+    const router = useRouter();
 
     // Header logo (follows same logic as TopNav: prefer user's profilePicture, then uploadedLogo, with workspace fallback)
     const [headerLogo, setHeaderLogo] = useState<string | null>(null);
@@ -2135,10 +2137,61 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
         };
     };
 
+    // Lightweight NDPS helpers (same logic as dependency calculator page)
+    function calculateNDPSScore(resident: any) {
+        const NPDS_FIELDS = [
+          'bcn_mobility','bcn_transfers','bcn_washing','bcn_dressing','bcn_toileting','bcn_continence','bcn_feeding','bcn_turning','bcn_getting_up','bcn_bed_mobility','bcn_walking','bcn_stairs',
+          'snn_breathing','snn_drugs','snn_skin_care','snn_treatment','snn_observation',
+          'therapy_communication','therapy_cognitive','therapy_behaviour'
+        ];
+        let bcn = 0, snn = 0, therapy = 0;
+        const bcnKeys = ['bcn_mobility','bcn_transfers','bcn_washing','bcn_dressing','bcn_toileting','bcn_continence','bcn_feeding','bcn_turning','bcn_getting_up','bcn_bed_mobility','bcn_walking','bcn_stairs'];
+        const snnKeys = ['snn_breathing','snn_drugs','snn_skin_care','snn_treatment','snn_observation'];
+        const therapyKeys = ['therapy_communication','therapy_cognitive','therapy_behaviour'];
+        for (const field of NPDS_FIELDS) {
+            const level = resident[field] || '';
+            let score = 0;
+            switch (level) {
+                case 'Low': score = 1; break;
+                case 'Medium': score = 2; break;
+                case 'High': score = 3; break;
+                default: score = 0;
+            }
+            if (bcnKeys.includes(field)) bcn += score;
+            else if (snnKeys.includes(field)) snn += score;
+            else therapy += score;
+        }
+        bcn = Math.min(bcn, 65); snn = Math.min(snn, 25); therapy = Math.min(therapy, 10);
+        return bcn + snn + therapy;
+    }
+
+    function getNDPSBand(score: number) {
+        if (score <= 5) return { band: 1, name: 'Independent' };
+        if (score <= 10) return { band: 2, name: 'Low Dependency' };
+        if (score <= 15) return { band: 3, name: 'Medium Dependency' };
+        if (score <= 20) return { band: 4, name: 'High Dependency' };
+        return { band: 5, name: 'Very High Dependency' };
+    }
+
+    // Helper function to calculate shift hours from start and end times
+    const calculateShiftHours = (startTime: string, endTime: string): number => {
+        const start = new Date(`1970-01-01T${startTime}:00`);
+        const end = new Date(`1970-01-01T${endTime}:00`);
+        const diffMs = end.getTime() - start.getTime();
+        return diffMs / (1000 * 60 * 60); // Convert to hours
+    };
+
     // Calculate individual component scores for overall health
     const calculateComponentScores = () => {
-        // Audits score (30% weight) - based on overall audit compliance
-        const auditsScore = overallStats.overallPercentage || 0;
+        // Audits score (30% weight) - based on average of all individual audit scores (uncompleted audits count as 0%)
+        const allAuditScores = AUDIT_TYPES.map(type => {
+            const score = auditScoreMap[type]?.scorePercent;
+            return score !== null && score !== undefined ? score : 0; // Uncompleted audits count as 0%
+        });
+
+        const auditsScore = allAuditScores.length > 0
+            ? Math.round(allAuditScores.reduce((sum, score) => sum + score, 0) / allAuditScores.length)
+            : 0;
 
         // Action Plans score (20% weight) - based on completion rate of action plans
         // For now, we'll use a simple heuristic: if there are completed audits, assume some action plans exist
@@ -2173,22 +2226,95 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
             supervisionsScore = totalExpectedSupervisions > 0 ? Math.round((completedSupervisions / totalExpectedSupervisions) * 100) : 0;
         }
 
-        // Rotas score (15% weight) - based on staffing coverage from daily check-in
+        // Rotas score (15% weight) - comprehensive staffing adequacy assessment
         let rotasScore = 0;
-        if (dailyEntry) {
+        if (dependencyData && dependencyData.residents.length > 0 && rotaData) {
+            // Step 1: Calculate dependency-required staff (care needs based)
+            const NDPS_STAFFING_RATIOS_DAY: Record<number, number> = { 1: 1/8, 2: 1/5, 3: 1/3, 4: 1/2, 5: 1/1.5 };
+            const NDPS_STAFFING_RATIOS_NIGHT: Record<number, number> = { 1: 1/15, 2: 1/10, 3: 1/6, 4: 1/4, 5: 1/2.5 };
+
+            const bandCountsLocal: Record<number, number> = {1:0,2:0,3:0,4:0,5:0};
+            dependencyData.residents.forEach((r: any) => {
+                const score = calculateNDPSScore(r);
+                const b = getNDPSBand(score).band;
+                bandCountsLocal[b] = (bandCountsLocal[b] || 0) + 1;
+            });
+
+            let requiredDayStaff = 0, requiredNightStaff = 0;
+            for (const b of [1,2,3,4,5]) {
+                const cnt = bandCountsLocal[b] || 0;
+                const dayRatio = NDPS_STAFFING_RATIOS_DAY[b] || 0;
+                const nightRatio = NDPS_STAFFING_RATIOS_NIGHT[b] || 0;
+                requiredDayStaff += cnt * dayRatio;
+                requiredNightStaff += cnt * nightRatio;
+            }
+
+            const dependencyRequiredStaff = Math.ceil(requiredDayStaff) + Math.ceil(requiredNightStaff);
+
+            // Step 2: Calculate rota-required staff (scheduled vs minimum requirements)
+            // Use similar logic to staffing overview card - expect at least 40% of staff per day
+            const expectedShiftsPerDay = Math.max(3, Math.floor(rotaData.totalStaff * 0.4));
+            const rotaAdequacyRatio = rotaData.avgShiftsPerDay / expectedShiftsPerDay;
+
+            // Step 3: Calculate actual staff assignment (are scheduled shifts filled?)
+            // For now, assume shifts are assigned if they exist (could be enhanced to check staffId)
+            const assignmentRatio = rotaData.shiftsThisWeek > 0 ? 1.0 : 0.0; // Placeholder - could check actual assignments
+
+            // Step 4: Comprehensive score calculation
+            // Weight: 40% dependency coverage, 40% rota scheduling, 20% staff assignment
+            const dependencyCoverage = Math.min(1.0, rotaData.totalStaff / Math.max(1, dependencyRequiredStaff));
+            const rotaScheduling = Math.min(1.0, rotaAdequacyRatio);
+            const staffAssignment = assignmentRatio;
+
+            const comprehensiveRatio = (dependencyCoverage * 0.4) + (rotaScheduling * 0.4) + (staffAssignment * 0.2);
+
+            if (comprehensiveRatio >= 1.0) {
+                rotasScore = 100; // Excellent - over-staffed/scheduled
+            } else if (comprehensiveRatio >= 0.9) {
+                rotasScore = 90; // Very good coverage
+            } else if (comprehensiveRatio >= 0.8) {
+                rotasScore = 80; // Good coverage
+            } else if (comprehensiveRatio >= 0.7) {
+                rotasScore = 70; // Adequate coverage
+            } else if (comprehensiveRatio >= 0.6) {
+                rotasScore = 60; // Moderate coverage
+            } else if (comprehensiveRatio >= 0.5) {
+                rotasScore = 50; // Poor coverage
+            } else if (comprehensiveRatio >= 0.4) {
+                rotasScore = 40; // Very poor coverage
+            } else if (comprehensiveRatio >= 0.3) {
+                rotasScore = 30; // Critical shortage
+            } else if (comprehensiveRatio >= 0.2) {
+                rotasScore = 20; // Severe shortage
+            } else {
+                rotasScore = 10; // Minimal coverage
+            }
+        } else if (dailyEntry) {
+            // Fallback to daily check-in staffing if dependency/rota data not available
             const dayStaff = dailyEntry.staffingDay || dailyEntry.staffing?.day;
             const nightStaff = dailyEntry.staffingNight || dailyEntry.staffing?.night;
             const hasStaffing = (typeof dayStaff === 'number' && dayStaff > 0) || (typeof nightStaff === 'number' && nightStaff > 0);
-            // Target staffing is typically around 20 total staff for a care home
             const targetStaff = 20;
             const actualStaff = (dayStaff || 0) + (nightStaff || 0);
             rotasScore = hasStaffing ? Math.min(100, Math.round((actualStaff / targetStaff) * 100)) : 0;
         }
 
-        // Dependency score (15% weight) - based on resident dependency calculator
-        // For now, we'll use a placeholder - this could be improved with actual dependency metrics
-        // A well-run care home typically has good dependency management
-        const dependencyScore = 85; // Placeholder - could be calculated from dependency calculator data
+        // Dependency score (15% weight) - based on resident dependency calculator data
+        let dependencyScore = 0;
+        if (dependencyData && dependencyData.residents.length > 0) {
+            // Calculate a score based on dependency distribution and management
+            // Higher dependency bands indicate more complex care needs
+            const totalResidents = dependencyData.residents.length;
+            const highDependencyCount = (dependencyData.bandCounts[4] || 0) + (dependencyData.bandCounts[5] || 0); // High + Very High dependency
+            const highDependencyRatio = highDependencyCount / totalResidents;
+
+            // Score based on ability to manage dependency levels
+            // Lower score for higher proportions of high-dependency residents (more challenging to manage)
+            if (highDependencyRatio <= 0.2) dependencyScore = 90; // Mostly independent/low dependency - excellent
+            else if (highDependencyRatio <= 0.4) dependencyScore = 75; // Moderate high dependency - good
+            else if (highDependencyRatio <= 0.6) dependencyScore = 60; // High dependency - fair
+            else dependencyScore = 45; // Very high dependency - needs attention
+        }
 
         return {
             audits: auditsScore,
@@ -2240,6 +2366,23 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
     }>({ completionStatus: {}, appraisalData: {} });
     const [supervisionsLoading, setSupervisionsLoading] = useState(false);
 
+    // Dependency data for overall health calculation
+    const [dependencyData, setDependencyData] = useState<{
+        residents: any[];
+        bandCounts: Record<number, number>;
+    } | null>(null);
+    const [dependencyLoading, setDependencyLoading] = useState(false);
+
+    // Rota data for staffing comparison
+    const [rotaData, setRotaData] = useState<{
+        totalStaff: number;
+        shiftsThisWeek: number;
+        totalHoursScheduled: number;
+        shiftsPerDay: number[];
+        avgShiftsPerDay: number;
+    } | null>(null);
+    const [rotaLoading, setRotaLoading] = useState(false);
+
     // Calculate overall health score with weighted components - moved after state declarations
     const healthScore = useMemo(() => {
         const components = calculateComponentScores();
@@ -2257,7 +2400,7 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
             overallScore: weightedScore,
             components
         };
-    }, [supervisionsData, dailyEntry, overallStats]);
+    }, [supervisionsData, dailyEntry, overallStats, dependencyData]);
 
     // Ensure all modals are closed on mount
     useEffect(() => {
@@ -2337,6 +2480,135 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
             console.error('Failed to set up supervisions listener:', error);
             setSupervisionsLoading(false);
         }
+    }, [workspace?.id]);
+
+    // Load dependency data for overall health calculation
+    useEffect(() => {
+        if (!workspace?.id) return;
+
+        setDependencyLoading(true);
+
+        try {
+            const ref = workspace.id ? getWorkspaceDocRef(workspace.id, 'dependency_calculator', 'default', (workspace as any)?.organisationId || null) : null;
+            if (!ref) {
+                setDependencyData(null);
+                setDependencyLoading(false);
+                return;
+            }
+
+            const unsub = onSnapshot(ref, (snap: any) => {
+                if (snap.exists()) {
+                    const data = snap.data();
+                    const res = Array.isArray(data.residents) ? data.residents : [];
+
+                    // Calculate band distribution
+                    const bc: Record<number, number> = {1:0,2:0,3:0,4:0,5:0};
+                    res.forEach((r: any) => {
+                        const score = calculateNDPSScore(r);
+                        const b = getNDPSBand(score).band;
+                        bc[b] = (bc[b] || 0) + 1;
+                    });
+
+                    setDependencyData({ residents: res, bandCounts: bc });
+                } else {
+                    setDependencyData(null);
+                }
+                setDependencyLoading(false);
+            }, (err) => {
+                console.warn('Failed to listen to dependency_calculator', err);
+                setDependencyData(null);
+                setDependencyLoading(false);
+            });
+            return () => unsub();
+        } catch (error) {
+            console.error('Failed to set up dependency listener:', error);
+            setDependencyData(null);
+            setDependencyLoading(false);
+        }
+    }, [workspace?.id]);
+
+    // Load rota data for staffing comparison
+    useEffect(() => {
+        if (!workspace?.id) return;
+
+        setRotaLoading(true);
+
+        const loadRotaData = async () => {
+            try {
+                // Load staff from workspace
+                const workspaceRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any)?.organisationId || undefined));
+                const workspaceSnap = await getDoc(workspaceRef);
+
+                const allStaff: any[] = [];
+
+                if (workspaceSnap.exists()) {
+                    const data = workspaceSnap.data();
+                    const departments = ['managers', 'nurses', 'ctms', 'domestics', 'maintenances', 'kitchens', 'activities'];
+
+                    departments.forEach(dept => {
+                        if (data[dept] && Array.isArray(data[dept])) {
+                            allStaff.push(...data[dept]);
+                        }
+                    });
+                }
+
+                const totalStaff = allStaff.length;
+
+                // Get current week boundaries
+                const now = new Date();
+                const weekStart = startOfWeek(now, { weekStartsOn: 1 });
+                const weekKey = format(weekStart, 'yyyy-MM-dd');
+
+                // Load rota data for current week
+                const rotaRef = doc(db, workspaceDocPath(workspace.id, undefined, (workspace as any)?.organisationId || undefined), 'rotas', weekKey);
+                const rotaSnap = await getDoc(rotaRef);
+
+                let shifts: any[] = [];
+                if (rotaSnap.exists()) {
+                    const rotaData = rotaSnap.data();
+                    shifts = rotaData.shifts || [];
+                }
+
+                const shiftsThisWeek = shifts.length;
+
+                // Calculate total hours scheduled
+                const totalHours = shifts.reduce((sum: number, shift: any) => {
+                    if (shift.startTime && shift.endTime) {
+                        return sum + calculateShiftHours(shift.startTime, shift.endTime);
+                    }
+                    return sum;
+                }, 0);
+
+                // Calculate shifts per day for more detailed analysis
+                const daysInWeek = 7;
+                const weekDates = Array.from({ length: daysInWeek }, (_, i) => 
+                    format(addDays(weekStart, i), 'yyyy-MM-dd')
+                );
+
+                const shiftsPerDay = weekDates.map(date => 
+                    shifts.filter((s: any) => s.date === date).length
+                );
+
+                const avgShiftsPerDay = shiftsPerDay.length > 0 
+                    ? shiftsPerDay.reduce((a: number, b: number) => a + b, 0) / shiftsPerDay.length 
+                    : 0;
+
+                setRotaData({
+                    totalStaff,
+                    shiftsThisWeek,
+                    totalHoursScheduled: Math.round(totalHours),
+                    shiftsPerDay,
+                    avgShiftsPerDay
+                });
+                setRotaLoading(false);
+            } catch (error) {
+                console.error('Failed to load rota data:', error);
+                setRotaData(null);
+                setRotaLoading(false);
+            }
+        };
+
+        loadRotaData();
     }, [workspace?.id]);
 
     // Function to get gradient colors based on score percentage
@@ -2505,6 +2777,11 @@ const navigateToAuditForm = (auditKey: string) => {
                 onDocumentAdd={onDocumentAdd}
                 onFolderAdd={onFolderAdd}
                 onComplianceOverviewClick={() => setIsComplianceModalOpen(true)}
+                onStatsClick={() => {
+                    if (typeof window !== 'undefined') {
+                        window.dispatchEvent(new CustomEvent('navigate-to-stats'));
+                    }
+                }}
                 isTodayCompleted={isTodayCompleted}
                 onDailyEntryUpdate={setDailyEntry}
                 dailyEntry={dailyEntry}

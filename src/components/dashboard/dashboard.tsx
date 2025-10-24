@@ -725,6 +725,13 @@ export function Dashboard() {
 
       window.addEventListener('navigate-to-rotas', handleRotasNavigation as EventListener);
 
+      // Listen for navigate-to-stats events from health snapshot card
+      const handleStatsNavigation = (ev: CustomEvent) => {
+        setView('stats');
+      };
+
+      window.addEventListener('navigate-to-stats', handleStatsNavigation as EventListener);
+
       // Listen for navigate-to-appraisals events from chat
       const handleAppraisalsNavigation = (ev: CustomEvent) => {
         setView('appraisals');
@@ -785,6 +792,7 @@ export function Dashboard() {
         window.removeEventListener('navigate-to-workspace', handleWorkspaceNavigation as EventListener);
         window.removeEventListener('navigate-to-audits', handleAuditsNavigation as EventListener);
         window.removeEventListener('navigate-to-rotas', handleRotasNavigation as EventListener);
+        window.removeEventListener('navigate-to-stats', handleStatsNavigation as EventListener);
         window.removeEventListener('navigate-to-appraisals', handleAppraisalsNavigation as EventListener);
         window.removeEventListener('navigate-to-action-plans', handleActionPlansNavigation as EventListener);
         window.removeEventListener('navigate-to-admin', handleAdminNavigation as EventListener);

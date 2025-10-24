@@ -637,10 +637,10 @@ export default function AppraisalsPage() {
           </Button>
         </div>
 
-        <div className="w-full p-10 bg-gradient-to-br from-slate-50 to-white rounded-3xl shadow-2xl mt-10 border border-slate-200">
+        <div className="w-full px-4 sm:px-6 lg:px-8 pb-8">
           <Tabs value={activeTab} onValueChange={val => setActiveTab(val as 'form' | 'tracker')} className="space-y-8">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <TabsList className="grid h-auto w-full max-w-xl grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+            <TabsList className="grid h-auto w-full max-w-sm grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
               <TabsTrigger
                 value="form"
                 className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
@@ -671,7 +671,11 @@ export default function AppraisalsPage() {
             </div>
           </div>
 
-          <TabsContent value="tracker" className="mt-6 space-y-8">
+          <p className="text-sm text-slate-600">
+            Capture new appraisals or review historic activity across your managers from one place.
+          </p>
+
+          <TabsContent value="tracker" className="space-y-6 data-[state=inactive]:hidden">
             <div className="grid gap-6 xl:grid-cols-3">
               {trackerSummaryCards.map(card => {
                 const Icon = card.icon;
@@ -929,8 +933,11 @@ export default function AppraisalsPage() {
             </div>
           </TabsContent>
 
-          <TabsContent value="form" className="mt-6">
-            <div className="flex flex-col lg:flex-row gap-10">
+          <TabsContent value="form" className="space-y-6 data-[state=inactive]:hidden">
+
+            <div className="w-full rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-10 shadow-2xl">
+
+              <div className="flex flex-col lg:flex-row gap-10">
               {/* Left panel for details, sticky and NOT part of the form */}
               <div className="w-full lg:w-[480px] flex-shrink-0 bg-white rounded-2xl p-6 border border-slate-200 shadow-xl mb-8 lg:mb-0 self-start">
                 <div className="lg:sticky lg:top-20 lg:max-h-[calc(100vh-160px)] lg:overflow-auto lg:pr-2">
@@ -1478,6 +1485,7 @@ export default function AppraisalsPage() {
                   </div>
                 </form>
               </div>
+            </div>
             </div>
           </TabsContent>
         </Tabs>
