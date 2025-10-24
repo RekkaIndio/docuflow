@@ -1,16 +1,403 @@
 "use client";
-import React, { useMemo, useEffect, useState } from 'react';
+import React, { useMemo, useEffect, useState, useCallback } from 'react';
 import type { Workspace, Folder, Document } from '@/lib/types';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { TeamsView } from '@/components/dashboard/teams-view';
 import { NewTeamDialog } from '@/components/dashboard/new-team-dialog';
 import { collection, query as fsQuery, orderBy, limit, onSnapshot, where, doc, updateDoc, arrayUnion, arrayRemove, getDoc, getDocs } from 'firebase/firestore';
+import { MonthlyActionPlan, ActionPlanItem } from '@/lib/action-plans';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as DatePickerCalendar } from '@/components/ui/calendar';
+
+type TrackerRecord = {
+  id: string;
+  recordType: 'risk-assessment' | 'appraisal-supervision';
+  createdAt: Date;
+  form: Record<string, any>;
+  createdBy?: {
+    id?: string;
+    name?: string | null;
+    email?: string | null;
+  };
+};
+
+type TrackerRoleSummary = {
+  role: string;
+  completedSlugs: string[];
+  remainingSlugs: string[];
+  percentComplete: number;
+  totalAppraisals: number;
+  slugStatus: Record<string, { hasSnapshot: boolean }>;
+};
+
+const RECORD_LABELS: Record<TrackerRecord['recordType'], string> = {
+  'risk-assessment': 'Risk Assessment',
+  'appraisal-supervision': 'Appraisal/Supervision',
+};
+
+const MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+] as const;
+
+const MONTH_SHORT_LABELS = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+] as const;
+
+const monthLabelFromKey = (monthKey: string) => {
+  const [yearPart, monthPart] = monthKey.split('-');
+  const monthIndex = Number(monthPart) - 1;
+  if (!yearPart || Number.isNaN(monthIndex) || monthIndex < 0 || monthIndex > 11) {
+    return monthKey;
+  }
+  return `${MONTH_NAMES[monthIndex]} ${yearPart}`;
+};
+
+const getMonthKeyFromDate = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
+};
+
+const monthKeyToDate = (monthKey: string) => {
+  const [yearPart, monthPart] = monthKey.split('-');
+  const year = Number(yearPart);
+  const month = Number(monthPart) - 1;
+  if (Number.isNaN(year) || Number.isNaN(month) || month < 0 || month > 11) {
+    return null;
+  }
+  return new Date(year, month, 1);
+};
+
+const getMonthIndex = (monthKey: string) => {
+  const [yearPart, monthPart] = monthKey.split('-');
+  const year = Number(yearPart);
+  const month = Number(monthPart);
+  if (Number.isNaN(year) || Number.isNaN(month)) {
+    return null;
+  }
+  return year * 12 + (month - 1);
+};
+
+const sortMonthKeysDesc = (a: string, b: string) => {
+  const aIndex = getMonthIndex(a);
+  const bIndex = getMonthIndex(b);
+  if (aIndex === null || bIndex === null) {
+    return 0;
+  }
+  return bIndex - aIndex;
+};
+
+// Helper function for appraisals tracker
+const getTrackerMonthKey = (month: number, year: number) => `${year}-${String(month + 1).padStart(2, "0")}`;
+
+// Parse completion map keys which are stored as either:
+// - `${slug}-${year}-${month}` (recommended)
+// - legacy: `${slug}-${month}`
+const parseCompletionKey = (key: string) => {
+  // Try new format: slug-YYYY-M
+  const newMatch = key.match(/^(.+)-(\d{4})-(\d{1,2})$/);
+  if (newMatch) {
+    const slug = newMatch[1];
+    const year = parseInt(newMatch[2], 10);
+    const month = parseInt(newMatch[3], 10);
+    return { slug, year, month };
+  }
+
+  // Try legacy format: slug-M
+  const legacyMatch = key.match(/^(.+)-(\d{1,2})$/);
+  if (legacyMatch) {
+    const slug = legacyMatch[1];
+    const month = parseInt(legacyMatch[2], 10);
+    const year = new Date().getFullYear(); // Default to current year for legacy
+    return { slug, year, month };
+  }
+
+  // Fallback to current month/year and use full key as slug
+  const now = new Date();
+  return { slug: key, year: now.getFullYear(), month: now.getMonth() };
+};
+
+const TRACKER_CARD_META = [
+  {
+    type: 'risk-assessment' as const,
+    title: 'Risk Assessment Entry',
+    description: 'Document risk assessments and mitigation strategies.',
+    accentGradient: 'from-red-500 to-orange-500',
+    iconGradient: 'from-red-100 to-orange-100',
+    iconColor: 'text-red-600',
+    icon: Shield,
+    emptyHint: 'No risk assessments saved for this month.',
+  },
+  {
+    type: 'appraisal-supervision' as const,
+    title: 'Appraisal/Supervision Entry',
+    description: 'Staff appraisals and supervision records.',
+    accentGradient: 'from-blue-500 to-indigo-500',
+    iconGradient: 'from-blue-100 to-indigo-100',
+    iconColor: 'text-blue-600',
+    icon: UserCheck,
+    emptyHint: 'No appraisals/supervisions saved for this month.',
+  },
+];
+
+const formatDateTime = (value: Date) => {
+  try {
+    return value.toLocaleString(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    });
+  } catch {
+    return value.toISOString();
+  }
+};
+
+const formatInputDate = (value?: string) => {
+  if (!value) return '—';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  try {
+    return parsed.toLocaleDateString(undefined, { dateStyle: 'medium' });
+  } catch {
+    return parsed.toISOString();
+  }
+};
+
+type FieldDescriptor = {
+  key: string;
+  label: string;
+  fullWidth?: boolean;
+  format?: (value: any) => string;
+};
+
+const renderReadOnlyField = (form: Record<string, any>, descriptor: FieldDescriptor) => {
+  const raw = form?.[descriptor.key];
+  const value = descriptor.format ? descriptor.format(raw) : (raw ? String(raw) : '—');
+  const colSpanClass = descriptor.fullWidth ? 'md:col-span-2' : '';
+  return (
+    <div key={descriptor.key} className={`space-y-1 ${colSpanClass}`}>
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-700">{descriptor.label}</p>
+      <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed whitespace-pre-line text-slate-700">
+        {value || '—'}
+      </div>
+    </div>
+  );
+};
+
+const renderRiskAssessmentDetail = (form: Record<string, any>) => {
+  const likelihoodLabels = {
+    '1': 'Rare – unlikely to occur (Low)',
+    '2': 'Possible – could happen (Medium)',
+    '3': 'Likely – happens sometimes (High)',
+    '4': 'Very Likely – occurs often (Extremely High)',
+  };
+
+  const personsAtRisk = form?.personsAtRisk ?? {};
+  const selectedPersons = Object.keys(personsAtRisk).filter(key => personsAtRisk[key]);
+  const personLabels = {
+    relatives: 'Relatives',
+    staff: 'Staff',
+    visitors: 'Visitors',
+    contractors: 'Contractors',
+    deliveryPersonnel: 'Delivery Personnel',
+    residents: 'Residents',
+  };
+
+  const sections: { title: string; fields: FieldDescriptor[] }[] = [
+    {
+      title: 'Assessment Details',
+      fields: [
+        { key: 'careHomeName', label: 'Care Home Name' },
+        { key: 'risk', label: 'Risk' },
+        { key: 'assessmentConductedBy', label: 'Assessment Conducted By' },
+        { key: 'position', label: 'Position' },
+        { key: 'dateOfAssessment', label: 'Date of Assessment', format: formatInputDate },
+        { key: 'reviewDate', label: 'Review Date', format: formatInputDate },
+      ],
+    },
+    {
+      title: 'Hazard Description',
+      fields: [
+        { key: 'describeHazard', label: 'Describe Hazard/Risk', fullWidth: true },
+      ],
+    },
+    {
+      title: 'Persons at Risk',
+      fields: [],
+    },
+    {
+      title: 'Risk Rating',
+      fields: [],
+    },
+    {
+      title: 'Prevention and Responsibility',
+      fields: [
+        { key: 'riskPrevention', label: 'Risk Prevention', fullWidth: true },
+        { key: 'whatMayOccur', label: 'What May Occur if Preventatives Not in Place', fullWidth: true },
+        { key: 'responsible', label: 'Who is Responsible for Ensuring Preventatives', fullWidth: true },
+        { key: 'reviewPeriod', label: 'Review Time Period' },
+      ],
+    },
+  ];
+
+  return (
+    <div className="space-y-6">
+      {sections.map(section => (
+        <div key={section.title} className="space-y-4 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+          <div className="space-y-1">
+            <h3 className="text-base font-semibold text-blue-900">{section.title}</h3>
+            <span className="block h-px w-full bg-border/60" />
+          </div>
+          {section.title === 'Persons at Risk' ? (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-700">Persons at Risk</p>
+              {selectedPersons.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {selectedPersons.map(key => (
+                    <Badge key={key} variant="outline">{personLabels[key as keyof typeof personLabels]}</Badge>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">None selected</div>
+              )}
+            </div>
+          ) : section.title === 'Risk Rating' ? (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-700">Likelihood</p>
+              <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
+                {likelihoodLabels[form?.likelihood as keyof typeof likelihoodLabels] || 'Not specified'}
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              {section.fields.map(field => renderReadOnlyField(form, field))}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const renderAppraisalDetail = (form: Record<string, any>) => {
+  const sections: { title: string; fields: FieldDescriptor[] }[] = [
+    {
+      title: 'Appraisal Details',
+      fields: [
+        { key: 'staffName', label: 'Staff Name' },
+        { key: 'position', label: 'Position' },
+        { key: 'appraisalDate', label: 'Appraisal Date', format: formatInputDate },
+        { key: 'supervisor', label: 'Supervisor' },
+      ],
+    },
+    {
+      title: 'Performance Review',
+      fields: [
+        { key: 'performanceRating', label: 'Performance Rating' },
+        { key: 'strengths', label: 'Strengths', fullWidth: true },
+        { key: 'areasForImprovement', label: 'Areas for Improvement', fullWidth: true },
+      ],
+    },
+    {
+      title: 'Goals and Development',
+      fields: [
+        { key: 'goals', label: 'Goals', fullWidth: true },
+        { key: 'trainingNeeds', label: 'Training Needs', fullWidth: true },
+      ],
+    },
+  ];
+
+  return (
+    <div className="space-y-6">
+      {sections.map(section => (
+        <div key={section.title} className="space-y-4 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+          <div className="space-y-1">
+            <h3 className="text-base font-semibold text-blue-900">{section.title}</h3>
+            <span className="block h-px w-full bg-border/60" />
+          </div>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            {section.fields.map(field => renderReadOnlyField(form, field))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const renderActionPlanDetail = (form: Record<string, any>) => {
+  const sections: { title: string; fields: FieldDescriptor[] }[] = [
+    {
+      title: 'Action Plan Details',
+      fields: [
+        { key: 'issue', label: 'Issue' },
+        { key: 'auditType', label: 'Audit Type' },
+        { key: 'assignedTeam', label: 'Assigned Team' },
+        { key: 'ragRating', label: 'Priority (RAG Rating)' },
+        { key: 'status', label: 'Status' },
+        { key: 'dueDate', label: 'Due Date', format: formatInputDate },
+      ],
+    },
+    {
+      title: 'Description',
+      fields: [
+        { key: 'description', label: 'Description', fullWidth: true },
+      ],
+    },
+    {
+      title: 'Actions Taken',
+      fields: [
+        { key: 'actions', label: 'Actions Taken', fullWidth: true },
+      ],
+    },
+  ];
+
+  return (
+    <div className="space-y-6">
+      {sections.map(section => (
+        <div key={section.title} className="space-y-4 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+          <div className="space-y-1">
+            <h3 className="text-base font-semibold text-blue-900">{section.title}</h3>
+            <span className="block h-px w-full bg-border/60" />
+          </div>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            {section.fields.map(field => renderReadOnlyField(form, field))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
 import { db } from '@/lib/firebase';
 import { workspaceCollectionPath, workspaceDocPath } from '@/lib/paths';
-import { Folder as FolderIcon, FileText, FileSpreadsheet, FileX2, Home, ChevronRight, ArrowLeft, PlusSquare, Users, Tag, Clock, TrendingUp, Activity, Shield, CheckCircle, AlertTriangle, Calendar, Zap, UserCheck, Phone, Mail, Plus, Trash2, Edit, Save, X, BarChart2 } from 'lucide-react';
+import { Folder as FolderIcon, FileText, FileSpreadsheet, FileX2, Home, ChevronRight, ArrowLeft, PlusSquare, Users, Tag, Clock, TrendingUp, Activity, Shield, CheckCircle, AlertTriangle, Calendar, Zap, UserCheck, Phone, Mail, Plus, Trash2, Edit, Save, X, BarChart2, Loader2, CheckCircle2, AlertCircle, Info, CalendarIcon, CheckSquare } from 'lucide-react';
 // AdminDependencyTable and OccupancyPie were removed as they're not used in this view
 import StatsView from '@/components/admin/admin-stats-view';
 import AuditsView from './admin-audits-view';
@@ -289,6 +676,33 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
   const [activitiesLoading, setActivitiesLoading] = useState(false);
   const [activitiesError, setActivitiesError] = useState<string | null>(null);
   const [editingActivity, setEditingActivity] = useState<string | null>(null);
+
+  // Risk Assessments tracker state
+  const [riskAssessments, setRiskAssessments] = useState<TrackerRecord[]>([]);
+  const [riskAssessmentsLoading, setRiskAssessmentsLoading] = useState(false);
+  const [selectedRiskAssessment, setSelectedRiskAssessment] = useState<TrackerRecord | null>(null);
+  const [selectedAppraisal, setSelectedAppraisal] = useState<any>(null);
+  const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
+  const [selectedMonthDate, setSelectedMonthDate] = useState<Date | null>(null);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+
+  // Appraisals & Supervisions tracker state
+  const [appraisalsSupervisions, setAppraisalsSupervisions] = useState<{ completionStatus: Record<string, any>; appraisalData: Record<string, any> }>({ completionStatus: {}, appraisalData: {} });
+  const [appraisalsSupervisionsLoading, setAppraisalsSupervisionsLoading] = useState(false);
+  const [selectedAppraisalSupervision, setSelectedAppraisalSupervision] = useState<TrackerRecord | null>(null);
+  const [selectedAppraisalsMonthKey, setSelectedAppraisalsMonthKey] = useState<string | null>(null);
+  const [selectedAppraisalsMonthDate, setSelectedAppraisalsMonthDate] = useState<Date | null>(null);
+  const [appraisalsDatePickerOpen, setAppraisalsDatePickerOpen] = useState(false);
+  const [appraisalsSupervisionsError, setAppraisalsSupervisionsError] = useState<string | null>(null);
+
+  // Action Plans tracker state
+  const [actionPlans, setActionPlans] = useState<any[]>([]);
+  const [actionPlansLoading, setActionPlansLoading] = useState(false);
+  const [actionPlansError, setActionPlansError] = useState<string | null>(null);
+  const [selectedActionPlan, setSelectedActionPlan] = useState<any | null>(null);
+  const [selectedActionPlansMonthKey, setSelectedActionPlansMonthKey] = useState<string | null>(null);
+  const [selectedActionPlansMonthDate, setSelectedActionPlansMonthDate] = useState<Date | null>(null);
+  const [actionPlansDatePickerOpen, setActionPlansDatePickerOpen] = useState(false);
 
   // Fetch latest staffing data from daily check-ins
   useEffect(() => {
@@ -688,6 +1102,676 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
     
     loadActivities();
   }, [workspace?.id]);
+
+  // Load Risk Assessments from Firebase
+  useEffect(() => {
+    const loadRiskAssessments = async () => {
+      if (!workspace?.id) return;
+
+      setRiskAssessmentsLoading(true);
+
+      try {
+        const collectionPath = workspaceCollectionPath(workspace.id, 'risk-assessments', (workspace as any).organisationId ?? undefined);
+        if (!collectionPath) {
+          setRiskAssessments([]);
+          return;
+        }
+        const q = fsQuery(collection(db, collectionPath), orderBy('createdAt', 'desc'));
+        const snapshot = await getDocs(q);
+        const records = snapshot.docs.map(docSnap => {
+          const data = docSnap.data() as any;
+          const createdAt = data.createdAt?.toDate ? data.createdAt.toDate() : new Date();
+          return {
+            id: docSnap.id,
+            recordType: 'risk-assessment' as const,
+            createdAt,
+            form: data.form ?? {},
+            createdBy: data.createdBy ?? null,
+          };
+        });
+        setRiskAssessments(records);
+      } catch (error) {
+        console.error('Failed to load risk assessments:', error);
+        setRiskAssessments([]);
+      } finally {
+        setRiskAssessmentsLoading(false);
+      }
+    };
+
+    loadRiskAssessments();
+  }, [workspace?.id]);
+
+  // Load Appraisals & Supervisions from Firebase
+  useEffect(() => {
+    const loadAppraisalsSupervisions = async () => {
+      if (!workspace?.id) return;
+
+      setAppraisalsSupervisionsLoading(true);
+
+      try {
+        // Load from appraisal-tracker collection which contains completion data
+        const trackerCol = collection(db, workspaceCollectionPath(workspace.id, 'appraisal-tracker', (workspace as any).organisationId));
+        const trackerSnapshot = await getDocs(trackerCol);
+
+        const completionStatus: Record<string, Record<string, boolean>> = {};
+        const appraisalData: Record<string, any> = {};
+
+        // Aggregate data from all users
+        trackerSnapshot.docs.forEach(docSnap => {
+          const data = docSnap.data() as any;
+          
+          // Aggregate completion status
+          if (data.completionStatus) {
+            Object.entries(data.completionStatus).forEach(([role, roleMap]: [string, any]) => {
+              if (!completionStatus[role]) {
+                completionStatus[role] = {};
+              }
+              Object.entries(roleMap).forEach(([key, completed]: [string, any]) => {
+                completionStatus[role][key] = completed;
+              });
+            });
+          }
+
+          // Aggregate appraisal data
+          if (data.appraisalData) {
+            Object.entries(data.appraisalData).forEach(([key, value]: [string, any]) => {
+              appraisalData[key] = value;
+            });
+          }
+        });
+
+        setAppraisalsSupervisions({ completionStatus, appraisalData });
+      } catch (error) {
+        console.error('Failed to load appraisals/supervisions:', error);
+        setAppraisalsSupervisions({ completionStatus: {}, appraisalData: {} });
+      } finally {
+        setAppraisalsSupervisionsLoading(false);
+      }
+    };
+
+    loadAppraisalsSupervisions();
+  }, [workspace?.id]);
+
+  // Computed values for tracker
+  const monthCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    riskAssessments.forEach(record => {
+      const key = getMonthKeyFromDate(record.createdAt);
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    return counts;
+  }, [riskAssessments]);
+
+  const monthsWithData = useMemo(() => Object.keys(monthCounts).sort(sortMonthKeysDesc), [monthCounts]);
+
+  const earliestYear = useMemo(() => {
+    if (riskAssessments.length === 0) {
+      return null;
+    }
+    const oldest = riskAssessments[riskAssessments.length - 1]?.createdAt;
+    return oldest ? oldest.getFullYear() : null;
+  }, [riskAssessments]);
+
+  const currentYear = useMemo(() => new Date().getFullYear(), []);
+
+  const availableYears = useMemo(() => {
+    if (earliestYear === null) {
+      return [] as number[];
+    }
+    const years: number[] = [];
+    for (let year = currentYear; year >= earliestYear; year -= 1) {
+      years.push(year);
+    }
+    return years;
+  }, [currentYear, earliestYear]);
+
+  const monthsGroupedByYear = useMemo(() => {
+    if (availableYears.length === 0) {
+      return {} as Record<number, { monthKey: string; monthIndex: number; label: string; count: number }[]>;
+    }
+    const result: Record<number, { monthKey: string; monthIndex: number; label: string; count: number }[]> = {};
+    availableYears.forEach(year => {
+      result[year] = MONTH_NAMES.map((label, index) => {
+        const monthKey = `${year}-${String(index + 1).padStart(2, '0')}`;
+        return {
+          monthKey,
+          monthIndex: index,
+          label,
+          count: monthCounts[monthKey] ?? 0,
+        };
+      });
+    });
+    return result;
+  }, [availableYears, monthCounts]);
+
+  const recordsByMonth = useMemo(() => {
+    const map: Record<string, typeof riskAssessments> = {};
+    riskAssessments.forEach(record => {
+      const key = getMonthKeyFromDate(record.createdAt);
+      if (!map[key]) {
+        map[key] = [];
+      }
+      map[key].push(record);
+    });
+    Object.keys(map).forEach(key => {
+      map[key].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    });
+    return map;
+  }, [riskAssessments]);
+
+  const selectedMonthRecords = selectedMonthKey ? recordsByMonth[selectedMonthKey] ?? [] : [];
+
+  const selectedMonthRecordsByType = useMemo(() => {
+    const map: Record<TrackerRecord['recordType'], TrackerRecord[]> = {
+      'risk-assessment': [],
+      'appraisal-supervision': [],
+    };
+    selectedMonthRecords.forEach(record => {
+      map[record.recordType].push(record);
+    });
+    return map;
+  }, [selectedMonthRecords]);
+
+  const selectedMonthLabel = useMemo(() => (selectedMonthKey ? monthLabelFromKey(selectedMonthKey) : null), [selectedMonthKey]);
+  const selectedMonthRecordCount = selectedMonthRecords.length;
+  const totalRecordTypes = TRACKER_CARD_META.length;
+  const completedRecordTypes = TRACKER_CARD_META.reduce((count, meta) => count + (selectedMonthRecordsByType[meta.type].length > 0 ? 1 : 0), 0);
+
+  // Helper function to parse appraisal completion keys
+  const parseAppraisalCompletionKey = (key: string) => {
+    const newMatch = key.match(/^(.+)-(\d{4})-(\d{1,2})$/);
+    if (newMatch) {
+      const slug = newMatch[1];
+      const year = parseInt(newMatch[2], 10);
+      const month = parseInt(newMatch[3], 10);
+      return { slug, year, month };
+    }
+    const legacyMatch = key.match(/^(.+)-(\d{1,2})$/);
+    if (legacyMatch) {
+      const slug = legacyMatch[1];
+      const month = parseInt(legacyMatch[2], 10);
+      const year = month <= new Date().getMonth() ? new Date().getFullYear() : new Date().getFullYear() - 1;
+      return { slug, year, month };
+    }
+    return null;
+  };
+
+  // Computed values for appraisals/supervisions tracker
+  const appraisalsMonthCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    // Count completed appraisals across all roles for each month
+    Object.values(appraisalsSupervisions.completionStatus || {}).forEach(roleMap => {
+      Object.keys(roleMap).forEach(key => {
+        if (roleMap[key]) {
+          const parsed = parseAppraisalCompletionKey(key);
+          if (parsed) {
+            const monthKey = `${parsed.year}-${String(parsed.month + 1).padStart(2, '0')}`;
+            counts[monthKey] = (counts[monthKey] || 0) + 1;
+          }
+        }
+      });
+    });
+    return counts;
+  }, [appraisalsSupervisions.completionStatus]);
+
+  const appraisalsMonthsWithData = useMemo(() => Object.keys(appraisalsMonthCounts).sort(sortMonthKeysDesc), [appraisalsMonthCounts]);
+
+  const appraisalsEarliestYear = useMemo(() => {
+    if (appraisalsMonthsWithData.length === 0) {
+      return null;
+    }
+    const oldest = appraisalsMonthsWithData[appraisalsMonthsWithData.length - 1];
+    const year = parseInt(oldest.split('-')[0]);
+    return year;
+  }, [appraisalsMonthsWithData]);
+
+  const appraisalsCurrentYear = useMemo(() => new Date().getFullYear(), []);
+
+  const appraisalsAvailableYears = useMemo(() => {
+    if (appraisalsEarliestYear === null) {
+      return [] as number[];
+    }
+    const years: number[] = [];
+    for (let year = appraisalsCurrentYear; year >= appraisalsEarliestYear; year -= 1) {
+      years.push(year);
+    }
+    return years;
+  }, [appraisalsCurrentYear, appraisalsEarliestYear]);
+
+  const appraisalsMonthsGroupedByYear = useMemo(() => {
+    if (appraisalsAvailableYears.length === 0) {
+      return {} as Record<number, { monthKey: string; monthIndex: number; label: string; count: number }[]>;
+    }
+    const result: Record<number, { monthKey: string; monthIndex: number; label: string; count: number }[]> = {};
+    appraisalsAvailableYears.forEach(year => {
+      result[year] = MONTH_NAMES.map((label, index) => {
+        const monthKey = `${year}-${String(index + 1).padStart(2, '0')}`;
+        return {
+          monthKey,
+          monthIndex: index,
+          label,
+          count: appraisalsMonthCounts[monthKey] ?? 0,
+        };
+      });
+    });
+    return result;
+  }, [appraisalsAvailableYears, appraisalsMonthCounts]);
+
+  // Tracker months computation (similar to appraisals page)
+  const appraisalsMonths = useMemo(() => {
+    type RoleEntry = { statusBySlug: Map<string, { hasSnapshot: boolean }> };
+    type MonthEntry = { month: number; year: number; roles: Map<string, RoleEntry> };
+
+    const monthMap = new Map<string, MonthEntry>();
+
+    const ensureMonthEntry = (month: number, year: number) => {
+      const key = getTrackerMonthKey(month, year);
+      if (!monthMap.has(key)) {
+        monthMap.set(key, {
+          month,
+          year,
+          roles: new Map<string, RoleEntry>(),
+        });
+      }
+      return monthMap.get(key)!;
+    };
+
+    const ensureRoleEntry = (entry: MonthEntry, role: string) => {
+      if (!entry.roles.has(role)) {
+        entry.roles.set(role, { statusBySlug: new Map() });
+      }
+      return entry.roles.get(role)!;
+    };
+
+    const recordCompletion = (role: string, slug: string, month: number, year: number, hasSnapshot: boolean) => {
+      if (!Number.isFinite(month) || month < 0 || month > 11 || !Number.isFinite(year)) return;
+      const monthEntry = ensureMonthEntry(month, year);
+      const roleEntry = ensureRoleEntry(monthEntry, role);
+      const existing = roleEntry.statusBySlug.get(slug);
+      roleEntry.statusBySlug.set(slug, {
+        hasSnapshot: existing?.hasSnapshot || hasSnapshot,
+      });
+    };
+
+    // Mapping of tracker roles to their appraisals (from appraisals page)
+    const trackerAppraisalMapping = {
+      'Deputy/ies': ['deputy-supervision'],
+      'Clinical lead & Nurses': ['carers-supervision', 'clinical-lead-supervision', 'nurses-supervision'],
+      'Senior/Care team managers': ['deputy-supervision', 'senior-carer-supervision'],
+      'Admin staff': ['reception-supervision', 'admin-supervision'],
+      'Maintenance staff': ['maintenence-person-supervision'],
+      'Activities staff': ['activities-supervision'],
+      'Kitchen staff': ['chef-supervision', 'kitchen-assistant-supervision'],
+      'Domestic staff': ['domestic-staff-supervision', 'housekeeping-supervision'],
+    };
+
+    Object.entries(appraisalsSupervisions.completionStatus || {}).forEach(([role, roleMap]) => {
+      Object.entries(roleMap || {}).forEach(([key, completed]) => {
+        if (!completed) return;
+        const parsed = parseAppraisalCompletionKey(key);
+        if (!parsed) return;
+        const resolvedRole = trackerAppraisalMapping[role as keyof typeof trackerAppraisalMapping] ? role : null;
+        if (!resolvedRole) return;
+        recordCompletion(resolvedRole, parsed.slug, parsed.month, parsed.year, false);
+      });
+    });
+
+    Object.entries(appraisalsSupervisions.appraisalData || {}).forEach(([key]) => {
+      const parsed = parseAppraisalCompletionKey(key);
+      if (!parsed) return;
+      // Find role for this slug
+      let role = null;
+      for (const [r, slugs] of Object.entries(trackerAppraisalMapping)) {
+        if (slugs.includes(parsed.slug)) {
+          role = r;
+          break;
+        }
+      }
+      if (!role) return;
+      recordCompletion(role, parsed.slug, parsed.month, parsed.year, true);
+    });
+
+    // Ensure current active month exists
+    const now = new Date();
+    ensureMonthEntry(now.getMonth(), now.getFullYear());
+
+    const rolesArray = Object.keys(trackerAppraisalMapping);
+
+    const summaries = Array.from(monthMap.entries()).map(([key, monthEntry]) => {
+      const roles: TrackerRoleSummary[] = rolesArray.map(role => {
+        const slugs = trackerAppraisalMapping[role as keyof typeof trackerAppraisalMapping];
+        const roleEntry = monthEntry.roles.get(role);
+        const completedSlugs = slugs.filter(slug => roleEntry?.statusBySlug.has(slug));
+        const remainingSlugs = slugs.filter(slug => !roleEntry?.statusBySlug.has(slug));
+        const slugStatus = completedSlugs.reduce((acc, slug) => {
+          acc[slug] = {
+            hasSnapshot: roleEntry?.statusBySlug.get(slug)?.hasSnapshot ?? false,
+          };
+          return acc;
+        }, {} as Record<string, { hasSnapshot: boolean }>);
+        const totalAppraisals = slugs.length;
+        const percentComplete = totalAppraisals === 0 ? 0 : Math.round((completedSlugs.length / totalAppraisals) * 100);
+        return {
+          role,
+          completedSlugs,
+          remainingSlugs,
+          percentComplete,
+          totalAppraisals,
+          slugStatus,
+        };
+      });
+
+      const totalAppraisals = roles.reduce((sum, role) => sum + role.totalAppraisals, 0);
+      const totalCompleted = roles.reduce((sum, role) => sum + role.completedSlugs.length, 0);
+      const percentComplete = totalAppraisals === 0 ? 0 : Math.round((totalCompleted / totalAppraisals) * 100);
+      const hasData = totalCompleted > 0;
+
+      return {
+        key,
+        month: monthEntry.month,
+        year: monthEntry.year,
+        roles,
+        totalAppraisals,
+        totalCompleted,
+        percentComplete,
+        hasData,
+      };
+    });
+
+    return summaries.sort((a, b) => {
+      if (a.year !== b.year) return b.year - a.year;
+      return b.month - a.month;
+    });
+  }, [appraisalsSupervisions.completionStatus, appraisalsSupervisions.appraisalData]);
+
+  const appraisalsMonthByKey = useMemo(() => {
+    const map = new Map<string, typeof appraisalsMonths[0]>();
+    appraisalsMonths.forEach(month => {
+      map.set(month.key, month);
+    });
+    return map;
+  }, [appraisalsMonths]);
+
+  const appraisalsTrackedYears = useMemo(() => {
+    const set = new Set<number>();
+    appraisalsMonths.forEach(month => set.add(month.year));
+    set.add(appraisalsCurrentYear);
+    return Array.from(set).sort((a, b) => b - a);
+  }, [appraisalsMonths, appraisalsCurrentYear]);
+
+  const appraisalsMonthKeysWithData = useMemo(() => {
+    return new Set(appraisalsMonths.filter(month => month.hasData).map(month => month.key));
+  }, [appraisalsMonths]);
+
+  const selectedAppraisalsMonth = useMemo(() => {
+    return appraisalsMonthByKey.get(selectedAppraisalsMonthKey || '') || null;
+  }, [appraisalsMonthByKey, selectedAppraisalsMonthKey]);
+
+  const selectedAppraisalsMonthLabel = useMemo(() => {
+    if (!selectedAppraisalsMonth) return null;
+    return `${MONTH_NAMES[selectedAppraisalsMonth.month]} ${selectedAppraisalsMonth.year}`;
+  }, [selectedAppraisalsMonth]);
+
+  const selectedAppraisalsProgress = useMemo(() => {
+    if (!selectedAppraisalsMonth) return '0/0';
+    return `${selectedAppraisalsMonth.totalCompleted}/${selectedAppraisalsMonth.totalAppraisals}`;
+  }, [selectedAppraisalsMonth]);
+
+  const isViewingPastAppraisalsMonth = useMemo(() => {
+    if (!selectedAppraisalsMonth) return false;
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    return selectedAppraisalsMonth.year < currentYear || (selectedAppraisalsMonth.year === currentYear && selectedAppraisalsMonth.month < currentMonth);
+  }, [selectedAppraisalsMonth]);
+
+  const isSelectedAppraisalsMonthActive = useMemo(() => {
+    if (!selectedAppraisalsMonth) return false;
+    const now = new Date();
+    return selectedAppraisalsMonth.year === now.getFullYear() && selectedAppraisalsMonth.month === now.getMonth();
+  }, [selectedAppraisalsMonth]);
+
+  const openAppraisalsReadOnlyViewer = useCallback((slug: string, month: number, year: number) => {
+    // This would open a read-only viewer for the appraisal
+    // For now, we'll just log it as this is a read-only admin view
+    console.log(`Opening read-only view for ${slug} in ${month}/${year}`);
+  }, []);
+
+  const getAppraisalTitle = useCallback((slug: string) => {
+    const titleMap: Record<string, string> = {
+      'deputy-supervision': 'Deputy Supervision',
+      'carers-supervision': 'Carers Supervision',
+      'clinical-lead-supervision': 'Clinical Lead Supervision',
+      'nurses-supervision': 'Nurses Supervision',
+      'senior-carer-supervision': 'Senior Carer Supervision',
+      'reception-supervision': 'Reception Supervision',
+      'admin-supervision': 'Admin Supervision',
+      'maintenence-person-supervision': 'Maintenance Person Supervision',
+      'activities-supervision': 'Activities Supervision',
+      'chef-supervision': 'Chef Supervision',
+      'kitchen-assistant-supervision': 'Kitchen Assistant Supervision',
+      'domestic-staff-supervision': 'Domestic Staff Supervision',
+      'housekeeping-supervision': 'Housekeeping Supervision',
+    };
+    return titleMap[slug] || slug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  }, []);
+
+  const totalAppraisalsPerMonth = useMemo(() => {
+    const trackerAppraisalMapping = {
+      'Deputy/ies': ['deputy-supervision'],
+      'Clinical lead & Nurses': ['carers-supervision', 'clinical-lead-supervision', 'nurses-supervision'],
+      'Senior/Care team managers': ['deputy-supervision', 'senior-carer-supervision'],
+      'Admin staff': ['reception-supervision', 'admin-supervision'],
+      'Maintenance staff': ['maintenence-person-supervision'],
+      'Activities staff': ['activities-supervision'],
+      'Kitchen staff': ['chef-supervision', 'kitchen-assistant-supervision'],
+      'Domestic staff': ['domestic-staff-supervision', 'housekeeping-supervision'],
+    };
+    return Object.values(trackerAppraisalMapping).reduce((sum, slugs) => sum + slugs.length, 0);
+  }, []);
+
+  // Effect to manage selected month state
+  useEffect(() => {
+    if (riskAssessments.length === 0) {
+      if (selectedMonthKey !== null) {
+        setSelectedMonthKey(null);
+      }
+      if (selectedMonthDate !== null) {
+        setSelectedMonthDate(null);
+      }
+      return;
+    }
+
+    if (!selectedMonthKey) {
+      const fallbackKey = monthsWithData[0] ?? getMonthKeyFromDate(new Date());
+      setSelectedMonthKey(fallbackKey);
+      setSelectedMonthDate(monthKeyToDate(fallbackKey) ?? null);
+      return;
+    }
+
+    if (!selectedMonthDate) {
+      setSelectedMonthDate(monthKeyToDate(selectedMonthKey) ?? null);
+    }
+  }, [riskAssessments, monthsWithData, selectedMonthKey, selectedMonthDate]);
+
+  // Effect to load appraisals/supervisions data
+  useEffect(() => {
+    const loadAppraisalsSupervisions = async () => {
+      if (!workspace?.id) return;
+
+      try {
+        setAppraisalsSupervisionsLoading(true);
+        setAppraisalsSupervisionsError(null);
+
+        const collectionPath = workspaceCollectionPath(workspace.id, 'appraisal-tracker', (workspace as any).organisationId);
+        const snapshot = await getDocs(collection(db, collectionPath));
+
+        const completionStatus: Record<string, any> = {};
+        const appraisalData: Record<string, any> = {};
+
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          const key = doc.id;
+
+          if (data.completionStatus) {
+            completionStatus[key] = data.completionStatus;
+          }
+
+          if (data.appraisalData) {
+            appraisalData[key] = data.appraisalData;
+          }
+        });
+
+        setAppraisalsSupervisions({
+          completionStatus,
+          appraisalData,
+        });
+
+        // Set initial selected month if not set
+        if (!selectedAppraisalsMonthKey && Object.keys(completionStatus).length > 0) {
+          const currentDate = new Date();
+          const currentMonthKey = getTrackerMonthKey(currentDate.getMonth(), currentDate.getFullYear());
+          setSelectedAppraisalsMonthKey(currentMonthKey);
+          setSelectedAppraisalsMonthDate(currentDate);
+        }
+
+      } catch (error) {
+        console.error('Error loading appraisals/supervisions data:', error);
+        setAppraisalsSupervisionsError('Failed to load appraisals/supervisions data');
+      } finally {
+        setAppraisalsSupervisionsLoading(false);
+      }
+    };
+
+    loadAppraisalsSupervisions();
+  }, [workspace?.id]);
+
+  // Load action plans data
+  useEffect(() => {
+    if (!workspace?.id) return;
+
+    const loadActionPlans = async () => {
+      try {
+        setActionPlansLoading(true);
+        setActionPlansError(null);
+
+        const actionPlansRef = collection(db, workspaceCollectionPath(workspace.id, 'action-plans', workspace.organisationId));
+        const actionPlansSnapshot = await getDocs(actionPlansRef);
+        const actionPlansData = actionPlansSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as MonthlyActionPlan[];
+
+        setActionPlans(actionPlansData);
+
+        // Set initial selected month if not set
+        if (!selectedActionPlansMonthKey && actionPlansData.length > 0) {
+          const currentDate = new Date();
+          const currentMonthKey = getTrackerMonthKey(currentDate.getMonth(), currentDate.getFullYear());
+          setSelectedActionPlansMonthKey(currentMonthKey);
+          setSelectedActionPlansMonthDate(currentDate);
+        }
+
+      } catch (error) {
+        console.error('Error loading action plans data:', error);
+        setActionPlansError('Failed to load action plans data');
+      } finally {
+        setActionPlansLoading(false);
+      }
+    };
+
+    loadActionPlans();
+  }, [workspace?.id]);
+
+  const actionPlansTrackedYears = useMemo(() => {
+    const set = new Set<number>();
+    actionPlans.forEach(plan => {
+      const year = parseInt(plan.monthKey.split('-')[0]);
+      set.add(year);
+    });
+    set.add(new Date().getFullYear());
+    return Array.from(set).sort((a, b) => b - a);
+  }, [actionPlans]);
+
+  const actionPlansMonthKeysWithData = useMemo(() => {
+    return new Set(actionPlans.map(plan => plan.monthKey));
+  }, [actionPlans]);
+
+  const selectedActionPlansMonth = useMemo(() => {
+    if (!selectedActionPlansMonthKey) return null;
+    return actionPlans.find(plan => plan.monthKey === selectedActionPlansMonthKey) || null;
+  }, [actionPlans, selectedActionPlansMonthKey]);
+
+  const selectedActionPlansMonthLabel = useMemo(() => {
+    if (!selectedActionPlansMonth) return null;
+    const [year, month] = selectedActionPlansMonth.monthKey.split('-');
+    return `${MONTH_NAMES[parseInt(month) - 1]} ${year}`;
+  }, [selectedActionPlansMonth]);
+
+  const selectedActionPlansProgress = useMemo(() => {
+    if (!selectedActionPlansMonth) return '0/0';
+    return `${selectedActionPlansMonth.completedItems}/${selectedActionPlansMonth.totalItems}`;
+  }, [selectedActionPlansMonth]);
+
+  const isViewingPastActionPlansMonth = useMemo(() => {
+    if (!selectedActionPlansMonth) return false;
+    const now = new Date();
+    const [year, month] = selectedActionPlansMonth.monthKey.split('-');
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    return parseInt(year) < currentYear || (parseInt(year) === currentYear && parseInt(month) - 1 < currentMonth);
+  }, [selectedActionPlansMonth]);
+
+  const isSelectedActionPlansMonthActive = useMemo(() => {
+    if (!selectedActionPlansMonth) return false;
+    const now = new Date();
+    const [year, month] = selectedActionPlansMonth.monthKey.split('-');
+    return parseInt(year) === now.getFullYear() && parseInt(month) - 1 === now.getMonth();
+  }, [selectedActionPlansMonth]);
+
+  const handleSelectMonth = (monthKey: string) => {
+    setSelectedMonthKey(monthKey);
+    setSelectedMonthDate(monthKeyToDate(monthKey) ?? null);
+  };
+
+  const handleDatePickerSelect = (value?: Date) => {
+    if (!value) {
+      return;
+    }
+    const monthKey = getMonthKeyFromDate(value);
+    handleSelectMonth(monthKey);
+    setDatePickerOpen(false);
+  };
+
+  // Appraisals handlers
+  const handleSelectAppraisalsMonth = (monthKey: string) => {
+    setSelectedAppraisalsMonthKey(monthKey);
+    setSelectedAppraisalsMonthDate(monthKeyToDate(monthKey) ?? null);
+  };
+
+  const handleAppraisalsDatePickerSelect = (value?: Date) => {
+    if (!value) {
+      return;
+    }
+    const monthKey = getMonthKeyFromDate(value);
+    handleSelectAppraisalsMonth(monthKey);
+    setAppraisalsDatePickerOpen(false);
+  };
+
+  // Action Plans handlers
+  const handleSelectActionPlansMonth = (monthKey: string) => {
+    setSelectedActionPlansMonthKey(monthKey);
+    setSelectedActionPlansMonthDate(monthKeyToDate(monthKey) ?? null);
+  };
+
+  const handleActionPlansDatePickerSelect = (value?: Date) => {
+    if (!value) {
+      return;
+    }
+    const monthKey = getMonthKeyFromDate(value);
+    handleSelectActionPlansMonth(monthKey);
+    setActionPlansDatePickerOpen(false);
+  };
 
   // Add manager to Firebase
   const addManagerToFirebase = async (manager: Manager) => {
@@ -1284,6 +2368,18 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
               <Calendar className="w-4 h-4" />
               Rotas
             </TabsTrigger>
+            <TabsTrigger value="risk-assessments" className="flex items-center gap-2 whitespace-nowrap">
+              <Shield className="w-4 h-4" />
+              Risk Assessments
+            </TabsTrigger>
+            <TabsTrigger value="appraisals-supervisions" className="flex items-center gap-2 whitespace-nowrap">
+              <UserCheck className="w-4 h-4" />
+              Appraisals & Supervisions
+            </TabsTrigger>
+            <TabsTrigger value="action-plans" className="flex items-center gap-2 whitespace-nowrap">
+              <CheckCircle className="w-4 h-4" />
+              Action Plans
+            </TabsTrigger>
             {/* Management / staff-category triggers removed — TeamsView handles those categories */}
           </TabsList>
           { /* Dependency tab disabled for now */ }
@@ -1500,2147 +2596,813 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
             <AdminRotasView workspace={workspace} />
           </TabsContent>
           
-          <TabsContent value="management" className="mt-6">
+          <TabsContent value="risk-assessments" className="mt-6">
+            <div className="space-y-6">
+              {riskAssessmentsLoading && riskAssessments.length === 0 ? (
+                <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white py-14">
+                  <Loader2 className="h-6 w-6 animate-spin text-red-700" />
+                </div>
+              ) : riskAssessments.length === 0 ? (
+                <Card>
+                  <CardHeader>
+                    <h3 className="text-lg font-semibold flex items-center gap-2">
+                      <Shield className="w-5 h-5 text-red-600" />
+                      Risk Assessments
+                    </h3>
+                    <p className="text-sm text-gray-600">Read-only view of all risk assessments in this workspace</p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-center py-8">
+                      <Shield className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-500">No risk assessments found</p>
+                      <p className="text-sm text-gray-400 mt-1">Risk assessments will appear here when created</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <>
+                  <div className="space-y-6">
+                    {availableYears.map(year => {
+                      const entries = monthsGroupedByYear[year] ?? [];
+                      const isSelectedYear = selectedMonthKey?.startsWith(String(year)) ?? false;
+                      const savedMonthsCount = entries.reduce((total, entry) => total + (entry.count > 0 ? 1 : 0), 0);
+                      return (
+                        <div key={year} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                              <h2 className="text-lg font-semibold text-red-900">{year} Tracker</h2>
+                              <p className="text-sm text-slate-500">Choose a month to review risk assessments.</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-medium uppercase tracking-wide text-slate-400">{savedMonthsCount} months saved</span>
+                              {isSelectedYear && (
+                                <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      className="flex items-center gap-2 border-slate-200 bg-white text-xs font-medium text-slate-700 hover:border-red-300 hover:bg-red-50"
+                                    >
+                                      <Calendar className="h-4 w-4" />
+                                      <span>Jump to month</span>
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-auto p-0" align="end">
+                                    <DatePickerCalendar
+                                      mode="single"
+                                      selected={selectedMonthDate ?? undefined}
+                                      defaultMonth={selectedMonthDate ?? new Date()}
+                                      onSelect={handleDatePickerSelect}
+                                      captionLayout="dropdown"
+                                      fromYear={Math.max(2020, availableYears[availableYears.length - 1] ?? currentYear)}
+                                      toYear={currentYear + 1}
+                                      showOutsideDays
+                                    />
+                                  </PopoverContent>
+                                </Popover>
+                              )}
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+                            {entries.map(entry => {
+                              const hasData = entry.count > 0;
+                              const isSelected = selectedMonthKey === entry.monthKey;
+                              return (
+                                <button
+                                  key={entry.monthKey}
+                                  type="button"
+                                  onClick={() => handleSelectMonth(entry.monthKey)}
+                                  className={`text-left rounded-xl border p-4 transition-all focus:outline-none focus:ring-2 focus:ring-red-200 ${
+                                    hasData
+                                      ? 'bg-white hover:border-red-300 hover:shadow-md'
+                                      : 'border-dashed border-slate-300 bg-slate-50 text-slate-500 hover:border-slate-300'
+                                  } ${isSelected ? 'border-red-500 ring-2 ring-red-200' : ''}`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className={`text-sm font-semibold ${hasData ? 'text-slate-900' : 'text-slate-500'}`}>
+                                      {MONTH_SHORT_LABELS[entry.monthIndex]}
+                                    </span>
+                                    {hasData ? (
+                                      <span className="text-xs font-medium text-red-600">
+                                        {entry.count === 1 ? '1 entry' : `${entry.count} entries`}
+                                      </span>
+                                    ) : (
+                                      <span className="text-xs">No records</span>
+                                    )}
+                                  </div>
+                                  <div className="mt-3 text-xs text-slate-600">{entry.label}</div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {selectedMonthKey && (
+                    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                          <h3 className="text-xl font-semibold text-red-900">{selectedMonthLabel || 'Tracker history'}</h3>
+                          <p className="text-sm text-slate-600">
+                            {completedRecordTypes} of {totalRecordTypes} record types captured • {selectedMonthRecordCount} total entries
+                          </p>
+                        </div>
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                          <span className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">
+                            <Clock className="h-3.5 w-3.5" />
+                            {selectedMonthRecordCount} saved
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-4 lg:grid-cols-1">
+                        {TRACKER_CARD_META.map(meta => {
+                          const recordsForType = selectedMonthRecordsByType[meta.type];
+                          const latestRecord = recordsForType[0] ?? null;
+                          const hasRecord = recordsForType.length > 0;
+                          const isCurrentSelection = selectedMonthKey === getMonthKeyFromDate(new Date());
+                          const statusBadgeClasses = hasRecord
+                            ? 'border border-emerald-200 bg-emerald-100 text-emerald-700'
+                            : isCurrentSelection
+                              ? 'border border-red-200 bg-red-50 text-red-600'
+                              : 'border border-slate-200 bg-slate-100 text-slate-600';
+                          const statusText = hasRecord ? 'Saved' : isCurrentSelection ? 'Pending' : 'No records';
+                          const Icon = meta.icon;
+                          return (
+                            <div
+                              key={meta.type}
+                              className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-white to-slate-50/60 p-5 shadow-sm transition-all hover:shadow-lg"
+                            >
+                              <div className={`relative h-1 w-full rounded-full bg-gradient-to-r ${meta.accentGradient}`} />
+                              <div className="relative z-10 mt-4 flex items-start justify-between gap-3">
+                                <div className="flex items-start gap-3">
+                                  <div className={`rounded-xl bg-gradient-to-br p-2.5 shadow-sm ${meta.iconGradient}`}>
+                                    <Icon className={`h-4 w-4 ${meta.iconColor}`} />
+                                  </div>
+                                  <div>
+                                    <h4 className="text-base font-semibold text-slate-900">{meta.title}</h4>
+                                    <p className="text-xs text-slate-500">{meta.description}</p>
+                                  </div>
+                                </div>
+                                <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusBadgeClasses}`}>
+                                  {hasRecord ? <CheckCircle2 className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
+                                  {statusText}
+                                </span>
+                              </div>
+                              <div className="relative z-10 mt-4 flex flex-1 flex-col justify-between gap-3 text-sm text-slate-700">
+                                {hasRecord ? (
+                                  <div className="space-y-2 text-xs text-slate-600">
+                                    <div className="flex items-center gap-2">
+                                      <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                                      Saved {latestRecord ? formatDateTime(latestRecord.createdAt) : '—'}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <Clock className="h-3.5 w-3.5 text-slate-400" />
+                                      {recordsForType.length === 1 ? '1 entry captured' : `${recordsForType.length} entries captured`}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-slate-500">No risk assessments saved for this month.</p>
+                                )}
+                                <div className="flex items-center gap-3">
+                                  {hasRecord ? (
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => latestRecord && setSelectedRiskAssessment(latestRecord)}
+                                      className="flex-1"
+                                    >
+                                      <Info className="mr-2 h-4 w-4" />
+                                      View latest entry
+                                    </Button>
+                                  ) : (
+                                    <div className="text-xs text-slate-500">
+                                      {isCurrentSelection ? 'No records captured yet this month.' : 'No records saved for this month.'}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                        {selectedMonthRecords.length === 0 ? (
+                          <div className="p-10 text-center text-sm text-slate-500">
+                            No risk assessments saved for {selectedMonthLabel ?? 'this month'} yet.
+                          </div>
+                        ) : (
+                          <Table>
+                            <TableHeader className="bg-muted/60">
+                              <TableRow className="text-xs uppercase tracking-wide">
+                                <TableHead className="w-48">Type</TableHead>
+                                <TableHead>Summary</TableHead>
+                                <TableHead className="w-48">Date &amp; Time</TableHead>
+                                <TableHead className="w-48">Recorded By</TableHead>
+                                <TableHead className="w-32 text-right">Actions</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {selectedMonthRecords.map(record => (
+                                <TableRow key={`${record.recordType}-${record.id}`} className="transition-colors hover:bg-muted/40">
+                                  <TableCell>
+                                    <Badge variant="default">
+                                      {RECORD_LABELS[record.recordType]}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-sm text-slate-500">
+                                    <span className="line-clamp-2">
+                                      {record.form.risk || record.form.describeHazard || '—'}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell className="text-sm font-medium text-foreground">{formatDateTime(record.createdAt)}</TableCell>
+                                  <TableCell className="text-sm text-slate-500">{record.createdBy?.name || record.createdBy?.email || 'Unknown'}</TableCell>
+                                  <TableCell className="text-right">
+                                    <Button size="sm" variant="outline" onClick={() => setSelectedRiskAssessment(record)}>
+                                      View details
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="appraisals-supervisions" className="mt-6">
             <div className="space-y-6">
               {/* Error Display */}
-              {managersError && (
+              {appraisalsSupervisionsError && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                   <div className="flex items-center gap-2">
                     <AlertTriangle className="w-5 h-5 text-red-600" />
                     <p className="text-red-800 font-medium">Error</p>
                   </div>
-                  <p className="text-red-700 text-sm mt-1">{managersError}</p>
+                  <p className="text-red-700 text-sm mt-1">{appraisalsSupervisionsError}</p>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => setManagersError(null)}
+                    onClick={() => setAppraisalsSupervisionsError(null)}
                     className="mt-2 text-red-600 hover:text-red-700"
                   >
                     Dismiss
                   </Button>
                 </div>
               )}
-              {/* Add New Manager Form */}
-              <Card>
-                <CardHeader>
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <Plus className="w-5 h-5 text-blue-600" />
-                    Add New Manager
-                  </h3>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Name</label>
-                      <Input
-                        placeholder="Enter manager name"
-                        value={newManager.name}
-                        onChange={(e) => setNewManager(prev => ({ ...prev, name: e.target.value }))}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Roles</label>
-                      <Input
-                        placeholder="e.g. Senior Manager, Team Lead"
-                        value={newManager.roles}
-                        onChange={(e) => setNewManager(prev => ({ ...prev, roles: e.target.value }))}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Email Address</label>
-                      <Input
-                        type="email"
-                        placeholder="manager@example.com"
-                        value={newManager.email}
-                        onChange={(e) => setNewManager(prev => ({ ...prev, email: e.target.value }))}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Phone Number</label>
-                      <Input
-                        type="tel"
-                        placeholder="+44 123 456 7890"
-                        value={newManager.phone}
-                        onChange={(e) => setNewManager(prev => ({ ...prev, phone: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <Button 
-                      onClick={async () => {
-                        if (newManager.name && newManager.email && newManager.phone) {
-                          const newManagerEntry: Manager = {
-                            id: Date.now().toString(),
-                            ...newManager,
-                            createdAt: new Date().toISOString(),
-                            updatedAt: new Date().toISOString()
-                          };
-                          
-                          // Optimistically update UI
-                          setManagers(prev => [...prev, newManagerEntry]);
-                          setNewManager({ name: '', roles: '', email: '', phone: '' });
-                          setManagersError(null);
-                          
-                          // Save to Firebase
-                          const success = await addManagerToFirebase(newManagerEntry);
-                          if (!success) {
-                            // Revert optimistic update on failure
-                            setManagers(prev => prev.filter(m => m.id !== newManagerEntry.id));
-                          }
-                        }
-                      }}
-                      disabled={!newManager.name || !newManager.roles || !newManager.email || !newManager.phone || managersLoading}
-                      className="bg-blue-600 hover:bg-blue-700"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      {managersLoading ? 'Adding...' : 'Add Manager'}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
 
-              {/* Current Managers List */}
-              <Card>
-                <CardHeader>
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <UserCheck className="w-5 h-5 text-green-600" />
-                    Current Managers ({managers.length})
-                    {managersLoading && <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>}
-                  </h3>
-                </CardHeader>
-                <CardContent>
-                  {managers.length === 0 ? (
-                    <div className="text-center py-8">
-                      <UserCheck className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                      <p className="text-gray-500">No managers assigned yet</p>
-                      <p className="text-sm text-gray-400 mt-1">Add managers using the form above</p>
+              {appraisalsSupervisionsLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <div className="flex items-center space-x-2 text-gray-600">
+                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+                    <span>Loading appraisals/supervisions data...</span>
+                  </div>
+                </div>
+              ) : appraisalsMonths.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center text-sm text-gray-600">
+                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-blue-50 text-blue-500">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-current">
+                      <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </div>
+                  <h3 className="mb-2 text-lg font-semibold text-gray-900">No appraisals/supervisions data yet</h3>
+                  <p className="mb-4">Appraisals and supervisions will appear here once staff members complete them.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50/80 to-indigo-50/80 p-6 shadow-sm">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <h2 className="text-xl font-semibold text-blue-900">Appraisals &amp; Supervisions Tracker</h2>
+                        <p className="text-sm text-blue-900/80">Monitor monthly completion progress across teams.</p>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-blue-900">
+                        <span>{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-xs font-semibold text-blue-700 shadow-sm">
+                          {selectedAppraisalsMonth?.percentComplete ?? 0}% complete
+                        </span>
+                      </div>
                     </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {managers.map((manager) => (
-                        <AdminManagerCard
-                          key={manager.id}
-                          manager={manager}
-                          isEditing={editingManager === manager.id}
-                          onEdit={() => setEditingManager(manager.id)}
-                          onCancelEdit={() => setEditingManager(null)}
-                          onSave={(updatedData) => handleUpdateManager(manager.id, updatedData)}
-                          onDelete={async () => {
-                            // Optimistically update UI
-                            setManagers(prev => prev.filter(m => m.id !== manager.id));
-                            setManagersError(null);
-                            
-                            // Remove from Firebase
-                            const success = await removeManagerFromFirebase(manager);
-                            if (!success) {
-                              // Revert optimistic update on failure
-                              setManagers(prev => [...prev, manager]);
-                            }
-                          }}
-                          disabled={managersLoading}
-                        />
-                      ))}
+                  </div>
+
+                  <div className="space-y-6">
+                    {appraisalsTrackedYears.map((year) => {
+                      const monthsForYear = appraisalsMonths.filter(month => month.year === year);
+                      const savedCount = monthsForYear.filter(month => month.hasData).length;
+                      const isSelectedYear = selectedAppraisalsMonth?.year === year;
+
+                      return (
+                        <div key={year} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                              <h2 className="text-lg font-semibold text-gray-900">{year} tracker</h2>
+                              <p className="text-sm text-gray-500">Select a month to review completions.</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                                {savedCount} saved
+                              </span>
+                              {isSelectedYear && (
+                                <Popover open={appraisalsDatePickerOpen} onOpenChange={setAppraisalsDatePickerOpen}>
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      className="flex items-center gap-2 border-gray-200 bg-white text-xs font-medium text-gray-700 hover:border-blue-300 hover:bg-blue-50"
+                                    >
+                                      <CalendarIcon className="h-4 w-4" />
+                                      <span>Jump to month</span>
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-auto p-0" align="end">
+                                    <DatePickerCalendar
+                                      mode="single"
+                                      selected={selectedAppraisalsMonthDate ?? undefined}
+                                      defaultMonth={selectedAppraisalsMonthDate ?? new Date(year, 0, 1)}
+                                      onSelect={handleAppraisalsDatePickerSelect}
+                                      captionLayout="dropdown"
+                                      fromYear={Math.max(2020, new Date().getFullYear() - 5)}
+                                      toYear={new Date().getFullYear() + 2}
+                                      showOutsideDays
+                                    />
+                                  </PopoverContent>
+                                </Popover>
+                              )}
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+                            {MONTH_NAMES.map((monthLabel, index) => {
+                              const monthKey = getTrackerMonthKey(index, year);
+                              const monthSummary = appraisalsMonthByKey.get(monthKey);
+                              const isSelected = selectedAppraisalsMonthKey === monthKey;
+                              const hasData = appraisalsMonthKeysWithData.has(monthKey);
+                              const completionPercent = monthSummary?.percentComplete ?? 0;
+                              const completedCount = monthSummary?.totalCompleted ?? 0;
+                              const totalCount = monthSummary?.totalAppraisals ?? totalAppraisalsPerMonth;
+                              return (
+                                <button
+                                  key={monthKey}
+                                  type="button"
+                                  onClick={() => handleSelectAppraisalsMonth(monthKey)}
+                                  className={`text-left rounded-xl border p-4 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-200 ${
+                                    hasData ? 'bg-white hover:border-indigo-400 hover:shadow-md' : 'border-dashed border-gray-300 bg-slate-50 text-gray-500 hover:border-gray-300'
+                                  } ${isSelected ? 'border-indigo-500 ring-2 ring-indigo-200' : ''}`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className={`text-sm font-semibold ${hasData ? 'text-gray-900' : 'text-gray-500'}`}>
+                                      {monthLabel.slice(0, 3)}
+                                    </span>
+                                    {hasData ? (
+                                      <span className="text-xs font-semibold text-indigo-600">{completionPercent}%</span>
+                                    ) : (
+                                      <span className="text-xs text-gray-400">No data</span>
+                                    )}
+                                  </div>
+                                  <div className="mt-3 text-xs text-gray-600">
+                                    {hasData ? `${completedCount}/${totalCount} complete` : 'Tracker not started'}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {selectedAppraisalsMonth && (
+                    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                      <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                          <h3 className="text-xl font-semibold text-gray-900">{selectedAppraisalsMonthLabel || 'Tracker summary'}</h3>
+                          <p className="text-sm text-gray-600">{selectedAppraisalsProgress} appraisals completed</p>
+                          {isViewingPastAppraisalsMonth && (
+                            <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
+                              Reviewing a past month
+                            </div>
+                          )}
+                        </div>
+                        <span className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+                          {selectedAppraisalsMonth.percentComplete}% complete
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                        {selectedAppraisalsMonth.roles.map(roleSummary => {
+                          const isComplete = roleSummary.percentComplete === 100;
+                          const outstandingCount = roleSummary.remainingSlugs.length;
+                          return (
+                            <div
+                              key={roleSummary.role}
+                              className="group relative flex h-full flex-col justify-between rounded-xl border border-gray-200/60 bg-gradient-to-br from-white to-gray-50/40 p-5 shadow-sm transition-all hover:shadow-lg"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <h4 className="text-base font-semibold text-gray-900">{roleSummary.role}</h4>
+                                  <p className="text-xs text-gray-500">{roleSummary.completedSlugs.length}/{roleSummary.totalAppraisals} completed</p>
+                                </div>
+                                <div className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold ${
+                                  isComplete ? 'bg-emerald-500 text-white' : roleSummary.percentComplete > 0 ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'
+                                }`}>
+                                  {isComplete ? '✓' : `${roleSummary.percentComplete}%`}
+                                </div>
+                              </div>
+
+                              <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-gray-200">
+                                <div
+                                  className={`${isComplete ? 'bg-emerald-500' : 'bg-blue-500'} h-2 rounded-full transition-all`}
+                                  style={{ width: `${roleSummary.percentComplete}%` }}
+                                />
+                              </div>
+
+                              <div className="mt-5 space-y-4 text-sm">
+                                {roleSummary.completedSlugs.length > 0 && (
+                                  <div>
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Completed</p>
+                                    <div className="mt-2 space-y-2">
+                                      {roleSummary.completedSlugs.map(slug => (
+                                        <div key={slug} className="flex items-center justify-between rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-emerald-700">
+                                          <span className="font-medium">{getAppraisalTitle(slug)}</span>
+                                          <button
+                                            onClick={() => openAppraisalsReadOnlyViewer(slug, selectedAppraisalsMonth.month, selectedAppraisalsMonth.year)}
+                                            className="text-xs font-semibold text-emerald-700 underline decoration-emerald-400 hover:text-emerald-800"
+                                          >
+                                            View
+                                          </button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {roleSummary.remainingSlugs.length > 0 && (
+                                  <div>
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">Outstanding</p>
+                                    <div className="mt-2 space-y-2">
+                                      {roleSummary.remainingSlugs.map(slug => (
+                                        <div key={slug} className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-700">
+                                          <span>{getAppraisalTitle(slug)}</span>
+                                          <span className="text-xs text-gray-500">Read-only view</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="mt-6 flex flex-wrap items-center gap-3 text-xs">
+                                {outstandingCount > 0 && isSelectedAppraisalsMonthActive && (
+                                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-amber-700">
+                                    {outstandingCount} outstanding
+                                  </span>
+                                )}
+                                {roleSummary.completedSlugs.length === 0 && outstandingCount === 0 && (
+                                  <span className="rounded-full border border-gray-200 bg-gray-100 px-3 py-1 text-gray-500">No appraisals configured</span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
-                </CardContent>
-              </Card>
+                </>
+              )}
             </div>
           </TabsContent>
 
-          <TabsContent value="nurses" className="mt-6">
+          <TabsContent value="action-plans" className="mt-6">
             <div className="space-y-6">
               {/* Error Display */}
-              {nursesError && (
+              {actionPlansError && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                   <div className="flex items-center gap-2">
                     <AlertTriangle className="w-5 h-5 text-red-600" />
                     <p className="text-red-800 font-medium">Error</p>
                   </div>
-                  <p className="text-red-700 text-sm mt-1">{nursesError}</p>
+                  <p className="text-red-700 text-sm mt-1">{actionPlansError}</p>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => setNursesError(null)}
+                    onClick={() => setActionPlansError(null)}
                     className="mt-2 text-red-600 hover:text-red-700"
                   >
                     Dismiss
                   </Button>
                 </div>
               )}
-              {/* Add New Nurse Form */}
-              <Card>
-                <CardHeader>
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <Plus className="w-5 h-5 text-blue-600" />
-                    Add New Nurse
-                  </h3>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Name</label>
-                      <Input
-                        placeholder="Enter nurse name"
-                        value={newNurse.name}
-                        onChange={(e) => setNewNurse(prev => ({ ...prev, name: e.target.value }))}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Roles</label>
-                      <Input
-                        placeholder="e.g. Registered Nurse, HCA"
-                        value={newNurse.roles}
-                        onChange={(e) => setNewNurse(prev => ({ ...prev, roles: e.target.value }))}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Email Address</label>
-                      <Input
-                        type="email"
-                        placeholder="nurse@example.com"
-                        value={newNurse.email}
-                        onChange={(e) => setNewNurse(prev => ({ ...prev, email: e.target.value }))}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Phone Number</label>
-                      <Input
-                        type="tel"
-                        placeholder="+44 123 456 7890"
-                        value={newNurse.phone}
-                        onChange={(e) => setNewNurse(prev => ({ ...prev, phone: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <Button 
-                      onClick={async () => {
-                        if (newNurse.name && newNurse.email && newNurse.phone) {
-                          const newNurseEntry: Nurse = {
-                            id: Date.now().toString(),
-                            ...newNurse,
-                            createdAt: new Date().toISOString(),
-                            updatedAt: new Date().toISOString()
-                          };
-                          
-                          // Optimistically update UI
-                          setNurses(prev => [...prev, newNurseEntry]);
-                          setNewNurse({ name: '', roles: '', email: '', phone: '' });
-                          setNursesError(null);
-                          
-                          // Save to Firebase
-                          const success = await addNurseToFirebase(newNurseEntry);
-                          if (!success) {
-                            // Revert optimistic update on failure
-                            setNurses(prev => prev.filter(n => n.id !== newNurseEntry.id));
-                          }
-                        }
-                      }}
-                      disabled={!newNurse.name || !newNurse.roles || !newNurse.email || !newNurse.phone || nursesLoading}
-                      className="bg-blue-600 hover:bg-blue-700"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      {nursesLoading ? 'Adding...' : 'Add Nurse'}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
 
-              {/* Current Nurses List */}
-              <Card>
-                <CardHeader>
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <UserCheck className="w-5 h-5 text-green-600" />
-                    Current Nurses ({nurses.length})
-                    {nursesLoading && <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>}
-                  </h3>
-                </CardHeader>
-                <CardContent>
-                  {nurses.length === 0 ? (
-                    <div className="text-center py-8">
-                      <UserCheck className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                      <p className="text-gray-500">No nurses assigned yet</p>
-                      <p className="text-sm text-gray-400 mt-1">Add nurses using the form above</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {nurses.map((nurse) => (
-                        <AdminNurseCard
-                          key={nurse.id}
-                          nurse={nurse}
-                          isEditing={editingNurse === nurse.id}
-                          onEdit={() => setEditingNurse(nurse.id)}
-                          onCancelEdit={() => setEditingNurse(null)}
-                          onSave={(updatedData) => handleUpdateNurse(nurse.id, updatedData)}
-                          onDelete={async () => {
-                            // Optimistically update UI
-                            setNurses(prev => prev.filter(n => n.id !== nurse.id));
-                            setNursesError(null);
-                            
-                            // Remove from Firebase
-                            const success = await removeNurseFromFirebase(nurse);
-                            if (!success) {
-                              // Revert optimistic update on failure
-                              setNurses(prev => [...prev, nurse]);
-                            }
-                          }}
-                          disabled={nursesLoading}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="ctm" className="mt-6">
-            <div className="space-y-6">
-              {/* Error Display */}
-              {ctmsError && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="w-5 h-5 text-red-600" />
-                    <p className="text-red-800 font-medium">Error</p>
+              {actionPlansLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <div className="flex items-center space-x-2 text-gray-600">
+                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+                    <span>Loading action plans data...</span>
                   </div>
-                  <p className="text-red-700 text-sm mt-1">{ctmsError}</p>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setCTMsError(null)}
-                    className="mt-2 text-red-600 hover:text-red-700"
-                  >
-                    Dismiss
-                  </Button>
                 </div>
-              )}
-              {/* Add New CTM Form */}
-              <Card>
-                <CardHeader>
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <Plus className="w-5 h-5 text-blue-600" />
-                    Add New CTM
-                  </h3>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Name</label>
-                      <Input
-                        placeholder="Enter CTM name"
-                        value={newCTM.name}
-                        onChange={(e) => setNewCTM(prev => ({ ...prev, name: e.target.value }))}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Roles</label>
-                      <Input
-                        placeholder="e.g. Care Team Manager, Senior CTM"
-                        value={newCTM.roles}
-                        onChange={(e) => setNewCTM(prev => ({ ...prev, roles: e.target.value }))}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Email Address</label>
-                      <Input
-                        type="email"
-                        placeholder="ctm@example.com"
-                        value={newCTM.email}
-                        onChange={(e) => setNewCTM(prev => ({ ...prev, email: e.target.value }))}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Phone Number</label>
-                      <Input
-                        type="tel"
-                        placeholder="+44 123 456 7890"
-                        value={newCTM.phone}
-                        onChange={(e) => setNewCTM(prev => ({ ...prev, phone: e.target.value }))}
-                      />
-                    </div>
+              ) : actionPlans.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center text-sm text-gray-600">
+                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-blue-50 text-blue-500">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-current">
+                      <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
                   </div>
-                  <div className="mt-4">
-                    <Button 
-                      onClick={async () => {
-                        if (newCTM.name && newCTM.email && newCTM.phone) {
-                          const newCTMEntry: CTM = {
-                            id: Date.now().toString(),
-                            ...newCTM,
-                            createdAt: new Date().toISOString(),
-                            updatedAt: new Date().toISOString()
-                          };
-                          
-                          // Optimistically update UI
-                          setCTMs(prev => [...prev, newCTMEntry]);
-                          setNewCTM({ name: '', roles: '', email: '', phone: '' });
-                          setCTMsError(null);
-                          
-                          // Save to Firebase
-                          const success = await addCTMToFirebase(newCTMEntry);
-                          if (!success) {
-                            // Revert optimistic update on failure
-                            setCTMs(prev => prev.filter(c => c.id !== newCTMEntry.id));
-                          }
-                        }
-                      }}
-                      disabled={!newCTM.name || !newCTM.roles || !newCTM.email || !newCTM.phone || ctmsLoading}
-                      className="bg-blue-600 hover:bg-blue-700"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      {ctmsLoading ? 'Adding...' : 'Add CTM'}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Current CTMs List */}
-              <Card>
-                <CardHeader>
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <UserCheck className="w-5 h-5 text-green-600" />
-                    Current CTMs ({ctms.length})
-                    {ctmsLoading && <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>}
-                  </h3>
-                </CardHeader>
-                <CardContent>
-                  {ctms.length === 0 ? (
-                    <div className="text-center py-8">
-                      <UserCheck className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                      <p className="text-gray-500">No CTMs assigned yet</p>
-                      <p className="text-sm text-gray-400 mt-1">Add CTMs using the form above</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {ctms.map((ctm) => (
-                        <AdminCTMCard
-                          key={ctm.id}
-                          ctm={ctm}
-                          isEditing={editingCTM === ctm.id}
-                          onEdit={() => setEditingCTM(ctm.id)}
-                          onCancelEdit={() => setEditingCTM(null)}
-                          onSave={(updatedData) => handleUpdateCTM(ctm.id, updatedData)}
-                          onDelete={async () => {
-                            // Optimistically update UI
-                            setCTMs(prev => prev.filter(c => c.id !== ctm.id));
-                            setCTMsError(null);
-                            
-                            // Remove from Firebase
-                            const success = await removeCTMFromFirebase(ctm);
-                            if (!success) {
-                              // Revert optimistic update on failure
-                              setCTMs(prev => [...prev, ctm]);
-                            }
-                          }}
-                          disabled={ctmsLoading}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="domestic" className="mt-6">
-            <div className="space-y-6">
-              {/* Error Display */}
-              {domesticsError && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="w-5 h-5 text-red-600" />
-                    <p className="text-red-800 font-medium">Error</p>
-                  </div>
-                  <p className="text-red-700 text-sm mt-1">{domesticsError}</p>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setDomesticsError(null)}
-                    className="mt-2 text-red-600 hover:text-red-700"
-                  >
-                    Dismiss
-                  </Button>
+                  <h3 className="mb-2 text-lg font-semibold text-gray-900">No action plans data yet</h3>
+                  <p className="mb-4">Action plans will appear here once corrective actions are created.</p>
                 </div>
-              )}
-              {/* Add New Domestic Form */}
-              <Card>
-                <CardHeader>
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <Plus className="w-5 h-5 text-blue-600" />
-                    Add New Domestic
-                  </h3>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Name</label>
-                      <Input
-                        placeholder="Enter domestic name"
-                        value={newDomestic.name}
-                        onChange={(e) => setNewDomestic(prev => ({ ...prev, name: e.target.value }))}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Roles</label>
-                      <Input
-                        placeholder="e.g. Housekeeper, Cleaner"
-                        value={newDomestic.roles}
-                        onChange={(e) => setNewDomestic(prev => ({ ...prev, roles: e.target.value }))}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Email Address</label>
-                      <Input
-                        type="email"
-                        placeholder="domestic@example.com"
-                        value={newDomestic.email}
-                        onChange={(e) => setNewDomestic(prev => ({ ...prev, email: e.target.value }))}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Phone Number</label>
-                      <Input
-                        type="tel"
-                        placeholder="+44 123 456 7890"
-                        value={newDomestic.phone}
-                        onChange={(e) => setNewDomestic(prev => ({ ...prev, phone: e.target.value }))}
-                      />
+              ) : (
+                <>
+                  <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50/80 to-indigo-50/80 p-6 shadow-sm">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <h2 className="text-xl font-semibold text-blue-900">Action Plans Tracker</h2>
+                        <p className="text-sm text-blue-900/80">Monitor monthly corrective action progress across teams.</p>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-blue-900">
+                        <span>{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-xs font-semibold text-blue-700 shadow-sm">
+                          {actionPlans.length} plans tracked
+                        </span>
+                      </div>
                     </div>
                   </div>
-                  <div className="mt-4">
-                    <Button 
-                      onClick={async () => {
-                        if (newDomestic.name && newDomestic.email && newDomestic.phone) {
-                          const newDomesticEntry: Domestic = {
-                            id: Date.now().toString(),
-                            ...newDomestic,
-                            createdAt: new Date().toISOString(),
-                            updatedAt: new Date().toISOString()
-                          };
-                          
-                          // Optimistically update UI
-                          setDomestics(prev => [...prev, newDomesticEntry]);
-                          setNewDomestic({ name: '', roles: '', email: '', phone: '' });
-                          setDomesticsError(null);
-                          
-                          // Save to Firebase
-                          const success = await addDomesticToFirebase(newDomesticEntry);
-                          if (!success) {
-                            // Revert optimistic update on failure
-                            setDomestics(prev => prev.filter(d => d.id !== newDomesticEntry.id));
-                          }
-                        }
-                      }}
-                      disabled={!newDomestic.name || !newDomestic.roles || !newDomestic.email || !newDomestic.phone || domesticsLoading}
-                      className="bg-blue-600 hover:bg-blue-700"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      {domesticsLoading ? 'Adding...' : 'Add Domestic'}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
 
-              {/* Current Domestics List */}
-              <Card>
-                <CardHeader>
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <UserCheck className="w-5 h-5 text-green-600" />
-                    Current Domestics ({domestics.length})
-                    {domesticsLoading && <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>}
-                  </h3>
-                </CardHeader>
-                <CardContent>
-                  {domestics.length === 0 ? (
-                    <div className="text-center py-8">
-                      <UserCheck className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                      <p className="text-gray-500">No domestics assigned yet</p>
-                      <p className="text-sm text-gray-400 mt-1">Add domestics using the form above</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {domestics.map((domestic) => (
-                        <AdminDomesticCard
-                          key={domestic.id}
-                          domestic={domestic}
-                          isEditing={editingDomestic === domestic.id}
-                          onEdit={() => setEditingDomestic(domestic.id)}
-                          onCancelEdit={() => setEditingDomestic(null)}
-                          onSave={(updatedData) => handleUpdateDomestic(domestic.id, updatedData)}
-                          onDelete={async () => {
-                            // Optimistically update UI
-                            setDomestics(prev => prev.filter(d => d.id !== domestic.id));
-                            setDomesticsError(null);
-                            
-                            // Remove from Firebase
-                            const success = await removeDomesticFromFirebase(domestic);
-                            if (!success) {
-                              // Revert optimistic update on failure
-                              setDomestics(prev => [...prev, domestic]);
-                            }
-                          }}
-                          disabled={domesticsLoading}
-                        />
-                      ))}
+                  <div className="space-y-6">
+                    {actionPlansTrackedYears.map((year) => {
+                      const plansForYear = actionPlans.filter(plan => plan.monthKey.slice(0, 4) === year);
+                      const savedCount = plansForYear.length;
+                      const isSelectedYear = selectedActionPlansMonth?.monthKey.startsWith(year);
+
+                      return (
+                        <div key={year} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                              <h2 className="text-lg font-semibold text-gray-900">{year} tracker</h2>
+                              <p className="text-sm text-gray-500">Select a month to review action plans.</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                                {savedCount} saved
+                              </span>
+                              {isSelectedYear && (
+                                <Popover open={actionPlansDatePickerOpen} onOpenChange={setActionPlansDatePickerOpen}>
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      className="flex items-center gap-2 border-gray-200 bg-white text-xs font-medium text-gray-700 hover:border-blue-300 hover:bg-blue-50"
+                                    >
+                                      <CalendarIcon className="h-4 w-4" />
+                                      <span>Jump to month</span>
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-auto p-0" align="end">
+                                    <DatePickerCalendar
+                                      mode="single"
+                                      selected={selectedActionPlansMonthDate ?? undefined}
+                                      defaultMonth={selectedActionPlansMonthDate ?? new Date(Number(year), 0, 1)}
+                                      onSelect={handleActionPlansDatePickerSelect}
+                                      captionLayout="dropdown"
+                                      fromYear={Math.max(2020, new Date().getFullYear() - 5)}
+                                      toYear={new Date().getFullYear() + 2}
+                                      showOutsideDays
+                                    />
+                                  </PopoverContent>
+                                </Popover>
+                              )}
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+                            {MONTH_NAMES.map((monthLabel, index) => {
+                              const monthKey = `${year}-${String(index + 1).padStart(2, '0')}`;
+                              const plan = actionPlans.find(p => p.monthKey === monthKey);
+                              const isSelected = selectedActionPlansMonthKey === monthKey;
+                              const hasData = Boolean(plan);
+                              const completionPercent = plan?.progressPercent ?? 0;
+                              const completedCount = plan?.completedItems ?? 0;
+                              const totalCount = plan?.totalItems ?? 0;
+                              return (
+                                <button
+                                  key={monthKey}
+                                  type="button"
+                                  onClick={() => handleSelectActionPlansMonth(monthKey)}
+                                  className={`text-left rounded-xl border p-4 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-200 ${
+                                    hasData ? 'bg-white hover:border-indigo-400 hover:shadow-md' : 'border-dashed border-gray-300 bg-slate-50 text-gray-500 hover:border-gray-300'
+                                  } ${isSelected ? 'border-indigo-500 ring-2 ring-indigo-200' : ''}`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className={`text-sm font-semibold ${hasData ? 'text-gray-900' : 'text-gray-500'}`}>
+                                      {monthLabel.slice(0, 3)}
+                                    </span>
+                                    {hasData ? (
+                                      <span className="text-xs font-semibold text-indigo-600">{completionPercent}%</span>
+                                    ) : (
+                                      <span className="text-xs text-gray-400">No data</span>
+                                    )}
+                                  </div>
+                                  <div className="mt-3 text-xs text-gray-600">
+                                    {hasData ? `${completedCount}/${totalCount} complete` : 'No action plan'}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {selectedActionPlansMonth && (
+                    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                      <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                          <h3 className="text-xl font-semibold text-gray-900">{selectedActionPlansMonthLabel || 'Action plan summary'}</h3>
+                          <p className="text-sm text-gray-600">{selectedActionPlansMonth.completedItems} of {selectedActionPlansMonth.totalItems} actions completed</p>
+                          {isViewingPastActionPlansMonth && (
+                            <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
+                              Reviewing a past month
+                            </div>
+                          )}
+                        </div>
+                        <span className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+                          {selectedActionPlansMonth.progressPercent}% complete
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                        {selectedActionPlansMonth.items.map((item: ActionPlanItem) => {
+                          const isComplete = item.status === 'completed';
+                          return (
+                            <div
+                              key={item.id}
+                              className="group relative flex h-full flex-col justify-between rounded-xl border border-gray-200/60 bg-gradient-to-br from-white to-gray-50/40 p-5 shadow-sm transition-all hover:shadow-lg"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <h4 className="text-base font-semibold text-gray-900">{item.issue}</h4>
+                                  <p className="text-xs text-gray-500">{item.auditType.replace('-', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}</p>
+                                </div>
+                                <div className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold ${
+                                  isComplete ? 'bg-emerald-500 text-white' : item.status === 'in-progress' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'
+                                }`}>
+                                  {isComplete ? '✓' : item.status === 'in-progress' ? '○' : '○'}
+                                </div>
+                              </div>
+
+                              <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-gray-200">
+                                <div
+                                  className={`${isComplete ? 'bg-emerald-500' : 'bg-blue-500'} h-2 rounded-full transition-all`}
+                                  style={{ width: `${item.status === 'completed' ? 100 : item.status === 'in-progress' ? 50 : 0}%` }}
+                                />
+                              </div>
+
+                              <div className="mt-5 space-y-4 text-sm">
+                                <div>
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">Status</p>
+                                  <div className="mt-2 space-y-2">
+                                    <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-700">
+                                      <span className="font-medium">{item.status.replace('-', ' ').toUpperCase()}</span>
+                                      <span className="text-xs text-gray-500">Read-only view</span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {item.assignedTeam && (
+                                  <div>
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">Assigned To</p>
+                                    <div className="mt-2 space-y-2">
+                                      <div className="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-blue-700">
+                                        <span className="font-medium">{item.assignedTeam}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {item.ragRating && (
+                                  <div>
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">Priority</p>
+                                    <div className="mt-2 space-y-2">
+                                      <div className={`flex items-center justify-between rounded-lg border px-3 py-2 ${
+                                        item.ragRating === 'red' ? 'border-red-200 bg-red-50 text-red-700' :
+                                        item.ragRating === 'amber' ? 'border-yellow-200 bg-yellow-50 text-yellow-700' :
+                                        'border-green-200 bg-green-50 text-green-700'
+                                      }`}>
+                                        <span className="font-medium">{item.ragRating.toUpperCase()}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="mt-6 flex flex-wrap items-center gap-3 text-xs">
+                                {item.status === 'completed' && (
+                                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-emerald-700">
+                                    Completed
+                                  </span>
+                                )}
+                                {item.status === 'in-progress' && (
+                                  <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-blue-700">
+                                    In progress
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="maintenance" className="mt-6">
-            <div className="space-y-6">
-              {/* Error Display */}
-              {maintenancesError && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="w-5 h-5 text-red-600" />
-                    <p className="text-red-800 font-medium">Error</p>
-                  </div>
-                  <p className="text-red-700 text-sm mt-1">{maintenancesError}</p>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setMaintenancesError(null)}
-                    className="mt-2 text-red-600 hover:text-red-700"
-                  >
-                    Dismiss
-                  </Button>
-                </div>
+                </>
               )}
-              {/* Add New Maintenance Form */}
-              <Card>
-                <CardHeader>
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <Plus className="w-5 h-5 text-gray-600" />
-                    Add New Maintenance
-                  </h3>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Name</label>
-                      <Input
-                        placeholder="Enter maintenance name"
-                        value={newMaintenance.name}
-                        onChange={(e) => setNewMaintenance(prev => ({ ...prev, name: e.target.value }))}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Roles</label>
-                      <Input
-                        placeholder="e.g. Electrician, Plumber, Handyman"
-                        value={newMaintenance.roles}
-                        onChange={(e) => setNewMaintenance(prev => ({ ...prev, roles: e.target.value }))}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Email Address</label>
-                      <Input
-                        type="email"
-                        placeholder="maintenance@example.com"
-                        value={newMaintenance.email}
-                        onChange={(e) => setNewMaintenance(prev => ({ ...prev, email: e.target.value }))}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Phone Number</label>
-                      <Input
-                        type="tel"
-                        placeholder="+44 123 456 7890"
-                        value={newMaintenance.phone}
-                        onChange={(e) => setNewMaintenance(prev => ({ ...prev, phone: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <Button 
-                      onClick={async () => {
-                        if (newMaintenance.name && newMaintenance.email && newMaintenance.phone) {
-                          const newMaintenanceEntry: Maintenance = {
-                            id: Date.now().toString(),
-                            ...newMaintenance,
-                            createdAt: new Date().toISOString(),
-                            updatedAt: new Date().toISOString()
-                          };
-                          
-                          // Optimistically update UI
-                          setMaintenances(prev => [...prev, newMaintenanceEntry]);
-                          setNewMaintenance({ name: '', roles: '', email: '', phone: '' });
-                          setMaintenancesError(null);
-                          
-                          // Save to Firebase
-                          const success = await addMaintenanceToFirebase(newMaintenanceEntry);
-                          if (!success) {
-                            // Revert optimistic update on failure
-                            setMaintenances(prev => prev.filter(m => m.id !== newMaintenanceEntry.id));
-                          }
-                        }
-                      }}
-                      disabled={!newMaintenance.name || !newMaintenance.roles || !newMaintenance.email || !newMaintenance.phone || maintenancesLoading}
-                      className="bg-gray-600 hover:bg-gray-700"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      {maintenancesLoading ? 'Adding...' : 'Add Maintenance'}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Current Maintenances List */}
-              <Card>
-                <CardHeader>
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <UserCheck className="w-5 h-5 text-green-600" />
-                    Current Maintenance ({maintenances.length})
-                    {maintenancesLoading && <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin"></div>}
-                  </h3>
-                </CardHeader>
-                <CardContent>
-                  {maintenances.length === 0 ? (
-                    <div className="text-center py-8">
-                      <UserCheck className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                      <p className="text-gray-500">No maintenance staff assigned yet</p>
-                      <p className="text-sm text-gray-400 mt-1">Add maintenance staff using the form above</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {maintenances.map((maintenance) => (
-                        <AdminMaintenanceCard
-                          key={maintenance.id}
-                          maintenance={maintenance}
-                          isEditing={editingMaintenance === maintenance.id}
-                          onEdit={() => setEditingMaintenance(maintenance.id)}
-                          onCancelEdit={() => setEditingMaintenance(null)}
-                          onSave={(updatedData) => handleUpdateMaintenance(maintenance.id, updatedData)}
-                          onDelete={async () => {
-                            // Optimistically update UI
-                            setMaintenances(prev => prev.filter(m => m.id !== maintenance.id));
-                            setMaintenancesError(null);
-                            
-                            // Remove from Firebase
-                            const success = await removeMaintenanceFromFirebase(maintenance);
-                            if (!success) {
-                              // Revert optimistic update on failure
-                              setMaintenances(prev => [...prev, maintenance]);
-                            }
-                          }}
-                          disabled={maintenancesLoading}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="kitchen" className="mt-6">
-            <div className="space-y-6">
-              {/* Error Display */}
-              {kitchensError && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="w-5 h-5 text-red-600" />
-                    <p className="text-red-800 font-medium">Error</p>
-                  </div>
-                  <p className="text-red-700 text-sm mt-1">{kitchensError}</p>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setKitchensError(null)}
-                    className="mt-2 text-red-600 hover:text-red-700"
-                  >
-                    Dismiss
-                  </Button>
-                </div>
-              )}
-              {/* Add New Kitchen Form */}
-              <Card>
-                <CardHeader>
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <Plus className="w-5 h-5 text-red-600" />
-                    Add New Kitchen
-                  </h3>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Name</label>
-                      <Input
-                        placeholder="Enter kitchen name"
-                        value={newKitchen.name}
-                        onChange={(e) => setNewKitchen(prev => ({ ...prev, name: e.target.value }))}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Roles</label>
-                      <Input
-                        placeholder="e.g. Chef, Cook, Kitchen Assistant"
-                        value={newKitchen.roles}
-                        onChange={(e) => setNewKitchen(prev => ({ ...prev, roles: e.target.value }))}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Email Address</label>
-                      <Input
-                        type="email"
-                        placeholder="kitchen@example.com"
-                        value={newKitchen.email}
-                        onChange={(e) => setNewKitchen(prev => ({ ...prev, email: e.target.value }))}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Phone Number</label>
-                      <Input
-                        type="tel"
-                        placeholder="+44 123 456 7890"
-                        value={newKitchen.phone}
-                        onChange={(e) => setNewKitchen(prev => ({ ...prev, phone: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <Button 
-                      onClick={async () => {
-                        if (newKitchen.name && newKitchen.email && newKitchen.phone) {
-                          const newKitchenEntry: Kitchen = {
-                            id: Date.now().toString(),
-                            ...newKitchen,
-                            createdAt: new Date().toISOString(),
-                            updatedAt: new Date().toISOString()
-                          };
-                          
-                          // Optimistically update UI
-                          setKitchens(prev => [...prev, newKitchenEntry]);
-                          setNewKitchen({ name: '', roles: '', email: '', phone: '' });
-                          setKitchensError(null);
-                          
-                          // Save to Firebase
-                          const success = await addKitchenToFirebase(newKitchenEntry);
-                          if (!success) {
-                            // Revert optimistic update on failure
-                            setKitchens(prev => prev.filter(k => k.id !== newKitchenEntry.id));
-                          }
-                        }
-                      }}
-                      disabled={!newKitchen.name || !newKitchen.roles || !newKitchen.email || !newKitchen.phone || kitchensLoading}
-                      className="bg-red-600 hover:bg-red-700"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      {kitchensLoading ? 'Adding...' : 'Add Kitchen'}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Current Kitchens List */}
-              <Card>
-                <CardHeader>
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <UserCheck className="w-5 h-5 text-green-600" />
-                    Current Kitchen ({kitchens.length})
-                    {kitchensLoading && <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>}
-                  </h3>
-                </CardHeader>
-                <CardContent>
-                  {kitchens.length === 0 ? (
-                    <div className="text-center py-8">
-                      <UserCheck className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                      <p className="text-gray-500">No kitchen staff assigned yet</p>
-                      <p className="text-sm text-gray-400 mt-1">Add kitchen staff using the form above</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {kitchens.map((kitchen) => (
-                        <AdminKitchenCard
-                          key={kitchen.id}
-                          kitchen={kitchen}
-                          isEditing={editingKitchen === kitchen.id}
-                          onEdit={() => setEditingKitchen(kitchen.id)}
-                          onCancelEdit={() => setEditingKitchen(null)}
-                          onSave={(updatedData) => handleUpdateKitchen(kitchen.id, updatedData)}
-                          onDelete={async () => {
-                            // Optimistically update UI
-                            setKitchens(prev => prev.filter(k => k.id !== kitchen.id));
-                            setKitchensError(null);
-                            
-                            // Remove from Firebase
-                            const success = await removeKitchenFromFirebase(kitchen);
-                            if (!success) {
-                              // Revert optimistic update on failure
-                              setKitchens(prev => [...prev, kitchen]);
-                            }
-                          }}
-                          disabled={kitchensLoading}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="activities" className="mt-6">
-            <div className="space-y-6">
-              {/* Error Display */}
-              {activitiesError && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="w-5 h-5 text-red-600" />
-                    <p className="text-red-800 font-medium">Error</p>
-                  </div>
-                  <p className="text-red-700 text-sm mt-1">{activitiesError}</p>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setActivitiesError(null)}
-                    className="mt-2 text-red-600 hover:text-red-700"
-                  >
-                    Dismiss
-                  </Button>
-                </div>
-              )}
-              {/* Add New Activity Form */}
-              <Card>
-                <CardHeader>
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <Plus className="w-5 h-5 text-pink-600" />
-                    Add New Activity
-                  </h3>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Name</label>
-                      <Input
-                        placeholder="Enter activity name"
-                        value={newActivity.name}
-                        onChange={(e) => setNewActivity(prev => ({ ...prev, name: e.target.value }))}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Roles</label>
-                      <Input
-                        placeholder="e.g. Activities Coordinator, Entertainment"
-                        value={newActivity.roles}
-                        onChange={(e) => setNewActivity(prev => ({ ...prev, roles: e.target.value }))}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Email Address</label>
-                      <Input
-                        type="email"
-                        placeholder="activity@example.com"
-                        value={newActivity.email}
-                        onChange={(e) => setNewActivity(prev => ({ ...prev, email: e.target.value }))}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Phone Number</label>
-                      <Input
-                        type="tel"
-                        placeholder="+44 123 456 7890"
-                        value={newActivity.phone}
-                        onChange={(e) => setNewActivity(prev => ({ ...prev, phone: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <Button 
-                      onClick={async () => {
-                        if (newActivity.name && newActivity.email && newActivity.phone) {
-                          const newActivityEntry: Activities = {
-                            id: Date.now().toString(),
-                            ...newActivity,
-                            createdAt: new Date().toISOString(),
-                            updatedAt: new Date().toISOString()
-                          };
-                          
-                          // Optimistically update UI
-                          setActivities(prev => [...prev, newActivityEntry]);
-                          setNewActivity({ name: '', roles: '', email: '', phone: '' });
-                          setActivitiesError(null);
-                          
-                          // Save to Firebase
-                          const success = await addActivityToFirebase(newActivityEntry);
-                          if (!success) {
-                            // Revert optimistic update on failure
-                            setActivities(prev => prev.filter(a => a.id !== newActivityEntry.id));
-                          }
-                        }
-                      }}
-                      disabled={!newActivity.name || !newActivity.roles || !newActivity.email || !newActivity.phone || activitiesLoading}
-                      className="bg-pink-600 hover:bg-pink-700"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      {activitiesLoading ? 'Adding...' : 'Add Activity'}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Current Activities List */}
-              <Card>
-                <CardHeader>
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <UserCheck className="w-5 h-5 text-green-600" />
-                    Current Activities ({activities.length})
-                    {activitiesLoading && <div className="w-4 h-4 border-2 border-pink-600 border-t-transparent rounded-full animate-spin"></div>}
-                  </h3>
-                </CardHeader>
-                <CardContent>
-                  {activities.length === 0 ? (
-                    <div className="text-center py-8">
-                      <UserCheck className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                      <p className="text-gray-500">No activities staff assigned yet</p>
-                      <p className="text-sm text-gray-400 mt-1">Add activities staff using the form above</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {activities.map((activity) => (
-                        <AdminActivityCard
-                          key={activity.id}
-                          activity={activity}
-                          isEditing={editingActivity === activity.id}
-                          onEdit={() => setEditingActivity(activity.id)}
-                          onCancelEdit={() => setEditingActivity(null)}
-                          onSave={(updatedData) => handleUpdateActivity(activity.id, updatedData)}
-                          onDelete={async () => {
-                            // Optimistically update UI
-                            setActivities(prev => prev.filter(a => a.id !== activity.id));
-                            setActivitiesError(null);
-                            
-                            // Remove from Firebase
-                            const success = await removeActivityFromFirebase(activity);
-                            if (!success) {
-                              // Revert optimistic update on failure
-                              setActivities(prev => [...prev, activity]);
-                            }
-                          }}
-                          disabled={activitiesLoading}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
             </div>
           </TabsContent>
         </Tabs>
       </div>
     </div>
   </main>
-    </div>
-  );
-}
 
-// Admin Manager Card Component with Edit Functionality
-interface AdminManagerCardProps {
-  manager: Manager;
-  isEditing: boolean;
-  onEdit: () => void;
-  onCancelEdit: () => void;
-  onSave: (updatedData: Partial<Manager>) => void;
-  onDelete: () => void;
-  disabled: boolean;
-}
+  {/* Risk Assessment Detail Dialog */}
+  <Dialog open={!!selectedRiskAssessment} onOpenChange={(open) => setSelectedRiskAssessment(open ? selectedRiskAssessment : null)}>
+    <DialogContent className="flex max-h-[85vh] min-h-[60vh] w-full max-w-4xl flex-col overflow-hidden border border-slate-200 bg-white shadow-2xl p-0">
+      {selectedRiskAssessment ? (
+        <>
+          <DialogHeader className="border-b px-6 py-4">
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <Shield className="w-5 h-5 text-red-600" />
+              <span>Risk Assessment Details</span>
+            </DialogTitle>
+            <DialogDescription>
+              Created {selectedRiskAssessment!.createdAt.toLocaleDateString()}
+              {selectedRiskAssessment!.createdBy?.name ? ` • ${selectedRiskAssessment!.createdBy!.name}` : selectedRiskAssessment!.createdBy?.email ? ` • ${selectedRiskAssessment!.createdBy!.email}` : ''}
+            </DialogDescription>
+          </DialogHeader>
 
-function AdminManagerCard({ manager, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: AdminManagerCardProps) {
-  const [editForm, setEditForm] = useState({
-    name: manager.name,
-    roles: manager.roles,
-    email: manager.email,
-    phone: manager.phone,
-  });
-
-  const handleSave = () => {
-    if (editForm.name && editForm.email && editForm.phone) {
-      onSave(editForm);
-    }
-  };
-
-  const handleCancel = () => {
-    setEditForm({
-      name: manager.name,
-      roles: manager.roles,
-      email: manager.email,
-      phone: manager.phone,
-    });
-    onCancelEdit();
-  };
-
-  if (isEditing) {
-    return (
-      <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">Name</label>
-            <Input
-              value={editForm.name}
-              onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
-              placeholder="Enter manager name"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">Roles</label>
-            <Input
-              value={editForm.roles}
-              onChange={(e) => setEditForm(prev => ({ ...prev, roles: e.target.value }))}
-              placeholder="e.g. Senior Manager, Team Lead"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">Email</label>
-            <Input
-              type="email"
-              value={editForm.email}
-              onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
-              placeholder="manager@example.com"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">Phone</label>
-            <Input
-              type="tel"
-              value={editForm.phone}
-              onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
-              placeholder="+44 123 456 7890"
-            />
-          </div>
-        </div>
-        <div className="flex justify-end gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleCancel}
-            disabled={disabled}
-          >
-            <X className="w-4 h-4 mr-2" />
-            Cancel
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleSave}
-            disabled={!editForm.name || !editForm.roles || !editForm.email || !editForm.phone || disabled}
-            className="bg-green-600 hover:bg-green-700"
-          >
-            <Save className="w-4 h-4 mr-2" />
-            Save Changes
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border">
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-blue-100 rounded-full">
-            <UserCheck className="w-4 h-4 text-blue-600" />
-          </div>
-          <div>
-            <p className="font-medium text-gray-900">{manager.name}</p>
-            <p className="text-sm text-gray-500">Manager</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <UserCheck className="w-4 h-4 text-gray-600" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-900">{manager.roles}</p>
-            <p className="text-xs text-gray-500">Roles</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Mail className="w-4 h-4 text-gray-400" />
-          <span className="text-sm text-gray-700">{manager.email}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Phone className="w-4 h-4 text-gray-400" />
-          <span className="text-sm text-gray-700">{manager.phone}</span>
-        </div>
-      </div>
-      <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onEdit}
-          disabled={disabled}
-          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-        >
-          <Edit className="w-4 h-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onDelete}
-          disabled={disabled}
-          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-        >
-          <Trash2 className="w-4 h-4" />
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-// Admin Nurse Card Component with Edit Functionality
-interface AdminNurseCardProps {
-  nurse: Nurse;
-  isEditing: boolean;
-  onEdit: () => void;
-  onCancelEdit: () => void;
-  onSave: (updatedData: Partial<Nurse>) => void;
-  onDelete: () => void;
-  disabled: boolean;
-}
-
-function AdminNurseCard({ nurse, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: AdminNurseCardProps) {
-  const [editForm, setEditForm] = useState({
-    name: nurse.name,
-    roles: nurse.roles,
-    email: nurse.email,
-    phone: nurse.phone,
-  });
-
-  const handleSave = () => {
-    onSave(editForm);
-  };
-
-  const handleCancel = () => {
-    setEditForm({
-      name: nurse.name,
-      roles: nurse.roles,
-      email: nurse.email,
-      phone: nurse.phone,
-    });
-    onCancelEdit();
-  };
-
-  if (isEditing) {
-    return (
-      <div className="border border-blue-200 rounded-lg p-4 bg-blue-50">
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 mb-3">
-            <UserCheck className="w-4 h-4 text-blue-600" />
-            <span className="font-medium text-blue-900">Edit Nurse</span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div>
-              <label className="text-xs font-medium text-gray-700 block mb-1">Name</label>
-              <Input
-                value={editForm.name}
-                onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Nurse name"
-                className="text-sm"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-700 block mb-1">Roles</label>
-              <Input
-                value={editForm.roles}
-                onChange={(e) => setEditForm(prev => ({ ...prev, roles: e.target.value }))}
-                placeholder="e.g. Registered Nurse, HCA"
-                className="text-sm"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-700 block mb-1">Email</label>
-              <Input
-                type="email"
-                value={editForm.email}
-                onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
-                placeholder="nurse@example.com"
-                className="text-sm"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-700 block mb-1">Phone</label>
-              <Input
-                type="tel"
-                value={editForm.phone}
-                onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
-                placeholder="+44 123 456 7890"
-                className="text-sm"
-              />
+          <div className="flex-1 overflow-y-auto bg-muted/20 px-6 pb-6">
+            <div className="mx-auto w-full max-w-3xl space-y-8 py-6 pr-2">
+              {renderRiskAssessmentDetail(selectedRiskAssessment!.form)}
             </div>
           </div>
-          <div className="flex items-center gap-2 pt-2">
-            <Button
-              size="sm"
-              onClick={handleSave}
-              disabled={!editForm.name || !editForm.email || !editForm.phone || disabled}
-              className="bg-green-600 hover:bg-green-700 text-white"
-            >
-              <Save className="w-3 h-3 mr-1" />
-              Save
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={handleCancel}
-              disabled={disabled}
-              className="text-gray-600 hover:text-gray-700"
-            >
-              <X className="w-3 h-3 mr-1" />
-              Cancel
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+        </>
+      ) : null}
+    </DialogContent>
+  </Dialog>
 
-  return (
-    <div className="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-sm transition-shadow">
-      <div className="space-y-2">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-            <UserCheck className="w-4 h-4 text-blue-600" />
-          </div>
-          <div>
-            <p className="font-medium text-gray-900">{nurse.name}</p>
-            <p className="text-sm text-gray-500">Nurse</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Mail className="w-4 h-4 text-gray-400" />
-          <span className="text-sm text-gray-700">{nurse.email}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Phone className="w-4 h-4 text-gray-400" />
-          <span className="text-sm text-gray-700">{nurse.phone}</span>
-        </div>
-      </div>
-      <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onEdit}
-          disabled={disabled}
-          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-        >
-          <Edit className="w-4 h-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onDelete}
-          disabled={disabled}
-          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-        >
-          <Trash2 className="w-4 h-4" />
-        </Button>
-      </div>
-    </div>
-  );
-}
+  {/* Appraisals & Supervisions Detail Dialog */}
+  <Dialog open={!!selectedAppraisal} onOpenChange={(open) => setSelectedAppraisal(open ? selectedAppraisal : null)}>
+    <DialogContent className="flex max-h-[85vh] min-h-[60vh] w-full max-w-4xl flex-col overflow-hidden border border-slate-200 bg-white shadow-2xl p-0">
+      {selectedAppraisal ? (
+        <>
+          <DialogHeader className="border-b px-6 py-4">
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <UserCheck className="w-5 h-5 text-blue-600" />
+              <span>Appraisal & Supervision Details</span>
+            </DialogTitle>
+            <DialogDescription>
+              Created {selectedAppraisal!.createdAt.toLocaleDateString()}
+              {selectedAppraisal!.createdBy?.name ? ` • ${selectedAppraisal!.createdBy!.name}` : selectedAppraisal!.createdBy?.email ? ` • ${selectedAppraisal!.createdBy!.email}` : ''}
+            </DialogDescription>
+          </DialogHeader>
 
-// Admin CTM Card Component with Edit Functionality
-interface AdminCTMCardProps {
-  ctm: CTM;
-  isEditing: boolean;
-  onEdit: () => void;
-  onCancelEdit: () => void;
-  onSave: (updatedData: Partial<CTM>) => void;
-  onDelete: () => void;
-  disabled: boolean;
-}
-
-function AdminCTMCard({ ctm, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: AdminCTMCardProps) {
-  const [editForm, setEditForm] = useState({
-    name: ctm.name,
-    roles: ctm.roles,
-    email: ctm.email,
-    phone: ctm.phone,
-  });
-
-  const handleSave = () => {
-    onSave(editForm);
-  };
-
-  const handleCancel = () => {
-    setEditForm({
-      name: ctm.name,
-      roles: ctm.roles,
-      email: ctm.email,
-      phone: ctm.phone,
-    });
-    onCancelEdit();
-  };
-
-  if (isEditing) {
-    return (
-      <div className="border border-blue-200 rounded-lg p-4 bg-blue-50">
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 mb-3">
-            <UserCheck className="w-4 h-4 text-blue-600" />
-            <span className="font-medium text-blue-900">Edit CTM</span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <div>
-              <label className="text-xs font-medium text-gray-700 block mb-1">Name</label>
-              <Input
-                value={editForm.name}
-                onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="CTM name"
-                className="text-sm"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-700 block mb-1">Roles</label>
-              <Input
-                value={editForm.roles}
-                onChange={(e) => setEditForm(prev => ({ ...prev, roles: e.target.value }))}
-                placeholder="e.g. Care Team Manager, Senior CTM"
-                className="text-sm"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-700 block mb-1">Email</label>
-              <Input
-                type="email"
-                value={editForm.email}
-                onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
-                placeholder="ctm@example.com"
-                className="text-sm"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-700 block mb-1">Phone</label>
-              <Input
-                type="tel"
-                value={editForm.phone}
-                onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
-                placeholder="+44 123 456 7890"
-                className="text-sm"
-              />
+          <div className="flex-1 overflow-y-auto bg-muted/20 px-6 pb-6">
+            <div className="mx-auto w-full max-w-3xl space-y-8 py-6 pr-2">
+              {renderAppraisalDetail(selectedAppraisal!.form)}
             </div>
           </div>
-          <div className="flex items-center gap-2 pt-2">
-            <Button
-              size="sm"
-              onClick={handleSave}
-              disabled={!editForm.name || !editForm.email || !editForm.phone || disabled}
-              className="bg-green-600 hover:bg-green-700 text-white"
-            >
-              <Save className="w-3 h-3 mr-1" />
-              Save
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={handleCancel}
-              disabled={disabled}
-              className="text-gray-600 hover:text-gray-700"
-            >
-              <X className="w-3 h-3 mr-1" />
-              Cancel
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+        </>
+      ) : null}
+    </DialogContent>
+  </Dialog>
 
-  return (
-    <div className="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-sm transition-shadow">
-      <div className="space-y-2">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-            <UserCheck className="w-4 h-4 text-blue-600" />
-          </div>
-          <div>
-            <p className="font-medium text-gray-900">{ctm.name}</p>
-            <p className="text-sm text-gray-500">CTM</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <UserCheck className="w-4 h-4 text-gray-600" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-900">{ctm.roles}</p>
-            <p className="text-xs text-gray-500">Roles</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Mail className="w-4 h-4 text-gray-400" />
-          <span className="text-sm text-gray-700">{ctm.email}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Phone className="w-4 h-4 text-gray-400" />
-          <span className="text-sm text-gray-700">{ctm.phone}</span>
-        </div>
-      </div>
-      <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onEdit}
-          disabled={disabled}
-          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-        >
-          <Edit className="w-4 h-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onDelete}
-          disabled={disabled}
-          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-        >
-          <Trash2 className="w-4 h-4" />
-        </Button>
-      </div>
-    </div>
-  );
-}
+  {/* Action Plans Detail Dialog */}
+  <Dialog open={!!selectedActionPlan} onOpenChange={(open) => setSelectedActionPlan(open ? selectedActionPlan : null)}>
+    <DialogContent className="flex max-h-[85vh] min-h-[60vh] w-full max-w-4xl flex-col overflow-hidden border border-slate-200 bg-white shadow-2xl p-0">
+      {selectedActionPlan ? (
+        <>
+          <DialogHeader className="border-b px-6 py-4">
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <CheckSquare className="w-5 h-5 text-green-600" />
+              <span>Action Plan Details</span>
+            </DialogTitle>
+            <DialogDescription>
+              Created {selectedActionPlan!.createdAt.toLocaleDateString()}
+              {selectedActionPlan!.createdBy?.name ? ` • ${selectedActionPlan!.createdBy!.name}` : selectedActionPlan!.createdBy?.email ? ` • ${selectedActionPlan!.createdBy!.email}` : ''}
+            </DialogDescription>
+          </DialogHeader>
 
-// Admin Domestic Card Component with Edit Functionality
-interface AdminDomesticCardProps {
-  domestic: Domestic;
-  isEditing: boolean;
-  onEdit: () => void;
-  onCancelEdit: () => void;
-  onSave: (updatedData: Partial<Domestic>) => void;
-  onDelete: () => void;
-  disabled: boolean;
-}
-
-function AdminDomesticCard({ domestic, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: AdminDomesticCardProps) {
-  const [editForm, setEditForm] = useState({
-    name: domestic.name,
-    roles: domestic.roles,
-    email: domestic.email,
-    phone: domestic.phone,
-  });
-
-  const handleSave = () => {
-    onSave(editForm);
-  };
-
-  const handleCancel = () => {
-    setEditForm({
-      name: domestic.name,
-      roles: domestic.roles,
-      email: domestic.email,
-      phone: domestic.phone,
-    });
-    onCancelEdit();
-  };
-
-  if (isEditing) {
-    return (
-      <div className="border border-orange-200 rounded-lg p-4 bg-orange-50">
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 mb-3">
-            <UserCheck className="w-4 h-4 text-orange-600" />
-            <span className="font-medium text-orange-900">Edit Domestic</span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <div>
-              <label className="text-xs font-medium text-gray-700 block mb-1">Name</label>
-              <Input
-                value={editForm.name}
-                onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Domestic name"
-                className="text-sm"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-700 block mb-1">Roles</label>
-              <Input
-                value={editForm.roles}
-                onChange={(e) => setEditForm(prev => ({ ...prev, roles: e.target.value }))}
-                placeholder="e.g. Housekeeper, Cleaner"
-                className="text-sm"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-700 block mb-1">Email</label>
-              <Input
-                type="email"
-                value={editForm.email}
-                onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
-                placeholder="domestic@example.com"
-                className="text-sm"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-700 block mb-1">Phone</label>
-              <Input
-                type="tel"
-                value={editForm.phone}
-                onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
-                placeholder="+44 123 456 7890"
-                className="text-sm"
-              />
+          <div className="flex-1 overflow-y-auto bg-muted/20 px-6 pb-6">
+            <div className="mx-auto w-full max-w-3xl space-y-8 py-6 pr-2">
+              {renderActionPlanDetail(selectedActionPlan!.form)}
             </div>
           </div>
-          <div className="flex items-center gap-2 pt-2">
-            <Button
-              size="sm"
-              onClick={handleSave}
-              disabled={!editForm.name || !editForm.roles || !editForm.email || !editForm.phone || disabled}
-              className="bg-green-600 hover:bg-green-700 text-white"
-            >
-              <Save className="w-3 h-3 mr-1" />
-              Save
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={handleCancel}
-              disabled={disabled}
-              className="text-gray-600 hover:text-gray-700"
-            >
-              <X className="w-3 h-3 mr-1" />
-              Cancel
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-sm transition-shadow">
-      <div className="space-y-2">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
-            <UserCheck className="w-4 h-4 text-orange-600" />
-          </div>
-          <div>
-            <p className="font-medium text-gray-900">{domestic.name}</p>
-            <p className="text-sm text-gray-500">Domestic</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <UserCheck className="w-4 h-4 text-gray-600" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-900">{domestic.roles}</p>
-            <p className="text-xs text-gray-500">Roles</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Mail className="w-4 h-4 text-gray-400" />
-          <span className="text-sm text-gray-700">{domestic.email}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Phone className="w-4 h-4 text-gray-400" />
-          <span className="text-sm text-gray-700">{domestic.phone}</span>
-        </div>
-      </div>
-      <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onEdit}
-          disabled={disabled}
-          className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-        >
-          <Edit className="w-4 h-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onDelete}
-          disabled={disabled}
-          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-        >
-          <Trash2 className="w-4 h-4" />
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-// Admin Maintenance Card Component with Edit Functionality
-interface AdminMaintenanceCardProps {
-  maintenance: Maintenance;
-  isEditing: boolean;
-  onEdit: () => void;
-  onCancelEdit: () => void;
-  onSave: (updatedData: Partial<Maintenance>) => void;
-  onDelete: () => void;
-  disabled: boolean;
-}
-
-function AdminMaintenanceCard({ maintenance, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: AdminMaintenanceCardProps) {
-  const [editForm, setEditForm] = useState({
-    name: maintenance.name,
-    roles: maintenance.roles,
-    email: maintenance.email,
-    phone: maintenance.phone,
-  });
-
-  const handleSave = () => {
-    onSave(editForm);
-  };
-
-  const handleCancel = () => {
-    setEditForm({
-      name: maintenance.name,
-      roles: maintenance.roles,
-      email: maintenance.email,
-      phone: maintenance.phone,
-    });
-    onCancelEdit();
-  };
-
-  if (isEditing) {
-    return (
-      <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 mb-3">
-            <UserCheck className="w-4 h-4 text-gray-600" />
-            <span className="font-medium text-gray-900">Edit Maintenance</span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <div>
-              <label className="text-xs font-medium text-gray-700 block mb-1">Name</label>
-              <Input
-                value={editForm.name}
-                onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Maintenance name"
-                className="text-sm"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-700 block mb-1">Roles</label>
-              <Input
-                value={editForm.roles}
-                onChange={(e) => setEditForm(prev => ({ ...prev, roles: e.target.value }))}
-                placeholder="e.g. Electrician, Plumber, Handyman"
-                className="text-sm"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-700 block mb-1">Email</label>
-              <Input
-                type="email"
-                value={editForm.email}
-                onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
-                placeholder="maintenance@example.com"
-                className="text-sm"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-700 block mb-1">Phone</label>
-              <Input
-                type="tel"
-                value={editForm.phone}
-                onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
-                placeholder="+44 123 456 7890"
-                className="text-sm"
-              />
-            </div>
-          </div>
-          <div className="flex items-center gap-2 pt-2">
-            <Button
-              size="sm"
-              onClick={handleSave}
-              disabled={!editForm.name || !editForm.roles || !editForm.email || !editForm.phone || disabled}
-              className="bg-green-600 hover:bg-green-700 text-white"
-            >
-              <Save className="w-3 h-3 mr-1" />
-              Save
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={handleCancel}
-              disabled={disabled}
-              className="text-gray-600 hover:text-gray-700"
-            >
-              <X className="w-3 h-3 mr-1" />
-              Cancel
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-sm transition-shadow">
-      <div className="space-y-2">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
-            <UserCheck className="w-4 h-4 text-gray-600" />
-          </div>
-          <div>
-            <p className="font-medium text-gray-900">{maintenance.name}</p>
-            <p className="text-sm text-gray-500">Maintenance</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <UserCheck className="w-4 h-4 text-gray-600" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-900">{maintenance.roles}</p>
-            <p className="text-xs text-gray-500">Roles</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Mail className="w-4 h-4 text-gray-400" />
-          <span className="text-sm text-gray-700">{maintenance.email}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Phone className="w-4 h-4 text-gray-400" />
-          <span className="text-sm text-gray-700">{maintenance.phone}</span>
-        </div>
-      </div>
-      <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onEdit}
-          disabled={disabled}
-          className="text-gray-600 hover:text-gray-700 hover:bg-gray-50"
-        >
-          <Edit className="w-4 h-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onDelete}
-          disabled={disabled}
-          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-        >
-          <Trash2 className="w-4 h-4" />
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-// Admin Kitchen Card Component with Edit Functionality
-interface AdminKitchenCardProps {
-  kitchen: Kitchen;
-  isEditing: boolean;
-  onEdit: () => void;
-  onCancelEdit: () => void;
-  onSave: (updatedData: Partial<Kitchen>) => void;
-  onDelete: () => void;
-  disabled: boolean;
-}
-
-function AdminKitchenCard({ kitchen, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: AdminKitchenCardProps) {
-  const [editForm, setEditForm] = useState({
-    name: kitchen.name,
-    roles: kitchen.roles,
-    email: kitchen.email,
-    phone: kitchen.phone,
-  });
-
-  const handleSave = () => {
-    onSave(editForm);
-  };
-
-  const handleCancel = () => {
-    setEditForm({
-      name: kitchen.name,
-      roles: kitchen.roles,
-      email: kitchen.email,
-      phone: kitchen.phone,
-    });
-    onCancelEdit();
-  };
-
-  if (isEditing) {
-    return (
-      <div className="border border-red-200 rounded-lg p-4 bg-red-50">
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 mb-3">
-            <UserCheck className="w-4 h-4 text-red-600" />
-            <span className="font-medium text-red-900">Edit Kitchen</span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <div>
-              <label className="text-xs font-medium text-gray-700 block mb-1">Name</label>
-              <Input
-                value={editForm.name}
-                onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Kitchen name"
-                className="text-sm"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-700 block mb-1">Roles</label>
-              <Input
-                value={editForm.roles}
-                onChange={(e) => setEditForm(prev => ({ ...prev, roles: e.target.value }))}
-                placeholder="e.g. Chef, Cook, Kitchen Assistant"
-                className="text-sm"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-700 block mb-1">Email</label>
-              <Input
-                type="email"
-                value={editForm.email}
-                onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
-                placeholder="kitchen@example.com"
-                className="text-sm"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-700 block mb-1">Phone</label>
-              <Input
-                type="tel"
-                value={editForm.phone}
-                onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
-                placeholder="+44 123 456 7890"
-                className="text-sm"
-              />
-            </div>
-          </div>
-          <div className="flex items-center gap-2 pt-2">
-            <Button
-              size="sm"
-              onClick={handleSave}
-              disabled={!editForm.name || !editForm.roles || !editForm.email || !editForm.phone || disabled}
-              className="bg-green-600 hover:bg-green-700 text-white"
-            >
-              <Save className="w-3 h-3 mr-1" />
-              Save
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={handleCancel}
-              disabled={disabled}
-              className="text-gray-600 hover:text-gray-700"
-            >
-              <X className="w-3 h-3 mr-1" />
-              Cancel
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-sm transition-shadow">
-      <div className="space-y-2">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
-            <UserCheck className="w-4 h-4 text-red-600" />
-          </div>
-          <div>
-            <p className="font-medium text-gray-900">{kitchen.name}</p>
-            <p className="text-sm text-gray-500">Kitchen</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <UserCheck className="w-4 h-4 text-gray-600" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-900">{kitchen.roles}</p>
-            <p className="text-xs text-gray-500">Roles</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Mail className="w-4 h-4 text-gray-400" />
-          <span className="text-sm text-gray-700">{kitchen.email}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Phone className="w-4 h-4 text-gray-400" />
-          <span className="text-sm text-gray-700">{kitchen.phone}</span>
-        </div>
-      </div>
-      <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onEdit}
-          disabled={disabled}
-          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-        >
-          <Edit className="w-4 h-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onDelete}
-          disabled={disabled}
-          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-        >
-          <Trash2 className="w-4 h-4" />
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-// Admin Activity Card Component with Edit Functionality
-interface AdminActivityCardProps {
-  activity: Activities;
-  isEditing: boolean;
-  onEdit: () => void;
-  onCancelEdit: () => void;
-  onSave: (updatedData: Partial<Activities>) => void;
-  onDelete: () => void;
-  disabled: boolean;
-}
-
-function AdminActivityCard({ activity, isEditing, onEdit, onCancelEdit, onSave, onDelete, disabled }: AdminActivityCardProps) {
-  const [editForm, setEditForm] = useState({
-    name: activity.name,
-    roles: activity.roles,
-    email: activity.email,
-    phone: activity.phone,
-  });
-
-  const handleSave = () => {
-    onSave(editForm);
-  };
-
-  const handleCancel = () => {
-    setEditForm({
-      name: activity.name,
-      roles: activity.roles,
-      email: activity.email,
-      phone: activity.phone,
-    });
-    onCancelEdit();
-  };
-
-  if (isEditing) {
-    return (
-      <div className="border border-pink-200 rounded-lg p-4 bg-pink-50">
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 mb-3">
-            <UserCheck className="w-4 h-4 text-pink-600" />
-            <span className="font-medium text-pink-900">Edit Activity</span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <div>
-              <label className="text-xs font-medium text-gray-700 block mb-1">Name</label>
-              <Input
-                value={editForm.name}
-                onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Activity name"
-                className="text-sm"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-700 block mb-1">Roles</label>
-              <Input
-                value={editForm.roles}
-                onChange={(e) => setEditForm(prev => ({ ...prev, roles: e.target.value }))}
-                placeholder="e.g. Activities Coordinator, Entertainment"
-                className="text-sm"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-700 block mb-1">Email</label>
-              <Input
-                type="email"
-                value={editForm.email}
-                onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
-                placeholder="activity@example.com"
-                className="text-sm"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-700 block mb-1">Phone</label>
-              <Input
-                type="tel"
-                value={editForm.phone}
-                onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
-                placeholder="+44 123 456 7890"
-                className="text-sm"
-              />
-            </div>
-          </div>
-          <div className="flex items-center gap-2 pt-2">
-            <Button
-              size="sm"
-              onClick={handleSave}
-              disabled={!editForm.name || !editForm.roles || !editForm.email || !editForm.phone || disabled}
-              className="bg-green-600 hover:bg-green-700 text-white"
-            >
-              <Save className="w-3 h-3 mr-1" />
-              Save
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={handleCancel}
-              disabled={disabled}
-              className="text-gray-600 hover:text-gray-700"
-            >
-              <X className="w-3 h-3 mr-1" />
-              Cancel
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-sm transition-shadow">
-      <div className="space-y-2">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-pink-100 rounded-full flex items-center justify-center">
-            <UserCheck className="w-4 h-4 text-pink-600" />
-          </div>
-          <div>
-            <p className="font-medium text-gray-900">{activity.name}</p>
-            <p className="text-sm text-gray-500">Activities</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <UserCheck className="w-4 h-4 text-gray-600" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-900">{activity.roles}</p>
-            <p className="text-xs text-gray-500">Roles</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Mail className="w-4 h-4 text-gray-400" />
-          <span className="text-sm text-gray-700">{activity.email}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Phone className="w-4 h-4 text-gray-400" />
-          <span className="text-sm text-gray-700">{activity.phone}</span>
-        </div>
-      </div>
-      <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onEdit}
-          disabled={disabled}
-          className="text-pink-600 hover:text-pink-700 hover:bg-pink-50"
-        >
-          <Edit className="w-4 h-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onDelete}
-          disabled={disabled}
-          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-        >
-          <Trash2 className="w-4 h-4" />
-        </Button>
-      </div>
-    </div>
+        </>
+      ) : null}
+    </DialogContent>
+  </Dialog>
+</div>
   );
 }

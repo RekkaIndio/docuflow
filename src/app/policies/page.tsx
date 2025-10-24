@@ -18,17 +18,58 @@ type PolicyItem = {
 export default function PoliciesPage() {
   const [files, setFiles] = useState<PolicyItem[] | string[] | null>(null);
 
+  function normalizeDateString(s?: string | null): string | null {
+    if (!s) return null;
+    const str = String(s).trim();
+
+    const isoMatch = str.match(/^(\d{4})[-/](\d{1,2})(?:[-/](\d{1,2}))?$/);
+    if (isoMatch) {
+      const y = isoMatch[1];
+      const m = String(isoMatch[2]).padStart(2, '0');
+      const d = isoMatch[3] ? String(isoMatch[3]).padStart(2, '0') : '01';
+      return `${y}-${m}-${d}`;
+    }
+
+    const mmYYYY = str.match(/^(\d{1,2})[/-](\d{4})$/);
+    if (mmYYYY) {
+      const m = String(mmYYYY[1]).padStart(2, '0');
+      const y = mmYYYY[2];
+      return `${y}-${m}-01`;
+    }
+
+    const monthName = str.match(/^(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})$/i);
+    if (monthName) {
+      const months: Record<string, string> = { jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06', jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12' };
+      const m = months[monthName[1].slice(0, 3).toLowerCase()];
+      return `${monthName[2]}-${m}-01`;
+    }
+
+    const attempted = new Date(str);
+    if (!isNaN(attempted.getTime())) {
+      const y = attempted.getFullYear();
+      const m = String(attempted.getMonth() + 1).padStart(2, '0');
+      const d = String(attempted.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
+    return null;
+  }
+
   function formatDateSafe(d?: string | null) {
     if (!d) return null;
-    const dt = new Date(d);
+    const normalized = normalizeDateString(d);
+    if (!normalized) return null;
+    const dt = new Date(`${normalized}T00:00:00`);
     if (isNaN(dt.getTime())) return null;
     return dt.toLocaleDateString();
   }
 
   function getReviewStatus(reviewDate?: string | null) {
     if (!reviewDate) return { label: 'No review date', kind: 'neutral' };
+    const normalized = normalizeDateString(reviewDate);
+    if (!normalized) return { label: 'Invalid date', kind: 'neutral' };
     const now = new Date();
-    const rev = new Date(reviewDate);
+    const rev = new Date(`${normalized}T00:00:00`);
     if (isNaN(rev.getTime())) return { label: 'Invalid date', kind: 'neutral' };
     const diffMs = rev.getTime() - now.getTime();
     const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
@@ -69,8 +110,8 @@ export default function PoliciesPage() {
             url,
             title,
             version: p?.meta?.version || p?.version || null,
-            effectiveDate: p?.meta?.effectiveDate || null,
-            reviewDate: p?.meta?.reviewDate || null,
+            effectiveDate: p?.meta?.effectiveDate || p?.extractedJson?.effectiveDate || null,
+            reviewDate: p?.meta?.reviewDate || p?.extractedJson?.reviewDate || null,
             appliesTo: p?.meta?.appliesTo || null,
             isCompleted: true,
             lastCustomized: p?.updatedAt || p?.createdAt || null,
@@ -139,7 +180,8 @@ export default function PoliciesPage() {
       const reviewDate = isString ? null : f.reviewDate;
       const appliesTo = isString ? null : (f.appliesTo || null);
       const review = getReviewStatus(reviewDate);
-      const ts = reviewDate ? (new Date(reviewDate)).getTime() : Number.POSITIVE_INFINITY;
+      const normalizedReview = reviewDate ? normalizeDateString(reviewDate) : null;
+      const ts = normalizedReview ? new Date(`${normalizedReview}T00:00:00`).getTime() : Number.POSITIVE_INFINITY;
       return { raw: f, fileName, title, version, effectiveDate, reviewDate, appliesTo, review, ts };
     });
 
@@ -308,12 +350,54 @@ export default function PoliciesPage() {
 
         // render sorted items
         return sortedItems.map((it) => {
-          const { fileName, title, version, effectiveDate, reviewDate, appliesTo, review } = it;
+          const { fileName, title, reviewDate, review } = it;
           const isString = typeof it.raw === 'string';
-          const lastCustomized = !isString && it.raw.lastCustomized;
           
           // All policies shown to users are completed
           const isCompleted = true;
+          const rawReview = !isString && it.raw && typeof it.raw !== 'string' ? (it.raw.extractedJson?.reviewDate || it.raw.meta?.reviewDate) : null;
+          const displayReviewDate = rawReview || reviewDate || null;
+          const isOverdue = review.kind === 'overdue';
+          const isDueSoon = review.kind === 'due-soon';
+
+          const containerClass = isOverdue
+            ? 'bg-gradient-to-br from-red-50 to-rose-50 border-red-200 hover:border-red-300'
+            : isDueSoon
+              ? 'bg-gradient-to-br from-orange-50 to-amber-50 border-orange-200 hover:border-orange-300'
+              : 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200 hover:border-green-300';
+
+          const iconClass = isOverdue
+            ? 'bg-red-500 text-white'
+            : isDueSoon
+              ? 'bg-orange-500 text-white'
+              : 'bg-green-500 text-white';
+
+          const titleClass = isOverdue
+            ? 'text-red-800'
+            : isDueSoon
+              ? 'text-orange-800'
+              : 'text-green-800';
+
+          const statusTextColor = isOverdue
+            ? 'text-red-700'
+            : isDueSoon
+              ? 'text-orange-700'
+              : 'text-green-700';
+
+          const detailBorderColor = isOverdue
+            ? 'border-red-200'
+            : isDueSoon
+              ? 'border-orange-200'
+              : 'border-green-200';
+
+          const bottomBorder = isOverdue
+            ? 'bg-gradient-to-r from-red-500 to-rose-500'
+            : isDueSoon
+              ? 'bg-gradient-to-r from-orange-500 to-amber-500'
+              : 'bg-gradient-to-r from-green-500 to-emerald-500';
+
+          const patternPrimary = isOverdue ? 'bg-red-300' : isDueSoon ? 'bg-orange-300' : 'bg-green-400';
+          const patternSecondary = isOverdue ? 'bg-rose-300' : isDueSoon ? 'bg-amber-300' : 'bg-emerald-400';
 
           return (
             <div
@@ -379,26 +463,18 @@ export default function PoliciesPage() {
                 })();
               }}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); try { window.dispatchEvent(new CustomEvent('navigate-to-document', { detail: { policyFile: fileName, documentName: title } })); } catch (err) { const url = isString ? `/policies/${encodeURIComponent(fileName)}` : (it.raw.url || `/policies/${encodeURIComponent(fileName)}`); window.open(url, '_blank'); } } }}
-              className={`group relative overflow-hidden rounded-2xl shadow-lg border transition-all duration-300 hover:shadow-xl hover:-translate-y-1 min-h-[200px] flex flex-col ${
-                isCompleted 
-                  ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200 hover:border-green-300' 
-                  : 'bg-white/90 border-blue-100 hover:border-blue-200'
-              }`}
+              className={`group relative overflow-hidden rounded-2xl shadow-lg border transition-all duration-300 hover:shadow-xl hover:-translate-y-1 min-h-[200px] flex flex-col ${containerClass}`}
             >
               {/* Subtle background pattern for completed cards */}
               {isCompleted && (
                 <div className="absolute inset-0 opacity-5 pointer-events-none">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-green-400 rounded-full -translate-y-16 translate-x-16"></div>
-                  <div className="absolute bottom-0 left-0 w-24 h-24 bg-emerald-400 rounded-full translate-y-12 -translate-x-12"></div>
+                  <div className={`absolute top-0 right-0 w-32 h-32 rounded-full -translate-y-16 translate-x-16 ${patternPrimary}`}></div>
+                  <div className={`absolute bottom-0 left-0 w-24 h-24 rounded-full translate-y-12 -translate-x-12 ${patternSecondary}`}></div>
                 </div>
               )}
               <div className="relative p-6 flex flex-col flex-grow">
                 <div className="flex items-start justify-between mb-4">
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm ${
-                    isCompleted 
-                      ? 'bg-green-500 text-white' 
-                      : 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white'
-                  }`}>
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm ${iconClass}`}>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-current">
                       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                       <polyline points="14,2 14,8 20,8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -407,31 +483,30 @@ export default function PoliciesPage() {
                 </div>
                 
                 <div className="space-y-2 flex-grow">
-                  <h3 className={`font-semibold text-lg leading-tight ${
-                    isCompleted ? 'text-green-800' : 'text-blue-900 group-hover:text-blue-800'
-                  }`}>
+                  <h3 className={`font-semibold text-lg leading-tight ${titleClass}`}>
                     {title}
                   </h3>
                   <p className="text-sm text-gray-600 leading-relaxed">
                     Click to view this policy document
                   </p>
                 </div>
-                
-                {/* Show renewal date if available */}
-                {reviewDate && (
-                  <div className={`mt-4 pt-4 border-t ${isCompleted ? 'border-green-200' : 'border-blue-200'}`}>
-                    <div className={`flex items-center justify-between text-xs ${isCompleted ? 'text-green-700' : 'text-blue-700'}`}>
-                      <span>Renewal Date</span>
-                      <span className="font-medium">{formatDateSafe(reviewDate)}</span>
-                    </div>
+
+                <div className={`mt-4 pt-4 border-t ${detailBorderColor}`}>
+                  <div className={`flex items-center justify-between text-xs font-medium ${statusTextColor}`}>
+                    <span>Status</span>
+                    <span>{review.label}</span>
                   </div>
-                )}
+                  {displayReviewDate && (
+                    <div className={`mt-2 flex items-center justify-between text-xs ${statusTextColor}`}>
+                      <span>Renewal Date</span>
+                      <span className="font-medium">{formatDateSafe(displayReviewDate)}</span>
+                    </div>
+                  )}
+                </div>
               </div>
               
               {/* Bottom accent bar */}
-              <div className={`absolute left-0 bottom-0 h-1 w-full transition-all duration-300 ${
-                isCompleted ? 'bg-gradient-to-r from-green-500 to-emerald-500' : 'bg-gradient-to-r from-blue-500 to-indigo-600'
-              }`}></div>
+              <div className={`absolute left-0 bottom-0 h-1 w-full transition-all duration-300 ${bottomBorder}`}></div>
             </div>
           );
         });

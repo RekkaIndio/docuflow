@@ -89,6 +89,7 @@ const FEATURE_ICONS: Record<FeatureModuleKey, React.ElementType> = {
   accessibility: Accessibility,
   settings: Settings,
   lessonsRcas: NotebookPen,
+  riskAssessment: Shield,
 };
 
 // Category colors

@@ -24,10 +24,11 @@ import { SidebarTrigger } from "../ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { FileInput } from "@/components/ui/file-input";
 import { uploadProfilePicture, saveProfilePictureUrl } from "@/lib/firebase";
-import { doc, getDoc, collection, addDoc, serverTimestamp, updateDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, collection, addDoc, serverTimestamp, updateDoc, setDoc, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase"; // Adjust the import based on your project structure
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from '@/hooks/use-toast';
+import { workspaceCollectionPath, workspaceDocPath } from '@/lib/paths';
 
 
 interface SettingsViewProps {
@@ -43,11 +44,18 @@ const mockTeamMembers = [
 
 export function SettingsView({ workspace }: SettingsViewProps) {
     const { user } = useAuth();
-    const isManager = (user?.role === 'owner' || user?.role === 'admin');
+    const normalisedRole = (user?.role || '').toLowerCase();
+    const managerRoleKeys = ['owner', 'admin', 'manager', 'clinical lead', 'clinical_lead', 'deputy', 'operations manager', 'head office', 'head-office'];
+    const isManager = managerRoleKeys.includes(normalisedRole);
     const [workspaceName, setWorkspaceName] = useState(workspace.name);
     const [displayName, setDisplayName] = useState<string>("");
     const [profilePicture, setProfilePicture] = useState<string | undefined>(undefined);
     const [inviteEmail, setInviteEmail] = useState<string>("");
+    const [totalBedsInput, setTotalBedsInput] = useState<string>("");
+    const [isBedsLoading, setIsBedsLoading] = useState<boolean>(true);
+    const [isBedsSaving, setIsBedsSaving] = useState<boolean>(false);
+    const [bedsError, setBedsError] = useState<string | null>(null);
+    const settingsOrgId = workspace.organisationId ?? user?.organisationId ?? null;
 
     // ...existing logic for handleInviteMember, useEffect, handleProfilePictureChange...
     // (Unchanged, omitted for brevity)
@@ -111,6 +119,88 @@ export function SettingsView({ workspace }: SettingsViewProps) {
         }
         fetchUserProfile();
     }, [user?.id]);
+
+    useEffect(() => {
+        if (!workspace?.id) {
+            setTotalBedsInput("");
+            setIsBedsLoading(false);
+            return () => undefined;
+        }
+
+        setIsBedsLoading(true);
+        const settingsPath = workspaceCollectionPath(workspace.id, 'settings', settingsOrgId);
+        if (!settingsPath) {
+            setTotalBedsInput("");
+            setIsBedsLoading(false);
+            return () => undefined;
+        }
+
+        const settingsCol = collection(db, settingsPath);
+        const occupancyDoc = doc(settingsCol, 'occupancy');
+        const unsubscribe = onSnapshot(occupancyDoc, (snap) => {
+            if (snap.exists()) {
+                const data = snap.data() as { totalBeds?: number };
+                if (typeof data.totalBeds === 'number' && Number.isFinite(data.totalBeds)) {
+                    setTotalBedsInput(String(Math.round(data.totalBeds)));
+                } else {
+                    setTotalBedsInput("");
+                }
+            } else {
+                setTotalBedsInput("");
+            }
+            setIsBedsLoading(false);
+        }, (error) => {
+            console.error('Failed to subscribe to total beds setting:', error);
+            setIsBedsLoading(false);
+        });
+
+        return unsubscribe;
+    }, [workspace?.id, settingsOrgId]);
+
+    const saveTotalBeds = async () => {
+        if (!workspace?.id) return;
+        const trimmed = totalBedsInput.trim();
+        if (trimmed === '') {
+            setBedsError('Enter the number of beds for this workspace');
+            return;
+        }
+        const parsed = Number(trimmed);
+        if (!Number.isFinite(parsed) || parsed < 0) {
+            setBedsError('Please enter a non-negative whole number');
+            return;
+        }
+
+        setBedsError(null);
+        const value = Math.round(parsed);
+        try {
+            setIsBedsSaving(true);
+            const now = new Date();
+            const settingsPath = workspaceCollectionPath(workspace.id, 'settings', settingsOrgId);
+            if (settingsPath) {
+                const occupancyRef = doc(collection(db, settingsPath), 'occupancy');
+                await setDoc(occupancyRef, {
+                    totalBeds: value,
+                    updatedAt: now,
+                }, { merge: true });
+            }
+
+            const workspacePath = workspaceDocPath(workspace.id, undefined, settingsOrgId);
+            if (workspacePath) {
+                const workspaceRef = doc(db, workspacePath);
+                await setDoc(workspaceRef, {
+                    totalBeds: value,
+                    updatedAt: now,
+                }, { merge: true });
+            }
+            setTotalBedsInput(String(value));
+            toast({ title: 'Saved', description: 'Total beds updated for occupancy calculations' });
+        } catch (error) {
+            console.error('Failed to save total beds setting:', error);
+            toast({ title: 'Error', description: 'Failed to update total beds', variant: 'destructive' });
+        } finally {
+            setIsBedsSaving(false);
+        }
+    };
 
     const handleProfilePictureChange = async (file: File | null) => {
         if (!file) return;
@@ -180,6 +270,31 @@ export function SettingsView({ workspace }: SettingsViewProps) {
                                             onChange={e => setDisplayName(e.target.value)}
                                             placeholder="Enter your name"
                                         />
+                                    </div>
+                                    <div className="flex flex-col gap-2 max-w-md mt-6">
+                                        <Label htmlFor="totalBeds">Total Beds</Label>
+                                        <div className="flex gap-2">
+                                            <Input
+                                                id="totalBeds"
+                                                type="number"
+                                                min={0}
+                                                value={totalBedsInput}
+                                                onChange={e => {
+                                                    setTotalBedsInput(e.target.value);
+                                                    if (bedsError) setBedsError(null);
+                                                }}
+                                                placeholder={isBedsLoading ? 'Loading...' : '0'}
+                                                disabled={isBedsSaving || isBedsLoading}
+                                            />
+                                            <Button
+                                                onClick={saveTotalBeds}
+                                                disabled={isBedsSaving || isBedsLoading}
+                                            >
+                                                {isBedsSaving ? 'Saving...' : 'Save'}
+                                            </Button>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">Used for dashboard occupancy calculations.</p>
+                                        {bedsError && <p className="text-xs text-destructive">{bedsError}</p>}
                                     </div>
                                     <div className="space-y-2 mt-4 max-w-md">
                                         <Label htmlFor="profilePicture">Profile Picture</Label>
