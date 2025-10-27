@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import crypto from 'crypto';
 import admin, { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { resolveAdminContext } from '../../../_utils/admin-auth';
 import { sendInvitationEmail } from '@/actions/email';
@@ -100,6 +101,7 @@ type CreateMemberPayload = {
   role?: RoleKey | string;
   workspaceIds?: string[];
   sendPasswordEmail?: boolean;
+  generateInviteLink?: boolean;
   teamKeys?: unknown;
 };
 
@@ -157,6 +159,97 @@ async function syncWorkspaceMemberships(organisationId: string, uid: string, wor
       if (!shouldBeMember && currentlyMember) {
         await docSnap.ref.update({ members: admin.firestore.FieldValue.arrayRemove(uid) });
       }
+    })
+  );
+}
+
+async function syncTeamKeysToWorkspaceStaff(organisationId: string, uid: string, teamKeys: OrganisationTeamKey[]) {
+  // Map organisation team keys to workspace staff arrays
+  const teamToStaffField: Record<OrganisationTeamKey, string> = {
+    management: 'managers',
+    admin: 'admins',
+    nurses: 'nurses',
+    carers: 'carers',
+    ctm: 'ctms',
+    domestic: 'domestics',
+    maintenance: 'maintenances',
+    kitchen: 'kitchens',
+    activities: 'activities',
+    inspection: 'inspection', // Note: inspection might not have a direct staff array
+    staff: 'staff', // Note: staff might not have a direct staff array
+  };
+
+  // Get all workspaces for this organisation
+  const workspacesSnap = await adminDb.collection(`organisations/${organisationId}/workspaces`).get();
+  
+  await Promise.all(
+    workspacesSnap.docs.map(async (workspaceDoc: OrgUserQuerySnapshot) => {
+      const workspaceId = workspaceDoc.id;
+      const workspaceRef = adminDb.collection(`organisations/${organisationId}/workspaces`).doc(workspaceId);
+      
+      // Get current workspace data
+      const workspaceSnap = await workspaceRef.get();
+      if (!workspaceSnap.exists) return;
+      
+      const workspaceData = workspaceSnap.data() as Record<string, any>;
+      
+      // For each team key, ensure the user is in the corresponding staff array
+      for (const teamKey of teamKeys) {
+        const staffField = teamToStaffField[teamKey];
+        if (!staffField) continue; // Skip team keys that don't map to staff arrays
+        
+        const currentStaff = Array.isArray(workspaceData[staffField]) ? workspaceData[staffField] : [];
+        const staffIds = currentStaff.map((staff: any) => typeof staff === 'string' ? staff : staff.id).filter(Boolean);
+        
+        // Check if user is already in this staff array
+        if (!staffIds.includes(uid)) {
+          // Create a basic staff object for the user
+          const userDoc = await adminDb.collection('users').doc(uid).get();
+          const userData = userDoc.data() as Record<string, any>;
+          
+          const staffMember = {
+            id: uid,
+            name: userData?.name || userData?.displayName || 'Unknown',
+            email: userData?.email || '',
+            phone: userData?.phone || '',
+            roles: teamKey, // Use team key as role
+            contractedHours: 40,
+            hoursType: 'weekly',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+          
+          await workspaceRef.update({
+            [staffField]: admin.firestore.FieldValue.arrayUnion(staffMember)
+          });
+        }
+      }
+    })
+  );
+}
+
+async function removeUserFromWorkspaceStaff(organisationId: string, uid: string) {
+  // Map organisation team keys to workspace staff arrays
+  const staffFields = [
+    'managers', 'admins', 'nurses', 'carers', 'ctms', 
+    'domestics', 'maintenances', 'kitchens', 'activities'
+  ];
+
+  // Get all workspaces for this organisation
+  const workspacesSnap = await adminDb.collection(`organisations/${organisationId}/workspaces`).get();
+  
+  await Promise.all(
+    workspacesSnap.docs.map(async (workspaceDoc: OrgUserQuerySnapshot) => {
+      const workspaceRef = adminDb.collection(`organisations/${organisationId}/workspaces`).doc(workspaceDoc.id);
+      
+      // Remove user from all staff arrays
+      const updates: Record<string, any> = {};
+      for (const staffField of staffFields) {
+        // Create a filter to remove staff members with this uid
+        updates[staffField] = admin.firestore.FieldValue.arrayRemove({ id: uid });
+      }
+      
+      await workspaceRef.update(updates);
     })
   );
 }
@@ -231,19 +324,44 @@ export async function POST(req: Request, context: { params: { organisationId: st
 
     await syncWorkspaceMemberships(organisationId, uid, body.workspaceIds);
 
+    // Sync team keys to workspace staff arrays
+    await syncTeamKeysToWorkspaceStaff(organisationId, uid, teamKeys);
+
     let passwordLink: string | null = null;
-    if (userCreated || body.sendPasswordEmail) {
+    let inviteUrl: string | null = null;
+
+    if (body.generateInviteLink) {
+      // Generate a direct invite token for password setting
+      const token = crypto.randomBytes(16).toString('hex');
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+      const tokenPayload = {
+        email,
+        type: 'member-invite',
+        organisationId,
+        userId: uid,
+        role: roleLabel,
+        createdAt: new Date().toISOString(),
+        expiresAt: expiresAt.toISOString(),
+        createdBy: ctx.uid ?? 'owner-console',
+      };
+
+      await adminDb.collection('loginTokens').doc(token).set(tokenPayload);
+
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://cg360.co.uk';
+      inviteUrl = `${baseUrl.replace(/\/$/, '')}/accept-invite?token=${token}`;
+    } else if (userCreated || body.sendPasswordEmail) {
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://app.docuflow.ai';
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://cg360.co.uk';
         passwordLink = await adminAuth.generatePasswordResetLink(email, { url: `${baseUrl.replace(/\/$/, '')}/set-password` });
       } catch (err) {
         console.warn('[admin organisation members] failed to generate password link', err);
       }
     }
 
-    // Send invitation email if password link was generated successfully
+    // Send invitation email if password link was generated successfully and not generating invite link
     let emailSent = false;
-    if (passwordLink) {
+    if (passwordLink && !body.generateInviteLink) {
       try {
         // Get organization name
         const orgDoc = await adminDb.collection('organisations').doc(organisationId).get();
@@ -277,7 +395,7 @@ export async function POST(req: Request, context: { params: { organisationId: st
 
     const member = await mapMemberDoc(await adminDb.collection(`organisations/${organisationId}/users`).doc(uid).get());
 
-    return NextResponse.json({ ok: true, member, passwordLink, userCreated, emailSent });
+    return NextResponse.json({ ok: true, member, passwordLink, inviteUrl, userCreated, emailSent });
   } catch (error) {
     const status = (error as any)?.statusCode === 403 ? 403 : 500;
     if (status === 500) {
@@ -287,7 +405,7 @@ export async function POST(req: Request, context: { params: { organisationId: st
   }
 }
 
-export async function PATCH(req: Request, context: { params: { organisationId: string } }) {
+export async function DELETE(req: Request, context: { params: { organisationId: string } }) {
   try {
     const ctx = await resolveAdminContext(req);
     if (!ctx.isAuthorised) {
@@ -299,7 +417,7 @@ export async function PATCH(req: Request, context: { params: { organisationId: s
       return NextResponse.json({ error: 'organisationId required' }, { status: 400 });
     }
 
-    const body = (await req.json().catch(() => ({}))) as UpdateMemberPayload & { userId?: string };
+    const body = (await req.json().catch(() => ({}))) as { userId?: string };
     const userId = typeof body?.userId === 'string' ? body.userId : null;
     if (!userId) {
       return NextResponse.json({ error: 'userId required' }, { status: 400 });
@@ -311,35 +429,26 @@ export async function PATCH(req: Request, context: { params: { organisationId: s
       return NextResponse.json({ error: 'Member not found' }, { status: 404 });
     }
 
-    const updatePayload: Record<string, any> = { updatedAt: admin.firestore.FieldValue.serverTimestamp() };
-    const roleKey = normaliseRole(body.role);
-    if (roleKey) {
-      updatePayload.role = ROLE_LABELS[roleKey];
-      await syncCustomClaims(userId, roleKey);
-      await adminDb.collection('users').doc(userId).set({ role: ROLE_LABELS[roleKey], updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
-    }
+    // Remove from all workspace memberships
+    const workspacesSnap = await adminDb.collection(`organisations/${organisationId}/workspaces`).get();
+    await Promise.all(
+      workspacesSnap.docs.map((docSnap: OrgUserQuerySnapshot) =>
+        docSnap.ref.update({ members: admin.firestore.FieldValue.arrayRemove(userId) })
+      )
+    );
 
-    if (typeof body.status === 'string') {
-      updatePayload.status = body.status;
-    }
+    // Remove from workspace staff arrays
+    await removeUserFromWorkspaceStaff(organisationId, userId);
 
-    if (Array.isArray(body.teamKeys)) {
-      const teamKeys = dedupeTeamKeys(body.teamKeys);
-      updatePayload.teamKeys = teamKeys;
-      await adminDb.collection('users').doc(userId).set({ teamKeys, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
-    }
+    // Remove from organisation users collection
+    await memberRef.delete();
 
-    await memberRef.set(updatePayload, { merge: true });
-
-    await syncWorkspaceMemberships(organisationId, userId, body.workspaceIds);
-
-    const member = await mapMemberDoc(await memberRef.get());
-    return NextResponse.json({ ok: true, member });
+    return NextResponse.json({ ok: true });
   } catch (error) {
     const status = (error as any)?.statusCode === 403 ? 403 : 500;
     if (status === 500) {
-      console.error('[admin organisation members] PATCH failed', error);
+      console.error('[admin organisation members] DELETE failed', error);
     }
-    return NextResponse.json({ error: status === 403 ? 'Forbidden' : 'Failed to update member' }, { status });
+    return NextResponse.json({ error: status === 403 ? 'Forbidden' : 'Failed to remove member' }, { status });
   }
 }

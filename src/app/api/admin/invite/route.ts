@@ -21,8 +21,8 @@ function resolveAppUrl(req: Request): string {
     const { origin } = new URL(req.url);
     return origin;
   } catch (error) {
-    console.warn('Failed to resolve app URL from request, falling back to localhost', error);
-    return 'http://localhost:3000';
+    console.warn('Failed to resolve app URL from request, falling back to cg360.co.uk', error);
+    return 'https://cg360.co.uk';
   }
 }
 

@@ -68,7 +68,7 @@ export async function POST(req: Request) {
       status: 'pending',
     }, { merge: true });
 
-    const appBaseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://app.docuflow.ai').replace(/\/$/, '');
+    const appBaseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://cg360.co.uk').replace(/\/$/, '');
     const onboardingLink = `${appBaseUrl}/onboarding/${token}`;
 
     let senderName: string | null = null;

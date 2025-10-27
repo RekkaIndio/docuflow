@@ -34,7 +34,7 @@ export async function GET(req: Request, context: { params: { organisationId: str
       return NextResponse.json({ error: 'organisationId required' }, { status: 400 });
     }
 
-    const snapshot = await adminDb.collection('loginTokens').where('type', '==', 'invite').get();
+    const snapshot = await adminDb.collection('loginTokens').where('type', 'in', ['invite', 'member-invite']).get();
     const invites: InviteSummary[] = snapshot.docs
       .map((docSnap: FirebaseFirestore.QueryDocumentSnapshot) => {
         const data = docSnap.data() as Record<string, any>;
@@ -109,7 +109,7 @@ export async function POST(req: Request, context: { params: { organisationId: st
 
     await adminDb.collection('loginTokens').doc(token).set(payload);
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://app.docuflow.ai';
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://cg360.co.uk';
     const inviteUrl = `${baseUrl.replace(/\/$/, '')}/accept-invite?token=${token}`;
 
     return NextResponse.json({ ok: true, token, inviteUrl, expiresAt: payload.expiresAt });
