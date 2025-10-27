@@ -89,6 +89,24 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: 'Token has no email' }, { status: 400 });
     }
 
+    // For member-invite tokens, the user is already created, so use the provided userId
+    if (tokenData.type === 'member-invite' && tokenData.userId) {
+      const uid = tokenData.userId;
+      try {
+        await adminAuth.getUser(uid);
+        const customToken = await adminAuth.createCustomToken(uid);
+        return NextResponse.json({
+          ok: true,
+          customToken,
+          email,
+          uid
+        });
+      } catch (err) {
+        console.error('Failed to get user for member-invite token:', err);
+        return NextResponse.json({ ok: false, error: 'User not found' }, { status: 404 });
+      }
+    }
+
     const workspaceIdFromToken = tokenData.workspaceId || null;
     const workspaceOrgIdFromToken = tokenData.workspaceOrgId || null;
 

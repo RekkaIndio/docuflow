@@ -54,7 +54,7 @@ export async function GET(req: Request, context: { params: { organisationId: str
       adminDb.collection(`organisations/${organisationId}/workspaces`).get(),
       adminDb.collection(`organisations/${organisationId}/users`).get(),
       adminDb.doc(`organisations/${organisationId}/settings/feature-flags`).get().catch(() => null),
-      adminDb.collection('loginTokens').where('type', '==', 'invite').get().catch(() => null),
+      adminDb.collection('loginTokens').where('type', 'in', ['invite', 'member-invite']).get().catch(() => null),
     ]);
 
     const workspaces = await Promise.all(

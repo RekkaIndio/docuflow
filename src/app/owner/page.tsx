@@ -238,6 +238,7 @@ type MemberFormState = {
   workspaceIds: string[];
   teamKeys: TeamKey[];
   sendPasswordEmail: boolean;
+  generateInviteLink: boolean;
 };
 
 type InviteFormState = {
@@ -378,6 +379,7 @@ const createDefaultMemberForm = (role: MemberRoleKey = 'member'): MemberFormStat
   workspaceIds: [],
   teamKeys: defaultTeamsForRole(role),
   sendPasswordEmail: true,
+  generateInviteLink: false,
 });
 
 const DEFAULT_MEMBER_FORM: MemberFormState = createDefaultMemberForm();
@@ -401,7 +403,7 @@ function normaliseInviteUrl(token: string): string {
     const origin = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
     return `${origin.replace(/\/$/, '')}/accept-invite?token=${token}`;
   }
-  const base = process.env.NEXT_PUBLIC_APP_URL || 'https://app.docuflow.ai';
+  const base = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://cg360.co.uk';
   return `${base.replace(/\/$/, '')}/accept-invite?token=${token}`;
 }
 
@@ -410,7 +412,7 @@ function normaliseOnboardingUrl(token: string): string {
     const origin = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
     return `${origin.replace(/\/$/, '')}/onboarding/${token}`;
   }
-  const base = process.env.NEXT_PUBLIC_APP_URL || 'https://app.docuflow.ai';
+  const base = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://cg360.co.uk';
   return `${base.replace(/\/$/, '')}/onboarding/${token}`;
 }
 
@@ -440,6 +442,7 @@ const OwnerConsolePage: React.FC = () => {
   const [memberForm, setMemberForm] = useState<MemberFormState>(() => createDefaultMemberForm());
   const [memberCreating, setMemberCreating] = useState<boolean>(false);
   const [memberUpdating, setMemberUpdating] = useState<string | null>(null);
+  const [memberDeleting, setMemberDeleting] = useState<string | null>(null);
 
   const [inviteForm, setInviteForm] = useState<InviteFormState>(DEFAULT_INVITE_FORM);
   const [inviteCreating, setInviteCreating] = useState<boolean>(false);
@@ -1081,19 +1084,28 @@ const OwnerConsolePage: React.FC = () => {
           workspaceIds: memberForm.workspaceIds,
           teamKeys: memberForm.teamKeys,
           sendPasswordEmail: memberForm.sendPasswordEmail,
+          generateInviteLink: memberForm.generateInviteLink,
         }),
       });
-      const payload = await readJson<{ error?: string; passwordLink?: string; member?: MemberSummary }>(response);
+      const payload = await readJson<{ error?: string; passwordLink?: string; inviteUrl?: string; member?: MemberSummary }>(response);
       if (!response.ok) {
         throw new Error(payload.error || 'Failed to invite member');
       }
 
       await fetchOrganisationDetail(selectedOrganisationId);
       setMemberForm(createDefaultMemberForm());
+      const inviteUrl = payload.inviteUrl || payload.passwordLink;
       toast({
         title: 'Member invited',
-        description: payload.passwordLink ? 'Invite link generated and password email sent.' : 'Member invite recorded.',
+        description: inviteUrl ? `Invite link generated: ${inviteUrl}` : 'Member invite recorded.',
       });
+      if (inviteUrl && navigator?.clipboard?.writeText) {
+        try {
+          await navigator.clipboard.writeText(inviteUrl);
+        } catch (copyError) {
+          console.warn('[owner console] failed to copy invite URL', copyError);
+        }
+      }
     } catch (error) {
       console.error('[owner console] failed to create member', error);
       toast({
@@ -1106,6 +1118,35 @@ const OwnerConsolePage: React.FC = () => {
     }
   };
 
+  const handleMemberDelete = async (userId: string) => {
+    if (!selectedOrganisationId) return;
+
+    setMemberDeleting(userId);
+    try {
+      const response = await authedFetch(`/api/admin/organisations/${selectedOrganisationId}/members`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      });
+      const payload = await readJson<{ ok?: boolean; error?: string }>(response);
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to remove member');
+      }
+
+      await fetchOrganisationDetail(selectedOrganisationId);
+      toast({ title: 'Member removed' });
+    } catch (error) {
+      console.error('[owner console] failed to remove member', error);
+      toast({
+        title: 'Unable to remove member',
+        description: error instanceof Error ? error.message : 'Please try again later.',
+        variant: 'destructive',
+      });
+    } finally {
+      setMemberDeleting(null);
+    }
+  };
+
   const handleMemberUpdate = async (userId: string, updates: { role?: string; status?: string }) => {
     if (!selectedOrganisationId) return;
 
@@ -1114,7 +1155,7 @@ const OwnerConsolePage: React.FC = () => {
       const response = await authedFetch(`/api/admin/organisations/${selectedOrganisationId}/members`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, ...updates }),
+        body: JSON.stringify({ userId, updates }),
       });
       const payload = await readJson<{ error?: string }>(response);
       if (!response.ok) {
@@ -1122,12 +1163,12 @@ const OwnerConsolePage: React.FC = () => {
       }
 
       await fetchOrganisationDetail(selectedOrganisationId);
-      toast({ title: 'Member updated' });
+      toast({ title: 'Member updated successfully' });
     } catch (error) {
       console.error('[owner console] failed to update member', error);
       toast({
         title: 'Unable to update member',
-        description: error instanceof Error ? error.message : 'Please try again later.',
+        description: error instanceof Error ? error.message : 'Please try again.',
         variant: 'destructive',
       });
     } finally {
@@ -2580,7 +2621,7 @@ const OwnerConsolePage: React.FC = () => {
         </Tabs>
 
       <Dialog open={!!selectedOrganisationId} onOpenChange={(open) => { if (!open) handleCloseOrganisation(); }}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden border border-border/70 bg-card/95 p-0 shadow-2xl">
+        <DialogContent className="max-w-7xl max-h-[90vh] overflow-hidden border border-border/70 bg-card/95 p-0 shadow-2xl">
           <div className="border-b bg-muted/50 px-6 py-5">
             <div className="flex flex-col gap-1">
               <DialogHeader className="flex flex-row items-center justify-between gap-4 p-0">
@@ -2725,7 +2766,7 @@ const OwnerConsolePage: React.FC = () => {
                         <CardDescription>Users with access to this organisation.</CardDescription>
                       </CardHeader>
                       <CardContent>
-                        <ScrollArea className="max-h-80 pr-2">
+                        <ScrollArea className="max-h-[50vh] pr-2">
                           <Table>
                             <TableHeader>
                               <TableRow>
@@ -2734,12 +2775,13 @@ const OwnerConsolePage: React.FC = () => {
                                 <TableHead className="hidden md:table-cell">Role</TableHead>
                                 <TableHead className="hidden xl:table-cell">Teams</TableHead>
                                 <TableHead className="hidden lg:table-cell">Status</TableHead>
+                                <TableHead>Actions</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
                               {organisationDetail.members.length === 0 ? (
                                 <TableRow>
-                                  <TableCell colSpan={4} className="text-center text-muted-foreground">No members yet.</TableCell>
+                                  <TableCell colSpan={5} className="text-center text-muted-foreground">No members yet.</TableCell>
                                 </TableRow>
                               ) : (
                                 organisationDetail.members.map((member) => (
@@ -2792,6 +2834,16 @@ const OwnerConsolePage: React.FC = () => {
                                           <SelectItem value="suspended">Suspended</SelectItem>
                                         </SelectContent>
                                       </Select>
+                                    </TableCell>
+                                    <TableCell>
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        onClick={() => handleMemberDelete(member.id)}
+                                        disabled={memberDeleting === member.id}
+                                      >
+                                        {memberDeleting === member.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+                                      </Button>
                                     </TableCell>
                                   </TableRow>
                                 ))
@@ -2887,7 +2939,14 @@ const OwnerConsolePage: React.FC = () => {
                             <p className="text-sm font-medium">Send password email</p>
                             <p className="text-xs text-muted-foreground">If user exists, they can still reset their password.</p>
                           </div>
-                          <Switch checked={memberForm.sendPasswordEmail} onCheckedChange={(checked) => setMemberForm((prev) => ({ ...prev, sendPasswordEmail: checked }))} />
+                          <Switch checked={memberForm.sendPasswordEmail} onCheckedChange={(checked) => setMemberForm((prev) => ({ ...prev, sendPasswordEmail: checked }))} disabled={memberForm.generateInviteLink} />
+                        </div>
+                        <div className="flex items-center justify-between rounded border border-border/60 p-3">
+                          <div>
+                            <p className="text-sm font-medium">Generate invite link instead</p>
+                            <p className="text-xs text-muted-foreground">Provide a direct link to share without sending email. User will be taken straight to set password.</p>
+                          </div>
+                          <Switch checked={memberForm.generateInviteLink} onCheckedChange={(checked) => setMemberForm((prev) => ({ ...prev, generateInviteLink: checked, sendPasswordEmail: checked ? false : prev.sendPasswordEmail }))} />
                         </div>
                         <Button onClick={handleMemberCreate} disabled={!memberForm.email.trim() || memberCreating} className="w-full">
                           {memberCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}

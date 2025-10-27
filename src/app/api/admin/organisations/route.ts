@@ -273,7 +273,7 @@ export async function POST(req: Request) {
 
     const body = (await req.json().catch(() => ({}))) as ProvisionPayload;
     const seededMembers: SeededMemberResult[] = [];
-    const appBaseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://app.docuflow.ai').replace(/\/$/, '');
+    const appBaseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://cg360.co.uk').replace(/\/$/, '');
     const organisationName = (body.organisationName || '').trim();
     const ownerEmail = (body.ownerEmail || '').trim().toLowerCase();
     const ownerName = (body.ownerName || '').trim();

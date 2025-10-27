@@ -23,7 +23,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { mockUser } from "@/lib/data";
-import { ArrowLeft, MoreVertical, Plus, Trash2, Edit, FolderLock, Users, UserCheck, Phone, Mail, Save, X, AlertTriangle, Clock } from "lucide-react";
+import { ArrowLeft, MoreVertical, Plus, Trash2, Edit, FolderLock, Users, UserCheck, Phone, Mail, Save, X, AlertTriangle, Clock, ShieldOff } from "lucide-react";
 import type { Workspace, Team } from "@/lib/types";
 import { ManageFolderAccessDialog } from "./manage-folder-access-dialog";
 import { NewTeamDialog } from "./new-team-dialog";
@@ -46,6 +46,7 @@ import { db, auth } from "@/lib/firebase";
 import { useToast } from '@/hooks/use-toast';
 import { workspaceCollectionPath, workspaceDocPath } from '@/lib/paths';
 import PageHeader from '../page-header';
+import { useAuth } from '@/hooks/use-auth';
 
 
 interface TeamsViewProps {
@@ -193,6 +194,7 @@ const initialMockTeams: Team[] = [
 ]
 
 export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
+  const { user } = useAuth();
   const workspaceId = workspace?.id || '';
   const organisationId = (workspace as any)?.organisationId || (workspace as any)?.organisationId || '';
   const [teams, setTeams] = useState<Team[]>([]);
@@ -261,6 +263,37 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
   const [editingActivity, setEditingActivity] = useState<string | null>(null);
   const [newActivity, setNewActivity] = useState<{ name: string; roles: string; email: string; phone: string; contractedHours: number | ''; hoursType: 'weekly' | 'monthly' }>({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' });
   const [activitiesError, setActivitiesError] = useState<string | null>(null);
+
+  // Check if user has management or admin access
+  const hasAccess = user && (
+    (user.role && ['admin', 'owner', 'manager', 'management'].includes(user.role.toLowerCase())) ||
+    (user.teamKeys && (user.teamKeys.includes('admin') || user.teamKeys.includes('management')))
+  );
+
+  if (!hasAccess) {
+    return (
+      <div className="flex items-center justify-center min-h-[600px] p-6">
+        <Card className="max-w-md w-full">
+          <CardHeader>
+            <div className="flex justify-center mb-4">
+              <div className="p-4 bg-muted rounded-full">
+                <ShieldOff className="w-12 h-12 text-muted-foreground" />
+              </div>
+            </div>
+            <h2 className="text-2xl font-bold text-center">Access Restricted</h2>
+          </CardHeader>
+          <CardContent className="text-center space-y-4">
+            <p className="text-muted-foreground">
+              Teams & Staff management is restricted to management and admin users only.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              If you believe you should have access to this feature, please contact your organisation administrator.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   useEffect(() => {
     const fetchTeams = async () => {

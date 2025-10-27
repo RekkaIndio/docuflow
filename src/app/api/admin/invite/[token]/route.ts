@@ -23,7 +23,7 @@ export async function POST(req: Request, { params }: { params: { token: string }
     const snap = await ref.get();
     if (!snap.exists) return NextResponse.json({ ok: false, error: 'Token not found' }, { status: 404 });
     const data = snap.data() as any;
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.APP_URL || 'http://localhost:3000');
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://cg360.co.uk';
     const inviteLink = `${appUrl.replace(/\/$/, '')}/accept-invite?token=${encodeURIComponent(token)}`;
     const year = new Date().getFullYear();
     const html = renderInviteEmail({ inviterName: data.inviterName || 'A colleague', workspaceName: data.workspaceName || 'workspace', inviteLink, year });
