@@ -91,21 +91,21 @@ export default function AdminOverviewCards({
             <Activity className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-gray-100 dark:to-gray-400 bg-clip-text text-transparent">
               System Health Overview
             </h2>
-            <p className="text-sm text-gray-600">Real-time metrics across all workspaces</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Real-time metrics across all workspaces</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 px-4 py-2 bg-white/60 backdrop-blur-sm rounded-full border border-gray-200/50">
+        <div className="flex items-center gap-2 px-4 py-2 bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm rounded-full border border-gray-200/50 dark:border-slate-700/50">
           <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-          <span className="text-sm text-gray-600 font-medium">Live Data</span>
+          <span className="text-sm text-gray-600 dark:text-gray-400 font-medium">Live Data</span>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         {/* Daily Check-in Card */}
-  <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-amber-50 via-white to-amber-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
+  <Card className="group relative overflow-hidden rounded-3xl border border-white/40 dark:border-slate-700/40 bg-gradient-to-br from-amber-50 via-white to-amber-50/50 dark:from-amber-950/20 dark:via-slate-800 dark:to-amber-950/10 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
           {/* Animated background elements */}
           <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent"></div>
           <div className="absolute top-0 right-0 w-32 h-32 bg-amber-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-amber-100/40 transition-colors duration-300"></div>
@@ -116,7 +116,7 @@ export default function AdminOverviewCards({
               <div className="p-2 bg-amber-500/10 rounded-xl group-hover:bg-amber-500/20 transition-colors duration-300">
                 <Calendar className="h-5 w-5 text-amber-500" />
               </div>
-              <div className="text-sm font-semibold text-gray-700">Daily Check-in</div>
+              <div className="text-sm font-semibold text-gray-700 dark:text-gray-300">Daily Check-in</div>
             </div>
             <Button
               size="sm"
@@ -146,13 +146,13 @@ export default function AdminOverviewCards({
                   </div>
                 </div>
 
-                <div className="text-sm text-gray-600">
+                <div className="text-sm text-gray-600 dark:text-gray-400">
                   {aggregateDailyCheckinData.completedToday === aggregateDailyCheckinData.totalWorkspaces 
                     ? 'All workspaces checked in today'
                     : `${aggregateDailyCheckinData.totalWorkspaces - aggregateDailyCheckinData.completedToday} pending`}
                 </div>
 
-                <div className="flex items-center justify-between pt-3 border-t border-gray-100 text-xs text-gray-500">
+                <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-slate-700 text-xs text-gray-500 dark:text-gray-400">
                   <span>{todayKey}</span>
                   <div className="flex items-center gap-1">
                     {aggregateDailyCheckinData.percentComplete === 100 ? (
@@ -184,10 +184,10 @@ export default function AdminOverviewCards({
             ) : (
               <div className="text-center py-6">
                 <div className="text-2xl font-bold text-gray-400">—</div>
-                <div className="text-sm text-gray-600 mt-1">
+                <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                   {!isMounted ? 'Loading...' : 'No check-in data'}
                 </div>
-                <div className="text-xs text-gray-500 mt-2">
+                <div className="text-xs text-gray-500 dark:text-gray-500 mt-2">
                   Complete daily check-ins to see metrics
                 </div>
               </div>
@@ -196,7 +196,7 @@ export default function AdminOverviewCards({
         </Card>
 
         {/* Wounds Card */}
-  <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-red-50 via-white to-red-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer" onClick={onOpenWoundsModal}>
+  <Card className="group relative overflow-hidden rounded-3xl border border-white/40 dark:border-slate-700/40 bg-gradient-to-br from-red-50 via-white to-red-50/50 dark:from-red-950/20 dark:via-slate-800 dark:to-red-950/10 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer" onClick={onOpenWoundsModal}>
           {/* Animated background elements */}
           <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-transparent"></div>
           <div className="absolute top-0 right-0 w-32 h-32 bg-red-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-red-100/40 transition-colors duration-300"></div>
@@ -207,7 +207,7 @@ export default function AdminOverviewCards({
               <div className="p-2 bg-red-500/10 rounded-xl group-hover:bg-red-500/20 transition-colors duration-300">
                 <AlertTriangle className="h-5 w-5 text-red-500" />
               </div>
-              <div className="text-sm font-semibold text-gray-700">Incident Reports</div>
+              <div className="text-sm font-semibold text-gray-700 dark:text-gray-300">Incident Reports</div>
             </div>
             <Button
               size="sm"
@@ -241,14 +241,14 @@ export default function AdminOverviewCards({
                     <div key={item.label} className="flex justify-between items-center">
                       <div className="flex items-center gap-2">
                         <div className={`w-2 h-2 ${item.color} rounded-full`}></div>
-                        <span className="text-sm text-gray-600">{item.label}</span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">{item.label}</span>
                       </div>
-                      <span className="text-sm font-semibold text-gray-900">{item.value}</span>
+                      <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{item.value}</span>
                     </div>
                   ))}
                 </div>
 
-                <div className="flex items-center justify-between pt-3 border-t border-gray-100 text-xs text-gray-500">
+                <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-slate-700 text-xs text-gray-500 dark:text-gray-400">
                   <span>{aggregateWoundsData.workspacesWithData} workspaces</span>
                   <div className="flex items-center gap-1">
                     <Clock className="w-3 h-3" />
@@ -259,7 +259,7 @@ export default function AdminOverviewCards({
             ) : (
               <div className="text-center py-6">
                 <div className="text-3xl font-bold text-green-600">0</div>
-                <div className="text-sm text-gray-600 mt-1">
+                <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                   {!isMounted ? 'Loading...' : 'No incidents reported'}
                 </div>
                 <div className="flex items-center justify-center gap-1 text-xs text-green-600 mt-3">
@@ -272,7 +272,7 @@ export default function AdminOverviewCards({
         </Card>
 
         {/* Falls Prevention Card */}
-  <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-orange-50 via-white to-orange-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer" onClick={onOpenFallsModal}>
+  <Card className="group relative overflow-hidden rounded-3xl border border-white/40 dark:border-slate-700/40 bg-gradient-to-br from-orange-50 via-white to-orange-50/50 dark:from-orange-950/20 dark:via-slate-800 dark:to-orange-950/10 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer" onClick={onOpenFallsModal}>
           {/* Animated background elements */}
           <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-transparent"></div>
           <div className="absolute top-0 right-0 w-32 h-32 bg-orange-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-orange-100/40 transition-colors duration-300"></div>
@@ -283,7 +283,7 @@ export default function AdminOverviewCards({
               <div className="p-2 bg-orange-500/10 rounded-xl group-hover:bg-orange-500/20 transition-colors duration-300">
                 <Target className="h-5 w-5 text-orange-500" />
               </div>
-              <div className="text-sm font-semibold text-gray-700">Falls</div>
+              <div className="text-sm font-semibold text-gray-700 dark:text-gray-300">Falls</div>
             </div>
             <Button
               size="sm"
@@ -307,11 +307,11 @@ export default function AdminOverviewCards({
                   </div>
                 </div>
 
-                <div className="text-sm text-gray-600">
+                <div className="text-sm text-gray-600 dark:text-gray-400">
                   Falls reported across all facilities
                 </div>
 
-                <div className="flex items-center justify-between pt-3 border-t border-gray-100 text-xs text-gray-500">
+                <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-slate-700 text-xs text-gray-500 dark:text-gray-400">
                   <span>{aggregateFallsData.workspacesWithData} workspaces</span>
                   <div className="flex items-center gap-1">
                     <Clock className="w-3 h-3" />
@@ -322,7 +322,7 @@ export default function AdminOverviewCards({
             ) : (
               <div className="text-center py-6">
                 <div className="text-3xl font-bold text-green-600">0</div>
-                <div className="text-sm text-gray-600 mt-1">
+                <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                   {!isMounted ? 'Loading...' : 'No falls reported'}
                 </div>
                 <div className="flex items-center justify-center gap-1 text-xs text-green-600 mt-3">
@@ -335,7 +335,7 @@ export default function AdminOverviewCards({
         </Card>
 
         {/* Infections Card */}
-  <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-pink-50 via-white to-pink-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer" onClick={onOpenInfectionsModal}>
+  <Card className="group relative overflow-hidden rounded-3xl border border-white/40 dark:border-slate-700/40 bg-gradient-to-br from-pink-50 via-white to-pink-50/50 dark:from-pink-950/20 dark:via-slate-800 dark:to-pink-950/10 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer" onClick={onOpenInfectionsModal}>
           {/* Animated background elements */}
           <div className="absolute inset-0 bg-gradient-to-br from-pink-500/5 to-transparent"></div>
           <div className="absolute top-0 right-0 w-32 h-32 bg-pink-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-pink-100/40 transition-colors duration-300"></div>
@@ -346,7 +346,7 @@ export default function AdminOverviewCards({
               <div className="p-2 bg-pink-500/10 rounded-xl group-hover:bg-pink-500/20 transition-colors duration-300">
                 <Shield className="h-5 w-5 text-pink-500" />
               </div>
-              <div className="text-sm font-semibold text-gray-700">Infection Control</div>
+              <div className="text-sm font-semibold text-gray-700 dark:text-gray-300">Infection Control</div>
             </div>
             <Button
               size="sm"
@@ -379,14 +379,14 @@ export default function AdminOverviewCards({
                     <div key={item.label} className="flex justify-between items-center">
                       <div className="flex items-center gap-2">
                         <div className={`w-2 h-2 ${item.color} rounded-full`}></div>
-                        <span className="text-sm text-gray-600">{item.label}</span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">{item.label}</span>
                       </div>
-                      <span className="text-sm font-semibold text-gray-900">{item.value}</span>
+                      <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{item.value}</span>
                     </div>
                   ))}
                 </div>
 
-                <div className="flex items-center justify-between pt-3 border-t border-gray-100 text-xs text-gray-500">
+                <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-slate-700 text-xs text-gray-500 dark:text-gray-400">
                   <span>{aggregateInfectionData.workspacesWithData} workspaces</span>
                   <div className="flex items-center gap-1">
                     <Clock className="w-3 h-3" />
@@ -410,7 +410,7 @@ export default function AdminOverviewCards({
         </Card>
 
         {/* Compliance Score Card */}
-  <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-blue-50 via-white to-blue-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer" onClick={onOpenAuditModal}>
+  <Card className="group relative overflow-hidden rounded-3xl border border-white/40 dark:border-slate-700/40 bg-gradient-to-br from-blue-50 via-white to-blue-50/50 dark:from-blue-950/20 dark:via-slate-800 dark:to-blue-950/10 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer" onClick={onOpenAuditModal}>
           {/* Animated background elements */}
           <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent"></div>
           <div className="absolute top-0 right-0 w-32 h-32 bg-blue-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-blue-100/40 transition-colors duration-300"></div>
@@ -421,7 +421,7 @@ export default function AdminOverviewCards({
               <div className="p-2 bg-blue-500/10 rounded-xl group-hover:bg-blue-500/20 transition-colors duration-300">
                 <Shield className="h-5 w-5 text-blue-500" />
               </div>
-              <div className="text-sm font-semibold text-gray-700">Compliance Score</div>
+              <div className="text-sm font-semibold text-gray-700 dark:text-gray-300">Compliance Score</div>
             </div>
             <Button
               size="sm"
@@ -449,9 +449,9 @@ export default function AdminOverviewCards({
                     />
                   </div>
                   <div className={`text-xs font-medium px-2 py-1 rounded-full ${
-                    aggregateAuditData.overallPercentage >= 80 ? 'text-green-600 bg-green-50' :
-                    aggregateAuditData.overallPercentage >= 60 ? 'text-yellow-600 bg-yellow-50' :
-                    'text-red-600 bg-red-50'
+                    aggregateAuditData.overallPercentage >= 80 ? 'text-green-600 bg-green-50 dark:text-green-400 dark:bg-green-900/20' :
+                    aggregateAuditData.overallPercentage >= 60 ? 'text-yellow-600 bg-yellow-50 dark:text-yellow-400 dark:bg-yellow-900/20' :
+                    'text-red-600 bg-red-50 dark:text-red-400 dark:bg-red-900/20'
                   }`}>
                     {aggregateAuditData.overallPercentage >= 80 ? 'Excellent' :
                      aggregateAuditData.overallPercentage >= 60 ? 'Good' : 'Needs Attention'}
@@ -460,16 +460,16 @@ export default function AdminOverviewCards({
 
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Compliance Rate:</span>
-                    <span className="font-semibold text-gray-900">{aggregateAuditData.totalYesCount}/{aggregateAuditData.totalQuestions}</span>
+                    <span className="text-gray-600 dark:text-gray-400">Compliance Rate:</span>
+                    <span className="font-semibold text-gray-900 dark:text-gray-100">{aggregateAuditData.totalYesCount}/{aggregateAuditData.totalQuestions}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Audits Completed:</span>
-                    <span className="font-semibold text-gray-900">{aggregateAuditData.auditsCompleted}</span>
+                    <span className="text-gray-600 dark:text-gray-400">Audits Completed:</span>
+                    <span className="font-semibold text-gray-900 dark:text-gray-100">{aggregateAuditData.auditsCompleted}</span>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-3 border-t border-gray-100 text-xs text-gray-500">
+                <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-slate-700 text-xs text-gray-500 dark:text-gray-400">
                   <span>{aggregateAuditData.workspacesWithData}/{workspaceCount} workspaces</span>
                   <div className="flex items-center gap-1">
                     {aggregateAuditData.overallPercentage >= 80 ? (
@@ -484,11 +484,11 @@ export default function AdminOverviewCards({
               </div>
             ) : (
               <div className="text-center py-6">
-                <div className="text-2xl font-bold text-gray-400">N/A</div>
-                <div className="text-sm text-gray-600 mt-1">
+                <div className="text-2xl font-bold text-gray-400 dark:text-gray-500">N/A</div>
+                <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                   {!isMounted ? 'Loading...' : 'No audit data available'}
                 </div>
-                <div className="text-xs text-gray-500 mt-2">
+                <div className="text-xs text-gray-500 dark:text-gray-500 mt-2">
                   Complete audits to see compliance scores
                 </div>
               </div>

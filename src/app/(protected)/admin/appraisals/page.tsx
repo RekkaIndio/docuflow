@@ -618,38 +618,27 @@ export default function AppraisalsPage() {
   const handleCompleteAppraisal = () => handleSaveAppraisal('completed');
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/10">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/10 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
         <AdminPageHeader
           title="Home Manager – Annual Appraisal"
           subtitle="Annual review and development for Home Managers"
           icon={<FileText className="w-6 h-6 text-white" />}
-        />
-        <div className="flex items-center gap-3 mb-4 px-6 md:px-8 lg:px-10">
-          <Link href="/admin/appraisals/history">
-            <Button variant="secondary" className="bg-white/10 border-white/20 text-white hover:bg-white/20">
-              <FileText className="w-4 h-4 mr-2" />
-              View History
-            </Button>
-          </Link>
-          <Button variant="secondary" className="bg-white/10 border-white/20 text-white hover:bg-white/20">
-            <FileText className="w-4 h-4 mr-2" />
-            New Appraisal
-          </Button>
-        </div>
+        />         
+      
 
         <div className="w-full px-4 sm:px-6 lg:px-8 pb-8">
           <Tabs value={activeTab} onValueChange={val => setActiveTab(val as 'form' | 'tracker')} className="space-y-8">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <TabsList className="grid h-auto w-full max-w-sm grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+            <TabsList className="grid h-auto w-full max-w-sm grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-800">
               <TabsTrigger
                 value="form"
-                className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:text-white dark:text-slate-300 dark:hover:bg-slate-700"
               >
                 New appraisal
               </TabsTrigger>
               <TabsTrigger
                 value="tracker"
-                className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:text-white dark:text-slate-300 dark:hover:bg-slate-700"
               >
                 Tracker
               </TabsTrigger>
@@ -671,7 +660,7 @@ export default function AppraisalsPage() {
             </div>
           </div>
 
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-slate-600 dark:text-slate-400">
             Capture new appraisals or review historic activity across your managers from one place.
           </p>
 
@@ -682,7 +671,7 @@ export default function AppraisalsPage() {
                 return (
                   <div
                     key={card.key}
-                    className="relative overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/60 p-6 shadow-sm"
+                    className="relative overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/60 p-6 shadow-sm dark:border-slate-700 dark:from-slate-800 dark:to-slate-700/60"
                   >
                     <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${card.accentGradient}`} />
                     <div className="flex items-start gap-4">
@@ -690,9 +679,9 @@ export default function AppraisalsPage() {
                         <Icon className={`h-5 w-5 ${card.iconColor}`} />
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-slate-500">{card.title}</p>
-                        <p className="mt-1 text-3xl font-semibold text-slate-900">{card.count}</p>
-                        <p className="mt-1 text-xs text-slate-500">{card.description}</p>
+                        <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{card.title}</p>
+                        <p className="mt-1 text-3xl font-semibold text-slate-900 dark:text-white">{card.count}</p>
+                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{card.description}</p>
                       </div>
                     </div>
                   </div>
@@ -700,11 +689,11 @@ export default function AppraisalsPage() {
               })}
             </div>
 
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <h2 className="text-xl font-semibold text-blue-900">Monthly tracker</h2>
-                  <p className="text-sm text-slate-500">Jump between months to review appraisal activity and drill into records.</p>
+                  <h2 className="text-xl font-semibold text-blue-900 dark:text-blue-100">Monthly tracker</h2>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">Jump between months to review appraisal activity and drill into records.</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                   <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
@@ -741,7 +730,7 @@ export default function AppraisalsPage() {
 
               <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
                 {availableYears.length === 0 ? (
-                  <div className="col-span-full rounded-xl border border-dashed border-slate-200 bg-slate-50 py-12 text-center text-sm text-slate-500">
+                  <div className="col-span-full rounded-xl border border-dashed border-slate-200 bg-slate-50 py-12 text-center text-sm text-slate-500 dark:text-slate-400 dark:bg-slate-800 dark:border-slate-700">
                     No appraisal history captured yet. Create a new record to populate this tracker.
                   </div>
                 ) : (
@@ -757,23 +746,23 @@ export default function AppraisalsPage() {
                           onClick={() => handleSelectMonth(entry.monthKey)}
                           className={`relative rounded-2xl border p-4 text-left transition-all focus:outline-none focus:ring-2 focus:ring-blue-200 ${
                             hasData
-                              ? 'bg-white hover:border-blue-300 hover:shadow-md'
-                              : 'border-dashed border-slate-300 bg-slate-50 text-slate-500 hover:border-slate-300'
+                              ? 'bg-white hover:border-blue-300 hover:shadow-md dark:bg-slate-700 dark:hover:border-blue-400'
+                              : 'border-dashed border-slate-300 bg-slate-50 text-slate-500 hover:border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-slate-500'
                           } ${isSelected ? 'border-blue-500 ring-2 ring-blue-200' : ''}`}
                         >
                           <div className="flex items-center justify-between">
-                            <span className={`text-sm font-semibold ${hasData ? 'text-slate-900' : 'text-slate-500'}`}>
+                            <span className={`text-sm font-semibold ${hasData ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>
                               {MONTH_SHORT_LABELS[entry.monthIndex]}
                             </span>
                             {hasData ? (
-                              <span className="text-xs font-medium text-blue-600">
+                              <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
                                 {entry.count === 1 ? '1 record' : `${entry.count} records`}
                               </span>
                             ) : (
                               <span className="text-xs">No records</span>
                             )}
                           </div>
-                          <div className="mt-3 text-xs text-slate-600">{entry.label}</div>
+                          <div className="mt-3 text-xs text-slate-600 dark:text-slate-400">{entry.label}</div>
                         </button>
                       );
                     });
@@ -783,13 +772,13 @@ export default function AppraisalsPage() {
 
               {selectedMonthKey ? (
                 <div className="mt-8 space-y-6">
-                  <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:flex-row lg:items-center lg:justify-between dark:border-slate-700 dark:bg-slate-800">
                     <div>
-                      <h3 className="text-lg font-semibold text-blue-900">{selectedMonthLabel ?? 'Selected month'}</h3>
-                      <p className="text-sm text-slate-500">{selectedMonthRecordCount} appraisal{selectedMonthRecordCount === 1 ? '' : 's'} recorded</p>
+                      <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100">{selectedMonthLabel ?? 'Selected month'}</h3>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">{selectedMonthRecordCount} appraisal{selectedMonthRecordCount === 1 ? '' : 's'} recorded</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="inline-flex items-center gap-1 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 dark:border-blue-800 dark:bg-blue-900 dark:text-blue-300">
                         <Clock className="h-3.5 w-3.5" />
                         {selectedMonthRecordCount} saved
                       </span>
@@ -818,25 +807,25 @@ export default function AppraisalsPage() {
                       const status = latestRecord?.status ?? 'pending';
                       const statusBadgeClasses =
                         status === 'completed'
-                          ? 'border border-emerald-200 bg-emerald-100 text-emerald-700'
+                          ? 'border border-emerald-200 bg-emerald-100 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-900 dark:text-emerald-300'
                           : status === 'draft'
-                            ? 'border border-amber-200 bg-amber-100 text-amber-700'
-                            : 'border border-slate-200 bg-slate-100 text-slate-600';
+                            ? 'border border-amber-200 bg-amber-100 text-amber-700 dark:border-amber-800 dark:bg-amber-900 dark:text-amber-300'
+                            : 'border border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400';
                       return (
                         <div
                           key={manager.id}
-                          className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white to-slate-50/60 p-5 shadow-sm transition-all hover:shadow-lg"
+                          className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white to-slate-50/60 p-5 shadow-sm transition-all hover:shadow-lg dark:border-slate-700 dark:from-slate-800 dark:to-slate-700/60"
                         >
                           <div className="relative flex items-start justify-between gap-3">
                             <div>
-                              <h4 className="text-base font-semibold text-slate-900">{manager.name}</h4>
-                              <p className="text-xs text-slate-500">{manager.workspaceName ?? 'Workspace not set'}</p>
+                              <h4 className="text-base font-semibold text-slate-900 dark:text-white">{manager.name}</h4>
+                              <p className="text-xs text-slate-500 dark:text-slate-400">{manager.workspaceName ?? 'Workspace not set'}</p>
                             </div>
                             <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusBadgeClasses}`}>
                               {status === 'completed' ? 'Completed' : status === 'draft' ? 'Draft' : 'Pending'}
                             </span>
                           </div>
-                          <div className="mt-4 flex flex-1 flex-col justify-between gap-3 text-xs text-slate-600">
+                          <div className="mt-4 flex flex-1 flex-col justify-between gap-3 text-xs text-slate-600 dark:text-slate-400">
                             {hasRecord && latestRecord ? (
                               <>
                                 <div className="flex items-center gap-2">
@@ -864,7 +853,7 @@ export default function AppraisalsPage() {
                                                       <Info className="mr-2 h-4 w-4" /> View record
                                                     </Button>
                                                   ) : (
-                                                    <div className="text-xs text-slate-500">No records yet.</div>
+                                                    <div className="text-xs text-slate-500 dark:text-slate-400">No records yet.</div>
                                                   )}
                             {!hasRecord && (
                               <Button
@@ -883,9 +872,9 @@ export default function AppraisalsPage() {
                     })}
                   </div>
 
-                  <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                  <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
                     {selectedMonthRecords.length === 0 ? (
-                      <div className="p-10 text-center text-sm text-slate-500">
+                      <div className="p-10 text-center text-sm text-slate-500 dark:text-slate-400">
                         No appraisals saved for {selectedMonthLabel ?? 'this month'} yet.
                       </div>
                     ) : (
@@ -908,12 +897,12 @@ export default function AppraisalsPage() {
                                   <span className="text-xs text-slate-500">{record.workspaceName ?? record.workspaceId}</span>
                                 </div>
                               </TableCell>
-                              <TableCell className="text-sm text-slate-500">
+                              <TableCell className="text-sm text-slate-500 dark:text-slate-400">
                                 <span className="line-clamp-2">
                                   {record.summaryCommentsAppraiser || record.summaryCommentsAppraisee || record.periodCovered || '—'}
                                 </span>
                               </TableCell>
-                              <TableCell className="text-sm font-medium text-foreground">{formatDateOnly(record.appraisalDateParsed)}</TableCell>
+                              <TableCell className="text-sm font-medium text-foreground dark:text-white">{formatDateOnly(record.appraisalDateParsed)}</TableCell>
                               <TableCell>
                                 <Badge variant={record.status === 'completed' ? 'secondary' : 'outline'}>{record.status ?? 'unknown'}</Badge>
                               </TableCell>
@@ -935,14 +924,14 @@ export default function AppraisalsPage() {
 
           <TabsContent value="form" className="space-y-6 data-[state=inactive]:hidden">
 
-            <div className="w-full rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-10 shadow-2xl">
+            <div className="w-full rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-10 shadow-2xl dark:border-slate-700 dark:from-slate-900 dark:to-slate-800">
 
               <div className="flex flex-col lg:flex-row gap-10">
               {/* Left panel for details, sticky and NOT part of the form */}
-              <div className="w-full lg:w-[480px] flex-shrink-0 bg-white rounded-2xl p-6 border border-slate-200 shadow-xl mb-8 lg:mb-0 self-start">
+              <div className="w-full lg:w-[480px] flex-shrink-0 bg-white rounded-2xl p-6 border border-slate-200 shadow-xl mb-8 lg:mb-0 self-start dark:bg-slate-800 dark:border-slate-700">
                 <div className="lg:sticky lg:top-20 lg:max-h-[calc(100vh-160px)] lg:overflow-auto lg:pr-2">
-                  <h1 className="text-2xl lg:text-3xl font-extrabold mb-2 text-blue-900 tracking-tight">Home Manager – Annual Appraisal</h1>
-                  <p className="mb-4 text-slate-500">Annual review and development for Home Managers. Complete all required fields.</p>
+                  <h1 className="text-2xl lg:text-3xl font-extrabold mb-2 text-blue-900 dark:text-blue-100 tracking-tight">Home Manager – Annual Appraisal</h1>
+                  <p className="mb-4 text-slate-500 dark:text-slate-400">Annual review and development for Home Managers. Complete all required fields.</p>
                   <div className="space-y-4 mt-4 p-1">
                     <div>
                       <Label htmlFor="employee-name">Employee Name</Label>
@@ -1007,11 +996,11 @@ export default function AppraisalsPage() {
                   {/* Row 1: Previous Objectives and Key Performance Areas */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* 1. Review of Previous Year's Objectives */}
-                    <Card className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xl">
-                      <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 border-b">
+                    <Card className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xl dark:bg-slate-800 dark:border-slate-700">
+                      <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 border-b dark:from-slate-700 dark:to-slate-600">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                            <Target className="w-5 h-5 text-green-600" />
+                          <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center dark:bg-green-900">
+                            <Target className="w-5 h-5 text-green-600 dark:text-green-400" />
                           </div>
                           <div>
                             <h2 className="text-xl font-semibold">1. Previous Objectives</h2>
@@ -1021,7 +1010,7 @@ export default function AppraisalsPage() {
                       </CardHeader>
                       <CardContent className="p-4 space-y-3">
                         {[1, 2, 3].map(i => (
-                          <div key={i} className="grid grid-cols-1 gap-2 p-3 bg-slate-50 rounded-lg">
+                          <div key={i} className="grid grid-cols-1 gap-2 p-3 bg-slate-50 rounded-lg dark:bg-slate-700">
                             <div className="space-y-1">
                               <Label className="text-sm">Objective {i}</Label>
                               <Input 
@@ -1085,11 +1074,11 @@ export default function AppraisalsPage() {
                     </Card>
 
                     {/* 2. Key Performance Areas */}
-                    <Card className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xl">
-                      <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 border-b">
+                    <Card className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xl dark:bg-slate-800 dark:border-slate-700">
+                      <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 border-b dark:from-slate-700 dark:to-slate-600">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                            <TrendingUp className="w-5 h-5 text-purple-600" />
+                          <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center dark:bg-purple-900">
+                            <TrendingUp className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                           </div>
                           <div>
                             <h2 className="text-xl font-semibold">2. Key Performance Areas</h2>
@@ -1135,7 +1124,7 @@ export default function AppraisalsPage() {
 
                   {/* Row 2: Resident Outcomes and Business Performance */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <Card className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xl">
+                    <Card className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xl dark:bg-slate-800 dark:border-slate-700">
                       <CardContent className="p-4 space-y-4">
                         {/* c. Resident Outcomes & Engagement */}
                         <div className="space-y-2">
@@ -1172,11 +1161,11 @@ export default function AppraisalsPage() {
                     </Card>
 
                     {/* 3. Strengths & Achievements */}
-                    <Card className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xl">
-                      <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 border-b">
+                    <Card className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xl dark:bg-slate-800 dark:border-slate-700">
+                      <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 border-b dark:from-slate-700 dark:to-slate-600">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
-                            <Award className="w-5 h-5 text-yellow-600" />
+                          <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center dark:bg-yellow-900">
+                            <Award className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
                           </div>
                           <div>
                             <h2 className="text-xl font-semibold">3. Strengths & Achievements</h2>
@@ -1198,11 +1187,11 @@ export default function AppraisalsPage() {
                   {/* Row 3: Development Needs and Next Objectives */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* 4. Development Needs */}
-                    <Card className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xl">
-                      <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 border-b">
+                    <Card className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xl dark:bg-slate-800 dark:border-slate-700">
+                      <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 border-b dark:from-slate-700 dark:to-slate-600">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-                            <TrendingUp className="w-5 h-5 text-orange-600" />
+                          <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center dark:bg-orange-900">
+                            <TrendingUp className="w-5 h-5 text-orange-600 dark:text-orange-400" />
                           </div>
                           <div>
                             <h2 className="text-xl font-semibold">4. Development Needs</h2>
@@ -1221,11 +1210,11 @@ export default function AppraisalsPage() {
                     </Card>
 
                     {/* 5. Objectives for the Next 12 Months */}
-                    <Card className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xl">
-                      <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 border-b">
+                    <Card className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xl dark:bg-slate-800 dark:border-slate-700">
+                      <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 border-b dark:from-slate-700 dark:to-slate-600">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                            <Target className="w-5 h-5 text-blue-600" />
+                          <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center dark:bg-blue-900">
+                            <Target className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                           </div>
                           <div>
                             <h2 className="text-xl font-semibold">5. Next 12 Months Objectives</h2>
@@ -1256,11 +1245,11 @@ export default function AppraisalsPage() {
                   {/* Row 4: Career Development and Wellbeing */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* 6. Career Development & Training */}
-                    <Card className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xl">
-                      <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 border-b">
+                    <Card className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xl dark:bg-slate-800 dark:border-slate-700">
+                      <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 border-b dark:from-slate-700 dark:to-slate-600">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-                            <User className="w-5 h-5 text-indigo-600" />
+                          <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center dark:bg-indigo-900">
+                            <User className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                           </div>
                           <div>
                             <h2 className="text-xl font-semibold">6. Career Development</h2>
@@ -1300,11 +1289,11 @@ export default function AppraisalsPage() {
                     </Card>
 
                     {/* 7. Wellbeing & Support */}
-                    <Card className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xl">
-                      <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 border-b">
+                    <Card className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xl dark:bg-slate-800 dark:border-slate-700">
+                      <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 border-b dark:from-slate-700 dark:to-slate-600">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-pink-100 rounded-lg flex items-center justify-center">
-                            <Heart className="w-5 h-5 text-pink-600" />
+                          <div className="w-10 h-10 bg-pink-100 rounded-lg flex items-center justify-center dark:bg-pink-900">
+                            <Heart className="w-5 h-5 text-pink-600 dark:text-pink-400" />
                           </div>
                           <div>
                             <h2 className="text-xl font-semibold">7. Wellbeing & Support</h2>
@@ -1347,11 +1336,11 @@ export default function AppraisalsPage() {
                   {/* Row 5: Overall Outcome and Signatures */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* 8. Overall Appraisal Outcome */}
-                    <Card className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xl">
-                      <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 border-b">
+                    <Card className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xl dark:bg-slate-800 dark:border-slate-700">
+                      <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 border-b dark:from-slate-700 dark:to-slate-600">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                            <CheckCircle className="w-5 h-5 text-green-600" />
+                          <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center dark:bg-green-900">
+                            <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
                           </div>
                           <div>
                             <h2 className="text-xl font-semibold">8. Overall Outcome</h2>
@@ -1411,11 +1400,11 @@ export default function AppraisalsPage() {
                     </Card>
 
                     {/* Signatures */}
-                    <Card className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xl">
-                      <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 border-b">
+                    <Card className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xl dark:bg-slate-800 dark:border-slate-700">
+                      <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 border-b dark:from-slate-700 dark:to-slate-600">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center">
-                            <Calendar className="w-5 h-5 text-slate-600" />
+                          <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center dark:bg-slate-700">
+                            <Calendar className="w-5 h-5 text-slate-600 dark:text-slate-400" />
                           </div>
                           <div>
                             <h2 className="text-xl font-semibold">Signatures</h2>
@@ -1493,16 +1482,16 @@ export default function AppraisalsPage() {
       </div>
 
       <Dialog open={!!selectedRecord} onOpenChange={open => setSelectedRecord(open ? selectedRecord : null)}>
-    <DialogContent className="flex max-h-[85vh] min-h-[60vh] w-full max-w-4xl flex-col overflow-hidden border border-slate-200 bg-white p-0 shadow-2xl">
+    <DialogContent className="flex max-h-[85vh] min-h-[60vh] w-full max-w-4xl flex-col overflow-hidden border border-slate-200 bg-white p-0 shadow-2xl dark:border-slate-700 dark:bg-slate-800">
       {selectedRecord ? (
         <>
-          <DialogHeader className="border-b px-6 py-4">
+          <DialogHeader className="border-b px-6 py-4 dark:border-slate-600">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="space-y-2">
                 <DialogTitle className="text-lg font-semibold text-slate-900">
                   {selectedRecord.managerName}
                 </DialogTitle>
-                <DialogDescription className="text-sm text-slate-500">
+                <DialogDescription className="text-sm text-slate-500 dark:text-slate-400">
                   {selectedRecord.role || 'Role not specified'} • {formatDateOnly(selectedRecord.appraisalDateParsed)}
                 </DialogDescription>
               </div>
@@ -1531,44 +1520,44 @@ export default function AppraisalsPage() {
               </div>
             </div>
           </DialogHeader>
-          <ScrollArea className="flex-1 overflow-y-auto bg-muted/20 px-6 pb-6">
+          <ScrollArea className="flex-1 overflow-y-auto bg-muted/20 px-6 pb-6 dark:bg-slate-900/20">
             <div className="mx-auto w-full max-w-3xl space-y-6 py-6 pr-2">
-              <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h3 className="text-base font-semibold text-blue-900">Overview</h3>
+              <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+                <h3 className="text-base font-semibold text-blue-900 dark:text-blue-100">Overview</h3>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Appraiser</p>
-                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700">{selectedRecord.appraiser || '—'}</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">Appraiser</p>
+                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 dark:text-slate-300 dark:bg-slate-800 dark:border-slate-600">{selectedRecord.appraiser || '—'}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Workspace</p>
-                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700">{selectedRecord.workspaceName ?? selectedRecord.workspaceId}</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">Workspace</p>
+                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 dark:text-slate-300 dark:bg-slate-800 dark:border-slate-600">{selectedRecord.workspaceName ?? selectedRecord.workspaceId}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Period covered</p>
-                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700">{selectedRecord.periodCovered || '—'}</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">Period covered</p>
+                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 dark:text-slate-300 dark:bg-slate-800 dark:border-slate-600">{selectedRecord.periodCovered || '—'}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Recorded on</p>
-                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700">{formatDateTime(selectedRecord.createdAtParsed ?? selectedRecord.appraisalDateParsed)}</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">Recorded on</p>
+                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 dark:text-slate-300 dark:bg-slate-800 dark:border-slate-600">{formatDateTime(selectedRecord.createdAtParsed ?? selectedRecord.appraisalDateParsed)}</p>
                   </div>
                   <div className="sm:col-span-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Summary comments (appraiser)</p>
-                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700 whitespace-pre-line">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">Summary comments (appraiser)</p>
+                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700 dark:text-slate-300 dark:bg-slate-800 dark:border-slate-600 whitespace-pre-line">
                       {selectedRecord.summaryCommentsAppraiser || '—'}
                     </p>
                   </div>
                   <div className="sm:col-span-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Summary comments (appraisee)</p>
-                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700 whitespace-pre-line">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">Summary comments (appraisee)</p>
+                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700 dark:text-slate-300 dark:bg-slate-800 dark:border-slate-600 whitespace-pre-line">
                       {selectedRecord.summaryCommentsAppraisee || '—'}
                     </p>
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h3 className="text-base font-semibold text-blue-900">Performance insights</h3>
+              <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+                <h3 className="text-base font-semibold text-blue-900 dark:text-blue-100">Performance insights</h3>
                 <div className="grid gap-4 md:grid-cols-2">
                   {[
                     { label: 'Care quality & compliance', value: selectedRecord.careQualityCompliance },
@@ -1577,8 +1566,8 @@ export default function AppraisalsPage() {
                     { label: 'Business & operational performance', value: selectedRecord.businessOperationalPerformance },
                   ].map(item => (
                     <div key={item.label} className="space-y-2">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">{item.label}</p>
-                      <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700 whitespace-pre-line">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">{item.label}</p>
+                      <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700 dark:text-slate-300 dark:bg-slate-800 dark:border-slate-600 whitespace-pre-line">
                         {item.value || '—'}
                       </p>
                     </div>
@@ -1586,30 +1575,30 @@ export default function AppraisalsPage() {
                 </div>
               </div>
 
-              <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h3 className="text-base font-semibold text-blue-900">Objectives & development</h3>
+              <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+                <h3 className="text-base font-semibold text-blue-900 dark:text-blue-100">Objectives & development</h3>
                 <div className="space-y-4">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Previous objectives</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">Previous objectives</p>
                     <div className="mt-3 space-y-3">
                       {(selectedRecord.previousObjectives ?? []).map((objective, index) => (
-                        <div key={`${objective.objective}-${index}`} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                          <p className="text-sm font-semibold text-slate-800">Objective {index + 1}</p>
-                          <p className="mt-1 text-xs uppercase tracking-wide text-slate-500">Status: {objective.status || '—'}</p>
-                          <p className="mt-2 text-sm text-slate-700 whitespace-pre-line">{objective.objective || '—'}</p>
+                        <div key={`${objective.objective}-${index}`} className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:bg-slate-800 dark:border-slate-600">
+                          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">Objective {index + 1}</p>
+                          <p className="mt-1 text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Status: {objective.status || '—'}</p>
+                          <p className="mt-2 text-sm text-slate-700 dark:text-slate-300 whitespace-pre-line">{objective.objective || '—'}</p>
                           {objective.comments ? (
-                            <p className="mt-2 text-xs text-slate-500">Comments: {objective.comments}</p>
+                            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Comments: {objective.comments}</p>
                           ) : null}
                         </div>
                       ))}
                     </div>
-                    <p className="mt-3 text-xs text-slate-500">
+                    <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
                       {selectedRecord.previousObjectivesOverallComments || 'No overall comments recorded.'}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Objectives for next 12 months</p>
-                    <ul className="mt-2 space-y-2 text-sm text-slate-700">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">Objectives for next 12 months</p>
+                    <ul className="mt-2 space-y-2 text-sm text-slate-700 dark:text-slate-300">
                       {(selectedRecord.nextObjectives ?? []).filter(obj => obj && obj.trim().length > 0).map((obj, index) => (
                         <li key={`${obj}-${index}`} className="rounded-xl border border-slate-200 bg-white px-4 py-2">
                           {obj}
@@ -1619,14 +1608,14 @@ export default function AppraisalsPage() {
                   </div>
                   <div className="grid gap-4 md:grid-cols-2">
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Strengths & achievements</p>
-                      <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700 whitespace-pre-line">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">Strengths & achievements</p>
+                      <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700 dark:text-slate-300 dark:bg-slate-800 dark:border-slate-600 whitespace-pre-line">
                         {selectedRecord.strengthsAchievements || '—'}
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Development needs</p>
-                      <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700 whitespace-pre-line">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">Development needs</p>
+                      <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700 dark:text-slate-300 dark:bg-slate-800 dark:border-slate-600 whitespace-pre-line">
                         {selectedRecord.developmentNeeds || '—'}
                       </p>
                     </div>
@@ -1634,60 +1623,60 @@ export default function AppraisalsPage() {
                 </div>
               </div>
 
-              <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h3 className="text-base font-semibold text-blue-900">Career development & wellbeing</h3>
+              <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+                <h3 className="text-base font-semibold text-blue-900 dark:text-blue-100">Career development & wellbeing</h3>
                 <div className="grid gap-4 md:grid-cols-2">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Training completed</p>
-                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700 whitespace-pre-line">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">Training completed</p>
+                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700 dark:text-slate-300 dark:bg-slate-800 dark:border-slate-600 whitespace-pre-line">
                       {selectedRecord.trainingCompleted || '—'}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Training required</p>
-                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700 whitespace-pre-line">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">Training required</p>
+                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700 dark:text-slate-300 dark:bg-slate-800 dark:border-slate-600 whitespace-pre-line">
                       {selectedRecord.trainingRequired || '—'}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Career aspirations</p>
-                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700 whitespace-pre-line">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">Career aspirations</p>
+                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700 dark:text-slate-300 dark:bg-slate-800 dark:border-slate-600 whitespace-pre-line">
                       {selectedRecord.careerAspirations || '—'}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Managing role demands</p>
-                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700 whitespace-pre-line">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">Managing role demands</p>
+                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700 dark:text-slate-300 dark:bg-slate-800 dark:border-slate-600 whitespace-pre-line">
                       {selectedRecord.managingDemands || '—'}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Senior management support</p>
-                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700 whitespace-pre-line">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">Senior management support</p>
+                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700 dark:text-slate-300 dark:bg-slate-800 dark:border-slate-600 whitespace-pre-line">
                       {selectedRecord.seniorManagementSupport || '—'}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Reasonable adjustments</p>
-                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700 whitespace-pre-line">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">Reasonable adjustments</p>
+                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700 dark:text-slate-300 dark:bg-slate-800 dark:border-slate-600 whitespace-pre-line">
                       {selectedRecord.reasonableAdjustments || '—'}
                     </p>
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h3 className="text-base font-semibold text-blue-900">Signatures & acknowledgement</h3>
+              <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+                <h3 className="text-base font-semibold text-blue-900 dark:text-blue-100">Signatures & acknowledgement</h3>
                 <div className="grid gap-4 md:grid-cols-2">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Manager signature</p>
-                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700">{selectedRecord.managerSignature || '—'}</p>
-                    <p className="text-xs text-slate-500">{formatDateOnly(selectedRecord.managerSignatureDate)}</p>
+                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 dark:text-slate-300 dark:bg-slate-800 dark:border-slate-600">{selectedRecord.managerSignature || '—'}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{formatDateOnly(selectedRecord.managerSignatureDate)}</p>
                   </div>
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Appraiser signature</p>
-                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700">{selectedRecord.appraiserSignature || '—'}</p>
-                    <p className="text-xs text-slate-500">{formatDateOnly(selectedRecord.appraiserSignatureDate)}</p>
+                    <p className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 dark:text-slate-300 dark:bg-slate-800 dark:border-slate-600">{selectedRecord.appraiserSignature || '—'}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{formatDateOnly(selectedRecord.appraiserSignatureDate)}</p>
                   </div>
                 </div>
               </div>

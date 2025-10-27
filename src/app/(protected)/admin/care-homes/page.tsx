@@ -236,33 +236,33 @@ export default function CareHomesPage() {
                 <Activity className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+                <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent dark:from-slate-100 dark:to-slate-400">
                   Occupancy Dashboard
                 </h2>
-                <p className="text-sm text-gray-600">Real-time bed occupancy and capacity management</p>
+                <p className="text-sm text-gray-600 dark:text-slate-400">Real-time bed occupancy and capacity management</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 px-4 py-2 bg-white/60 backdrop-blur-sm rounded-full border border-gray-200/50">
+            <div className="flex items-center gap-2 px-4 py-2 bg-white/60 backdrop-blur-sm rounded-full border border-gray-200/50 dark:bg-slate-800/60 dark:border-slate-700/50">
               <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-              <span className="text-sm text-gray-600 font-medium">Live Data</span>
+              <span className="text-sm text-gray-600 font-medium dark:text-slate-300">Live Data</span>
             </div>
           </div>
 
           {/* Overview Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-6">
             {/* Overall Occupancy Card */}
-            <Card className="group relative overflow-hidden bg-gradient-to-br from-blue-50 via-white to-blue-50/50 border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer">
+            <Card className="group relative overflow-hidden bg-gradient-to-br from-blue-50 via-white to-blue-50/50 border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
               {/* Animated background elements */}
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent"></div>
-              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-blue-100/40 transition-colors duration-300"></div>
-              <div className="absolute bottom-0 left-0 w-24 h-24 bg-blue-200/20 rounded-full -ml-12 -mb-12"></div>
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent dark:from-blue-500/10"></div>
+              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-blue-100/40 transition-colors duration-300 dark:bg-blue-900/30 dark:group-hover:bg-blue-900/40"></div>
+              <div className="absolute bottom-0 left-0 w-24 h-24 bg-blue-200/20 rounded-full -ml-12 -mb-12 dark:bg-blue-800/20"></div>
 
               <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-3">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-blue-500/10 rounded-xl group-hover:bg-blue-500/20 transition-colors duration-300">
                     <BarChart3 className="h-5 w-5 text-blue-500" />
                   </div>
-                  <div className="text-sm font-semibold text-gray-700">Overall Occupancy</div>
+                  <div className="text-sm font-semibold text-gray-700 dark:text-slate-300">Overall Occupancy</div>
                 </div>
                 <Button
                   size="sm"
@@ -299,16 +299,16 @@ export default function CareHomesPage() {
 
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Average Rate:</span>
-                        <span className="font-semibold text-gray-900">{Math.round(overviewStats.averageOccupancy * 100)}%</span>
+                        <span className="text-gray-600 dark:text-slate-400">Average Rate:</span>
+                        <span className="font-semibold text-gray-900 dark:text-slate-100">{Math.round(overviewStats.averageOccupancy * 100)}%</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Total Beds:</span>
-                        <span className="font-semibold text-gray-900">{overviewStats.totalBeds}</span>
+                        <span className="text-gray-600 dark:text-slate-400">Total Beds:</span>
+                        <span className="font-semibold text-gray-900 dark:text-slate-100">{overviewStats.totalBeds}</span>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-3 border-t border-gray-100 text-xs text-gray-500">
+                    <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-slate-600 text-xs text-gray-500 dark:text-slate-400">
                       <span>{overviewStats.totalHomes} facilities</span>
                       <div className="flex items-center gap-1">
                         {overviewStats.averageOccupancy > (previousOccupancy || 0) ? (
@@ -323,11 +323,11 @@ export default function CareHomesPage() {
                   </div>
                 ) : (
                   <div className="text-center py-6">
-                    <div className="text-2xl font-bold text-gray-400">N/A</div>
-                    <div className="text-sm text-gray-600 mt-1">
+                    <div className="text-2xl font-bold text-gray-400 dark:text-slate-500">N/A</div>
+                    <div className="text-sm text-gray-600 dark:text-slate-400 mt-1">
                       No occupancy data available
                     </div>
-                    <div className="text-xs text-gray-500 mt-2">
+                    <div className="text-xs text-gray-500 dark:text-slate-500 mt-2">
                       Add bed counts to see occupancy rates
                     </div>
                   </div>
@@ -336,18 +336,18 @@ export default function CareHomesPage() {
             </Card>
 
             {/* Total Capacity Card */}
-            <Card className="group relative overflow-hidden bg-gradient-to-br from-green-50 via-white to-green-50/50 border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
+            <Card className="group relative overflow-hidden bg-gradient-to-br from-green-50 via-white to-green-50/50 border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
               {/* Animated background elements */}
-              <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-transparent"></div>
-              <div className="absolute top-0 right-0 w-32 h-32 bg-green-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-green-100/40 transition-colors duration-300"></div>
-              <div className="absolute bottom-0 left-0 w-24 h-24 bg-green-200/20 rounded-full -ml-12 -mb-12"></div>
+              <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-transparent dark:from-green-500/10"></div>
+              <div className="absolute top-0 right-0 w-32 h-32 bg-green-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-green-100/40 transition-colors duration-300 dark:bg-green-900/30 dark:group-hover:bg-green-900/40"></div>
+              <div className="absolute bottom-0 left-0 w-24 h-24 bg-green-200/20 rounded-full -ml-12 -mb-12 dark:bg-green-800/20"></div>
 
               <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-3">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-green-500/10 rounded-xl group-hover:bg-green-500/20 transition-colors duration-300">
                     <Building className="h-5 w-5 text-green-500" />
                   </div>
-                  <div className="text-sm font-semibold text-gray-700">Total Capacity</div>
+                  <div className="text-sm font-semibold text-gray-700 dark:text-slate-300">Total Capacity</div>
                 </div>
               </CardHeader>
 
@@ -362,16 +362,16 @@ export default function CareHomesPage() {
 
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Occupied:</span>
-                      <span className="font-semibold text-gray-900">{overviewStats.totalOccupied}</span>
+                      <span className="text-gray-600 dark:text-slate-400">Occupied:</span>
+                      <span className="font-semibold text-gray-900 dark:text-slate-100">{overviewStats.totalOccupied}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Available:</span>
-                      <span className="font-semibold text-green-600">{overviewStats.totalBeds - overviewStats.totalOccupied}</span>
+                      <span className="text-gray-600 dark:text-slate-400">Available:</span>
+                      <span className="font-semibold text-green-600 dark:text-green-400">{overviewStats.totalBeds - overviewStats.totalOccupied}</span>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between pt-3 border-t border-gray-100 text-xs text-gray-500">
+                  <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-slate-600 text-xs text-gray-500 dark:text-slate-400">
                     <span>{overviewStats.totalHomes} facilities</span>
                     <div className="flex items-center gap-1">
                       <Users className="w-3 h-3" />
@@ -383,18 +383,18 @@ export default function CareHomesPage() {
             </Card>
 
             {/* Facilities Count Card */}
-            <Card className="group relative overflow-hidden bg-gradient-to-br from-purple-50 via-white to-purple-50/50 border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
+            <Card className="group relative overflow-hidden bg-gradient-to-br from-purple-50 via-white to-purple-50/50 border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
               {/* Animated background elements */}
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent"></div>
-              <div className="absolute top-0 right-0 w-32 h-32 bg-purple-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-purple-100/40 transition-colors duration-300"></div>
-              <div className="absolute bottom-0 left-0 w-24 h-24 bg-purple-200/20 rounded-full -ml-12 -mb-12"></div>
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent dark:from-purple-500/10"></div>
+              <div className="absolute top-0 right-0 w-32 h-32 bg-purple-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-purple-100/40 transition-colors duration-300 dark:bg-purple-900/30 dark:group-hover:bg-purple-900/40"></div>
+              <div className="absolute bottom-0 left-0 w-24 h-24 bg-purple-200/20 rounded-full -ml-12 -mb-12 dark:bg-purple-800/20"></div>
 
               <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-3">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-purple-500/10 rounded-xl group-hover:bg-purple-500/20 transition-colors duration-300">
                     <Building2 className="h-5 w-5 text-purple-500" />
                   </div>
-                  <div className="text-sm font-semibold text-gray-700">Care Facilities</div>
+                  <div className="text-sm font-semibold text-gray-700 dark:text-slate-300">Care Facilities</div>
                 </div>
               </CardHeader>
 
@@ -409,16 +409,16 @@ export default function CareHomesPage() {
 
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-gray-600">With bed data:</span>
-                      <span className="font-semibold text-gray-900">{homes.filter(h => h.totalBeds && h.occupiedBeds !== undefined).length}</span>
+                      <span className="text-gray-600 dark:text-slate-400">With bed data:</span>
+                      <span className="font-semibold text-gray-900 dark:text-slate-100">{homes.filter(h => h.totalBeds && h.occupiedBeds !== undefined).length}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Without data:</span>
-                      <span className="font-semibold text-gray-900">{homes.filter(h => !(h.totalBeds && h.occupiedBeds !== undefined)).length}</span>
+                      <span className="text-gray-600 dark:text-slate-400">Without data:</span>
+                      <span className="font-semibold text-gray-900 dark:text-slate-100">{homes.filter(h => !(h.totalBeds && h.occupiedBeds !== undefined)).length}</span>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between pt-3 border-t border-gray-100 text-xs text-gray-500">
+                  <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-slate-600 text-xs text-gray-500 dark:text-slate-400">
                     <span>All facilities</span>
                     <div className="flex items-center gap-1">
                       <Activity className="w-3 h-3" />
@@ -430,17 +430,17 @@ export default function CareHomesPage() {
             </Card>
 
             {/* Occupancy Distribution Card */}
-            <Card className="group relative overflow-hidden bg-gradient-to-br from-emerald-50 via-white to-emerald-50/50 border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
-              <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent"></div>
-              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-emerald-100/40 transition-colors duration-300"></div>
-              <div className="absolute bottom-0 left-0 w-24 h-24 bg-emerald-200/20 rounded-full -ml-12 -mb-12"></div>
+            <Card className="group relative overflow-hidden bg-gradient-to-br from-emerald-50 via-white to-emerald-50/50 border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
+              <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent dark:from-emerald-500/10"></div>
+              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-emerald-100/40 transition-colors duration-300 dark:bg-emerald-900/30 dark:group-hover:bg-emerald-900/40"></div>
+              <div className="absolute bottom-0 left-0 w-24 h-24 bg-emerald-200/20 rounded-full -ml-12 -mb-12 dark:bg-emerald-800/20"></div>
 
               <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-3">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-emerald-500/10 rounded-xl group-hover:bg-emerald-500/20 transition-colors duration-300">
                     <PieChart className="h-5 w-5 text-emerald-500" />
                   </div>
-                  <div className="text-sm font-semibold text-gray-700">Occupancy Distribution</div>
+                  <div className="text-sm font-semibold text-gray-700 dark:text-slate-300">Occupancy Distribution</div>
                 </div>
               </CardHeader>
 
@@ -450,29 +450,29 @@ export default function CareHomesPage() {
                     <div className="flex justify-between items-center">
                       <div className="flex items-center gap-2">
                         <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                        <span className="text-sm text-gray-600">High (80%+)</span>
+                        <span className="text-sm text-gray-600 dark:text-slate-400">High (80%+)</span>
                       </div>
-                      <span className="font-semibold text-red-600">{overviewStats.highOccupancyCount}</span>
+                      <span className="font-semibold text-red-600 dark:text-red-400">{overviewStats.highOccupancyCount}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <div className="flex items-center gap-2">
                         <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                        <span className="text-sm text-gray-600">Moderate (60-79%)</span>
+                        <span className="text-sm text-gray-600 dark:text-slate-400">Moderate (60-79%)</span>
                       </div>
-                      <span className="font-semibold text-yellow-600">
+                      <span className="font-semibold text-yellow-600 dark:text-yellow-400">
                         {homes.length - overviewStats.highOccupancyCount - overviewStats.lowOccupancyCount}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
                       <div className="flex items-center gap-2">
                         <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                        <span className="text-sm text-gray-600">Low (&lt;60%)</span>
+                        <span className="text-sm text-gray-600 dark:text-slate-400">Low (&lt;60%)</span>
                       </div>
-                      <span className="font-semibold text-green-600">{overviewStats.lowOccupancyCount}</span>
+                      <span className="font-semibold text-green-600 dark:text-green-400">{overviewStats.lowOccupancyCount}</span>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between pt-3 border-t border-gray-100 text-xs text-gray-500">
+                  <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-slate-600 text-xs text-gray-500 dark:text-slate-400">
                     <span>Distribution analysis</span>
                     <div className="flex items-center gap-1">
                       <Activity className="w-3 h-3" />
@@ -495,10 +495,10 @@ export default function CareHomesPage() {
                     <Building2 className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+                    <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent dark:from-slate-100 dark:to-slate-400">
                       Facility Management
                     </h2>
-                    <p className="text-sm text-gray-600">Monitor and update bed occupancy across all facilities</p>
+                    <p className="text-sm text-gray-600 dark:text-slate-400">Monitor and update bed occupancy across all facilities</p>
                   </div>
                 </div>
               </div>
@@ -507,13 +507,13 @@ export default function CareHomesPage() {
                 {homes.map(h => (
                   <Card
                     key={`facility-${h.id}`}
-                    className="group relative overflow-hidden bg-gradient-to-br from-white via-gray-50/50 to-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer"
+                    className="group relative overflow-hidden bg-gradient-to-br from-white via-gray-50/50 to-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer dark:from-slate-800 dark:via-slate-700 dark:to-slate-800"
                     onClick={() => handleHomeClick(h)}
                   >
                     {/* Animated background elements */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-blue-100/20 rounded-full -mr-12 -mt-12 group-hover:bg-blue-100/30 transition-colors duration-300"></div>
-                    <div className="absolute bottom-0 left-0 w-16 h-16 bg-blue-200/10 rounded-full -ml-8 -mb-8"></div>
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 dark:from-blue-500/10"></div>
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-blue-100/20 rounded-full -mr-12 -mt-12 group-hover:bg-blue-100/30 transition-colors duration-300 dark:bg-blue-900/20 dark:group-hover:bg-blue-900/30"></div>
+                    <div className="absolute bottom-0 left-0 w-16 h-16 bg-blue-200/10 rounded-full -ml-8 -mb-8 dark:bg-blue-800/10"></div>
 
                     <CardHeader className="relative">
                       <div className="flex items-center justify-between">
@@ -522,15 +522,15 @@ export default function CareHomesPage() {
                             <Building className="h-5 w-5 text-blue-500" />
                           </div>
                           <div>
-                            <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors duration-300">
+                            <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors duration-300 dark:text-slate-100 dark:group-hover:text-blue-400">
                               {h.name}
                             </h3>
-                            <p className="text-sm text-gray-600">{h.region || 'No region specified'}</p>
+                            <p className="text-sm text-gray-600 dark:text-slate-400">{h.region || 'No region specified'}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Eye className="w-4 h-4 text-gray-400 group-hover:text-blue-500 transition-colors duration-300" />
-                          <span className="text-xs text-gray-500 group-hover:text-blue-600 transition-colors duration-300">View Details</span>
+                          <Eye className="w-4 h-4 text-gray-400 group-hover:text-blue-500 transition-colors duration-300 dark:text-slate-500 dark:group-hover:text-blue-400" />
+                          <span className="text-xs text-gray-500 group-hover:text-blue-600 transition-colors duration-300 dark:text-slate-400 dark:group-hover:text-blue-400">View Details</span>
                         </div>
                       </div>
                     </CardHeader>
@@ -564,7 +564,7 @@ export default function CareHomesPage() {
                               )}
                             </div>
                             <div>
-                              <div className="text-sm font-medium text-gray-900">
+                              <div className="text-sm font-medium text-gray-900 dark:text-slate-100">
                                 {h.totalBeds && h.occupiedBeds !== undefined
                                   ? `${h.occupiedBeds}/${h.totalBeds} beds`
                                   : h.occupancy !== null && h.occupancy !== undefined
@@ -572,7 +572,7 @@ export default function CareHomesPage() {
                                   : 'No data'
                                 }
                               </div>
-                              <div className="text-xs text-gray-600">
+                              <div className="text-xs text-gray-600 dark:text-slate-400">
                                 {h.totalBeds && h.occupiedBeds !== undefined
                                   ? `${h.totalBeds - h.occupiedBeds} available`
                                   : 'Occupancy rate'
@@ -599,7 +599,7 @@ export default function CareHomesPage() {
                         </div>
 
                         {/* Additional Info */}
-                        <div className="flex items-center justify-between pt-3 border-t border-gray-100 text-xs text-gray-500">
+                        <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-slate-600 text-xs text-gray-500 dark:text-slate-400">
                           <span>{h._isAdminWorkspace ? 'Admin Workspace' : 'Care Home'}</span>
                           <div className="flex items-center gap-1">
                             <Activity className="w-3 h-3" />
@@ -617,9 +617,9 @@ export default function CareHomesPage() {
           {/* Empty State */}
           {homes.length === 0 && (
             <div className="px-6 text-center py-12">
-              <Building className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No Care Homes Found</h3>
-              <p className="text-muted-foreground mb-4">
+              <Building className="h-12 w-12 text-muted-foreground mx-auto mb-4 dark:text-slate-500" />
+              <h3 className="text-lg font-semibold mb-2 dark:text-slate-100">No Care Homes Found</h3>
+              <p className="text-muted-foreground mb-4 dark:text-slate-400">
                 Get started by adding your first care home or importing workspace data.
               </p>
               <Button onClick={() => router.push('/admin/care-homes/new')}>

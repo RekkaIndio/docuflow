@@ -25,7 +25,7 @@ export default function AdminDashboardHeader({
   onRefresh
 }: AdminDashboardHeaderProps) {
   return (
-  <div className="relative overflow-hidden bg-gradient-to-br from-primary to-accent text-primary-foreground rounded-b-[64px] shadow-2xl">
+  <div className="relative overflow-hidden bg-gradient-to-br from-primary to-accent dark:from-slate-800 dark:to-slate-900 text-primary-foreground rounded-b-[64px] shadow-2xl">
       {/* Animated background elements */}
       <div className="absolute inset-0">
         <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-primary/10 to-transparent rounded-full -translate-y-48 translate-x-48 animate-pulse"></div>
@@ -37,7 +37,7 @@ export default function AdminDashboardHeader({
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8 lg:gap-12">
           {/* Main content - left side */}
           <div className="flex-1 space-y-4 lg:space-y-6">
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight tracking-tight text-white drop-shadow-sm">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight tracking-tight text-white dark:text-slate-100 drop-shadow-sm">
                 Admin Dashboard
               </h1>
           </div>
@@ -45,15 +45,14 @@ export default function AdminDashboardHeader({
           {/* Key metrics cards - right side */}
             <div className="w-full lg:w-auto">
             <div className="grid grid-cols-2 lg:grid-cols-2 gap-3 lg:gap-4">
-              {/* Workspaces */}
-              <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
+              <div className="group h-20 p-3 lg:p-4 bg-white/10 dark:bg-slate-700/50 backdrop-blur-sm rounded-2xl border border-white/20 dark:border-slate-600/50 hover:bg-white/15 dark:hover:bg-slate-700/70 transition-all duration-300 hover:scale-105 hover:shadow-xl">
                 <div className="flex items-center gap-2 lg:gap-3 h-full">
-                  <div className="p-2 bg-primary/20 rounded-xl group-hover:bg-primary/30 transition-colors duration-300">
+                  <div className="p-2 bg-primary/20 dark:bg-primary/30 rounded-xl group-hover:bg-primary/30 dark:group-hover:bg-primary/40 transition-colors duration-300">
                     <Building2 className="w-4 h-4 lg:w-5 lg:h-5 text-primary-foreground" />
                   </div>
                   <div>
-                    <div className="text-xl lg:text-2xl font-bold text-white">{workspaceCount}</div>
-                    <div className="text-xs text-primary/80 font-medium uppercase tracking-wide">Workspaces</div>
+                    <div className="text-xl lg:text-2xl font-bold text-white dark:text-slate-100">{workspaceCount}</div>
+                    <div className="text-xs text-primary/80 dark:text-slate-300 font-medium uppercase tracking-wide">Workspaces</div>
                   </div>
                 </div>
               </div>
@@ -62,14 +61,14 @@ export default function AdminDashboardHeader({
               {/* (Folders and Documents cards removed) */}
 
               {/* Occupancy */}
-              <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
+              <div className="group h-20 p-3 lg:p-4 bg-white/10 dark:bg-slate-700/50 backdrop-blur-sm rounded-2xl border border-white/20 dark:border-slate-600/50 hover:bg-white/15 dark:hover:bg-slate-700/70 transition-all duration-300 hover:scale-105 hover:shadow-xl">
                 <div className="flex items-center gap-2 lg:gap-3 h-full">
-                  <div className="p-2 bg-emerald-500/20 rounded-xl group-hover:bg-emerald-500/30 transition-colors duration-300">
-                    <Users className="w-4 h-4 lg:w-5 lg:h-5 text-emerald-400" />
+                  <div className="p-2 bg-emerald-500/20 dark:bg-emerald-600/30 rounded-xl group-hover:bg-emerald-500/30 dark:group-hover:bg-emerald-600/40 transition-colors duration-300">
+                    <Users className="w-4 h-4 lg:w-5 lg:h-5 text-emerald-400 dark:text-emerald-300" />
                   </div>
                   <div>
-                    <div className="text-xl lg:text-2xl font-bold text-white">{Math.round(averageOccupancy * 100)}%</div>
-                    <div className="text-xs text-emerald-200 font-medium uppercase tracking-wide">Avg Occupancy</div>
+                    <div className="text-xl lg:text-2xl font-bold text-white dark:text-slate-100">{Math.round(averageOccupancy * 100)}%</div>
+                    <div className="text-xs text-emerald-200 dark:text-emerald-300 font-medium uppercase tracking-wide">Avg Occupancy</div>
                   </div>
                 </div>
               </div>

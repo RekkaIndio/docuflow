@@ -204,8 +204,8 @@ const renderReadOnlyField = (form: Record<string, any>, descriptor: FieldDescrip
   const colSpanClass = descriptor.fullWidth ? 'md:col-span-2' : '';
   return (
     <div key={descriptor.key} className={`space-y-1 ${colSpanClass}`}>
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-700">{descriptor.label}</p>
-      <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed whitespace-pre-line text-slate-700">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-200">{descriptor.label}</p>
+      <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed whitespace-pre-line text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
         {value || '—'}
       </div>
     </div>
@@ -271,14 +271,14 @@ const renderRiskAssessmentDetail = (form: Record<string, any>) => {
   return (
     <div className="space-y-6">
       {sections.map(section => (
-        <div key={section.title} className="space-y-4 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+        <div key={section.title} className="space-y-4 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200">
           <div className="space-y-1">
             <h3 className="text-base font-semibold text-blue-900">{section.title}</h3>
             <span className="block h-px w-full bg-border/60" />
           </div>
           {section.title === 'Persons at Risk' ? (
             <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-700">Persons at Risk</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-200">Persons at Risk</p>
               {selectedPersons.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {selectedPersons.map(key => (
@@ -286,13 +286,13 @@ const renderRiskAssessmentDetail = (form: Record<string, any>) => {
                   ))}
                 </div>
               ) : (
-                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">None selected</div>
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">None selected</div>
               )}
             </div>
           ) : section.title === 'Risk Rating' ? (
             <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-700">Likelihood</p>
-              <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-200">Likelihood</p>
+              <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
                 {likelihoodLabels[form?.likelihood as keyof typeof likelihoodLabels] || 'Not specified'}
               </div>
             </div>
@@ -338,7 +338,7 @@ const renderAppraisalDetail = (form: Record<string, any>) => {
   return (
     <div className="space-y-6">
       {sections.map(section => (
-        <div key={section.title} className="space-y-4 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+        <div key={section.title} className="space-y-4 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200">
           <div className="space-y-1">
             <h3 className="text-base font-semibold text-blue-900">{section.title}</h3>
             <span className="block h-px w-full bg-border/60" />
@@ -382,7 +382,7 @@ const renderActionPlanDetail = (form: Record<string, any>) => {
   return (
     <div className="space-y-6">
       {sections.map(section => (
-        <div key={section.title} className="space-y-4 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+        <div key={section.title} className="space-y-4 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200">
           <div className="space-y-1">
             <h3 className="text-base font-semibold text-blue-900">{section.title}</h3>
             <span className="block h-px w-full bg-border/60" />
@@ -2323,7 +2323,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
               <div className="w-full lg:w-auto">
                 <div className="grid grid-cols-1 gap-0">
                   {/* Occupancy (kept) */}
-                  <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl">
+                  <div className="group h-20 p-3 lg:p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover:shadow-xl dark:bg-slate-800/10 dark:border-slate-700/20 dark:hover:bg-slate-800/15">
                     <div className="flex items-center gap-2 lg:gap-3 h-full">
                       <div className="p-2 bg-rose-500/20 rounded-xl group-hover:bg-rose-500/30 transition-colors duration-300">
                         <Users className="w-4 h-4 lg:w-5 lg:h-5 text-rose-400" />
@@ -2343,11 +2343,11 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
 
   {/* Main content */}
   <main className="flex-1 overflow-y-auto">
-    <div className="min-h-full bg-gray-50">
+    <div className="min-h-full bg-gray-50 dark:bg-slate-900">
       <div className="w-full p-6 space-y-6">
 
         <Tabs defaultValue="folders" className="w-full">
-          <TabsList className="flex flex-row flex-nowrap items-start justify-start overflow-x-auto bg-white border border-gray-200 rounded-lg gap-2 p-1 w-auto">
+          <TabsList className="flex flex-row flex-nowrap items-start justify-start overflow-x-auto bg-white border border-gray-200 rounded-lg gap-2 p-1 w-auto dark:bg-slate-800 dark:border-slate-700">
             <TabsTrigger value="folders" className="flex items-center gap-2 whitespace-nowrap">
               <FolderIcon className="w-4 h-4" />
               Folders
@@ -2395,7 +2395,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                         <button
                           key={b.id}
                           onClick={() => navigateToCrumb(index)}
-                          className={`mr-2 inline-flex items-center ${index < breadcrumb.length - 1 ? 'text-blue-600 hover:underline' : 'text-slate-700 font-medium'}`}
+                          className={`mr-2 inline-flex items-center ${index < breadcrumb.length - 1 ? 'text-blue-600 hover:underline' : 'text-slate-700 font-medium dark:text-slate-200'}`}
                         >
                           {b.name}{index < breadcrumb.length - 1 ? ' / ' : ''}
                         </button>
@@ -2419,7 +2419,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                     {currentFolder.items?.map((item) => (
                       <Card
                         key={item.id}
-                        className="hover:shadow-lg transition-all duration-300 cursor-pointer min-h-[100px] w-full border border-gray-200 hover:border-gray-300"
+                        className="hover:shadow-lg transition-all duration-300 cursor-pointer min-h-[100px] w-full border border-gray-200 hover:border-gray-300 dark:border-slate-700 dark:hover:border-slate-600"
                         onClick={() => {
                           if (item.type === 'folder') {
                             pushFolder(item.id);
@@ -2470,9 +2470,9 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
 
               <aside className="w-full lg:w-80">
                 <div className="space-y-4">
-                  <Card className="border border-gray-200 hover:shadow-lg transition-all duration-300">
+                  <Card className="border border-gray-200 hover:shadow-lg transition-all duration-300 dark:border-slate-700 dark:bg-slate-800">
                     <CardHeader>
-                      <div className="text-sm font-semibold text-gray-900">Recent uploads</div>
+                      <div className="text-sm font-semibold text-gray-900 dark:text-slate-100">Recent uploads</div>
                     </CardHeader>
                     <CardContent>
                       <ul className="divide-y divide-blue-100/50">
@@ -2534,9 +2534,9 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                     </CardContent>
                   </Card>
 
-                  <Card className="border border-gray-200 hover:shadow-lg transition-all duration-300">
+                  <Card className="border border-gray-200 hover:shadow-lg transition-all duration-300 dark:border-slate-700 dark:bg-slate-800">
                     <CardHeader>
-                      <div className="text-sm font-semibold text-gray-900">Top file types</div>
+                      <div className="text-sm font-semibold text-gray-900 dark:text-slate-100">Top file types</div>
                     </CardHeader>
                     <CardContent>
                       <div className="flex flex-col gap-2">
@@ -2599,7 +2599,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
           <TabsContent value="risk-assessments" className="mt-6">
             <div className="space-y-6">
               {riskAssessmentsLoading && riskAssessments.length === 0 ? (
-                <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white py-14">
+                <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white py-14 dark:bg-slate-800 dark:border-slate-700">
                   <Loader2 className="h-6 w-6 animate-spin text-red-700" />
                 </div>
               ) : riskAssessments.length === 0 ? (
@@ -2609,12 +2609,12 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                       <Shield className="w-5 h-5 text-red-600" />
                       Risk Assessments
                     </h3>
-                    <p className="text-sm text-gray-600">Read-only view of all risk assessments in this workspace</p>
+                    <p className="text-sm text-gray-600 dark:text-slate-400">Read-only view of all risk assessments in this workspace</p>
                   </CardHeader>
                   <CardContent>
                     <div className="text-center py-8">
                       <Shield className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                      <p className="text-gray-500">No risk assessments found</p>
+                      <p className="text-gray-500 dark:text-slate-400">No risk assessments found</p>
                       <p className="text-sm text-gray-400 mt-1">Risk assessments will appear here when created</p>
                     </div>
                   </CardContent>
@@ -2627,7 +2627,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                       const isSelectedYear = selectedMonthKey?.startsWith(String(year)) ?? false;
                       const savedMonthsCount = entries.reduce((total, entry) => total + (entry.count > 0 ? 1 : 0), 0);
                       return (
-                        <div key={year} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                        <div key={year} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200">
                           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                             <div>
                               <h2 className="text-lg font-semibold text-red-900">{year} Tracker</h2>
@@ -2640,7 +2640,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                                   <PopoverTrigger asChild>
                                     <Button
                                       variant="outline"
-                                      className="flex items-center gap-2 border-slate-200 bg-white text-xs font-medium text-slate-700 hover:border-red-300 hover:bg-red-50"
+                                      className="flex items-center gap-2 border-slate-200 bg-white text-xs font-medium text-slate-700 hover:border-red-300 hover:bg-red-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
                                     >
                                       <Calendar className="h-4 w-4" />
                                       <span>Jump to month</span>
@@ -2673,8 +2673,8 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                                   onClick={() => handleSelectMonth(entry.monthKey)}
                                   className={`text-left rounded-xl border p-4 transition-all focus:outline-none focus:ring-2 focus:ring-red-200 ${
                                     hasData
-                                      ? 'bg-white hover:border-red-300 hover:shadow-md'
-                                      : 'border-dashed border-slate-300 bg-slate-50 text-slate-500 hover:border-slate-300'
+                                      ? 'bg-white hover:border-red-300 hover:shadow-md dark:bg-slate-800 dark:hover:border-red-400'
+                                      : 'border-dashed border-slate-300 bg-slate-50 text-slate-500 hover:border-slate-300 dark:border-slate-700 dark:bg-transparent dark:text-slate-400 dark:hover:border-slate-600'
                                   } ${isSelected ? 'border-red-500 ring-2 ring-red-200' : ''}`}
                                 >
                                   <div className="flex items-center justify-between">
@@ -2700,7 +2700,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                   </div>
 
                   {selectedMonthKey && (
-                    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200">
                       <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                         <div>
                           <h3 className="text-xl font-semibold text-red-900">{selectedMonthLabel || 'Tracker history'}</h3>
@@ -2732,38 +2732,38 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                           return (
                             <div
                               key={meta.type}
-                              className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-white to-slate-50/60 p-5 shadow-sm transition-all hover:shadow-lg"
+                              className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-white to-slate-50/60 p-5 shadow-sm transition-all hover:shadow-lg dark:from-slate-800 dark:via-slate-800 dark:to-slate-800 dark:bg-slate-800 dark:border-slate-700"
                             >
-                              <div className={`relative h-1 w-full rounded-full bg-gradient-to-r ${meta.accentGradient}`} />
+                              <div className={`relative h-1 w-full rounded-full bg-gradient-to-r ${meta.accentGradient} dark:bg-slate-700`} />
                               <div className="relative z-10 mt-4 flex items-start justify-between gap-3">
                                 <div className="flex items-start gap-3">
-                                  <div className={`rounded-xl bg-gradient-to-br p-2.5 shadow-sm ${meta.iconGradient}`}>
-                                    <Icon className={`h-4 w-4 ${meta.iconColor}`} />
+                                  <div className={`rounded-xl p-2.5 shadow-sm ${meta.iconGradient} dark:bg-slate-700`}>
+                                    <Icon className={`h-4 w-4 ${meta.iconColor} dark:text-slate-100`} />
                                   </div>
                                   <div>
-                                    <h4 className="text-base font-semibold text-slate-900">{meta.title}</h4>
-                                    <p className="text-xs text-slate-500">{meta.description}</p>
+                                    <h4 className="text-base font-semibold text-slate-900 dark:text-slate-100">{meta.title}</h4>
+                                    <p className="text-xs text-slate-500 dark:text-slate-300">{meta.description}</p>
                                   </div>
                                 </div>
-                                <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusBadgeClasses}`}>
+                                <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusBadgeClasses} dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100`}>
                                   {hasRecord ? <CheckCircle2 className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
                                   {statusText}
                                 </span>
                               </div>
-                              <div className="relative z-10 mt-4 flex flex-1 flex-col justify-between gap-3 text-sm text-slate-700">
+                              <div className="relative z-10 mt-4 flex flex-1 flex-col justify-between gap-3 text-sm text-slate-700 dark:text-slate-200">
                                 {hasRecord ? (
-                                  <div className="space-y-2 text-xs text-slate-600">
+                                  <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
                                     <div className="flex items-center gap-2">
-                                      <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                                      <Calendar className="h-3.5 w-3.5 text-slate-400 dark:text-slate-300" />
                                       Saved {latestRecord ? formatDateTime(latestRecord.createdAt) : '—'}
                                     </div>
                                     <div className="flex items-center gap-2">
-                                      <Clock className="h-3.5 w-3.5 text-slate-400" />
+                                      <Clock className="h-3.5 w-3.5 text-slate-400 dark:text-slate-300" />
                                       {recordsForType.length === 1 ? '1 entry captured' : `${recordsForType.length} entries captured`}
                                     </div>
                                   </div>
                                 ) : (
-                                  <p className="text-xs text-slate-500">No risk assessments saved for this month.</p>
+                                  <p className="text-xs text-slate-500 dark:text-slate-300">No risk assessments saved for this month.</p>
                                 )}
                                 <div className="flex items-center gap-3">
                                   {hasRecord ? (
@@ -2778,7 +2778,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                                       View latest entry
                                     </Button>
                                   ) : (
-                                    <div className="text-xs text-slate-500">
+                                    <div className="text-xs text-slate-500 dark:text-slate-300">
                                       {isCurrentSelection ? 'No records captured yet this month.' : 'No records saved for this month.'}
                                     </div>
                                   )}
@@ -2789,7 +2789,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                         })}
                       </div>
 
-                      <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                      <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200">
                         {selectedMonthRecords.length === 0 ? (
                           <div className="p-10 text-center text-sm text-slate-500">
                             No risk assessments saved for {selectedMonthLabel ?? 'this month'} yet.
@@ -2861,19 +2861,19 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
 
               {appraisalsSupervisionsLoading ? (
                 <div className="flex items-center justify-center py-16">
-                  <div className="flex items-center space-x-2 text-gray-600">
+                  <div className="flex items-center space-x-2 text-gray-600 dark:text-slate-400">
                     <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
                     <span>Loading appraisals/supervisions data...</span>
                   </div>
                 </div>
               ) : appraisalsMonths.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center text-sm text-gray-600">
+                <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center text-sm text-gray-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
                   <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-blue-50 text-blue-500">
                     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-current">
                       <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </div>
-                  <h3 className="mb-2 text-lg font-semibold text-gray-900">No appraisals/supervisions data yet</h3>
+                  <h3 className="mb-2 text-lg font-semibold text-gray-900 dark:text-slate-100">No appraisals/supervisions data yet</h3>
                   <p className="mb-4">Appraisals and supervisions will appear here once staff members complete them.</p>
                 </div>
               ) : (
@@ -2886,7 +2886,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                       </div>
                       <div className="flex items-center gap-2 text-sm text-blue-900">
                         <span>{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
-                        <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-xs font-semibold text-blue-700 shadow-sm">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-xs font-semibold text-blue-700 shadow-sm dark:bg-slate-800 dark:text-slate-200">
                           {selectedAppraisalsMonth?.percentComplete ?? 0}% complete
                         </span>
                       </div>
@@ -2900,11 +2900,11 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                       const isSelectedYear = selectedAppraisalsMonth?.year === year;
 
                       return (
-                        <div key={year} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                        <div key={year} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200">
                           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                             <div>
-                              <h2 className="text-lg font-semibold text-gray-900">{year} tracker</h2>
-                              <p className="text-sm text-gray-500">Select a month to review completions.</p>
+                              <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100">{year} tracker</h2>
+                              <p className="text-sm text-gray-500 dark:text-slate-400">Select a month to review completions.</p>
                             </div>
                             <div className="flex items-center gap-2">
                               <span className="text-xs font-medium uppercase tracking-wide text-gray-400">
@@ -2915,7 +2915,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                                   <PopoverTrigger asChild>
                                     <Button
                                       variant="outline"
-                                      className="flex items-center gap-2 border-gray-200 bg-white text-xs font-medium text-gray-700 hover:border-blue-300 hover:bg-blue-50"
+                                      className="flex items-center gap-2 border-gray-200 bg-white text-xs font-medium text-gray-700 hover:border-blue-300 hover:bg-blue-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 hover:dark:bg-slate-700"
                                     >
                                       <CalendarIcon className="h-4 w-4" />
                                       <span>Jump to month</span>
@@ -2952,11 +2952,11 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                                   type="button"
                                   onClick={() => handleSelectAppraisalsMonth(monthKey)}
                                   className={`text-left rounded-xl border p-4 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-200 ${
-                                    hasData ? 'bg-white hover:border-indigo-400 hover:shadow-md' : 'border-dashed border-gray-300 bg-slate-50 text-gray-500 hover:border-gray-300'
+                                    hasData ? 'bg-white hover:border-indigo-400 hover:shadow-md dark:bg-slate-800 dark:hover:border-slate-600' : 'border-dashed border-gray-300 bg-slate-50 text-gray-500 hover:border-gray-300 dark:bg-transparent dark:border-slate-700 dark:text-slate-400'
                                   } ${isSelected ? 'border-indigo-500 ring-2 ring-indigo-200' : ''}`}
                                 >
                                   <div className="flex items-center justify-between">
-                                    <span className={`text-sm font-semibold ${hasData ? 'text-gray-900' : 'text-gray-500'}`}>
+                                    <span className={`text-sm font-semibold ${hasData ? 'text-gray-900 dark:text-slate-100' : 'text-gray-500 dark:text-slate-400'}`}>
                                       {monthLabel.slice(0, 3)}
                                     </span>
                                     {hasData ? (
@@ -2965,7 +2965,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                                       <span className="text-xs text-gray-400">No data</span>
                                     )}
                                   </div>
-                                  <div className="mt-3 text-xs text-gray-600">
+                                  <div className="mt-3 text-xs text-gray-600 dark:text-slate-400">
                                     {hasData ? `${completedCount}/${totalCount} complete` : 'Tracker not started'}
                                   </div>
                                 </button>
@@ -2978,11 +2978,11 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                   </div>
 
                   {selectedAppraisalsMonth && (
-                    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200">
                       <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                         <div>
-                          <h3 className="text-xl font-semibold text-gray-900">{selectedAppraisalsMonthLabel || 'Tracker summary'}</h3>
-                          <p className="text-sm text-gray-600">{selectedAppraisalsProgress} appraisals completed</p>
+                          <h3 className="text-xl font-semibold text-gray-900 dark:text-slate-100">{selectedAppraisalsMonthLabel || 'Tracker summary'}</h3>
+                          <p className="text-sm text-gray-600 dark:text-slate-400">{selectedAppraisalsProgress} appraisals completed</p>
                           {isViewingPastAppraisalsMonth && (
                             <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
                               Reviewing a past month
@@ -3001,15 +3001,15 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                           return (
                             <div
                               key={roleSummary.role}
-                              className="group relative flex h-full flex-col justify-between rounded-xl border border-gray-200/60 bg-gradient-to-br from-white to-gray-50/40 p-5 shadow-sm transition-all hover:shadow-lg"
+                              className="group relative flex h-full flex-col justify-between rounded-xl border border-gray-200/60 bg-gradient-to-br from-white to-gray-50/40 p-5 shadow-sm transition-all hover:shadow-lg dark:border-slate-700/60 dark:from-slate-800 dark:to-slate-900/40"
                             >
                               <div className="flex items-start justify-between gap-3">
                                 <div>
-                                  <h4 className="text-base font-semibold text-gray-900">{roleSummary.role}</h4>
+                                  <h4 className="text-base font-semibold text-gray-900 dark:text-slate-100">{roleSummary.role}</h4>
                                   <p className="text-xs text-gray-500">{roleSummary.completedSlugs.length}/{roleSummary.totalAppraisals} completed</p>
                                 </div>
                                 <div className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold ${
-                                  isComplete ? 'bg-emerald-500 text-white' : roleSummary.percentComplete > 0 ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'
+                                  isComplete ? 'bg-emerald-500 text-white' : roleSummary.percentComplete > 0 ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600 dark:bg-slate-700 dark:text-slate-400'
                                 }`}>
                                   {isComplete ? '✓' : `${roleSummary.percentComplete}%`}
                                 </div>
@@ -3044,12 +3044,12 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
 
                                 {roleSummary.remainingSlugs.length > 0 && (
                                   <div>
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">Outstanding</p>
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-slate-400">Outstanding</p>
                                     <div className="mt-2 space-y-2">
                                       {roleSummary.remainingSlugs.map(slug => (
-                                        <div key={slug} className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-700">
+                                        <div key={slug} className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
                                           <span>{getAppraisalTitle(slug)}</span>
-                                          <span className="text-xs text-gray-500">Read-only view</span>
+                                          <span className="text-xs text-gray-500 dark:text-slate-400">Read-only view</span>
                                         </div>
                                       ))}
                                     </div>
@@ -3064,7 +3064,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                                   </span>
                                 )}
                                 {roleSummary.completedSlugs.length === 0 && outstandingCount === 0 && (
-                                  <span className="rounded-full border border-gray-200 bg-gray-100 px-3 py-1 text-gray-500">No appraisals configured</span>
+                                  <span className="rounded-full border border-gray-200 bg-gray-100 px-3 py-1 text-gray-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">No appraisals configured</span>
                                 )}
                               </div>
                             </div>
@@ -3101,19 +3101,19 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
 
               {actionPlansLoading ? (
                 <div className="flex items-center justify-center py-16">
-                  <div className="flex items-center space-x-2 text-gray-600">
+                  <div className="flex items-center space-x-2 text-gray-600 dark:text-slate-400">
                     <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
                     <span>Loading action plans data...</span>
                   </div>
                 </div>
               ) : actionPlans.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center text-sm text-gray-600">
+                <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center text-sm text-gray-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
                   <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-blue-50 text-blue-500">
                     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-current">
                       <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </div>
-                  <h3 className="mb-2 text-lg font-semibold text-gray-900">No action plans data yet</h3>
+                  <h3 className="mb-2 text-lg font-semibold text-gray-900 dark:text-slate-100">No action plans data yet</h3>
                   <p className="mb-4">Action plans will appear here once corrective actions are created.</p>
                 </div>
               ) : (
@@ -3126,7 +3126,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                       </div>
                       <div className="flex items-center gap-2 text-sm text-blue-900">
                         <span>{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
-                        <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-xs font-semibold text-blue-700 shadow-sm">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-xs font-semibold text-blue-700 shadow-sm dark:bg-slate-800 dark:text-slate-200">
                           {actionPlans.length} plans tracked
                         </span>
                       </div>
@@ -3140,11 +3140,11 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                       const isSelectedYear = selectedActionPlansMonth?.monthKey.startsWith(year);
 
                       return (
-                        <div key={year} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                        <div key={year} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200">
                           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                             <div>
-                              <h2 className="text-lg font-semibold text-gray-900">{year} tracker</h2>
-                              <p className="text-sm text-gray-500">Select a month to review action plans.</p>
+                              <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100">{year} tracker</h2>
+                              <p className="text-sm text-gray-500 dark:text-slate-400">Select a month to review action plans.</p>
                             </div>
                             <div className="flex items-center gap-2">
                               <span className="text-xs font-medium uppercase tracking-wide text-gray-400">
@@ -3155,7 +3155,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                                   <PopoverTrigger asChild>
                                     <Button
                                       variant="outline"
-                                      className="flex items-center gap-2 border-gray-200 bg-white text-xs font-medium text-gray-700 hover:border-blue-300 hover:bg-blue-50"
+                                      className="flex items-center gap-2 border-gray-200 bg-white text-xs font-medium text-gray-700 hover:border-blue-300 hover:bg-blue-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 hover:dark:bg-slate-700"
                                     >
                                       <CalendarIcon className="h-4 w-4" />
                                       <span>Jump to month</span>
@@ -3192,11 +3192,11 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                                   type="button"
                                   onClick={() => handleSelectActionPlansMonth(monthKey)}
                                   className={`text-left rounded-xl border p-4 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-200 ${
-                                    hasData ? 'bg-white hover:border-indigo-400 hover:shadow-md' : 'border-dashed border-gray-300 bg-slate-50 text-gray-500 hover:border-gray-300'
+                                    hasData ? 'bg-white hover:border-indigo-400 hover:shadow-md dark:bg-slate-800 dark:hover:border-indigo-500' : 'border-dashed border-gray-300 bg-slate-50 text-gray-500 hover:border-gray-300 dark:border-slate-700 dark:bg-transparent dark:text-slate-400 dark:hover:border-slate-600'
                                   } ${isSelected ? 'border-indigo-500 ring-2 ring-indigo-200' : ''}`}
                                 >
                                   <div className="flex items-center justify-between">
-                                    <span className={`text-sm font-semibold ${hasData ? 'text-gray-900' : 'text-gray-500'}`}>
+                                    <span className={`text-sm font-semibold ${hasData ? 'text-gray-900 dark:text-slate-100' : 'text-gray-500 dark:text-slate-400'}`}>
                                       {monthLabel.slice(0, 3)}
                                     </span>
                                     {hasData ? (
@@ -3205,7 +3205,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                                       <span className="text-xs text-gray-400">No data</span>
                                     )}
                                   </div>
-                                  <div className="mt-3 text-xs text-gray-600">
+                                  <div className="mt-3 text-xs text-gray-600 dark:text-slate-400">
                                     {hasData ? `${completedCount}/${totalCount} complete` : 'No action plan'}
                                   </div>
                                 </button>
@@ -3218,11 +3218,11 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                   </div>
 
                   {selectedActionPlansMonth && (
-                    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200">
                       <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                         <div>
-                          <h3 className="text-xl font-semibold text-gray-900">{selectedActionPlansMonthLabel || 'Action plan summary'}</h3>
-                          <p className="text-sm text-gray-600">{selectedActionPlansMonth.completedItems} of {selectedActionPlansMonth.totalItems} actions completed</p>
+                          <h3 className="text-xl font-semibold text-gray-900 dark:text-slate-100">{selectedActionPlansMonthLabel || 'Action plan summary'}</h3>
+                          <p className="text-sm text-gray-600 dark:text-slate-400">{selectedActionPlansMonth.completedItems} of {selectedActionPlansMonth.totalItems} actions completed</p>
                           {isViewingPastActionPlansMonth && (
                             <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
                               Reviewing a past month
@@ -3240,15 +3240,15 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
                           return (
                             <div
                               key={item.id}
-                              className="group relative flex h-full flex-col justify-between rounded-xl border border-gray-200/60 bg-gradient-to-br from-white to-gray-50/40 p-5 shadow-sm transition-all hover:shadow-lg"
+                              className="group relative flex h-full flex-col justify-between rounded-xl border border-gray-200/60 bg-gradient-to-br from-white to-gray-50/40 p-5 shadow-sm transition-all hover:shadow-lg dark:border-slate-700/60 dark:from-slate-800 dark:to-slate-900/40"
                             >
                               <div className="flex items-start justify-between gap-3">
                                 <div>
-                                  <h4 className="text-base font-semibold text-gray-900">{item.issue}</h4>
+                                  <h4 className="text-base font-semibold text-gray-900 dark:text-slate-100">{item.issue}</h4>
                                   <p className="text-xs text-gray-500">{item.auditType.replace('-', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}</p>
                                 </div>
                                 <div className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold ${
-                                  isComplete ? 'bg-emerald-500 text-white' : item.status === 'in-progress' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'
+                                  isComplete ? 'bg-emerald-500 text-white' : item.status === 'in-progress' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600 dark:bg-slate-700 dark:text-slate-400'
                                 }`}>
                                   {isComplete ? '✓' : item.status === 'in-progress' ? '○' : '○'}
                                 </div>
@@ -3263,9 +3263,9 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
 
                               <div className="mt-5 space-y-4 text-sm">
                                 <div>
-                                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">Status</p>
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-slate-400">Status</p>
                                   <div className="mt-2 space-y-2">
-                                    <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-700">
+                                    <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
                                       <span className="font-medium">{item.status.replace('-', ' ').toUpperCase()}</span>
                                       <span className="text-xs text-gray-500">Read-only view</span>
                                     </div>
@@ -3274,7 +3274,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
 
                                 {item.assignedTeam && (
                                   <div>
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">Assigned To</p>
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-slate-400">Assigned To</p>
                                     <div className="mt-2 space-y-2">
                                       <div className="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-blue-700">
                                         <span className="font-medium">{item.assignedTeam}</span>
@@ -3285,7 +3285,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
 
                                 {item.ragRating && (
                                   <div>
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">Priority</p>
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-slate-400">Priority</p>
                                     <div className="mt-2 space-y-2">
                                       <div className={`flex items-center justify-between rounded-lg border px-3 py-2 ${
                                         item.ragRating === 'red' ? 'border-red-200 bg-red-50 text-red-700' :
@@ -3328,7 +3328,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
 
   {/* Risk Assessment Detail Dialog */}
   <Dialog open={!!selectedRiskAssessment} onOpenChange={(open) => setSelectedRiskAssessment(open ? selectedRiskAssessment : null)}>
-    <DialogContent className="flex max-h-[85vh] min-h-[60vh] w-full max-w-4xl flex-col overflow-hidden border border-slate-200 bg-white shadow-2xl p-0">
+    <DialogContent className="flex max-h-[85vh] min-h-[60vh] w-full max-w-4xl flex-col overflow-hidden border border-slate-200 bg-white shadow-2xl p-0 dark:border-slate-700 dark:bg-slate-800">
       {selectedRiskAssessment ? (
         <>
           <DialogHeader className="border-b px-6 py-4">
@@ -3354,7 +3354,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
 
   {/* Appraisals & Supervisions Detail Dialog */}
   <Dialog open={!!selectedAppraisal} onOpenChange={(open) => setSelectedAppraisal(open ? selectedAppraisal : null)}>
-    <DialogContent className="flex max-h-[85vh] min-h-[60vh] w-full max-w-4xl flex-col overflow-hidden border border-slate-200 bg-white shadow-2xl p-0">
+    <DialogContent className="flex max-h-[85vh] min-h-[60vh] w-full max-w-4xl flex-col overflow-hidden border border-slate-200 bg-white shadow-2xl p-0 dark:border-slate-700 dark:bg-slate-800">
       {selectedAppraisal ? (
         <>
           <DialogHeader className="border-b px-6 py-4">
@@ -3380,7 +3380,7 @@ export default function AdminWorkspaceView({ workspace, onClose }: AdminWorkspac
 
   {/* Action Plans Detail Dialog */}
   <Dialog open={!!selectedActionPlan} onOpenChange={(open) => setSelectedActionPlan(open ? selectedActionPlan : null)}>
-    <DialogContent className="flex max-h-[85vh] min-h-[60vh] w-full max-w-4xl flex-col overflow-hidden border border-slate-200 bg-white shadow-2xl p-0">
+    <DialogContent className="flex max-h-[85vh] min-h-[60vh] w-full max-w-4xl flex-col overflow-hidden border border-slate-200 bg-white shadow-2xl p-0 dark:border-slate-700 dark:bg-slate-800">
       {selectedActionPlan ? (
         <>
           <DialogHeader className="border-b px-6 py-4">

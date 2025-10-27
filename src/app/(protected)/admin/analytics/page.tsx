@@ -1014,7 +1014,7 @@ export default function AdminAnalyticsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/10">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/10 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
       <div className="w-full px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-6">
@@ -1026,7 +1026,7 @@ export default function AdminAnalyticsPage() {
 
           {/* Workspace Selection */}
           {data && (
-            <div className="p-4 bg-white/50 backdrop-blur-sm rounded-2xl border border-white/40">
+            <div className="p-4 bg-white/50 backdrop-blur-sm rounded-2xl border border-white/40 dark:bg-slate-800/50 dark:border-slate-700">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-4">
                   <Button
@@ -1102,7 +1102,7 @@ export default function AdminAnalyticsPage() {
 
           {/* Key Metrics Overview */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-4 mb-8">
-            <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-blue-50 via-white to-blue-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
+            <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-blue-50 via-white to-blue-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent"></div>
               <div className="absolute top-0 right-0 w-32 h-32 bg-blue-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-blue-100/40 transition-colors duration-300"></div>
               <div className="absolute bottom-0 left-0 w-24 h-24 bg-blue-200/20 rounded-full -ml-12 -mb-12"></div>
@@ -1116,7 +1116,7 @@ export default function AdminAnalyticsPage() {
               </CardContent>
             </Card>
 
-            <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-blue-50 via-white to-blue-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
+            <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-blue-50 via-white to-blue-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent"></div>
               <div className="absolute top-0 right-0 w-32 h-32 bg-blue-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-blue-100/40 transition-colors duration-300"></div>
               <div className="absolute bottom-0 left-0 w-24 h-24 bg-blue-200/20 rounded-full -ml-12 -mb-12"></div>
@@ -1130,7 +1130,7 @@ export default function AdminAnalyticsPage() {
               </CardContent>
             </Card>
 
-            <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-red-50 via-white to-red-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
+            <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-red-50 via-white to-red-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
               <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-transparent"></div>
               <div className="absolute top-0 right-0 w-32 h-32 bg-red-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-red-100/40 transition-colors duration-300"></div>
               <div className="absolute bottom-0 left-0 w-24 h-24 bg-red-200/20 rounded-full -ml-12 -mb-12"></div>
@@ -1144,7 +1144,7 @@ export default function AdminAnalyticsPage() {
               </CardContent>
             </Card>
 
-            <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-amber-50 via-white to-amber-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
+            <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-amber-50 via-white to-amber-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
               <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent"></div>
               <div className="absolute top-0 right-0 w-32 h-32 bg-amber-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-amber-100/40 transition-colors duration-300"></div>
               <div className="absolute bottom-0 left-0 w-24 h-24 bg-amber-200/20 rounded-full -ml-12 -mb-12"></div>
@@ -1160,7 +1160,7 @@ export default function AdminAnalyticsPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6 mb-8">
-            <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-amber-50 via-white to-amber-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
+            <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-amber-50 via-white to-amber-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
               <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent"></div>
               <div className="absolute top-0 right-0 w-32 h-32 bg-amber-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-amber-100/40 transition-colors duration-300"></div>
               <div className="absolute bottom-0 left-0 w-24 h-24 bg-amber-200/20 rounded-full -ml-12 -mb-12"></div>
@@ -1174,7 +1174,7 @@ export default function AdminAnalyticsPage() {
               </CardContent>
             </Card>
 
-            <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-red-50 via-white to-red-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
+            <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-red-50 via-white to-red-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
               <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-transparent"></div>
               <div className="absolute top-0 right-0 w-32 h-32 bg-red-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-red-100/40 transition-colors duration-300"></div>
               <div className="absolute bottom-0 left-0 w-24 h-24 bg-red-200/20 rounded-full -ml-12 -mb-12"></div>
@@ -1188,7 +1188,7 @@ export default function AdminAnalyticsPage() {
               </CardContent>
             </Card>
 
-            <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-green-50 via-white to-green-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
+            <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-green-50 via-white to-green-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
               <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-transparent"></div>
               <div className="absolute top-0 right-0 w-32 h-32 bg-green-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-green-100/40 transition-colors duration-300"></div>
               <div className="absolute bottom-0 left-0 w-24 h-24 bg-green-200/20 rounded-full -ml-12 -mb-12"></div>
@@ -1202,7 +1202,7 @@ export default function AdminAnalyticsPage() {
               </CardContent>
             </Card>
 
-            <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-purple-50 via-white to-purple-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
+            <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-purple-50 via-white to-purple-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
               <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent"></div>
               <div className="absolute top-0 right-0 w-32 h-32 bg-purple-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-purple-100/40 transition-colors duration-300"></div>
               <div className="absolute bottom-0 left-0 w-24 h-24 bg-purple-200/20 rounded-full -ml-12 -mb-12"></div>
@@ -1216,7 +1216,7 @@ export default function AdminAnalyticsPage() {
               </CardContent>
             </Card>
 
-            <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-blue-50 via-white to-blue-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
+            <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-blue-50 via-white to-blue-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent"></div>
               <div className="absolute top-0 right-0 w-32 h-32 bg-blue-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-blue-100/40 transition-colors duration-300"></div>
               <div className="absolute bottom-0 left-0 w-24 h-24 bg-blue-200/20 rounded-full -ml-12 -mb-12"></div>
@@ -1230,7 +1230,7 @@ export default function AdminAnalyticsPage() {
               </CardContent>
             </Card>
 
-            <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-blue-50 via-white to-blue-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
+            <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-blue-50 via-white to-blue-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent"></div>
               <div className="absolute top-0 right-0 w-32 h-32 bg-blue-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-blue-100/40 transition-colors duration-300"></div>
               <div className="absolute bottom-0 left-0 w-24 h-24 bg-blue-200/20 rounded-full -ml-12 -mb-12"></div>
@@ -1248,16 +1248,16 @@ export default function AdminAnalyticsPage() {
 
         {/* Analytics Tabs */}
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid h-auto items-center w-full max-w-4xl grid-cols-3 sm:grid-cols-4 lg:grid-cols-9 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
-            <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="overview">Overview</TabsTrigger>
-            <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="compliance">Compliance</TabsTrigger>
-            <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="operations">Operations</TabsTrigger>
-            <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="trends">Trends</TabsTrigger>
-            <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="incidents">Incidents</TabsTrigger>
-            <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="documents">Documents</TabsTrigger>
-            <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="actions">Actions</TabsTrigger>
-            <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="comparisons">Comparisons</TabsTrigger>
-            <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="insights">Insights</TabsTrigger>
+          <TabsList className="grid h-auto items-center w-full max-w-4xl grid-cols-3 sm:grid-cols-4 lg:grid-cols-9 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:text-slate-300 dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white" value="overview">Overview</TabsTrigger>
+            <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:text-slate-300 dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white" value="compliance">Compliance</TabsTrigger>
+            <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:text-slate-300 dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white" value="operations">Operations</TabsTrigger>
+            <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:text-slate-300 dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white" value="trends">Trends</TabsTrigger>
+            <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:text-slate-300 dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white" value="incidents">Incidents</TabsTrigger>
+            <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:text-slate-300 dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white" value="documents">Documents</TabsTrigger>
+            <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:text-slate-300 dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white" value="actions">Actions</TabsTrigger>
+            <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:text-slate-300 dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white" value="comparisons">Comparisons</TabsTrigger>
+            <TabsTrigger className="rounded-xl px-4 py-1.5 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:text-slate-300 dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white" value="insights">Insights</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
@@ -1313,7 +1313,7 @@ function OverviewTab({ data }: { data: AnalyticsData }) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Compliance Overview */}
-      <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-blue-50 via-white to-blue-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
+      <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-blue-50 via-white to-blue-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
         <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent"></div>
         <div className="absolute top-0 right-0 w-32 h-32 bg-blue-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-blue-100/40 transition-colors duration-300"></div>
         <div className="absolute bottom-0 left-0 w-24 h-24 bg-blue-200/20 rounded-full -ml-12 -mb-12"></div>
@@ -1352,7 +1352,7 @@ function OverviewTab({ data }: { data: AnalyticsData }) {
       </Card>
 
       {/* Operations Overview */}
-      <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-green-50 via-white to-green-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
+      <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-green-50 via-white to-green-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
         <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-transparent"></div>
         <div className="absolute top-0 right-0 w-32 h-32 bg-green-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-green-100/40 transition-colors duration-300"></div>
         <div className="absolute bottom-0 left-0 w-24 h-24 bg-green-200/20 rounded-full -ml-12 -mb-12"></div>
@@ -1381,7 +1381,7 @@ function OverviewTab({ data }: { data: AnalyticsData }) {
       </Card>
 
       {/* Incidents Overview */}
-      <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-red-50 via-white to-red-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
+      <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-red-50 via-white to-red-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
         <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-transparent"></div>
         <div className="absolute top-0 right-0 w-32 h-32 bg-red-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-red-100/40 transition-colors duration-300"></div>
         <div className="absolute bottom-0 left-0 w-24 h-24 bg-red-200/20 rounded-full -ml-12 -mb-12"></div>
@@ -1414,7 +1414,7 @@ function OverviewTab({ data }: { data: AnalyticsData }) {
       </Card>
 
       {/* Documents Overview */}
-      <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-blue-50 via-white to-blue-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
+      <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-blue-50 via-white to-blue-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
         <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent"></div>
         <div className="absolute top-0 right-0 w-32 h-32 bg-blue-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-blue-100/40 transition-colors duration-300"></div>
         <div className="absolute bottom-0 left-0 w-24 h-24 bg-blue-200/20 rounded-full -ml-12 -mb-12"></div>
@@ -1446,7 +1446,7 @@ function OverviewTab({ data }: { data: AnalyticsData }) {
       </Card>
 
       {/* Action Plan Overview */}
-      <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-amber-50 via-white to-amber-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
+      <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-amber-50 via-white to-amber-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
         <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent"></div>
         <div className="absolute top-0 right-0 w-32 h-32 bg-amber-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-amber-100/40 transition-colors duration-300"></div>
         <div className="absolute bottom-0 left-0 w-24 h-24 bg-amber-200/20 rounded-full -ml-12 -mb-12"></div>
@@ -1475,7 +1475,7 @@ function OverviewTab({ data }: { data: AnalyticsData }) {
       </Card>
 
       {/* Learning Overview */}
-      <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-purple-50 via-white to-purple-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
+      <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-purple-50 via-white to-purple-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
         <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent"></div>
         <div className="absolute top-0 right-0 w-32 h-32 bg-purple-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-purple-100/40 transition-colors duration-300"></div>
         <div className="absolute bottom-0 left-0 w-24 h-24 bg-purple-200/20 rounded-full -ml-12 -mb-12"></div>
@@ -1520,7 +1520,7 @@ function ComplianceTab({ data }: { data: AnalyticsData }) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-blue-50 via-white to-blue-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
+        <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-blue-50 via-white to-blue-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
           <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent"></div>
           <div className="absolute top-0 right-0 w-32 h-32 bg-blue-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-blue-100/40 transition-colors duration-300"></div>
           <div className="absolute bottom-0 left-0 w-24 h-24 bg-blue-200/20 rounded-full -ml-12 -mb-12"></div>
@@ -1540,7 +1540,7 @@ function ComplianceTab({ data }: { data: AnalyticsData }) {
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-2 group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-blue-50 via-white to-blue-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
+        <Card className="lg:col-span-2 group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-blue-50 via-white to-blue-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
           <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent"></div>
           <div className="absolute top-0 right-0 w-32 h-32 bg-blue-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-blue-100/40 transition-colors duration-300"></div>
           <div className="absolute bottom-0 left-0 w-24 h-24 bg-blue-200/20 rounded-full -ml-12 -mb-12"></div>
@@ -1553,9 +1553,9 @@ function ComplianceTab({ data }: { data: AnalyticsData }) {
                 .filter((s: WorkspaceScore) => s.averageScore !== null)
                 .sort((a: WorkspaceScore, b: WorkspaceScore) => (b.averageScore || 0) - (a.averageScore || 0))
                 .map((workspace: WorkspaceScore, index: number) => (
-                <div key={workspace.workspaceId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div key={workspace.workspaceId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg dark:bg-slate-700/50">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm font-semibold">
+                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm font-semibold dark:bg-blue-900/50">
                       {index + 1}
                     </div>
                     <span className="font-medium">{workspace.workspaceName}</span>
@@ -1591,7 +1591,7 @@ function OperationsTab({ data }: { data: AnalyticsData }) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-green-50 via-white to-green-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
+        <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-green-50 via-white to-green-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
           <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-transparent"></div>
           <div className="absolute top-0 right-0 w-32 h-32 bg-green-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-green-100/40 transition-colors duration-300"></div>
           <div className="absolute bottom-0 left-0 w-24 h-24 bg-green-200/20 rounded-full -ml-12 -mb-12"></div>
@@ -1611,7 +1611,7 @@ function OperationsTab({ data }: { data: AnalyticsData }) {
           </CardContent>
         </Card>
 
-        <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-blue-50 via-white to-blue-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
+        <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-blue-50 via-white to-blue-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
           <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent"></div>
           <div className="absolute top-0 right-0 w-32 h-32 bg-blue-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-blue-100/40 transition-colors duration-300"></div>
           <div className="absolute bottom-0 left-0 w-24 h-24 bg-blue-200/20 rounded-full -ml-12 -mb-12"></div>
@@ -1861,9 +1861,9 @@ function IncidentsTab({ data }: { data: AnalyticsData }) {
                 .sort((a: WorkspaceIncident, b: WorkspaceIncident) => b.totalIncidents - a.totalIncidents)
                 .slice(0, 10)
                 .map((workspace: WorkspaceIncident, index: number) => (
-                <div key={workspace.workspaceId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div key={workspace.workspaceId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg dark:bg-slate-700/50">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-sm font-semibold">
+                    <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-sm font-semibold dark:bg-red-900/50">
                       {index + 1}
                     </div>
                     <span className="font-medium">{workspace.workspaceName}</span>
@@ -1949,9 +1949,9 @@ function DocumentsTab({ data }: { data: AnalyticsData }) {
                 .sort((a: WorkspaceDocument, b: WorkspaceDocument) => b.totalDocuments - a.totalDocuments)
                 .slice(0, 10)
                 .map((workspace: WorkspaceDocument, index: number) => (
-                <div key={workspace.workspaceId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div key={workspace.workspaceId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg dark:bg-slate-700/50">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm font-semibold">
+                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm font-semibold dark:bg-blue-900/50">
                       {index + 1}
                     </div>
                     <span className="font-medium">{workspace.workspaceName}</span>
@@ -2192,9 +2192,9 @@ function InsightsTab({ data }: { data: AnalyticsData }) {
             <div className="space-y-3">
               {lowCompliance.length > 0 ? (
                 lowCompliance.map((workspace: WorkspaceScore) => (
-                  <div key={workspace.workspaceId} className="p-3 bg-red-50 rounded-lg">
-                    <div className="font-medium text-red-900">{workspace.workspaceName}</div>
-                    <div className="text-sm text-red-700">
+                  <div key={workspace.workspaceId} className="p-3 bg-red-50 rounded-lg dark:bg-red-950/20">
+                    <div className="font-medium text-red-900 dark:text-red-100">{workspace.workspaceName}</div>
+                    <div className="text-sm text-red-700 dark:text-red-300">
                       Compliance: {Math.round(workspace.averageScore || 0)}% - Needs attention
                     </div>
                   </div>
@@ -2217,9 +2217,9 @@ function InsightsTab({ data }: { data: AnalyticsData }) {
             <div className="space-y-3">
               {highIncidents.length > 0 ? (
                 highIncidents.map((workspace: WorkspaceIncident) => (
-                  <div key={workspace.workspaceId} className="p-3 bg-orange-50 rounded-lg">
-                    <div className="font-medium text-orange-900">{workspace.workspaceName}</div>
-                    <div className="text-sm text-orange-700">
+                  <div key={workspace.workspaceId} className="p-3 bg-orange-50 rounded-lg dark:bg-orange-950/20">
+                    <div className="font-medium text-orange-900 dark:text-orange-100">{workspace.workspaceName}</div>
+                    <div className="text-sm text-orange-700 dark:text-orange-300">
                       {workspace.totalIncidents} incidents - Monitor closely
                     </div>
                   </div>
@@ -2242,9 +2242,9 @@ function InsightsTab({ data }: { data: AnalyticsData }) {
             <div className="space-y-3">
               {lowOccupancy.length > 0 ? (
                 lowOccupancy.map((workspace: WorkspaceOccupancy) => (
-                  <div key={workspace.workspaceId} className="p-3 bg-blue-50 rounded-lg">
-                    <div className="font-medium text-blue-900">{workspace.workspaceName}</div>
-                    <div className="text-sm text-blue-700">
+                  <div key={workspace.workspaceId} className="p-3 bg-blue-50 rounded-lg dark:bg-blue-950/20">
+                    <div className="font-medium text-blue-900 dark:text-blue-100">{workspace.workspaceName}</div>
+                    <div className="text-sm text-blue-700 dark:text-blue-300">
                       Occupancy: {Math.round(workspace.occupancyRate)}% - Potential for growth
                     </div>
                   </div>
@@ -2267,9 +2267,9 @@ function InsightsTab({ data }: { data: AnalyticsData }) {
             <div className="space-y-3">
               {actionPlanAlerts.length > 0 ? (
                 actionPlanAlerts.map((plan) => (
-                  <div key={plan.workspaceId} className="p-3 bg-amber-50 rounded-lg">
-                    <div className="font-medium text-amber-900">{plan.workspaceName}</div>
-                    <div className="text-sm text-amber-700">
+                  <div key={plan.workspaceId} className="p-3 bg-amber-50 rounded-lg dark:bg-amber-950/20">
+                    <div className="font-medium text-amber-900 dark:text-amber-100">{plan.workspaceName}</div>
+                    <div className="text-sm text-amber-700 dark:text-amber-300">
                       {plan.overdueItems} overdue · {plan.highPriorityOpen} high priority open
                     </div>
                   </div>
@@ -2293,9 +2293,9 @@ function InsightsTab({ data }: { data: AnalyticsData }) {
           <div className="space-y-3">
             {learningAlerts.length > 0 ? (
               learningAlerts.map((summary) => (
-                <div key={summary.workspaceId} className="p-3 bg-purple-50 rounded-lg">
-                  <div className="font-medium text-purple-900">{summary.workspaceName}</div>
-                  <div className="text-sm text-purple-700">
+                <div key={summary.workspaceId} className="p-3 bg-purple-50 rounded-lg dark:bg-purple-950/20">
+                  <div className="font-medium text-purple-900 dark:text-purple-100">{summary.workspaceName}</div>
+                  <div className="text-sm text-purple-700 dark:text-purple-300">
                     {summary.outstandingActions} outstanding actions • lessons {summary.lessonsCount} / RCAs {summary.rcaCount}
                   </div>
                 </div>
@@ -2316,41 +2316,41 @@ function InsightsTab({ data }: { data: AnalyticsData }) {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-            <div className="text-center p-4 bg-green-50 rounded-lg">
-              <div className="text-2xl font-bold text-green-600">
+            <div className="text-center p-4 bg-green-50 rounded-lg dark:bg-green-950/20">
+              <div className="text-2xl font-bold text-green-600 dark:text-green-100">
                 {Math.round(data.auditData.overallAverage)}%
               </div>
-              <div className="text-sm text-green-700">Avg Compliance</div>
+              <div className="text-sm text-green-700 dark:text-green-300">Avg Compliance</div>
             </div>
-            <div className="text-center p-4 bg-blue-50 rounded-lg">
-              <div className="text-2xl font-bold text-blue-600">
+            <div className="text-center p-4 bg-blue-50 rounded-lg dark:bg-blue-950/20">
+              <div className="text-2xl font-bold text-blue-600 dark:text-blue-100">
                 {Math.round(data.occupancyData.averageOccupancy)}%
               </div>
-              <div className="text-sm text-blue-700">Avg Occupancy</div>
+              <div className="text-sm text-blue-700 dark:text-blue-300">Avg Occupancy</div>
             </div>
-            <div className="text-center p-4 bg-orange-50 rounded-lg">
-              <div className="text-2xl font-bold text-orange-600">
+            <div className="text-center p-4 bg-orange-50 rounded-lg dark:bg-orange-950/20">
+              <div className="text-2xl font-bold text-orange-600 dark:text-orange-100">
                 {data.incidentData.totalIncidents}
               </div>
-              <div className="text-sm text-orange-700">Total Incidents</div>
+              <div className="text-sm text-orange-700 dark:text-orange-300">Total Incidents</div>
             </div>
-            <div className="text-center p-4 bg-purple-50 rounded-lg">
-              <div className="text-2xl font-bold text-purple-600">
+            <div className="text-center p-4 bg-purple-50 rounded-lg dark:bg-purple-950/20">
+              <div className="text-2xl font-bold text-purple-600 dark:text-purple-100">
                 {data.userActivityData.activeWorkspacesToday}
               </div>
-              <div className="text-sm text-purple-700">Active Today</div>
+              <div className="text-sm text-purple-700 dark:text-purple-300">Active Today</div>
             </div>
-            <div className="text-center p-4 bg-amber-50 rounded-lg">
-              <div className="text-2xl font-bold text-amber-600">
+            <div className="text-center p-4 bg-amber-50 rounded-lg dark:bg-amber-950/20">
+              <div className="text-2xl font-bold text-amber-600 dark:text-amber-100">
                 {data.actionPlanData.totalOverdue}
               </div>
-              <div className="text-sm text-amber-700">Overdue Actions</div>
+              <div className="text-sm text-amber-700 dark:text-amber-300">Overdue Actions</div>
             </div>
-            <div className="text-center p-4 bg-rose-50 rounded-lg">
-              <div className="text-2xl font-bold text-rose-600">
+            <div className="text-center p-4 bg-rose-50 rounded-lg dark:bg-rose-950/20">
+              <div className="text-2xl font-bold text-rose-600 dark:text-rose-100">
                 {data.lessonsData.totalOutstandingActions}
               </div>
-              <div className="text-sm text-rose-700">Outstanding Learning</div>
+              <div className="text-sm text-rose-700 dark:text-rose-300">Outstanding Learning</div>
             </div>
           </div>
         </CardContent>

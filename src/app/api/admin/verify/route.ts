@@ -32,6 +32,7 @@ export async function GET(req: NextRequest) {
     const decoded = await admin.auth().verifyIdToken(token);
     const roleClaim = (decoded?.role as string | undefined)?.toLowerCase?.();
     let isOwner = decoded?.owner === true || roleClaim === 'owner';
+    console.log('[verify] decoded uid:', decoded.uid, 'email:', decoded.email, 'roleClaim:', roleClaim, 'isOwner:', isOwner);
 
     if (!isOwner) {
       try {
@@ -49,21 +50,39 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    let isAdmin = isOwner || decoded?.admin === true || roleClaim === 'admin';
+        let isAdmin = isOwner || decoded?.admin === true || roleClaim === 'admin';
+    console.log('[verify] initial isAdmin:', isAdmin);
     if (!isAdmin && decoded.uid) {
       try {
+        // Check top-level users collection first
         const userDoc = await adminDb.collection('users').doc(decoded.uid).get();
         if (userDoc.exists) {
           const userData = userDoc.data() as any;
           const role = (userData?.role || '').toString().toLowerCase();
+          console.log('[verify] top-level user found, role:', role);
           if (role === 'admin' || role === 'owner') {
             isAdmin = true;
+          }
+        } else {
+          // Fallback: check org-scoped users via collectionGroup
+          const snaps = await adminDb.collectionGroup('users').where('id', '==', decoded.uid).limit(1).get();
+          if (!snaps.empty) {
+            const docSnap = snaps.docs[0];
+            const userData = docSnap.data() as any;
+            const role = (userData?.role || '').toString().toLowerCase();
+            console.log('[verify] org-scoped user found, role:', role, 'path:', docSnap.ref.path);
+            if (role === 'admin' || role === 'owner') {
+              isAdmin = true;
+            }
+          } else {
+            console.log('[verify] no user doc found for uid:', decoded.uid);
           }
         }
       } catch (userErr) {
         console.warn('[verify] failed admin role lookup', userErr);
       }
     }
+    console.log('[verify] final isAdmin:', isAdmin, 'isOwner:', isOwner);
 
     return NextResponse.json({ isAdmin, isOwner });
   } catch (e) {

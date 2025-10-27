@@ -404,17 +404,17 @@ export default function PolicyEditor({ policyContent, policyMeta, onSave, onGene
         {/* Form Section */}
         <div className="xl:col-span-2 space-y-6">
 
-          <div className="bg-white rounded-lg shadow-sm border p-6">
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border p-6">
             {/* Team Assignment UI removed from here; only present in the main form below */}
-            <h2 className="text-lg font-semibold mb-4">Required Information</h2>
+            <h2 className="text-lg font-semibold mb-4 dark:text-white">Required Information</h2>
             {placeholderFields.length === 0 ? (
-              <p className="text-gray-500">No editable fields found in this policy.</p>
+              <p className="text-gray-500 dark:text-slate-400">No editable fields found in this policy.</p>
             ) : (
               <>
                 {Object.keys(validationErrors).length > 0 && (
-                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
-                    <p className="text-red-800 text-sm font-medium">Please fix the following errors:</p>
-                    <ul className="mt-1 text-red-700 text-sm list-disc list-inside">
+                  <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+                    <p className="text-red-800 dark:text-red-200 text-sm font-medium">Please fix the following errors:</p>
+                    <ul className="mt-1 text-red-700 dark:text-red-300 text-sm list-disc list-inside">
                       {Object.values(validationErrors).map((error, index) => (
                         <li key={index}>{error}</li>
                       ))}
@@ -422,8 +422,8 @@ export default function PolicyEditor({ policyContent, policyMeta, onSave, onGene
                   </div>
                 )}
                 
-                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                  <p className="text-blue-800 text-sm">
+                <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+                  <p className="text-blue-800 dark:text-blue-200 text-sm">
                     This policy contains <strong>{placeholderFields.length}</strong> customisable field{placeholderFields.length !== 1 ? 's' : ''}. 
                     Fields marked with <span className="text-red-500">*</span> are required.
                   </p>
@@ -431,8 +431,8 @@ export default function PolicyEditor({ policyContent, policyMeta, onSave, onGene
                 
                 <div className="space-y-4">
                 {/* Teams checkboxes for intuitive multi-selection, styled as a card */}
-                <div className="mb-4 p-4 bg-slate-50 border border-slate-200 rounded-lg shadow-sm">
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">Assign to Teams</label>
+                <div className="mb-4 p-4 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg shadow-sm">
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-slate-200 mb-3">Assign to Teams</label>
                   <div className="flex flex-wrap gap-3">
                     {(teams && teams.length > 0 ? teams : [
                       { id: 'management', name: 'Management' },
@@ -446,7 +446,7 @@ export default function PolicyEditor({ policyContent, policyMeta, onSave, onGene
                       <label
                         key={team.id}
                         className={
-                          `flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-md shadow-sm transition-colors cursor-pointer hover:border-blue-400 ${assignedTeams.includes(team.id) ? 'ring-2 ring-blue-200 border-blue-400' : ''}`
+                          `flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-600 border border-gray-200 dark:border-slate-500 rounded-md shadow-sm transition-colors cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 ${assignedTeams.includes(team.id) ? 'ring-2 ring-blue-200 dark:ring-blue-600 border-blue-400 dark:border-blue-500' : ''}`
                         }
                         style={{ minWidth: 120 }}
                       >
@@ -463,11 +463,11 @@ export default function PolicyEditor({ policyContent, policyMeta, onSave, onGene
                           }}
                           className="accent-blue-600 w-4 h-4 rounded border-gray-300"
                         />
-                        <span className="text-gray-700 font-medium">{team.name}</span>
+                        <span className="text-gray-700 dark:text-slate-200 font-medium">{team.name}</span>
                       </label>
                     ))}
                   </div>
-                  <p className="text-xs text-gray-500 mt-2">Select one or more teams to assign this policy to.</p>
+                  <p className="text-xs text-gray-500 dark:text-slate-400 mt-2">Select one or more teams to assign this policy to.</p>
                 </div>
                 {placeholderFields.filter(field => field.label !== 'e.g., 3 or 6 months' && field.placeholder !== 'e.g., 3 or 6 months').map((field) => {
                   const hasError = validationErrors[field.placeholder];
@@ -476,7 +476,7 @@ export default function PolicyEditor({ policyContent, policyMeta, onSave, onGene
                                    field.placeholder.toLowerCase().includes('data');
                   return (
                     <div key={field.id}>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-1">
                         {field.label}
                         {isRequired && <span className="text-red-500 ml-1">*</span>}
                       </label>
@@ -485,15 +485,15 @@ export default function PolicyEditor({ policyContent, policyMeta, onSave, onGene
                           value={formData[field.placeholder] || ''}
                           onChange={(e) => handleFieldChange(field.placeholder, e.target.value)}
                           placeholder={`Enter ${field.label.toLowerCase()}`}
-                          className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                            hasError ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                          className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:border-slate-500 dark:text-white ${
+                            hasError ? 'border-red-300 bg-red-50 dark:bg-red-900/20 dark:border-red-700' : 'border-gray-300 dark:border-slate-500'
                           }`}
                           rows={3}
                         />
                       ) : field.label === 'Renewal Date' ? (
                         <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">Month</label>
+                            <label className="block text-xs font-medium text-gray-600 dark:text-slate-400 mb-1">Month</label>
                             <select
                               value={formData[field.placeholder]?.split('/')[0] || ''}
                               onChange={(e) => {
@@ -501,8 +501,8 @@ export default function PolicyEditor({ policyContent, policyMeta, onSave, onGene
                                 const year = currentValue.split('/')[1] || new Date().getFullYear();
                                 handleFieldChange(field.placeholder, `${e.target.value}/${year}`);
                               }}
-                              className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                                hasError ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                              className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:border-slate-500 dark:text-white ${
+                                hasError ? 'border-red-300 bg-red-50 dark:bg-red-900/20 dark:border-red-700' : 'border-gray-300 dark:border-slate-500'
                               }`}
                             >
                               <option value="">Month</option>
@@ -521,7 +521,7 @@ export default function PolicyEditor({ policyContent, policyMeta, onSave, onGene
                             </select>
                           </div>
                           <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">Year</label>
+                            <label className="block text-xs font-medium text-gray-600 dark:text-slate-400 mb-1">Year</label>
                             <select
                               value={formData[field.placeholder]?.split('/')[1] || ''}
                               onChange={(e) => {
@@ -529,8 +529,8 @@ export default function PolicyEditor({ policyContent, policyMeta, onSave, onGene
                                 const month = currentValue.split('/')[0] || '';
                                 handleFieldChange(field.placeholder, `${month}/${e.target.value}`);
                               }}
-                              className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                                hasError ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                              className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:border-slate-500 dark:text-white ${
+                                hasError ? 'border-red-300 bg-red-50 dark:bg-red-900/20 dark:border-red-700' : 'border-gray-300 dark:border-slate-500'
                               }`}
                             >
                               <option value="">Year</option>
@@ -547,15 +547,15 @@ export default function PolicyEditor({ policyContent, policyMeta, onSave, onGene
                           value={formData[field.placeholder] || ''}
                           onChange={(e) => handleFieldChange(field.placeholder, e.target.value)}
                           placeholder={field.type === 'date' ? '' : `Enter ${field.label.toLowerCase()}`}
-                          className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                            hasError ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                          className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:border-slate-500 dark:text-white ${
+                            hasError ? 'border-red-300 bg-red-50 dark:bg-red-900/20 dark:border-red-700' : 'border-gray-300 dark:border-slate-500'
                           }`}
                         />
                       )}
                       {hasError && (
                         <p className="text-red-500 text-xs mt-1">{hasError}</p>
                       )}
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
                         Replaces: [{field.placeholder}]
                       </p>
                     </div>
@@ -567,11 +567,11 @@ export default function PolicyEditor({ policyContent, policyMeta, onSave, onGene
           </div>
 
           {/* Action Buttons */}
-          <div className="bg-white rounded-lg shadow-sm border p-6">
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border p-6">
             <div className="flex gap-3">
               <button
                 onClick={handleSave}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:bg-gray-400"
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:bg-gray-400 dark:disabled:bg-slate-600"
                 disabled={isGenerating}
               >
                 Save Draft
@@ -579,7 +579,7 @@ export default function PolicyEditor({ policyContent, policyMeta, onSave, onGene
               <button
                 onClick={handleGeneratePDF}
                 disabled={isGenerating}
-                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:bg-gray-400 flex items-center gap-2"
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:bg-gray-400 dark:disabled:bg-slate-600 flex items-center gap-2"
               >
                 {isGenerating ? (
                   <>
@@ -599,10 +599,10 @@ export default function PolicyEditor({ policyContent, policyMeta, onSave, onGene
 
         {/* Preview Section - Always Visible */}
         <div className="xl:col-span-3 space-y-6">
-          <div className="bg-white rounded-lg shadow-sm border h-fit sticky top-6">
-            <div className="border-b border-gray-200 px-6 py-4">
-              <h2 className="text-lg font-semibold text-gray-900">Policy Preview</h2>
-              <p className="text-sm text-gray-600 mt-1">Live preview of your customised policy</p>
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border h-fit sticky top-6">
+            <div className="border-b border-gray-200 dark:border-slate-600 px-6 py-4">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Policy Preview</h2>
+              <p className="text-sm text-gray-600 dark:text-slate-400 mt-1">Live preview of your customised policy</p>
             </div>
             <div className="p-6">
               <div className="prose prose-sm max-w-none">
@@ -658,7 +658,7 @@ export default function PolicyEditor({ policyContent, policyMeta, onSave, onGene
                 </div>
                 
                 <div
-                  className="policy-preview border border-blue-200 rounded p-2 min-h-[300px] focus:outline-none"
+                  className="policy-preview border border-blue-200 dark:border-slate-600 rounded p-2 min-h-[300px] focus:outline-none"
                   contentEditable
                   suppressContentEditableWarning
                   spellCheck={true}
@@ -685,6 +685,13 @@ export default function PolicyEditor({ policyContent, policyMeta, onSave, onGene
           background-color: #fff;
           max-width: none;
           font-size: 14px;
+        }
+        
+        @media (prefers-color-scheme: dark) {
+          .policy-preview {
+            color: #e2e8f0;
+            background-color: #1e293b;
+          }
         }
         
         /* Main title - typically H1 */
@@ -884,6 +891,32 @@ export default function PolicyEditor({ policyContent, policyMeta, onSave, onGene
           border: none;
           border-top: 1px solid #000;
           margin: 15px 0;
+        }
+        
+        @media (prefers-color-scheme: dark) {
+          .policy-preview h1,
+          .policy-preview h2,
+          .policy-preview h3,
+          .policy-preview h4,
+          .policy-preview .role-title,
+          .policy-preview .policy-unordered-list .policy-list-item::before,
+          .policy-preview .policy-ordered-list .policy-list-item::before,
+          .policy-preview ul:not(.policy-unordered-list) li::before,
+          .policy-preview ol:not(.policy-ordered-list) li::before,
+          .policy-preview strong,
+          .policy-preview em,
+          .policy-preview th,
+          .policy-preview td {
+            color: #e2e8f0;
+          }
+          
+          .policy-preview th {
+            background-color: #374151;
+          }
+          
+          .policy-preview hr {
+            border-top-color: #e2e8f0;
+          }
         }
         
         /* Highlighted fields - show user feedback for filled placeholders */

@@ -40,10 +40,10 @@ interface RotaGridProps {
 }
 
 const ANNUAL_LEAVE_THEME = {
-  summaryContainer: "border bg-orange-50 border-orange-200",
+  summaryContainer: "border bg-orange-50 border-orange-200 dark:bg-slate-800 dark:border-orange-700",
   summaryDot: "bg-orange-500",
-  detailContainer: "border border-orange-300 bg-orange-100 text-orange-800",
-  detailBadge: "border-orange-500 text-orange-700",
+  detailContainer: "border border-orange-300 bg-orange-100 text-orange-800 dark:border-orange-700 dark:bg-slate-800 dark:text-orange-200",
+  detailBadge: "border-orange-500 text-orange-700 dark:border-orange-600 dark:text-orange-200",
 };
 
 interface ShiftGroup {
@@ -188,51 +188,52 @@ export function RotaGrid({ weekStart, weeksToShow, staff, shifts, onAddShift, on
               : 0;
 
             return (
-              <Card
+                <Card
                 key={date.toISOString()}
                 className={cn(
                   "overflow-hidden transition-all hover:shadow-lg",
                   (readOnly ? hasEntries : true) && "cursor-pointer",
                   todayCard && "ring-2 ring-primary shadow-md",
-                  weekend && "bg-muted/30"
+                  // ensure weekend and today header/bg have dark variants
+                  weekend && "bg-muted/30 dark:bg-slate-800",
                 )}
                 onClick={() => (readOnly ? hasEntries : true) && handleViewDetails(date, dateStr)}
               >
                 <CardHeader className={cn(
                   "pb-3",
-                  todayCard && "bg-primary/5",
-                  weekend && !todayCard && "bg-muted/50"
+                  todayCard && "bg-primary/5 dark:bg-slate-900",
+                  weekend && !todayCard && "bg-muted/50 dark:bg-slate-800"
                 )}>
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-3">
                         <div className={cn(
                           "text-4xl font-bold leading-none",
-                          todayCard ? "text-primary" : "text-foreground"
+                          todayCard ? "text-primary" : "text-foreground dark:text-slate-100"
                         )}>
                           {format(date, 'd')}
                         </div>
                         <div className="flex-1">
                           <CardTitle className={cn(
                             "text-lg font-bold leading-tight",
-                            todayCard && "text-primary"
+                            todayCard && "text-primary dark:text-slate-100"
                           )}>
                             {format(date, 'EEEE')}
                           </CardTitle>
                           <div className={cn(
                             "text-sm mt-0.5",
-                            todayCard ? "text-primary/80" : "text-muted-foreground"
+                            todayCard ? "text-primary/80" : "text-muted-foreground dark:text-slate-300"
                           )}>
                             {format(date, 'MMMM yyyy')}
                           </div>
                         </div>
                         {todayCard && (
-                          <Badge className="bg-primary text-primary-foreground text-xs shrink-0">Today</Badge>
+                          <Badge className="bg-primary text-primary-foreground text-xs shrink-0 dark:bg-primary/10 dark:text-slate-100">Today</Badge>
                         )}
                       </div>
                     </div>
                     {hasEntries && (
-                      <Badge variant="secondary" className="ml-2">
+                      <Badge variant="secondary" className="ml-2 dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600">
                         <Users className="w-3 h-3 mr-1" />
                         {workingCount}
                       </Badge>
@@ -254,7 +255,7 @@ export function RotaGrid({ weekStart, weeksToShow, staff, shifts, onAddShift, on
                             <div className={cn("w-2 h-2 rounded-full", group.theme.summaryDot)} />
                             <span className="text-xs font-medium">{group.pattern?.id ?? group.type}</span>
                           </div>
-                          <Badge variant="secondary" className="text-xs">
+                          <Badge variant="secondary" className="text-xs dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600">
                             {group.shifts.length}
                           </Badge>
                         </div>
@@ -270,7 +271,7 @@ export function RotaGrid({ weekStart, weeksToShow, staff, shifts, onAddShift, on
                             <div className={cn("w-2 h-2 rounded-full", leaveGroup.theme.summaryDot)} />
                             <span className="text-xs font-medium">{leaveGroup.label}</span>
                           </div>
-                          <Badge variant="secondary" className="text-xs">
+                          <Badge variant="secondary" className="text-xs dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600">
                             {totalLeaveHours.toFixed(1)}h
                           </Badge>
                         </div>
@@ -362,7 +363,7 @@ export function RotaGrid({ weekStart, weeksToShow, staff, shifts, onAddShift, on
                         {group.pattern?.label ?? group.label}
                         {group.pattern ? ` (${group.pattern.startTime} - ${group.pattern.endTime})` : ''}
                       </span>
-                      <Badge variant="secondary" className="ml-auto">
+                      <Badge variant="secondary" className="ml-auto dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600">
                         {group.shifts.length}
                       </Badge>
                     </div>
@@ -442,7 +443,7 @@ export function RotaGrid({ weekStart, weeksToShow, staff, shifts, onAddShift, on
                       <span className="text-sm text-muted-foreground">
                         Annual leave entries ({leaveGroup.shifts.length})
                       </span>
-                      <Badge variant="secondary" className="ml-auto">
+                      <Badge variant="secondary" className="ml-auto dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600">
                         {formatHours(totalLeaveHoursForDay)}h
                       </Badge>
                     </div>

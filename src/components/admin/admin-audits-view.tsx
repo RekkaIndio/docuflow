@@ -187,36 +187,36 @@ export default function AuditsView({ workspace, recentUploads, aggregateAuditDat
               const isUrgent = false;
 
               return (
-                <div key={auditType} className={`group relative overflow-hidden rounded-xl bg-gradient-to-br from-white to-gray-50/50 border border-gray-200/60 shadow-sm hover:shadow-lg transition-all duration-300 min-h-[170px] flex flex-col justify-between`}>
+                <div key={auditType} className={`group relative overflow-hidden rounded-xl bg-gradient-to-br from-white to-gray-50/50 border border-gray-200/60 shadow-sm hover:shadow-lg transition-all duration-300 min-h-[170px] flex flex-col justify-between dark:bg-none dark:bg-slate-800 dark:border-slate-700`}>
                   {/* Background accents */}
-                  <div className="absolute inset-0 opacity-[0.02]">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-gray-900 to-transparent rounded-full -translate-y-16 translate-x-16" />
-                    <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-gray-900 to-transparent rounded-full translate-y-12 -translate-x-12" />
-                  </div>
+                  <div className="absolute inset-0 opacity-[0.02] dark:opacity-[0.04]">
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-gray-900 to-transparent rounded-full -translate-y-16 translate-x-16 dark:from-transparent" />
+                      <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-gray-900 to-transparent rounded-full translate-y-12 -translate-x-12 dark:from-transparent" />
+                    </div>
 
                   {/* Top accent bar */}
-                  <div className={`h-1 w-full bg-gradient-to-r ${isCompleted ? 'from-green-500 to-green-600' : 'from-blue-500 to-blue-600'}`} />
+                  <div className={`h-1 w-full ${isCompleted ? 'bg-gradient-to-r from-green-500 to-green-600' : 'bg-gradient-to-r from-blue-500 to-blue-600'} dark:bg-none dark:bg-slate-700`} />
 
                   <div className="p-6 relative z-10 flex-1 flex">
                     <div className="flex items-start gap-4 w-full">
-                      <div className={`p-3 rounded-xl ${isCompleted ? 'bg-green-100' : 'bg-blue-100'} shadow-sm`}>
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={`${isCompleted ? 'text-green-600' : 'text-blue-600'}`}>
+                      <div className={`p-3 rounded-xl ${isCompleted ? 'bg-green-100' : 'bg-blue-100'} shadow-sm dark:bg-slate-700`}>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={`${isCompleted ? 'text-green-600 dark:text-green-300' : 'text-blue-600 dark:text-blue-300'}`}>
                           <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
                       </div>
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-3">
-                          <h3 className={`text-lg font-semibold text-gray-900 ${isCompleted ? 'text-green-800' : ''} group-hover:text-gray-800 transition-colors`}>
+                          <h3 className={`text-lg font-semibold text-gray-900 dark:text-slate-100 ${isCompleted ? 'text-green-800 dark:text-green-200' : ''} group-hover:text-gray-800 dark:group-hover:text-slate-200 transition-colors`}>
                             {AUDIT_NAMES[auditType] ?? auditType}
                           </h3>
                           <div className="text-xs text-muted-foreground">{snapshotCount} snapshot{snapshotCount !== 1 ? 's' : ''}</div>
                         </div>
-                        <p className={`text-sm text-gray-600 mt-1 ${isCompleted ? 'text-green-700' : ''} group-hover:text-gray-700 transition-colors`}>Latest: {latest ? formatTime(latest) : '—'}</p>
+                        <p className={`text-sm text-gray-600 dark:text-slate-300 mt-1 ${isCompleted ? 'text-green-700 dark:text-green-200' : ''} group-hover:text-gray-700 dark:group-hover:text-slate-200 transition-colors`}>Latest: {latest ? formatTime(latest) : '—'}</p>
                       </div>
 
                       <div className="flex flex-col gap-3">
-                        <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${isCompleted ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-yellow-50 text-yellow-800 border border-yellow-100'}`}>
+                        <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${isCompleted ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-yellow-50 text-yellow-800 border border-yellow-100'} dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600`}>
                           {isCompleted ? 'Completed' : 'Incomplete'}
                         </div>
 

@@ -64,15 +64,15 @@ export function AdminSidebar({
     <>
       <SidebarHeader>
         <div className="w-full flex items-center justify-between">
-          <Button variant="ghost" className="w-full justify-between h-12 px-2">
+          <Button variant="ghost" className="w-full justify-between h-12 px-2 hover:bg-slate-100 dark:hover:bg-slate-700">
             <div className="flex items-center gap-2 overflow-hidden">
               <Logo className="w-8 h-8 text-primary flex-shrink-0" />
               <div className="flex flex-col text-left overflow-hidden">
-                <h2 className="text-md font-headline font-semibold truncate">CG360</h2>
-                <p className="text-xs text-muted-foreground">Admin Workspace</p>
+                <h2 className="text-md font-headline font-semibold truncate text-slate-900 dark:text-slate-100">CG360</h2>
+                <p className="text-xs text-muted-foreground dark:text-slate-400">Admin Workspace</p>
               </div>
             </div>
-            <ChevronsUpDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+            <ChevronsUpDown className="w-4 h-4 text-muted-foreground dark:text-slate-400 flex-shrink-0" />
           </Button>
         </div>
       </SidebarHeader>

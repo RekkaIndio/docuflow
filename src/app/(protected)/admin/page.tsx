@@ -4,7 +4,6 @@ import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import AdminWorkspaceView from '@/components/admin/admin-workspace-view';
 import AdminWorkspacesView from '@/components/admin/admin-workspaces-view';
-import AdminDashboardHeader from '@/components/admin/admin-dashboard-header';
 import AdminPageHeader from '@/components/admin/admin-page-header';
 import AdminOverviewCards from '@/components/admin/admin-overview-cards';
 import AdminStaffingChart from '@/components/admin/admin-staffing-chart';
@@ -147,11 +146,11 @@ const AdminDashboardHero = ({
   const todayLabel = new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
 
   return (
-    <section className="relative overflow-hidden rounded-3xl border border-border/50 bg-gradient-to-br from-primary to-accent text-primary-foreground shadow-2xl">
+    <section className="relative overflow-hidden rounded-3xl border border-border/50 bg-gradient-to-br from-primary to-accent dark:from-slate-800 dark:to-slate-900 text-primary-foreground shadow-2xl">
       <div className="pointer-events-none absolute inset-0 opacity-60">
-        <div className="absolute -top-24 -right-20 h-80 w-80 rounded-full bg-primary/30 blur-3xl animate-pulse" />
-        <div className="absolute bottom-[-6rem] left-[-4rem] h-96 w-96 rounded-full bg-accent/25 blur-3xl" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[600px] rounded-full bg-primary/10 blur-3xl" />
+        <div className="absolute -top-24 -right-20 h-80 w-80 rounded-full bg-primary/30 dark:bg-slate-700/30 blur-3xl animate-pulse" />
+        <div className="absolute bottom-[-6rem] left-[-4rem] h-96 w-96 rounded-full bg-accent/25 dark:bg-slate-600/20 blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[600px] rounded-full bg-primary/10 dark:bg-slate-700/10 blur-3xl" />
       </div>
 
       <div className="relative z-10 grid gap-10 p-8 lg:grid-cols-[minmax(0,1.2fr),minmax(0,0.9fr)] lg:p-12">
@@ -161,9 +160,9 @@ const AdminDashboardHero = ({
               <Building2 className="h-8 w-8 text-white/85" />
             </div>
             <div className="space-y-2">
-              <p className="text-xs uppercase tracking-[0.3em] text-primary-foreground/60">Admin overview</p>
-              <h1 className="text-3xl font-semibold sm:text-4xl">Admin control centre</h1>
-              <p className="max-w-3xl text-base text-primary-foreground/70">
+              <p className="text-xs uppercase tracking-[0.3em] text-primary-foreground/60 dark:text-white/60">Admin overview</p>
+              <h1 className="text-3xl font-semibold sm:text-4xl dark:text-white">Admin control centre</h1>
+              <p className="max-w-3xl text-base text-primary-foreground/70 dark:text-white/70">
                 Orchestrate compliance, care performance, and organisational health across every workspace with a consolidated command view.
               </p>
             </div>
@@ -173,7 +172,7 @@ const AdminDashboardHero = ({
             <Button
               variant="secondary"
               size="lg"
-              className="border-white/40 bg-white/15 text-primary-foreground hover:bg-white/25 hover:border-white/60 backdrop-blur-sm shadow-md transition-all"
+              className="border-white/40 bg-white/15 text-primary-foreground dark:text-white hover:bg-white/25 hover:border-white/60 backdrop-blur-sm shadow-md transition-all"
               onClick={onManageWorkspaces}
             >
               Manage workspaces
@@ -181,7 +180,7 @@ const AdminDashboardHero = ({
             <Button
               variant="outline"
               size="lg"
-              className="border-white/30 bg-transparent text-primary-foreground hover:bg-white/10 hover:border-white/40 backdrop-blur-sm"
+              className="border-white/30 bg-transparent text-primary-foreground dark:text-white hover:bg-white/10 hover:border-white/40 backdrop-blur-sm"
               onClick={() => router.push('/admin/analytics')}
             >
               Open analytics
@@ -195,13 +194,13 @@ const AdminDashboardHero = ({
                 className="group relative overflow-hidden rounded-2xl border border-white/15 bg-white/10 p-5 backdrop-blur-md shadow-lg transition-all duration-300 hover:shadow-xl"
               >
                 <div className="flex items-center gap-3">
-                  <div className="rounded-xl bg-white/15 p-3 text-primary-foreground/80">
+                  <div className="rounded-xl bg-white/15 p-3 text-primary-foreground/80 dark:text-white/80">
                     <Icon className="h-5 w-5" />
                   </div>
                   <div className="flex-1">
-                    <div className="text-xs font-semibold uppercase tracking-wider text-primary-foreground/60">{label}</div>
-                    <div className="text-xl font-bold text-primary-foreground">{value}</div>
-                    <div className="text-xs text-primary-foreground/60">{helper}</div>
+                    <div className="text-xs font-semibold uppercase tracking-wider text-primary-foreground/60 dark:text-white/60">{label}</div>
+                    <div className="text-xl font-bold text-primary-foreground dark:text-white">{value}</div>
+                    <div className="text-xs text-primary-foreground/60 dark:text-white/60">{helper}</div>
                   </div>
                 </div>
               </div>
@@ -212,17 +211,17 @@ const AdminDashboardHero = ({
         <div className="flex flex-col justify-between gap-6 rounded-2xl border border-white/20 bg-gradient-to-br from-white/15 to-white/5 p-7 backdrop-blur-md shadow-lg">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-bold uppercase tracking-wider text-primary-foreground">Signal board</span>
+              <span className="text-sm font-bold uppercase tracking-wider text-primary-foreground dark:text-white">Signal board</span>
               <Badge className="bg-emerald-500/25 border-emerald-400/60 text-emerald-100 backdrop-blur-sm">
                 {todayLabel}
               </Badge>
             </div>
-            <p className="text-sm text-white/75 leading-relaxed">
+            <p className="text-sm text-white/75 dark:text-white leading-relaxed">
               Key indicators highlighting where to focus attention across the network today.
             </p>
           </div>
 
-          <div className="space-y-4 text-sm text-white/75">
+          <div className="space-y-4 text-sm text-white/75 dark:text-white">
             {signalItems.map(({ Icon, tone, text }, index) => (
               <div key={index} className="flex items-start gap-3">
                 <Icon className={`mt-1 h-4 w-4 ${tone}`} />
@@ -231,11 +230,11 @@ const AdminDashboardHero = ({
             ))}
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 text-xs text-white/60">
-            <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1">
+          <div className="flex flex-wrap items-center gap-3 text-xs text-white/60 dark:text-white">
+            <span className="rounded-full border border-white/20 dark:border-white/30 bg-white/10 dark:bg-white/10 px-3 py-1">
               {workspaceCount} workspaces monitored
             </span>
-            <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1">
+            <span className="rounded-full border border-white/20 dark:border-white/30 bg-white/10 dark:bg-white/10 px-3 py-1">
               {aggregateAuditData.auditsCompleted} audits synced
             </span>
           </div>
@@ -1399,7 +1398,7 @@ export default function AdminPage() {
 
   return (
     <>
-      <div className="flex flex-col h-full min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
+      <div className="flex flex-col h-full min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 dark:from-slate-900 dark:via-slate-800/30 dark:to-slate-700/20">
         {/* Simple header */}
         {!selectedWorkspace ? (
           // Top-level switch for admin views
@@ -1430,7 +1429,7 @@ export default function AdminPage() {
                   {selectedWorkspaceForTeams ? (
                     // Show the full TeamsView for a selected workspace with a header/back button
                     <div className="h-[calc(100vh-64px)] flex flex-col">
-                      <header className="bg-background p-4 border-b flex items-center justify-between">
+                      <header className="bg-background dark:bg-slate-800 p-4 border-b flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <Button variant="ghost" size="icon" onClick={() => setSelectedWorkspaceForTeams(null)}>
                             <ArrowLeft className="w-4 h-4" />
@@ -1473,10 +1472,10 @@ export default function AdminPage() {
                             const staffAggregate = computeStaffAggregate(ws);
 
                             return (
-                              <Card key={ws.id} className="relative hover:shadow-xl transition-all duration-300 border border-blue-100 bg-white rounded-2xl">
+                              <Card key={ws.id} className="relative hover:shadow-xl transition-all duration-300 border border-blue-100 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-2xl">
                                 {/* top accent */}
                                 <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl bg-gradient-to-r from-blue-500 via-purple-500 to-indigo-500" aria-hidden />
-                                <CardHeader className="flex flex-row items-center justify-between w-full px-5 py-4 border-b border-blue-50 bg-white rounded-t-2xl">
+                                <CardHeader className="flex flex-row items-center justify-between w-full px-5 py-4 border-b border-blue-50 dark:border-slate-600 bg-white dark:bg-slate-800 rounded-t-2xl">
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2">
                                       <FolderIcon className="w-5 h-5 text-blue-500" />
@@ -1519,12 +1518,12 @@ export default function AdminPage() {
                                 <CardContent className="p-5">
                                   <div className="flex items-center justify-center mb-2">
                                     {/* Single centered staffing tile */}
-                                    <div className="bg-white rounded-2xl shadow-sm p-6 flex flex-col items-center justify-center w-40">
+                                    <div className="bg-white dark:bg-slate-700 rounded-2xl shadow-sm p-6 flex flex-col items-center justify-center w-40">
                                       <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center mb-3">
                                         <Users className="w-6 h-6 text-blue-500" />
                                       </div>
-                                      <div className="text-2xl font-bold text-slate-800">{staffAggregate !== null ? staffAggregate : (typeof ws.staffingLevel === 'number' ? `${ws.staffingLevel}%` : '—')}</div>
-                                      <div className="text-sm text-slate-500 mt-1">Staffing</div>
+                                      <div className="text-2xl font-bold text-slate-800 dark:text-slate-200">{staffAggregate !== null ? staffAggregate : (typeof ws.staffingLevel === 'number' ? `${ws.staffingLevel}%` : '—')}</div>
+                                      <div className="text-sm text-slate-500 dark:text-slate-400 mt-1">Staffing</div>
                                     </div>
                                   </div>
                                 </CardContent>
@@ -1730,6 +1729,13 @@ export default function AdminPage() {
                   return <PoliciesPage />;
                 })()}
               </React.Suspense>
+            ) : adminView === 'accessibility' ? (
+              <React.Suspense fallback={<div>Loading...</div>}>
+                {(() => {
+                  const AccessibilityViewComp = require("@/components/dashboard/accessibility-view").default;
+                  return <AccessibilityViewComp workspace={{ id: 'admin', name: 'Admin', folders: [] }} />;
+                })()}
+              </React.Suspense>
             ) : (
             // Default dashboard / files view (unchanged)
             <>
@@ -1780,7 +1786,7 @@ export default function AdminPage() {
                   ) : null}
 
                     <main className="flex-1 overflow-y-auto">
-                      <div className="min-h-full bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/10">
+                      <div className="min-h-full bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/10 dark:from-slate-900 dark:via-slate-800/20 dark:to-slate-700/10">
                         <div className="w-full px-4 sm:px-6 lg:px-8 py-8 space-y-10 lg:space-y-14">
                           <AdminDashboardHero
                             workspaceCount={workspaces.length}
@@ -1871,7 +1877,7 @@ export default function AdminPage() {
       )}>
         {isChatOpen ? (
           <div className="h-full">
-            <div className="h-full flex flex-col shadow-2xl bg-white rounded-lg">
+            <div className="h-full flex flex-col shadow-2xl bg-white dark:bg-slate-800 rounded-lg">
               <div className="flex items-center justify-between p-2 border-b">
                 <h3 className="font-semibold px-2 truncate">Admin Chat</h3>
                 <Button

@@ -11,12 +11,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { auth } from '@/lib/firebase';
+import { ORGANISATION_TEAM_KEYS, ORGANISATION_TEAM_LABELS, defaultTeamsForRole, type OrganisationTeamKey } from '@/lib/team-roles';
 import {
   Loader2,
   RefreshCcw,
@@ -68,6 +70,7 @@ type MemberSummary = {
   status: string | null;
   createdAt: string | null;
   updatedAt: string | null;
+  teamKeys: TeamKey[];
 };
 
 type InviteSummary = {
@@ -187,18 +190,7 @@ type ProvisionResponse = {
 
 type MemberRoleKey = 'member' | 'admin' | 'owner';
 
-type TeamKey =
-  | 'admin'
-  | 'staff'
-  | 'inspection'
-  | 'management'
-  | 'nurses'
-  | 'carers'
-  | 'ctm'
-  | 'domestic'
-  | 'maintenance'
-  | 'kitchen'
-  | 'activities';
+type TeamKey = OrganisationTeamKey;
 
 type ProvisionMemberForm = {
   id: string;
@@ -244,6 +236,7 @@ type MemberFormState = {
   name: string;
   role: MemberRoleKey;
   workspaceIds: string[];
+  teamKeys: TeamKey[];
   sendPasswordEmail: boolean;
 };
 
@@ -307,19 +300,25 @@ type UserStatistics = {
 
 const MAX_PROVISION_WORKSPACES = 10;
 
-const TEAM_OPTIONS: Array<{ key: TeamKey; label: string; description: string }> = [
-  { key: 'admin', label: 'Admin', description: 'Leadership, managers, and heads of service' },
-  { key: 'staff', label: 'Staff', description: 'Front-line care staff and general workforce' },
-  { key: 'inspection', label: 'Inspection', description: 'Regulatory or external inspection read-only access' },
-  { key: 'management', label: 'Management', description: 'Registered managers and senior leadership contacts' },
-  { key: 'nurses', label: 'Nurses', description: 'Registered nursing staff across the service' },
-  { key: 'carers', label: 'Carers', description: 'Care assistants and support workers' },
-  { key: 'ctm', label: 'CTM', description: 'Care team managers overseeing rostering and compliance' },
-  { key: 'domestic', label: 'Domestic', description: 'Housekeeping and domestic services team' },
-  { key: 'maintenance', label: 'Maintenance', description: 'Maintenance and facilities staff' },
-  { key: 'kitchen', label: 'Kitchen', description: 'Catering and kitchen staff members' },
-  { key: 'activities', label: 'Activities', description: 'Lifestyle and wellbeing coordinators' },
-];
+const TEAM_DESCRIPTIONS: Record<TeamKey, string> = {
+  admin: 'Leadership, managers, and heads of service',
+  staff: 'Front-line care staff and general workforce',
+  inspection: 'Regulatory or external inspection read-only access',
+  management: 'Registered managers and senior leadership contacts',
+  nurses: 'Registered nursing staff across the service',
+  carers: 'Care assistants and support workers',
+  ctm: 'Care team managers overseeing rostering and compliance',
+  domestic: 'Housekeeping and domestic services team',
+  maintenance: 'Maintenance and facilities staff',
+  kitchen: 'Catering and kitchen staff members',
+  activities: 'Lifestyle and wellbeing coordinators',
+};
+
+const TEAM_OPTIONS: Array<{ key: TeamKey; label: string; description: string }> = ORGANISATION_TEAM_KEYS.map((key) => ({
+  key,
+  label: ORGANISATION_TEAM_LABELS[key],
+  description: TEAM_DESCRIPTIONS[key],
+}));
 
 const TIMEZONE_OPTIONS = [
   { value: 'Europe/London', label: 'GMT / BST — United Kingdom' },
@@ -372,13 +371,16 @@ const DEFAULT_WORKSPACE_FORM: WorkspaceFormState = {
   memberIds: '',
 };
 
-const DEFAULT_MEMBER_FORM: MemberFormState = {
+const createDefaultMemberForm = (role: MemberRoleKey = 'member'): MemberFormState => ({
   email: '',
   name: '',
-  role: 'member',
+  role,
   workspaceIds: [],
+  teamKeys: defaultTeamsForRole(role),
   sendPasswordEmail: true,
-};
+});
+
+const DEFAULT_MEMBER_FORM: MemberFormState = createDefaultMemberForm();
 
 const DEFAULT_INVITE_FORM: InviteFormState = {
   email: '',
@@ -435,7 +437,7 @@ const OwnerConsolePage: React.FC = () => {
   const [workspaceForm, setWorkspaceForm] = useState<WorkspaceFormState>(DEFAULT_WORKSPACE_FORM);
   const [workspaceCreating, setWorkspaceCreating] = useState<boolean>(false);
 
-  const [memberForm, setMemberForm] = useState<MemberFormState>(DEFAULT_MEMBER_FORM);
+  const [memberForm, setMemberForm] = useState<MemberFormState>(() => createDefaultMemberForm());
   const [memberCreating, setMemberCreating] = useState<boolean>(false);
   const [memberUpdating, setMemberUpdating] = useState<string | null>(null);
 
@@ -971,7 +973,7 @@ const OwnerConsolePage: React.FC = () => {
     setOrganisationDetail(null);
     setActiveTab('overview');
     setWorkspaceForm(DEFAULT_WORKSPACE_FORM);
-    setMemberForm(DEFAULT_MEMBER_FORM);
+    setMemberForm(createDefaultMemberForm());
     setInviteForm(DEFAULT_INVITE_FORM);
   };
 
@@ -1033,6 +1035,30 @@ const OwnerConsolePage: React.FC = () => {
     });
   };
 
+  const handleMemberTeamToggle = (teamKey: TeamKey) => {
+    setMemberForm((prev) => {
+      const exists = prev.teamKeys.includes(teamKey);
+      return {
+        ...prev,
+        teamKeys: exists ? prev.teamKeys.filter((key) => key !== teamKey) : [...prev.teamKeys, teamKey],
+      };
+    });
+  };
+
+  const handleMemberRoleChange = (value: MemberRoleKey) => {
+    setMemberForm((prev) => {
+      const previousDefaults = defaultTeamsForRole(prev.role);
+      const usingPreviousDefaults =
+        prev.teamKeys.length === previousDefaults.length && previousDefaults.every((teamKey) => prev.teamKeys.includes(teamKey));
+      const nextTeamKeys = usingPreviousDefaults ? defaultTeamsForRole(value) : prev.teamKeys;
+      return {
+        ...prev,
+        role: value,
+        teamKeys: nextTeamKeys,
+      };
+    });
+  };
+
   const handleMemberCreate = async () => {
     if (!selectedOrganisationId || !memberForm.email.trim()) {
       toast({
@@ -1053,6 +1079,7 @@ const OwnerConsolePage: React.FC = () => {
           name: memberForm.name.trim() || undefined,
           role: memberForm.role,
           workspaceIds: memberForm.workspaceIds,
+          teamKeys: memberForm.teamKeys,
           sendPasswordEmail: memberForm.sendPasswordEmail,
         }),
       });
@@ -1062,7 +1089,7 @@ const OwnerConsolePage: React.FC = () => {
       }
 
       await fetchOrganisationDetail(selectedOrganisationId);
-      setMemberForm(DEFAULT_MEMBER_FORM);
+      setMemberForm(createDefaultMemberForm());
       toast({
         title: 'Member invited',
         description: payload.passwordLink ? 'Invite link generated and password email sent.' : 'Member invite recorded.',
@@ -2705,6 +2732,7 @@ const OwnerConsolePage: React.FC = () => {
                                 <TableHead>Name</TableHead>
                                 <TableHead>Email</TableHead>
                                 <TableHead className="hidden md:table-cell">Role</TableHead>
+                                <TableHead className="hidden xl:table-cell">Teams</TableHead>
                                 <TableHead className="hidden lg:table-cell">Status</TableHead>
                               </TableRow>
                             </TableHeader>
@@ -2736,6 +2764,19 @@ const OwnerConsolePage: React.FC = () => {
                                           <SelectItem value="owner">Owner</SelectItem>
                                         </SelectContent>
                                       </Select>
+                                    </TableCell>
+                                    <TableCell className="hidden xl:table-cell align-middle">
+                                      {member.teamKeys.length > 0 ? (
+                                        <div className="flex flex-wrap gap-1">
+                                          {member.teamKeys.map((teamKey) => (
+                                            <Badge key={teamKey} variant="outline">
+                                              {ORGANISATION_TEAM_LABELS[teamKey]}
+                                            </Badge>
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <span className="text-xs text-muted-foreground">—</span>
+                                      )}
                                     </TableCell>
                                     <TableCell className="hidden lg:table-cell align-middle">
                                       <Select
@@ -2777,7 +2818,7 @@ const OwnerConsolePage: React.FC = () => {
                         </div>
                         <div className="space-y-2">
                           <Label>Role</Label>
-                          <Select value={memberForm.role} onValueChange={(value: MemberRoleKey) => setMemberForm((prev) => ({ ...prev, role: value }))}>
+                          <Select value={memberForm.role} onValueChange={(value: MemberRoleKey) => handleMemberRoleChange(value)}>
                             <SelectTrigger>
                               <SelectValue placeholder="Select role" />
                             </SelectTrigger>
@@ -2808,6 +2849,38 @@ const OwnerConsolePage: React.FC = () => {
                               })
                             )}
                           </ScrollArea>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Team access</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" className="w-full justify-start">
+                                {memberForm.teamKeys.length > 0
+                                  ? memberForm.teamKeys.map((key) => ORGANISATION_TEAM_LABELS[key]).join(', ')
+                                  : 'Select teams'}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-full p-2">
+                              <div className="space-y-2">
+                                {ORGANISATION_TEAM_KEYS.map((teamKey) => (
+                                  <div key={teamKey} className="flex items-center space-x-2">
+                                    <Checkbox
+                                      id={teamKey}
+                                      checked={memberForm.teamKeys.includes(teamKey)}
+                                      onCheckedChange={(checked) => {
+                                        if (checked) {
+                                          setMemberForm((prev) => ({ ...prev, teamKeys: [...prev.teamKeys, teamKey] }));
+                                        } else {
+                                          setMemberForm((prev) => ({ ...prev, teamKeys: prev.teamKeys.filter((key) => key !== teamKey) }));
+                                        }
+                                      }}
+                                    />
+                                    <Label htmlFor={teamKey}>{ORGANISATION_TEAM_LABELS[teamKey]}</Label>
+                                  </div>
+                                ))}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
                         </div>
                         <div className="flex items-center justify-between rounded border border-border/60 p-3">
                           <div>

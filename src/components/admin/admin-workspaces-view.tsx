@@ -584,7 +584,7 @@ export default function AdminWorkspacesView() {
   // Quota UI logic
   const atQuota = workspaceLimit !== null && workspaces.length >= workspaceLimit;
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
       <AdminPageHeader
         title="Workspaces"
         subtitle={`Admin workspaces · ${workspaces.length} workspaces · ${aggregated.totalFolders} folders · ${aggregated.totalDocuments} documents`}
@@ -599,7 +599,7 @@ export default function AdminWorkspacesView() {
               <div className="p-2 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg">
                 <BarChart2 className="h-5 w-5 text-white" />
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 tracking-tight">System Overview</h2>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-slate-100 tracking-tight">System Overview</h2>
             </div>
             <div className="flex items-center gap-4 flex-wrap justify-end">
               <div className="flex items-center gap-3 flex-wrap justify-end">
@@ -607,7 +607,7 @@ export default function AdminWorkspacesView() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search workspaces..."
-                  className="px-3 py-2 border border-gray-200 rounded-md text-sm w-64"
+                  className="px-3 py-2 border border-gray-200 dark:border-slate-600 rounded-md text-sm w-64 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100"
                 />
                 <Select
                   value={groupFilter}
@@ -651,16 +651,16 @@ export default function AdminWorkspacesView() {
                   {atQuota ? 'Quota Reached' : (isCreatingWorkspace ? 'Creating...' : 'Create Workspace')}
                 </Button>
               </div>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-gray-600 dark:text-slate-400">
                 Managing <span className="font-medium">{workspaces.length}</span> workspaces
                 {workspaceLimit !== null && (
-                  <span className="ml-2 text-xs text-blue-500 bg-blue-50 rounded px-2 py-1">
+                  <span className="ml-2 text-xs text-blue-500 bg-blue-50 dark:bg-blue-950/20 dark:text-blue-300 rounded px-2 py-1">
                     Quota: {workspaces.length} / {workspaceLimit}
                     {workspaceLimit > workspaces.length && (
-                      <span className="ml-2 text-green-600">({workspaceLimit - workspaces.length} left)</span>
+                      <span className="ml-2 text-green-600 dark:text-green-400">({workspaceLimit - workspaces.length} left)</span>
                     )}
                     {workspaceLimit <= workspaces.length && (
-                      <span className="ml-2 text-red-600">(0 left)</span>
+                      <span className="ml-2 text-red-600 dark:text-red-400">(0 left)</span>
                     )}
                   </span>
                 )}
@@ -668,19 +668,19 @@ export default function AdminWorkspacesView() {
             </div>
           </div>
           {atQuota && (
-            <div className="mb-4 p-4 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm flex items-center gap-2">
+            <div className="mb-4 p-4 rounded-lg bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800 text-yellow-800 dark:text-yellow-200 text-sm flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-yellow-500" />
               Workspace quota reached. Please contact support to upgrade your plan or increase your limit.
             </div>
           )}
         </div>
 
-        <Card className="border border-blue-100 bg-white rounded-2xl shadow-sm">
-          <CardHeader className="border-b border-blue-50">
+        <Card className="border border-blue-100 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-2xl shadow-sm">
+          <CardHeader className="border-b border-blue-50 dark:border-slate-700">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <h3 className="text-xl font-semibold text-gray-900">Workspace groups</h3>
-                <p className="text-sm text-gray-500">Group homes by region or portfolio to compare performance faster.</p>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-slate-100">Workspace groups</h3>
+                <p className="text-sm text-gray-500 dark:text-slate-400">Group homes by region or portfolio to compare performance faster.</p>
               </div>
               <Button
                 variant="outline"
@@ -694,9 +694,9 @@ export default function AdminWorkspacesView() {
           </CardHeader>
           <CardContent className="space-y-4">
             {groupLoading ? (
-              <div className="py-6 text-sm text-gray-500">Loading groups…</div>
+              <div className="py-6 text-sm text-gray-500 dark:text-slate-400">Loading groups…</div>
             ) : workspaceGroups.length === 0 ? (
-              <div className="py-6 text-sm text-gray-500">
+              <div className="py-6 text-sm text-gray-500 dark:text-slate-400">
                 No workspace groups yet. Create one to start organising your homes by region.
               </div>
             ) : (
@@ -704,11 +704,11 @@ export default function AdminWorkspacesView() {
                 {workspaceGroups.map((group) => {
                   const count = group.workspaceIds?.length ?? groupCounts.get(group.id) ?? 0;
                   return (
-                    <div key={group.id} className="border border-blue-50 rounded-xl bg-slate-50 px-4 py-5 flex flex-col gap-3">
+                    <div key={group.id} className="border border-blue-50 dark:border-slate-600 rounded-xl bg-slate-50 dark:bg-slate-700/50 px-4 py-5 flex flex-col gap-3">
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="text-xs uppercase tracking-wide text-blue-500">Group</p>
-                          <h4 className="text-lg font-semibold text-slate-900">{group.name}</h4>
+                          <p className="text-xs uppercase tracking-wide text-blue-500 dark:text-blue-400">Group</p>
+                          <h4 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{group.name}</h4>
                         </div>
                         {group.color && (
                           <span
@@ -719,9 +719,9 @@ export default function AdminWorkspacesView() {
                         )}
                       </div>
                       {group.description && (
-                        <p className="text-sm text-slate-600 line-clamp-3">{group.description}</p>
+                        <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-3">{group.description}</p>
                       )}
-                      <div className="text-sm text-slate-600 font-medium">{count} {count === 1 ? 'workspace' : 'workspaces'}</div>
+                      <div className="text-sm text-slate-600 dark:text-slate-400 font-medium">{count} {count === 1 ? 'workspace' : 'workspaces'}</div>
                       <div className="flex items-center gap-2 pt-1">
                         <Button size="sm" variant="ghost" onClick={() => openEditGroupModal(group)} className="text-blue-600 hover:text-blue-700">
                           Edit
@@ -747,7 +747,7 @@ export default function AdminWorkspacesView() {
         </Card>
 
       {filteredWorkspaces.length === 0 ? (
-        <div className="rounded-lg border border-gray-200 p-6 text-center text-gray-500 bg-white">
+        <div className="rounded-lg border border-gray-200 dark:border-slate-600 p-6 text-center text-gray-500 dark:text-slate-400 bg-white dark:bg-slate-800">
           No workspaces found for the current filters.
         </div>
       ) : (
@@ -760,8 +760,8 @@ export default function AdminWorkspacesView() {
             const accentColor = group?.color || null;
 
             return (
-              <Card key={groupId} className="border border-blue-100 bg-white rounded-2xl shadow-sm">
-                <CardHeader className="flex flex-row items-center justify-between gap-4 px-5 py-4 border-b border-blue-50">
+              <Card key={groupId} className="border border-blue-100 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-2xl shadow-sm">
+                <CardHeader className="flex flex-row items-center justify-between gap-4 px-5 py-4 border-b border-blue-50 dark:border-slate-700">
                   <button
                     type="button"
                     onClick={() => setExpandedGroups(prev => ({ ...prev, [groupId]: !isExpanded }))}
@@ -769,14 +769,14 @@ export default function AdminWorkspacesView() {
                     aria-expanded={isExpanded}
                     aria-controls={`workspace-group-${groupId}`}
                   >
-                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-blue-50">
-                      <ChevronDown className={cn('h-4 w-4 text-blue-600 transition-transform', !isExpanded && '-rotate-90')} />
+                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 dark:bg-blue-950/20">
+                      <ChevronDown className={cn('h-4 w-4 text-blue-600 dark:text-blue-400 transition-transform', !isExpanded && '-rotate-90')} />
                     </span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs uppercase tracking-wide text-blue-500">{group ? 'Group' : 'Ungrouped'}</p>
-                      <h4 className="text-lg font-semibold text-slate-900 truncate">{title}</h4>
+                      <p className="text-xs uppercase tracking-wide text-blue-500 dark:text-blue-400">{group ? 'Group' : 'Ungrouped'}</p>
+                      <h4 className="text-lg font-semibold text-slate-900 dark:text-slate-100 truncate">{title}</h4>
                       {description && (
-                        <p className="text-xs text-slate-500 mt-1 line-clamp-1">{description}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-1">{description}</p>
                       )}
                     </div>
                   </button>
@@ -788,7 +788,7 @@ export default function AdminWorkspacesView() {
                         aria-label="Group colour"
                       />
                     )}
-                    <Badge variant="outline" className="text-xs font-medium text-slate-600 border-slate-200">
+                    <Badge variant="outline" className="text-xs font-medium text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-600">
                       {workspaceCount} {workspaceCount === 1 ? 'workspace' : 'workspaces'}
                     </Badge>
                   </div>
@@ -796,7 +796,7 @@ export default function AdminWorkspacesView() {
                 {isExpanded && (
                   <CardContent id={`workspace-group-${groupId}`} className="p-5">
                     {workspaceCount === 0 ? (
-                      <div className="rounded-lg border border-dashed border-gray-200 p-4 text-sm text-gray-500 bg-gray-50">
+                      <div className="rounded-lg border border-dashed border-gray-200 dark:border-slate-600 p-4 text-sm text-gray-500 dark:text-slate-400 bg-gray-50 dark:bg-slate-700/50">
                         No workspaces match your current filters for this group.
                       </div>
                     ) : (
@@ -815,27 +815,27 @@ export default function AdminWorkspacesView() {
                           const badgeColour = ws.workspaceGroupColor || effectiveGroup?.color || null;
 
                           return (
-                            <Card key={ws.id} className="relative hover:shadow-xl transition-all duration-300 border border-blue-100 bg-white rounded-2xl">
+                            <Card key={ws.id} className="relative hover:shadow-xl transition-all duration-300 border border-blue-100 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-2xl">
                               <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl bg-gradient-to-r from-blue-500 via-purple-500 to-indigo-500" aria-hidden />
-                              <CardHeader className="flex flex-row items-center justify-between w-full px-5 py-4 border-b border-blue-50 bg-white rounded-t-2xl">
+                              <CardHeader className="flex flex-row items-center justify-between w-full px-5 py-4 border-b border-blue-50 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-t-2xl">
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2">
                                     <FolderIcon className="w-5 h-5 text-blue-500" />
-                                    <span className="text-lg font-semibold truncate text-blue-900">{ws.name || ws.id}</span>
+                                    <span className="text-lg font-semibold truncate text-blue-900 dark:text-blue-100">{ws.name || ws.id}</span>
                                   </div>
-                                  <div className="text-xs text-blue-400 mt-1 font-medium">
+                                  <div className="text-xs text-blue-400 dark:text-blue-300 mt-1 font-medium">
                                     {ws.folders?.length || 0} folders • {totalDocs} documents
                                   </div>
                                   <div className="mt-2 flex flex-wrap items-center gap-2">
                                     {effectiveGroup ? (
                                       <Badge
-                                        className={cn('text-xs font-medium shadow-sm', !badgeColour && 'bg-blue-100 text-blue-700')}
+                                        className={cn('text-xs font-medium shadow-sm', !badgeColour && 'bg-blue-100 dark:bg-blue-950/20 text-blue-700 dark:text-blue-300')}
                                         style={badgeColour ? { backgroundColor: badgeColour, color: '#fff' } : undefined}
                                       >
                                         {effectiveGroup.name}
                                       </Badge>
                                     ) : (
-                                      <Badge variant="outline" className="text-xs font-medium text-slate-600 border-slate-200">
+                                      <Badge variant="outline" className="text-xs font-medium text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-600">
                                         Unassigned
                                       </Badge>
                                     )}
@@ -868,7 +868,7 @@ export default function AdminWorkspacesView() {
                                   </Button>
                                   <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                      <Button variant="ghost" size="icon" className="text-blue-400 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary" aria-label={`Workspace options for ${ws.name || ws.id}`} title={`Workspace options for ${ws.name || ws.id}`}>
+                                      <Button variant="ghost" size="icon" className="text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary" aria-label={`Workspace options for ${ws.name || ws.id}`} title={`Workspace options for ${ws.name || ws.id}`}>
                                         <MoreVertical className="w-4 h-4" />
                                       </Button>
                                     </DropdownMenuTrigger>
@@ -888,7 +888,7 @@ export default function AdminWorkspacesView() {
                               <CardContent className="p-5">
                                 <div className="flex flex-col gap-2 mb-4">
                                   <div className="flex items-center justify-between gap-3">
-                                    <span className="text-sm font-medium text-slate-700">Group assignment</span>
+                                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Group assignment</span>
                                     <Select
                                       value={ws.workspaceGroupId || '__none__'}
                                       onValueChange={(value) => handleAssignWorkspaceGroup(ws, value)}
@@ -908,36 +908,36 @@ export default function AdminWorkspacesView() {
                                     </Select>
                                   </div>
                                   {isSavingGroup && (
-                                    <span className="text-xs text-blue-500">Updating group…</span>
+                                    <span className="text-xs text-blue-500 dark:text-blue-400">Updating group…</span>
                                   )}
                                 </div>
                                 <div className="grid grid-cols-3 gap-4 mb-2">
-                                  <div className="bg-white rounded-2xl shadow-sm p-6 flex flex-col items-center justify-center">
-                                    <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center mb-3">
+                                  <div className="bg-white dark:bg-slate-700 rounded-2xl shadow-sm p-6 flex flex-col items-center justify-center">
+                                    <div className="w-12 h-12 rounded-full bg-slate-50 dark:bg-slate-600 flex items-center justify-center mb-3">
                                       {typeof occupancyPercent === 'number' ? (
                                         <div className="-mt-1">
                                           <OccupancyPie percent={occupancyPercent} size={28} strokeWidth={3} />
                                         </div>
                                       ) : (
-                                        <Building2 className="w-6 h-6 text-slate-400" />
+                                        <Building2 className="w-6 h-6 text-slate-400 dark:text-slate-500" />
                                       )}
                                     </div>
-                                    <div className="text-2xl font-bold text-slate-800">{typeof occupancyPercent === 'number' ? `${occupancyPercent}%` : '—'}</div>
-                                    <div className="text-sm text-slate-500 mt-1">Occupancy</div>
+                                    <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">{typeof occupancyPercent === 'number' ? `${occupancyPercent}%` : '—'}</div>
+                                    <div className="text-sm text-slate-500 dark:text-slate-400 mt-1">Occupancy</div>
                                   </div>
-                                  <div className="bg-white rounded-2xl shadow-sm p-6 flex flex-col items-center justify-center">
-                                    <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center mb-3">
+                                  <div className="bg-white dark:bg-slate-700 rounded-2xl shadow-sm p-6 flex flex-col items-center justify-center">
+                                    <div className="w-12 h-12 rounded-full bg-slate-50 dark:bg-slate-600 flex items-center justify-center mb-3">
                                       <Shield className="w-6 h-6 text-emerald-500" />
                                     </div>
-                                    <div className="text-2xl font-bold text-slate-800">{ws.complianceScore ? `${Math.round(ws.complianceScore)}%` : '—'}</div>
-                                    <div className="text-sm text-slate-500 mt-1">Compliance</div>
+                                    <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">{ws.complianceScore ? `${Math.round(ws.complianceScore)}%` : '—'}</div>
+                                    <div className="text-sm text-slate-500 dark:text-slate-400 mt-1">Compliance</div>
                                   </div>
-                                  <div className="bg-white rounded-2xl shadow-sm p-6 flex flex-col items-center justify-center">
-                                    <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center mb-3">
+                                  <div className="bg-white dark:bg-slate-700 rounded-2xl shadow-sm p-6 flex flex-col items-center justify-center">
+                                    <div className="w-12 h-12 rounded-full bg-slate-50 dark:bg-slate-600 flex items-center justify-center mb-3">
                                       <Users className="w-6 h-6 text-blue-500" />
                                     </div>
-                                    <div className="text-2xl font-bold text-slate-800">{computeStaffAggregate(ws) ?? (typeof ws.staffCount === 'number' ? ws.staffCount : (typeof ws.staffingLevel === 'number' ? `${ws.staffingLevel}%` : '—'))}</div>
-                                    <div className="text-sm text-slate-500 mt-1">Staffing</div>
+                                    <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">{computeStaffAggregate(ws) ?? (typeof ws.staffCount === 'number' ? ws.staffCount : (typeof ws.staffingLevel === 'number' ? `${ws.staffingLevel}%` : '—'))}</div>
+                                    <div className="text-sm text-slate-500 dark:text-slate-400 mt-1">Staffing</div>
                                   </div>
                                 </div>
                               </CardContent>
@@ -957,13 +957,13 @@ export default function AdminWorkspacesView() {
 
       {/* Create Workspace Dialog */}
       <Dialog open={isCreateWorkspaceOpen} onOpenChange={setIsCreateWorkspaceOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[425px] bg-white dark:bg-slate-800">
           <DialogHeader>
-            <DialogTitle>Create Workspace</DialogTitle>
+            <DialogTitle className="text-gray-900 dark:text-slate-100">Create Workspace</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <Input value={newWorkspaceName} onChange={(e) => setNewWorkspaceName(e.target.value)} placeholder="Workspace name" />
-            <Input value={newWorkspaceOwner} onChange={(e) => setNewWorkspaceOwner(e.target.value)} placeholder="Owner user ID" />
+            <Input value={newWorkspaceName} onChange={(e) => setNewWorkspaceName(e.target.value)} placeholder="Workspace name" className="bg-white dark:bg-slate-700 border-gray-200 dark:border-slate-600 text-gray-900 dark:text-slate-100" />
+            <Input value={newWorkspaceOwner} onChange={(e) => setNewWorkspaceOwner(e.target.value)} placeholder="Owner user ID" className="bg-white dark:bg-slate-700 border-gray-200 dark:border-slate-600 text-gray-900 dark:text-slate-100" />
           </div>
           <DialogFooter>
             <div className="flex items-center justify-end gap-2">
@@ -976,12 +976,12 @@ export default function AdminWorkspacesView() {
 
       {/* Workspace Limit Modal */}
       <Dialog open={isLimitModalOpen} onOpenChange={setIsLimitModalOpen}>
-        <DialogContent className="sm:max-w-[400px]">
+        <DialogContent className="sm:max-w-[400px] bg-white dark:bg-slate-800">
           <DialogHeader>
-            <DialogTitle>Workspace Limit Reached</DialogTitle>
+            <DialogTitle className="text-gray-900 dark:text-slate-100">Workspace Limit Reached</DialogTitle>
           </DialogHeader>
           <div className="py-4">
-            <p className="text-sm text-gray-700">You have reached the maximum number of workspaces allowed for your organisation. Please contact support to upgrade your plan or increase your limit.</p>
+            <p className="text-sm text-gray-700 dark:text-slate-300">You have reached the maximum number of workspaces allowed for your organisation. Please contact support to upgrade your plan or increase your limit.</p>
           </div>
           <DialogFooter>
             <Button onClick={() => setIsLimitModalOpen(false)} autoFocus>OK</Button>
@@ -991,12 +991,12 @@ export default function AdminWorkspacesView() {
 
       {/* Rename Dialog */}
       <Dialog open={isRenameWorkspaceOpen} onOpenChange={setIsRenameWorkspaceOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[425px] bg-white dark:bg-slate-800">
           <DialogHeader>
-            <DialogTitle>Rename Workspace</DialogTitle>
+            <DialogTitle className="text-gray-900 dark:text-slate-100">Rename Workspace</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <Input value={newRenameWorkspaceName} onChange={(e) => setNewRenameWorkspaceName(e.target.value)} />
+            <Input value={newRenameWorkspaceName} onChange={(e) => setNewRenameWorkspaceName(e.target.value)} className="bg-white dark:bg-slate-700 border-gray-200 dark:border-slate-600 text-gray-900 dark:text-slate-100" />
           </div>
           <DialogFooter>
             <div className="flex items-center justify-end gap-2">
@@ -1009,13 +1009,13 @@ export default function AdminWorkspacesView() {
 
       {/* Delete Dialog */}
       <Dialog open={isDeleteWorkspaceOpen} onOpenChange={setIsDeleteWorkspaceOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[425px] bg-white dark:bg-slate-800">
           <DialogHeader>
-            <DialogTitle>Delete Workspace</DialogTitle>
+            <DialogTitle className="text-gray-900 dark:text-slate-100">Delete Workspace</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="text-sm text-muted-foreground">Type the workspace name to confirm deletion: <strong>{deleteWorkspaceData?.name}</strong></div>
-            <Input value={deleteConfirmationName} onChange={(e) => setDeleteConfirmationName(e.target.value)} placeholder="Workspace name" />
+            <div className="text-sm text-muted-foreground dark:text-slate-400">Type the workspace name to confirm deletion: <strong className="text-gray-900 dark:text-slate-100">{deleteWorkspaceData?.name}</strong></div>
+            <Input value={deleteConfirmationName} onChange={(e) => setDeleteConfirmationName(e.target.value)} placeholder="Workspace name" className="bg-white dark:bg-slate-700 border-gray-200 dark:border-slate-600 text-gray-900 dark:text-slate-100" />
           </div>
           <DialogFooter>
             <div className="flex items-center justify-end gap-2">
@@ -1033,22 +1033,22 @@ export default function AdminWorkspacesView() {
           if (!open) resetGroupModal();
         }}
       >
-        <DialogContent className="sm:max-w-[480px]">
+        <DialogContent className="sm:max-w-[480px] bg-white dark:bg-slate-800">
           <DialogHeader>
-            <DialogTitle>{groupModalMode === 'create' ? 'Create workspace group' : `Edit group: ${groupModalGroup?.name || ''}`}</DialogTitle>
+            <DialogTitle className="text-gray-900 dark:text-slate-100">{groupModalMode === 'create' ? 'Create workspace group' : `Edit group: ${groupModalGroup?.name || ''}`}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-slate-700">Group name</label>
-              <Input value={groupModalName} onChange={(e) => setGroupModalName(e.target.value)} placeholder="e.g. North Region" />
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Group name</label>
+              <Input value={groupModalName} onChange={(e) => setGroupModalName(e.target.value)} placeholder="e.g. North Region" className="bg-white dark:bg-slate-700 border-gray-200 dark:border-slate-600 text-gray-900 dark:text-slate-100" />
             </div>
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-slate-700">Description (optional)</label>
-              <Textarea value={groupModalDescription} onChange={(e) => setGroupModalDescription(e.target.value)} placeholder="Short summary to help teammates understand the group." rows={3} />
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Description (optional)</label>
+              <Textarea value={groupModalDescription} onChange={(e) => setGroupModalDescription(e.target.value)} placeholder="Short summary to help teammates understand the group." rows={3} className="bg-white dark:bg-slate-700 border-gray-200 dark:border-slate-600 text-gray-900 dark:text-slate-100" />
             </div>
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-slate-700">Accent colour (optional)</label>
-              <Input value={groupModalColor} onChange={(e) => setGroupModalColor(e.target.value)} placeholder="#2563eb" />
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Accent colour (optional)</label>
+              <Input value={groupModalColor} onChange={(e) => setGroupModalColor(e.target.value)} placeholder="#2563eb" className="bg-white dark:bg-slate-700 border-gray-200 dark:border-slate-600 text-gray-900 dark:text-slate-100" />
             </div>
           </div>
           <DialogFooter>
@@ -1063,15 +1063,15 @@ export default function AdminWorkspacesView() {
       </Dialog>
 
       <Dialog open={isDeleteGroupOpen} onOpenChange={setIsDeleteGroupOpen}>
-        <DialogContent className="sm:max-w-[420px]">
+        <DialogContent className="sm:max-w-[420px] bg-white dark:bg-slate-800">
           <DialogHeader>
-            <DialogTitle>Delete workspace group</DialogTitle>
+            <DialogTitle className="text-gray-900 dark:text-slate-100">Delete workspace group</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-3">
-            <p className="text-sm text-slate-600">
-              This group currently contains <strong>{groupToDelete ? (groupToDelete.workspaceIds?.length ?? groupCounts.get(groupToDelete.id) ?? 0) : 0}</strong> workspaces. Deleting it will unassign those workspaces.
+            <p className="text-sm text-slate-600 dark:text-slate-400">
+              This group currently contains <strong className="text-gray-900 dark:text-slate-100">{groupToDelete ? (groupToDelete.workspaceIds?.length ?? groupCounts.get(groupToDelete.id) ?? 0) : 0}</strong> workspaces. Deleting it will unassign those workspaces.
             </p>
-            <p className="text-sm text-slate-500">This action can’t be undone.</p>
+            <p className="text-sm text-slate-500 dark:text-slate-500">This action can’t be undone.</p>
           </div>
           <DialogFooter>
             <div className="flex items-center justify-end gap-2">
