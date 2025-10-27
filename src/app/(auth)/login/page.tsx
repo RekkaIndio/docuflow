@@ -11,12 +11,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { Logo } from '@/components/icons/logo';
+import { auth } from '@/lib/firebase';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [role, setRole] = useState<'user' | 'admin'>('user');
   // Sign-in method: 'password' shows password input; 'magic' hides password input and sends a magic link.
   const [method, setMethod] = useState<'password' | 'magic'>('password');
   // Magic link sent state and resend cooldown (seconds)
@@ -35,15 +35,24 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await signIn(email, password);
-      // Route based on selected role
-      if (role === 'admin') {
-        // set a dev cookie so middleware recognizes admin requests
-        if (typeof document !== 'undefined') {
-          // 1 day expiry
-          document.cookie = 'isAdmin=1; Path=/; Max-Age=86400';
+      // Determine user role and route accordingly
+      const idToken = await auth.currentUser?.getIdToken();
+      if (idToken) {
+        const resp = await fetch('/api/admin/verify', { 
+          method: 'GET', 
+          headers: { authorization: `Bearer ${idToken}` } 
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.isAdmin) {
+            router.push('/admin');
+          } else {
+            router.push('/dashboard');
+          }
+        } else {
+          // Fallback to dashboard if verify fails
+          router.push('/dashboard');
         }
-        // existing admin page is at src/app/(protected)/admin/page.tsx which maps to /admin
-        router.push('/admin');
       } else {
         router.push('/dashboard');
       }
@@ -146,30 +155,17 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
+              <div className="flex justify-end">
+                <Link
+                  href="/forgot-password"
+                  className="text-sm text-muted-foreground hover:text-primary"
+                >
+                  Forgot password?
+                </Link>
+              </div>
             </div>
           )}
 
-          <div className="space-y-2">
-            <Label htmlFor="role">Sign in as</Label>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant={role === 'user' ? 'default' : 'ghost'}
-                onClick={() => setRole('user')}
-                className="h-8 px-3 text-sm"
-              >
-                User
-              </Button>
-              <Button
-                type="button"
-                variant={role === 'admin' ? 'default' : 'ghost'}
-                onClick={() => setRole('admin')}
-                className="h-8 px-3 text-sm"
-              >
-                Admin / Head Office
-              </Button>
-            </div>
-          </div>
           <Button
             type="submit"
             className="w-full"

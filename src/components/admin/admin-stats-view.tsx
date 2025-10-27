@@ -45,7 +45,7 @@ function FileTypeBars({ fileTypeCounts }: { fileTypeCounts: Record<string, numbe
       {entries.map(([k, v]) => (
         <div key={k} className="text-sm">
           <div className="flex items-center justify-between mb-1"><span className="capitalize">{k}</span><span className="font-medium">{v}</span></div>
-          <div className="w-full bg-slate-100 rounded h-2 overflow-hidden">
+          <div className="w-full bg-slate-100 dark:bg-slate-700 rounded h-2 overflow-hidden">
             <div className="bg-blue-600 h-2 rounded" style={{ width: `${(v / max) * 100}%` }} />
           </div>
         </div>
@@ -249,12 +249,12 @@ export default function StatsView({ workspace, totalFolders, totalDocuments, occ
       {/* Compact dashboard top-4 cards (compact versions of overview cards) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {/* Incident Reports / Wounds (solid orange with glass panel) */}
-        <Card className="p-0 rounded-xl overflow-hidden shadow-md bg-orange-500">
+        <Card className="p-0 rounded-xl overflow-hidden shadow-md bg-orange-500 dark:bg-slate-800 dark:text-white">
           <div className="p-3">
-            <div className="bg-white/10 backdrop-blur-sm bg-clip-padding rounded-lg border border-white/10 p-3">
+            <div className="bg-white/10 backdrop-blur-sm bg-clip-padding rounded-lg border border-white/10 dark:bg-white/5 dark:border-white/5 p-3">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-xl bg-white/60 backdrop-blur-sm" aria-hidden>
+                  <div className="p-2 rounded-xl bg-white/60 backdrop-blur-sm dark:bg-white/10" aria-hidden>
                     <svg className="w-5 h-5 text-orange-600" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01" /><path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
                   </div>
                   <div>
@@ -266,21 +266,21 @@ export default function StatsView({ workspace, totalFolders, totalDocuments, occ
                   <div className="text-xs text-white/80">Last 30d</div>
                 </div>
               </div>
-              <div className="mt-2 text-xs text-white/90 flex items-center justify-between">
+                <div className="mt-2 text-xs text-white/90 flex items-center justify-between">
                 <div>Pressure: {aggregateWoundsData?.pressure ?? 0} · Breaks: {aggregateWoundsData?.break ?? 0}</div>
-                <div className="text-xs bg-white/10 text-white/90 px-2 py-1 rounded-full">+{aggregateWoundsData?.workspacesWithData ?? 0} sites</div>
+                <div className="text-xs bg-white/10 text-white/90 px-2 py-1 rounded-full dark:bg-white/5">+{aggregateWoundsData?.workspacesWithData ?? 0} sites</div>
               </div>
             </div>
           </div>
         </Card>
 
         {/* Falls Prevention (solid blue with glass panel) */}
-        <Card className="p-0 rounded-xl overflow-hidden shadow-md bg-blue-600">
+        <Card className="p-0 rounded-xl overflow-hidden shadow-md bg-blue-600 dark:bg-slate-800 dark:text-white">
           <div className="p-3">
-            <div className="bg-white/10 backdrop-blur-sm bg-clip-padding rounded-lg border border-white/10 p-3">
+            <div className="bg-white/10 backdrop-blur-sm bg-clip-padding rounded-lg border border-white/10 dark:bg-white/5 dark:border-white/5 p-3">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-xl bg-white/60 backdrop-blur-sm" aria-hidden>
+                  <div className="p-2 rounded-xl bg-white/60 backdrop-blur-sm dark:bg-white/10" aria-hidden>
                     <svg className="w-5 h-5 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" d="M9 17v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6" /><path strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" d="M15 7h4v10a2 2 0 01-2 2h-2" /></svg>
                   </div>
                   <div>
@@ -294,19 +294,19 @@ export default function StatsView({ workspace, totalFolders, totalDocuments, occ
               </div>
               <div className="mt-2 text-xs text-white/90 flex items-center justify-between">
                 <div>Trend: N/A</div>
-                <div className="text-xs bg-white/10 text-white/90 px-2 py-1 rounded-full">Last 30d</div>
+                <div className="text-xs bg-white/10 text-white/90 px-2 py-1 rounded-full dark:bg-white/5">Last 30d</div>
               </div>
             </div>
           </div>
         </Card>
 
         {/* Infection Control (solid teal with glass panel) */}
-        <Card className="p-0 rounded-xl overflow-hidden shadow-md bg-teal-500">
+        <Card className="p-0 rounded-xl overflow-hidden shadow-md bg-teal-500 dark:bg-slate-800 dark:text-white">
           <div className="p-3">
-            <div className="bg-white/10 backdrop-blur-sm bg-clip-padding rounded-lg border border-white/10 p-3">
+            <div className="bg-white/10 backdrop-blur-sm bg-clip-padding rounded-lg border border-white/10 dark:bg-white/5 dark:border-white/5 p-3">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-xl bg-white/60 backdrop-blur-sm" aria-hidden>
+                  <div className="p-2 rounded-xl bg-white/60 backdrop-blur-sm dark:bg-white/10" aria-hidden>
                     <svg className="w-5 h-5 text-teal-600" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" d="M12 22s8-4 8-10V7" /><path strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" d="M12 22s-8-4-8-10V7" /></svg>
                   </div>
                   <div>
@@ -320,18 +320,18 @@ export default function StatsView({ workspace, totalFolders, totalDocuments, occ
               </div>
               <div className="mt-2 text-xs text-white/90 flex items-center justify-between">
                 <div>Chest: {aggregateInfectionData?.chest ?? 0} · Wound: {aggregateInfectionData?.wound ?? 0}</div>
-                <div className="text-xs bg-white/10 text-white/90 px-2 py-1 rounded-full">{aggregateInfectionData?.workspacesWithData ?? 0} sites</div>
+                <div className="text-xs bg-white/10 text-white/90 px-2 py-1 rounded-full dark:bg-white/5">{aggregateInfectionData?.workspacesWithData ?? 0} sites</div>
               </div>
             </div>
           </div>
         </Card>
 
         {/* Compliance Score (solid green with glass panel & mini donut) */}
-        <Card className="p-0 rounded-xl overflow-hidden shadow-md bg-green-500">
+        <Card className="p-0 rounded-xl overflow-hidden shadow-md bg-green-500 dark:bg-slate-800 dark:text-white">
           <div className="p-3">
-            <div className="bg-white/10 backdrop-blur-sm bg-clip-padding rounded-lg border border-white/10 p-3 flex items-center justify-between">
+            <div className="bg-white/10 backdrop-blur-sm bg-clip-padding rounded-lg border border-white/10 dark:bg-white/5 dark:border-white/5 p-3 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-white/60 backdrop-blur-sm" aria-hidden>
+                <div className="p-2 rounded-xl bg-white/60 backdrop-blur-sm dark:bg-white/10" aria-hidden>
                   <svg className="w-5 h-5 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4" /><path strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 </div>
                 <div>
@@ -359,11 +359,11 @@ export default function StatsView({ workspace, totalFolders, totalDocuments, occ
         <div className="lg:col-span-2 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Staff Ratios Card (purple) */}
-            <div className="group relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-purple-500 to-purple-600 hover:shadow-xl text-white transition-all duration-300 rounded-2xl">
+            <div className="group relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-purple-500 to-purple-600 dark:bg-slate-800 dark:[background-image:none] dark:text-white hover:shadow-xl transition-all duration-300 rounded-2xl">
               <div className="p-4 h-full flex flex-col">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
-                    <div className="p-3 bg-white/15 backdrop-blur-sm rounded-2xl border border-white/20">
+                    <div className="p-3 bg-white/15 backdrop-blur-sm rounded-2xl border border-white/20 dark:bg-white/5 dark:border-white/10">
                       <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
                     </div>
                     <div className="text-lg font-bold">Staff Ratios</div>
@@ -373,7 +373,7 @@ export default function StatsView({ workspace, totalFolders, totalDocuments, occ
 
                 <div className="flex-1 flex flex-col justify-center">
                   <div className="grid grid-cols-2 gap-4 text-center mb-4">
-                    <div className="bg-white/10 rounded-lg p-3">
+                    <div className="bg-white/10 rounded-lg p-3 dark:bg-white/5">
                       <div className="text-2xl font-bold text-white mb-1">
                         {(() => {
                           const dayStaff = calculateNDPSStaffing(residents || []).Day;
@@ -381,9 +381,9 @@ export default function StatsView({ workspace, totalFolders, totalDocuments, occ
                           return `${ratio}:1`;
                         })()}
                       </div>
-                      <div className="text-xs text-purple-200 font-medium">Day Ratio</div>
+                      <div className="text-xs text-purple-200 dark:text-white font-medium">Day Ratio</div>
                     </div>
-                    <div className="bg-white/10 rounded-lg p-3">
+                    <div className="bg-white/10 rounded-lg p-3 dark:bg-white/5">
                       <div className="text-2xl font-bold text-white mb-1">
                         {(() => {
                           const nightStaff = calculateNDPSStaffing(residents || []).Night;
@@ -391,13 +391,13 @@ export default function StatsView({ workspace, totalFolders, totalDocuments, occ
                           return `${ratio}:1`;
                         })()}
                       </div>
-                      <div className="text-xs text-purple-200 font-medium">Night Ratio</div>
+                      <div className="text-xs text-purple-200 dark:text-white font-medium">Night Ratio</div>
                     </div>
                   </div>
 
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-xs text-purple-200">Total Care Hours:</span>
+                      <span className="text-xs text-purple-200 dark:text-white">Total Care Hours:</span>
                       <span className="text-sm font-semibold text-white">
                         {Math.round(((residents || []).reduce((total, r) => {
                           const c = calculateResidentCareMinutesNPDS(r);
@@ -406,7 +406,7 @@ export default function StatsView({ workspace, totalFolders, totalDocuments, occ
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-xs text-purple-200">Avg. Care/Resident:</span>
+                      <span className="text-xs text-purple-200 dark:text-white">Avg. Care/Resident:</span>
                       <span className="text-sm font-semibold text-white">
                         {(residents && residents.length > 0) ? (Math.round(((residents.reduce((total, r) => {
                           const c = calculateResidentCareMinutesNPDS(r);
@@ -416,17 +416,17 @@ export default function StatsView({ workspace, totalFolders, totalDocuments, occ
                     </div>
                   </div>
 
-                  <div className="pt-3 border-t border-white/20 mt-4">
+                  <div className="pt-3 border-t border-white/20 dark:border-white/10 mt-4">
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Staff Required Card (orange) */}
-            <div className="group relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-amber-500 to-orange-600 hover:shadow-xl text-white transition-all duration-300 rounded-2xl">
+            <div className="group relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-amber-500 to-orange-600 dark:bg-slate-800 dark:[background-image:none] dark:text-white hover:shadow-xl transition-all duration-300 rounded-2xl">
               <div className="p-4">
                 <div className="flex items-center gap-2 p-2">
-                  <div className="p-2 bg-white/10 rounded-lg">
+                  <div className="p-2 bg-white/10 rounded-lg dark:bg-white/5">
                     <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" /></svg>
                   </div>
                   <div className="text-lg font-bold">Staff Required</div>
@@ -436,26 +436,26 @@ export default function StatsView({ workspace, totalFolders, totalDocuments, occ
                   const breakdown = calculateStaffBreakdown(residents || []);
                   return (
                     <div className="mt-3">
-                      <div className="text-sm font-semibold text-amber-200 mb-2">Day Shift</div>
+                      <div className="text-sm font-semibold text-amber-200 dark:text-white mb-2">Day Shift</div>
                       <div className="grid grid-cols-4 gap-1 text-center mb-3">
-                        <div className="bg-white/10 rounded-lg p-2"><div className="text-sm font-bold">{breakdown.Day.nurses}</div><div className="text-xs text-amber-200">Nurses</div></div>
-                        <div className="bg-white/10 rounded-lg p-2"><div className="text-sm font-bold">{breakdown.Day.ctms}</div><div className="text-xs text-amber-200">CTMs</div></div>
-                        <div className="bg-white/10 rounded-lg p-2"><div className="text-sm font-bold">{breakdown.Day.carers}</div><div className="text-xs text-amber-200">Carers</div></div>
-                        <div className="bg-white/10 rounded-lg p-2"><div className="text-sm font-bold">{breakdown.Day.total}</div><div className="text-xs text-amber-200">Total</div></div>
+                        <div className="bg-white/10 rounded-lg p-2 dark:bg-white/5"><div className="text-sm font-bold">{breakdown.Day.nurses}</div><div className="text-xs text-amber-200 dark:text-white">Nurses</div></div>
+                        <div className="bg-white/10 rounded-lg p-2 dark:bg-white/5"><div className="text-sm font-bold">{breakdown.Day.ctms}</div><div className="text-xs text-amber-200 dark:text-white">CTMs</div></div>
+                        <div className="bg-white/10 rounded-lg p-2 dark:bg-white/5"><div className="text-sm font-bold">{breakdown.Day.carers}</div><div className="text-xs text-amber-200 dark:text-white">Carers</div></div>
+                        <div className="bg-white/10 rounded-lg p-2 dark:bg-white/5"><div className="text-sm font-bold">{breakdown.Day.total}</div><div className="text-xs text-amber-200 dark:text-white">Total</div></div>
                       </div>
 
-                      <div className="text-sm font-semibold text-amber-200 mb-2">Night Shift</div>
+                      <div className="text-sm font-semibold text-amber-200 dark:text-white mb-2">Night Shift</div>
                       <div className="grid grid-cols-4 gap-1 text-center mb-3">
-                        <div className="bg-white/10 rounded-lg p-2"><div className="text-sm font-bold">{breakdown.Night.nurses}</div><div className="text-xs text-amber-200">Nurses</div></div>
-                        <div className="bg-white/10 rounded-lg p-2"><div className="text-sm font-bold">{breakdown.Night.ctms}</div><div className="text-xs text-amber-200">CTMs</div></div>
-                        <div className="bg-white/10 rounded-lg p-2"><div className="text-sm font-bold">{breakdown.Night.carers}</div><div className="text-xs text-amber-200">Carers</div></div>
-                        <div className="bg-white/10 rounded-lg p-2"><div className="text-sm font-bold">{breakdown.Night.total}</div><div className="text-xs text-amber-200">Total</div></div>
+                        <div className="bg-white/10 rounded-lg p-2 dark:bg-white/5"><div className="text-sm font-bold">{breakdown.Night.nurses}</div><div className="text-xs text-amber-200 dark:text-white">Nurses</div></div>
+                        <div className="bg-white/10 rounded-lg p-2 dark:bg-white/5"><div className="text-sm font-bold">{breakdown.Night.ctms}</div><div className="text-xs text-amber-200 dark:text-white">CTMs</div></div>
+                        <div className="bg-white/10 rounded-lg p-2 dark:bg-white/5"><div className="text-sm font-bold">{breakdown.Night.carers}</div><div className="text-xs text-amber-200 dark:text-white">Carers</div></div>
+                        <div className="bg-white/10 rounded-lg p-2 dark:bg-white/5"><div className="text-sm font-bold">{breakdown.Night.total}</div><div className="text-xs text-amber-200 dark:text-white">Total</div></div>
                       </div>
 
                       <div className="pt-2 border-t border-white/20">
                         <div className="text-center">
                           <div className="text-sm font-bold">{breakdown.Day.total + breakdown.Night.total}</div>
-                          <div className="text-xs text-amber-200 font-medium">Total Staff (24h)</div>
+                          <div className="text-xs text-amber-200 dark:text-white font-medium">Total Staff (24h)</div>
                         </div>
                       </div>
                     </div>
@@ -465,29 +465,29 @@ export default function StatsView({ workspace, totalFolders, totalDocuments, occ
             </div>
           </div>
 
-          <Card className="p-4 rounded-2xl shadow-md border border-transparent bg-white">
-            <div className="text-sm font-semibold text-slate-800 mb-2">Top folders</div>
-            <div className="text-sm text-slate-500">Top folders by document count are not yet computed here.</div>
+          <Card className="p-4 rounded-2xl shadow-md border border-transparent bg-white dark:bg-slate-800 dark:border-slate-700">
+            <div className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-2">Top folders</div>
+            <div className="text-sm text-slate-500 dark:text-slate-400">Top folders by document count are not yet computed here.</div>
           </Card>
         </div>
 
         <aside className="space-y-4">
-          <Card className="p-4 rounded-2xl shadow-md border border-transparent bg-white">
+          <Card className="p-4 rounded-2xl shadow-md border border-transparent bg-white dark:bg-slate-800 dark:border-slate-700">
             <div className="flex items-center justify-between mb-2">
-              <div className="text-sm font-semibold text-slate-800">Recent uploads</div>
-              <div className="text-xs text-slate-500">Latest</div>
+              <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">Recent uploads</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">Latest</div>
             </div>
             <div>
               {recentUploads.length === 0 ? (
-                <div className="text-sm text-slate-500">No recent uploads</div>
+                <div className="text-sm text-slate-500 dark:text-slate-400">No recent uploads</div>
               ) : (
                 <ul className="space-y-3">
                   {recentUploads.slice(0, 8).map((r, idx) => (
                     <li key={r.name + String(r.createdAt) + idx} className="flex items-start gap-3">
-                      <div className="p-2 bg-slate-50 rounded shadow-sm"><Tag className="w-4 h-4 text-slate-600" /></div>
+                      <div className="p-2 bg-slate-50 dark:bg-slate-700 rounded shadow-sm"><Tag className="w-4 h-4 text-slate-600 dark:text-slate-400" /></div>
                       <div className="flex-1">
-                        <div className="text-sm font-medium truncate text-slate-800">{r.name}</div>
-                        <div className="text-xs text-slate-500">{r.createdAt ? new Date(r.createdAt).toLocaleString() : ''}</div>
+                        <div className="text-sm font-medium truncate text-slate-800 dark:text-slate-100">{r.name}</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">{r.createdAt ? new Date(r.createdAt).toLocaleString() : ''}</div>
                       </div>
                     </li>
                   ))}
@@ -496,9 +496,9 @@ export default function StatsView({ workspace, totalFolders, totalDocuments, occ
             </div>
           </Card>
 
-          <Card className="p-4 rounded-2xl shadow-md border border-transparent bg-white">
-            <div className="text-sm font-semibold text-slate-800 mb-2">Quick actions</div>
-            <div className="text-sm text-slate-500">Use the main admin UI to add managers, nurses, or folders. This panel is read-only summary data.</div>
+          <Card className="p-4 rounded-2xl shadow-md border border-transparent bg-white dark:bg-slate-800 dark:border-slate-700">
+            <div className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-2">Quick actions</div>
+            <div className="text-sm text-slate-500 dark:text-slate-400">Use the main admin UI to add managers, nurses, or folders. This panel is read-only summary data.</div>
           </Card>
         </aside>
       </div>

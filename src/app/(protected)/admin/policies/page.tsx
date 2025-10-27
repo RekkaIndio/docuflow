@@ -443,8 +443,8 @@ export default function AdminPoliciesPage() {
       <div className="p-6 w-full max-w-full">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <button onClick={() => setViewMode('list')} className={`px-3 py-1 rounded-md ${viewMode === 'list' ? 'bg-white text-slate-900' : 'bg-transparent text-slate-500'}`}>List</button>
-            <button onClick={() => setViewMode('tracker')} className={`px-3 py-1 rounded-md ${viewMode === 'tracker' ? 'bg-white text-slate-900' : 'bg-transparent text-slate-500'}`}>Tracker</button>
+            <button onClick={() => setViewMode('list')} className={`px-3 py-1 rounded-md ${viewMode === 'list' ? 'bg-white text-slate-900 dark:bg-slate-800 dark:text-slate-100' : 'bg-transparent text-slate-500 dark:text-slate-400'}`}>List</button>
+            <button onClick={() => setViewMode('tracker')} className={`px-3 py-1 rounded-md ${viewMode === 'tracker' ? 'bg-white text-slate-900 dark:bg-slate-800 dark:text-slate-100' : 'bg-transparent text-slate-500 dark:text-slate-400'}`}>Tracker</button>
           </div>
 
           <div className="flex items-center gap-2">
@@ -453,7 +453,7 @@ export default function AdminPoliciesPage() {
             </Button>
             <div className="w-1/3">
               <div className="relative w-full">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500">
                   <path d="M21 21l-6-6m2-5a7 7 0 1 1-14 0 7 7 0 0 1 14 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
                 <Input type="text" placeholder="Search policies..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
@@ -465,7 +465,7 @@ export default function AdminPoliciesPage() {
         {viewMode === 'tracker' ? (
           <div className="px-4 sm:px-8 lg:px-16">
             <div className="w-full">
-              <div className="bg-white/90 rounded-2xl shadow-xl border border-blue-100 p-6 sm:p-10 mb-8 min-h-[420px] flex flex-col justify-between">
+              <div className="bg-white/90 dark:bg-slate-800/90 rounded-2xl shadow-xl border border-blue-100 dark:border-slate-700 p-6 sm:p-10 mb-8 min-h-[420px] flex flex-col justify-between">
                 <div className="flex items-center gap-3 mb-6">
                   <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="text-blue-500"><rect x="3" y="3" width="18" height="18" rx="4" fill="currentColor" /></svg>
                   <div>
@@ -475,7 +475,7 @@ export default function AdminPoliciesPage() {
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="min-w-full border-collapse border border-gray-200 shadow-sm rounded-lg overflow-hidden">
+                  <table className="min-w-full border-collapse border border-gray-200 dark:border-slate-600 shadow-sm rounded-lg overflow-hidden">
                     <thead>
                       <tr className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
                         <th className="py-4 px-6 text-left font-semibold border-b border-blue-500">Policy</th>
@@ -512,8 +512,8 @@ export default function AdminPoliciesPage() {
                         const daysUntilReview = reviewDateVal ? Math.ceil((reviewDateVal.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
 
                         return (
-                          <tr key={file} className={`transition-colors ${idx % 2 === 0 ? 'bg-white hover:bg-gray-50' : 'bg-gray-50 hover:bg-gray-100'} border-b border-gray-200`}>
-                            <td className="py-4 px-6 font-medium text-gray-900 border-r border-gray-200">{it.title}</td>
+                          <tr key={file} className={`transition-colors ${idx % 2 === 0 ? 'bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700' : 'bg-gray-50 dark:bg-slate-700 hover:bg-gray-100 dark:hover:bg-slate-600'} border-b border-gray-200 dark:border-slate-600`}>
+                            <td className="py-4 px-6 font-medium text-gray-900 dark:text-slate-100 border-r border-gray-200 dark:border-slate-600">{it.title}</td>
                             {trackerYears.map((yr) => {
                               const yearKey = String(yr);
                               const stored = trackerState[file] && trackerState[file][yearKey];
@@ -524,14 +524,14 @@ export default function AdminPoliciesPage() {
                               return (
                                 <td
                                   key={yearKey}
-                                  className={`py-4 px-6 text-center border-r border-gray-200 cursor-pointer transition-all duration-200 hover:bg-blue-100 hover:shadow-inner ${isCurrent ? 'bg-blue-50' : ''}`}
+                                  className={`py-4 px-6 text-center border-r border-gray-200 dark:border-slate-600 cursor-pointer transition-all duration-200 hover:bg-blue-100 dark:hover:bg-blue-900/20 hover:shadow-inner ${isCurrent ? 'bg-blue-50 dark:bg-blue-900/10' : ''}`}
                                   onClick={() => onYearCellClick(it, yearKey)}
                                 >
                                   <div className="relative inline-block">
                         {checked ? (
                                       <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shadow-md bg-blue-500 text-white">✓</div>
                                     ) : (
-                                      <div className="w-10 h-10 rounded-full border-2 border-gray-300 border-dashed flex items-center justify-center text-gray-400 hover:border-blue-400 transition-colors">
+                                      <div className="w-10 h-10 rounded-full border-2 border-gray-300 dark:border-slate-500 border-dashed flex items-center justify-center text-gray-400 dark:text-slate-500 hover:border-blue-400 dark:hover:border-blue-500 transition-colors">
                                         <span className="text-xs">+</span>
                                       </div>
                                     )}
@@ -566,14 +566,14 @@ export default function AdminPoliciesPage() {
                 const isDueSoon = review && review.kind === 'due-soon';
 
                 const containerClass = isOverdue
-                  ? 'bg-gradient-to-br from-red-50 to-rose-50 border-red-200 hover:border-red-300'
+                  ? 'bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-950/20 dark:to-rose-950/20 border-red-200 dark:border-red-800 hover:border-red-300 dark:hover:border-red-700'
                   : isDueSoon
-                    ? 'bg-gradient-to-br from-orange-50 to-amber-50 border-orange-200 hover:border-orange-300'
-                    : (isCompleted ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200 hover:border-green-300' : 'bg-white/90 border-blue-100 hover:border-blue-200');
+                    ? 'bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/20 dark:to-amber-950/20 border-orange-200 dark:border-orange-800 hover:border-orange-300 dark:hover:border-orange-700'
+                    : (isCompleted ? 'bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border-green-200 dark:border-green-800 hover:border-green-300 dark:hover:border-green-700' : 'bg-white/90 dark:bg-slate-800/90 border-blue-100 dark:border-slate-700 hover:border-blue-200 dark:hover:border-slate-600');
 
                 const iconClass = isOverdue ? 'bg-red-500 text-white' : (isDueSoon ? 'bg-orange-500 text-white' : (isCompleted ? 'bg-green-500 text-white' : 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white'));
 
-                const titleClass = isOverdue ? 'text-red-800' : (isDueSoon ? 'text-orange-800' : (isCompleted ? 'text-green-800' : 'text-blue-900 group-hover:text-blue-800'));
+                const titleClass = isOverdue ? 'text-red-800 dark:text-red-300' : (isDueSoon ? 'text-orange-800 dark:text-orange-300' : (isCompleted ? 'text-green-800 dark:text-green-300' : 'text-blue-900 dark:text-blue-100 group-hover:text-blue-800 dark:group-hover:text-blue-200'));
 
                 const bottomBorder = isOverdue ? 'bg-gradient-to-r from-red-500 to-rose-500' : (isDueSoon ? 'bg-gradient-to-r from-orange-500 to-amber-500' : (isCompleted ? 'bg-gradient-to-r from-green-500 to-emerald-500' : 'bg-gradient-to-r from-blue-500 to-indigo-600'));
 
@@ -593,15 +593,15 @@ export default function AdminPoliciesPage() {
                       </div>
                       <div className="space-y-2 flex-grow">
                         <h3 className={`font-semibold text-lg leading-tight ${titleClass}`}>{title}</h3>
-                        <p className="text-sm text-gray-600 leading-relaxed">{isCompleted ? 'Completed - Click to review or update' : 'Click to begin creating this policy'}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{isCompleted ? 'Completed - Click to review or update' : 'Click to begin creating this policy'}</p>
                       </div>
                       {isCompleted && (
                         <div className="mt-4 pt-4 border-t space-y-2">
-                          <div className={`flex items-center justify-between text-xs ${isOverdue ? 'text-red-700' : (isDueSoon ? 'text-orange-700' : 'text-green-700')}`}><span>Status</span><span className="font-medium">✓ Complete</span></div>
+                          <div className={`flex items-center justify-between text-xs ${isOverdue ? 'text-red-700 dark:text-red-400' : (isDueSoon ? 'text-orange-700 dark:text-orange-400' : 'text-green-700 dark:text-green-400')}`}><span>Status</span><span className="font-medium">✓ Complete</span></div>
                           {(() => {
                             const rawReview = it.raw && typeof it.raw !== 'string' ? (it.raw.extractedJson?.reviewDate || it.raw.meta?.reviewDate) : null;
                             const displayReview = rawReview || reviewDate || null;
-                            return displayReview ? (<div className={`flex items-center justify-between text-xs ${isOverdue ? 'text-red-700' : (isDueSoon ? 'text-orange-700' : 'text-green-700')}`}><span>Renewal Date</span><span className="font-medium">{formatDateSafe(displayReview)}</span></div>) : null;
+                            return displayReview ? (<div className={`flex items-center justify-between text-xs ${isOverdue ? 'text-red-700 dark:text-red-400' : (isDueSoon ? 'text-orange-700 dark:text-orange-400' : 'text-green-700 dark:text-green-400')}`}><span>Renewal Date</span><span className="font-medium">{formatDateSafe(displayReview)}</span></div>) : null;
                           })()}
                           <div className="pt-2 flex gap-2">
                             <Button size="sm" onClick={(e) => { e.stopPropagation(); preloadAndOpenPolicy(it); }}>{viewLoading === it.fileName ? 'Loading…' : 'View'}</Button>
@@ -630,7 +630,7 @@ export default function AdminPoliciesPage() {
           </DialogHeader>
           <form onSubmit={handlePolicyRequestSubmit} className="space-y-4">
             <div>
-              <label htmlFor="policyTitle" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="policyTitle" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Policy Title *
               </label>
               <Input
@@ -643,7 +643,7 @@ export default function AdminPoliciesPage() {
               />
             </div>
             <div>
-              <label htmlFor="policyDescription" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="policyDescription" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Description *
               </label>
               <textarea
@@ -657,14 +657,14 @@ export default function AdminPoliciesPage() {
               />
             </div>
             <div>
-              <label htmlFor="urgency" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="urgency" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Urgency
               </label>
               <select
                 id="urgency"
                 value={policyRequestForm.urgency}
                 onChange={(e) => setPolicyRequestForm(prev => ({ ...prev, urgency: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100"
               >
                 <option value="normal">Normal</option>
                 <option value="high">High</option>
@@ -672,7 +672,7 @@ export default function AdminPoliciesPage() {
               </select>
             </div>
             <div>
-              <label htmlFor="additionalNotes" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="additionalNotes" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Additional Notes
               </label>
               <textarea
@@ -680,7 +680,7 @@ export default function AdminPoliciesPage() {
                 placeholder="Any additional context or requirements..."
                 value={policyRequestForm.additionalNotes}
                 onChange={(e) => setPolicyRequestForm(prev => ({ ...prev, additionalNotes: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100"
                 rows={3}
               />
             </div>

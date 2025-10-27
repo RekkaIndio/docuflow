@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Minus, Plus, RotateCcw, Zap, Brain } from "lucide-react";
+import { Minus, Plus, RotateCcw, Zap, Brain, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -24,6 +24,7 @@ interface AccessibilityViewProps {
 const FONT_SIZE_STORAGE_KEY = 'docuflow-font-size';
 const DEFAULT_FONT_SIZE = 100; // 100% = normal size
 const COLOR_THEME_STORAGE_KEY = 'docuflow-color-theme';
+const DARK_MODE_STORAGE_KEY = 'docuflow-dark-mode';
 const PROFILE_STORAGE_KEYS: Record<string, string | undefined> = {
     'adhd-friendly': ADHD_PROFILE_STORAGE_KEY,
     'seizure-safe': SEIZURE_SAFE_STORAGE_KEY,
@@ -83,6 +84,7 @@ const COLOR_THEMES = [
 export function AccessibilityView({ workspace }: AccessibilityViewProps) {
     const [fontSize, setFontSize] = useState(DEFAULT_FONT_SIZE);
     const [selectedTheme, setSelectedTheme] = useState('default');
+    const [isDarkMode, setIsDarkMode] = useState(false);
     const [profileStates, setProfileStates] = useState<Record<string, boolean>>(() =>
         ACCESSIBILITY_PROFILES.reduce<Record<string, boolean>>((acc, profile) => {
             acc[profile.id] = false;
@@ -142,6 +144,12 @@ export function AccessibilityView({ workspace }: AccessibilityViewProps) {
             applyColorTheme(savedTheme);
         }
 
+        const savedDarkMode = localStorage.getItem(DARK_MODE_STORAGE_KEY);
+        if (savedDarkMode === 'true') {
+            setIsDarkMode(true);
+            applyDarkMode(true);
+        }
+
         const restoredStates: Record<string, boolean> = {};
 
         Object.entries(PROFILE_STORAGE_KEYS).forEach(([profileId, storageKey]) => {
@@ -168,6 +176,16 @@ export function AccessibilityView({ workspace }: AccessibilityViewProps) {
     // Apply font size to document root
     const applyFontSize = (size: number) => {
         document.documentElement.style.setProperty('--font-scale', (size / 100).toString());
+    };
+
+    // Apply dark mode to document root
+    const applyDarkMode = (dark: boolean) => {
+        const html = document.documentElement;
+        if (dark) {
+            html.classList.add('dark');
+        } else {
+            html.classList.remove('dark');
+        }
     };
 
     // Apply color theme to document root
@@ -197,6 +215,13 @@ export function AccessibilityView({ workspace }: AccessibilityViewProps) {
         setSelectedTheme(themeId);
         applyColorTheme(themeId);
         localStorage.setItem(COLOR_THEME_STORAGE_KEY, themeId);
+    };
+
+    // Handle dark mode toggle
+    const handleDarkModeToggle = (dark: boolean) => {
+        setIsDarkMode(dark);
+        applyDarkMode(dark);
+        localStorage.setItem(DARK_MODE_STORAGE_KEY, dark.toString());
     };
 
     // Handle font size change
@@ -272,6 +297,58 @@ export function AccessibilityView({ workspace }: AccessibilityViewProps) {
                                     </div>
                                 </div>
                             ))}
+                        </CardContent>
+                    </Card>
+
+                    <Card className="lg:col-span-2">
+                        <CardHeader>
+                            <CardTitle>Display Mode</CardTitle>
+                            <CardDescription>
+                                Switch between light and dark themes for comfortable viewing in different lighting conditions.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/20">
+                                <div className="flex items-center gap-3">
+                                    {isDarkMode ? (
+                                        <Moon className="h-6 w-6 text-blue-500" />
+                                    ) : (
+                                        <Sun className="h-6 w-6 text-yellow-500" />
+                                    )}
+                                    <div>
+                                        <p className="font-medium">{isDarkMode ? 'Dark Mode' : 'Light Mode'}</p>
+                                        <p className="text-sm text-muted-foreground">
+                                            {isDarkMode ? 'Reduces eye strain in low light' : 'Bright and clear for daytime use'}
+                                        </p>
+                                    </div>
+                                </div>
+                                <Switch
+                                    checked={isDarkMode}
+                                    onCheckedChange={handleDarkModeToggle}
+                                    aria-label="Toggle dark mode"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="p-4 rounded-lg border bg-white dark:bg-gray-900">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Sun className="h-4 w-4 text-yellow-500" />
+                                        <span className="text-sm font-medium">Light Mode Preview</span>
+                                    </div>
+                                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                                        Clean, bright interface with high contrast for daytime use.
+                                    </p>
+                                </div>
+                                <div className="p-4 rounded-lg border bg-gray-900 dark:bg-gray-800">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Moon className="h-4 w-4 text-blue-400" />
+                                        <span className="text-sm font-medium text-white">Dark Mode Preview</span>
+                                    </div>
+                                    <p className="text-sm text-gray-300 dark:text-gray-400">
+                                        Easy on the eyes with reduced blue light for nighttime use.
+                                    </p>
+                                </div>
+                            </div>
                         </CardContent>
                     </Card>
 

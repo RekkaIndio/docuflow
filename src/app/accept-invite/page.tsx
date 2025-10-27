@@ -3,6 +3,7 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
+import { auth as firebaseAuth } from '@/lib/firebase';
 
 export default function AcceptInvitePage() {
   // Read the token from the URL on the client to avoid server-side prerender
@@ -103,15 +104,33 @@ export default function AcceptInvitePage() {
     try {
       if (!auth?.signUp) throw new Error('Signup not available');
       await auth.signUp(email, password, name || '');
-      // After sign up, do NOT automatically send the user to the dashboard.
+      // After sign up, route based on role
+      const firebaseUser = firebaseAuth.currentUser;
+      if (firebaseUser) {
+        const idToken = await firebaseUser.getIdToken();
+        const resp = await fetch('/api/admin/verify', { 
+          method: 'GET', 
+          headers: { authorization: `Bearer ${idToken}` } 
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.isAdmin) {
+            router.push('/admin');
+          } else {
+            router.push('/dashboard');
+          }
+        } else {
+          router.push('/dashboard');
+        }
+      } else {
+        router.push('/dashboard');
+      }
       // The workspace admin needs to assign the user to a workspace first.
       try {
         if (typeof window !== 'undefined') {
           window.localStorage.setItem('awaitingWorkspace', '1');
         }
       } catch (e) {}
-      // Redirect to the public landing page and show instructions.
-      router.push('/');
     } catch (e: any) {
       console.error('Signup failed', e);
       setError(e?.message || String(e));

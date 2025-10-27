@@ -349,7 +349,7 @@ export default function RDComplianceAuditPage() {
         return (
           <div className="space-y-6">
             {professionalVisitors.map((visitor, index) => (
-              <div key={`visitor-${index}`} className="rounded-lg border bg-white p-4 space-y-4">
+              <div key={`visitor-${index}`} className="rounded-lg border bg-white p-4 space-y-4 dark:bg-slate-700 dark:border-slate-600">
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor={`visitor-name-${index}`}>Name</Label>
@@ -399,7 +399,7 @@ export default function RDComplianceAuditPage() {
         return (
           <div className="space-y-6">
             {staffEntries.map((staff, index) => (
-              <div key={`staff-${index}`} className="space-y-6 rounded-lg border bg-white p-4">
+              <div key={`staff-${index}`} className="space-y-6 rounded-lg border bg-white p-4 dark:bg-slate-700 dark:border-slate-600">
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor={`staff-name-${index}`}>Staff name</Label>
@@ -462,7 +462,7 @@ export default function RDComplianceAuditPage() {
                           value={staff.fileChecklist[item.key] ?? ""}
                           onValueChange={(value) => handleStaffChecklistChange(index, item.key, value)}
                         >
-                          <SelectTrigger className="bg-white">
+                          <SelectTrigger className="bg-white dark:bg-slate-700">
                             <SelectValue placeholder="Select" />
                           </SelectTrigger>
                           <SelectContent>
@@ -628,7 +628,7 @@ export default function RDComplianceAuditPage() {
                   value={form[item.key] ?? ""}
                   onValueChange={(value) => setField(item.key, value)}
                 >
-                  <SelectTrigger className="bg-white">
+                  <SelectTrigger className="bg-white dark:bg-slate-700">
                     <SelectValue placeholder="Select" />
                   </SelectTrigger>
                   <SelectContent>
@@ -785,7 +785,7 @@ export default function RDComplianceAuditPage() {
                       value={form[item.key] ?? ""}
                       onValueChange={(value) => setField(item.key, value)}
                     >
-                      <SelectTrigger className="bg-white">
+                      <SelectTrigger className="bg-white dark:bg-slate-700">
                         <SelectValue placeholder="Select" />
                       </SelectTrigger>
                       <SelectContent>
@@ -979,7 +979,7 @@ export default function RDComplianceAuditPage() {
                   value={form[item.key] ?? ""}
                   onValueChange={(value) => setField(item.key, value)}
                 >
-                  <SelectTrigger className="bg-white">
+                  <SelectTrigger className="bg-white dark:bg-slate-700">
                     <SelectValue placeholder="Select" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1143,7 +1143,7 @@ export default function RDComplianceAuditPage() {
     <div className="space-y-2" key={field}>
       <Label htmlFor={field}>{label}</Label>
       <Select value={form[field] ?? ""} onValueChange={(value) => setField(field, value)}>
-        <SelectTrigger id={field} className="bg-white">
+        <SelectTrigger id={field} className="bg-white dark:bg-slate-700">
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>
@@ -1190,54 +1190,54 @@ export default function RDComplianceAuditPage() {
         subtitle="Conduct a comprehensive audit of RD compliance."
         icon={<ClipboardCheck />}
       />
-      <div className="w-full p-10 bg-gradient-to-br from-slate-50 to-white rounded-3xl shadow-2xl mt-10 border border-slate-200">
+      <div className="w-full p-10 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 rounded-3xl shadow-2xl mt-10 border border-slate-200 dark:border-slate-700">
         <Tabs defaultValue="audit" className="w-full">
-          <TabsList className="grid h-auto w-full max-w-xl grid-cols-3 items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
-            <TabsTrigger value="audit" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+          <TabsList className="grid h-auto w-full max-w-xl grid-cols-3 items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <TabsTrigger value="audit" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:text-slate-300 dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white">
               Audit
             </TabsTrigger>
-            <TabsTrigger value="action-plan" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <TabsTrigger value="action-plan" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:text-slate-300 dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white">
               Action Plan
             </TabsTrigger>
-            <TabsTrigger value="tracker" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <TabsTrigger value="tracker" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:text-slate-300 dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white">
               Tracker
             </TabsTrigger>
           </TabsList>
           <TabsContent value="audit" className="mt-6">
             <div className="flex flex-col lg:flex-row gap-10">
               {/* Left Panel - Audit Information (sticky) */}
-              <div className="w-full lg:w-[480px] flex-shrink-0 bg-white rounded-2xl p-8 border border-slate-200 shadow-xl mb-8 lg:mb-0 lg:sticky lg:top-10 self-start h-fit">
+              <div className="w-full lg:w-[480px] flex-shrink-0 bg-white rounded-2xl p-8 border border-slate-200 shadow-xl mb-8 lg:mb-0 lg:sticky lg:top-10 self-start h-fit dark:bg-slate-800 dark:border-slate-700">
                 <p className="mb-4 text-slate-500">Complete the Regional Director compliance review for each visit. All sections are required for a comprehensive audit.</p>
 
                 <div className="space-y-4">
                   <div>
-                    <label className="block font-semibold mb-1 text-slate-700">Home/Care Facility</label>
+                    <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Home/Care Facility</label>
                     <Input value={form.home ?? ""} onChange={(e) => setField("home", e.target.value)} className="w-full" placeholder="Enter care home name" />
                   </div>
                   <div>
-                    <label className="block font-semibold mb-1 text-slate-700">Audit Date</label>
+                    <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Audit Date</label>
                     <Input type="date" value={form.auditDate ?? ""} onChange={(e) => setField("auditDate", e.target.value)} className="w-full" />
                   </div>
                   <div>
-                    <label className="block font-semibold mb-1 text-slate-700">Person Completing Audit</label>
+                    <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Person Completing Audit</label>
                     <Input value={form.personCompletingAudit ?? ""} onChange={(e) => setField("personCompletingAudit", e.target.value)} className="w-full" placeholder="Full name and position" />
                   </div>
                   <div>
-                    <label className="block font-semibold mb-1 text-slate-700">Registered Manager</label>
+                    <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Registered Manager</label>
                     <Input value={form.registeredManager ?? ""} onChange={(e) => setField("registeredManager", e.target.value)} className="w-full" placeholder="Name" />
                   </div>
                   <div>
-                    <label className="block font-semibold mb-1 text-slate-700">Responsible Person</label>
+                    <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Responsible Person</label>
                     <Input value={form.responsiblePerson ?? ""} onChange={(e) => setField("responsiblePerson", e.target.value)} className="w-full" placeholder="Name at time of visit" />
                   </div>
                   <div>
-                    <label className="block font-semibold mb-1 text-slate-700">Occupancy</label>
+                    <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Occupancy</label>
                     <Input value={form.occupancy ?? ""} onChange={(e) => setField("occupancy", e.target.value)} className="w-full" placeholder="Current occupancy" />
                   </div>
                   <div>
-                    <label className="block font-semibold mb-1 text-slate-700">Visit Type</label>
+                    <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Visit Type</label>
                     <Select value={form.announced ?? ""} onValueChange={(value) => setField("announced", value)}>
-                      <SelectTrigger className="w-full">
+                      <SelectTrigger className="w-full bg-white dark:bg-slate-700">
                         <SelectValue placeholder="Select visit type" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1247,16 +1247,16 @@ export default function RDComplianceAuditPage() {
                     </Select>
                   </div>
                   <div>
-                    <label className="block font-semibold mb-1 text-slate-700">Duration of Visit</label>
+                    <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Duration of Visit</label>
                     <Input value={form.visitDuration ?? ""} onChange={(e) => setField("visitDuration", e.target.value)} className="w-full" placeholder="e.g., 4 hours" />
                   </div>
 
                   <div className="pt-2">
-                    <div className="text-sm font-medium text-gray-700 mb-1">Audit Progress</div>
-                    <div className="text-sm text-gray-600">
+                    <div className="text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Audit Progress</div>
+                    <div className="text-sm text-gray-600 dark:text-slate-400">
                       {Object.values(openSections).filter(Boolean).length} of {sections.length} sections completed
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                    <div className="w-full bg-gray-200 rounded-full h-2 mt-2 dark:bg-slate-700">
                       <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${(Object.values(openSections).filter(Boolean).length / sections.length) * 100}%` }}></div>
                     </div>
                   </div>
@@ -1267,15 +1267,15 @@ export default function RDComplianceAuditPage() {
               <div className="flex-1 min-w-0 pr-2">
                 <form onSubmit={handleSubmit} className="space-y-4">
                   {sections.map((section) => (
-                    <div key={section.id} className="bg-white rounded-2xl border border-slate-200 shadow-md transition-shadow hover:shadow-lg">
+                    <div key={section.id} className="bg-white rounded-2xl border border-slate-200 shadow-md transition-shadow hover:shadow-lg dark:bg-slate-800 dark:border-slate-700">
                       <button
                         type="button"
                         onClick={() => toggleSection(section.id)}
-                        className="w-full flex items-center justify-between px-8 py-5 text-left font-semibold text-blue-900 text-lg focus:outline-none hover:bg-slate-50 rounded-t-2xl transition-colors"
+                        className="w-full flex items-center justify-between px-8 py-5 text-left font-semibold text-blue-900 text-lg focus:outline-none hover:bg-slate-50 rounded-t-2xl transition-colors dark:text-blue-100 dark:hover:bg-slate-700"
                       >
                         <div className="flex items-center gap-3">
                           <ClipboardCheck className="h-5 w-5 text-gray-600" />
-                          <h3 className="text-lg font-semibold text-gray-900">{section.title}</h3>
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{section.title}</h3>
                         </div>
                         {openSections[section.id] ? (
                           <ChevronUp className="h-5 w-5 text-gray-500" />
@@ -1310,9 +1310,9 @@ export default function RDComplianceAuditPage() {
             </div>
           </TabsContent>
           <TabsContent value="action-plan" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Action Plan</CardTitle>
+            <Card className="dark:bg-slate-800 dark:border-slate-700">
+              <CardHeader className="dark:bg-slate-800 dark:border-slate-700">
+                <CardTitle className="dark:text-white">Action Plan</CardTitle>
               </CardHeader>
               <CardContent>
                 <p>Action plan content goes here.</p>
@@ -1323,13 +1323,13 @@ export default function RDComplianceAuditPage() {
             <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
               <div className="w-full flex-shrink-0 lg:w-[360px] xl:w-[400px] lg:self-start lg:sticky lg:top-24 lg:h-fit">
                 <div className="flex flex-col gap-4">
-                  <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
+                  <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:bg-slate-800 dark:border-slate-700">
                     <div className="flex items-start gap-4">
                       <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
                         <ClipboardCheck className="h-6 w-6" />
                       </div>
                       <div>
-                        <h2 className="text-xl font-semibold text-blue-900">Audit History</h2>
+                        <h2 className="text-xl font-semibold text-blue-900 dark:text-blue-100">Audit History</h2>
                         <p className="mt-1 text-sm leading-relaxed text-slate-500">
                           Review past RD Compliance audits organized by month.
                         </p>
@@ -1341,10 +1341,10 @@ export default function RDComplianceAuditPage() {
 
               <div className="min-w-0 flex-1 space-y-6">
                 <div className="space-y-6">
-                  <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:bg-slate-800 dark:border-slate-700">
                     <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                       <div>
-                        <h2 className="text-lg font-semibold text-blue-900">2024 Tracker</h2>
+                        <h2 className="text-lg font-semibold text-blue-900 dark:text-blue-100">2024 Tracker</h2>
                         <p className="text-sm text-slate-500">Choose a month to review audit history.</p>
                       </div>
                     </div>
@@ -1362,12 +1362,12 @@ export default function RDComplianceAuditPage() {
                             onClick={() => setSelectedMonth(monthKey)}
                             className={`text-left rounded-xl border p-4 transition-all focus:outline-none focus:ring-2 focus:ring-blue-200 ${
                               hasData
-                                ? 'bg-white hover:border-blue-300 hover:shadow-md'
-                                : 'border-dashed border-slate-300 bg-slate-50 text-slate-500 hover:border-slate-300'
-                            } ${isSelected ? 'border-blue-500 ring-2 ring-blue-200' : ''}`}
+                                ? 'bg-white hover:border-blue-300 hover:shadow-md dark:bg-slate-700 dark:hover:border-blue-400'
+                                : 'border-dashed border-slate-300 bg-slate-50 text-slate-500 hover:border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-slate-500'
+                            } ${isSelected ? 'border-blue-500 ring-2 ring-blue-200 dark:border-blue-400 dark:ring-blue-300' : ''}`}
                           >
                             <div className="flex items-center justify-between">
-                              <span className={`text-sm font-semibold ${hasData ? 'text-slate-900' : 'text-slate-500'}`}>
+                              <span className={`text-sm font-semibold ${hasData ? 'text-slate-900 dark:text-slate-100' : 'text-slate-500 dark:text-slate-400'}`}>
                                 {month.toLocaleString('default', { month: 'short' })}
                               </span>
                               {hasData ? (
@@ -1375,10 +1375,10 @@ export default function RDComplianceAuditPage() {
                                   {records.length === 1 ? '1 audit' : `${records.length} audits`}
                                 </span>
                               ) : (
-                                <span className="text-xs">No audits</span>
+                                <span className="text-xs text-slate-500 dark:text-slate-400">No audits</span>
                               )}
                             </div>
-                            <div className="mt-3 text-xs text-slate-600">{month.toLocaleString('default', { month: 'long' })}</div>
+                            <div className="mt-3 text-xs text-slate-600 dark:text-slate-400">{month.toLocaleString('default', { month: 'long' })}</div>
                           </button>
                         );
                       })}
@@ -1387,19 +1387,19 @@ export default function RDComplianceAuditPage() {
                 </div>
 
                 {selectedMonth && (
-                  <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:bg-slate-800 dark:border-slate-700">
                     <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                       <div>
-                        <h3 className="text-xl font-semibold text-blue-900">
+                        <h3 className="text-xl font-semibold text-blue-900 dark:text-blue-100">
                           {new Date(selectedMonth + '-01').toLocaleString('default', { month: 'long', year: 'numeric' })} Audits
                         </h3>
-                        <p className="text-sm text-slate-600">
+                        <p className="text-sm text-slate-600 dark:text-slate-400">
                           {trackerData[selectedMonth]?.length || 0} audits saved
                         </p>
                       </div>
                     </div>
 
-                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:bg-slate-800 dark:border-slate-700">
                       {trackerData[selectedMonth]?.length === 0 ? (
                         <div className="p-10 text-center text-sm text-slate-500">
                           No audits saved for {new Date(selectedMonth + '-01').toLocaleString('default', { month: 'long' })} yet.
@@ -1418,7 +1418,7 @@ export default function RDComplianceAuditPage() {
                             {trackerData[selectedMonth]?.map((record) => (
                               <TableRow key={record.id} className="transition-colors hover:bg-muted/40">
                                 <TableCell className="text-sm font-medium text-foreground">{record.date}</TableCell>
-                                <TableCell className="text-sm text-slate-500">{record.home}</TableCell>
+                                <TableCell className="text-sm text-slate-500 dark:text-slate-400">{record.home}</TableCell>
                                 <TableCell>
                                   <Badge variant={record.rating === 'Excellent' ? 'default' : record.rating === 'Good' ? 'secondary' : 'destructive'}>
                                     {record.rating}

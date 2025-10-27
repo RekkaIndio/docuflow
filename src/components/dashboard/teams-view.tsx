@@ -1861,44 +1861,44 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
             )}
       <main className="flex-1 p-6 overflow-y-auto">
         <Tabs defaultValue="teams" className="w-full">
-          <TabsList className="grid h-auto w-full grid-cols-10 items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm mb-6">
-              <TabsTrigger value="teams" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
+          <TabsList className="grid h-auto w-full grid-cols-10 items-center gap-2 rounded-2xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-2 shadow-sm mb-6">
+              <TabsTrigger value="teams" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-slate-600 dark:text-slate-400 data-[state=active]:dark:bg-primary data-[state=active]:dark:text-primary-foreground flex items-center gap-2">
               <Users className="w-4 h-4" />
               Teams
             </TabsTrigger>
-              <TabsTrigger value="management" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
+              <TabsTrigger value="management" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-slate-600 dark:text-slate-400 data-[state=active]:dark:bg-primary data-[state=active]:dark:text-primary-foreground flex items-center gap-2">
               <UserCheck className="w-4 h-4" />
               Management
             </TabsTrigger>
-              <TabsTrigger value="admin" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
+              <TabsTrigger value="admin" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-slate-600 dark:text-slate-400 data-[state=active]:dark:bg-primary data-[state=active]:dark:text-primary-foreground flex items-center gap-2">
               <UserCheck className="w-4 h-4" />
               Admin
             </TabsTrigger>
-              <TabsTrigger value="nurses" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
+              <TabsTrigger value="nurses" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-slate-600 dark:text-slate-400 data-[state=active]:dark:bg-primary data-[state=active]:dark:text-primary-foreground flex items-center gap-2">
               <UserCheck className="w-4 h-4" />
               Nurses
             </TabsTrigger>
-              <TabsTrigger value="carers" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
+              <TabsTrigger value="carers" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-slate-600 dark:text-slate-400 data-[state=active]:dark:bg-primary data-[state=active]:dark:text-primary-foreground flex items-center gap-2">
               <UserCheck className="w-4 h-4" />
               Carers
             </TabsTrigger>
-              <TabsTrigger value="ctm" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
+              <TabsTrigger value="ctm" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-slate-600 dark:text-slate-400 data-[state=active]:dark:bg-primary data-[state=active]:dark:text-primary-foreground flex items-center gap-2">
               <UserCheck className="w-4 h-4" />
               CTM
             </TabsTrigger>
-              <TabsTrigger value="domestic" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
+              <TabsTrigger value="domestic" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-slate-600 dark:text-slate-400 data-[state=active]:dark:bg-primary data-[state=active]:dark:text-primary-foreground flex items-center gap-2">
               <UserCheck className="w-4 h-4" />
               Domestic
             </TabsTrigger>
-              <TabsTrigger value="maintenance" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
+              <TabsTrigger value="maintenance" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-slate-600 dark:text-slate-400 data-[state=active]:dark:bg-primary data-[state=active]:dark:text-primary-foreground flex items-center gap-2">
               <UserCheck className="w-4 h-4" />
               Maintenance
             </TabsTrigger>
-              <TabsTrigger value="kitchen" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
+              <TabsTrigger value="kitchen" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-slate-600 dark:text-slate-400 data-[state=active]:dark:bg-primary data-[state=active]:dark:text-primary-foreground flex items-center gap-2">
               <UserCheck className="w-4 h-4" />
               Kitchen
             </TabsTrigger>
-              <TabsTrigger value="activities" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
+              <TabsTrigger value="activities" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-slate-600 dark:text-slate-400 data-[state=active]:dark:bg-primary data-[state=active]:dark:text-primary-foreground flex items-center gap-2">
               <UserCheck className="w-4 h-4" />
               Activities
             </TabsTrigger>
@@ -3524,51 +3524,51 @@ function AdminCard({ admin, isEditing, onEdit, onCancelEdit, onSave, onDelete, d
   }
 
   return (
-    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg border border-indigo-100">
+    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg border border-indigo-100 dark:bg-gradient-to-r dark:from-slate-800 dark:to-slate-700 dark:border-slate-600">
       <div className="flex-1 grid grid-cols-1 md:grid-cols-6 gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-3 bg-indigo-100 rounded-full">
-            <UserCheck className="w-5 h-5 text-indigo-600" />
+          <div className="p-3 bg-indigo-100 rounded-full dark:bg-slate-700">
+            <UserCheck className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
           </div>
           <div>
-            <p className="font-semibold text-gray-900">{admin.name}</p>
-            <p className="text-sm text-indigo-600 font-medium">Admin Staff</p>
+            <p className="font-semibold text-gray-900 dark:text-slate-100">{admin.name}</p>
+            <p className="text-sm text-indigo-600 font-medium dark:text-indigo-400">Admin Staff</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <UserCheck className="w-4 h-4 text-gray-600" />
+          <div className="p-2 bg-white rounded-full dark:bg-slate-600">
+            <UserCheck className="w-4 h-4 text-gray-600 dark:text-slate-400" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{admin.roles}</p>
-            <p className="text-xs text-gray-500">Roles</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{admin.roles}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Roles</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <Mail className="w-4 h-4 text-gray-600" />
+          <div className="p-2 bg-white rounded-full dark:bg-slate-600">
+            <Mail className="w-4 h-4 text-gray-600 dark:text-slate-400" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{admin.email}</p>
-            <p className="text-xs text-gray-500">Email address</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{admin.email}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Email address</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <Phone className="w-4 h-4 text-gray-600" />
+          <div className="p-2 bg-white rounded-full dark:bg-slate-600">
+            <Phone className="w-4 h-4 text-gray-600 dark:text-slate-400" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{admin.phone}</p>
-            <p className="text-xs text-gray-500">Phone number</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{admin.phone}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Phone number</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <Clock className="w-4 h-4 text-gray-600" />
+          <div className="p-2 bg-white rounded-full dark:bg-slate-600">
+            <Clock className="w-4 h-4 text-gray-600 dark:text-slate-400" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{admin.contractedHours ?? 40}h/{(admin.hoursType || 'weekly') === 'weekly' ? 'wk' : 'mo'}</p>
-            <p className="text-xs text-gray-500">Contracted</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{admin.contractedHours ?? 40}h/{(admin.hoursType || 'weekly') === 'weekly' ? 'wk' : 'mo'}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Contracted</p>
           </div>
         </div>
       </div>
@@ -3578,7 +3578,7 @@ function AdminCard({ admin, isEditing, onEdit, onCancelEdit, onSave, onDelete, d
           size="sm"
           onClick={onEdit}
           disabled={disabled}
-          className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-100"
+          className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-100 dark:text-indigo-400 dark:hover:text-indigo-300 dark:hover:bg-slate-700"
         >
           <Edit className="w-4 h-4" />
         </Button>
@@ -3587,7 +3587,7 @@ function AdminCard({ admin, isEditing, onEdit, onCancelEdit, onSave, onDelete, d
           size="sm"
           onClick={onDelete}
           disabled={disabled}
-          className="text-red-600 hover:text-red-700 hover:bg-red-100"
+          className="text-red-600 hover:text-red-700 hover:bg-red-100 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-slate-700"
         >
           <Trash2 className="w-4 h-4" />
         </Button>
@@ -3744,51 +3744,51 @@ function ManagerCard({ manager, isEditing, onEdit, onCancelEdit, onSave, onDelet
   }
 
   return (
-    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
+    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100 dark:bg-gradient-to-r dark:from-slate-800 dark:to-slate-700 dark:border-slate-600">
   <div className="flex-1 grid grid-cols-1 md:grid-cols-6 gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-3 bg-blue-100 rounded-full">
-            <UserCheck className="w-5 h-5 text-blue-600" />
+          <div className="p-3 bg-blue-100 rounded-full dark:bg-slate-700">
+            <UserCheck className="w-5 h-5 text-blue-600 dark:text-blue-400" />
           </div>
           <div>
-            <p className="font-semibold text-gray-900">{manager.name}</p>
-            <p className="text-sm text-blue-600 font-medium">Workspace Manager</p>
+            <p className="font-semibold text-gray-900 dark:text-slate-100">{manager.name}</p>
+            <p className="text-sm text-blue-600 font-medium dark:text-blue-400">Workspace Manager</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <UserCheck className="w-4 h-4 text-gray-600" />
+          <div className="p-2 bg-white rounded-full dark:bg-slate-600">
+            <UserCheck className="w-4 h-4 text-gray-600 dark:text-slate-400" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{manager.roles}</p>
-            <p className="text-xs text-gray-500">Roles</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{manager.roles}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Roles</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <Mail className="w-4 h-4 text-gray-600" />
+          <div className="p-2 bg-white rounded-full dark:bg-slate-600">
+            <Mail className="w-4 h-4 text-gray-600 dark:text-slate-400" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{manager.email}</p>
-            <p className="text-xs text-gray-500">Email address</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{manager.email}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Email address</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <Phone className="w-4 h-4 text-gray-600" />
+          <div className="p-2 bg-white rounded-full dark:bg-slate-600">
+            <Phone className="w-4 h-4 text-gray-600 dark:text-slate-400" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{manager.phone}</p>
-            <p className="text-xs text-gray-500">Phone number</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{manager.phone}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Phone number</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <Clock className="w-4 h-4 text-gray-600" />
+          <div className="p-2 bg-white rounded-full dark:bg-slate-600">
+            <Clock className="w-4 h-4 text-gray-600 dark:text-slate-400" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{manager.contractedHours ?? 40}h/{(manager.hoursType || 'weekly') === 'weekly' ? 'wk' : 'mo'}</p>
-            <p className="text-xs text-gray-500">Contracted</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{manager.contractedHours ?? 40}h/{(manager.hoursType || 'weekly') === 'weekly' ? 'wk' : 'mo'}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Contracted</p>
           </div>
         </div>
       </div>
@@ -3798,7 +3798,7 @@ function ManagerCard({ manager, isEditing, onEdit, onCancelEdit, onSave, onDelet
           size="sm"
           onClick={onEdit}
           disabled={disabled}
-          className="text-blue-600 hover:text-blue-700 hover:bg-blue-100"
+          className="text-blue-600 hover:text-blue-700 hover:bg-blue-100 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-slate-700"
         >
           <Edit className="w-4 h-4" />
         </Button>
@@ -3807,7 +3807,7 @@ function ManagerCard({ manager, isEditing, onEdit, onCancelEdit, onSave, onDelet
           size="sm"
           onClick={onDelete}
           disabled={disabled}
-          className="text-red-600 hover:text-red-700 hover:bg-red-100"
+          className="text-red-600 hover:text-red-700 hover:bg-red-100 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-slate-700"
         >
           <Trash2 className="w-4 h-4" />
         </Button>
@@ -3949,42 +3949,42 @@ function NurseCard({ nurse, isEditing, onEdit, onCancelEdit, onSave, onDelete, d
   }
 
   return (
-    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-100">
+    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-100 dark:bg-gradient-to-r dark:from-slate-800 dark:to-slate-700 dark:border-slate-600">
     <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-3 bg-green-100 rounded-full">
-            <UserCheck className="w-5 h-5 text-green-600" />
+          <div className="p-3 bg-green-100 rounded-full dark:bg-slate-700">
+            <UserCheck className="w-5 h-5 text-green-600 dark:text-green-400" />
           </div>
           <div>
-            <p className="font-semibold text-gray-900">{nurse.name}</p>
-            <p className="text-sm text-green-600 font-medium">Nurse</p>
+            <p className="font-semibold text-gray-900 dark:text-slate-100">{nurse.name}</p>
+            <p className="text-sm text-green-600 font-medium dark:text-green-400">Nurse</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <UserCheck className="w-4 h-4 text-gray-600" />
+          <div className="p-2 bg-white rounded-full dark:bg-slate-600">
+            <UserCheck className="w-4 h-4 text-gray-600 dark:text-slate-400" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{nurse.roles}</p>
-            <p className="text-xs text-gray-500">Roles</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{nurse.roles}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Roles</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <Mail className="w-4 h-4 text-gray-600" />
+          <div className="p-2 bg-white rounded-full dark:bg-slate-600">
+            <Mail className="w-4 h-4 text-gray-600 dark:text-slate-400" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{nurse.email}</p>
-            <p className="text-xs text-gray-500">Email address</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{nurse.email}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Email address</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <Phone className="w-4 h-4 text-gray-600" />
+          <div className="p-2 bg-white rounded-full dark:bg-slate-600">
+            <Phone className="w-4 h-4 text-gray-600 dark:text-slate-400" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{nurse.phone}</p>
-            <p className="text-xs text-gray-500">Phone number</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{nurse.phone}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Phone number</p>
           </div>
         </div>
       </div>
@@ -3994,7 +3994,7 @@ function NurseCard({ nurse, isEditing, onEdit, onCancelEdit, onSave, onDelete, d
           size="sm"
           onClick={onEdit}
           disabled={disabled}
-          className="text-green-600 hover:text-green-700 hover:bg-green-100"
+          className="text-green-600 hover:text-green-700 hover:bg-green-100 dark:text-green-400 dark:hover:text-green-300 dark:hover:bg-slate-700"
         >
           <Edit className="w-4 h-4" />
         </Button>
@@ -4003,7 +4003,7 @@ function NurseCard({ nurse, isEditing, onEdit, onCancelEdit, onSave, onDelete, d
           size="sm"
           onClick={onDelete}
           disabled={disabled}
-          className="text-red-600 hover:text-red-700 hover:bg-red-100"
+          className="text-red-600 hover:text-red-700 hover:bg-red-100 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-slate-700"
         >
           <Trash2 className="w-4 h-4" />
         </Button>
@@ -4118,51 +4118,51 @@ function CarerCard({ carer, isEditing, onEdit, onCancelEdit, onSave, onDelete, d
   }
 
   return (
-    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-teal-50 to-emerald-50 rounded-lg border border-teal-100">
+    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-teal-50 to-emerald-50 rounded-lg border border-teal-100 dark:bg-gradient-to-r dark:from-slate-800 dark:to-slate-700 dark:border-slate-600">
       <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-3 bg-teal-100 rounded-full">
-            <UserCheck className="w-5 h-5 text-teal-600" />
+          <div className="p-3 bg-teal-100 rounded-full dark:bg-slate-700">
+            <UserCheck className="w-5 h-5 text-teal-600 dark:text-teal-400" />
           </div>
           <div>
-            <p className="font-semibold text-gray-900">{carer.name}</p>
-            <p className="text-sm text-teal-600 font-medium">Carer</p>
+            <p className="font-semibold text-gray-900 dark:text-slate-100">{carer.name}</p>
+            <p className="text-sm text-teal-600 font-medium dark:text-teal-400">Carer</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <UserCheck className="w-4 h-4 text-gray-600" />
+          <div className="p-2 bg-white rounded-full dark:bg-slate-600">
+            <UserCheck className="w-4 h-4 text-gray-600 dark:text-slate-400" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{carer.roles}</p>
-            <p className="text-xs text-gray-500">Roles</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{carer.roles}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Roles</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <Mail className="w-4 h-4 text-gray-600" />
+          <div className="p-2 bg-white rounded-full dark:bg-slate-600">
+            <Mail className="w-4 h-4 text-gray-600 dark:text-slate-400" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{carer.email}</p>
-            <p className="text-xs text-gray-500">Email address</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{carer.email}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Email address</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <Phone className="w-4 h-4 text-gray-600" />
+          <div className="p-2 bg-white rounded-full dark:bg-slate-600">
+            <Phone className="w-4 h-4 text-gray-600 dark:text-slate-400" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{carer.phone}</p>
-            <p className="text-xs text-gray-500">Phone number</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{carer.phone}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Phone number</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <Clock className="w-4 h-4 text-gray-600" />
+          <div className="p-2 bg-white rounded-full dark:bg-slate-600">
+            <Clock className="w-4 h-4 text-gray-600 dark:text-slate-400" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{carer.contractedHours ?? 40}h/{(carer.hoursType || 'weekly') === 'weekly' ? 'wk' : 'mo'}</p>
-            <p className="text-xs text-gray-500">Contracted</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{carer.contractedHours ?? 40}h/{(carer.hoursType || 'weekly') === 'weekly' ? 'wk' : 'mo'}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Contracted</p>
           </div>
         </div>
       </div>
@@ -4172,7 +4172,7 @@ function CarerCard({ carer, isEditing, onEdit, onCancelEdit, onSave, onDelete, d
           size="sm"
           onClick={onEdit}
           disabled={disabled}
-          className="text-teal-600 hover:text-teal-700 hover:bg-teal-100"
+          className="text-teal-600 hover:text-teal-700 hover:bg-teal-100 dark:text-teal-400 dark:hover:text-teal-300 dark:hover:bg-slate-700"
         >
           <Edit className="w-4 h-4" />
         </Button>
@@ -4181,7 +4181,7 @@ function CarerCard({ carer, isEditing, onEdit, onCancelEdit, onSave, onDelete, d
           size="sm"
           onClick={onDelete}
           disabled={disabled}
-          className="text-red-600 hover:text-red-700 hover:bg-red-100"
+          className="text-red-600 hover:text-red-700 hover:bg-red-100 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-slate-700"
         >
           <Trash2 className="w-4 h-4" />
         </Button>
@@ -4284,51 +4284,51 @@ function CTMCard({ ctm, isEditing, onEdit, onCancelEdit, onSave, onDelete, disab
   }
 
   return (
-    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-50 to-violet-50 rounded-lg border border-purple-100">
+    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-50 to-violet-50 dark:bg-gradient-to-r dark:from-slate-800 dark:to-slate-700 rounded-lg border border-purple-100 dark:border-slate-600">
   <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-3 bg-purple-100 rounded-full">
-            <UserCheck className="w-5 h-5 text-purple-600" />
+          <div className="p-3 bg-purple-100 dark:bg-slate-700 rounded-full">
+            <UserCheck className="w-5 h-5 text-purple-600 dark:text-purple-400" />
           </div>
           <div>
-            <p className="font-semibold text-gray-900">{ctm.name}</p>
-            <p className="text-sm text-purple-600 font-medium">CTM</p>
+            <p className="font-semibold text-gray-900 dark:text-slate-100">{ctm.name}</p>
+            <p className="text-sm text-purple-600 dark:text-purple-400 font-medium">CTM</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <UserCheck className="w-4 h-4 text-gray-600" />
+          <div className="p-2 bg-white dark:bg-slate-700 rounded-full">
+            <UserCheck className="w-4 h-4 text-gray-600 dark:text-slate-300" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{ctm.roles}</p>
-            <p className="text-xs text-gray-500">Roles</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{ctm.roles}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Roles</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <Mail className="w-4 h-4 text-gray-600" />
+          <div className="p-2 bg-white dark:bg-slate-700 rounded-full">
+            <Mail className="w-4 h-4 text-gray-600 dark:text-slate-300" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{ctm.email}</p>
-            <p className="text-xs text-gray-500">Email address</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{ctm.email}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Email address</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <Phone className="w-4 h-4 text-gray-600" />
+          <div className="p-2 bg-white dark:bg-slate-700 rounded-full">
+            <Phone className="w-4 h-4 text-gray-600 dark:text-slate-300" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{ctm.phone}</p>
-            <p className="text-xs text-gray-500">Phone number</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{ctm.phone}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Phone number</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <Clock className="w-4 h-4 text-gray-600" />
+          <div className="p-2 bg-white dark:bg-slate-700 rounded-full">
+            <Clock className="w-4 h-4 text-gray-600 dark:text-slate-300" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{ctm.contractedHours ?? 40}h/{(ctm.hoursType || 'weekly') === 'weekly' ? 'wk' : 'mo'}</p>
-            <p className="text-xs text-gray-500">Contracted</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{ctm.contractedHours ?? 40}h/{(ctm.hoursType || 'weekly') === 'weekly' ? 'wk' : 'mo'}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Contracted</p>
           </div>
         </div>
       </div>
@@ -4338,7 +4338,7 @@ function CTMCard({ ctm, isEditing, onEdit, onCancelEdit, onSave, onDelete, disab
           size="sm"
           onClick={onEdit}
           disabled={disabled}
-          className="text-purple-600 hover:text-purple-700 hover:bg-purple-100"
+          className="text-purple-600 hover:text-purple-700 hover:bg-purple-100 dark:text-purple-400 dark:hover:text-purple-300 dark:hover:bg-slate-700"
         >
           <Edit className="w-4 h-4" />
         </Button>
@@ -4347,7 +4347,7 @@ function CTMCard({ ctm, isEditing, onEdit, onCancelEdit, onSave, onDelete, disab
           size="sm"
           onClick={onDelete}
           disabled={disabled}
-          className="text-red-600 hover:text-red-700 hover:bg-red-100"
+          className="text-red-600 hover:text-red-700 hover:bg-red-100 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-slate-700"
         >
           <Trash2 className="w-4 h-4" />
         </Button>
@@ -4481,51 +4481,51 @@ function DomesticCard({ domestic, isEditing, onEdit, onCancelEdit, onSave, onDel
   }
 
   return (
-    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg border border-orange-100">
+    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-orange-50 to-amber-50 dark:bg-gradient-to-r dark:from-slate-800 dark:to-slate-700 rounded-lg border border-orange-100 dark:border-slate-600">
       <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-3 bg-orange-100 rounded-full">
-            <UserCheck className="w-5 h-5 text-orange-600" />
+          <div className="p-3 bg-orange-100 dark:bg-slate-700 rounded-full">
+            <UserCheck className="w-5 h-5 text-orange-600 dark:text-orange-400" />
           </div>
           <div>
-            <p className="font-semibold text-gray-900">{domestic.name}</p>
-            <p className="text-sm text-orange-600 font-medium">Domestic</p>
+            <p className="font-semibold text-gray-900 dark:text-slate-100">{domestic.name}</p>
+            <p className="text-sm text-orange-600 dark:text-orange-400 font-medium">Domestic</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <UserCheck className="w-4 h-4 text-gray-600" />
+          <div className="p-2 bg-white dark:bg-slate-700 rounded-full">
+            <UserCheck className="w-4 h-4 text-gray-600 dark:text-slate-300" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{domestic.roles}</p>
-            <p className="text-xs text-gray-500">Roles</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{domestic.roles}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Roles</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <Mail className="w-4 h-4 text-gray-600" />
+          <div className="p-2 bg-white dark:bg-slate-700 rounded-full">
+            <Mail className="w-4 h-4 text-gray-600 dark:text-slate-300" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{domestic.email}</p>
-            <p className="text-xs text-gray-500">Email address</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{domestic.email}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Email address</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <Phone className="w-4 h-4 text-gray-600" />
+          <div className="p-2 bg-white dark:bg-slate-700 rounded-full">
+            <Phone className="w-4 h-4 text-gray-600 dark:text-slate-300" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{domestic.phone}</p>
-            <p className="text-xs text-gray-500">Phone number</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{domestic.phone}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Phone number</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <Clock className="w-4 h-4 text-gray-600" />
+          <div className="p-2 bg-white dark:bg-slate-700 rounded-full">
+            <Clock className="w-4 h-4 text-gray-600 dark:text-slate-300" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{domestic.contractedHours ?? 40}h/{(domestic.hoursType || 'weekly') === 'weekly' ? 'wk' : 'mo'}</p>
-            <p className="text-xs text-gray-500">Contracted</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{domestic.contractedHours ?? 40}h/{(domestic.hoursType || 'weekly') === 'weekly' ? 'wk' : 'mo'}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Contracted</p>
           </div>
         </div>
       </div>
@@ -4535,7 +4535,7 @@ function DomesticCard({ domestic, isEditing, onEdit, onCancelEdit, onSave, onDel
           size="sm"
           onClick={onEdit}
           disabled={disabled}
-          className="text-orange-600 hover:text-orange-700 hover:bg-orange-100"
+          className="text-orange-600 hover:text-orange-700 hover:bg-orange-100 dark:text-orange-400 dark:hover:text-orange-300 dark:hover:bg-slate-700"
         >
           <Edit className="w-4 h-4" />
         </Button>
@@ -4544,7 +4544,7 @@ function DomesticCard({ domestic, isEditing, onEdit, onCancelEdit, onSave, onDel
           size="sm"
           onClick={onDelete}
           disabled={disabled}
-          className="text-red-600 hover:text-red-700 hover:bg-red-100"
+          className="text-red-600 hover:text-red-700 hover:bg-red-100 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-slate-700"
         >
           <Trash2 className="w-4 h-4" />
         </Button>
@@ -4677,51 +4677,51 @@ function MaintenanceCard({ maintenance, isEditing, onEdit, onCancelEdit, onSave,
   }
 
     return (
-      <div className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-slate-50 rounded-lg border border-gray-100">
+      <div className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-slate-50 dark:bg-gradient-to-r dark:from-slate-800 dark:to-slate-700 rounded-lg border border-gray-100 dark:border-slate-600">
         <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-3 bg-gray-100 rounded-full">
-            <UserCheck className="w-5 h-5 text-gray-600" />
+          <div className="p-3 bg-gray-100 dark:bg-slate-700 rounded-full">
+            <UserCheck className="w-5 h-5 text-gray-600 dark:text-slate-300" />
           </div>
           <div>
-            <p className="font-semibold text-gray-900">{maintenance.name}</p>
-            <p className="text-sm text-gray-600 font-medium">Maintenance</p>
+            <p className="font-semibold text-gray-900 dark:text-slate-100">{maintenance.name}</p>
+            <p className="text-sm text-gray-600 dark:text-slate-300 font-medium">Maintenance</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <UserCheck className="w-4 h-4 text-gray-600" />
+          <div className="p-2 bg-white dark:bg-slate-700 rounded-full">
+            <UserCheck className="w-4 h-4 text-gray-600 dark:text-slate-300" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{maintenance.roles}</p>
-            <p className="text-xs text-gray-500">Roles</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{maintenance.roles}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Roles</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <Mail className="w-4 h-4 text-gray-600" />
+          <div className="p-2 bg-white dark:bg-slate-700 rounded-full">
+            <Mail className="w-4 h-4 text-gray-600 dark:text-slate-300" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{maintenance.email}</p>
-            <p className="text-xs text-gray-500">Email address</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{maintenance.email}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Email address</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <Phone className="w-4 h-4 text-gray-600" />
+          <div className="p-2 bg-white dark:bg-slate-700 rounded-full">
+            <Phone className="w-4 h-4 text-gray-600 dark:text-slate-300" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{maintenance.phone}</p>
-            <p className="text-xs text-gray-500">Phone number</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{maintenance.phone}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Phone number</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <Clock className="w-4 h-4 text-gray-600" />
+          <div className="p-2 bg-white dark:bg-slate-700 rounded-full">
+            <Clock className="w-4 h-4 text-gray-600 dark:text-slate-300" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{maintenance.contractedHours ?? 40}h/{(maintenance.hoursType || 'weekly') === 'weekly' ? 'wk' : 'mo'}</p>
-            <p className="text-xs text-gray-500">Contracted</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{maintenance.contractedHours ?? 40}h/{(maintenance.hoursType || 'weekly') === 'weekly' ? 'wk' : 'mo'}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Contracted</p>
           </div>
         </div>
       </div>
@@ -4731,7 +4731,7 @@ function MaintenanceCard({ maintenance, isEditing, onEdit, onCancelEdit, onSave,
           size="sm"
           onClick={onEdit}
           disabled={disabled}
-          className="text-gray-600 hover:text-gray-700 hover:bg-gray-100"
+          className="text-gray-600 hover:text-gray-700 hover:bg-gray-100 dark:text-slate-300 dark:hover:text-slate-200 dark:hover:bg-slate-700"
         >
           <Edit className="w-4 h-4" />
         </Button>
@@ -4740,7 +4740,7 @@ function MaintenanceCard({ maintenance, isEditing, onEdit, onCancelEdit, onSave,
           size="sm"
           onClick={onDelete}
           disabled={disabled}
-          className="text-red-600 hover:text-red-700 hover:bg-red-100"
+          className="text-red-600 hover:text-red-700 hover:bg-red-100 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-slate-700"
         >
           <Trash2 className="w-4 h-4" />
         </Button>
@@ -4873,51 +4873,51 @@ function KitchenCard({ kitchen, isEditing, onEdit, onCancelEdit, onSave, onDelet
   }
 
   return (
-    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-red-50 to-rose-50 rounded-lg border border-red-100">
+    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-red-50 to-rose-50 dark:bg-gradient-to-r dark:from-slate-800 dark:to-slate-700 rounded-lg border border-red-100 dark:border-slate-600">
       <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-3 bg-red-100 rounded-full">
-            <UserCheck className="w-5 h-5 text-red-600" />
+          <div className="p-3 bg-red-100 dark:bg-slate-700 rounded-full">
+            <UserCheck className="w-5 h-5 text-red-600 dark:text-red-400" />
           </div>
           <div>
-            <p className="font-semibold text-gray-900">{kitchen.name}</p>
-            <p className="text-sm text-red-600 font-medium">Kitchen</p>
+            <p className="font-semibold text-gray-900 dark:text-slate-100">{kitchen.name}</p>
+            <p className="text-sm text-red-600 dark:text-red-400 font-medium">Kitchen</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <UserCheck className="w-4 h-4 text-gray-600" />
+          <div className="p-2 bg-white dark:bg-slate-700 rounded-full">
+            <UserCheck className="w-4 h-4 text-gray-600 dark:text-slate-300" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{kitchen.roles}</p>
-            <p className="text-xs text-gray-500">Roles</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{kitchen.roles}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Roles</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <Mail className="w-4 h-4 text-gray-600" />
+          <div className="p-2 bg-white dark:bg-slate-700 rounded-full">
+            <Mail className="w-4 h-4 text-gray-600 dark:text-slate-300" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{kitchen.email}</p>
-            <p className="text-xs text-gray-500">Email address</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{kitchen.email}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Email address</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <Phone className="w-4 h-4 text-gray-600" />
+          <div className="p-2 bg-white dark:bg-slate-700 rounded-full">
+            <Phone className="w-4 h-4 text-gray-600 dark:text-slate-300" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{kitchen.phone}</p>
-            <p className="text-xs text-gray-500">Phone number</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{kitchen.phone}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Phone number</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <Clock className="w-4 h-4 text-gray-600" />
+          <div className="p-2 bg-white dark:bg-slate-700 rounded-full">
+            <Clock className="w-4 h-4 text-gray-600 dark:text-slate-300" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{kitchen.contractedHours ?? 40}h/{(kitchen.hoursType || 'weekly') === 'weekly' ? 'wk' : 'mo'}</p>
-            <p className="text-xs text-gray-500">Contracted</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{kitchen.contractedHours ?? 40}h/{(kitchen.hoursType || 'weekly') === 'weekly' ? 'wk' : 'mo'}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Contracted</p>
           </div>
         </div>
       </div>
@@ -4927,7 +4927,7 @@ function KitchenCard({ kitchen, isEditing, onEdit, onCancelEdit, onSave, onDelet
           size="sm"
           onClick={onEdit}
           disabled={disabled}
-          className="text-red-600 hover:text-red-700 hover:bg-red-100"
+          className="text-red-600 hover:text-red-700 hover:bg-red-100 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-slate-700"
         >
           <Edit className="w-4 h-4" />
         </Button>
@@ -4936,7 +4936,7 @@ function KitchenCard({ kitchen, isEditing, onEdit, onCancelEdit, onSave, onDelet
           size="sm"
           onClick={onDelete}
           disabled={disabled}
-          className="text-red-600 hover:text-red-700 hover:bg-red-100"
+          className="text-red-600 hover:text-red-700 hover:bg-red-100 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-slate-700"
         >
           <Trash2 className="w-4 h-4" />
         </Button>
@@ -5069,51 +5069,51 @@ function ActivityCard({ activity, isEditing, onEdit, onCancelEdit, onSave, onDel
   }
 
   return (
-    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-pink-50 to-rose-50 rounded-lg border border-pink-100">
+    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-pink-50 to-rose-50 dark:bg-gradient-to-r dark:from-slate-800 dark:to-slate-700 rounded-lg border border-pink-100 dark:border-slate-600">
   <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-3 bg-pink-100 rounded-full">
-            <UserCheck className="w-5 h-5 text-pink-600" />
+          <div className="p-3 bg-pink-100 dark:bg-slate-700 rounded-full">
+            <UserCheck className="w-5 h-5 text-pink-600 dark:text-pink-400" />
           </div>
           <div>
-            <p className="font-semibold text-gray-900">{activity.name}</p>
-            <p className="text-sm text-pink-600 font-medium">Activities</p>
+            <p className="font-semibold text-gray-900 dark:text-slate-100">{activity.name}</p>
+            <p className="text-sm text-pink-600 dark:text-pink-400 font-medium">Activities</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <UserCheck className="w-4 h-4 text-gray-600" />
+          <div className="p-2 bg-white dark:bg-slate-700 rounded-full">
+            <UserCheck className="w-4 h-4 text-gray-600 dark:text-slate-300" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{activity.roles}</p>
-            <p className="text-xs text-gray-500">Roles</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{activity.roles}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Roles</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <Mail className="w-4 h-4 text-gray-600" />
+          <div className="p-2 bg-white dark:bg-slate-700 rounded-full">
+            <Mail className="w-4 h-4 text-gray-600 dark:text-slate-300" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{activity.email}</p>
-            <p className="text-xs text-gray-500">Email address</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{activity.email}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Email address</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <Phone className="w-4 h-4 text-gray-600" />
+          <div className="p-2 bg-white dark:bg-slate-700 rounded-full">
+            <Phone className="w-4 h-4 text-gray-600 dark:text-slate-300" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{activity.phone}</p>
-            <p className="text-xs text-gray-500">Phone number</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{activity.phone}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Phone number</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-full">
-            <Clock className="w-4 h-4 text-gray-600" />
+          <div className="p-2 bg-white dark:bg-slate-700 rounded-full">
+            <Clock className="w-4 h-4 text-gray-600 dark:text-slate-300" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{activity.contractedHours ?? 40}h/{(activity.hoursType || 'weekly') === 'weekly' ? 'wk' : 'mo'}</p>
-            <p className="text-xs text-gray-500">Contracted</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{activity.contractedHours ?? 40}h/{(activity.hoursType || 'weekly') === 'weekly' ? 'wk' : 'mo'}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Contracted</p>
           </div>
         </div>
       </div>
@@ -5123,7 +5123,7 @@ function ActivityCard({ activity, isEditing, onEdit, onCancelEdit, onSave, onDel
           size="sm"
           onClick={onEdit}
           disabled={disabled}
-          className="text-pink-600 hover:text-pink-700 hover:bg-pink-100"
+          className="text-pink-600 hover:text-pink-700 hover:bg-pink-100 dark:text-pink-400 dark:hover:text-pink-300 dark:hover:bg-slate-700"
         >
           <Edit className="w-4 h-4" />
         </Button>
@@ -5132,7 +5132,7 @@ function ActivityCard({ activity, isEditing, onEdit, onCancelEdit, onSave, onDel
           size="sm"
           onClick={onDelete}
           disabled={disabled}
-          className="text-red-600 hover:text-red-700 hover:bg-red-100"
+          className="text-red-600 hover:text-red-700 hover:bg-red-100 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-slate-700"
         >
           <Trash2 className="w-4 h-4" />
         </Button>

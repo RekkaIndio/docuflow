@@ -51,7 +51,7 @@ interface DocumentViewProps {
 // Simple right-hand snippet box to show the output/result from chat/document processing.
 const ResponseSnippet = ({ title, content }: { title?: string; content?: string | undefined }) => {
     return (
-        <Card className="w-full">
+        <Card className="w-full bg-white dark:bg-slate-800">
             {/* Header styled to match the chat panel */}
             <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-3 rounded-t-md">
                 <div className="flex items-center gap-2">
@@ -59,12 +59,12 @@ const ResponseSnippet = ({ title, content }: { title?: string; content?: string 
                     <h3 className="text-sm font-semibold truncate">{title || 'Snippet Output'}</h3>
                 </div>
             </div>
-            <CardContent className="p-3 bg-background">
+            <CardContent className="p-3 bg-background dark:bg-slate-800 dark:text-slate-200">
                 <div className="p-2">
                     {content ? (
                         <pre className="whitespace-pre-wrap text-sm break-words">{content}</pre>
                     ) : (
-                        <div className="text-muted-foreground text-sm">No output yet. Responses will appear here when available.</div>
+                        <div className="text-muted-foreground dark:text-slate-300 text-sm">No output yet. Responses will appear here when available.</div>
                     )}
                 </div>
             </CardContent>
@@ -140,13 +140,13 @@ const DownloadOnlyPreview = ({ document }: { document: DocumentType }) => {
     };
 
     return (
-         <div className="flex items-center justify-center h-full bg-muted/40">
-            <Card className="w-full max-w-sm">
+         <div className="flex items-center justify-center h-full bg-muted/40 dark:bg-muted/10">
+            <Card className="w-full max-w-sm bg-white dark:bg-slate-800">
                 <CardContent className="flex flex-col items-center justify-center p-8 gap-6 text-center">
                     {getFileIcon(document.fileType)}
                     <div className="space-y-1">
-                        <p className="font-semibold truncate w-64">{document.name}</p>
-                        <p className="text-sm text-muted-foreground">Preview not available for this file type.</p>
+                        <p className="font-semibold truncate w-64 dark:text-slate-100">{document.name}</p>
+                        <p className="text-sm text-muted-foreground dark:text-slate-300">Preview not available for this file type.</p>
                     </div>
                     <Button onClick={handleDownload} disabled={isDownloading} className="w-full">
                         {isDownloading ? (
@@ -558,10 +558,10 @@ const DocxPreview = ({ document: doc }: { document: DocumentType }) => {
     }
 
     return (
-        <div className="p-8 bg-white shadow-md rounded-md overflow-y-auto h-full">
+        <div className="p-8 bg-white dark:bg-slate-800 dark:text-slate-200 shadow-md dark:shadow-none rounded-md overflow-y-auto h-full">
             <div className="prose max-w-none">
                 {content.split('\n').map((line, index) => (
-                    <p key={index} className="text-base leading-relaxed text-gray-800">{line}</p>
+                    <p key={index} className="text-base leading-relaxed text-gray-800 dark:text-slate-200">{line}</p>
                 ))}
             </div>
         </div>
@@ -634,9 +634,9 @@ export function DocumentView({ document, onBack, responseContent, responseDetail
 
         const hasResponse = Boolean(responseDetail && (responseDetail.text || (responseDetail.documents && responseDetail.documents.length > 0)));
   
-  return (
-    <div className="flex flex-col h-full bg-background">
-      <header className="flex items-center justify-between p-3 sm:p-4 border-b shrink-0">
+    return (
+        <div className="flex flex-col h-full bg-background">
+            <header className="flex items-center justify-between p-3 sm:p-4 border-b dark:border-slate-700 shrink-0">
         <div className="flex items-center gap-2 min-w-0 flex-1">
             {/* Sidebar toggle is provided by the Sidebar rail between sidebar and content */}
           <Button variant="ghost" size="icon" onClick={onBack} className="flex-shrink-0">
@@ -768,7 +768,7 @@ export function DocumentView({ document, onBack, responseContent, responseDetail
                     )}>
                         <div className={cn(
                             // keep a sensible max width so the document preview doesn't stretch too wide
-                            "h-full overflow-hidden rounded-md shadow-sm w-full",
+                            "h-full overflow-hidden rounded-md shadow-sm w-full bg-background dark:bg-slate-900 dark:border dark:border-slate-700",
                             !hasResponse ? 'max-w-[980px]' : 'max-w-[1200px]'
                         )}>
                             <DocumentPreview document={document} />

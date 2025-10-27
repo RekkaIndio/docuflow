@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import admin, { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { resolveAdminContext } from '../../../_utils/admin-auth';
 import { sendInvitationEmail } from '@/actions/email';
+import { dedupeTeamKeys, defaultTeamsForRole, type OrganisationTeamKey } from '@/lib/team-roles';
 
 const ROLE_LABELS = {
   owner: 'Owner',
@@ -19,6 +20,7 @@ type MemberSummary = {
   status: string | null;
   createdAt: string | null;
   updatedAt: string | null;
+  teamKeys: OrganisationTeamKey[];
 };
 
 type OrgUserDocSnapshot = FirebaseFirestore.DocumentSnapshot<FirebaseFirestore.DocumentData>;
@@ -48,6 +50,13 @@ async function mapMemberDoc(docSnap: OrgUserDocSnapshot | OrgUserQuerySnapshot):
       console.warn('[admin organisation members] failed to load user profile', docSnap.id, err);
     }
   }
+
+  const teamKeys = dedupeTeamKeys([
+    ...(Array.isArray(data?.teamKeys) ? data.teamKeys : []),
+    ...(Array.isArray(data?.teams) ? data.teams : []),
+    ...(data?.teamAssignments && typeof data.teamAssignments === 'object' ? Object.keys(data.teamAssignments) : []),
+  ]);
+
   return {
     id: docSnap.id,
     email,
@@ -56,6 +65,7 @@ async function mapMemberDoc(docSnap: OrgUserDocSnapshot | OrgUserQuerySnapshot):
     status: data?.status ?? 'active',
     createdAt: toIso(data?.createdAt) ?? null,
     updatedAt: toIso(data?.updatedAt) ?? null,
+    teamKeys,
   };
 }
 
@@ -66,7 +76,7 @@ export async function GET(req: Request, context: { params: { organisationId: str
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const organisationId = context.params.organisationId;
+    const organisationId = (await Promise.resolve(context.params)).organisationId;
     if (!organisationId) {
       return NextResponse.json({ error: 'organisationId required' }, { status: 400 });
     }
@@ -90,12 +100,14 @@ type CreateMemberPayload = {
   role?: RoleKey | string;
   workspaceIds?: string[];
   sendPasswordEmail?: boolean;
+  teamKeys?: unknown;
 };
 
 type UpdateMemberPayload = {
   role?: RoleKey | string;
   status?: string;
   workspaceIds?: string[];
+  teamKeys?: unknown;
 };
 
 function normaliseRole(role?: RoleKey | string | null): RoleKey | null {
@@ -156,7 +168,7 @@ export async function POST(req: Request, context: { params: { organisationId: st
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const organisationId = context.params.organisationId;
+    const organisationId = (await Promise.resolve(context.params)).organisationId;
     if (!organisationId) {
       return NextResponse.json({ error: 'organisationId required' }, { status: 400 });
     }
@@ -170,6 +182,8 @@ export async function POST(req: Request, context: { params: { organisationId: st
     const name = (body.name || '').trim() || null;
     const roleKey = normaliseRole(body.role) ?? 'member';
     const roleLabel = ROLE_LABELS[roleKey];
+    const requestedTeamKeys = Array.isArray(body.teamKeys) ? body.teamKeys : [];
+    const teamKeys = dedupeTeamKeys(requestedTeamKeys.length > 0 ? requestedTeamKeys : defaultTeamsForRole(roleKey));
 
     let userRecord;
     let userCreated = false;
@@ -199,6 +213,7 @@ export async function POST(req: Request, context: { params: { organisationId: st
       name,
       organisationId,
       role: roleLabel,
+      teamKeys,
       updatedAt: now,
     }, { merge: true });
 
@@ -209,6 +224,7 @@ export async function POST(req: Request, context: { params: { organisationId: st
       organisationId,
       role: roleLabel,
       status: 'active',
+      teamKeys,
       updatedAt: now,
       createdAt: userCreated ? now : admin.firestore.FieldValue.serverTimestamp(),
     }, { merge: true });
@@ -259,7 +275,7 @@ export async function POST(req: Request, context: { params: { organisationId: st
       }
     }
 
-  const member = await mapMemberDoc(await adminDb.collection(`organisations/${organisationId}/users`).doc(uid).get());
+    const member = await mapMemberDoc(await adminDb.collection(`organisations/${organisationId}/users`).doc(uid).get());
 
     return NextResponse.json({ ok: true, member, passwordLink, userCreated, emailSent });
   } catch (error) {
@@ -278,7 +294,7 @@ export async function PATCH(req: Request, context: { params: { organisationId: s
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const organisationId = context.params.organisationId;
+    const organisationId = (await Promise.resolve(context.params)).organisationId;
     if (!organisationId) {
       return NextResponse.json({ error: 'organisationId required' }, { status: 400 });
     }
@@ -307,11 +323,17 @@ export async function PATCH(req: Request, context: { params: { organisationId: s
       updatePayload.status = body.status;
     }
 
+    if (Array.isArray(body.teamKeys)) {
+      const teamKeys = dedupeTeamKeys(body.teamKeys);
+      updatePayload.teamKeys = teamKeys;
+      await adminDb.collection('users').doc(userId).set({ teamKeys, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    }
+
     await memberRef.set(updatePayload, { merge: true });
 
     await syncWorkspaceMemberships(organisationId, userId, body.workspaceIds);
 
-  const member = await mapMemberDoc(await memberRef.get());
+    const member = await mapMemberDoc(await memberRef.get());
     return NextResponse.json({ ok: true, member });
   } catch (error) {
     const status = (error as any)?.statusCode === 403 ? 403 : 500;

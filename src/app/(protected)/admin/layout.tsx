@@ -114,6 +114,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   case 'analytics':
                     router.push('/admin/analytics');
                     break;
+                  case 'accessibility':
+                    router.push('/admin?view=accessibility');
+                    break;
                   case 'documents':
                     router.push('/admin?view=documents');
                     break;

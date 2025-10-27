@@ -3,6 +3,7 @@ import { adminDb } from '@/lib/firebase-admin';
 import { resolveAdminContext } from '../../_utils/admin-auth';
 import { summariseWorkspace } from '../../_utils/workspaces';
 import { DEFAULT_FEATURE_FLAGS } from '@/lib/feature-flags';
+import { dedupeTeamKeys } from '@/lib/team-roles';
 
 type InviteSummary = {
   id: string;
@@ -34,7 +35,7 @@ export async function GET(req: Request, context: { params: { organisationId: str
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const organisationId = context.params.organisationId;
+    const organisationId = (await Promise.resolve(context.params)).organisationId;
     if (!organisationId) {
       return NextResponse.json({ error: 'organisationId required' }, { status: 400 });
     }
@@ -77,6 +78,11 @@ export async function GET(req: Request, context: { params: { organisationId: str
             console.warn('[admin organisation detail] failed to read user doc', docSnap.id, userErr);
           }
         }
+        const teamKeys = dedupeTeamKeys([
+          ...(Array.isArray(data?.teamKeys) ? data.teamKeys : []),
+          ...(Array.isArray(data?.teams) ? data.teams : []),
+          ...(data?.teamAssignments && typeof data.teamAssignments === 'object' ? Object.keys(data.teamAssignments) : []),
+        ]);
         return {
           id: docSnap.id,
           email,
@@ -85,6 +91,7 @@ export async function GET(req: Request, context: { params: { organisationId: str
           createdAt: toIso(data?.createdAt) ?? null,
           updatedAt: toIso(data?.updatedAt) ?? null,
           status: data?.status ?? 'active',
+          teamKeys,
         };
       })
     );

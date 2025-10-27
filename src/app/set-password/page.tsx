@@ -31,7 +31,22 @@ export default function SetPasswordPage() {
       if (!user) throw new Error('Not signed in');
       await updatePassword(user, password);
       // Optionally mark user doc as passwordSet: true via API
-      router.push('/');
+      // Route based on user role
+      const idToken = await user.getIdToken();
+      const resp = await fetch('/api/admin/verify', { 
+        method: 'GET', 
+        headers: { authorization: `Bearer ${idToken}` } 
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.isAdmin) {
+          router.push('/admin');
+        } else {
+          router.push('/dashboard');
+        }
+      } else {
+        router.push('/dashboard');
+      }
     } catch (e: any) {
       console.error('Failed to set password', e);
       setError(e?.message || String(e));

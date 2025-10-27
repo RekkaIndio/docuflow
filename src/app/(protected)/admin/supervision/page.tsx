@@ -668,7 +668,7 @@ export default function SupervisionPage() {
   const handleCompleteSupervision = () => handleSaveSupervision('completed');
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/10">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/10 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
       {/* Header */}
       <>
         <AdminPageHeader
@@ -676,38 +676,22 @@ export default function SupervisionPage() {
           subtitle="Regular supervision and development for Home Managers"
           icon={<Users className="w-5 h-5 text-white" />}
         />
-        <div className="flex items-center gap-3 mb-4 px-6 md:px-8 lg:px-10">
-          <Link href="/admin/supervision/history">
-            <Button variant="secondary" className="bg-white/10 border-white/20 text-white hover:bg-white/20">
-              <FileText className="w-4 h-4 mr-2" />
-              View History
-            </Button>
-          </Link>
-          <Button
-            variant="secondary"
-            className="bg-white/10 border-white/20 text-white hover:bg-white/20"
-            onClick={() => setActiveTab('form')}
-          >
-            <Users className="w-4 h-4 mr-2" />
-            New Supervision
-          </Button>
-        </div>
       </>
 
       {/* Content */}
       <div className="w-full px-4 sm:px-6 lg:px-8 pb-8">
         <Tabs value={activeTab} onValueChange={val => setActiveTab(val as 'form' | 'tracker')} className="mt-10 space-y-8">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <TabsList className="grid h-auto w-full max-w-sm grid-cols-2 items-center gap-2 self-start rounded-2xl border border-slate-200 bg-white p-2 shadow-sm lg:self-start">
+            <TabsList className="grid h-auto w-full max-w-sm grid-cols-2 items-center gap-2 self-start rounded-2xl border border-slate-200 bg-white p-2 shadow-sm lg:self-start dark:border-slate-700 dark:bg-slate-800">
               <TabsTrigger
                 value="form"
-                className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:text-white dark:text-slate-300 dark:hover:bg-slate-700"
               >
                 Supervision form
               </TabsTrigger>
               <TabsTrigger
                 value="tracker"
-                className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:text-white dark:text-slate-300 dark:hover:bg-slate-700"
               >
                 Tracker
               </TabsTrigger>
@@ -735,16 +719,16 @@ export default function SupervisionPage() {
           </p>
 
           <TabsContent value="form" className="space-y-6 data-[state=inactive]:hidden">
-            <div className="w-full rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-10 shadow-2xl">
+            <div className="w-full rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-10 shadow-2xl dark:border-slate-700 dark:from-slate-900 dark:to-slate-800">
               <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-                <div className="w-full flex-shrink-0 rounded-2xl border border-slate-200 bg-white p-6 shadow-xl lg:sticky lg:top-24 lg:mb-0 lg:w-[420px] xl:w-[460px]">
+                <div className="w-full flex-shrink-0 rounded-2xl border border-slate-200 bg-white p-6 shadow-xl lg:sticky lg:top-24 lg:mb-0 lg:w-[420px] xl:w-[460px] dark:bg-slate-800 dark:border-slate-700">
                   <div className="space-y-4">
                   <div className="flex items-start gap-3">
                     <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
                       <Users className="h-6 w-6" />
                     </div>
                     <div>
-                      <h3 className="text-xl font-semibold text-blue-900">Home Manager Supervision</h3>
+                      <h3 className="text-xl font-semibold text-blue-900 dark:text-blue-100">Home Manager Supervision</h3>
                       <p className="text-sm text-slate-500">Document each session and keep follow-up actions visible.</p>
                     </div>
                   </div>
@@ -805,9 +789,9 @@ export default function SupervisionPage() {
 
                 <div className="min-w-0 flex-1">
                   <form onSubmit={event => { event.preventDefault(); handleCompleteSupervision(); }} className="space-y-6">
-                  <Card className="rounded-2xl border border-slate-200 bg-white shadow-xl">
-                    <CardHeader className="border-b border-slate-200 bg-slate-50/80">
-                      <CardTitle className="text-lg">1. Review of previous actions</CardTitle>
+                  <Card className="rounded-2xl border border-slate-200 bg-white shadow-xl dark:bg-slate-800 dark:border-slate-700">
+                    <CardHeader className="border-b border-slate-200 bg-slate-50/80 dark:bg-slate-800 dark:border-slate-700">
+                      <CardTitle className="text-lg dark:text-white">1. Review of previous actions</CardTitle>
                       <CardDescription>Summarise progress since the last supervision.</CardDescription>
                     </CardHeader>
                     <CardContent className="p-6">
@@ -820,9 +804,9 @@ export default function SupervisionPage() {
                     </CardContent>
                   </Card>
 
-                  <Card className="rounded-2xl border border-slate-200 bg-white shadow-xl">
-                    <CardHeader className="border-b border-slate-200 bg-slate-50/80">
-                      <CardTitle className="text-lg">2. Operational performance</CardTitle>
+                  <Card className="rounded-2xl border border-slate-200 bg-white shadow-xl dark:bg-slate-800 dark:border-slate-700">
+                    <CardHeader className="border-b border-slate-200 bg-slate-50/80 dark:bg-slate-800 dark:border-slate-700">
+                      <CardTitle className="text-lg dark:text-white">2. Operational performance</CardTitle>
                       <CardDescription>Capture the latest compliance, quality, and business position.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6 p-6">
@@ -849,9 +833,9 @@ export default function SupervisionPage() {
                     </CardContent>
                   </Card>
 
-                  <Card className="rounded-2xl border border-slate-200 bg-white shadow-xl">
-                    <CardHeader className="border-b border-slate-200 bg-slate-50/80">
-                      <CardTitle className="text-lg">3. Leadership &amp; management</CardTitle>
+                  <Card className="rounded-2xl border border-slate-200 bg-white shadow-xl dark:bg-slate-800 dark:border-slate-700">
+                    <CardHeader className="border-b border-slate-200 bg-slate-50/80 dark:bg-slate-800 dark:border-slate-700">
+                      <CardTitle className="text-lg dark:text-white">3. Leadership &amp; management</CardTitle>
                       <CardDescription>Reflect on supervision, culture, and leadership impact.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6 p-6">
@@ -870,9 +854,9 @@ export default function SupervisionPage() {
                     </CardContent>
                   </Card>
 
-                  <Card className="rounded-2xl border border-slate-200 bg-white shadow-xl">
-                    <CardHeader className="border-b border-slate-200 bg-slate-50/80">
-                      <CardTitle className="text-lg">4. Professional development</CardTitle>
+                  <Card className="rounded-2xl border border-slate-200 bg-white shadow-xl dark:bg-slate-800 dark:border-slate-700">
+                    <CardHeader className="border-b border-slate-200 bg-slate-50/80 dark:bg-slate-800 dark:border-slate-700">
+                      <CardTitle className="text-lg dark:text-white">4. Professional development</CardTitle>
                       <CardDescription>Track learning completed and future growth needs.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6 p-6">
@@ -891,9 +875,9 @@ export default function SupervisionPage() {
                     </CardContent>
                   </Card>
 
-                  <Card className="rounded-2xl border border-slate-200 bg-white shadow-xl">
-                    <CardHeader className="border-b border-slate-200 bg-slate-50/80">
-                      <CardTitle className="text-lg">5. Reflection &amp; wellbeing</CardTitle>
+                  <Card className="rounded-2xl border border-slate-200 bg-white shadow-xl dark:bg-slate-800 dark:border-slate-700">
+                    <CardHeader className="border-b border-slate-200 bg-slate-50/80 dark:bg-slate-800 dark:border-slate-700">
+                      <CardTitle className="text-lg dark:text-white">5. Reflection &amp; wellbeing</CardTitle>
                       <CardDescription>Discuss workload, support requirements, and wellbeing.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6 p-6">
@@ -912,9 +896,9 @@ export default function SupervisionPage() {
                     </CardContent>
                   </Card>
 
-                  <Card className="rounded-2xl border border-slate-200 bg-white shadow-xl">
-                    <CardHeader className="border-b border-slate-200 bg-slate-50/80">
-                      <CardTitle className="text-lg">6. Agreed actions &amp; support</CardTitle>
+                  <Card className="rounded-2xl border border-slate-200 bg-white shadow-xl dark:bg-slate-800 dark:border-slate-700">
+                    <CardHeader className="border-b border-slate-200 bg-slate-50/80 dark:bg-slate-800 dark:border-slate-700">
+                      <CardTitle className="text-lg dark:text-white">6. Agreed actions &amp; support</CardTitle>
                       <CardDescription>Define measurable follow-up with responsibilities and timescales.</CardDescription>
                     </CardHeader>
                     <CardContent className="p-6">
@@ -922,9 +906,9 @@ export default function SupervisionPage() {
                     </CardContent>
                   </Card>
 
-                  <Card className="rounded-2xl border border-slate-200 bg-white shadow-xl">
-                    <CardHeader className="border-b border-slate-200 bg-slate-50/80">
-                      <CardTitle className="text-lg">7. Signatures</CardTitle>
+                  <Card className="rounded-2xl border border-slate-200 bg-white shadow-xl dark:bg-slate-800 dark:border-slate-700">
+                    <CardHeader className="border-b border-slate-200 bg-slate-50/80 dark:bg-slate-800 dark:border-slate-700">
+                      <CardTitle className="text-lg dark:text-white">7. Signatures</CardTitle>
                       <CardDescription>Confirm the record has been reviewed and agreed.</CardDescription>
                     </CardHeader>
                     <CardContent className="p-6">
@@ -964,15 +948,15 @@ export default function SupervisionPage() {
           </TabsContent>
 
           <TabsContent value="tracker" className="space-y-6 data-[state=inactive]:hidden">
-            <div className="w-full rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-10 shadow-2xl">
-              <Card className="rounded-2xl border border-slate-200 bg-white shadow-xl">
-              <CardHeader className="flex flex-col gap-4 border-b border-slate-200 bg-slate-50/80 sm:flex-row sm:items-start sm:justify-between">
+            <div className="w-full rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-10 shadow-2xl dark:border-slate-700 dark:from-slate-900 dark:to-slate-800">
+              <Card className="rounded-2xl border border-slate-200 bg-white shadow-xl dark:bg-slate-800 dark:border-slate-700">
+              <CardHeader className="flex flex-col gap-4 border-b border-slate-200 bg-slate-50/80 sm:flex-row sm:items-start sm:justify-between dark:bg-slate-800 dark:border-slate-700">
                 <div className="flex items-start gap-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
                     <Users className="h-6 w-6" />
                   </div>
                   <div>
-                    <CardTitle className="text-xl">Supervision tracker</CardTitle>
+                    <CardTitle className="text-xl dark:text-white">Supervision tracker</CardTitle>
                     <CardDescription className="text-sm">Monitor monthly coverage across managers.</CardDescription>
                   </div>
                 </div>
@@ -998,7 +982,7 @@ export default function SupervisionPage() {
                       {trackerSummaryCards.map(card => {
                         const Icon = card.icon;
                         return (
-                          <div key={card.key} className="group flex h-full flex-col gap-3 rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/60 p-5 shadow-sm transition-all hover:border-blue-200 hover:shadow-lg">
+                          <div key={card.key} className="group flex h-full flex-col gap-3 rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/60 p-5 shadow-sm transition-all hover:border-blue-200 hover:shadow-lg dark:border-slate-700 dark:from-slate-800 dark:to-slate-700/60">
                             <div className={`h-1 w-full rounded-full bg-gradient-to-r ${card.accentGradient}`} />
                             <div className="flex items-center justify-between">
                               <div>
@@ -1021,10 +1005,10 @@ export default function SupervisionPage() {
                         const isSelectedYear = selectedMonthKey?.startsWith(String(year)) ?? false;
                         const savedMonthsCount = entries.reduce((total, entry) => total + (entry.count > 0 ? 1 : 0), 0);
                         return (
-                          <div key={year} className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+                          <div key={year} className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
                             <div className="flex flex-col gap-3 border-b border-slate-200 p-6 sm:flex-row sm:items-center sm:justify-between">
                               <div>
-                                <h3 className="text-lg font-semibold text-blue-900">{year} coverage</h3>
+                                <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100">{year} coverage</h3>
                                 <p className="text-sm text-slate-500">Select a month to review saved supervisions.</p>
                               </div>
                               {isSelectedYear ? (
@@ -1062,7 +1046,7 @@ export default function SupervisionPage() {
                                     type="button"
                                     onClick={() => handleSelectMonth(entry.monthKey)}
                                     className={`rounded-xl border p-4 text-left transition-all focus:outline-none focus:ring-2 focus:ring-blue-200 ${
-                                      hasData ? 'bg-white hover:border-blue-300 hover:shadow-md' : 'border-dashed border-slate-300 bg-slate-50 text-slate-500 hover:border-slate-300'
+                                      hasData ? 'bg-white hover:border-blue-300 hover:shadow-md dark:bg-slate-700 dark:hover:border-blue-400' : 'border-dashed border-slate-300 bg-slate-50 text-slate-500 hover:border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-slate-500'
                                     } ${isSelected ? 'border-blue-500 ring-2 ring-blue-200' : ''}`}
                                   >
                                     <div className="flex items-center justify-between">
@@ -1085,9 +1069,9 @@ export default function SupervisionPage() {
 
                     {selectedMonthKey && (
                       <div className="space-y-4">
-                        <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-slate-700 dark:bg-slate-800">
                           <div>
-                            <h4 className="text-lg font-semibold text-blue-900">{selectedMonthLabel || 'Month summary'}</h4>
+                            <h4 className="text-lg font-semibold text-blue-900 dark:text-blue-100">{selectedMonthLabel || 'Month summary'}</h4>
                             <p className="text-sm text-slate-600">{selectedMonthRecordCount} supervision{selectedMonthRecordCount === 1 ? '' : 's'} saved</p>
                           </div>
                           <div className="flex items-center gap-2">
@@ -1103,7 +1087,7 @@ export default function SupervisionPage() {
                         </div>
 
                         <div className="grid gap-4 lg:grid-cols-2">
-                          <div className="flex h-full flex-col justify-between overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-white via-slate-50/60 to-slate-100/40 p-5 shadow-sm transition hover:border-blue-200 hover:shadow-lg">
+                          <div className="flex h-full flex-col justify-between overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-white via-slate-50/60 to-slate-100/40 p-5 shadow-sm transition hover:border-blue-200 hover:shadow-lg dark:border-slate-700 dark:from-slate-800 dark:via-slate-700/60 dark:to-slate-600/40">
                             <div className="flex items-start gap-3">
                               <div className="rounded-xl bg-blue-100 p-2.5 text-blue-700">
                                 <Users className="h-5 w-5" />
@@ -1142,7 +1126,7 @@ export default function SupervisionPage() {
                             </div>
                           </div>
 
-                          <div className="flex h-full flex-col gap-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-5">
+                          <div className="flex h-full flex-col gap-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-5 dark:border-slate-600 dark:bg-slate-800">
                             <p className="text-sm font-medium text-slate-700">Managers without a supervision this month</p>
                             {pendingManagers.length === 0 ? (
                               <p className="text-sm text-slate-500">Everyone is up to date — great work.</p>
@@ -1153,7 +1137,7 @@ export default function SupervisionPage() {
                                     key={manager.id}
                                     type="button"
                                     onClick={() => prefillSupervisionForManager(manager, selectedMonthKey ?? undefined)}
-                                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2 text-left text-sm text-slate-600 transition hover:border-blue-300 hover:text-blue-700"
+                                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2 text-left text-sm text-slate-600 transition hover:border-blue-300 hover:text-blue-700 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300 dark:hover:border-blue-400 dark:hover:text-blue-300"
                                   >
                                     {manager.name}
                                   </button>
@@ -1171,7 +1155,7 @@ export default function SupervisionPage() {
                           </div>
                         </div>
 
-                        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
                           {selectedMonthRecords.length === 0 ? (
                             <div className="p-10 text-center text-sm text-slate-500">No supervisions recorded for this month.</div>
                           ) : (
@@ -1237,7 +1221,7 @@ export default function SupervisionPage() {
         </TabsContent>
         </Tabs>
         <Dialog open={!!selectedRecord} onOpenChange={open => setSelectedRecord(open ? selectedRecord : null)}>
-          <DialogContent className="flex max-h-[85vh] min-h-[60vh] w-full max-w-4xl flex-col overflow-hidden border border-slate-200 bg-white p-0 shadow-2xl">
+          <DialogContent className="flex max-h-[85vh] min-h-[60vh] w-full max-w-4xl flex-col overflow-hidden border border-slate-200 bg-white p-0 shadow-2xl dark:border-slate-700 dark:bg-slate-800">
             {selectedRecord ? (
               <>
                 <DialogHeader className="border-b px-6 py-4">
@@ -1274,39 +1258,39 @@ export default function SupervisionPage() {
                     </div>
                   </div>
                 </DialogHeader>
-                <ScrollArea className="flex-1 overflow-y-auto bg-muted/20 px-6 pb-6">
+                <ScrollArea className="flex-1 overflow-y-auto bg-muted/20 px-6 pb-6 dark:bg-muted/10">
                   <div className="mx-auto w-full max-w-3xl space-y-6 py-6 pr-2">
-                    <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                      <h3 className="text-base font-semibold text-blue-900">Session overview</h3>
+                    <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+                      <h3 className="text-base font-semibold text-blue-900 dark:text-blue-100">Session overview</h3>
                       <div className="grid gap-4 sm:grid-cols-2">
                         <div>
-                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Supervisor</p>
-                          <p className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700">{selectedRecord.supervisor || '—'}</p>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">Supervisor</p>
+                          <p className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200">{selectedRecord.supervisor || '—'}</p>
                         </div>
                         <div>
-                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Location</p>
-                          <p className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700">{LOCATION_LABELS[selectedRecord.location]}</p>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">Location</p>
+                          <p className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200">{LOCATION_LABELS[selectedRecord.location]}</p>
                         </div>
                         <div>
-                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Next supervision due</p>
-                          <p className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700">{formatDateOnly(selectedRecord.nextSupervisionDueParsed)}</p>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">Next supervision due</p>
+                          <p className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200">{formatDateOnly(selectedRecord.nextSupervisionDueParsed)}</p>
                         </div>
                         <div>
-                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Recorded on</p>
-                          <p className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700">{formatDateTime(selectedRecord.createdAtParsed ?? selectedRecord.supervisionDateParsed)}</p>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">Recorded on</p>
+                          <p className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200">{formatDateTime(selectedRecord.createdAtParsed ?? selectedRecord.supervisionDateParsed)}</p>
                         </div>
                       </div>
                     </div>
 
-                    <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                      <h3 className="text-base font-semibold text-blue-900">Review of previous actions</h3>
-                      <p className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-relaxed text-slate-700 whitespace-pre-line">
+                    <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+                      <h3 className="text-base font-semibold text-blue-900 dark:text-blue-100">Review of previous actions</h3>
+                      <p className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-relaxed text-slate-700 whitespace-pre-line dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200">
                         {selectedRecord.previousActions || '—'}
                       </p>
                     </div>
 
-                    <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                      <h3 className="text-base font-semibold text-blue-900">Operational performance</h3>
+                    <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+                      <h3 className="text-base font-semibold text-blue-900 dark:text-blue-100">Operational performance</h3>
                       <div className="grid gap-4 md:grid-cols-2">
                         {[{
                           label: 'Regulatory compliance',
@@ -1325,8 +1309,8 @@ export default function SupervisionPage() {
                           value: selectedRecord.occupancyPerformance,
                         }].map(item => (
                           <div key={item.label} className="space-y-2">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">{item.label}</p>
-                            <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-relaxed text-slate-700 whitespace-pre-line">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">{item.label}</p>
+                            <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-relaxed text-slate-700 whitespace-pre-line dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200">
                               {item.value || '—'}
                             </p>
                           </div>
@@ -1334,8 +1318,8 @@ export default function SupervisionPage() {
                       </div>
                     </div>
 
-                    <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                      <h3 className="text-base font-semibold text-blue-900">Leadership, development & wellbeing</h3>
+                    <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+                      <h3 className="text-base font-semibold text-blue-900 dark:text-blue-100">Leadership, development & wellbeing</h3>
                       <div className="grid gap-4 md:grid-cols-2">
                         {[{
                           label: 'Supporting, supervising, appraising the team',
@@ -1366,8 +1350,8 @@ export default function SupervisionPage() {
                           value: selectedRecord.wellbeingConcerns,
                         }].map(item => (
                           <div key={item.label} className="space-y-2">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">{item.label}</p>
-                            <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-relaxed text-slate-700 whitespace-pre-line">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">{item.label}</p>
+                            <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-relaxed text-slate-700 whitespace-pre-line dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200">
                               {item.value || '—'}
                             </p>
                           </div>
@@ -1375,25 +1359,25 @@ export default function SupervisionPage() {
                       </div>
                     </div>
 
-                    <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                      <h3 className="text-base font-semibold text-blue-900">Agreed actions</h3>
-                      <p className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-relaxed text-slate-700 whitespace-pre-line">
+                    <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+                      <h3 className="text-base font-semibold text-blue-900 dark:text-blue-100">Agreed actions</h3>
+                      <p className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-relaxed text-slate-700 whitespace-pre-line dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200">
                         {selectedRecord.agreedActions || '—'}
                       </p>
                     </div>
 
-                    <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                      <h3 className="text-base font-semibold text-blue-900">Signatures</h3>
+                    <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+                      <h3 className="text-base font-semibold text-blue-900 dark:text-blue-100">Signatures</h3>
                       <div className="grid gap-4 sm:grid-cols-2">
                         <div className="space-y-3">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Supervisee signature</p>
-                          <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-700">{selectedRecord.superviseeSignature || '—'}</p>
-                          <p className="text-xs text-slate-500">Date: {formatDateOnly(selectedRecord.superviseeSignatureDate)}</p>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">Supervisee signature</p>
+                          <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200">{selectedRecord.superviseeSignature || '—'}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">Date: {formatDateOnly(selectedRecord.superviseeSignatureDate)}</p>
                         </div>
                         <div className="space-y-3">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Supervisor signature</p>
-                          <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-700">{selectedRecord.supervisorSignature || '—'}</p>
-                          <p className="text-xs text-slate-500">Date: {formatDateOnly(selectedRecord.supervisorSignatureDate)}</p>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">Supervisor signature</p>
+                          <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200">{selectedRecord.supervisorSignature || '—'}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">Date: {formatDateOnly(selectedRecord.supervisorSignatureDate)}</p>
                         </div>
                       </div>
                     </div>
