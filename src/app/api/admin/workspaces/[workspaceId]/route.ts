@@ -3,8 +3,8 @@ import admin, { adminDb } from '@/lib/firebase-admin';
 import type { DocumentSnapshot } from 'firebase-admin/firestore';
 
 export async function PATCH(req: Request, { params }: any) {
-  const { id } = params || {};
-  if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
+  const { workspaceId } = params || {};
+  if (!workspaceId) return NextResponse.json({ error: 'Missing workspaceId' }, { status: 400 });
 
   const body = await req.json().catch(() => ({}));
   const url = new URL(req.url);
@@ -57,7 +57,7 @@ export async function PATCH(req: Request, { params }: any) {
 
     if (resolvedOrgId) {
       try {
-        const attempt = await tryFetch(`organisations/${resolvedOrgId}/workspaces/${id}`);
+        const attempt = await tryFetch(`organisations/${resolvedOrgId}/workspaces/${workspaceId}`);
         targetRef = attempt.ref;
         targetSnap = attempt.snap;
       } catch (orgScopedErr) {
@@ -67,7 +67,7 @@ export async function PATCH(req: Request, { params }: any) {
 
     if (!targetSnap || !targetSnap.exists) {
       try {
-        const attempt = await tryFetch(`workspaces/${id}`);
+        const attempt = await tryFetch(`workspaces/${workspaceId}`);
         targetRef = attempt.ref;
         targetSnap = attempt.snap;
       } catch (topLevelErr) {
@@ -79,7 +79,7 @@ export async function PATCH(req: Request, { params }: any) {
       try {
         const cg = await adminDb
           .collectionGroup('workspaces')
-          .where(admin.firestore.FieldPath.documentId(), '==', id)
+          .where(admin.firestore.FieldPath.documentId(), '==', workspaceId)
           .limit(1)
           .get();
         if (!cg.empty) {
@@ -196,7 +196,7 @@ export async function PATCH(req: Request, { params }: any) {
         membershipUpdates.push(
           prevRef.set(
             {
-              workspaceIds: admin.firestore.FieldValue.arrayRemove(id),
+              workspaceIds: admin.firestore.FieldValue.arrayRemove(workspaceId),
               updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             },
             { merge: true }
@@ -208,7 +208,7 @@ export async function PATCH(req: Request, { params }: any) {
         membershipUpdates.push(
           nextRef.set(
             {
-              workspaceIds: admin.firestore.FieldValue.arrayUnion(id),
+              workspaceIds: admin.firestore.FieldValue.arrayUnion(workspaceId),
               updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             },
             { merge: true }
@@ -229,17 +229,17 @@ export async function PATCH(req: Request, { params }: any) {
 }
 
 export async function GET(req: Request, { params }: any) {
-  const { id } = params || {};
-  if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
+  const { workspaceId } = params || {};
+  if (!workspaceId) return NextResponse.json({ error: 'Missing workspaceId' }, { status: 400 });
   try {
     // Try top-level workspace first
-    let ref = adminDb.doc(`workspaces/${id}`);
+    let ref = adminDb.doc(`workspaces/${workspaceId}`);
     let snap = await ref.get();
     let orgId: string | undefined = undefined;
     if (!snap || !snap.exists) {
       // Search org-scoped workspaces via collectionGroup
       try {
-        const cg = await adminDb.collectionGroup('workspaces').where(admin.firestore.FieldPath.documentId(), '==', id).limit(1).get();
+        const cg = await adminDb.collectionGroup('workspaces').where(admin.firestore.FieldPath.documentId(), '==', workspaceId).limit(1).get();
         if (!cg.empty) {
           const docSnap = cg.docs[0];
           ref = adminDb.doc(docSnap.ref.path);
@@ -260,17 +260,17 @@ export async function GET(req: Request, { params }: any) {
 }
 
 export async function DELETE(req: Request, { params }: any) {
-  const { id } = params || {};
-  if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
-  
+  const { workspaceId } = params || {};
+  if (!workspaceId) return NextResponse.json({ error: 'Missing workspaceId' }, { status: 400 });
+
   try {
     // Attempt to find workspace doc either top-level or org-scoped
-    let targetRef: any = adminDb.doc(`workspaces/${id}`);
+    let targetRef: any = adminDb.doc(`workspaces/${workspaceId}`);
     let targetSnap = await targetRef.get();
     let resolvedOrgId: string | undefined;
     if (!targetSnap || !targetSnap.exists) {
       try {
-        const cg = await adminDb.collectionGroup('workspaces').where(admin.firestore.FieldPath.documentId(), '==', id).limit(1).get();
+        const cg = await adminDb.collectionGroup('workspaces').where(admin.firestore.FieldPath.documentId(), '==', workspaceId).limit(1).get();
         if (!cg.empty) {
           const docSnap = cg.docs[0];
           targetRef = adminDb.doc(docSnap.ref.path);
@@ -304,7 +304,7 @@ export async function DELETE(req: Request, { params }: any) {
         const groupRef = adminDb.doc(`organisations/${resolvedOrgId}/workspace-groups/${existingGroupId}`);
         await groupRef.set(
           {
-            workspaceIds: admin.firestore.FieldValue.arrayRemove(id),
+            workspaceIds: admin.firestore.FieldValue.arrayRemove(workspaceId),
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           },
           { merge: true }
