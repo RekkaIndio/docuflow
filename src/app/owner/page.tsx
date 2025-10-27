@@ -40,6 +40,7 @@ import {
   CheckCircle2,
   Clock3,
   Send,
+  ChevronDown,
 } from 'lucide-react';
 
 type OrganisationSummary = {
@@ -1147,15 +1148,20 @@ const OwnerConsolePage: React.FC = () => {
     }
   };
 
-  const handleMemberUpdate = async (userId: string, updates: { role?: string; status?: string }) => {
+  const handleMemberUpdate = async (userId: string, updates: { role?: string; status?: string; teamKeys?: TeamKey[] }) => {
     if (!selectedOrganisationId) return;
 
     setMemberUpdating(userId);
     try {
+      const payloadUpdates: { role?: string; status?: string; teamKeys?: TeamKey[] } = { ...updates };
+      if (Array.isArray(payloadUpdates.teamKeys)) {
+        const deduped = Array.from(new Set(payloadUpdates.teamKeys)) as TeamKey[];
+        payloadUpdates.teamKeys = deduped;
+      }
       const response = await authedFetch(`/api/admin/organisations/${selectedOrganisationId}/members`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, updates }),
+        body: JSON.stringify({ userId, updates: payloadUpdates }),
       });
       const payload = await readJson<{ error?: string }>(response);
       if (!response.ok) {
@@ -2808,17 +2814,81 @@ const OwnerConsolePage: React.FC = () => {
                                       </Select>
                                     </TableCell>
                                     <TableCell className="hidden xl:table-cell align-middle">
-                                      {member.teamKeys.length > 0 ? (
-                                        <div className="flex flex-wrap gap-1">
-                                          {member.teamKeys.map((teamKey) => (
-                                            <Badge key={teamKey} variant="outline">
-                                              {ORGANISATION_TEAM_LABELS[teamKey]}
-                                            </Badge>
-                                          ))}
-                                        </div>
-                                      ) : (
-                                        <span className="text-xs text-muted-foreground">—</span>
-                                      )}
+                                      <Popover>
+                                        <PopoverTrigger asChild>
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="w-full justify-between gap-2"
+                                            disabled={memberUpdating === member.id}
+                                          >
+                                            <span className="truncate text-left text-xs font-medium">
+                                              {member.teamKeys.length > 0
+                                                ? (() => {
+                                                    const labels = member.teamKeys
+                                                      .map((teamKey) => ORGANISATION_TEAM_LABELS[teamKey])
+                                                      .filter(Boolean);
+                                                    if (labels.length <= 2) {
+                                                      return labels.join(', ');
+                                                    }
+                                                    return `${labels.slice(0, 2).join(', ')} +${labels.length - 2}`;
+                                                  })()
+                                                : 'Select teams'}
+                                            </span>
+                                            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                                          </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-64 space-y-3 p-3" align="start">
+                                          <div className="space-y-2">
+                                            {TEAM_OPTIONS.map(({ key, label, description }) => {
+                                              const isChecked = member.teamKeys.includes(key);
+                                              return (
+                                                <div key={key} className="flex items-start justify-between gap-3 rounded border border-border/60 px-3 py-2">
+                                                  <div className="space-y-1">
+                                                    <p className="text-sm font-medium leading-none">{label}</p>
+                                                    <p className="text-[11px] text-muted-foreground leading-snug">{description}</p>
+                                                  </div>
+                                                  <Switch
+                                                    checked={isChecked}
+                                                    disabled={memberUpdating === member.id}
+                                                    onCheckedChange={(checked) => {
+                                                      const nextKeys = checked
+                                                        ? (Array.from(new Set([...member.teamKeys, key])) as TeamKey[])
+                                                        : (member.teamKeys.filter((teamKey) => teamKey !== key) as TeamKey[]);
+                                                      handleMemberUpdate(member.id, { teamKeys: nextKeys });
+                                                    }}
+                                                  />
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                          <div className="flex items-center justify-between">
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="sm"
+                                              className="text-xs"
+                                              disabled={memberUpdating === member.id || member.teamKeys.length === 0}
+                                              onClick={() => handleMemberUpdate(member.id, { teamKeys: [] })}
+                                            >
+                                              Clear all
+                                            </Button>
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="sm"
+                                              className="text-xs"
+                                              disabled={memberUpdating === member.id}
+                                              onClick={() => {
+                                                const defaultKeys = defaultTeamsForRole(member.role || '') as TeamKey[];
+                                                handleMemberUpdate(member.id, { teamKeys: defaultKeys });
+                                              }}
+                                            >
+                                              Reset to role
+                                            </Button>
+                                          </div>
+                                        </PopoverContent>
+                                      </Popover>
                                     </TableCell>
                                     <TableCell className="hidden lg:table-cell align-middle">
                                       <Select

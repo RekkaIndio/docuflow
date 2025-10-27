@@ -405,6 +405,143 @@ export async function POST(req: Request, context: { params: { organisationId: st
   }
 }
 
+export async function PATCH(req: Request, context: { params: { organisationId: string } }) {
+  try {
+    const ctx = await resolveAdminContext(req);
+    if (!ctx.isAuthorised) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const organisationId = (await Promise.resolve(context.params)).organisationId;
+    if (!organisationId) {
+      return NextResponse.json({ error: 'organisationId required' }, { status: 400 });
+    }
+
+    const body = (await req.json().catch(() => ({}))) as { userId?: string; updates?: UpdateMemberPayload };
+    const userId = typeof body?.userId === 'string' ? body.userId : null;
+    const updates = body?.updates && typeof body.updates === 'object' ? body.updates : null;
+    if (!userId || !updates) {
+      return NextResponse.json({ error: 'userId and updates required' }, { status: 400 });
+    }
+
+    const memberRef = adminDb.collection(`organisations/${organisationId}/users`).doc(userId);
+    const memberSnap = await memberRef.get();
+    if (!memberSnap.exists) {
+      return NextResponse.json({ error: 'Member not found' }, { status: 404 });
+    }
+
+    const existingData = memberSnap.data() as Record<string, any>;
+    const existingTeamKeys = dedupeTeamKeys([
+      ...(Array.isArray(existingData?.teamKeys) ? existingData.teamKeys : []),
+      ...(Array.isArray(existingData?.teams) ? existingData.teams : []),
+      ...(existingData?.teamAssignments && typeof existingData.teamAssignments === 'object'
+        ? Object.keys(existingData.teamAssignments)
+        : []),
+    ]);
+
+    const memberUpdates: Record<string, any> = {};
+    const userUpdates: Record<string, any> = {};
+    let touched = false;
+
+    let nextRoleKey: RoleKey | null = null;
+    if (typeof updates.role === 'string') {
+      const normalisedRole = normaliseRole(updates.role);
+      if (normalisedRole) {
+        nextRoleKey = normalisedRole;
+        const roleLabel = ROLE_LABELS[normalisedRole];
+        memberUpdates.role = roleLabel;
+        userUpdates.role = roleLabel;
+      } else {
+        memberUpdates.role = updates.role;
+        userUpdates.role = updates.role;
+      }
+      touched = true;
+    }
+
+    if (typeof updates.status === 'string') {
+      memberUpdates.status = updates.status;
+      touched = true;
+    }
+
+    let nextTeamKeys: OrganisationTeamKey[] | null = null;
+    let teamKeysChanged = false;
+    if ('teamKeys' in updates) {
+      const provided = Array.isArray(updates.teamKeys) ? updates.teamKeys : [];
+      const deduped = dedupeTeamKeys(provided);
+      const existingSorted = [...existingTeamKeys].sort();
+      const dedupedSorted = [...deduped].sort();
+      if (
+        existingSorted.length !== dedupedSorted.length ||
+        dedupedSorted.some((value, index) => value !== existingSorted[index])
+      ) {
+        teamKeysChanged = true;
+        nextTeamKeys = deduped;
+      }
+      touched = true;
+    } else if (nextRoleKey) {
+      const defaults = defaultTeamsForRole(nextRoleKey);
+      if (defaults.some((key) => key === 'management')) {
+        const merged = dedupeTeamKeys([...existingTeamKeys, ...defaults]);
+        const existingSorted = [...existingTeamKeys].sort();
+        const mergedSorted = [...merged].sort();
+        if (
+          existingSorted.length !== mergedSorted.length ||
+          mergedSorted.some((value, index) => value !== existingSorted[index])
+        ) {
+          teamKeysChanged = true;
+          nextTeamKeys = merged;
+        }
+      }
+    }
+
+    if (teamKeysChanged && nextTeamKeys) {
+      memberUpdates.teamKeys = nextTeamKeys;
+      userUpdates.teamKeys = nextTeamKeys;
+      touched = true;
+    }
+
+    if (Array.isArray(updates.workspaceIds)) {
+      await syncWorkspaceMemberships(organisationId, userId, updates.workspaceIds);
+      touched = true;
+    }
+
+    if (!touched) {
+      return NextResponse.json({ error: 'No updates provided' }, { status: 400 });
+    }
+
+    if (Object.keys(memberUpdates).length > 0) {
+      memberUpdates.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+      await memberRef.set(memberUpdates, { merge: true });
+    }
+
+    if (Object.keys(userUpdates).length > 0) {
+      userUpdates.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+      await adminDb.collection('users').doc(userId).set(userUpdates, { merge: true });
+    }
+
+    if (teamKeysChanged) {
+      await removeUserFromWorkspaceStaff(organisationId, userId);
+      if (nextTeamKeys && nextTeamKeys.length > 0) {
+        await syncTeamKeysToWorkspaceStaff(organisationId, userId, nextTeamKeys);
+      }
+    }
+
+    if (nextRoleKey) {
+      await syncCustomClaims(userId, nextRoleKey);
+    }
+
+    const member = await mapMemberDoc(await memberRef.get());
+
+    return NextResponse.json({ ok: true, member });
+  } catch (error) {
+    const status = (error as any)?.statusCode === 403 ? 403 : 500;
+    if (status === 500) {
+      console.error('[admin organisation members] PATCH failed', error);
+    }
+    return NextResponse.json({ error: status === 403 ? 'Forbidden' : 'Failed to update member' }, { status });
+  }
+}
+
 export async function DELETE(req: Request, context: { params: { organisationId: string } }) {
   try {
     const ctx = await resolveAdminContext(req);
