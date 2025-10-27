@@ -6,11 +6,20 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,12 +32,14 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { mockUser } from "@/lib/data";
-import { ArrowLeft, MoreVertical, Plus, Trash2, Edit, FolderLock, Users, UserCheck, Phone, Mail, Save, X, AlertTriangle, Clock, ShieldOff } from "lucide-react";
+import { ArrowLeft, MoreVertical, Plus, Trash2, Edit, FolderLock, Users, UserCheck, Phone, Mail, Save, X, AlertTriangle, Clock, ShieldOff, Loader2 } from "lucide-react";
 import type { Workspace, Team } from "@/lib/types";
+import { DEFAULT_FEATURE_FLAGS } from '@/lib/feature-flags';
 import { ManageFolderAccessDialog } from "./manage-folder-access-dialog";
 import { NewTeamDialog } from "./new-team-dialog";
 import { SidebarTrigger } from "../ui/sidebar";
 import { Input } from "@/components/ui/input";
+import { Switch } from '@/components/ui/switch';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import {
     collection,
@@ -264,11 +275,32 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
   const [newActivity, setNewActivity] = useState<{ name: string; roles: string; email: string; phone: string; contractedHours: number | ''; hoursType: 'weekly' | 'monthly' }>({ name: '', roles: '', email: '', phone: '', contractedHours: 40, hoursType: 'weekly' });
   const [activitiesError, setActivitiesError] = useState<string | null>(null);
 
+  const shouldHideTeam = (team: Team | undefined) => {
+    if (!team) return false;
+    const name = (team.name || '').trim().toLowerCase();
+    return name === 'admin' || name === 'staff';
+  };
+
+  const isInspectionTeam = (team: Team | undefined) => {
+    if (!team) return false;
+    const name = (team.name || '').trim().toLowerCase();
+    return name === 'inspection' || team.id?.startsWith('inspection-');
+  };
+
   // Check if user has management or admin access
-  const hasAccess = user && (
-    (user.role && ['admin', 'owner', 'manager', 'management'].includes(user.role.toLowerCase())) ||
-    (user.teamKeys && (user.teamKeys.includes('admin') || user.teamKeys.includes('management')))
-  );
+  const normalisedRole = typeof user?.role === 'string' ? user.role.toLowerCase() : '';
+  const roleAllowsAccess =
+    normalisedRole === 'owner' ||
+    normalisedRole === 'admin' ||
+    normalisedRole === 'manager' ||
+    normalisedRole === 'management' ||
+    normalisedRole.includes('manager') ||
+    normalisedRole.includes('management');
+
+  const teamKeys = Array.isArray(user?.teamKeys) ? (user?.teamKeys as string[]) : [];
+  const teamAllowsAccess = teamKeys.some((key) => key === 'admin' || key === 'management');
+
+  const hasAccess = Boolean(user) && (roleAllowsAccess || teamAllowsAccess);
 
   if (!hasAccess) {
     return (
@@ -319,10 +351,8 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
           } as Team;
         });
 
-        // Ensure Admin, Staff, and Inspection teams exist for this workspace
+        // Ensure Inspection team exists for this workspace (admin/staff teams are legacy)
         const requiredTeams = [
-          { name: "Admin", id: `admin-${workspaceId}` },
-          { name: "Staff", id: `staff-${workspaceId}` },
           { name: "Inspection", id: `inspection-${workspaceId}` },
         ];
         const teamsToCreate = requiredTeams.filter(rt => !fetchedTeams.some(t => t.name === rt.name && t.workspaceId === workspaceId));
@@ -341,7 +371,8 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
           await setDoc(teamRef, newTeam);
           fetchedTeams.push(newTeam);
         }
-        setTeams(fetchedTeams);
+        const visibleTeams = fetchedTeams.filter((team) => !shouldHideTeam(team));
+        setTeams(visibleTeams);
       } catch (error) {
         console.error("Error fetching teams from Firestore:", error);
       }
@@ -1367,6 +1398,15 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
   };
 
   const handleDeleteTeam = (teamId: string) => {
+    const targetTeam = teams.find((team) => team.id === teamId);
+    if (isInspectionTeam(targetTeam)) {
+      toast({
+        title: 'Inspection team protected',
+        description: 'The inspection team cannot be removed.',
+        variant: 'destructive',
+      });
+      return;
+    }
     // optimistic UI: remove locally first
     setTeams((prevTeams) => prevTeams.filter((team) => team.id !== teamId));
     (async () => {
@@ -1381,10 +1421,12 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
           if (!workspaceId) return;
           const teamsCollection = collection(db, workspaceCollectionPath(workspaceId, 'teams', organisationId || workspace?.organisationId));
           const teamsSnapshot = await getDocs(teamsCollection);
-          const fetchedTeams = teamsSnapshot.docs.map((d) => {
-            const data = d.data() as Team;
-            return { ...data, id: data.id ?? d.id, workspaceId: workspaceId } as Team;
-          });
+          const fetchedTeams = teamsSnapshot.docs
+            .map((d) => {
+              const data = d.data() as Team;
+              return { ...data, id: data.id ?? d.id, workspaceId: workspaceId } as Team;
+            })
+            .filter((team) => !shouldHideTeam(team));
           setTeams(fetchedTeams);
         } catch (e) {
           console.error("Error refetching teams after delete failure:", e);
@@ -1393,12 +1435,14 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     })();
   };
 
-  const handleAccessUpdated = (teamId: string, accessibleFolderIds: string[]) => {
+  const handleAccessUpdated = (teamId: string, accessibleFolderIds: string[], userKey?: string) => {
     // optimistic UI update
     setTeams((prevTeams) =>
       prevTeams.map((team: Team) =>
         team.id === teamId
-          ? { ...team, accessibleFolderIds, folderCount: accessibleFolderIds.length }
+          ? userKey
+            ? { ...team, userAccess: { ...(team as any).userAccess, [userKey]: { ...((team as any).userAccess?.[userKey] || {}), accessibleFolderIds } } }
+            : { ...team, accessibleFolderIds, folderCount: accessibleFolderIds.length }
           : team
       )
     );
@@ -1406,15 +1450,49 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
     (async () => {
       try {
         if (!workspaceId) throw new Error('Missing workspace id');
-        const teamRef = doc(db, workspaceCollectionPath(workspaceId, 'teams', organisationId || workspace?.organisationId), teamId);
-        await updateDoc(teamRef, {
-          accessibleFolderIds,
-          folderCount: accessibleFolderIds.length,
-        });
+        if (userKey) {
+          // Call admin API to persist per-user access
+          try {
+            const currentUser = auth.currentUser;
+            let token: string | null = null;
+            if (currentUser) token = await currentUser.getIdToken();
+
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (token) headers['authorization'] = `Bearer ${token}`;
+            else if ((window as any)?.__ADMIN_SECRET) headers['x-admin-secret'] = (window as any).__ADMIN_SECRET;
+
+            const resp = await fetch(`/api/admin/workspaces/${workspaceId}/teams/${teamId}/user-access`, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({ organisationId: organisationId || workspace?.organisationId || null, userKey, accessibleFolderIds }),
+            });
+            if (!resp.ok) throw new Error(`Failed admin API update: ${resp.status}`);
+          } catch (err) {
+            console.error('Failed to persist per-user access via admin API', err);
+          }
+        } else {
+          const teamRef = doc(db, workspaceCollectionPath(workspaceId, 'teams', organisationId || workspace?.organisationId), teamId);
+          await updateDoc(teamRef, {
+            accessibleFolderIds,
+            folderCount: accessibleFolderIds.length,
+          });
+        }
       } catch (error) {
         console.error("Error updating team access in Firestore:", error);
       }
     })();
+  };
+
+  const handleFeatureAccessUpdated = (teamId: string, access: Record<string, boolean>) => {
+    setTeams((prev) => prev.map((t) => (t.id === teamId ? { ...t, featureAccess: access } : t)));
+  };
+
+  const handleUserFeatureAccessUpdated = (teamId: string, userKey: string, access: Record<string, boolean>) => {
+    setTeams((prev) => prev.map((t) => {
+      if (t.id !== teamId) return t;
+      const existing = (t as any).userAccess || {};
+      return { ...t, userAccess: { ...existing, [userKey]: { ...existing[userKey], featureAccess: access } } } as Team;
+    }));
   };
 
   const handleTeamCreated = (newTeam: Team) => {
@@ -1454,7 +1532,30 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
         // read selected duration for this team (default to 24 hours)
         const expiresInHours = inviteDurations[teamId] || 24;
         if (isInspection) {
-          await sendWorkspaceInvite(email, { expiresInHours, temporaryRole: 'inspection_readonly' });
+            const inviteResp = await sendWorkspaceInvite(email, { expiresInHours, temporaryRole: 'inspection_readonly' });
+            // After creating the invite, persist expiry on the team.userAccess.<email>.expiresAt so revoke job can remove access
+            try {
+              const expiresAtMs = Date.now() + (Number(expiresInHours) || 24) * 60 * 60 * 1000;
+              const currentUser = auth.currentUser;
+              let token: string | null = null;
+              if (currentUser) token = await currentUser.getIdToken();
+
+              const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+              if (token) headers['authorization'] = `Bearer ${token}`;
+              else if ((window as any)?.__ADMIN_SECRET) headers['x-admin-secret'] = (window as any).__ADMIN_SECRET;
+
+              const resp = await fetch(`/api/admin/workspaces/${workspace.id}/teams/${teamId}/user-access`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ organisationId: (workspace as any)?.organisationId || null, userKey: email, expiresAt: expiresAtMs }),
+              });
+              if (!resp.ok) {
+                const body = await resp.text();
+                console.warn('Failed to persist invite expiry to userAccess:', resp.status, body);
+              }
+            } catch (err) {
+              console.warn('Error persisting invite expiry to userAccess', err);
+            }
         }
       } catch (error) {
         console.error("Error adding email to team in Firestore:", error);
@@ -1884,7 +1985,12 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                 )}
                 actions={(
                   <>
-                    <NewTeamDialog workspaceId={workspaceId} onTeamCreated={(team) => setTeams(prev => [team, ...prev])}>
+                    <NewTeamDialog
+                      workspaceId={workspaceId}
+                      onTeamCreated={(team) =>
+                        setTeams((prev) => (shouldHideTeam(team) ? prev : [team, ...prev]))
+                      }
+                    >
                       <Button variant="outline" size="sm" className="h-8 sm:h-10 bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-sm px-3"> <Plus className="mr-2 h-4 w-4"/> New Team</Button>
                     </NewTeamDialog>
                     <SidebarTrigger />
@@ -1948,6 +2054,9 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                         team={team}
                         workspace={workspace}
                         onDelete={() => handleDeleteTeam(team.id)}
+                        disableDelete={isInspectionTeam(team)}
+                        showInspectionAccess={isInspectionTeam(team)}
+                        onFeatureAccessUpdated={handleFeatureAccessUpdated}
                         onAccessUpdated={handleAccessUpdated}
                       />
                     </div>
@@ -1963,17 +2072,30 @@ export function TeamsView({ workspace, hideHeader = false }: TeamsViewProps) {
                           <li className="text-sm text-muted-foreground">No emails added</li>
                         ) : (
                           (team.emails || []).map((email: string) => (
-                            <li key={email} className="flex justify-between items-center">
-                              <span>{email}</span>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleRemoveEmail(team.id, email)}
-                              >
-                                <Trash2 className="w-4 h-4 text-red-500" />
-                              </Button>
-                            </li>
-                          ))
+                              <li key={email} className="flex justify-between items-center">
+                                <div className="flex items-center gap-2">
+                                  <span>{email}</span>
+                                  {/* Per-user controls for Inspection invites/users */}
+                                  {(team.name === 'Inspection' || team.id.startsWith(`inspection-${workspace?.id}`)) && (
+                                    <>
+                                      <ManageFolderAccessDialog team={team} workspace={workspace} userKey={email} recipientEmail={email} onAccessUpdated={(tId, ids, userKey) => handleAccessUpdated(tId, ids, userKey)}>
+                                        <Button variant="ghost" size="sm" className="ml-2"><FolderLock className="w-4 h-4" /></Button>
+                                      </ManageFolderAccessDialog>
+                                      <InspectionAccessDialog team={team} workspace={workspace} userKey={email} recipientEmail={email} onSave={(access) => handleUserFeatureAccessUpdated(team.id, email, access)}>
+                                        <Button variant="ghost" size="sm" className="ml-2"><ShieldOff className="w-4 h-4" /></Button>
+                                      </InspectionAccessDialog>
+                                    </>
+                                  )}
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleRemoveEmail(team.id, email)}
+                                >
+                                  <Trash2 className="w-4 h-4 text-red-500" />
+                                </Button>
+                              </li>
+                            ))
                         )}
                       </ul>
                       <div className="mt-2 flex gap-2">
@@ -5175,7 +5297,23 @@ function ActivityCard({ activity, isEditing, onEdit, onCancelEdit, onSave, onDel
 }
 
 
-const TeamMenu = ({ team, workspace, onDelete, onAccessUpdated }: { team: Team, workspace: Workspace, onDelete: () => void, onAccessUpdated: (teamId: string, accessibleFolderIds: string[]) => void }) => {
+const TeamMenu = ({
+  team,
+  workspace,
+  onDelete,
+  onAccessUpdated,
+  disableDelete = false,
+  showInspectionAccess = false,
+  onFeatureAccessUpdated,
+}: {
+  team: Team;
+  workspace: Workspace;
+  onDelete: () => void;
+  onAccessUpdated: (teamId: string, accessibleFolderIds: string[]) => void;
+  disableDelete?: boolean;
+  showInspectionAccess?: boolean;
+  onFeatureAccessUpdated?: (teamId: string, access: Record<string, boolean>) => void;
+}) => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -5194,12 +5332,15 @@ const TeamMenu = ({ team, workspace, onDelete, onAccessUpdated }: { team: Team, 
                 Manage Folder Access
             </DropdownMenuItem>
         </ManageFolderAccessDialog>
-        <DeleteTeamDialog onConfirm={onDelete}>
+        {/* Inspection access is now per-user. Per-user dialogs are rendered next to each email/member. */}
+        {!disableDelete && (
+          <DeleteTeamDialog onConfirm={onDelete}>
             <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive">
-            <Trash2 className="mr-2 h-4 w-4" />
-            Delete Team
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete Team
             </DropdownMenuItem>
-        </DeleteTeamDialog>
+          </DeleteTeamDialog>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -5223,5 +5364,102 @@ function DeleteTeamDialog({ children, onConfirm }: { children: React.ReactNode, 
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+  );
+}
+
+function InspectionAccessDialog({ team, workspace, onSave, userKey, recipientEmail, children }: { team: Team; workspace: Workspace; onSave: (access: Record<string, boolean>) => void; userKey?: string; recipientEmail?: string; children?: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [access, setAccess] = useState<Record<string, boolean>>(() => (team as any)?.featureAccess || {});
+
+  // Build FEATURES from the canonical DEFAULT_FEATURE_FLAGS so the teams UI reflects
+  // the app sidebar modules. Exclude features that should not appear in the teams
+  // inspection access modal (chat panel and journal per product decision).
+  const EXCLUDE_FEATURE_KEYS = new Set(['chatPanel', 'journal']);
+  const FEATURES = Object.entries(DEFAULT_FEATURE_FLAGS.modules)
+    .filter(([key]) => !EXCLUDE_FEATURE_KEYS.has(key))
+    .map(([key, mod]) => ({ key, label: mod.name }));
+
+  useEffect(() => {
+    const perUser = userKey ? (team as any)?.userAccess?.[userKey]?.featureAccess : undefined;
+    setAccess(perUser || (team as any)?.featureAccess || {});
+  }, [team, userKey]);
+
+  const save = async () => {
+    if (!workspace?.id) return;
+    setSaving(true);
+    try {
+      if (userKey) {
+        // Persist per-user feature access via admin API
+        try {
+          const currentUser = auth.currentUser;
+          let token: string | null = null;
+          if (currentUser) token = await currentUser.getIdToken();
+
+          const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+          if (token) headers['authorization'] = `Bearer ${token}`;
+          else if ((window as any)?.__ADMIN_SECRET) headers['x-admin-secret'] = (window as any).__ADMIN_SECRET;
+
+          const resp = await fetch(`/api/admin/workspaces/${workspace.id}/teams/${team.id}/user-access`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ organisationId: (workspace as any)?.organisationId || null, userKey, featureAccess: access }),
+          });
+          if (!resp.ok) throw new Error(`Admin API failed: ${resp.status}`);
+        } catch (err) {
+          console.error('Failed to persist per-user feature access via admin API', err);
+          throw err;
+        }
+      } else {
+        const teamRef = doc(db, workspaceCollectionPath(workspace.id, 'teams', (workspace as any)?.organisationId), team.id);
+        await updateDoc(teamRef, { featureAccess: access });
+      }
+      onSave(access);
+      setOpen(false);
+    } catch (err) {
+      console.error('Failed to save inspection access', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => setOpen(v)}>
+      <DialogTrigger asChild>
+        {children ? (
+          children
+        ) : (
+          <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+            <ShieldOff className="mr-2 h-4 w-4" />
+            Inspection access
+          </DropdownMenuItem>
+        )}
+      </DialogTrigger>
+      {/* Wider dialog so two columns fit comfortably */}
+      <DialogContent className="sm:max-w-[760px]">
+        <DialogHeader>
+          <DialogTitle>Inspection team feature access</DialogTitle>
+          <DialogDescription>Control which features the inspection team can access during their allotted time.</DialogDescription>
+        </DialogHeader>
+
+        {/* Two-column grid for feature toggles to reduce vertical length */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-2">
+          {FEATURES.map((f) => (
+            <div key={f.key} className="flex items-center justify-between p-3 border border-border/60 rounded-md">
+              <div>
+                <p className="text-sm font-medium">{f.label}</p>
+                <p className="text-xs text-muted-foreground">Toggle access for {f.label.toLowerCase()}</p>
+              </div>
+              <Switch checked={Boolean(access[f.key])} onCheckedChange={(v) => setAccess((prev) => ({ ...prev, [f.key]: Boolean(v) }))} />
+            </div>
+          ))}
+        </div>
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button onClick={save} disabled={saving}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

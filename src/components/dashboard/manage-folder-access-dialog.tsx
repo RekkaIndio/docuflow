@@ -18,15 +18,22 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, Folder as FolderIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Team, Workspace, Folder, Document } from "@/lib/types";
+import { doc, updateDoc } from 'firebase/firestore';
+import { db, auth } from '@/lib/firebase';
+import { workspaceCollectionPath } from '@/lib/paths';
 import { cn } from "@/lib/utils";
 import { sendFolderAccessEmail } from "@/actions/email";
 import { useAuth } from "@/hooks/use-auth";
 
 interface ManageFolderAccessDialogProps {
-    children: React.ReactNode;
-    team: Team;
-    workspace: Workspace;
-    onAccessUpdated: (teamId: string, accessibleFolderIds: string[]) => void;
+  children: React.ReactNode;
+  team: Team;
+  workspace: Workspace;
+  onAccessUpdated: (teamId: string, accessibleFolderIds: string[], userKey?: string) => void;
+  // Optional: if provided, store access for a particular user (email or user id) under team.userAccess.<userKey>
+  userKey?: string;
+  // Optional: when updating a single user, provide the recipient email for notification
+  recipientEmail?: string;
 }
 
 interface FolderTreeProps {
@@ -94,7 +101,7 @@ const FolderTree = ({ folders, selectedFolderIds, onSelectionChange, level = 0 }
 };
 
 
-export function ManageFolderAccessDialog({ children, team, workspace, onAccessUpdated }: ManageFolderAccessDialogProps) {
+export function ManageFolderAccessDialog({ children, team, workspace, onAccessUpdated, userKey, recipientEmail }: ManageFolderAccessDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const { user } = useAuth();
@@ -103,9 +110,11 @@ export function ManageFolderAccessDialog({ children, team, workspace, onAccessUp
 
   useEffect(() => {
     if (isOpen) {
-        setSelectedFolderIds(team.accessibleFolderIds || []);
+        // Load per-user access if a userKey is provided, otherwise fallback to team-wide access
+        const userAccess = (team as any)?.userAccess && userKey ? (team as any).userAccess[userKey] : undefined;
+        setSelectedFolderIds(userAccess?.accessibleFolderIds || team.accessibleFolderIds || []);
     }
-  }, [isOpen, team.accessibleFolderIds])
+  }, [isOpen, (team as any)?.accessibleFolderIds, team, userKey]);
 
   const findFolderById = (items: (Folder | Document)[], id: string): Folder | null => {
     for (const item of items) {
@@ -152,36 +161,62 @@ export function ManageFolderAccessDialog({ children, team, workspace, onAccessUp
   const handleSave = async () => {
     setIsSaving(true);
     try {
-        const originalIds = new Set(team.accessibleFolderIds || []);
-        const newIds = new Set(selectedFolderIds);
-        const newlyGrantedIds = [...newIds].filter(id => !originalIds.has(id));
+      const originalIds = new Set((team as any)?.accessibleFolderIds || []);
+      const newIds = new Set(selectedFolderIds);
+      const newlyGrantedIds = [...newIds].filter(id => !originalIds.has(id));
 
-        // In a real app, you would save this to Firestore
-        await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API call to save permissions
-        
-        if (newlyGrantedIds.length > 0 && team.members.length > 0) {
-            const newlyGrantedFolders = newlyGrantedIds
-                .map(id => findFolderById(workspace.folders, id))
-                .filter((f): f is Folder => f !== null);
+      // Persist: if userKey provided, call admin API to write per-user fields (server-validated).
+      if (userKey) {
+        try {
+          const currentUser = auth.currentUser;
+          let token: string | null = null;
+          if (currentUser) token = await currentUser.getIdToken();
 
-            if (newlyGrantedFolders.length > 0) {
-                await sendFolderAccessEmail({
-                    teamName: team.name,
-                    folderNames: newlyGrantedFolders.map(f => f.name),
-                    workspaceName: workspace.name,
-                    grantedBy: user?.name || "An administrator",
-                    recipientEmails: team.members.map(m => m.email).filter((e): e is string => !!e),
-                });
-                toast({ title: "Success!", description: `Folder access updated and notifications sent.` });
-            } else {
-                 toast({ title: "Success!", description: `Folder access for "${team.name}" has been updated.` });
-            }
-        } else {
-             toast({ title: "Success!", description: `Folder access for "${team.name}" has been updated.` });
+          const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+          if (token) headers['authorization'] = `Bearer ${token}`;
+          else if ((window as any)?.__ADMIN_SECRET) headers['x-admin-secret'] = (window as any).__ADMIN_SECRET;
+
+          const resp = await fetch(`/api/admin/workspaces/${workspace.id}/teams/${team.id}/user-access`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ organisationId: (workspace as any)?.organisationId || null, userKey, accessibleFolderIds: selectedFolderIds }),
+          });
+          if (!resp.ok) {
+            const body = await resp.text();
+            throw new Error(`Failed to update user access: ${resp.status} ${body}`);
+          }
+        } catch (err) {
+          console.error('Failed to persist per-user folder access via admin API', err);
+          throw err;
         }
-        
-        onAccessUpdated(team.id, selectedFolderIds);
-        setIsOpen(false);
+      } else {
+        // team-wide update (keeps existing behaviour)
+        const teamRef = doc(db, workspaceCollectionPath(workspace.id, 'teams', (workspace as any).organisationId || workspace.organisationId), team.id);
+        await updateDoc(teamRef, { accessibleFolderIds: selectedFolderIds, folderCount: selectedFolderIds.length });
+      }
+
+      const newlyGrantedFolders = newlyGrantedIds
+        .map(id => findFolderById(workspace.folders, id))
+        .filter((f): f is Folder => f !== null);
+
+      if (newlyGrantedFolders.length > 0) {
+        const recipientEmails = recipientEmail ? [recipientEmail] : team.members.map(m => m.email).filter((e): e is string => !!e);
+        if (recipientEmails.length > 0) {
+          await sendFolderAccessEmail({
+            teamName: team.name,
+            folderNames: newlyGrantedFolders.map(f => f.name),
+            workspaceName: workspace.name,
+            grantedBy: user?.name || "An administrator",
+            recipientEmails,
+          });
+        }
+        toast({ title: "Success!", description: `Folder access updated and notifications sent.` });
+      } else {
+        toast({ title: "Success!", description: `Folder access for "${team.name}" has been updated.` });
+      }
+
+      onAccessUpdated(team.id, selectedFolderIds, userKey);
+      setIsOpen(false);
     } catch (error) {
       console.error("Failed to save folder access or send emails:", error);
       toast({
