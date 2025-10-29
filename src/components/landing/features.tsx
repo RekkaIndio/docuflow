@@ -7,7 +7,7 @@ const features = [
     {
         icon: <Bot className="w-6 h-6" />, 
         title: 'Natural Language Chat',
-        description: 'Chat with Doc like a human colleague. Ask questions naturally and get conversational responses about your documents.',
+        description: 'Chat with Eli like a human colleague. Ask questions naturally and get conversational responses about your documents.',
         examples: [
             "What contracts expire soon?",
             "Can you summarize last month's reports?",
@@ -55,9 +55,9 @@ export function Features() {
     return (
         <div className="flex flex-col gap-8">
             <div>
-                <h3 className="text-2xl font-bold font-headline">Just Chat with Doc</h3>
+                <h3 className="text-2xl font-bold font-headline">Just Chat with Eli</h3>
                 <p className="mt-2 text-muted-foreground">
-                    Doc is your conversational AI assistant who understands your documents inside and out. Simply chat with Doc like you would a colleague—ask questions naturally, request summaries, or explore your document library through conversation.<br />
+                    Eli is your conversational AI assistant who understands your documents inside and out. Simply chat with Eli like you would a colleague—ask questions naturally, request summaries, or explore your document library through conversation.<br />
                     <span className="block mt-2 font-semibold text-primary">Now with agentic actions: send documents, manage access, create teams, and automate tasks—all from chat.</span>
                 </p>
             </div>

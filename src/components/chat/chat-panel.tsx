@@ -24,218 +24,17 @@ import { collection } from 'firebase/firestore';
 import { workspaceCollectionPath, workspaceBasePath, workspaceDocPath } from '@/lib/paths';
 import { getCqcRegulationDetail } from '@/lib/cqc-regulations';
 import type { CqcRegulationMatch } from '@/lib/cqc-regulations';
+import { MessageInput } from './message-input';
 
-const MAX_AI_STRING_FIELD = 800;
-const MAX_AI_CONTEXT_LENGTH = 1600;
-const MAX_AI_ARRAY_ITEMS = 10;
-const MAX_AI_OBJECT_KEYS = 30;
-const MAX_AI_DEPTH = 4;
+import { detectIntent, buildDependencyQuickAnswer, buildRotaQuickAnswer } from './intent-detection';
 
-const clipString = (value: string | undefined | null, limit = MAX_AI_STRING_FIELD) => {
-  if (!value) return value ?? undefined;
-  return value.length > limit ? `${value.slice(0, limit)}…` : value;
-};
+import { resolveAuditTypeFromName, formatAuditName, formatDateSafe, extractCompletedBy, clipString, summariseExtractedJson } from './utils';
 
-const summariseExtractedJson = (extracted?: Record<string, any>) => {
-  if (!extracted || typeof extracted !== 'object') return undefined;
-  const summary: Record<string, any> = {};
+import { handleAuditQuery } from './audit-handler';
 
-  const addString = (key: string, limit = MAX_AI_STRING_FIELD) => {
-    const val = extracted[key];
-    if (typeof val === 'string' && val.trim()) {
-      summary[key] = clipString(val, limit);
-    }
-  };
+import { MAX_AI_STRING_FIELD, MAX_AI_CONTEXT_LENGTH, MAX_AI_ARRAY_ITEMS, MAX_AI_OBJECT_KEYS, MAX_AI_DEPTH, SHIFT_TYPE_SYNONYMS } from './types';
 
-  const addArray = (key: string, limit = 5) => {
-    const val = extracted[key];
-    if (Array.isArray(val) && val.length > 0) {
-      summary[key] = val.slice(0, limit);
-    }
-  };
-
-  addString('summary');
-  addArray('keyFindings');
-  addArray('highlights');
-  addArray('risks');
-  addArray('actions');
-
-  if (Array.isArray(extracted.sections) && extracted.sections.length > 0) {
-    summary.sections = extracted.sections.slice(0, 3).map((section: any) => ({
-      title: section?.title,
-      summary: clipString(
-        typeof section?.summary === 'string'
-          ? section.summary
-          : typeof section?.content === 'string'
-            ? section.content
-            : undefined,
-        MAX_AI_STRING_FIELD,
-      ),
-    }));
-  }
-
-  const numericEntries = Object.entries(extracted)
-    .filter(([, value]) => typeof value === 'number')
-    .slice(0, 10);
-  if (numericEntries.length > 0) {
-    summary.metrics = Object.fromEntries(numericEntries);
-  }
-
-  return Object.keys(summary).length > 0 ? summary : undefined;
-};
-
-interface ChatMessage {
-  sender: 'user' | 'ai';
-  text: string;
-  documents?: Array<{
-    id?: string;
-    name?: string;
-    status?: 'current' | 'due-soon' | 'overdue' | 'updated';
-    statusText?: string;
-    subtitle?: string;
-    url?: string;
-    summary?: string;
-    lastReviewed?: string;
-    nextReviewRequired?: string;
-    regulations?: CqcRegulationMatch[];
-  }>;
-  users?: Array<{ id?: string; name?: string; email?: string; role?: string; avatarUrl?: string; createdAt?: string }>;
-  teams?: Array<{ id: string; name: string; memberCount?: number; description?: string }>;
-  actions?: Array<{ id: string; title: string; description?: string; status?: string; dueDate?: string; priority?: string }>;
-  regulation?: (CqcRegulationMatch & { snippet?: string });
-  audits?: Array<{
-    auditType?: string;
-    name?: string;
-    isCompletedThisMonth?: boolean;
-    scorePercent?: number | null;
-    snapshotCreatedAt?: string | null;
-    downloadUrl?: string | null;
-    documentId?: string | null;
-  }>;
-}
-
-interface ChatPanelProps {
-  selectedItem: Document | Folder;
-  onFolderAdd: (folderName: string) => void;
-  organisationId?: string | null;
-}
-
-interface UserIntent {
-  type: string;
-  originalInput?: string;
-  auditType?: string;
-  modalType?: string;
-  specificAppraisal?: string;
-  specificPolicy?: string;
-  searchTerm?: string;
-  folderName?: string;
-  userName?: string;
-  pagePath?: string;
-  openDocument?: boolean;
-  fileName?: string;
-  emailSubject?: string;
-  emailBody?: string;
-  specificAudit?: string;
-  createAudit?: boolean;
-  documentType?: string;
-  regulationCode?: string;
-  regulationFocus?: string;
-  regulationQuestion?: string;
-  [key: string]: any;
-}
-
-interface RegulationConversationContext {
-  code?: string | null;
-  title?: string;
-  summary: string;
-  question: string;
-  url?: string | null;
-  focus?: string | null;
-  sources?: Array<{ title?: string; url: string }>;
-}
-
-type DependencyPoint = {
-  date: string;
-  totalStaff: number;
-  carers: number;
-  ns: number;
-  levels: Record<string, number>;
-  sourceUser?: string;
-  id?: string;
-};
-
-type DependencyStaffingBreakdown = {
-  day: { carers: number; ns: number; total: number };
-  night: { carers: number; ns: number; total: number };
-  totals: { dayHours: number; nightHours: number; overallHours: number };
-};
-
-type DependencyLatest = {
-  savedAt: string;
-  totalStaff: number;
-  carers: number;
-  ns: number;
-  residentsCount: number;
-  dependencyLevels: Record<string, number>;
-  staffing: DependencyStaffingBreakdown;
-  sourceUser?: string;
-  id?: string;
-};
-
-const DEPENDENCY_LEVEL_SYNONYMS: Record<string, string[]> = {
-  Low: ['low dependency', 'low dependancy', 'low', 'band 1', 'band one', 'level 1'],
-  Moderate: ['moderate dependency', 'moderate dependancy', 'moderate', 'band 2', 'band two', 'level 2'],
-  High: ['high dependency', 'high dependancy', 'high', 'band 3', 'band three', 'level 3'],
-  'Very High': ['very high dependency', 'very high dependancy', 'very high', 'band 4', 'band four', 'level 4'],
-  Complex: ['complex dependency', 'complex dependancy', 'complex', 'maximum', 'max', 'band 5', 'band five', 'level 5'],
-};
-
-type NormalizedShift = {
-  id: string | null;
-  staffId: string | null;
-  staffName: string | null;
-  role: string | null;
-  type: string | null;
-  location: string | null;
-  date: string | null;
-  dayKey: string | null;
-  dayName: string;
-  dayNumber: number;
-  displayDate: string;
-  startTime: string | null;
-  endTime: string | null;
-  notes: string | null;
-};
-
-type RotaDaySummary = {
-  dayKey: string;
-  dayName: string;
-  dayNumber: number;
-  displayDate: string;
-  total: number;
-  roles: Record<string, number>;
-  types: Record<string, number>;
-  staff: string[];
-  shifts: NormalizedShift[];
-};
-
-type RotaQuickAnswerContext = {
-  question: string;
-  normalizedShifts: NormalizedShift[];
-  normalizedUserShifts: NormalizedShift[];
-  roleCounts: Record<string, number>;
-  typeCounts: Record<string, number>;
-  daySummaries: Record<string, RotaDaySummary>;
-  staffMap: Record<string, { name: string; shifts: NormalizedShift[]; variants: string[] }>;
-  weekRangeLabel: string;
-};
-
-const SHIFT_TYPE_SYNONYMS: Record<string, string[]> = {
-  night: ['night', 'overnight', 'pm', 'late night'],
-  day: ['day', 'daytime', 'am', 'morning'],
-  late: ['late', 'late shift', 'twilight', 'evening'],
-  early: ['early', 'early shift', 'dawn'],
-};
+import { ChatMessage, ChatPanelProps, UserIntent, RegulationConversationContext, DependencyPoint, DependencyStaffingBreakdown, DependencyLatest, NormalizedShift, RotaDaySummary, RotaQuickAnswerContext } from './types';
 
 const documentToAiContext = (doc: Document) => ({
   id: doc.id,
@@ -398,904 +197,6 @@ export function ChatPanel({ selectedItem, onFolderAdd, organisationId }: ChatPan
     load();
     return () => { if (unsub) unsub(); };
   }, [user?.id]);
-
-  // Enhanced natural language intent detection
-  const detectIntent = (userInput: string): UserIntent => {
-    const raw = userInput || '';
-    const normalized = raw.replace(/[’‘`]/g, "'");
-    const input = normalized.toLowerCase().trim();
-    
-    // Audit query patterns - check these FIRST before document search
-    const auditPatterns = [
-      /(show|display|get|give|tell|what|how)\s+(me\s+)?(the\s+)?(latest\s+)?audit\s+(results?|scores?|status|completion)/i,
-      /(audit|audits)\s+(results?|scores?|status|completion)/i,
-      /(what\s+is\s+the\s+status\s+of|check)\s+(the\s+)?audit/i,
-      /(are\s+there\s+any|list)\s+(overdue|pending|completed)\s+audits/i
-    ];
-
-    for (const pattern of auditPatterns) {
-      if (pattern.test(input)) {
-        return {
-          type: 'audit_query',
-          originalInput: userInput
-        };
-      }
-    }
-
-    // Dependency/staffing query patterns - check before document search
-    const dependencyPatterns = [
-      /(show|display|get|give|tell|what|how)\s+(me\s+)?(the\s+)?(latest\s+)?(dependency|dependencies|staffing|staff)\s+(data|levels?|calculations?|requirements?|breakdown|analysis)/i,
-      /(dependency|dependencies|staffing|staff)\s+(data|levels?|calculations?|requirements?|breakdown|analysis)/i,
-      /(what\s+is\s+the|check|calculate)\s+(dependency|staffing)\s+(level|requirement|data)/i,
-      /(how\s+many|what)\s+(staff|carers?|nurses?)\s+(do\s+we\s+need|are\s+required)/i,
-      /(staffing\s+calculator|dependency\s+calculator|staffing\s+breakdown)/i,
-      /(show\s+me|get)\s+(staffing|dependency)\s+(for|at)\s+(.+)/i,
-      // Explicitly match 'staffing trends' and similar phrasing so it does not fall through to document search
-      /(show|display|get|give|tell|what|how)\s+(me\s+)?(the\s+)?(latest\s+)?(staffing|staff)\s+(trends|trend|history|changes|overview|summary)/i,
-      /(staffing|staff)\s+(trends|trend|history|changes|overview|summary)/i,
-      /(show|display|get|give|tell|what|how)\s+(me\s+)?(the\s+)?(staffing|staff)\s+(trend|history|overview|summary)/i
-    ];
-
-    for (const pattern of dependencyPatterns) {
-      if (pattern.test(input)) {
-        return {
-          type: 'dependency_query',
-          originalInput: userInput
-        };
-      }
-    }
-
-    if (/(how\s+many|number|count|total)\s+(of\s+)?(residents?|people|individuals?)/i.test(input)) {
-      return {
-        type: 'dependency_query',
-        originalInput: userInput
-      };
-    }
-
-    if (/(low|moderate|high|very\s+high|complex)\s+depend(?:e|a)nc(?:y|ies)?\s+residents?/i.test(input)) {
-      return {
-        type: 'dependency_query',
-        originalInput: userInput
-      };
-    }
-
-    if (/depend(?:e|a)nc(?:y|ies)?\s+(levels?|bands?).*(residents?|people)/i.test(input)) {
-      return {
-        type: 'dependency_query',
-        originalInput: userInput
-      };
-    }
-
-    if (/(residents?|people).*(depend(?:e|a)nc(?:y|ies)?)/i.test(input)) {
-      return {
-        type: 'dependency_query',
-        originalInput: userInput
-      };
-    }
-
-    const regulationMatch = raw.match(/(?:cqc\s+)?regulation\s+(\d{1,2}[A-Za-z]?)(?:\s+(.*))?/i);
-    if (regulationMatch) {
-      const regulationCode = regulationMatch[1]?.trim();
-      const regulationFocus = regulationMatch[2]?.trim();
-      if (regulationCode) {
-        return {
-          type: 'cqc_regulation_query',
-          regulationCode,
-          regulationFocus: regulationFocus || undefined,
-          regulationQuestion: userInput,
-          originalInput: userInput,
-        };
-      }
-    }
-
-    const mentionsCqc = /\bcqc\b/i.test(input) || /care\s+quality\s+commission/i.test(normalized);
-    const cqcQueryHint = /(say|guidance|guidelines|standard|standards|require|requirements?|expect|expects|expectation|expectations|regulation|regulations|rules?|overview|stance|policy|policies|duty|duties|obligations?)/i;
-    if (mentionsCqc && cqcQueryHint.test(input)) {
-      const focusMatch = raw.match(/\b(?:about|regarding|on|for)\s+([^?!.]+)/i);
-      const regulationFocus = focusMatch ? focusMatch[1].trim() : undefined;
-      return {
-        type: 'cqc_regulation_query',
-        regulationFocus,
-        regulationQuestion: userInput,
-        originalInput: userInput,
-      };
-    }
-
-    // Multi-document query patterns
-    const multiDocPatterns = [
-      /(compare|difference|differences|similarities|all|list|summarize all|summarise all|overview of|across|between|versus|vs\.?|compare .* and .*)/i
-    ];
-    for (const pattern of multiDocPatterns) {
-      if (pattern.test(input)) {
-        return {
-          type: 'multi_document_query',
-          originalInput: userInput
-        };
-      }
-    }
-
-    // Policy opening patterns - check these before open modal patterns
-    const policyOpeningPatterns = [
-      /(?:show|open|view|display|get|find|bring\s+up|pull\s+up)\s+(?:me\s+)?(?:the\s+)?(.+?)\s+policy/i,
-      /(?:show|open|view|display|get|find)\s+(?:me\s+)?(?:the\s+)?policy\s+(?:for|about|on)\s+(.+)/i,
-      /(?:let's|let\s+us)\s+(?:look\s+at|check\s+out|see)\s+(?:the\s+)?(.+?)\s+policy/i,
-      /(?:i\s+want\s+to|i\s+need\s+to)\s+(?:see|view|open)\s+(?:the\s+)?(.+?)\s+policy/i,
-      /(?:can\s+you\s+|could\s+you\s+|please\s+)?(?:show|open|display)\s+(?:me\s+)?(?:the\s+)?(.+?)\s+policy/i,
-      /(?:take\s+me\s+to|go\s+to|navigate\s+to)\s+(?:the\s+)?(.+?)\s+policy/i
-    ];
-
-    for (const pattern of policyOpeningPatterns) {
-      const match = input.match(pattern);
-      if (match) {
-        let policyName = (match[1] || match[2] || '').trim();
-
-        // Remove common words that aren't part of the policy name
-        policyName = policyName.replace(/\b(the|me|my|an|a|for|about|on|let's|let\s+us|can\s+you|could\s+you|please|take\s+me|go\s+to|navigate\s+to|i\s+want|i\s+need|to\s+see|to\s+view|to\s+open|policy)\b/g, '').trim();
-
-        return {
-          type: 'open_policy',
-          specificPolicy: policyName,
-          originalInput: userInput
-        };
-      }
-    }
-
-    // Open modal patterns - check these AFTER policy patterns
-    const openModalPatterns = [
-      // Specific appraisal patterns - must contain appraisal-related keywords
-      /(open|show|launch|start|how)\s+(the\s+)?(.+?)\s+(appraisal|evaluation|assessment)/i,
-      /(go\s+to|navigate\s+to)\s+(the\s+)?(.+?)\s+(appraisal|evaluation|assessment)/i,
-      /(open|show|how)\s+(the\s+)?(.+?)\s+(appraisal|evaluation|assessment)\s+(page|form)/i,
-      // Handle "show me" and "how me" patterns with appraisal keywords
-      /(show|how)\s+me\s+(.+?)\s+(appraisal|evaluation|assessment)/i,
-      /(show|how)\s+me\s+(the\s+)?(.+?)\s+(appraisal|evaluation|assessment)/i,
-      // Existing patterns for backward compatibility - specific modal types
-      /(open|start|launch|show|how)\s+(the\s+)?(tracker|appraisal|audit)\s+(modal|window|form)/i,
-      /(open|start|launch|show|how)\s+(tracker|appraisal|audit)/i,
-      /(i\s+want\s+to|let's)\s+(track|appraise|audit)/i,
-      // Direct appraisal name patterns - must have appraisal context
-      /(i\s+want\s+to|let's)\s+(see|open|do)\s+(.+?)\s+(appraisal|evaluation|assessment)/i
-    ];
-
-    for (const pattern of openModalPatterns) {
-      const match = input.match(pattern);
-      if (match) {
-        // Extract modal type from different capture group positions
-        let modalType = '';
-        let specificAppraisal = '';
-
-        // Handle new direct appraisal patterns (patterns 1-4)
-        if (pattern.source.includes('me\\s+(.+)') && match[2]) {
-          // Pattern 1: /(show|open|launch|start|how)\s+me\s+(.+)/i
-          specificAppraisal = match[2].trim().toLowerCase();
-          specificAppraisal = specificAppraisal.replace(/\b(the|me|my|an|a)\b/g, '').trim();
-          modalType = 'specific-appraisal';
-        } else if (pattern.source.includes('the\\s+)?(.+)') && !pattern.source.includes('appraisal|evaluation|assessment') && match[3]) {
-          // Pattern 2: /(show|open|launch|start|how)\s+(the\s+)?(.+)/i
-          specificAppraisal = match[3].trim().toLowerCase();
-          specificAppraisal = specificAppraisal.replace(/\b(the|me|my|an|a)\b/g, '').trim();
-          modalType = 'specific-appraisal';
-        } else if (pattern.source.includes('go\\s+to|navigate\\s+to') && match[2]) {
-          // Pattern 3: /(go\s+to|navigate\s+to)\s+(.+)/i
-          specificAppraisal = match[2].trim().toLowerCase();
-          specificAppraisal = specificAppraisal.replace(/\b(the|me|my|an|a)\b/g, '').trim();
-          modalType = 'specific-appraisal';
-        } else if (pattern.source.includes('want\\s+to|let\'s') && match[3]) {
-          // Pattern 4: /(i\s+want\s+to|let's)\s+(see|open|do)\s+(.+)/i
-          specificAppraisal = match[3].trim().toLowerCase();
-          specificAppraisal = specificAppraisal.replace(/\b(the|me|my|an|a)\b/g, '').trim();
-          modalType = 'specific-appraisal';
-        }
-        // Handle existing patterns
-        else if (match[3] && ['tracker', 'appraisal', 'audit'].includes(match[3].toLowerCase())) {
-          modalType = match[3].toLowerCase(); // For pattern 5: tracker/appraisal/audit
-        } else if (match[2] && ['tracker', 'appraisal', 'audit'].includes(match[2].toLowerCase())) {
-          modalType = match[2].toLowerCase(); // For pattern 6: tracker/appraisal/audit
-        } else if (match[3] && ['track', 'appraise', 'audit'].includes(match[3].toLowerCase())) {
-          // Convert verb forms to modal types
-          const verbToModal = { 'track': 'tracker', 'appraise': 'appraisal', 'audit': 'audit' };
-          modalType = verbToModal[match[3].toLowerCase() as keyof typeof verbToModal] || '';
-        } else if (match[3] || match[4] || match[5] || match[6]) {
-          // Specific appraisal name detected - check multiple capture groups (patterns 7-11)
-          specificAppraisal = (match[3] || match[4] || match[5] || match[6] || '').trim().toLowerCase();
-          // Remove common words that aren't part of the appraisal name
-          specificAppraisal = specificAppraisal.replace(/\b(the|me|my|an|a)\b/g, '').trim();
-          modalType = 'specific-appraisal';
-        }
-
-        if (modalType) {
-          return {
-            type: 'open_modal',
-            modalType: modalType,
-            specificAppraisal: specificAppraisal,
-            originalInput: userInput
-          };
-        }
-      }
-    }
-
-    // Navigate page patterns - check these before document search
-    const navigatePagePatterns = [
-      /(go\s+to|navigate\s+to|open|show)\s+(the\s+)?(action\s+plans?|admin|dashboard|audits?|appraisals?|policies?)\s+(page|section)/i,
-      /(go\s+to|navigate\s+to|open)\s+(action\s+plans?|admin|dashboard|audits?|appraisals?|policies?)/i,
-      /(take\s+me\s+to|bring\s+me\s+to)\s+(action\s+plans?|admin|dashboard|audits?|appraisals?|policies?)/i
-    ];
-
-    for (const pattern of navigatePagePatterns) {
-      const match = input.match(pattern);
-      if (match) {
-        const pagePath = (match[2] || match[3] || '').toLowerCase().replace(/\s+/g, '-');
-        return {
-          type: 'navigate_page',
-          pagePath: pagePath,
-          originalInput: userInput
-        };
-      }
-    }
-
-    // Special case: Handle "summarise this" and similar phrases that should use active document
-    const summariseThisPatterns = [
-      /\b(summaris|summarize|summarise)\s+(this|it|the\s+document|the\s+policy|the\s+file)\b/i,
-      /\b(tell\s+me\s+about|what\s+is|explain)\s+(this|it|the\s+document|the\s+policy|the\s+file)\b/i,
-      /\b(give\s+me\s+a\s+summary|provide\s+a\s+summary)\s+(of\s+)?(?:this|it|the\s+document|the\s+policy|the\s+file)\b/i
-    ];
-
-    for (const pattern of summariseThisPatterns) {
-      if (pattern.test(input)) {
-        return {
-          type: 'general_query',
-          originalInput: userInput
-        };
-      }
-    }
-
-    // Document search patterns - much more flexible
-    const searchPatterns = [
-      // Direct requests
-      /^(please\s+)?(find|show|get|give|display|locate|open|view|search|look\s+for|bring\s+up|pull\s+up|summarize|summarise|summarise\s+for\s+me|summarize\s+for\s+me)\s+(me\s+)?(the\s+)?(.+)/i,
-      // Question formats
-      /^(can\s+you\s+|could\s+you\s+|would\s+you\s+)?(please\s+)?(find|show|get|give|display|locate|search|look\s+for|bring\s+up|pull\s+up)\s+(me\s+)?(the\s+)?(.+)/i,
-      // "I need" formats
-      /^(i\s+need|i\s+want|i\s+require|i\s+am\s+looking\s+for|i\s+would\s+like)\s+(to\s+see\s+|to\s+find\s+|to\s+access\s+|the\s+)?(.+)/i,
-      // "Where is" formats
-      /^(where\s+is|where\s+can\s+i\s+find|where\s+are|do\s+you\s+have)\s+(the\s+)?(.+)/i,
-      // "Help me" formats
-      /^(help\s+me\s+|assist\s+me\s+with\s+|guide\s+me\s+to\s+)?(find|locate|access|get|summarize|summarise|summarize\s+the|summarise\s+the)\s+(the\s+)?(.+)/i,
-      // Document type requests
-      /^(what|which)\s+(documents?|policies|files?|papers?)\s+(do\s+we\s+have\s+|are\s+there\s+|exist\s+)?(about|for|regarding|on|related\s+to)\s+(.+)/i,
-      // Status/info requests
-      /^(what\s+is\s+the\s+status\s+of|when\s+is|tell\s+me\s+about|information\s+about|details\s+about|summarize|summarise)\s+(the\s+)?(.+)/i,
-      // Folder-specific requests
-      /^(look\s+in\s+the\s+(.+?)\s+folder\s+and\s+find\s+me\s+the\s+(.+))$/i,
-      /^(in\s+the\s+(.+?)\s+folder\s+find\s+me\s+the\s+(.+))$/i,
-      /^(find\s+me\s+the\s+(.+?)\s+folder)$/i
-    ];
-
-    // Check for document search intent
-    for (const pattern of searchPatterns) {
-      const match = input.match(pattern);
-      if (match) {
-        // Extract the search term from various capture groups (use raw for preserving case in locations)
-        let searchTerm = (match[match.length - 1] || match[match.length - 2] || match[4] || match[5] || match[6] || '') as string;
-        searchTerm = searchTerm.trim();
-        if (searchTerm) {
-          // Also detect verbs that imply the user wants to open/view the document rather than just get info
-          const openVerbs = /\b(open|view|expand|show\s+me\s+the|open\s+the)\b/i;
-          const wantsOpen = openVerbs.test(input);
-
-          // try to extract a location/workspace phrase like 'in Wilton Manor' or 'for Wilton Manor'
-          // prefer matching at end but also support inline
-          const locationRegexEnd = /(?:in|at|for|from)\s+([A-Z0-9][\w\-\s&']{1,60})\.?$/i;
-          const locationRegex = /(?:in|at|for|from)\s+([A-Z0-9][\w\-\s&']{1,60})/i;
-          let folderName: string | undefined = undefined;
-          const rawMatchEnd = raw.match(locationRegexEnd);
-          const rawMatch = raw.match(locationRegex);
-          if (rawMatchEnd && rawMatchEnd[1]) folderName = rawMatchEnd[1].trim();
-          else if (rawMatch && rawMatch[1]) folderName = rawMatch[1].trim();
-
-          // Remove trailing 'in <place>' from the searchTerm if present
-          if (folderName) {
-            const trailingPattern = new RegExp("\\b(?:in|at|for|from)\\s+" + folderName.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&') + "\\b\\.?$", 'i');
-            searchTerm = searchTerm.replace(trailingPattern, '').trim();
-          }
-
-          return {
-            type: 'document_search',
-            openDocument: wantsOpen,
-            searchTerm: searchTerm || undefined,
-            folderName: folderName || undefined,
-            originalInput: userInput
-          };
-        }
-      }
-    }
-
-    // Folder creation patterns
-    const folderPatterns = [
-      /(create|add|make|new)\s+(a\s+|the\s+|another\s+)?folder(\s+called|\s+named|\s+titled|\s+with\s+name)?\s*(.+)?/i,
-      /^(can\s+you\s+|could\s+you\s+|please\s+)?(create|add|make)\s+(a\s+|the\s+)?folder(\s+called|\s+named|\s+titled)?\s*(.+)?/i,
-      /^(i\s+need|i\s+want)\s+(a\s+|to\s+create\s+a\s+)?new\s+folder(\s+called|\s+named)?\s*(.+)?/i
-    ];
-    
-    for (const pattern of folderPatterns) {
-      const match = input.match(pattern);
-      if (match) {
-        const folderName = (match[4] || match[5] || '').trim() || 'Untitled Folder';
-        return {
-          type: 'folder_creation',
-          folderName,
-          originalInput: userInput
-        };
-      }
-    }
-    
-    // File name patterns (existing logic)
-    const filePattern = /([\w\-. ]+\.(pdf|docx?|txt|csv|xlsx))/i;
-    const fileMatch = userInput.match(filePattern);
-    if (fileMatch) {
-      return {
-        type: 'file_search',
-        fileName: fileMatch[1],
-        originalInput: userInput
-      };
-    }
-
-    // Send email patterns
-    const emailPatterns = [
-      /(send|email|mail)\s+(an?\s+)?email\s+(to\s+)?(the\s+)?(.+)/i,
-      /(notify|alert)\s+(the\s+)?team\s+(about|regarding)\s+(.+)/i,
-      /(message|contact)\s+(the\s+)?(.+)\s+(about|regarding)\s+(.+)/i
-    ];
-
-    for (const pattern of emailPatterns) {
-      const match = input.match(pattern);
-      if (match) {
-        const content = (match[5] || match[4] || match[3] || '').trim();
-        return {
-          type: 'send_email',
-          emailSubject: `Message from CG360 Chat`,
-          emailBody: content || 'Please check your CG360 workspace for updates.',
-          originalInput: userInput
-        };
-      }
-    }
-
-    // User search patterns
-    const userPatterns = [
-      /(find|search|look\s+for|who\s+is|get)\s+(me\s+)?(information\s+about|details\s+on|the\s+)?user\s+(.+)/i,
-      /(who\s+is|tell\s+me\s+about)\s+(.+)/i,
-      /(search\s+for|find)\s+(user|person)\s+(.+)/i
-    ];
-
-    // If the captured phrase looks like a rota/shift/query (e.g. "who is on rota this week"), skip user search
-    const ROTA_HINTS = /(rota|shift|roster|schedule|on duty|on-duty|working|cover|covering)/i;
-    for (const pattern of userPatterns) {
-      const match = input.match(pattern);
-      if (match) {
-        const captured = (match[4] || match[2] || match[3] || '').trim();
-        if (captured && ROTA_HINTS.test(captured)) {
-          // skip - let rota detection handle this input
-          continue;
-        }
-        const userName = captured;
-        return {
-          type: 'user_search',
-          userName: userName,
-          originalInput: userInput
-        };
-      }
-    }
-
-    // Audit opening patterns - handle various ways users ask to open audits
-    const auditOpeningPatterns = [
-      /(?:show|open|view|display|get|find|bring\s+up|pull\s+up)\s+(?:me\s+)?(?:the\s+)?(.+?)\s+audit/i,
-      /(?:show|open|view|display|get|find)\s+(?:me\s+)?(?:the\s+)?audit\s+(?:for|about|on)\s+(.+)/i,
-      /(?:let's|let\s+us)\s+(?:look\s+at|check\s+out|see)\s+(?:the\s+)?(.+?)\s+audit/i,
-      /(?:i\s+want\s+to|i\s+need\s+to)\s+(?:see|view|open)\s+(?:the\s+)?(.+?)\s+audit/i,
-      /(?:can\s+you\s+|could\s+you\s+|please\s+)?(?:show|open|display)\s+(?:me\s+)?(?:the\s+)?(.+?)\s+audit/i,
-      /(?:take\s+me\s+to|go\s+to|navigate\s+to)\s+(?:the\s+)?(.+?)\s+audit/i
-    ];
-
-    for (const pattern of auditOpeningPatterns) {
-      const match = input.match(pattern);
-      if (match) {
-        const auditName = (match[1] || match[2] || '').trim()
-          .replace(/\b(the|me|my|an|a|for|about|on|let's|let\s+us|can\s+you|could\s+you|please|take\s+me|go\s+to|navigate\s+to|i\s+want|i\s+need|to\s+see|to\s+view|to\s+open)\b/g, '')
-          .trim();
-
-        const resolved = resolveAuditTypeFromName(auditName);
-        const fallback = auditName
-          ? auditName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-          : '';
-        const auditType = resolved || (fallback && fallback !== 'audit' ? fallback : null);
-        if (!auditType) continue;
-
-        return {
-          type: 'open_audit',
-          specificAudit: auditType,
-          originalInput: userInput
-        };
-      }
-    }
-
-    // Audit data querying patterns
-    const auditDataPatterns = [
-      /(?:show|tell|get|give)\s+(?:me\s+)?(?:the\s+)?(.+?)\s+audit\s+(?:data|results|information|details|trends|comments|scores|overview|summary|status|report|insights?)/i,
-      /(?:what\s+(?:are|is)\s+)?(?:the\s+)?(.+?)\s+audit\s+(?:results|data|comments|scores|trends|overview|summary|status|report|insights?)/i,
-      /(?:show|tell|get)\s+(?:me\s+)?(?:the\s+)?audit\s+(?:data|results|information|overview|summary|status|report)\s+(?:for|about|on)\s+(.+)/i,
-      /(?:what\s+(?:are|is)\s+)?(?:the\s+)?comments?\s+(?:in|for|from)\s+(?:the\s+)?(.+?)\s+audit/i,
-      /(?:how\s+did|what\s+were)\s+(?:the\s+)?(.+?)\s+audit\s+(?:results|scores|perform)/i,
-      /(?:audit\s+)?(?:data|results|information|trends|overview|summary|status|report|insights?)\s+(?:for|about|on)\s+(.+?)\s+audit/i
-    ];
-
-    for (const pattern of auditDataPatterns) {
-      const match = input.match(pattern);
-      if (match) {
-        let auditName = (match[1] || match[2] || '').trim();
-
-        // Remove common words that aren't part of the audit name
-        auditName = auditName.replace(/\b(the|me|my|an|a|for|about|on|in|from|are|is|what|show|tell|get|give|how|did|were|audit|data|results|information|details|trends|comments|scores|perform|latest|all|recent)\b/g, '').trim();
-
-        let auditType: string | null = null;
-
-        // Handle special cases for "latest" or "all" queries
-        if (input.toLowerCase().includes('latest') || input.toLowerCase().includes('all')) {
-          auditType = 'all';
-        } else {
-          auditType = resolveAuditTypeFromName(auditName);
-        }
-
-        if (!auditType) {
-          const fallback = auditName
-            ? auditName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-            : '';
-          auditType = fallback && fallback !== 'audit' ? fallback : 'all';
-        }
-
-        return {
-          type: 'audit_query',
-          auditType,
-          originalInput: userInput
-        };
-      }
-    }
-
-    const simpleAuditStatusMatch = input.match(/^(?:show|give|provide|get|tell|share)?\s*(?:me\s+)?(?:the\s+)?(.+?)\s+audit(?:\s+(?:overview|summary|status|information|info|details|report|insights?))?$/i);
-    if (simpleAuditStatusMatch) {
-      const auditName = simpleAuditStatusMatch[1]?.trim() || '';
-      const resolved = resolveAuditTypeFromName(auditName);
-      const fallback = auditName
-        ? auditName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-        : '';
-      const auditType = resolved || (fallback && fallback !== 'audit' ? fallback : 'all');
-      return {
-        type: 'audit_query',
-        auditType,
-        originalInput: userInput,
-      };
-    }
-
-    // Create audit patterns
-    const createAuditPatterns = [
-      /(?:create|start|begin|make|do|perform|conduct)\s+(?:a\s+|an\s+|new\s+)?(.+?)\s+audit/i,
-      /(?:i\s+want\s+to|i\s+need\s+to|i\s+would\s+like\s+to)\s+(?:create|start|begin|make|do|perform|conduct)\s+(?:a\s+|an\s+)?(.+?)\s+audit/i,
-      /(?:let's|let\s+us)\s+(?:create|start|begin|make|do|perform|conduct)\s+(?:a\s+|an\s+)?(.+?)\s+audit/i,
-      /(?:can\s+you\s+|could\s+you\s+|please\s+)?(?:create|start|begin|make|do|perform|conduct)\s+(?:a\s+|an\s+)?(.+?)\s+audit/i,
-      /(?:new|create)\s+audit\s+(?:for|about|on)\s+(.+)/i
-    ];
-
-    for (const pattern of createAuditPatterns) {
-      const match = input.match(pattern);
-      if (match) {
-        const auditName = (match[1] || match[2] || '').trim()
-          .replace(/\b(a|an|new|the|let's|let\s+us|can\s+you|could\s+you|please|i\s+want|i\s+need|i\s+would\s+like|to\s+create|to\s+start|to\s+begin|to\s+make|to\s+do|to\s+perform|to\s+conduct|for|about|on)\b/g, '')
-          .trim();
-
-        const resolved = resolveAuditTypeFromName(auditName);
-        const fallback = auditName
-          ? auditName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-          : '';
-        const auditType = resolved || (fallback && fallback !== 'audit' ? fallback : null);
-        if (!auditType) continue;
-
-        return {
-          type: 'create_audit',
-          auditType,
-          createAudit: true,
-          originalInput: userInput
-        };
-      }
-    }
-
-    // Document connection patterns
-    const connectionPatterns = [
-      /(link|connect|relate|associate)\s+(this|these|the)\s+(document|documents|file|files)\s+(to|with)\s+(.+)/i,
-      /(find|show|get)\s+(related|connected|linked|associated)\s+(documents?|files?)\s+(to|for|about)\s+(.+)/i,
-      /(what\s+(documents?|files?)\s+are\s+(related|connected|linked)\s+to)\s+(.+)/i
-    ];
-
-    for (const pattern of connectionPatterns) {
-      const match = input.match(pattern);
-      if (match) {
-        const searchTerm = (match[5] || match[4] || '').trim();
-        return {
-          type: 'document_connection',
-          searchTerm: searchTerm,
-          originalInput: userInput
-        };
-      }
-    }
-
-    // User profile patterns
-    const userProfilePatterns = [
-      /(show|display|get|tell)\s+(me\s+)?(my\s+)?(user\s+)?profile/i,
-      /(what\s+is\s+my|what's\s+my)\s+(user\s+)?info(rmation)?/i,
-      /(user\s+)?details\s+(for\s+me|about\s+me)/i,
-      /(my\s+)?account\s+(info|details)/i
-    ];
-
-    for (const pattern of userProfilePatterns) {
-      if (pattern.test(input)) {
-        return {
-          type: 'user_profile',
-          originalInput: userInput
-        };
-      }
-    }
-
-    // Team info patterns
-    const teamInfoPatterns = [
-      /(show|list|display|get)\s+(me\s+)?(the\s+)?teams?/i,
-      /(what\s+)?team(s?)\s+(do\s+we\s+have|are\s+there|exist)/i,
-      /(team|teams)\s+(information|details|members)/i,
-      /(who\s+is\s+in|members\s+of)\s+(the\s+)?team/i
-    ];
-
-    for (const pattern of teamInfoPatterns) {
-      if (pattern.test(input)) {
-        return {
-          type: 'team_info',
-          originalInput: userInput
-        };
-      }
-    }
-
-    // Workspace info patterns
-    const workspaceInfoPatterns = [
-      /(show|display|get|tell)\s+(me\s+)?(the\s+)?workspace\s+(info|details|stats|information)/i,
-      /(workspace|care\s+home)\s+(details|information|stats)/i,
-      /(what\s+is\s+the|tell\s+me\s+about)\s+(workspace|care\s+home)/i
-    ];
-
-    for (const pattern of workspaceInfoPatterns) {
-      if (pattern.test(input)) {
-        return {
-          type: 'workspace_info',
-          originalInput: userInput
-        };
-      }
-    }
-
-
-
-    // Fetch notifications patterns
-    const fetchNotificationsPatterns = [
-      /(show|display|get|tell)\s+(me\s+)?(the\s+)?notifications?/i,
-      /(what\s+)?recent\s+(activity|notifications?|updates?)/i,
-      /(notifications?|activity|updates?)\s+(feed|list)/i,
-      /(what's\s+)?new/i
-    ];
-
-    for (const pattern of fetchNotificationsPatterns) {
-      if (pattern.test(input)) {
-        return {
-          type: 'fetch_notifications',
-          originalInput: userInput
-        };
-      }
-    }
-
-    // Create document patterns
-    const createDocumentPatterns = [
-      /(create|make|add|new)\s+(a\s+|an\s+|the\s+)?(document|policy|file)/i,
-      /(i\s+want\s+to|i\s+need\s+to)\s+(create|make|add)\s+(a\s+|an\s+)?(document|policy|file)/i,
-      /(new|create)\s+(document|policy|file)\s+(called|named|titled)?\s*(.+)?/i
-    ];
-
-    for (const pattern of createDocumentPatterns) {
-      const match = input.match(pattern);
-      if (match) {
-        const documentType = (match[2] || match[4] || '').trim();
-        return {
-          type: 'create_document',
-          documentType: documentType,
-          originalInput: userInput
-        };
-      }
-    }
-
-    // Edit document patterns
-    const editDocumentPatterns = [
-      /(edit|modify|update|change)\s+(the\s+)?(.+)/i,
-      /(i\s+want\s+to|i\s+need\s+to)\s+(edit|modify|update)\s+(the\s+)?(.+)/i
-    ];
-
-    for (const pattern of editDocumentPatterns) {
-      const match = input.match(pattern);
-      if (match) {
-        const searchTerm = (match[3] || match[4] || '').trim();
-        return {
-          type: 'edit_document',
-          searchTerm: searchTerm,
-          originalInput: userInput
-        };
-      }
-    }
-
-    // Occupancy data patterns
-    const occupancyPatterns = [
-      /(show|display|get|tell)\s+(me\s+)?(the\s+)?occupancy\s+(data|rates?|stats?|information)/i,
-      /(bed|occupancy)\s+(occupancy|rates?|stats?|data)/i,
-      /(how\s+many|what\s+is\s+the)\s+(beds?|occupancy)\s+(rate|level)/i,
-      /(occupancy|bed)\s+(information|details)/i
-    ];
-
-    for (const pattern of occupancyPatterns) {
-      if (pattern.test(input)) {
-        return {
-          type: 'occupancy_data',
-          originalInput: userInput
-        };
-      }
-    }
-
-    // Agentic workflow patterns
-    const workflowPatterns = [
-      /(create|setup|set\s+up|configure)\s+(a\s+|an\s+|new\s+)?workflow/i,
-      /(show|list|display|get)\s+(me\s+)?(the\s+)?workflows?/i,
-      /(enable|disable|activate|deactivate)\s+(workflow|automation)/i,
-      /(run|execute|trigger)\s+(workflow|automation)/i,
-      /(workflow|automation)\s+(status|history|executions?)/i,
-      /(schedule|automate)\s+(reminder|report|audit|task)/i
-    ];
-
-    for (const pattern of workflowPatterns) {
-      if (pattern.test(input)) {
-        return {
-          type: 'agentic_workflow',
-          originalInput: userInput
-        };
-      }
-    }
-
-    // Action Plans query patterns
-    const actionPlansPatterns = [
-      /(show|display|get|give|tell|what|how)\s+(me\s+)?(the\s+)?(latest\s+)?action\s+plans?/i,
-      /(action\s+plans?|plans?)\s+(status|summary|overview|list)/i,
-      /(what\s+is\s+the\s+status\s+of|check)\s+(the\s+)?action\s+plans?/i,
-      /(are\s+there\s+any|list)\s+(overdue|pending|completed)\s+action\s+plans?/i,
-      /(show|display|get)\s+(me\s+)?action\s+plans?\s+(for|in)\s+(.+)/i,
-      /(action\s+plans?|plans?)\s+(assignments?|assigned\s+to\s+me)/i
-    ];
-
-    for (const pattern of actionPlansPatterns) {
-      if (pattern.test(input)) {
-        return {
-          type: 'action_plans_query',
-          originalInput: userInput
-        };
-      }
-    }
-
-    // Holiday / annual leave patterns - handle before rotas or user search
-    const holidayPatterns = [
-      /(who|which|anyone)\s+(is|are)\s+(on\s+)?(holiday|annual\s+leave|leave)\s+(this|next|last)\s+week/i,
-      /(show|list|display|get|give|tell)\s+(me\s+)?(who\s+is\s+)?(on\s+)?(holiday|annual\s+leave|leave)/i,
-      /(who|which\s+staff)\s+(is|are)\s+(away|off)\s+(today|tomorrow|this\s+week|next\s+week)/i,
-      /(annual\s+leave|holiday)\s+schedule/i
-    ];
-
-    for (const pattern of holidayPatterns) {
-      if (pattern.test(input)) {
-        const timeframe = input.includes('next week')
-          ? 'next-week'
-          : input.includes('last week')
-            ? 'last-week'
-            : input.includes('tomorrow')
-              ? 'tomorrow'
-              : input.includes('today')
-                ? 'today'
-                : input.includes('next month')
-                  ? 'next-month'
-                  : input.includes('this month')
-                    ? 'this-month'
-                    : 'this-week';
-
-        return {
-          type: 'holiday_query',
-          timeframe,
-          originalInput: userInput
-        };
-      }
-    }
-
-    // Rotas query patterns
-    const rotasPatterns = [
-      /(show|display|get|give|tell|what|how)\s+(me\s+)?(the\s+)?(latest\s+)?rotas?/i,
-      /(rotas?|schedules?|shifts?)\s+(status|summary|overview|list)/i,
-      /(what\s+is\s+my|check\s+my)\s+(rota|schedule|shifts?)/i,
-      /(show|display|get)\s+(me\s+)?rota\s+(for|in)\s+(.+)/i,
-      /(rota|schedule)\s+(this\s+week|next\s+week|upcoming)/i,
-      /(my\s+)?shifts?\s+(this\s+week|next\s+week|for\s+the\s+week)/i
-    ];
-
-    for (const pattern of rotasPatterns) {
-      if (pattern.test(input)) {
-        return {
-          type: 'rotas_query',
-          originalInput: userInput
-        };
-      }
-    }
-
-    if (/(shift|rota|roster|schedule)/i.test(input) && /(who|when|how many|coverage|cover|working|on duty|today|tonight|tomorrow|week|next|this|staff|team)/i.test(input)) {
-      return {
-        type: 'rotas_query',
-        originalInput: userInput
-      };
-    }
-
-    if (/(when\s+am\s+i\s+working|what\s+are\s+my\s+shifts|do\s+i\s+work\s+(today|tomorrow)|is\s+my\s+shift)/i.test(input)) {
-      return {
-        type: 'rotas_query',
-        originalInput: userInput
-      };
-    }
-
-    if (/(who(?:'s|’s)?\s+on|who\s+is\s+on|who(?:'s|’s)?\s+working|who\s+is\s+working|who(?:'s|’s)?\s+in|who\s+is\s+in|who(?:'s|’s)?\s+on\s+duty|who\s+is\s+on\s+duty)/i.test(input)
-      && /(today|tonight|tomorrow|sun|mon|tue|tues|wed|thu|thur|thurs|fri|sat|weekend|weekday|shift|floor|cover|duty)/i.test(input)) {
-      return {
-        type: 'rotas_query',
-        originalInput: userInput
-      };
-    }
-
-    // Lessons Learned and RCA query patterns
-    const lessonsRcaPatterns = [
-      /(show|display|get|give|tell|what|how)\s+(me\s+)?(the\s+)?(latest\s+)?lessons?\s+learned/i,
-      /(lessons?\s+learned|rca|root\s+cause\s+analysis)\s+(records?|summary|overview|list)/i,
-      /(what\s+are\s+the|check)\s+(lessons?\s+learned|rca\s+records?)/i,
-      /(show|display|get)\s+(me\s+)?lessons?\s+learned\s+(for|about|regarding)\s+(.+)/i,
-      /(rca|root\s+cause)\s+(analysis|records?)\s+(for|about)\s+(.+)/i
-    ];
-
-    for (const pattern of lessonsRcaPatterns) {
-      if (pattern.test(input)) {
-        return {
-          type: 'lessons_rca_query',
-          originalInput: userInput
-        };
-      }
-    }
-
-
-    // default fallback - treat as a general query when nothing else matches
-    return {
-      type: 'general_query',
-      originalInput: userInput
-    };
-  };
-
-  // Safe date formatter: returns empty string for invalid/empty dates
-  const formatDateSafe = (dateLike?: string | number | Date | null | undefined) => {
-    if (!dateLike) return '';
-    const d = dateLike instanceof Date ? dateLike : new Date(dateLike as any);
-    if (Number.isNaN(d.getTime())) return '';
-    try {
-      return d.toLocaleDateString();
-    } catch (e) {
-      return '';
-    }
-  };
-
-  const buildDependencyQuickAnswer = (question: string, latest?: DependencyLatest | null) => {
-    if (!question || !latest) return null;
-
-    const cleaned = question
-      .toLowerCase()
-      .replace(/[^a-z0-9\s]/g, ' ')
-      .replace(/\s+/g, ' ') // collapse whitespace
-      .trim();
-
-    if (!cleaned) return null;
-
-    const answers: string[] = [];
-    const hasCountIntent = /(how many|how much|number|count|total)/.test(cleaned);
-    const mentionsResidents = /(resident|people|individual)/.test(cleaned);
-
-    const safeNumber = (value: unknown) => {
-      const num = typeof value === 'number' ? value : Number(value);
-      return Number.isFinite(num) ? num : 0;
-    };
-
-    const formatStaff = (value: unknown) => {
-      const num = safeNumber(value);
-      return Number.isInteger(num) ? num.toString() : num.toFixed(1);
-    };
-
-    if ((hasCountIntent || cleaned.includes('resident count')) && mentionsResidents) {
-      answers.push(`Total residents assessed: ${safeNumber(latest.residentsCount)}`);
-    }
-
-    const dependencyLevels = latest.dependencyLevels || {};
-    for (const [level, count] of Object.entries(dependencyLevels)) {
-      const synonyms = DEPENDENCY_LEVEL_SYNONYMS[level] || [];
-      const matches = synonyms.some((syn) => cleaned.includes(syn));
-      if (matches && (hasCountIntent || cleaned.includes('resident'))) {
-        answers.push(`${level} residents: ${safeNumber(count)}`);
-      }
-    }
-
-    const wantsStaff = /(staff|headcount|workforce|team)/.test(cleaned);
-    const wantsCarers = /(carers?|care staff|caregivers?|support workers?)/.test(cleaned);
-    const wantsNurses = /(nurses?|nursing|senior|registered|rgns?|rgns?|ns\b)/.test(cleaned);
-    const wantsTotals = /(total|overall|combined|across)/.test(cleaned);
-    const wantsRequirement = /(require|need|needed|recommended|should)/.test(cleaned);
-    const mentionsDay = /(day|daytime|day-shift|day shift|am)/.test(cleaned);
-    const mentionsNight = /(night|overnight|nighttime|pm)/.test(cleaned);
-    const staffing = latest.staffing;
-
-    if (staffing && (wantsStaff || wantsCarers || wantsNurses) && (hasCountIntent || wantsRequirement)) {
-      const day = staffing.day ?? { carers: 0, ns: 0, total: 0 };
-      const night = staffing.night ?? { carers: 0, ns: 0, total: 0 };
-
-      if ((wantsStaff && !mentionsDay && !mentionsNight) || wantsTotals) {
-        const carersTotal = safeNumber(day.carers) + safeNumber(night.carers);
-        const nsTotal = safeNumber(day.ns) + safeNumber(night.ns);
-        const aggregateTotal = safeNumber(latest.totalStaff || carersTotal + nsTotal);
-        answers.push(
-          `Recommended total staff across 24h: ${formatStaff(aggregateTotal)} (Carers ${formatStaff(carersTotal)}, Nurses/Seniors ${formatStaff(nsTotal)})`
-        );
-      }
-
-      if (mentionsDay) {
-        const detailParts: string[] = [];
-        if (wantsCarers || wantsStaff) detailParts.push(`Carers ${formatStaff(day.carers)}`);
-        if (wantsNurses || wantsStaff) detailParts.push(`Nurses/Seniors ${formatStaff(day.ns)}`);
-        const total = formatStaff(day.total);
-        const detail = detailParts.length ? detailParts.join(', ') : `Total ${total}`;
-        answers.push(`Day shift recommended: ${detail}${detailParts.length ? ` (Total ${total})` : ''}`);
-      }
-
-      if (mentionsNight) {
-        const detailParts: string[] = [];
-        if (wantsCarers || wantsStaff) detailParts.push(`Carers ${formatStaff(night.carers)}`);
-        if (wantsNurses || wantsStaff) detailParts.push(`Nurses/Seniors ${formatStaff(night.ns)}`);
-        const total = formatStaff(night.total);
-        const detail = detailParts.length ? detailParts.join(', ') : `Total ${total}`;
-        answers.push(`Night shift recommended: ${detail}${detailParts.length ? ` (Total ${total})` : ''}`);
-      }
-
-      if (!mentionsDay && !mentionsNight && wantsCarers) {
-        answers.push(
-          `Carers required → Day ${formatStaff(day.carers)}, Night ${formatStaff(night.carers)}`
-        );
-      }
-
-      if (!mentionsDay && !mentionsNight && wantsNurses) {
-        answers.push(
-          `Nurses/Seniors required → Day ${formatStaff(day.ns)}, Night ${formatStaff(night.ns)}`
-        );
-      }
-    }
-
-    if (!answers.length) return null;
-
-    const savedLabel = formatDateSafe(latest.savedAt) || '';
-    const header = savedLabel ? `latest dependency snapshot from ${savedLabel}` : 'latest dependency snapshot';
-    return `Here’s what I found from the ${header}:
-${answers.map((ans) => `- ${ans}`).join('\n')}`;
-  };
 
   const buildRotaQuickAnswer = (context: RotaQuickAnswerContext): string | null => {
     const {
@@ -1877,220 +778,6 @@ ${staffLines}`;
   };
 
 
-  const AUDIT_NAME_MAP: Record<string, string> = {
-    'accident-incident': 'Accident and Incident Audit',
-    'infection-control': 'Infection Control Audit',
-    'fire-safety': 'Fire Safety Audit',
-    'health-safety': 'Health and Safety Audit',
-    'kitchen': 'Kitchen Audit',
-    'maintenance': 'Maintenance Audit',
-    'equipment': 'Equipment Audit',
-    'hand-hygiene': 'Hand Hygiene Audit',
-    'care-plan': 'Care Plan Audit',
-    'call-bell-monitoring': 'Call Bell Monitoring Audit',
-    'mealtime': 'Mealtime Audit',
-    'managers-weekly': 'Managers Weekly Audit',
-    'managers-monthly': 'Managers Monthly Audit',
-    'night-visit': 'Night Visit Audit',
-    'restrictive-practice': 'Restrictive Practice Audit',
-    'staff-file': 'Staff File Audit',
-    'weight-monitoring': 'Weight Monitoring Audit',
-    'wound-monitoring': 'Wound Monitoring Audit',
-    'risk-register': 'Risk Register Audit',
-  };
-
-  const AUDIT_SLUG_SYNONYMS: Record<string, string> = {
-    'accident incident': 'accident-incident',
-    'accidentincident': 'accident-incident',
-    'accident and incident': 'accident-incident',
-    'call bell monitoring': 'call-bell-monitoring',
-    'callbellmonitoring': 'call-bell-monitoring',
-    'call bell': 'call-bell-monitoring',
-    'care plan': 'care-plan',
-    'careplan': 'care-plan',
-    'equipment': 'equipment',
-    'fire safety': 'fire-safety',
-    'firesafety': 'fire-safety',
-    'health safety': 'health-safety',
-    'healthsafety': 'health-safety',
-    'infection control': 'infection-control',
-    'infectioncontrol': 'infection-control',
-    'kitchen & kitchenettes': 'kitchen',
-    'kitchenettes': 'kitchen',
-    'kitchen': 'kitchen',
-    'maintenance': 'maintenance',
-    'managers weekly': 'managers-weekly',
-    'weekly managers': 'managers-weekly',
-    'managersweekly': 'managers-weekly',
-    'managers monthly': 'managers-monthly',
-    'managersmonthly': 'managers-monthly',
-    'mealtime': 'mealtime',
-    'meal time': 'mealtime',
-    'night visit': 'night-visit',
-    'nightvisit': 'night-visit',
-    'hand hygiene': 'hand-hygiene',
-    'handhygiene': 'hand-hygiene',
-    'restrictive practice': 'restrictive-practice',
-    'restrictivepractice': 'restrictive-practice',
-    'staff file': 'staff-file',
-    'stafffile': 'staff-file',
-    'weight monitoring': 'weight-monitoring',
-    'weightmonitoring': 'weight-monitoring',
-    'wound monitoring': 'wound-monitoring',
-    'woundmonitoring': 'wound-monitoring',
-    'risk register': 'risk-register',
-    'riskregister': 'risk-register',
-  };
-
-  const resolveAuditTypeFromName = (rawName?: string | null) => {
-    if (!rawName) return null;
-    const cleaned = rawName
-      .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-    if (!cleaned) return null;
-    if (AUDIT_NAME_MAP[cleaned]) return cleaned;
-    if (AUDIT_SLUG_SYNONYMS[cleaned]) return AUDIT_SLUG_SYNONYMS[cleaned];
-    const dashed = cleaned.replace(/\s+/g, '-');
-    if (AUDIT_NAME_MAP[dashed]) return dashed;
-    if (AUDIT_SLUG_SYNONYMS[dashed]) return AUDIT_SLUG_SYNONYMS[dashed];
-    for (const [key, slug] of Object.entries(AUDIT_SLUG_SYNONYMS)) {
-      if (cleaned.includes(key)) return slug;
-    }
-    return null;
-  };
-
-  const formatAuditName = (auditType: string | undefined | null) => {
-    if (!auditType) return 'Audit';
-    const slug = auditType.toLowerCase();
-    if (AUDIT_NAME_MAP[slug]) return AUDIT_NAME_MAP[slug];
-    const words = slug
-      .split('-')
-      .filter(Boolean)
-      .map((part) => part.charAt(0).toUpperCase() + part.slice(1));
-    return words.length > 0 ? `${words.join(' ')} Audit` : 'Audit';
-  };
-
-  const extractCompletedBy = (latest: any): string | null => {
-    if (!latest || typeof latest !== 'object') return null;
-    const candidateObjects = [
-      latest.completedBy,
-      latest.auditor,
-      latest.assessor,
-      latest.inspector,
-      latest.manager,
-      latest.owner,
-      latest.user,
-      latest.staff,
-    ];
-    for (const item of candidateObjects) {
-      if (item && typeof item === 'object') {
-        const nestedName = item.name || item.fullName || item.displayName;
-        if (typeof nestedName === 'string' && nestedName.trim()) return nestedName.trim();
-      }
-    }
-    const candidateKeys = [
-      'completedBy',
-      'completed_by',
-      'completedByName',
-      'completedByFullName',
-      'completedByUser',
-      'auditor',
-      'auditedBy',
-      'auditorName',
-      'inspector',
-      'inspectorName',
-      'performedBy',
-      'conductedBy',
-      'author',
-      'authorName',
-      'submittedBy',
-      'reviewedBy',
-      'managerName',
-      'ownerName',
-      'staffName',
-      'userName',
-      'assessorName',
-      'recordedBy',
-      'createdBy',
-    ];
-    for (const key of candidateKeys) {
-      const value = latest[key] ?? latest?.meta?.[key];
-      if (typeof value === 'string' && value.trim()) return value.trim();
-    }
-    return null;
-  };
-
-  const extractAuditHighlightLines = (latest: any): string[] => {
-    if (!latest || typeof latest !== 'object') return [];
-    const lines: string[] = [];
-    const addLine = (label: string, value: string | null | undefined) => {
-      if (typeof value === 'string' && value.trim()) {
-        lines.push(`${label}${label.endsWith(':') ? '' : ':'} ${value.trim()}`);
-      }
-    };
-    addLine('Comments', latest.comments);
-    addLine('Summary', latest.summary ?? latest.finalComments);
-    if (Array.isArray(latest.areasForImprovement) && latest.areasForImprovement.length > 0) {
-      lines.push(`Areas for improvement: ${latest.areasForImprovement.slice(0, 3).join('; ')}`);
-    }
-    if (Array.isArray(latest.goodPractice) && latest.goodPractice.length > 0) {
-      lines.push(`Good practice: ${latest.goodPractice.slice(0, 3).join('; ')}`);
-    }
-    if (Array.isArray(latest.actionRequired) && latest.actionRequired.length > 0) {
-      lines.push(`Action required: ${latest.actionRequired.slice(0, 3).join('; ')}`);
-    }
-    return lines.slice(0, 4);
-  };
-
-  const resolveAuditDocumentInfo = async (
-    workspaceId: string,
-    orgId: string | null | undefined,
-    latest: any
-  ): Promise<{ downloadUrl: string | null; documentId: string | null }> => {
-    let downloadUrl: string | null = null;
-    let documentId: string | null = null;
-    try {
-      const maybeDocId =
-        latest?.pdfDocId ||
-        latest?.extractedJson?.pdfDocId ||
-        latest?.documentId ||
-        latest?.extractedJson?.documentId ||
-        null;
-      const maybeStoragePath = latest?.storagePath || latest?.extractedJson?.storagePath || null;
-      if (!maybeDocId && !maybeStoragePath) {
-        return { downloadUrl, documentId };
-      }
-      const docsColPath = workspaceCollectionPath(workspaceId, 'documents', orgId || null);
-      const { collection, doc, getDoc, query, where, getDocs } = await import('firebase/firestore');
-      if (maybeDocId) {
-        const docRef = doc(collection(db, docsColPath), maybeDocId);
-        const snap = await getDoc(docRef);
-        if (snap.exists()) {
-          const data = snap.data() as any;
-          downloadUrl = data.downloadUrl ?? null;
-          documentId = snap.id;
-          return { downloadUrl, documentId };
-        }
-      }
-      if (maybeStoragePath) {
-        const q = query(collection(db, docsColPath), where('storagePath', '==', maybeStoragePath));
-        const snaps = await getDocs(q);
-        if (!snaps.empty) {
-          const refDoc = snaps.docs[0];
-          const data = refDoc.data() as any;
-          downloadUrl = data.downloadUrl ?? null;
-          documentId = refDoc.id;
-        }
-      }
-    } catch (err) {
-      console.warn('resolveAuditDocumentInfo failed', err);
-    }
-    return { downloadUrl, documentId };
-  };
-
-
   const handleSend = async () => {
     const inputVal = input;
     let intent = detectIntent(inputVal);
@@ -2458,295 +1145,7 @@ ${staffLines}`;
 
     // Handle audit query
     if (intent.type === 'audit_query') {
-      appendMessages([{ sender: 'user', text: inputVal }, { sender: 'ai', text: 'Fetching audit information...' }]);
-      setInput('');
-      setIsTyping(true);
-      try {
-        const workspaceId = selectedItem.workspaceId;
-        if (!workspaceId) {
-          appendMessages({ sender: 'ai', text: 'No workspace selected for audit query.' });
-          setIsTyping(false);
-          return;
-        }
-
-        const originalInput = intent.originalInput?.toLowerCase() || '';
-        const orgContext = organisationId || null;
-        const auditPayload: Record<string, any> = {
-          mode: 'audit_query',
-          variant: 'status',
-          originalInput: inputVal,
-          requestedAudit: intent.auditType || 'all',
-        };
-        let variant: 'trend' | 'comments' | 'scores' | 'status' = 'status';
-        let hasData = false;
-
-        if (originalInput.includes('trend') || originalInput.includes('performance')) {
-          variant = 'trend';
-          auditPayload.variant = 'trend';
-          const { getMonthlyAuditSnapshots } = await import('@/lib/firestore');
-          const snapshots = await getMonthlyAuditSnapshots(workspaceId, undefined, orgContext);
-          const trendData = Object.entries(snapshots || {})
-            .map(([auditType, auditHistory]) => {
-              const history = (auditHistory as any[]).slice(0, 6).map((entry) => ({
-                snapshotCreatedAt: entry.snapshotCreatedAt,
-                scorePercent: entry.scorePercent,
-                comments: entry.comments,
-                areasForImprovement: entry.areasForImprovement,
-                goodPractice: entry.goodPractice,
-                actionRequired: entry.actionRequired,
-              }));
-              return {
-                auditType,
-                latest: history[0] || null,
-                historyLength: history.length,
-                history,
-              };
-            })
-            .filter((entry) => entry.historyLength > 0);
-          if (trendData.length === 0) {
-            appendMessages({ sender: 'ai', text: 'No audit data found for recent trends.' });
-            setIsTyping(false);
-            return;
-          }
-          hasData = true;
-          auditPayload.trends = trendData;
-        } else if (originalInput.includes('comment')) {
-          variant = 'comments';
-          auditPayload.variant = 'comments';
-          const { getMonthlyAuditSnapshots } = await import('@/lib/firestore');
-          const snapshots = await getMonthlyAuditSnapshots(workspaceId, undefined, orgContext);
-          const commentData = Object.entries(snapshots || {})
-            .map(([auditType, auditHistory]) => {
-              const latestWithNotes = (auditHistory as any[]).find((entry) =>
-                Boolean(entry.comments || entry.areasForImprovement || entry.goodPractice || entry.actionRequired)
-              );
-              if (!latestWithNotes) return null;
-              return {
-                auditType,
-                comments: latestWithNotes.comments,
-                areasForImprovement: latestWithNotes.areasForImprovement,
-                goodPractice: latestWithNotes.goodPractice,
-                actionRequired: latestWithNotes.actionRequired,
-                snapshotCreatedAt: latestWithNotes.snapshotCreatedAt,
-              };
-            })
-            .filter(Boolean);
-          if (commentData.length === 0) {
-            appendMessages({ sender: 'ai', text: 'No audit comments found for this month.' });
-            setIsTyping(false);
-            return;
-          }
-          hasData = true;
-          auditPayload.comments = commentData;
-        } else if (originalInput.includes('score') || originalInput.includes('result')) {
-          variant = 'scores';
-          auditPayload.variant = 'scores';
-          const { getLatestAuditData, getMonthlyAuditCompletionStatus } = await import('@/lib/firestore');
-          const requestedAudit = intent.auditType || 'all';
-          if (requestedAudit === 'all') {
-            const completionStatus = await getMonthlyAuditCompletionStatus(workspaceId, orgContext);
-            const auditTypes = Object.keys(completionStatus || {});
-            const scoreEntries: Array<{ auditType: string; scorePercent?: number | null; snapshotCreatedAt?: string | null }> = [];
-            for (const type of auditTypes) {
-              const latest = await getLatestAuditData(workspaceId, type, undefined, orgContext);
-              if (latest) {
-                hasData = true;
-                scoreEntries.push({
-                  auditType: type,
-                  scorePercent: latest.scorePercent ?? null,
-                  snapshotCreatedAt: latest.snapshotCreatedAt ?? null,
-                });
-              }
-            }
-            if (!hasData) {
-              appendMessages({ sender: 'ai', text: 'No audit scores found for this month.' });
-              setIsTyping(false);
-              return;
-            }
-            auditPayload.latestScores = scoreEntries;
-          } else {
-            const latest = await getLatestAuditData(workspaceId, requestedAudit, undefined, orgContext);
-            if (!latest) {
-              appendMessages({ sender: 'ai', text: `No recent scores found for ${requestedAudit.replace(/-/g, ' ')} audit.` });
-              setIsTyping(false);
-              return;
-            }
-            hasData = true;
-            auditPayload.latestScore = {
-              auditType: requestedAudit,
-              scorePercent: latest.scorePercent ?? null,
-              snapshotCreatedAt: latest.snapshotCreatedAt ?? null,
-              comments: latest.comments ?? null,
-            };
-          }
-        } else {
-          variant = 'status';
-          auditPayload.variant = 'status';
-          const { getMonthlyAuditCompletionStatus, getLatestAuditData } = await import('@/lib/firestore');
-          const completionStatus = await getMonthlyAuditCompletionStatus(workspaceId, orgContext);
-          const requestedAudit = auditPayload.requestedAudit || 'all';
-
-          if (requestedAudit !== 'all') {
-            hasData = true;
-            const latest = await getLatestAuditData(workspaceId, requestedAudit, undefined, orgContext);
-            const isCompletedThisMonth = Boolean(completionStatus?.[requestedAudit]);
-            const friendlyName = formatAuditName(requestedAudit);
-            let resolvedDoc: { downloadUrl: string | null; documentId: string | null } = {
-              downloadUrl: null,
-              documentId: null,
-            };
-            if (latest) {
-              resolvedDoc = await resolveAuditDocumentInfo(workspaceId, orgContext || null, latest);
-            }
-            const downloadUrl = isCompletedThisMonth ? resolvedDoc.downloadUrl : null;
-            const documentId = isCompletedThisMonth ? resolvedDoc.documentId : null;
-            const snapshotDate = isCompletedThisMonth
-              ? latest?.snapshotCreatedAt ?? latest?.auditDate ?? null
-              : null;
-            const scorePercent = isCompletedThisMonth ? latest?.scorePercent ?? null : null;
-
-            const auditEntry: NonNullable<ChatMessage['audits']>[number] = {
-              auditType: requestedAudit,
-              name: friendlyName,
-              isCompletedThisMonth,
-              scorePercent,
-              snapshotCreatedAt: snapshotDate,
-              downloadUrl,
-              documentId,
-            };
-
-            const completedDate = formatDateSafe(latest?.auditDate || latest?.snapshotCreatedAt);
-            const completedBy = extractCompletedBy(latest);
-            const scoreText = typeof scorePercent === 'number' ? `Score: ${scorePercent}%` : null;
-            const highlightLines = isCompletedThisMonth ? extractAuditHighlightLines(latest) : [];
-            let messageText: string;
-
-            if (isCompletedThisMonth && latest) {
-              const summaryParts: string[] = [`The ${friendlyName} is completed for this month.`];
-              if (completedDate) summaryParts.push(`Completed on ${completedDate}`);
-              if (completedBy) summaryParts.push(`by ${completedBy}`);
-              if (scoreText) summaryParts.push(scoreText);
-              messageText = summaryParts.join(' ') + '.';
-              if (highlightLines.length > 0) {
-                messageText += `\n\nKey notes:\n${highlightLines.slice(0, 3).map((line: string) => `• ${line}`).join('\n')}`;
-              }
-              messageText += `\n\nLet me know if you'd like to review or share this audit.`;
-            } else {
-              messageText = `I can't find a ${friendlyName.toLowerCase()} completed for this month yet. Would you like me to open the ${friendlyName.toLowerCase()} form so you can complete it now?`;
-            }
-
-            appendMessages({ sender: 'ai', text: messageText, audits: [auditEntry] });
-            setIsTyping(false);
-            return;
-          }
-
-          const auditTypes = Object.keys(completionStatus || {});
-          if (auditTypes.length === 0) {
-            appendMessages({ sender: 'ai', text: 'No audit status information available yet.' });
-            setIsTyping(false);
-            return;
-          }
-          hasData = true;
-          const statusEntries = auditTypes.map((type) => ({
-            auditType: type,
-            isCompletedThisMonth: Boolean(completionStatus?.[type]),
-          }));
-
-          const latestScores: Array<{ auditType: string; scorePercent?: number | null }> = [];
-          for (const type of auditTypes.slice(0, 12)) {
-            const latest = await getLatestAuditData(workspaceId, type, undefined, orgContext);
-            if (latest && latest.scorePercent !== undefined) {
-              latestScores.push({ auditType: type, scorePercent: latest.scorePercent });
-            }
-          }
-
-          auditPayload.status = {
-            completion: statusEntries,
-            latestScores,
-          };
-        }
-
-        if (!hasData) {
-          appendMessages({ sender: 'ai', text: 'No audit information could be retrieved.' });
-          setIsTyping(false);
-          return;
-        }
-
-        // Build an audits array for UI cards (completed vs incomplete)
-        let auditsArray: ChatMessage['audits'] = [];
-        try {
-          const { getMonthlyAuditCompletionStatus, getLatestAuditData } = await import('@/lib/firestore');
-          const completionStatus = await getMonthlyAuditCompletionStatus(workspaceId, orgContext);
-          const requestedAudit = auditPayload.requestedAudit || 'all';
-          const auditTypes = requestedAudit === 'all'
-            ? Object.keys(completionStatus || {})
-            : [requestedAudit];
-          for (const type of auditTypes) {
-            try {
-              const latest = await getLatestAuditData(workspaceId, type, undefined, orgContext);
-              const friendlyName = formatAuditName(type);
-              const isCompletedThisMonth = Boolean(completionStatus?.[type]);
-              let resolvedDoc: { downloadUrl: string | null; documentId: string | null } = {
-                downloadUrl: null,
-                documentId: null,
-              };
-              if (latest) {
-                resolvedDoc = await resolveAuditDocumentInfo(workspaceId, orgContext || null, latest);
-              }
-              const downloadUrl = isCompletedThisMonth ? resolvedDoc.downloadUrl : null;
-              const documentId = isCompletedThisMonth ? resolvedDoc.documentId : null;
-              const snapshotCreatedAt = isCompletedThisMonth
-                ? latest?.snapshotCreatedAt ?? latest?.auditDate ?? null
-                : null;
-              const scorePercent = isCompletedThisMonth ? latest?.scorePercent ?? null : null;
-
-              auditsArray.push({
-                auditType: type,
-                name: friendlyName,
-                isCompletedThisMonth,
-                scorePercent,
-                snapshotCreatedAt,
-                downloadUrl,
-                documentId,
-              });
-            } catch (e) {
-              auditsArray.push({
-                auditType: type,
-                name: formatAuditName(type),
-                isCompletedThisMonth: Boolean(completionStatus?.[type]),
-              });
-            }
-          }
-        } catch (e) {
-          auditsArray = [];
-        }
-
-        // Sanitize AI answer: strip raw Firebase storage download URLs to avoid exposing long storage links
-        const aiRawAnswer = await askAIWithWorkspaceData(
-          inputVal,
-          {
-            documentData: auditPayload,
-            workspaceExtras: { auditVariant: variant, requestedAudit: auditPayload.requestedAudit },
-            extraContext: {
-              variant,
-              requestedAudit: auditPayload.requestedAudit,
-              originalInput,
-            },
-          },
-          buildWorkspaceContext
-        );
-
-        // Remove firebase storage URLs like https://firebasestorage.googleapis.com/ and long gs:// links
-        const storageUrlPattern = /(https?:\/\/[^\s)]+(?:firebasestorage|storage\.googleapis)[^\s)]*|gs:\/\/[\w\-/.]+)/gi;
-        const aiAnswer = String(aiRawAnswer || '').replace(storageUrlPattern, '[document attached below]');
-
-        appendMessages({ sender: 'ai', text: aiAnswer, audits: auditsArray });
-      } catch (error) {
-        console.error('Error fetching audit data:', error);
-        appendMessages({ sender: 'ai', text: 'Sorry, I couldn\'t fetch the audit information. Please try again.' });
-      } finally {
-        setIsTyping(false);
-      }
+      handleAuditQuery(inputVal, intent, selectedItem, organisationId ?? null, user, appendMessages, setInput, setIsTyping);
       return;
     }
 
@@ -2806,7 +1205,7 @@ ${staffLines}`;
         try {
           const currentUser = auth.currentUser;
           if (currentUser) {
-            const idToken = await currentUser.getIdToken();
+            const idToken = await currentUser!.getIdToken();
             if (idToken) headers.authorization = `Bearer ${idToken}`;
           }
         } catch (tokenErr) {
@@ -2851,7 +1250,7 @@ ${staffLines}`;
           latest?: DependencyLatest | null;
         };
 
-        const points = Array.isArray(apiData?.points) ? apiData.points : [];
+        const points: DependencyPoint[] = Array.isArray(apiData?.points) ? apiData.points! : [];
         const latest = apiData?.latest ?? null;
 
         if (wantsTrend) {
@@ -2941,19 +1340,19 @@ ${staffLines}`;
 
         const quickAnswer = buildDependencyQuickAnswer(intent.originalInput ?? inputVal, latest);
         if (quickAnswer) {
-          appendMessages({ sender: 'ai', text: quickAnswer });
+          appendMessages({ sender: 'ai', text: quickAnswer as string });
           setIsTyping(false);
           return;
         }
 
-        const savedLabel = formatDateSafe(latest.savedAt) || new Date(latest.savedAt).toLocaleString();
-        const dependencyLevels = latest.dependencyLevels || {};
+        const savedLabel = formatDateSafe(latest!.savedAt) || new Date(latest!.savedAt).toLocaleString();
+        const dependencyLevels = latest!.dependencyLevels || {};
         const levelEntries = Object.entries(dependencyLevels);
         const levelSection = levelEntries.length
           ? levelEntries.map(([level, count]) => `• ${level}: ${count} resident(s)`).join('\n')
           : 'No dependency level breakdown available.';
 
-        const staffing = latest.staffing;
+        const staffing = latest!.staffing;
         const dayHours = Number.isFinite(staffing.totals.dayHours) ? staffing.totals.dayHours : 0;
         const nightHours = Number.isFinite(staffing.totals.nightHours) ? staffing.totals.nightHours : 0;
         const overallHours = Number.isFinite(staffing.totals.overallHours)
@@ -2963,8 +1362,8 @@ ${staffLines}`;
         const summaryText =
           `📊 **Latest Dependency Analysis**\n\n` +
           `Saved at: ${savedLabel}\n` +
-          `Residents assessed: ${latest.residentsCount ?? 0}\n` +
-          `Recommended total staff (24h): ${latest.totalStaff}\n\n` +
+          `Residents assessed: ${latest!.residentsCount ?? 0}\n` +
+          `Recommended total staff (24h): ${latest!.totalStaff}\n\n` +
           `**Dependency Levels:**\n${levelSection}\n\n` +
           `**Staffing Requirements:**\n` +
           `Day shift → Carers ${staffing.day.carers}, Nurses/Seniors ${staffing.day.ns}, Total ${staffing.day.total}\n` +
@@ -3061,7 +1460,7 @@ ${staffLines}`;
         // For now, assume userName is an ID or search term
         const userData = await getUserById(intent.userName || '');
         if (userData) {
-          appendMessages({ sender: 'ai', text: `Found user: ${userData.name || userData.email || 'Unknown'} (${userData.email || 'No email'})` });
+          appendMessages({ sender: 'ai', text: `Found user: ${userData!.name || userData!.email || 'Unknown'} (${userData!.email || 'No email'})` });
         } else {
           appendMessages({ sender: 'ai', text: `No user found with the name "${intent.userName}".` });
         }
@@ -3131,9 +1530,9 @@ ${staffLines}`;
           return;
         }
 
-        const orgId2 = organisationId || null;
-        const { searchDocumentsInWorkspace } = await import('@/lib/firestore');
-  const relatedDocs = await searchDocumentsInWorkspace(workspaceId, intent.searchTerm || '', orgId2);
+          const orgId2 = organisationId || null;
+          const { searchDocumentsInWorkspace } = await import('@/lib/firestore');
+          const relatedDocs = await searchDocumentsInWorkspace(workspaceId!, intent.searchTerm ?? '', orgId2);
 
         if (relatedDocs.length > 0) {
           const docList = relatedDocs.slice(0, 5).map(doc => `- ${doc.name}`).join('\n');
@@ -3168,11 +1567,11 @@ ${staffLines}`;
         
         if (userData) {
           const userCard = {
-            id: userData.id || userIdToUse,
-            name: userData.name || 'Unknown',
-            email: userData.email || 'No email',
+            id: userData!.id || userIdToUse,
+            name: userData!.name || 'Unknown',
+            email: userData!.email || 'No email',
             role: 'User', // Default role since it's not in the User type
-            avatarUrl: userData.avatarUrl || user?.avatarUrl || undefined,
+            avatarUrl: userData!.avatarUrl || user?.avatarUrl || undefined,
             createdAt: 'Unknown' // Not available in User type
           };
           
@@ -3259,7 +1658,7 @@ ${staffLines}`;
         const summaryText =
           `Workspace "${workspace.name || 'Unnamed'}" has ${memberCount} member(s)` +
           (occupancyRate !== null
-            ? ` and is currently at ${occupancyRate.toFixed(1)}% bed occupancy (${workspace.occupiedBeds}/${workspace.totalBeds}).`
+            ? ` and is currently at ${occupancyRate!.toFixed(1)}% bed occupancy (${workspace.occupiedBeds}/${workspace.totalBeds}).`
             : '.');
 
         const aiAnswer = await askAIWithWorkspaceData(
@@ -3282,7 +1681,7 @@ ${staffLines}`;
                 ? {
                     occupiedBeds: workspace.occupiedBeds,
                     totalBeds: workspace.totalBeds,
-                    occupancyRate: Number(occupancyRate.toFixed(2)),
+                    occupancyRate: Number(occupancyRate!.toFixed(2)),
                   }
                 : undefined,
               summaryText,
@@ -3468,9 +1867,9 @@ ${staffLines}`;
           return;
         }
 
-        const { searchDocumentsInWorkspace } = await import('@/lib/firestore');
-  const orgIdForSearch = organisationId || null;
-  const docs = await searchDocumentsInWorkspace(workspaceId, intent.searchTerm || '', orgIdForSearch);
+          const { searchDocumentsInWorkspace } = await import('@/lib/firestore');
+          const orgIdForSearch = organisationId || null;
+          const docs = await searchDocumentsInWorkspace(workspaceId!, intent.searchTerm ?? '', orgIdForSearch);
 
         if (docs.length > 0) {
           const doc = docs[0];
@@ -3579,7 +1978,7 @@ ${staffLines}`;
         }
 
         const { generateAdvancedAnalytics } = await import('@/lib/advanced-analytics');
-        const analytics = await generateAdvancedAnalytics(workspaceId);
+        const analytics = await generateAdvancedAnalytics(workspaceId!);
 
         // Format the analytics response
         let response = '📊 **Advanced Analytics Report**\n\n';
@@ -3809,7 +2208,7 @@ ${staffLines}`;
                   // executeWorkflow expects (workspaceId, workflowId, triggerData?)
                   // workflowData may be a plain object from Firestore; ensure we pass the id
                   const wfId = (workflowData && workflowData.id) ? workflowData.id : docSnap.id;
-                  await executeWorkflow(workspaceId, String(wfId));
+                  await executeWorkflow(workspaceId!, String(wfId));
                   executedCount++;
                 } catch (error) {
                   console.error(`Failed to execute workflow ${workflowData?.name || docSnap.id}:`, error);
@@ -4075,7 +2474,7 @@ ${staffLines}`;
           const rotaData = rotaSnap.data() as { shifts?: Array<any> } | undefined;
           const shifts = Array.isArray(rotaData?.shifts) ? rotaData!.shifts : [];
 
-          for (const shift of shifts) {
+          for (const shift of shifts!) {
             if (!shift || shift.type !== 'AnnualLeave') continue;
             if (!shift.date) continue;
 
@@ -4361,7 +2760,7 @@ ${staffLines}`;
         });
 
         if (quickAnswer) {
-          appendMessages({ sender: 'ai', text: quickAnswer });
+          appendMessages({ sender: 'ai', text: quickAnswer! });
           setIsTyping(false);
           return;
         }
@@ -4380,7 +2779,7 @@ ${staffLines}`;
               return;
             }
 
-            const dtUrl = `/api/workspaces/${workspaceId}/dependency-trends${orgId ? `?orgId=${encodeURIComponent(orgId)}` : ''}`;
+            const dtUrl = `/api/workspaces/${workspaceId}/dependency-trends${orgId ? `?orgId=${encodeURIComponent(orgId!)}` : ''}`;
             const dtRes = await fetch(dtUrl, { headers: { Authorization: `Bearer ${idToken}` } });
             if (!dtRes.ok) {
               appendMessages({ sender: 'ai', text: `Could not fetch dependency recommendations (${dtRes.status}). Falling back to a basic summary.` });
@@ -4614,10 +3013,10 @@ I used the latest dependency recommendation (day carers ${recDayCarers}, day nur
         intent.type === 'general_query' &&
         lastContext &&
         followUpPatterns.some((pat) => pat.test(userInput)) &&
-        lastContext.doc
+        lastContext!.doc
       ) {
         // Use last discussed document as context
-        usedContextDoc = lastContext.doc;
+        usedContextDoc = lastContext!.doc || null;
       }
 
       // If the chat was opened while viewing a specific document we previously
@@ -4628,7 +3027,7 @@ I used the latest dependency recommendation (day carers ${recDayCarers}, day nur
       // selectedItem document when the intent is NOT a document/file search.
       if (!usedContextDoc && selectedItem.type === 'document' && intent.type !== 'document_search' && intent.type !== 'file_search') {
         const workspaceContextStr = buildWorkspaceContext({ entryPoint: 'selected_document' });
-        const relatedDocumentsStr = serializeForAI([documentToAiContext(selectedItem)]);
+        const relatedDocumentsStr = serializeForAI([documentToAiContext(selectedItem as Document)]);
         const extraContextStr = serializeForAI({
           source: 'selected_document_chat',
           createdAt: selectedItem.createdAt,
@@ -4637,7 +3036,7 @@ I used the latest dependency recommendation (day carers ${recDayCarers}, day nur
 
         result = await chatWithDocuments({
           query: userInput,
-          documentJson: JSON.stringify(selectedItem.extractedJson || {}),
+          documentJson: JSON.stringify((selectedItem as Document).extractedJson || {}),
           workspaceContext: workspaceContextStr,
           relatedDocumentsJson: relatedDocumentsStr,
           extraContext: extraContextStr,
@@ -4655,7 +3054,7 @@ I used the latest dependency recommendation (day carers ${recDayCarers}, day nur
 
         appendMessages({ sender: 'ai', text: result.answer, documents: [documentCard] });
         
-        setLastContext({ doc: selectedItem });
+        setLastContext({ doc: selectedItem as Document });
         setIsTyping(false);
         return;
       }
@@ -4698,7 +3097,7 @@ I used the latest dependency recommendation (day carers ${recDayCarers}, day nur
           entryPoint: usedContextDoc ? 'follow_up_document' : 'active_document',
           referenceDocumentId: docToUse?.id ?? null,
         });
-        const relatedDocumentsStr = serializeForAI(docToUse ? [documentToAiContext(docToUse)] : []);
+        const relatedDocumentsStr = serializeForAI(docToUse ? [documentToAiContext(docToUse!)] : []);
         const extraContextStr = serializeForAI({
           source: usedContextDoc ? 'follow_up' : 'active_document',
           query: userInput,
@@ -4986,13 +3385,6 @@ I used the latest dependency recommendation (day carers ${recDayCarers}, day nur
       setInput(userInput);
     } finally {
       setIsTyping(false);
-    }
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
     }
   };
 
@@ -5361,7 +3753,7 @@ I used the latest dependency recommendation (day carers ${recDayCarers}, day nur
             <AvatarFallback className="bg-gray-500 text-white text-sm font-semibold">AI</AvatarFallback>
           </Avatar>
           <div>
-            <h3 className="font-semibold text-lg">Doc - Document Assistant</h3>
+            <h3 className="font-semibold text-lg">Eli - Document Assistant</h3>
           </div>
         </div>
       </div>
@@ -5373,7 +3765,7 @@ I used the latest dependency recommendation (day carers ${recDayCarers}, day nur
               <AvatarImage src={profilePicture || '/Neurodiversity_Symbol.png'} alt="CareBot AI" />
               <AvatarFallback className="bg-gray-500 text-white text-sm font-semibold">AI</AvatarFallback>
             </Avatar>
-            <h4 className="text-lg font-semibold text-gray-800">Doc - Document Assistant</h4>
+            <h4 className="text-lg font-semibold text-gray-800">Eli - Chat Assistant</h4>
             <p className="mt-2 text-sm max-w-[60%]">Ask a question about your policies or documents. Try one of the suggested prompts below to get started.</p>
 
             <div className="mt-4 flex flex-wrap gap-2 justify-center">
@@ -5456,30 +3848,7 @@ I used the latest dependency recommendation (day carers ${recDayCarers}, day nur
         )}
       </div>
       <div className="p-4 border-t bg-white shrink-0">
-        <div className="relative">
-          <Textarea
-            placeholder="Ask me anything... 'Show advanced analytics', 'Performance analysis', 'Predictive insights', 'Risk assessment', 'Benchmark comparison', 'Show action plans', 'What is my rota?', 'Show lessons learned', 'Create audit workflow', 'Show workflows'..."
-            className="w-full resize-none pr-12 min-h-[48px] border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:border-blue-300 transition-colors"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyPress}
-            disabled={isTyping}
-            rows={1}
-            ref={inputRef}
-          />
-          <div className="absolute top-1/2 right-3 -translate-y-1/2 flex gap-2">
-            <Button 
-              type="submit" 
-              size="icon" 
-              variant="ghost" 
-              onClick={handleSend} 
-              disabled={isTyping || !input.trim()}
-              className="hover:bg-blue-50 text-blue-600"
-            >
-              <CornerDownLeft className="w-5 h-5" />
-            </Button>
-          </div>
-        </div>
+        <MessageInput input={input} setInput={setInput} isTyping={isTyping} onSend={handleSend} inputRef={inputRef} />
       </div>
     </div>
   );
