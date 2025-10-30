@@ -30,7 +30,8 @@ import {
   GraduationCap,
   PoundSterling,
   BookOpen,
-  Bell
+  Bell,
+  X
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -609,6 +610,7 @@ export default function Page() {
             <Link href="#platform" className="hover:text-white transition-colors">Platform</Link>
             <Link href="#workflow" className="hover:text-white transition-colors">Workflow</Link>
             <Link href="#analytics" className="hover:text-white transition-colors">Analytics</Link>
+            <Link href="#pricing" className="hover:text-white transition-colors">Pricing</Link>
             <Link href="#demo" className="hover:text-white transition-colors">Demo</Link>
           </nav>
           <Button
@@ -987,6 +989,159 @@ export default function Page() {
                   <p className="mt-2 text-xs text-slate-500">{metric.detail}</p>
                 </div>
               ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="pricing" className="relative overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-100 py-24 text-slate-900">
+          <div className="absolute inset-0">
+            <div className="absolute -top-32 -left-24 h-64 w-64 rounded-full bg-blue-500/70 blur-3xl animate-pulse"></div>
+            <div className="absolute top-1/3 right-0 h-72 w-72 rounded-full bg-purple-500/70 blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+            <div className="absolute bottom-0 left-1/4 h-52 w-52 rounded-full bg-cyan-500/70 blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-48 w-48 rounded-full bg-emerald-500/70 blur-3xl animate-pulse" style={{ animationDelay: '0.5s' }}></div>
+            <div className="absolute top-0 right-1/4 h-40 w-40 rounded-full bg-pink-500/70 blur-3xl animate-pulse" style={{ animationDelay: '1.5s' }}></div>
+            <div className="absolute bottom-1/4 right-1/3 h-56 w-56 rounded-full bg-indigo-500/70 blur-3xl animate-pulse" style={{ animationDelay: '2.5s' }}></div>
+          </div>
+          <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
+            <div className="text-center">
+              <Badge variant="secondary" className="bg-blue-100 text-blue-800">Transparent pricing</Badge>
+              <h2 className="mt-6 text-4xl font-semibold tracking-tight sm:text-5xl">
+                Simple, all-inclusive pricing.
+              </h2>
+              <p className="mt-4 text-lg text-slate-600">
+                £350 per month per site. This includes everything. 14-day backout clause and minimum 12-month contract.
+              </p>
+            </div>
+
+            <div className="mt-12 grid gap-8 lg:grid-cols-2 lg:items-center">
+              <div className="space-y-6">
+                <h3 className="text-2xl font-semibold text-slate-900">Why choose CG-360?</h3>
+                <p className="text-lg text-slate-600">
+                  While competitors charge thousands for fragmented modules, surprise bolt-ons, and endless training sessions, we deliver everything you need for a fraction of the cost with free setup and training included.
+                </p>
+                <div className="grid gap-6 sm:grid-cols-2">
+                  <div className="group rounded-2xl border-2 border-red-300 bg-gradient-to-br from-red-100 to-red-200 p-8 shadow-lg shadow-red-500/30 transition-all duration-300 hover:shadow-2xl hover:shadow-red-500/50 hover:scale-105 hover:border-red-400">
+                    <div className="flex items-center gap-4">
+                      <div className="rounded-xl bg-gradient-to-br from-red-300 to-red-400 p-3 shadow-md">
+                        <AlertTriangle className="h-6 w-6 text-red-800" />
+                      </div>
+                      <h4 className="text-xl font-bold text-red-900">The Competition</h4>
+                    </div>
+                    <ul className="mt-6 space-y-3 text-sm text-red-800">
+                      <li className="flex items-center gap-3 font-medium">
+                        <X className="h-5 w-5 flex-shrink-0 text-red-600" />
+                        <span>Hidden bolt-on costs</span>
+                      </li>
+                      <li className="flex items-center gap-3 font-medium">
+                        <X className="h-5 w-5 flex-shrink-0 text-red-600" />
+                        <span>"Contact for quote"</span>
+                      </li>
+                      <li className="flex items-center gap-3 font-medium">
+                        <X className="h-5 w-5 flex-shrink-0 text-red-600" />
+                        <span>Surprise invoices</span>
+                      </li>
+                      <li className="flex items-center gap-3 font-medium">
+                        <X className="h-5 w-5 flex-shrink-0 text-red-600" />
+                        <span>Fragmented modules</span>
+                      </li>
+                      <li className="flex items-center gap-3 font-medium">
+                        <X className="h-5 w-5 flex-shrink-0 text-red-600" />
+                        <span>Expensive setup & training</span>
+                      </li>
+                    </ul>
+                  </div>
+                  <div className="group rounded-2xl border-2 border-emerald-300 bg-gradient-to-br from-emerald-100 to-emerald-200 p-8 shadow-lg shadow-emerald-500/30 transition-all duration-300 hover:shadow-2xl hover:shadow-emerald-500/50 hover:scale-105 hover:border-emerald-400">
+                    <div className="flex items-center gap-4">
+                      <div className="rounded-xl bg-gradient-to-br from-emerald-300 to-emerald-400 p-3 shadow-md">
+                        <CheckCircle2 className="h-6 w-6 text-emerald-800" />
+                      </div>
+                      <h4 className="text-xl font-bold text-emerald-900">CG-360</h4>
+                    </div>
+                    <ul className="mt-6 space-y-3 text-sm text-emerald-800">
+                      <li className="flex items-center gap-3 font-medium">
+                        <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-600" />
+                        <span>Everything included</span>
+                      </li>
+                      <li className="flex items-center gap-3 font-medium">
+                        <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-600" />
+                        <span>Transparent pricing</span>
+                      </li>
+                      <li className="flex items-center gap-3 font-medium">
+                        <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-600" />
+                        <span>No surprise fees</span>
+                      </li>
+                      <li className="flex items-center gap-3 font-medium">
+                        <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-600" />
+                        <span>All modules in one</span>
+                      </li>
+                      <li className="flex items-center gap-3 font-medium">
+                        <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-600" />
+                        <span>Free setup & training</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-center">
+                <div className="group relative w-full max-w-md rounded-[32px] border border-slate-200 bg-white p-8 shadow-2xl transition-all duration-300 hover:scale-105 hover:shadow-3xl">
+                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 px-4 py-2 text-sm font-semibold text-white shadow-lg">
+                    All-Inclusive
+                  </div>
+                  <div className="text-center">
+                    <div className="mb-4 flex justify-center">
+                      <div className="rounded-2xl bg-gradient-to-br from-blue-500 to-purple-500 p-4 text-white shadow-lg">
+                        <PoundSterling className="h-8 w-8" />
+                      </div>
+                    </div>
+                    <p className="text-6xl font-bold text-slate-900">£350</p>
+                    <p className="text-xl text-slate-600">per month per site</p>
+                    <div className="mt-6 space-y-3 text-sm text-slate-600">
+                      <div className="flex items-center gap-3">
+                        <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-500" />
+                        <span>AI document processing</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-500" />
+                        <span>Dependency modelling</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-500" />
+                        <span>Policies & governance</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-500" />
+                        <span>Audits & evidence</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-500" />
+                        <span>Action plans & supervisions</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-500" />
+                        <span>Inspection portals</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-500" />
+                        <span>Admin overview & analytics</span>
+                      </div>
+                    </div>
+                    <div className="mt-6 rounded-lg bg-slate-50 p-4 text-xs text-slate-500">
+                      <p>Setup: £0 • Free training included</p>
+                      <p>14-day backout clause • Minimum 12-month contract</p>
+                    </div>
+                    <div className="mt-6">
+                      <Button
+                        size="lg"
+                        onClick={openCalendlyModal}
+                        className="w-full bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg hover:from-blue-500/90 hover:to-purple-500/90"
+                      >
+                        Book Your Demo
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </section>

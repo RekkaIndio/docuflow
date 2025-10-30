@@ -352,9 +352,8 @@ export default function HelpPage() {
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
                 <Card className="bg-white/50 backdrop-blur-sm border border-slate-200/50 shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl overflow-hidden group">
                   <CardContent className="p-0">
-                    <div className="aspect-video bg-gradient-to-br from-slate-200 to-slate-300 rounded-t-2xl flex items-center justify-center relative overflow-hidden">
-                      <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-purple-500/20"></div>
-                      <PlayCircle className="w-16 h-16 text-white drop-shadow-lg relative z-10" />
+                    <div className="aspect-video bg-gradient-to-r from-blue-500 to-purple-500 rounded-t-2xl flex items-center justify-center">
+                      <h4 className="text-white text-xl font-bold text-center px-4">Welcome to CG-360</h4>
                     </div>
                     <div className="p-6">
                       <h4 className="font-bold text-lg text-slate-900 mb-3">Welcome to CG-360</h4>
@@ -373,9 +372,8 @@ export default function HelpPage() {
 
                 <Card className="bg-white/50 backdrop-blur-sm border border-slate-200/50 shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl overflow-hidden group">
                   <CardContent className="p-0">
-                    <div className="aspect-video bg-gradient-to-br from-slate-200 to-slate-300 rounded-t-2xl flex items-center justify-center relative overflow-hidden">
-                      <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20"></div>
-                      <PlayCircle className="w-16 h-16 text-white drop-shadow-lg relative z-10" />
+                    <div className="aspect-video bg-gradient-to-r from-purple-500 to-pink-500 rounded-t-2xl flex items-center justify-center">
+                      <h4 className="text-white text-xl font-bold text-center px-4">Setting Up Your Workspace</h4>
                     </div>
                     <div className="p-6">
                       <h4 className="font-bold text-lg text-slate-900 mb-3">Setting Up Your Workspace</h4>
@@ -394,9 +392,8 @@ export default function HelpPage() {
 
                 <Card className="bg-white/50 backdrop-blur-sm border border-slate-200/50 shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl overflow-hidden group">
                   <CardContent className="p-0">
-                    <div className="aspect-video bg-gradient-to-br from-slate-200 to-slate-300 rounded-t-2xl flex items-center justify-center relative overflow-hidden">
-                      <div className="absolute inset-0 bg-gradient-to-br from-green-500/20 to-blue-500/20"></div>
-                      <PlayCircle className="w-16 h-16 text-white drop-shadow-lg relative z-10" />
+                    <div className="aspect-video bg-gradient-to-r from-green-500 to-blue-500 rounded-t-2xl flex items-center justify-center">
+                      <h4 className="text-white text-xl font-bold text-center px-4">Inviting Team Members</h4>
                     </div>
                     <div className="p-6">
                       <h4 className="font-bold text-lg text-slate-900 mb-3">Inviting Team Members</h4>
@@ -426,9 +423,8 @@ export default function HelpPage() {
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
                 <Card className="bg-white/50 backdrop-blur-sm border border-slate-200/50 shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl overflow-hidden group">
                   <CardContent className="p-0">
-                    <div className="aspect-video bg-gradient-to-br from-slate-200 to-slate-300 rounded-t-2xl flex items-center justify-center relative overflow-hidden">
-                      <div className="absolute inset-0 bg-gradient-to-br from-orange-500/20 to-red-500/20"></div>
-                      <PlayCircle className="w-16 h-16 text-white drop-shadow-lg relative z-10" />
+                    <div className="aspect-video bg-gradient-to-r from-orange-500 to-red-500 rounded-t-2xl flex items-center justify-center">
+                      <h4 className="text-white text-xl font-bold text-center px-4">Audit Management Deep Dive</h4>
                     </div>
                     <div className="p-6">
                       <h4 className="font-bold text-lg text-slate-900 mb-3">Audit Management Deep Dive</h4>
@@ -447,9 +443,8 @@ export default function HelpPage() {
 
                 <Card className="bg-white/50 backdrop-blur-sm border border-slate-200/50 shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl overflow-hidden group">
                   <CardContent className="p-0">
-                    <div className="aspect-video bg-gradient-to-br from-slate-200 to-slate-300 rounded-t-2xl flex items-center justify-center relative overflow-hidden">
-                      <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/20 to-blue-500/20"></div>
-                      <PlayCircle className="w-16 h-16 text-white drop-shadow-lg relative z-10" />
+                    <div className="aspect-video bg-gradient-to-r from-cyan-500 to-blue-500 rounded-t-2xl flex items-center justify-center">
+                      <h4 className="text-white text-xl font-bold text-center px-4">Document Linking & Versioning</h4>
                     </div>
                     <div className="p-6">
                       <h4 className="font-bold text-lg text-slate-900 mb-3">Document Linking & Versioning</h4>
@@ -468,9 +463,8 @@ export default function HelpPage() {
 
                 <Card className="bg-white/50 backdrop-blur-sm border border-slate-200/50 shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl overflow-hidden group">
                   <CardContent className="p-0">
-                    <div className="aspect-video bg-gradient-to-br from-slate-200 to-slate-300 rounded-t-2xl flex items-center justify-center relative overflow-hidden">
-                      <div className="absolute inset-0 bg-gradient-to-br from-pink-500/20 to-purple-500/20"></div>
-                      <PlayCircle className="w-16 h-16 text-white drop-shadow-lg relative z-10" />
+                    <div className="aspect-video bg-gradient-to-r from-pink-500 to-purple-500 rounded-t-2xl flex items-center justify-center">
+                      <h4 className="text-white text-xl font-bold text-center px-4">Using the AI Assistant</h4>
                     </div>
                     <div className="p-6">
                       <h4 className="font-bold text-lg text-slate-900 mb-3">Using the AI Assistant</h4>
@@ -489,9 +483,8 @@ export default function HelpPage() {
 
                 <Card className="bg-white/50 backdrop-blur-sm border border-slate-200/50 shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl overflow-hidden group">
                   <CardContent className="p-0">
-                    <div className="aspect-video bg-gradient-to-br from-slate-200 to-slate-300 rounded-t-2xl flex items-center justify-center relative overflow-hidden">
-                      <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/20 to-blue-500/20"></div>
-                      <PlayCircle className="w-16 h-16 text-white drop-shadow-lg relative z-10" />
+                    <div className="aspect-video bg-gradient-to-r from-indigo-500 to-blue-500 rounded-t-2xl flex items-center justify-center">
+                      <h4 className="text-white text-xl font-bold text-center px-4">Custom Reporting</h4>
                     </div>
                     <div className="p-6">
                       <h4 className="font-bold text-lg text-slate-900 mb-3">Custom Reporting</h4>
@@ -510,9 +503,8 @@ export default function HelpPage() {
 
                 <Card className="bg-white/50 backdrop-blur-sm border border-slate-200/50 shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl overflow-hidden group">
                   <CardContent className="p-0">
-                    <div className="aspect-video bg-gradient-to-br from-slate-200 to-slate-300 rounded-t-2xl flex items-center justify-center relative overflow-hidden">
-                      <div className="absolute inset-0 bg-gradient-to-br from-teal-500/20 to-cyan-500/20"></div>
-                      <PlayCircle className="w-16 h-16 text-white drop-shadow-lg relative z-10" />
+                    <div className="aspect-video bg-gradient-to-r from-teal-500 to-cyan-500 rounded-t-2xl flex items-center justify-center">
+                      <h4 className="text-white text-xl font-bold text-center px-4">Integration Setup</h4>
                     </div>
                     <div className="p-6">
                       <h4 className="font-bold text-lg text-slate-900 mb-3">Integration Setup</h4>
@@ -531,9 +523,8 @@ export default function HelpPage() {
 
                 <Card className="bg-white/50 backdrop-blur-sm border border-slate-200/50 shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl overflow-hidden group">
                   <CardContent className="p-0">
-                    <div className="aspect-video bg-gradient-to-br from-slate-200 to-slate-300 rounded-t-2xl flex items-center justify-center relative overflow-hidden">
-                      <div className="absolute inset-0 bg-gradient-to-br from-red-500/20 to-orange-500/20"></div>
-                      <PlayCircle className="w-16 h-16 text-white drop-shadow-lg relative z-10" />
+                    <div className="aspect-video bg-gradient-to-r from-red-500 to-orange-500 rounded-t-2xl flex items-center justify-center">
+                      <h4 className="text-white text-xl font-bold text-center px-4">Troubleshooting Common Issues</h4>
                     </div>
                     <div className="p-6">
                       <h4 className="font-bold text-lg text-slate-900 mb-3">Troubleshooting Common Issues</h4>
