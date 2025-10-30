@@ -80,7 +80,8 @@ export default function AboutPage() {
                     <CardDescription className="text-base leading-relaxed">
                       We witnessed firsthand how care home managers spent countless hours on paperwork,
                       struggling with complex compliance requirements, and sacrificing precious time
-                      that could be spent caring for residents.
+                      that could be spent caring for residents. Even with the systems that are supposed
+                      to help, compliance still felt like a burden.
                     </CardDescription>
                   </CardContent>
                 </Card>
@@ -94,9 +95,11 @@ export default function AboutPage() {
                   </CardHeader>
                   <CardContent>
                     <CardDescription className="text-base leading-relaxed">
-                      We combined our expertise in healthcare compliance with cutting-edge AI technology
+                      We combined our expertise in healthcare compliance with AI technology
                       to create CG-360 - a platform that makes compliance management intelligent,
-                      automated, and actually enjoyable to use.
+                      automated, and actually enjoyable to use. Data drives everything we do,
+                      empowering care homes to not only meet regulatory standards but exceed them,
+                      all while focusing on what truly matters - delivering exceptional care.
                     </CardDescription>
                   </CardContent>
                 </Card>
