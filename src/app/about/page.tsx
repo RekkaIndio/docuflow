@@ -127,7 +127,7 @@ export default function AboutPage() {
                 </p>
               </div>
 
-              <div className="grid md:grid-cols-3 gap-8">
+              <div className="grid md:grid-cols-4 gap-8">
                 {/* Team Member 1 */}
                 <Card className="text-center border-0 shadow-lg hover:shadow-xl transition-shadow">
                   <CardHeader className="pb-4">
@@ -139,13 +139,12 @@ export default function AboutPage() {
                       />
                     </div>
                     <CardTitle className="text-xl">Leigh-Anne Kettle</CardTitle>
-                    <CardDescription className="text-primary font-medium">Founder & CEO</CardDescription>
+                    <CardDescription className="text-primary font-medium">CEO</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <p className="text-slate-600 mb-4">
-                      15+ years in care home and compliance management, passionate about improving care quality through technology.
+                      15+ years in care home and compliance management, passionate about improving care quality through technology. 
                       Extensive experience in senior management roles in the care sector.
-
                     </p>
                   </CardContent>
                 </Card>
@@ -155,18 +154,19 @@ export default function AboutPage() {
                   <CardHeader className="pb-4">
                     <div className="w-24 h-24 rounded-full mx-auto mb-4 overflow-hidden">
                       <img
-                        src="/Jamie Mason-Wright.jpeg"
-                        alt="Jamie Mason Wright"
+                        src="/chantelleChallender.jpeg"
+                        alt="Chantelle Challander"
                         className="w-full h-full object-cover"
                       />
                     </div>
-                    <CardTitle className="text-xl">Jamie Mason Wright</CardTitle>
-                    <CardDescription className="text-primary font-medium">Founder & CTO</CardDescription>
+                    <CardTitle className="text-xl">Chantelle Challander</CardTitle>
+                    <CardDescription className="text-primary font-medium">CSO</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <p className="text-slate-600 mb-4">
-                      Technology entrepreneur with 10+ years in software development.
-                      Drives our innovation and platform architecture to deliver seamless user experiences.
+                      23 years in health and social care with extensive experience in service turnaround, compliance and senior management. 
+                      Expert in overturning care home closures and transforming failing services. 
+                      Passionate about delivering innovative, person-centred care that truly makes a difference.
                     </p>
                   </CardContent>
                 </Card>
@@ -182,14 +182,37 @@ export default function AboutPage() {
                       />
                     </div>
                     <CardTitle className="text-xl">Helen Cooke</CardTitle>
-                    <CardDescription className="text-primary font-medium">Founder & CPO</CardDescription>
+                    <CardDescription className="text-primary font-medium">CPO</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <p className="text-slate-600 mb-4">
-                      40+ years in the care sector, nurse by background and extensive experience in senior management roles.
+                      40+ years in the care sector as a nurse with extensive experience in senior management and operations. 
+                      Nominated Individual, Operations Director, expert in driving operational excellence and transforming services.
                     </p>
                   </CardContent>
                 </Card>
+
+                      {/* Team Member 4 */}
+                  <Card className="text-center border-0 shadow-lg hover:shadow-xl transition-shadow">
+                  <CardHeader className="pb-4">
+                    <div className="w-24 h-24 rounded-full mx-auto mb-4 overflow-hidden">
+                      <img
+                        src="/Jamie Mason-Wright.jpeg"
+                        alt="Jamie Mason Wright"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <CardTitle className="text-xl">Jamie Mason Wright</CardTitle>
+                    <CardDescription className="text-primary font-medium">CTO</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-slate-600 mb-4">
+                      10+ years in software development. Former Antler alumni and startup founder with extensive web and mobile experience. 
+                      Built and scaled retail and business applications to 6 different countries.
+                    </p>
+                  </CardContent>
+                </Card>
+                
               </div>
             </div>
           </div>
