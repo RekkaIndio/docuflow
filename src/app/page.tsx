@@ -78,20 +78,31 @@ const capabilityCards: Capability[] = [
     preview: (
       <div className="space-y-3">
         <div className="flex items-center justify-between rounded-xl border border-violet-100 bg-violet-50 px-3 py-2">
-          <div>
-            <p className="text-sm font-semibold text-violet-900">Falls Policy.pdf</p>
-            <p className="text-xs text-violet-600">AI tagged • 32 insights</p>
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-100">
+              <FileText className="h-4 w-4 text-violet-600" />
+            </div>
+            <span className="text-sm font-semibold text-violet-900">Falls Policy.pdf</span>
           </div>
           <Badge variant="secondary" className="bg-violet-200/70 text-violet-900">Ready</Badge>
         </div>
-        <div className="grid gap-2 text-slate-700">
-          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
-            <span className="text-xs font-medium uppercase text-slate-500">Workspace</span>
-            <span className="text-sm font-semibold text-slate-900">Safety & Risk</span>
-          </div>
-          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
-            <span className="text-xs font-medium uppercase text-slate-500">Version</span>
-            <span className="text-sm font-semibold text-slate-900">v6 • locked</span>
+        <div className="px-1 py-3">
+          <div className="space-y-2 rounded-xl border border-violet-100 bg-violet-50/50 p-3">
+            <div className="flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-xs">
+              <FileCheck className="h-4 w-4 text-violet-500" />
+              <span className="flex-1 text-slate-600">NICE Guidelines Aligned</span>
+              <Badge variant="secondary" className="bg-emerald-100 text-emerald-700">Pass</Badge>
+            </div>
+            <div className="flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-xs">
+              <Shield className="h-4 w-4 text-violet-500" />
+              <span className="flex-1 text-slate-600">CQC References Valid</span>
+              <Badge variant="secondary" className="bg-emerald-100 text-emerald-700">Pass</Badge>
+            </div>
+            <div className="flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-xs">
+              <Sparkles className="h-4 w-4 text-violet-500" />
+              <span className="flex-1 text-slate-600">AI Review Score</span>
+              <span className="font-semibold text-slate-900">98/100</span>
+            </div>
           </div>
         </div>
       </div>
@@ -107,26 +118,35 @@ const capabilityCards: Capability[] = [
       <div className="space-y-3">
         <div className="flex items-center justify-between rounded-xl border border-sky-100 bg-sky-50 px-3 py-2">
           <span className="text-sm font-semibold text-sky-900">Current ratio</span>
-          <span className="text-lg font-bold text-sky-900">1:3.1</span>
+          <Badge variant="secondary" className="bg-sky-200/70 text-sky-900">1:3.1</Badge>
         </div>
-        <div className="grid grid-cols-3 gap-2 text-xs font-medium">
-          <div className="rounded-lg bg-white px-2 py-2 text-slate-600">
-            <p className="text-[11px] uppercase text-slate-400">Low</p>
-            <p className="text-sm font-semibold text-slate-900">14 residents</p>
+        <div className="flex items-end justify-between gap-3 px-3 py-4">
+          <div className="flex flex-col items-center gap-1">
+            <div className="h-24 w-8 rounded-full bg-sky-100 flex items-end">
+              <div className="w-full h-[50%] rounded-full bg-sky-400"></div>
+            </div>
+            <span className="text-[10px] font-medium text-slate-600">Low</span>
+            <span className="text-xs font-semibold text-sky-600">14</span>
           </div>
-          <div className="rounded-lg bg-white px-2 py-2 text-slate-600">
-            <p className="text-[11px] uppercase text-slate-400">Medium</p>
-            <p className="text-sm font-semibold text-slate-900">9 residents</p>
+          <div className="flex flex-col items-center gap-1">
+            <div className="h-24 w-8 rounded-full bg-sky-100 flex items-end">
+              <div className="w-full h-[35%] rounded-full bg-sky-400"></div>
+            </div>
+            <span className="text-[10px] font-medium text-slate-600">Med</span>
+            <span className="text-xs font-semibold text-sky-600">9</span>
           </div>
-          <div className="rounded-lg bg-white px-2 py-2 text-slate-600">
-            <p className="text-[11px] uppercase text-slate-400">High</p>
-            <p className="text-sm font-semibold text-slate-900">5 residents</p>
+          <div className="flex flex-col items-center gap-1">
+            <div className="h-24 w-8 rounded-full bg-sky-100 flex items-end">
+              <div className="w-full h-[20%] rounded-full bg-sky-400"></div>
+            </div>
+            <span className="text-[10px] font-medium text-slate-600">High</span>
+            <span className="text-xs font-semibold text-sky-600">5</span>
           </div>
         </div>
         <div className="rounded-lg bg-white px-3 py-2 text-xs text-slate-600">
           <div className="flex items-center justify-between">
-            <span>Night requirement</span>
-            <span className="font-semibold text-slate-900">+2 staff</span>
+            <span>Staff needed</span>
+            <span className="font-semibold text-slate-900">+2 night shift</span>
           </div>
         </div>
       </div>
@@ -140,20 +160,55 @@ const capabilityCards: Capability[] = [
     accent: "from-blue-500 via-slate-500 to-slate-800",
     preview: (
       <div className="space-y-3">
-        <div className="flex items-center justify-between rounded-xl border border-blue-100 bg-blue-50 px-3 py-2">
-          <div>
-            <p className="text-sm font-semibold text-blue-900">Medication Management</p>
-            <p className="text-xs text-blue-700">Awaiting 3 approvals</p>
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2">
+          <span className="text-sm font-semibold text-blue-900">Medication Management</span>
+          <Badge variant="secondary" className="whitespace-nowrap bg-blue-200/70 text-blue-900">Due in 3d</Badge>
+        </div>
+        <div className="flex flex-col items-center justify-center py-2">
+          <div className="relative h-20 w-20">
+            <svg className="w-full h-full" viewBox="0 0 100 100">
+              <circle
+                cx="50"
+                cy="50"
+                r="45"
+                fill="none"
+                stroke="#dbeafe"
+                strokeWidth="10"
+              />
+              <circle
+                cx="50"
+                cy="50"
+                r="45"
+                fill="none"
+                stroke="#3b82f6"
+                strokeWidth="10"
+                strokeDasharray="282.7"
+                strokeDashoffset="45.2"
+                transform="rotate(-90 50 50)"
+              />
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center text-center">
+              <div>
+                <div className="text-xl font-bold text-blue-600">84%</div>
+                <div className="text-[10px] font-medium text-slate-500">Complete</div>
+              </div>
+            </div>
           </div>
-          <Badge variant="secondary" className="bg-blue-200/70 text-blue-900">Due in 3 days</Badge>
+          <div className="mt-3 grid grid-cols-2 gap-2 text-center text-xs w-full px-2">
+            <div className="rounded-lg bg-blue-50 px-3 py-1.5">
+              <div className="font-semibold text-blue-900">42/50</div>
+              <div className="text-blue-600">Sign-offs</div>
+            </div>
+            <div className="rounded-lg bg-blue-50 px-3 py-1.5">
+              <div className="font-semibold text-blue-900">v3.1</div>
+              <div className="text-blue-600">Version</div>
+            </div>
+          </div>
         </div>
         <div className="rounded-lg bg-white px-3 py-2 text-xs text-slate-600">
-          <div className="mb-2 flex items-center justify-between">
-            <span>Team sign-off</span>
-            <span className="font-semibold text-slate-900">42 / 50</span>
-          </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
-            <div className="h-full w-[84%] rounded-full bg-gradient-to-r from-blue-500 to-purple-500"></div>
+          <div className="flex items-center justify-between">
+            <span>Progress</span>
+            <span className="font-semibold text-slate-900">84% complete</span>
           </div>
         </div>
       </div>
@@ -167,22 +222,109 @@ const capabilityCards: Capability[] = [
     accent: "from-emerald-500 via-green-500 to-lime-500",
     preview: (
       <div className="space-y-3">
-        <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2">
-          <p className="text-sm font-semibold text-emerald-900">Infection Control Audit</p>
-          <p className="text-xs text-emerald-700">Due Friday • Registered Manager</p>
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2">
+          <span className="text-sm font-semibold text-emerald-900">Infection Control Audit</span>
+          <Badge variant="secondary" className="whitespace-nowrap bg-emerald-200/70 text-emerald-900">Due Fri</Badge>
         </div>
         <div className="space-y-2 text-xs text-slate-600">
           <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
-            <span>Hand hygiene spot checks</span>
-            <Badge variant="secondary" className="bg-emerald-100 text-emerald-800">Complete</Badge>
+            <span>Hand hygiene checks</span>
+            <span className="rounded-full bg-emerald-100 px-2 py-[2px] text-[11px] font-semibold text-emerald-800">Complete</span>
           </div>
           <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
-            <span>Sterilisation log evidence</span>
-            <Badge variant="secondary" className="bg-amber-100 text-amber-800">Evidence</Badge>
+            <span>Sterilisation logs</span>
+            <span className="rounded-full bg-amber-100 px-2 py-[2px] text-[11px] font-semibold text-amber-800">Evidence</span>
           </div>
           <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
             <span>Corrective actions</span>
-            <Badge variant="secondary" className="bg-red-100 text-red-700">2 open</Badge>
+            <span className="rounded-full bg-red-100 px-2 py-[2px] text-[11px] font-semibold text-red-800">2 open</span>
+          </div>
+        </div>
+        <div className="rounded-lg bg-white px-3 py-2 text-xs text-slate-600">
+          <div className="flex items-center justify-between">
+            <span>Last inspection</span>
+            <span className="font-semibold text-slate-900">3 months ago</span>
+          </div>
+        </div>
+      </div>
+    )
+  },
+  {
+    id: "risk-assessments",
+    name: "Risk Assessments",
+    description: "Structured risk assessments with scoring, mitigation actions, and tracking.",
+    icon: AlertTriangle,
+    accent: "from-rose-500 via-orange-400 to-amber-400",
+    preview: (
+      <div className="space-y-3">
+        <div className="flex items-center justify-between rounded-xl border border-rose-100 bg-rose-50 px-3 py-2">
+          <span className="text-sm font-semibold text-rose-900">Falls risk assessment</span>
+          <Badge variant="secondary" className="bg-rose-200/70 text-rose-900">High risk</Badge>
+        </div>
+        <div className="flex flex-col items-center justify-center py-4">
+          <div className="relative h-32 w-32">
+            <div className="absolute inset-0 rounded-full border-8 border-rose-100"></div>
+            <div className="absolute inset-0 rounded-full border-8 border-rose-400 border-l-transparent border-t-transparent transform -rotate-45"></div>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-rose-600">15</div>
+                <div className="text-xs font-medium text-slate-500">Risk Score</div>
+              </div>
+            </div>
+          </div>
+          <div className="mt-4 flex gap-3">
+            <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">3 active</span>
+            <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-800">High risk</span>
+          </div>
+        </div>
+        <div className="rounded-lg bg-white px-3 py-2 text-xs text-slate-600">
+          <div className="flex items-center justify-between">
+            <span>Last updated</span>
+            <span className="font-semibold text-slate-900">2 days ago</span>
+          </div>
+        </div>
+      </div>
+    )
+  },
+  {
+    id: "journal",
+    name: "Personal Journal",
+    description: "Private reflections users can send to managers (seen or anonymously). Mood-tagged entries with manager replies.",
+    icon: BookOpen,
+    accent: "from-indigo-500 via-violet-500 to-pink-500",
+    preview: (
+      <div className="space-y-3">
+        <div className="flex items-center justify-between rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-2">
+          <div>
+            <p className="text-sm font-semibold text-indigo-900">Personal journal</p>
+            <p className="text-xs text-indigo-700">Private reflections • send to manager (anonymously optional)</p>
+          </div>
+          <Badge variant="secondary" className="bg-indigo-200/70 text-indigo-900">3 entries</Badge>
+        </div>
+        <div className="space-y-2 text-xs text-slate-600">
+          <div className="rounded-lg bg-white px-3 py-2 flex items-start justify-between">
+            <div>
+              <p className="font-medium text-slate-800">� 14:00 — Feeling supported after training</p>
+              <p className="text-[11px] text-slate-500">Sent — Visible to manager</p>
+            </div>
+            <div className="text-right">
+              <Badge variant="secondary" className="bg-emerald-100 text-emerald-800">Manager replied</Badge>
+            </div>
+          </div>
+          <div className="rounded-lg bg-white px-3 py-2 flex items-start justify-between">
+            <div>
+              <p className="font-medium text-slate-800">�😔 08:30 — Struggling with shift patterns</p>
+              <p className="text-[11px] text-slate-500">Sent anonymously</p>
+            </div>
+            <div className="text-right">
+              <span className="text-[11px] font-semibold text-slate-900">No reply yet</span>
+            </div>
+          </div>
+        </div>
+        <div className="rounded-lg bg-white px-3 py-2 text-xs text-slate-600">
+          <div className="flex items-center justify-between">
+            <span>Send anonymously</span>
+            <span className="font-semibold text-slate-900">Toggle in composer</span>
           </div>
         </div>
       </div>
@@ -200,18 +342,91 @@ const capabilityCards: Capability[] = [
           <span className="text-sm font-semibold text-orange-900">Falls prevention plan</span>
           <Badge variant="secondary" className="bg-orange-200/70 text-orange-900">On track</Badge>
         </div>
-        <div className="space-y-2 text-xs text-slate-600">
-          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
-            <span>Install sensor mats</span>
-            <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-500" />
+        <div className="p-4">
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-2">
+              <div className="text-[10px] font-medium text-orange-800">TO DO</div>
+              <div className="rounded-lg border border-orange-100 bg-orange-50/50 p-2 text-xs">
+                <div className="font-medium text-orange-900">Night staff refresher</div>
+                <div className="mt-1 text-[10px] text-orange-700">Due tomorrow</div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="text-[10px] font-medium text-amber-800">IN PROGRESS</div>
+              <div className="rounded-lg border border-amber-100 bg-amber-50/50 p-2 text-xs">
+                <div className="font-medium text-amber-900">Evidence upload</div>
+                <div className="mt-1 text-[10px] text-amber-700">3/5 files</div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="text-[10px] font-medium text-emerald-800">DONE</div>
+              <div className="rounded-lg border border-emerald-100 bg-emerald-50/50 p-2 text-xs">
+                <div className="font-medium text-emerald-900">Sensor mats</div>
+                <div className="mt-1 text-[10px] text-emerald-700">Completed</div>
+              </div>
+            </div>
           </div>
-          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
-            <span>Night staff refresher</span>
-            <span className="rounded-full bg-orange-100 px-2 py-[2px] text-[11px] font-semibold text-orange-800">Due tomorrow</span>
+          <div className="mt-4 rounded-lg bg-orange-50 px-3 py-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-orange-800">Progress</span>
+              <span className="font-medium text-orange-900">60%</span>
+            </div>
+            <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-orange-100">
+              <div className="h-full w-[60%] rounded-full bg-orange-400"></div>
+            </div>
           </div>
-          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
-            <span>Evidence upload</span>
-            <span className="text-[11px] font-semibold text-slate-900">3 / 5 files</span>
+        </div>
+        <div className="rounded-lg bg-white px-3 py-2 text-xs text-slate-600">
+          <div className="flex items-center justify-between">
+            <span>Progress</span>
+            <span className="font-semibold text-slate-900">60% complete</span>
+          </div>
+        </div>
+      </div>
+    )
+  },
+  {
+    id: "provider-overview",
+    name: "Provider Overview",
+    description: "High-level provider dashboards for licensing, performance, and capacity across sites.",
+    icon: Layers,
+    accent: "from-slate-900 via-slate-700 to-slate-500",
+    preview: (
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+          <span className="text-sm font-semibold text-slate-900">Organisation overview</span>
+          <Badge variant="secondary" className="whitespace-nowrap bg-slate-200/70 text-slate-900">Live</Badge>
+        </div>
+        <div className="px-3 py-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-xl border border-slate-200 bg-white p-3 text-center">
+              <div className="text-3xl font-bold text-slate-900">8</div>
+              <div className="text-[11px] font-medium uppercase tracking-wider text-slate-500">Sites</div>
+              <div className="mt-1 text-[10px] text-emerald-600">All active</div>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-3 text-center">
+              <div className="text-3xl font-bold text-slate-900">142</div>
+              <div className="text-[11px] font-medium uppercase tracking-wider text-slate-500">Staff</div>
+              <div className="mt-1 text-[10px] text-emerald-600">Full strength</div>
+            </div>
+            <div className="col-span-2 rounded-xl border border-slate-200 bg-white p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-3xl font-bold text-slate-900">92%</div>
+                  <div className="text-[11px] font-medium uppercase tracking-wider text-slate-500">Audit Score</div>
+                </div>
+                <div className="h-12 w-24">
+                  <svg viewBox="0 0 100 40" className="h-full w-full">
+                    <path
+                      d="M0 35 C 20 32, 40 30, 60 15 C 80 0, 90 25, 100 28"
+                      fill="none"
+                      stroke="#16a34a"
+                      strokeWidth="2"
+                    />
+                  </svg>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -225,22 +440,42 @@ const capabilityCards: Capability[] = [
     accent: "from-cyan-500 via-sky-500 to-blue-500",
     preview: (
       <div className="space-y-3">
-        <div className="rounded-xl border border-cyan-100 bg-cyan-50 px-3 py-2">
-          <p className="text-sm font-semibold text-cyan-900">Supervision schedule</p>
-          <p className="text-xs text-cyan-700">This week</p>
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-cyan-100 bg-cyan-50 px-3 py-2">
+          <span className="text-sm font-semibold text-cyan-900">Supervision schedule</span>
+          <Badge variant="secondary" className="whitespace-nowrap bg-cyan-200/70 text-cyan-900">Week 44</Badge>
         </div>
-        <div className="space-y-2 text-xs">
-          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
-            <span className="font-medium text-slate-700">Mia Smith</span>
-            <span className="text-slate-500">Tue • 14:00</span>
+        <div className="p-4">
+          <div className="grid grid-cols-7 gap-1 mb-3 text-center text-[10px] font-medium text-slate-400">
+            <div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div><div>S</div>
           </div>
-          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
-            <span className="font-medium text-slate-700">Omar Malik</span>
-            <span className="rounded-full bg-cyan-100 px-2 py-[2px] text-[11px] font-semibold text-cyan-800">Notes added</span>
+          <div className="grid grid-cols-7 gap-1 text-center text-xs">
+            <div className="rounded-lg py-2 text-slate-400">30</div>
+            <div className="rounded-lg bg-cyan-100 py-2 font-semibold text-cyan-900">31</div>
+            <div className="rounded-lg py-2 text-slate-400">1</div>
+            <div className="rounded-lg py-2 text-slate-400">2</div>
+            <div className="rounded-lg bg-cyan-100 py-2 font-semibold text-cyan-900">3</div>
+            <div className="rounded-lg py-2 text-slate-400">4</div>
+            <div className="rounded-lg py-2 text-slate-400">5</div>
           </div>
-          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
-            <span className="font-medium text-slate-700">Lily Chan</span>
-            <span className="text-slate-500">Fri • 10:30</span>
+          <div className="mt-4 space-y-2">
+            <div className="rounded-lg bg-cyan-50 px-3 py-2 text-xs">
+              <div className="flex items-center justify-between text-cyan-900">
+                <span className="font-medium">Today • 14:00</span>
+                <span className="text-[11px]">Mia S.</span>
+              </div>
+            </div>
+            <div className="rounded-lg bg-cyan-50 px-3 py-2 text-xs">
+              <div className="flex items-center justify-between text-cyan-900">
+                <span className="font-medium">Fri • 10:30</span>
+                <span className="text-[11px]">Lily C.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="rounded-lg bg-white px-3 py-2 text-xs text-slate-600">
+          <div className="flex items-center justify-between">
+            <span>Coverage this week</span>
+            <span className="font-semibold text-slate-900">14 sessions</span>
           </div>
         </div>
       </div>
@@ -249,61 +484,94 @@ const capabilityCards: Capability[] = [
   {
     id: "inspection-access",
     name: "Inspection Level Access",
-    description: "Create secure inspector portals with expiries, audit trails, and curated collections.",
+    description: "Create secure inspector portals with expiries, feature access, and curated collections.",
     icon: Shield,
     accent: "from-pink-500 via-rose-500 to-fuchsia-500",
     preview: (
       <div className="space-y-3">
         <div className="flex items-center justify-between rounded-xl border border-pink-100 bg-pink-50 px-3 py-2">
-          <span className="text-sm font-semibold text-pink-900">Inspection portal</span>
-          <Badge variant="secondary" className="bg-pink-200/70 text-pink-900">Active</Badge>
+          <div className="truncate">
+            <span className="text-sm font-semibold text-pink-900">Inspection portal</span>
+          </div>
+          <Badge variant="secondary" className="flex-shrink-0 bg-pink-200/70 text-pink-900">Active</Badge>
         </div>
         <div className="space-y-2 text-xs text-slate-600">
           <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
-            <span>CQC access link</span>
-            <span className="font-semibold text-slate-900">Expires in 5 days</span>
+            <span className="truncate pr-2">Inspection time left</span>
+            <span className="flex-shrink-0 font-semibold text-slate-900">5 days left</span>
           </div>
           <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
-            <span>Shared collections</span>
-            <span className="font-semibold text-slate-900">Policies • Audits • Docs</span>
+            <span className="truncate pr-2">Inspection</span>
+            <span className="flex-shrink-0 font-semibold text-slate-900">3 categories</span>
           </div>
           <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
-            <span>Activity log</span>
-            <span className="text-[11px] font-semibold text-slate-900">14 views today</span>
+            <span className="truncate pr-2">Audit trail</span>
+            <span className="flex-shrink-0 rounded-full bg-pink-100 px-2 py-[2px] text-[11px] font-semibold text-pink-800">14 document views</span>
+          </div>
+        </div>
+        <div className="rounded-lg bg-white px-3 py-2 text-xs text-slate-600">
+          <div className="flex items-center justify-between">
+            <span>Last accessed</span>
+            <span className="flex-shrink-0 font-semibold text-slate-900">2 hours ago</span>
           </div>
         </div>
       </div>
     )
   },
   {
-    id: "admin-overview",
-    name: "Admin Overview",
-    description: "Global command centre for organisations, permissions, and performance.",
+    id: "neurodivergent-access",
+    name: "Neurodivergent Accessibility",
+    description: "Accessibility and neurodivergent-friendly modes — high contrast, simplified layout, and read-aloud.",
     icon: Layers,
-    accent: "from-slate-900 via-slate-700 to-slate-500",
+    accent: "from-indigo-500 via-cyan-500 to-teal-500",
     preview: (
       <div className="space-y-3">
-        <div className="grid grid-cols-3 gap-2 text-center text-xs">
-          <div className="rounded-lg bg-white px-2 py-3">
-            <p className="text-[11px] uppercase text-slate-400">Workspaces</p>
-            <p className="text-lg font-bold text-slate-900">12</p>
-          </div>
-          <div className="rounded-lg bg-white px-2 py-3">
-            <p className="text-[11px] uppercase text-slate-400">Users</p>
-            <p className="text-lg font-bold text-slate-900">248</p>
-          </div>
-          <div className="rounded-lg bg-white px-2 py-3">
-            <p className="text-[11px] uppercase text-slate-400">Active flags</p>
-            <p className="text-lg font-bold text-amber-600">3</p>
-          </div>
+        <div className="flex items-center justify-between rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-2">
+          <span className="text-sm font-semibold text-indigo-900">Accessibility profile</span>
+          <Badge variant="secondary" className="bg-indigo-200/70 text-indigo-900">Active</Badge>
         </div>
-        <div className="rounded-lg bg-white px-3 py-2 text-xs text-slate-600">
-          <div className="flex items-center justify-between">
-            <span>Platform uptime</span>
-            <span className="font-semibold text-slate-900">99.98%</span>
-          </div>
-          <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200">
-            <div className="h-full w-[96%] rounded-full bg-gradient-to-r from-slate-900 to-slate-600"></div>
+        <div className="py-4">
+          <div className="grid gap-3">
+            <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100">
+                <svg viewBox="0 0 24 24" className="h-6 w-6 text-amber-600">
+                  <path fill="currentColor" d="M12,8c-2.21,0-4,1.79-4,4s1.79,4,4,4s4-1.79,4-4S14.21,8,12,8z M12,14c-1.1,0-2-0.9-2-2s0.9-2,2-2s2,0.9,2,2 S13.1,14,12,14z"/>
+                  <path fill="currentColor" d="M12,2C6.48,2,2,6.48,2,12s4.48,10,10,10s10-4.48,10-10S17.52,2,12,2z M12,20c-4.42,0-8-3.58-8-8s3.58-8,8-8s8,3.58,8,8 S16.42,20,12,20z"/>
+                </svg>
+              </div>
+              <div className="flex-1">
+                <div className="text-xs font-medium text-amber-900">Focus mode</div>
+                <div className="mt-1 h-1.5 w-full rounded-full bg-amber-100">
+                  <div className="h-full w-[80%] rounded-full bg-amber-400"></div>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 rounded-xl border border-purple-200 bg-purple-50 p-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100">
+                <svg viewBox="0 0 24 24" className="h-6 w-6 text-purple-600">
+                  <path fill="currentColor" d="M20,11H4c-0.55,0-1,0.45-1,1s0.45,1,1,1h16c0.55,0,1-0.45,1-1S20.55,11,20,11z M4,18h10c0.55,0,1-0.45,1-1s-0.45-1-1-1H4 c-0.55,0-1,0.45-1,1S3.45,18,4,18z M20,6H4C3.45,6,3,6.45,3,7s0.45,1,1,1h16c0.55,0,1-0.45,1-1S20.55,6,20,6z"/>
+                </svg>
+              </div>
+              <div className="flex-1">
+                <div className="text-xs font-medium text-purple-900">High contrast</div>
+                <div className="mt-1 h-1.5 w-full rounded-full bg-purple-100">
+                  <div className="h-full w-[60%] rounded-full bg-purple-400"></div>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100">
+                <svg viewBox="0 0 24 24" className="h-6 w-6 text-emerald-600">
+                  <path fill="currentColor" d="M3,9v6h4l5,5V4L7,9H3z M16.5,12c0-1.77-1.02-3.29-2.5-4.03v8.05C15.48,15.29,16.5,13.77,16.5,12z M14,3.23v2.06 c2.89,0.86,5,3.54,5,6.71s-2.11,5.85-5,6.71v2.06c4.01-0.91,7-4.49,7-8.77S18.01,4.14,14,3.23z"/>
+                </svg>
+              </div>
+              <div className="flex-1">
+                <div className="text-xs font-medium text-emerald-900">Audio assist</div>
+                <div className="mt-1 h-1.5 w-full rounded-full bg-emerald-100">
+                  <div className="h-full w-[40%] rounded-full bg-emerald-400"></div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -317,20 +585,43 @@ const capabilityCards: Capability[] = [
     accent: "from-teal-500 via-emerald-500 to-cyan-500",
     preview: (
       <div className="space-y-3">
-        <div className="rounded-xl border border-teal-100 bg-teal-50 px-3 py-2">
-          <p className="text-sm font-semibold text-teal-900">Operational efficiency</p>
-          <p className="text-xs text-teal-700">Forecast: +8.7%</p>
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-teal-100 bg-teal-50 px-3 py-2">
+          <span className="text-sm font-semibold text-teal-900">Analytics dashboard</span>
+          <Badge variant="secondary" className="whitespace-nowrap bg-teal-200/70 text-teal-900">Live</Badge>
         </div>
-        <div className="flex items-end gap-2">
-          <div className="h-16 w-6 rounded-full bg-teal-200"></div>
-          <div className="h-24 w-6 rounded-full bg-teal-300"></div>
-          <div className="h-12 w-6 rounded-full bg-teal-200"></div>
-          <div className="h-20 w-6 rounded-full bg-emerald-300"></div>
-          <div className="h-28 w-6 rounded-full bg-teal-400"></div>
+        <div className="py-4 px-3">
+          <div className="h-32 rounded-lg bg-gradient-to-b from-teal-50 to-white p-4">
+            <div className="flex justify-between text-xs mb-2">
+              <span className="text-slate-600">Trend</span>
+              <span className="font-semibold text-emerald-600">+8.7%</span>
+            </div>
+            <svg className="w-full h-20" viewBox="0 0 100 40">
+              <path
+                d="M0 35 C 10 32, 20 28, 30 25 C 40 22, 50 20, 60 15 C 70 10, 80 8, 100 5"
+                fill="none"
+                stroke="#14b8a6"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+              <path
+                d="M0 35 C 10 32, 20 28, 30 25 C 40 22, 50 20, 60 15 C 70 10, 80 8, 100 5 L 100 40 L 0 40 Z"
+                fill="url(#teal-gradient)"
+                opacity="0.2"
+              />
+              <defs>
+                <linearGradient id="teal-gradient" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stopColor="#14b8a6" />
+                  <stop offset="100%" stopColor="#14b8a6" stopOpacity="0" />
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
         </div>
-        <div className="flex items-center justify-between text-xs text-slate-600">
-          <span>Insights generated</span>
-          <span className="font-semibold text-slate-900">12 this week</span>
+        <div className="rounded-lg bg-white px-3 py-2 text-xs text-slate-600">
+          <div className="flex items-center justify-between">
+            <span>Last sync</span>
+            <span className="font-semibold text-slate-900">5 mins ago</span>
+          </div>
         </div>
       </div>
     )
@@ -342,23 +633,55 @@ const capabilityCards: Capability[] = [
     icon: Calendar,
     accent: "from-green-500 via-lime-500 to-emerald-500",
     preview: (
-      <div className="space-y-3">
+      <div className="h-[280px] space-y-3 p-1">
         <div className="flex items-center justify-between rounded-xl border border-green-100 bg-green-50 px-3 py-2">
           <span className="text-sm font-semibold text-green-900">Weekly rota</span>
           <Badge variant="secondary" className="bg-green-200/70 text-green-900">Published</Badge>
         </div>
-        <div className="space-y-2 text-xs text-slate-600">
-          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
-            <span>Monday • Night shift</span>
-            <span className="font-semibold text-slate-900">4 staff</span>
+        <div className="flex-1 p-3">
+          <div className="mb-3 grid grid-cols-7 text-center text-[10px] font-medium text-slate-500">
+            {['M', 'Tu', 'W', 'Th', 'F', 'Sa', 'Su'].map((day, index) => (
+              <div key={index}>{day}</div>
+            ))}
           </div>
-          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
-            <span>Tuesday • Day shift</span>
-            <span className="font-semibold text-slate-900">6 staff</span>
+          <div className="grid grid-cols-7 gap-1">
+            {Array.from({ length: 35 }, (_, i) => {
+              const day = i + 1;
+              const isToday = day === 15;
+              const isShortStaffed = day === 16;
+              const isFull = day === 17;
+              return (
+                <div
+                  key={i}
+                  className={`h-8 rounded-lg flex items-center justify-center text-xs
+                    ${isToday ? 'bg-green-100 text-green-900 font-medium' :
+                    isShortStaffed ? 'bg-amber-100 text-amber-900 font-medium' :
+                    isFull ? 'bg-emerald-100 text-emerald-900 font-medium' :
+                    'bg-slate-50 text-slate-500'}`}
+                >
+                  <div className="relative">
+                    {day}
+                    {isToday && <div className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-green-400"></div>}
+                    {isShortStaffed && <div className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-amber-400"></div>}
+                    {isFull && <div className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-emerald-400"></div>}
+                  </div>
+                </div>
+              );
+            })}
           </div>
-          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
-            <span>Coverage alert</span>
-            <span className="rounded-full bg-amber-100 px-2 py-[2px] text-[11px] font-semibold text-amber-800">1 short</span>
+        </div>
+        <div className="flex items-center gap-2 px-2">
+          <div className="flex items-center gap-1 text-xs">
+            <div className="h-2 w-2 rounded-full bg-green-400"></div>
+            <span className="text-slate-600">Today</span>
+          </div>
+          <div className="flex items-center gap-1 text-xs">
+            <div className="h-2 w-2 rounded-full bg-amber-400"></div>
+            <span className="text-slate-600">Short</span>
+          </div>
+          <div className="flex items-center gap-1 text-xs">
+            <div className="h-2 w-2 rounded-full bg-emerald-400"></div>
+            <span className="text-slate-600">Full</span>
           </div>
         </div>
       </div>
@@ -371,23 +694,50 @@ const capabilityCards: Capability[] = [
     icon: BookOpen,
     accent: "from-red-500 via-orange-500 to-yellow-500",
     preview: (
-      <div className="space-y-3">
+      <div className="h-[280px] space-y-3 p-1">
         <div className="flex items-center justify-between rounded-xl border border-red-100 bg-red-50 px-3 py-2">
           <span className="text-sm font-semibold text-red-900">Falls incident RCA</span>
           <Badge variant="secondary" className="bg-red-200/70 text-red-900">In progress</Badge>
         </div>
-        <div className="space-y-2 text-xs text-slate-600">
-          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
-            <span>Root cause identified</span>
-            <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-500" />
-          </div>
-          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
-            <span>Action plan created</span>
-            <span className="rounded-full bg-orange-100 px-2 py-[2px] text-[11px] font-semibold text-orange-800">3 actions</span>
-          </div>
-          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
-            <span>Lessons documented</span>
-            <span className="font-semibold text-slate-900">Shared with team</span>
+        <div className="relative flex-1 px-3">
+          <div className="absolute left-5 top-0 h-full w-0.5 bg-slate-200"></div>
+          
+          <div className="space-y-6">
+            <div className="relative flex items-start gap-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 ring-4 ring-white">
+                <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+              </div>
+              <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2">
+                <div className="text-sm font-medium text-emerald-900">Root cause identified</div>
+                <div className="text-xs text-emerald-700">Environmental factors documented</div>
+              </div>
+            </div>
+
+            <div className="relative flex items-start gap-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-100 ring-4 ring-white">
+                <ClipboardList className="h-5 w-5 text-orange-500" />
+              </div>
+              <div className="rounded-lg border border-orange-100 bg-orange-50 px-3 py-2">
+                <div className="text-sm font-medium text-orange-900">Action plan created</div>
+                <div className="mt-1 flex gap-1">
+                  {[1, 2, 3].map((i) => (
+                    <span key={i} className="rounded-full bg-orange-200 px-2 py-0.5 text-xs font-medium text-orange-700">
+                      Action {i}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="relative flex items-start gap-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100 ring-4 ring-white">
+                <Users className="h-5 w-5 text-blue-500" />
+              </div>
+              <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2">
+                <div className="text-sm font-medium text-blue-900">Team review</div>
+                <div className="text-xs text-blue-700">Shared with 12 team members</div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -400,23 +750,52 @@ const capabilityCards: Capability[] = [
     icon: Bell,
     accent: "from-purple-500 via-pink-500 to-rose-500",
     preview: (
-      <div className="space-y-3">
+      <div className="h-[280px] space-y-3 p-1">
         <div className="flex items-center justify-between rounded-xl border border-purple-100 bg-purple-50 px-3 py-2">
           <span className="text-sm font-semibold text-purple-900">Notification log</span>
           <Badge variant="secondary" className="bg-purple-200/70 text-purple-900">Up to date</Badge>
         </div>
-        <div className="space-y-2 text-xs text-slate-600">
-          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
-            <span>Sova notification</span>
-            <span className="font-semibold text-slate-900">Sent • 2 days ago</span>
+        <div className="flex-1 space-y-3">
+          <div className="group relative overflow-hidden rounded-xl border border-purple-100 bg-gradient-to-br from-purple-50/80 to-purple-100/50 p-3 transition-all hover:shadow-md">
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-transparent opacity-0 transition-opacity group-hover:opacity-100"></div>
+            <div className="relative flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-100">
+                <Bell className="h-5 w-5 text-purple-500" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-purple-900">Sova notification sent</span>
+                  <Badge variant="secondary" className="bg-purple-100 text-purple-900">New</Badge>
+                </div>
+                <div className="mt-1 text-xs text-purple-700">2 days ago • Ref: SOV-2023-42</div>
+              </div>
+            </div>
           </div>
-          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
-            <span>CQC incident report</span>
-            <span className="font-semibold text-slate-900">Filed • 1 week ago</span>
+
+          <div className="group relative overflow-hidden rounded-xl border border-blue-100 bg-gradient-to-br from-blue-50/80 to-blue-100/50 p-3 transition-all hover:shadow-md">
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-transparent opacity-0 transition-opacity group-hover:opacity-100"></div>
+            <div className="relative flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100">
+                <FileCheck className="h-5 w-5 text-blue-500" />
+              </div>
+              <div>
+                <div className="text-sm font-medium text-blue-900">CQC report submitted</div>
+                <div className="mt-1 text-xs text-blue-700">1 week ago • Status: Filed</div>
+              </div>
+            </div>
           </div>
-          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
-            <span>Follow-up required</span>
-            <span className="rounded-full bg-pink-100 px-2 py-[2px] text-[11px] font-semibold text-pink-800">Due soon</span>
+
+          <div className="group relative overflow-hidden rounded-xl border border-amber-100 bg-gradient-to-br from-amber-50/80 to-amber-100/50 p-3 transition-all hover:shadow-md">
+            <div className="absolute inset-0 bg-gradient-to-r from-amber-500/10 to-transparent opacity-0 transition-opacity group-hover:opacity-100"></div>
+            <div className="relative flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100">
+                <Timer className="h-5 w-5 text-amber-500" />
+              </div>
+              <div>
+                <div className="text-sm font-medium text-amber-900">Follow-up needed</div>
+                <div className="mt-1 text-xs text-amber-700">Due in 2 days</div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -813,7 +1192,7 @@ export default function Page() {
                 return (
                   <div
                     key={capability.id}
-                    className="group relative flex h-full flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white p-8 shadow-lg transition-all hover:-translate-y-2 hover:shadow-2xl"
+                    className="group relative flex h-[420px] flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white p-8 shadow-lg transition-all hover:-translate-y-2 hover:shadow-2xl"
                   >
                     <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${capability.accent}`} />
                     <div className="flex items-center gap-3">
@@ -825,8 +1204,10 @@ export default function Page() {
                         <p className="text-sm text-slate-600">{capability.description}</p>
                       </div>
                     </div>
-                    <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
-                      {capability.preview}
+                    <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 flex-1 overflow-hidden flex flex-col">
+                      <div className="h-full overflow-hidden">
+                        {capability.preview}
+                      </div>
                     </div>
                   </div>
                 );
