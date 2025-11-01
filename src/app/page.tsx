@@ -388,15 +388,11 @@ const capabilityCards: Capability[] = [
   {
     id: "provider-overview",
     name: "Provider Overview",
-    description: "High-level provider dashboards for licensing, performance, and capacity across sites.",
+    description: "High-level provider dashboards, a complete overview.",
     icon: Layers,
     accent: "from-slate-900 via-slate-700 to-slate-500",
     preview: (
       <div className="space-y-3">
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
-          <span className="text-sm font-semibold text-slate-900">Organisation overview</span>
-          <Badge variant="secondary" className="whitespace-nowrap bg-slate-200/70 text-slate-900">Live</Badge>
-        </div>
         <div className="px-3 py-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-xl border border-slate-200 bg-white p-3 text-center">
@@ -521,7 +517,7 @@ const capabilityCards: Capability[] = [
   {
     id: "neurodivergent-access",
     name: "Neurodivergent Accessibility",
-    description: "Accessibility and neurodivergent-friendly modes — high contrast, simplified layout, and read-aloud.",
+    description: "Accessibility and neurodivergent-friendly modes",
     icon: Layers,
     accent: "from-indigo-500 via-cyan-500 to-teal-500",
     preview: (
@@ -629,7 +625,7 @@ const capabilityCards: Capability[] = [
   {
     id: "rotas",
     name: "Rotas & Scheduling",
-    description: "Manage staff rotas, track shifts, and ensure optimal coverage — fully connected to your dependency tool for live, acuity-based staffing insights.",
+    description: "Manage staff rotas, ensure optimal coverage connected to your dependency tool for live, acuity-based staffing insights.",
     icon: Calendar,
     accent: "from-green-500 via-lime-500 to-emerald-500",
     preview: (
@@ -895,7 +891,7 @@ const workflowStages: WorkflowStage[] = [
     bullets: [
       "One-click inspection bundles by key question",
       "Controlled inspector access with timers and document access",
-      ""
+      "Feature flag access for speed and precision"
     ],
     icon: ShieldCheck,
     accent: "from-emerald-500 to-teal-500",
