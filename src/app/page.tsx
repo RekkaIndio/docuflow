@@ -342,25 +342,25 @@ const capabilityCards: Capability[] = [
           <span className="text-sm font-semibold text-orange-900">Falls prevention plan</span>
           <Badge variant="secondary" className="bg-orange-200/70 text-orange-900">On track</Badge>
         </div>
-        <div className="p-4">
-          <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-2">
+          <div className="p-4">
+          <div className="grid grid-cols-3 gap-3 items-stretch">
+            <div className="flex flex-col space-y-2">
               <div className="text-[10px] font-medium text-orange-800">TO DO</div>
-              <div className="rounded-lg border border-orange-100 bg-orange-50/50 p-2 text-xs">
+              <div className="flex-1 rounded-lg border border-orange-100 bg-orange-50/50 p-2 text-xs">
                 <div className="font-medium text-orange-900">Night staff refresher</div>
                 <div className="mt-1 text-[10px] text-orange-700">Due tomorrow</div>
               </div>
             </div>
-            <div className="space-y-2">
-              <div className="text-[10px] font-medium text-amber-800">IN PROGRESS</div>
-              <div className="rounded-lg border border-amber-100 bg-amber-50/50 p-2 text-xs">
+            <div className="flex flex-col space-y-2">
+              <div className="text-[10px] font-medium text-amber-800">PROGRESS</div>
+              <div className="flex-1 rounded-lg border border-amber-100 bg-amber-50/50 p-2 text-xs">
                 <div className="font-medium text-amber-900">Evidence upload</div>
                 <div className="mt-1 text-[10px] text-amber-700">3/5 files</div>
               </div>
             </div>
-            <div className="space-y-2">
+            <div className="flex flex-col space-y-2">
               <div className="text-[10px] font-medium text-emerald-800">DONE</div>
-              <div className="rounded-lg border border-emerald-100 bg-emerald-50/50 p-2 text-xs">
+              <div className="flex-1 rounded-lg border border-emerald-100 bg-emerald-50/50 p-2 text-xs">
                 <div className="font-medium text-emerald-900">Sensor mats</div>
                 <div className="mt-1 text-[10px] text-emerald-700">Completed</div>
               </div>
