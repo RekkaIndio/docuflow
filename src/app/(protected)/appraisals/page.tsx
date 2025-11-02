@@ -1364,20 +1364,7 @@ export default function AppraisalsPage() {
               </div>
             ) : (
               <>
-                <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50/80 to-indigo-50/80 p-6 shadow-sm">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <h2 className="text-xl font-semibold text-blue-900">Supervision &amp; Appraisal Tracker</h2>
-                      <p className="text-sm text-blue-900/80">Monitor monthly completion progress across teams.</p>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-blue-900">
-                      <span>{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
-                      <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-xs font-semibold text-blue-700 shadow-sm">
-                        {(selectedTrackerMonth?.percentComplete ?? 0)}% complete
-                      </span>
-                    </div>
-                  </div>
-                </div>
+              
 
                 <div className="space-y-6">
                   {trackedYears.map((year) => {

@@ -18,6 +18,8 @@ import { workspaceCollectionPath } from '@/lib/paths';
 import { generateSafeguardingLogPdf, getSafeguardingLogPdfFilename } from '@/lib/safeguarding-log-pdf';
 import { collection, doc, getDoc, getDocs, orderBy, query } from 'firebase/firestore';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
 import { addSovaLogEntry, updateSovaLogEntry } from '@/actions/cqc-logs';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -375,6 +377,13 @@ export default function SafeguardingLogsPage() {
   const [cqcSummaries, setCqcSummaries] = useState<CqcLogSummary[]>([]);
   const [historyStartDate, setHistoryStartDate] = useState('');
   const [historyEndDate, setHistoryEndDate] = useState('');
+  // status filters for history view
+  const [filterCqcAcknowledgement, setFilterCqcAcknowledgement] = useState(false);
+  const [filterDutyOfCandour, setFilterDutyOfCandour] = useState(false);
+  const [filterInvestigationComplete, setFilterInvestigationComplete] = useState(false);
+  const [filterLessonsLearntComplete, setFilterLessonsLearntComplete] = useState(false);
+  const [filterRcaComplete, setFilterRcaComplete] = useState(false);
+  const [filterSovaCompleted, setFilterSovaCompleted] = useState(false);
   const [lessonsDetail, setLessonsDetail] = useState<LessonsRecordDetail | null>(null);
   const [lessonsDetailLoading, setLessonsDetailLoading] = useState(false);
   const [rcaDetail, setRcaDetail] = useState<RcaRecordDetail | null>(null);
@@ -740,7 +749,8 @@ export default function SafeguardingLogsPage() {
   }, [sovaEntries]);
 
   const filteredSovaEntries = useMemo(() => {
-    if (!historyStartDate && !historyEndDate) {
+    const anyStatusFilter = filterCqcAcknowledgement || filterDutyOfCandour || filterInvestigationComplete || filterLessonsLearntComplete || filterRcaComplete || filterSovaCompleted;
+    if (!historyStartDate && !historyEndDate && !anyStatusFilter) {
       return sovaEntries;
     }
 
@@ -764,17 +774,36 @@ export default function SafeguardingLogsPage() {
     return sovaEntries.filter((entry) => {
       const comparable = toComparableTimestamp(entry);
       if (comparable === null) {
-        return true;
+        if (!anyStatusFilter) return true;
       }
-      if (start && comparable < start.getTime()) {
+      if (start && comparable !== null && comparable < start.getTime()) {
         return false;
       }
-      if (end && comparable > end.getTime()) {
+      if (end && comparable !== null && comparable > end.getTime()) {
         return false;
       }
+
+      // apply status filters
+      if (filterCqcAcknowledgement && entry.cqcNotificationSubmitted !== true) return false;
+      if (filterDutyOfCandour && entry.dutyOfCandourUpheld !== true) return false;
+      if (filterInvestigationComplete && entry.investigationComplete !== true) return false;
+      if (filterLessonsLearntComplete && entry.lessonsLearntComplete !== true) return false;
+      if (filterRcaComplete && entry.rootCauseAnalysisComplete !== true) return false;
+      if (filterSovaCompleted && !entry.dateClosed) return false;
+
       return true;
     });
-  }, [sovaEntries, historyStartDate, historyEndDate]);
+  }, [
+    sovaEntries,
+    historyStartDate,
+    historyEndDate,
+    filterCqcAcknowledgement,
+    filterDutyOfCandour,
+    filterInvestigationComplete,
+    filterLessonsLearntComplete,
+    filterRcaComplete,
+    filterSovaCompleted,
+  ]);
 
   const pickerOptions = useMemo<PickerOption[]>(() => {
     if (!activePicker) {
@@ -1458,15 +1487,76 @@ export default function SafeguardingLogsPage() {
                           onChange={(event) => setHistoryEndDate(event.target.value)}
                         />
                       </div>
+                      <div className="space-y-2">
+                        <Label>Status filters</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button type="button" variant="outline" size="sm" className="w-full justify-start">
+                              <span className="text-xs">Status filters</span>
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-64">
+                            <div className="space-y-2">
+                              <label className="flex items-center gap-2">
+                                <Checkbox checked={filterCqcAcknowledgement} onCheckedChange={(v) => setFilterCqcAcknowledgement(!!v)} />
+                                <span className="text-sm">CQC notification submitted</span>
+                              </label>
+                              <label className="flex items-center gap-2">
+                                <Checkbox checked={filterDutyOfCandour} onCheckedChange={(v) => setFilterDutyOfCandour(!!v)} />
+                                <span className="text-sm">Duty of candour upheld</span>
+                              </label>
+                              <label className="flex items-center gap-2">
+                                <Checkbox checked={filterInvestigationComplete} onCheckedChange={(v) => setFilterInvestigationComplete(!!v)} />
+                                <span className="text-sm">Investigation complete</span>
+                              </label>
+                              <label className="flex items-center gap-2">
+                                <Checkbox checked={filterLessonsLearntComplete} onCheckedChange={(v) => setFilterLessonsLearntComplete(!!v)} />
+                                <span className="text-sm">Lessons learnt complete</span>
+                              </label>
+                              <label className="flex items-center gap-2">
+                                <Checkbox checked={filterRcaComplete} onCheckedChange={(v) => setFilterRcaComplete(!!v)} />
+                                <span className="text-sm">Root cause analysis complete</span>
+                              </label>
+                              <label className="flex items-center gap-2">
+                                <Checkbox checked={filterSovaCompleted} onCheckedChange={(v) => setFilterSovaCompleted(!!v)} />
+                                <span className="text-sm">SOVA completed</span>
+                              </label>
+                              <div className="pt-2 flex justify-end">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setFilterCqcAcknowledgement(false);
+                                    setFilterDutyOfCandour(false);
+                                    setFilterInvestigationComplete(false);
+                                    setFilterLessonsLearntComplete(false);
+                                    setFilterRcaComplete(false);
+                                    setFilterSovaCompleted(false);
+                                  }}
+                                >
+                                  Clear
+                                </Button>
+                              </div>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
                       <div className="flex items-end sm:col-span-2 lg:col-span-1">
                         <Button
                           type="button"
                           variant="ghost"
                           size="sm"
-                          disabled={!historyStartDate && !historyEndDate}
+                          disabled={!historyStartDate && !historyEndDate && !filterCqcAcknowledgement && !filterDutyOfCandour && !filterInvestigationComplete && !filterLessonsLearntComplete && !filterRcaComplete && !filterSovaCompleted}
                           onClick={() => {
                             setHistoryStartDate('');
                             setHistoryEndDate('');
+                            setFilterCqcAcknowledgement(false);
+                            setFilterDutyOfCandour(false);
+                            setFilterInvestigationComplete(false);
+                            setFilterLessonsLearntComplete(false);
+                            setFilterRcaComplete(false);
+                            setFilterSovaCompleted(false);
                           }}
                         >
                           Clear filters
@@ -1475,11 +1565,17 @@ export default function SafeguardingLogsPage() {
                     </div>
                     <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
                       <span>Showing {filteredSovaEntries.length} of {sovaEntries.length} entries</span>
-                      {historyStartDate || historyEndDate ? (
+                      {(historyStartDate || historyEndDate || filterCqcAcknowledgement || filterDutyOfCandour || filterInvestigationComplete || filterLessonsLearntComplete || filterRcaComplete || filterSovaCompleted) ? (
                         <span>
                           Filters active
                           {historyStartDate ? ` • From ${safeFormatDate(historyStartDate)}` : ''}
                           {historyEndDate ? ` • To ${safeFormatDate(historyEndDate)}` : ''}
+                          {filterCqcAcknowledgement ? ' • CQC notification' : ''}
+                          {filterDutyOfCandour ? ' • Duty of candour' : ''}
+                          {filterInvestigationComplete ? ' • Investigation complete' : ''}
+                          {filterLessonsLearntComplete ? ' • Lessons learnt' : ''}
+                          {filterRcaComplete ? ' • RCA complete' : ''}
+                          {filterSovaCompleted ? ' • SOVA completed' : ''}
                         </span>
                       ) : null}
                     </div>
