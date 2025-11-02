@@ -142,8 +142,8 @@ export default function AcceptInvitePage() {
       <h1>Accept Invitation</h1>
 
       {(status === 'loading' || status === 'signed-in') && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div aria-hidden style={{ width: 20, height: 20, borderRadius: 10, border: '3px solid #ddd', borderTopColor: '#333', animation: 'df-spin 1s linear infinite' }} />
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, minHeight: '40vh', textAlign: 'center' }}>
+          <div aria-hidden style={{ width: 32, height: 32, borderRadius: 16, border: '4px solid #ddd', borderTopColor: '#333', animation: 'df-spin 1s linear infinite' }} />
           <p style={{ margin: 0 }}>{status === 'loading' ? 'Validating invite…' : 'Signed in — redirecting…'}</p>
         </div>
       )}

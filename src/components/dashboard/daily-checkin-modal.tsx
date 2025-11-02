@@ -99,6 +99,7 @@ export default function DailyCheckinModal({ workspaceId, open: controlledOpen, o
   const [staffDay, setStaffDay] = useState('');
   const [staffNight, setStaffNight] = useState('');
   const [occupancy, setOccupancy] = useState('');
+  const [settingsTotalBeds, setSettingsTotalBeds] = useState<number | null>(null);
   const [fallsCount, setFallsCount] = useState<number | ''>('');
   const [fallsEntries, setFallsEntries] = useState<FallEntry[]>([]);
   const [fallsInjuries, setFallsInjuries] = useState('');
@@ -132,11 +133,51 @@ export default function DailyCheckinModal({ workspaceId, open: controlledOpen, o
       const [currentStr, totalStr] = value.split('/');
       const current = Number(currentStr.trim());
       const total = Number(totalStr.trim());
-      return Number.isFinite(current) && Number.isFinite(total) && total > 0;
+      // If workspace settings provide a total bed count, ensure the entered occupied
+      // value does not exceed that configured totalBeds. If settingsTotalBeds is
+      // unknown, fall back to validating the provided total in the input.
+      if (!Number.isFinite(current) || !Number.isFinite(total) || total <= 0) return false;
+      if (typeof settingsTotalBeds === 'number' && settingsTotalBeds > 0) {
+        // Use the workspace setting as the authoritative totalBeds. If the user
+        // supplied a different total in the input, still validate that the
+        // occupied value does not exceed the configured beds.
+        return current <= settingsTotalBeds;
+      }
+      return true;
     }
     const percent = Number(value.replace('%', '').trim());
+    // Percent values are valid if numeric; cap enforcement will be applied when
+    // a workspace totalBeds is known (user shouldn't be able to enter >100% if
+    // their occupied count would exceed beds, but percent-only input is allowed).
     return Number.isFinite(percent);
   };
+
+  // Load workspace settings occupancy (totalBeds) so we can enforce a maximum
+  // occupied beds value in the modal. This is a lightweight one-off read used
+  // for validation; if you prefer live updates, convert to onSnapshot.
+  useEffect(() => {
+    let active = true;
+    const loadSettings = async () => {
+      if (!effectiveWorkspaceId) return;
+      try {
+        const ref = getWorkspaceDocRef(effectiveWorkspaceId, 'settings', 'occupancy', organisationId);
+        if (!ref) return;
+        const snap = await getDoc(ref);
+        if (!active) return;
+        if (snap?.exists()) {
+          const data = snap.data() as any;
+          setSettingsTotalBeds(typeof data?.totalBeds === 'number' ? data.totalBeds : null);
+        } else {
+          setSettingsTotalBeds(null);
+        }
+      } catch (e) {
+        console.warn('Failed to load occupancy settings for validation', e);
+        if (active) setSettingsTotalBeds(null);
+      }
+    };
+    loadSettings();
+    return () => { active = false; };
+  }, [effectiveWorkspaceId, organisationId]);
 
   const validateStaffing = (day: string, night: string) => {
     const dayCount = Number(day.trim() || 0);
@@ -289,8 +330,41 @@ export default function DailyCheckinModal({ workspaceId, open: controlledOpen, o
         return (
           <div className="space-y-4">
             <SectionCard title="Occupancy" subtitle="Bed count or percentage capacity">
-              <Input className="h-10 text-sm" value={occupancy} onChange={(event) => setOccupancy(event.target.value)} placeholder="e.g. 12/20 or 60%" />
-              {!validateOccupancy(occupancy) && <div className="text-xs text-red-500">Please enter occupancy (e.g. 12/20 or 60%).</div>}
+              <Input
+                className="h-10 text-sm"
+                value={occupancy}
+                onChange={(event) => setOccupancy(event.target.value)}
+                placeholder="e.g. 12/20 or 60%"
+              />
+
+              {/* Show configured total beds for the workspace so users can see the cap */}
+              <div className="mt-2 flex items-center justify-between">
+                <div className="text-xs text-slate-500">Total beds</div>
+                <div className="text-xs font-medium text-slate-700">{settingsTotalBeds !== null ? String(settingsTotalBeds) : '—'}</div>
+              </div>
+
+              {!validateOccupancy(occupancy) && (
+                <div className="text-xs text-red-500 mt-2">
+                  {settingsTotalBeds && (() => {
+                    // If a workspace total is known, provide a clearer error when the
+                    // entered occupied count exceeds configured beds.
+                    const v = String(occupancy || '').trim();
+                    if (v.includes('/')) {
+                      const [cur] = v.split('/').map(p => p.trim());
+                      const curN = Number(cur);
+                      if (Number.isFinite(curN) && typeof settingsTotalBeds === 'number') {
+                        if (curN > settingsTotalBeds) return `Occupied beds (${curN}) cannot exceed configured total beds (${settingsTotalBeds}).`;
+                      }
+                    } else if (v && !v.includes('%')) {
+                      const n = Number(v.replace('%', '').trim());
+                      if (Number.isFinite(n) && typeof settingsTotalBeds === 'number') {
+                        if (n > settingsTotalBeds) return `Occupied beds (${n}) cannot exceed configured total beds (${settingsTotalBeds}).`;
+                      }
+                    }
+                    return 'Please enter occupancy (e.g. 12/20 or 60%).';
+                  })()}
+                </div>
+              )}
             </SectionCard>
 
             <SectionCard title="Staffing" subtitle="Headcount on duty">
