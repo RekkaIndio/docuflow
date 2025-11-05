@@ -659,11 +659,7 @@ export default function AppraisalsPage() {
               </Button>
             </div>
           </div>
-
-          <p className="text-sm text-slate-600 dark:text-slate-400">
-            Capture new appraisals or review historic activity across your managers from one place.
-          </p>
-
+ 
           <TabsContent value="tracker" className="space-y-6 data-[state=inactive]:hidden">
             <div className="grid gap-6 xl:grid-cols-3">
               {trackerSummaryCards.map(card => {

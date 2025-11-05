@@ -130,7 +130,7 @@ export default function AboutPage() {
                 </p>
               </div>
 
-              <div className="grid md:grid-cols-4 gap-8">
+              <div className="grid md:grid-cols-3 gap-8">
                 {/* Team Member 1 */}
                 <Card className="text-center border-0 shadow-lg hover:shadow-xl transition-shadow">
                   <CardHeader className="pb-4">
@@ -148,28 +148,6 @@ export default function AboutPage() {
                     <p className="text-slate-600 mb-4">
                       15+ years in care home and compliance management, passionate about improving care quality through technology. 
                       Extensive experience in senior management roles in the care sector.
-                    </p>
-                  </CardContent>
-                </Card>
-
-                {/* Team Member 2 */}
-                  <Card className="text-center border-0 shadow-lg hover:shadow-xl transition-shadow">
-                  <CardHeader className="pb-4">
-                    <div className="w-24 h-24 rounded-full mx-auto mb-4 overflow-hidden">
-                      <img
-                        src="/chantelleChallender.jpeg"
-                        alt="Chantelle Challander"
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <CardTitle className="text-xl">Chantelle Challander</CardTitle>
-                    <CardDescription className="text-primary font-medium">CSO</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-slate-600 mb-4">
-                      23 years in health and social care with extensive experience in service turnaround, compliance and senior management. 
-                      Expert in overturning care home closures and transforming failing services. 
-                      Passionate about delivering innovative, person-centred care that truly makes a difference.
                     </p>
                   </CardContent>
                 </Card>

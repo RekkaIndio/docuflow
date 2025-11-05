@@ -1,6 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
+import { useWorkspace } from '@/context/workspace';
+import { useAuth } from '@/hooks/use-auth';
+import { saveAudit, markAuditCompletedWithSnapshot, getMonthlyAuditSnapshots } from '@/lib/firestore';
 import AdminPageHeader from "@/components/admin/admin-page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClipboardCheck, Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
@@ -87,6 +90,8 @@ const safetyCertificates = [
 ];
 
 export default function RDComplianceAuditPage() {
+  const workspace = useWorkspace();
+  const { user } = useAuth();
   const [form, setForm] = useState<Record<string, string>>({});
   const [professionalVisitors, setProfessionalVisitors] = useState<ProfessionalVisitor[]>([
     { name: "", role: "", comments: "" },
@@ -1116,19 +1121,73 @@ export default function RDComplianceAuditPage() {
     setStaffEntries((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSubmitting(true);
     try {
-      console.log("RD compliance audit (preview)", {
-        form,
+      const workspaceId = workspace?.id ?? '';
+      const orgId = workspace?.organisationId ?? null;
+      if (!workspaceId) {
+        alert('No workspace selected. Please choose a workspace before saving audits.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Tally simple yes/no style scores from form fields
+      const tally = Object.keys(form).reduce(
+        (acc, key) => {
+          const raw = (form as any)[key];
+          const v = typeof raw === 'string' ? raw.toLowerCase() : '';
+          if (v === 'yes' || v === 'met') {
+            acc.yesCount += 1;
+            acc.totalCount += 1;
+          } else if (v === 'no' || v === 'not-met') {
+            acc.totalCount += 1;
+          }
+          return acc;
+        },
+        { yesCount: 0, totalCount: 0 }
+      );
+
+      const scorePercent = tally.totalCount > 0 ? Math.round((tally.yesCount / tally.totalCount) * 100) : null;
+
+      const payload = {
+        ...form,
         professionalVisitors,
         staffEntries,
-      });
-      alert("Audit response captured locally. Submission handling to be implemented.");
+        createdBy: user?.id ?? null,
+        workspaceId,
+        organisationId: orgId,
+        auditType: 'rd-compliance',
+        yesCount: tally.yesCount,
+        totalCount: tally.totalCount,
+        scorePercent,
+      };
+
+      // Persist an audit record (top-level audits collection under workspace)
+      await saveAudit(payload, workspaceId, orgId);
+
+      // Mark completed — this will save a monthly snapshot, generate PDF and create action plan items
+      const completedAt = form.auditDate || new Date().toISOString();
+      await markAuditCompletedWithSnapshot(workspaceId, 'rd-compliance', payload, completedAt);
+
+      // Refresh tracker for the current month
+      const now = new Date(completedAt);
+      const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      try {
+        const snaps = await getMonthlyAuditSnapshots(workspaceId, monthKey, orgId);
+        // snaps is a map of auditType -> array
+        const rdRecords = snaps['rd-compliance'] || [];
+        setTrackerData((prev) => ({ ...prev, [monthKey]: rdRecords }));
+      } catch (e) {
+        // non-fatal: tracker refresh failed
+        console.warn('Failed to refresh audit tracker after save', e);
+      }
+
+      alert('Audit saved and completed. Action plan items will be created where applicable.');
     } catch (error) {
-      console.error("RD compliance audit submission error", error);
-      alert("Could not submit the audit. Please try again.");
+      console.error('RD compliance audit submission error', error);
+      alert('Could not submit the audit. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -1190,20 +1249,24 @@ export default function RDComplianceAuditPage() {
         subtitle="Conduct a comprehensive audit of RD compliance."
         icon={<ClipboardCheck />}
       />
-      <div className="w-full p-10 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 rounded-3xl shadow-2xl mt-10 border border-slate-200 dark:border-slate-700">
         <Tabs defaultValue="audit" className="w-full">
-          <TabsList className="grid h-auto w-full max-w-xl grid-cols-3 items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <TabsTrigger value="audit" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:text-slate-300 dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white">
-              Audit
-            </TabsTrigger>
-            <TabsTrigger value="action-plan" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:text-slate-300 dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white">
-              Action Plan
-            </TabsTrigger>
-            <TabsTrigger value="tracker" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:text-slate-300 dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white">
-              Tracker
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="audit" className="mt-6">
+          {/* Tabs placed above and outside the main card */}
+          <div className="mb-6 flex justify-start px-10">
+            <TabsList className="grid h-auto w-full max-w-xl grid-cols-3 items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+              <TabsTrigger value="audit" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:text-slate-300 dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white">
+                Audit
+              </TabsTrigger>
+              <TabsTrigger value="action-plan" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:text-slate-300 dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white">
+                Action Plan
+              </TabsTrigger>
+              <TabsTrigger value="tracker" className="rounded-xl px-4 py-1.5 text-sm font-medium transition data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:text-slate-300 dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white">
+                Tracker
+              </TabsTrigger>
+            </TabsList>
+          </div>
+
+          <div className="w-full p-10 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700">
+            <TabsContent value="audit" className="mt-6">
             <div className="flex flex-col lg:flex-row gap-10">
               {/* Left Panel - Audit Information (sticky) */}
               <div className="w-full lg:w-[480px] flex-shrink-0 bg-white rounded-2xl p-8 border border-slate-200 shadow-xl mb-8 lg:mb-0 lg:sticky lg:top-10 self-start h-fit dark:bg-slate-800 dark:border-slate-700">
@@ -1440,8 +1503,8 @@ export default function RDComplianceAuditPage() {
               </div>
             </div>
           </TabsContent>
+        </div>
         </Tabs>
-      </div>
     </>
   );
 }

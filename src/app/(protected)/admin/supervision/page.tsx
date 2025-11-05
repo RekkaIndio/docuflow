@@ -714,10 +714,7 @@ export default function SupervisionPage() {
               </Button>
             </div>
           </div>
-          <p className="text-sm text-slate-600">
-            Capture new sessions or review historic activity across your managers from one place.
-          </p>
-
+      
           <TabsContent value="form" className="space-y-6 data-[state=inactive]:hidden">
             <div className="w-full rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-10 shadow-2xl dark:border-slate-700 dark:from-slate-900 dark:to-slate-800">
               <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
