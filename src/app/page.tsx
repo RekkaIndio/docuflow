@@ -1224,7 +1224,7 @@ export default function Page() {
                 From capture to inspection—one continuous flow.
               </h2>
               <p className="mt-4 text-lg text-slate-300">
-                CG-360 acts as the operating system for compliance. See how data flows through dependency modelling, action plans, coaching, and inspection delivery without leaving the platform.
+                CG-360 acts as the operating system for compliance. See how data flows through dependency modelling, action plans, CQC logs, and inspection delivery without leaving the platform.
               </p>
             </div>
 
