@@ -1007,16 +1007,16 @@ export default function Page() {
           </div>
           <div className="relative mx-auto grid w-full max-w-[1600px] gap-16 px-6 py-28 sm:px-10 lg:grid-cols-[minmax(0,620px)_minmax(0,720px)] lg:items-center xl:px-16">
             <div className="space-y-8">
-              <div className="flex w-full flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-full border border-white/20 bg-white/10 px-5 py-3 text-sm font-medium text-white">
+              <div className="flex w-full flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl sm:rounded-full border border-white/10 bg-white/10 px-4 sm:px-5 py-3 text-sm font-medium text-white">
                 <div className="flex items-start gap-3 min-w-0 flex-1">
                   <Sparkles className="h-4 w-4 flex-shrink-0 mt-1" />
-                  <div className="text-sm leading-snug text-white min-w-0 whitespace-normal">
-                    <span className="block">One system that replaces scattered tools with real-time clarity and control.</span>
-                  </div>
+                    <div className="text-sm leading-snug text-white min-w-0">
+                      <span className="block">One system that replaces scattered tools with real-time clarity and control.</span>
+                    </div>
                 </div>
 
                 <div className="flex-shrink-0 mt-2 sm:mt-0">
-                  <span className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-800">Built for care homes</span>
+                    <span className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">Built for care homes</span>
                 </div>
               </div>
               <div className="space-y-6">
