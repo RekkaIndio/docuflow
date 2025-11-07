@@ -1007,9 +1007,17 @@ export default function Page() {
           </div>
           <div className="relative mx-auto grid w-full max-w-[1600px] gap-16 px-6 py-28 sm:px-10 lg:grid-cols-[minmax(0,620px)_minmax(0,720px)] lg:items-center xl:px-16">
             <div className="space-y-8">
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white">
-                <Sparkles className="h-4 w-4" />
-                One system that replaces scattered tools with real-time clarity and control.
+              <div className="flex w-full flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-full border border-white/20 bg-white/10 px-5 py-3 text-sm font-medium text-white">
+                <div className="flex items-start gap-3 min-w-0 flex-1">
+                  <Sparkles className="h-4 w-4 flex-shrink-0 mt-1" />
+                  <div className="text-sm leading-snug text-white min-w-0 whitespace-normal">
+                    <span className="block">One system that replaces scattered tools with real-time clarity and control.</span>
+                  </div>
+                </div>
+
+                <div className="flex-shrink-0 mt-2 sm:mt-0">
+                  <span className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-800">Built for care homes</span>
+                </div>
               </div>
               <div className="space-y-6">
                 <h1 className="text-4xl font-semibold leading-tight sm:text-5xl lg:text-6xl">
@@ -1208,6 +1216,88 @@ export default function Page() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        </section>
+
+        <section id="assistant" className="bg-gradient-to-b from-white to-slate-50 py-24 text-slate-900">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6">
+            <div className="mx-auto max-w-3xl text-center">
+              <Badge variant="secondary" className="bg-indigo-100 text-indigo-800">AI Assistant</Badge>
+              <h2 className="mt-6 text-4xl font-bold tracking-tight">A helpful assistant built into your workflow</h2>
+              <p className="mt-3 text-lg text-slate-600 max-w-2xl mx-auto">
+                Quickly summarise policies, extract evidence, draft inspection bundles, and get actionable recommendations — without leaving CG-360.
+              </p>
+            </div>
+
+            <div className="mt-12 grid gap-8 lg:grid-cols-12 lg:items-center">
+              <div className="lg:col-span-7">
+                <div className="relative rounded-[20px] overflow-hidden border border-slate-200 bg-gradient-to-br from-indigo-50 to-white p-6 shadow-2xl">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-500 p-2 text-white">
+                        <BrainCircuit className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">CG-360 Assistant</p>
+                        <p className="text-xs text-slate-500">Context-aware, privacy-first summaries</p>
+                      </div>
+                    </div>
+                    <Badge variant="secondary" className="bg-emerald-100 text-emerald-800">Preview</Badge>
+                  </div>
+
+                  <div className="mt-6 rounded-lg border border-white/30 bg-white p-4">
+                    <div className="space-y-3">
+                      <div className="flex items-start gap-3">
+                        <div className="h-9 w-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600">U</div>
+                        <div className="rounded-2xl bg-slate-50 p-3 text-sm text-slate-800">Summarise the falls policy and list three actions for night staff.</div>
+                      </div>
+
+                      <div className="flex items-start gap-3">
+                        <div className="h-9 w-9 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-600">A</div>
+                        <div className="rounded-2xl bg-indigo-50 p-4 text-sm text-slate-800">
+                          <p className="font-medium text-indigo-800">Summary</p>
+                          <p className="mt-1 text-xs text-slate-600">Clear handover notes, regular sensor checks, and targeted supervision for high-risk residents.</p>
+                          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                            <div className="rounded-md bg-white px-3 py-2 text-xs text-slate-700 shadow-sm">1. Update handover checklist</div>
+                            <div className="rounded-md bg-white px-3 py-2 text-xs text-slate-700 shadow-sm">2. Reposition sensor mats</div>
+                            <div className="rounded-md bg-white px-3 py-2 text-xs text-slate-700 shadow-sm">3. Schedule staff refresher</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex items-center gap-3">
+                    <Button size="sm" onClick={openCalendlyModal} className="rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white">Try demo</Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="lg:col-span-5">
+                <div className="rounded-[20px] border border-slate-200 bg-white p-6 shadow-lg">
+                  <h3 className="text-lg font-semibold text-slate-900">What it helps with</h3>
+                  <ul className="mt-4 space-y-3 text-sm text-slate-600">
+                    <li className="flex items-start gap-3">
+                      <CheckCircle2 className="mt-1 h-5 w-5 text-emerald-500 flex-shrink-0" />
+                      <span>Document summarisation & highlight extraction</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <CheckCircle2 className="mt-1 h-5 w-5 text-emerald-500 flex-shrink-0" />
+                      <span>Auto-generated inspection bundles and evidence lists</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <CheckCircle2 className="mt-1 h-5 w-5 text-emerald-500 flex-shrink-0" />
+                      <span>Suggested action items with owners & due dates</span>
+                    </li>
+                  </ul>
+
+                  <div className="mt-6">
+                    <Button size="lg" onClick={openCalendlyModal} className="w-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white">Request an assistant walkthrough</Button>
+                    <div className="mt-3 text-center text-xs text-slate-500">Or <Link href="#demo" className="underline">book a demo</Link> to see the assistant in action.</div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </section>
