@@ -31,7 +31,8 @@ import {
   PoundSterling,
   BookOpen,
   Bell,
-  X
+  X,
+  Zap
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -690,49 +691,39 @@ const capabilityCards: Capability[] = [
     icon: BookOpen,
     accent: "from-red-500 via-orange-500 to-yellow-500",
     preview: (
-      <div className="h-[280px] space-y-3 p-1">
+      <div className="space-y-2 p-1">
         <div className="flex items-center justify-between rounded-xl border border-red-100 bg-red-50 px-3 py-2">
           <span className="text-sm font-semibold text-red-900">Falls incident RCA</span>
           <Badge variant="secondary" className="bg-red-200/70 text-red-900">In progress</Badge>
         </div>
-        <div className="relative flex-1 px-3">
-          <div className="absolute left-5 top-0 h-full w-0.5 bg-slate-200"></div>
-          
-          <div className="space-y-6">
-            <div className="relative flex items-start gap-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 ring-4 ring-white">
-                <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-              </div>
-              <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2">
-                <div className="text-sm font-medium text-emerald-900">Root cause identified</div>
-                <div className="text-xs text-emerald-700">Environmental factors documented</div>
+        <div className="space-y-2">
+          <div className="flex items-start gap-2 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2">
+            <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <div className="text-xs font-medium text-emerald-900">Root cause identified</div>
+              <div className="text-[10px] text-emerald-700">Environmental factors documented</div>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-2 rounded-lg border border-orange-100 bg-orange-50 px-3 py-2">
+            <ClipboardList className="h-4 w-4 text-orange-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <div className="text-xs font-medium text-orange-900">Action plan created</div>
+              <div className="flex gap-1 mt-1">
+                {[1, 2].map((i) => (
+                  <span key={i} className="rounded-full bg-orange-200 px-1.5 py-0.5 text-[10px] font-medium text-orange-700">
+                    Action {i}
+                  </span>
+                ))}
               </div>
             </div>
+          </div>
 
-            <div className="relative flex items-start gap-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-100 ring-4 ring-white">
-                <ClipboardList className="h-5 w-5 text-orange-500" />
-              </div>
-              <div className="rounded-lg border border-orange-100 bg-orange-50 px-3 py-2">
-                <div className="text-sm font-medium text-orange-900">Action plan created</div>
-                <div className="mt-1 flex gap-1">
-                  {[1, 2, 3].map((i) => (
-                    <span key={i} className="rounded-full bg-orange-200 px-2 py-0.5 text-xs font-medium text-orange-700">
-                      Action {i}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="relative flex items-start gap-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100 ring-4 ring-white">
-                <Users className="h-5 w-5 text-blue-500" />
-              </div>
-              <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2">
-                <div className="text-sm font-medium text-blue-900">Team review</div>
-                <div className="text-xs text-blue-700">Shared with 12 team members</div>
-              </div>
+          <div className="flex items-start gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2">
+            <Users className="h-4 w-4 text-blue-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <div className="text-xs font-medium text-blue-900">Team review</div>
+              <div className="text-[10px] text-blue-700">Shared with team</div>
             </div>
           </div>
         </div>
@@ -746,51 +737,33 @@ const capabilityCards: Capability[] = [
     icon: Bell,
     accent: "from-purple-500 via-pink-500 to-rose-500",
     preview: (
-      <div className="h-[280px] space-y-3 p-1">
+      <div className="space-y-2 p-1">
         <div className="flex items-center justify-between rounded-xl border border-purple-100 bg-purple-50 px-3 py-2">
           <span className="text-sm font-semibold text-purple-900">Notification log</span>
           <Badge variant="secondary" className="bg-purple-200/70 text-purple-900">Up to date</Badge>
         </div>
-        <div className="flex-1 space-y-3">
-          <div className="group relative overflow-hidden rounded-xl border border-purple-100 bg-gradient-to-br from-purple-50/80 to-purple-100/50 p-3 transition-all hover:shadow-md">
-            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-transparent opacity-0 transition-opacity group-hover:opacity-100"></div>
-            <div className="relative flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-100">
-                <Bell className="h-5 w-5 text-purple-500" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-purple-900">Sova notification sent</span>
-                  <Badge variant="secondary" className="bg-purple-100 text-purple-900">New</Badge>
-                </div>
-                <div className="mt-1 text-xs text-purple-700">2 days ago • Ref: SOV-2023-42</div>
-              </div>
+        <div className="space-y-2">
+          <div className="flex items-start gap-2 rounded-lg border border-purple-100 bg-purple-50 px-3 py-2">
+            <Bell className="h-4 w-4 text-purple-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <div className="text-xs font-medium text-purple-900">Sova notification sent</div>
+              <div className="text-[10px] text-purple-700">2 days ago • Ref: SOV-2023-42</div>
             </div>
           </div>
 
-          <div className="group relative overflow-hidden rounded-xl border border-blue-100 bg-gradient-to-br from-blue-50/80 to-blue-100/50 p-3 transition-all hover:shadow-md">
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-transparent opacity-0 transition-opacity group-hover:opacity-100"></div>
-            <div className="relative flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100">
-                <FileCheck className="h-5 w-5 text-blue-500" />
-              </div>
-              <div>
-                <div className="text-sm font-medium text-blue-900">CQC report submitted</div>
-                <div className="mt-1 text-xs text-blue-700">1 week ago • Status: Filed</div>
-              </div>
+          <div className="flex items-start gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2">
+            <FileCheck className="h-4 w-4 text-blue-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <div className="text-xs font-medium text-blue-900">CQC report submitted</div>
+              <div className="text-[10px] text-blue-700">1 week ago • Status: Filed</div>
             </div>
           </div>
 
-          <div className="group relative overflow-hidden rounded-xl border border-amber-100 bg-gradient-to-br from-amber-50/80 to-amber-100/50 p-3 transition-all hover:shadow-md">
-            <div className="absolute inset-0 bg-gradient-to-r from-amber-500/10 to-transparent opacity-0 transition-opacity group-hover:opacity-100"></div>
-            <div className="relative flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100">
-                <Timer className="h-5 w-5 text-amber-500" />
-              </div>
-              <div>
-                <div className="text-sm font-medium text-amber-900">Follow-up needed</div>
-                <div className="mt-1 text-xs text-amber-700">Due in 2 days</div>
-              </div>
+          <div className="flex items-start gap-2 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2">
+            <Timer className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <div className="text-xs font-medium text-amber-900">Follow-up needed</div>
+              <div className="text-[10px] text-amber-700">Due in 2 days</div>
             </div>
           </div>
         </div>
@@ -1051,135 +1024,197 @@ export default function Page() {
               <div className="absolute -top-10 -right-10 h-28 w-28 rounded-full bg-purple-400/25 blur-2xl"></div>
               <div className="absolute -bottom-12 -left-8 h-32 w-32 rounded-full bg-blue-400/25 blur-3xl"></div>
 
-              <div className="relative rounded-[32px] border border-white/10 bg-white/5 p-8 shadow-[0_45px_120px_-60px_rgba(79,70,229,0.7)] backdrop-blur-xl">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-slate-200">Today</p>
-                    <p className="text-xl font-semibold text-white">Compliance control room</p>
+              <div className="relative space-y-6">
+                {/* Top metric card - Major impact stat */}
+                <div className="rounded-[32px] border border-white/10 bg-gradient-to-br from-blue-500/20 via-purple-500/20 to-indigo-500/20 p-8 shadow-[0_45px_120px_-60px_rgba(79,70,229,0.7)] backdrop-blur-xl overflow-hidden">
+                  <div className="relative">
+                    <div className="absolute -top-8 -right-8 h-32 w-32 rounded-full bg-emerald-400/30 blur-2xl"></div>
+                    <div className="relative">
+                      <Badge variant="secondary" className="bg-emerald-400/20 text-emerald-100 mb-4">Instant insight</Badge>
+                      <div className="flex items-end justify-between gap-4">
+                        <div>
+                          <p className="text-sm text-slate-300">Inspection readiness</p>
+                          <div className="mt-2 flex items-baseline gap-2">
+                            <p className="text-5xl font-bold text-white">96%</p>
+                            <span className="text-sm font-semibold text-emerald-300">↑ 14% this month</span>
+                          </div>
+                        </div>
+                        <div className="h-24 w-32 flex items-end gap-1">
+                          {[65, 72, 78, 84, 90, 96].map((value, i) => (
+                            <div
+                              key={i}
+                              className="flex-1 rounded-t-lg bg-gradient-to-t from-blue-400 to-purple-400 transition-all"
+                              style={{ height: `${(value / 100) * 100}%` }}
+                            ></div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <Badge variant="secondary" className="bg-emerald-400/20 text-emerald-100">Live</Badge>
                 </div>
-                <div className="mt-6 grid gap-4">
-                  <div className="rounded-2xl border border-white/15 bg-white/10 p-4">
-                    <div className="flex items-center justify-between text-sm text-slate-200">
-                      <span>Policy acknowledgements</span>
-                      <span className="font-semibold text-white">42 / 50</span>
-                    </div>
-                    <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-white/20">
-                      <div className="h-full w-[84%] rounded-full bg-gradient-to-r from-blue-400 to-purple-400"></div>
-                    </div>
-                  </div>
-                  <div className="grid gap-4 lg:grid-cols-2">
-                    <div className="rounded-2xl border border-white/15 bg-white/10 p-4">
-                      <div className="flex items-center justify-between text-sm text-slate-200">
-                        <span>Dependency ratio</span>
-                        <span className="text-base font-semibold text-white">1:3.1</span>
+
+                {/* Middle cards - Feature highlights with visual indicators */}
+                <div className="grid gap-4 lg:grid-cols-2">
+                  {/* Document flow */}
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm group hover:bg-white/10 transition-all">
+                    <div className="flex items-start gap-3">
+                      <div className="rounded-xl bg-blue-500/30 p-3 text-blue-200">
+                        <FileText className="h-5 w-5" />
                       </div>
-                      <div className="mt-3 grid grid-cols-3 gap-2 text-xs text-slate-200">
-                        <div className="rounded-lg bg-white/10 px-2 py-2 text-center">
-                          <p className="text-[11px] uppercase text-slate-300">Low</p>
-                          <p className="text-sm font-semibold text-white">14</p>
-                        </div>
-                        <div className="rounded-lg bg-white/10 px-2 py-2 text-center">
-                          <p className="text-[11px] uppercase text-slate-300">Medium</p>
-                          <p className="text-sm font-semibold text-white">9</p>
-                        </div>
-                        <div className="rounded-lg bg-white/10 px-2 py-2 text-center">
-                          <p className="text-[11px] uppercase text-slate-300">High</p>
-                          <p className="text-sm font-semibold text-white">5</p>
-                        </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-white">Evidence managed</p>
+                        <p className="text-xs text-slate-400 mt-1">Policies, audits, incident reports</p>
                       </div>
                     </div>
-                    <div className="rounded-2xl border border-white/15 bg-white/10 p-4">
-                      <div className="flex items-center justify-between text-sm text-slate-200">
-                        <span>Audit readiness</span>
-                        <span className="text-base font-semibold text-white">96%</span>
+                    <div className="mt-4 grid grid-cols-3 gap-2">
+                      <div className="rounded-lg bg-white/5 px-3 py-2 text-center border border-white/10">
+                        <p className="text-xs text-slate-400">Synced</p>
+                        <p className="text-sm font-bold text-emerald-300">42</p>
                       </div>
-                      <div className="mt-3 space-y-2 text-xs text-slate-200">
-                        <div className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2">
-                          <span>Infection control</span>
-                          <span className="font-semibold text-emerald-200">Complete</span>
-                        </div>
-                        <div className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2">
-                          <span>Fire safety</span>
-                          <span className="font-semibold text-amber-200">Evidence</span>
-                        </div>
-                        <div className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2">
-                          <span>Staff files</span>
-                          <span className="font-semibold text-rose-200">2 actions</span>
-                        </div>
+                      <div className="rounded-lg bg-white/5 px-3 py-2 text-center border border-white/10">
+                        <p className="text-xs text-slate-400">Ready</p>
+                        <p className="text-sm font-bold text-blue-300">38</p>
+                      </div>
+                      <div className="rounded-lg bg-white/5 px-3 py-2 text-center border border-white/10">
+                        <p className="text-xs text-slate-400">AI indexed</p>
+                        <p className="text-sm font-bold text-purple-300">40</p>
                       </div>
                     </div>
                   </div>
-                  <div className="rounded-2xl border border-white/15 bg-white/10 p-4">
-                    <div className="flex items-center justify-between text-sm text-slate-200">
-                      <span>Inspection portal</span>
-                      <span className="font-semibold text-white">Active • 5 days left</span>
+
+                  {/* Staffing/dependency */}
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm group hover:bg-white/10 transition-all">
+                    <div className="flex items-start gap-3">
+                      <div className="rounded-xl bg-cyan-500/30 p-3 text-cyan-200">
+                        <Users className="h-5 w-5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-white">Dependency aligned</p>
+                        <p className="text-xs text-slate-400 mt-1">Staffing matches acuity needs</p>
+                      </div>
                     </div>
-                    <div className="mt-3 flex items-center justify-between text-xs text-slate-200">
-                      <span>Views today</span>
-                      <span className="font-semibold text-white">14</span>
+                    <div className="mt-4 flex items-end justify-between gap-3">
+                      <div className="flex gap-2 items-end h-16">
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="h-12 w-6 rounded-t-lg bg-gradient-to-t from-emerald-400 to-emerald-500"></div>
+                          <span className="text-xs text-slate-400">Low</span>
+                        </div>
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="h-10 w-6 rounded-t-lg bg-gradient-to-t from-blue-400 to-blue-500"></div>
+                          <span className="text-xs text-slate-400">Med</span>
+                        </div>
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="h-6 w-6 rounded-t-lg bg-gradient-to-t from-amber-400 to-amber-500"></div>
+                          <span className="text-xs text-slate-400">High</span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-slate-400">Ratio</p>
+                        <p className="text-lg font-bold text-white">1:3.1</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bottom card - Action momentum */}
+                <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-emerald-500/20 to-teal-500/20 p-6 backdrop-blur-sm">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                      <div className="rounded-xl bg-emerald-500/30 p-3 text-emerald-200">
+                        <ClipboardList className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-white">Actions moving forward</p>
+                        <p className="text-xs text-slate-300 mt-1">28 tasks assigned and tracked</p>
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-xs text-slate-400">Completed</p>
+                      <p className="text-2xl font-bold text-emerald-300">73%</p>
+                    </div>
+                  </div>
+                  <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-white/10 border border-white/20">
+                    <div className="h-full w-[73%] rounded-full bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 shadow-lg shadow-emerald-400/50"></div>
+                  </div>
+                  <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                    <div className="flex items-center gap-2 text-slate-300">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                      <span>Completed</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-slate-300">
+                      <div className="h-3 w-3 rounded-full bg-amber-400"></div>
+                      <span>In progress</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-slate-300">
+                      <div className="h-3 w-3 rounded-full bg-slate-400"></div>
+                      <span>Pending</span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="absolute -right-60 top-6 hidden w-48 rounded-2xl border border-white/15 bg-white/10 p-4 shadow-xl backdrop-blur xl:block">
-                <div className="flex items-center justify-between text-xs text-slate-200">
-                  <span>Action plan tasks</span>
-                  <span className="font-semibold text-white">7</span>
+              {/* Floating accent card - Inspections */}
+              <div className="absolute -right-48 top-20 hidden w-44 rounded-2xl border border-pink-500/30 bg-gradient-to-br from-pink-500/20 to-rose-500/10 p-4 shadow-xl shadow-pink-500/20 backdrop-blur xl:block">
+                <div className="flex items-center gap-2 mb-3">
+                  <Shield className="h-4 w-4 text-pink-300" />
+                  <span className="text-xs font-semibold text-pink-200">Inspection ready</span>
                 </div>
-                <div className="mt-3 space-y-2 text-[11px] text-slate-200">
-                  <div className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2">
-                    <span>Sensor mats</span>
-                    <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-200" />
+                <p className="text-sm font-bold text-white">Next review</p>
+                <p className="text-xs text-slate-300 mt-1">CQC portal active • 5 days</p>
+                <div className="mt-3 text-center py-2 rounded-lg bg-white/10 border border-white/10">
+                  <p className="text-[10px] text-slate-400">Documents viewed</p>
+                  <p className="text-lg font-bold text-pink-200">24</p>
+                </div>
+              </div>
+
+              {/* Floating accent card - Team updates */}
+              <div className="absolute -right-48 top-1/2 -translate-y-1/2 hidden w-44 rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-500/20 to-indigo-500/10 p-4 shadow-xl shadow-purple-500/20 backdrop-blur xl:block">
+                <div className="flex items-center gap-2 mb-3">
+                  <Bell className="h-4 w-4 text-purple-300" />
+                  <span className="text-xs font-semibold text-purple-200">Team alerts</span>
+                </div>
+                <div className="space-y-2">
+                  <div className="rounded-lg bg-white/10 border border-white/10 p-2">
+                    <p className="text-[10px] text-slate-300 font-medium">Supervision due</p>
+                    <p className="text-xs text-purple-200 font-semibold">Mia Smith • 2h</p>
                   </div>
-                  <div className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2">
-                    <span>Night briefing</span>
-                    <span className="rounded-full bg-amber-200/30 px-2 py-[2px] font-semibold text-amber-100">Due</span>
+                  <div className="rounded-lg bg-white/10 border border-white/10 p-2">
+                    <p className="text-[10px] text-slate-300 font-medium">Evidence submitted</p>
+                    <p className="text-xs text-emerald-200 font-semibold">3 new files</p>
                   </div>
                 </div>
               </div>
 
-              <div className="absolute -right-60 top-1/2 -translate-y-1/2 hidden w-50 rounded-2xl border border-white/15 bg-white/10 p-4 shadow-xl backdrop-blur xl:block">
-                <div className="flex items-center justify-between text-xs text-slate-200">
-                  <span>Recent notifications</span>
-                  <span className="font-semibold text-white">3 unread</span>
+              {/* Floating accent card - Compliance tracker */}
+              <div className="absolute -right-48 bottom-20 hidden w-44 rounded-2xl border border-blue-500/30 bg-gradient-to-br from-blue-500/20 to-cyan-500/10 p-4 shadow-xl shadow-blue-500/20 backdrop-blur xl:block">
+                <div className="flex items-center gap-2 mb-3">
+                  <BarChart3 className="h-4 w-4 text-blue-300" />
+                  <span className="text-xs font-semibold text-blue-200">Compliance trend</span>
                 </div>
-                <div className="mt-3 space-y-2 text-[11px] text-slate-200">
-                  <div className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2">
-                    <span>Sova alert</span>
-                    <span className="text-amber-200">2h ago</span>
-                  </div>
-                  <div className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2">
-                    <span>CQC update</span>
-                    <span className="text-emerald-200">1d ago</span>
-                  </div>
+                <div className="relative h-12 w-full mb-3">
+                  <svg viewBox="0 0 100 40" className="h-full w-full">
+                    <path
+                      d="M5 32 Q 25 28, 45 20 T 95 10"
+                      fill="none"
+                      stroke="#06b6d4"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
                 </div>
-              </div>
-
-              <div className="absolute -right-60 bottom-6 hidden w-52 rounded-2xl border border-white/15 bg-white/10 p-4 shadow-xl backdrop-blur xl:block">
-                <div className="flex items-center justify-between text-xs text-slate-200">
-                  <span>Supervisions</span>
-                  <span className="font-semibold text-white">3 today</span>
-                </div>
-                <div className="mt-3 space-y-2 text-[11px] text-slate-200">
-                  <div className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2">
-                    <span>Mia Smith</span>
-                    <span>14:00</span>
-                  </div>
-                  <div className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2">
-                    <span>Omar Malik</span>
-                    <span>Notes added</span>
-                  </div>
-                </div>
+                <p className="text-[10px] text-slate-300 text-center">12-week trend</p>
+                <p className="text-xs font-bold text-blue-200 text-center">+18% improvement</p>
               </div>
             </div>
           </div>
         </section>
 
-        <section id="platform" className="bg-white py-24 text-slate-900">
-          <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        <section id="platform" className="relative bg-gradient-to-b from-white via-slate-50 to-white py-24 text-slate-900">
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute top-20 left-10 h-40 w-40 rounded-full bg-blue-100/40 blur-3xl"></div>
+            <div className="absolute bottom-32 right-10 h-48 w-48 rounded-full bg-purple-100/40 blur-3xl"></div>
+          </div>
+          <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
             <div className="mx-auto max-w-3xl text-center">
               <Badge variant="secondary" className="bg-blue-100 text-blue-800">The CG-360 platform</Badge>
               <h2 className="mt-6 text-4xl font-semibold tracking-tight sm:text-5xl">
@@ -1190,29 +1225,40 @@ export default function Page() {
               </p>
             </div>
 
-            <div className="mt-16 grid gap-8 md:grid-cols-2 xl:grid-cols-3">
+            <div className="mt-20 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
               {capabilityCards.map((capability) => {
                 const Icon = capability.icon;
                 return (
                   <div
                     key={capability.id}
-                    className="group relative flex h-[420px] flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white p-8 shadow-lg transition-all hover:-translate-y-2 hover:shadow-2xl"
+                    className="group relative flex h-[480px] flex-col overflow-hidden rounded-[32px] border border-slate-200 bg-gradient-to-br from-white to-slate-50/50 shadow-xl transition-all duration-500 hover:-translate-y-3 hover:shadow-2xl hover:border-slate-300"
                   >
-                    <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${capability.accent}`} />
-                    <div className="flex items-center gap-3">
-                      <div className={`rounded-2xl bg-gradient-to-br ${capability.accent} p-3 text-white shadow-lg`}>
+                    {/* Accent gradient background */}
+                    <div className={`absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${capability.accent}`} />
+                    <div className={`absolute -top-32 -right-32 h-64 w-64 rounded-full opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-20 pointer-events-none ${capability.accent.split(' ')[0] === 'from-violet-500' ? 'from-violet-400' : capability.accent.split(' ')[0] === 'from-sky-500' ? 'from-sky-400' : capability.accent.split(' ')[0] === 'from-blue-500' ? 'from-blue-400' : 'from-emerald-400'}`}></div>
+
+                    {/* Header section */}
+                    <div className="relative flex items-start gap-3 p-8 pb-4">
+                      <div className={`rounded-2xl bg-gradient-to-br ${capability.accent} p-4 text-white shadow-lg group-hover:shadow-xl transition-all duration-300`}>
                         <Icon className="h-6 w-6" />
                       </div>
-                      <div>
-                        <h3 className="text-xl font-semibold text-slate-900">{capability.name}</h3>
-                        <p className="text-sm text-slate-600">{capability.description}</p>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-xl font-semibold text-slate-900 group-hover:text-blue-600 transition-colors">{capability.name}</h3>
+                        <p className="text-sm text-slate-600 mt-1 line-clamp-2">{capability.description}</p>
                       </div>
                     </div>
-                    <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 flex-1 overflow-hidden flex flex-col">
-                      <div className="h-full overflow-hidden">
-                        {capability.preview}
+
+                    {/* Preview section */}
+                    <div className="relative flex-1 overflow-hidden px-8">
+                      <div className="h-full rounded-2xl border border-slate-200/60 bg-gradient-to-br from-slate-50 to-white/50 p-6 group-hover:border-slate-300/80 transition-all duration-300 overflow-y-auto">
+                        <div className="h-full">
+                          {capability.preview}
+                        </div>
                       </div>
                     </div>
+
+                    {/* Footer accent */}
+                    <div className="relative h-1 bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 mt-4"></div>
                   </div>
                 );
               })}
@@ -1314,47 +1360,122 @@ export default function Page() {
                 From capture to inspection—one continuous flow.
               </h2>
               <p className="mt-4 text-lg text-slate-300">
-                CG-360 acts as the operating system for compliance. See how data flows through dependency modelling, action plans, CQC logs, and inspection delivery without leaving the platform.
+                CG-360 acts as the operating system for compliance. Data flows seamlessly through each stage—no switching between tools, no broken handoffs.
               </p>
             </div>
 
-            <div className="mt-16 grid gap-10 lg:grid-cols-2">
-              {workflowStages.map((stage) => {
-                const Icon = stage.icon;
-                return (
-                  <div
-                    key={stage.id}
-                    className="relative flex h-full flex-col justify-between rounded-[28px] border border-white/15 bg-white/5 p-8 shadow-lg"
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className={`rounded-2xl bg-gradient-to-br ${stage.accent} p-3 text-white shadow-lg`}>
-                        <Icon className="h-6 w-6" />
+            {/* Visual workflow timeline */}
+            <div className="mt-24">
+              <div className="relative pt-16">
+                {/* Connecting line */}
+                <div className="hidden lg:block absolute top-6 left-[5%] right-[5%] h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-emerald-500 rounded-full"></div>
+
+                {/* Cards grid */}
+                <div className="grid gap-8 lg:grid-cols-4">
+                  {workflowStages.map((stage, index) => {
+                    const Icon = stage.icon;
+                    return (
+                      <div key={stage.id} className="relative pt-8">
+                        {/* Number badge */}
+                        <div className="absolute -top-6 left-0 right-0 mx-auto w-fit">
+                          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-slate-950 to-slate-900 border-4 border-slate-950 text-white font-bold text-lg shadow-lg z-10">
+                            {index + 1}
+                          </div>
+                        </div>
+
+                        {/* Card */}
+                        <div className="relative flex flex-col h-full min-h-[520px] rounded-2xl border border-white/15 bg-gradient-to-br from-white/10 to-white/5 p-6 backdrop-blur-sm hover:border-white/25 hover:bg-gradient-to-br hover:from-white/15 hover:to-white/10 transition-all duration-300 group">
+                          
+                          {/* Icon */}
+                          <div className={`rounded-xl bg-gradient-to-br ${stage.accent} p-3 w-fit text-white shadow-lg group-hover:shadow-xl transition-all`}>
+                            <Icon className="h-5 w-5" />
+                          </div>
+
+                          {/* Title */}
+                          <h3 className="mt-4 text-lg font-bold text-white">{stage.title}</h3>
+                          
+                          {/* Subtitle */}
+                          <p className="mt-2 text-xs text-slate-300">{stage.subtitle}</p>
+
+                          {/* Quick bullets - simplified */}
+                          <div className="mt-4 space-y-2">
+                            {stage.bullets.slice(0, 2).map((bullet, i) => (
+                              <div key={i} className="flex items-start gap-2 text-xs text-slate-300">
+                                <div className="mt-1 h-1.5 w-1.5 rounded-full bg-slate-400 flex-shrink-0"></div>
+                                <span>{bullet}</span>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Highlight preview - compact */}
+                          <div className="mt-6 flex-1 rounded-xl border border-white/20 bg-white/5 p-3 text-[11px] text-slate-300 overflow-y-auto">
+                            {stage.highlight}
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="text-2xl font-semibold text-white">{stage.title}</h3>
-                        <p className="mt-2 text-sm text-slate-200">{stage.subtitle}</p>
-                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Mobile connecting indicators */}
+                <div className="lg:hidden mt-8 flex items-center justify-between px-4">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full bg-white/20"></div>
+                      {i < 3 && <div className="w-8 h-0.5 bg-gradient-to-r from-white/20 to-transparent"></div>}
                     </div>
-                    <ul className="mt-6 space-y-3 text-sm text-slate-200">
-                      {stage.bullets.map((bullet) => (
-                        <li key={bullet} className="flex items-start gap-3">
-                          <ArrowRight className="mt-1 h-4 w-4 text-slate-300" />
-                          <span>{bullet}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    <div className="mt-6 rounded-2xl border border-white/20 bg-white/10 p-4">
-                      {stage.highlight}
+                  ))}
+                </div>
+              </div>
+
+              {/* Outcome summary */}
+              <div className="mt-12 rounded-2xl border border-white/15 bg-gradient-to-br from-emerald-500/20 via-teal-500/20 to-cyan-500/20 p-8 backdrop-blur-sm">
+                <div className="grid gap-6 md:grid-cols-3">
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-lg bg-emerald-500/30 p-2 mt-1 text-emerald-200">
+                      <CheckCircle2 className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-white">No tool switching</p>
+                      <p className="text-xs text-slate-300 mt-1">Complete workflows in one place</p>
                     </div>
                   </div>
-                );
-              })}
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-lg bg-teal-500/30 p-2 mt-1 text-teal-200">
+                      <Zap className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-white">Real-time updates</p>
+                      <p className="text-xs text-slate-300 mt-1">Data syncs instantly across stages</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-lg bg-cyan-500/30 p-2 mt-1 text-cyan-200">
+                      <CheckCircle2 className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-white">Inspection ready</p>
+                      <p className="text-xs text-slate-300 mt-1">Export evidence with one click</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </section>
 
-        <section id="analytics" className="bg-slate-100 py-24 text-slate-900">
-          <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        <div className="relative overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-100">
+          <div className="absolute inset-0">
+            <div className="absolute -top-32 -left-24 h-64 w-64 rounded-full bg-blue-500/70 blur-3xl animate-pulse"></div>
+            <div className="absolute top-1/3 right-0 h-72 w-72 rounded-full bg-purple-500/70 blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+            <div className="absolute bottom-0 left-1/4 h-52 w-52 rounded-full bg-cyan-500/70 blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-48 w-48 rounded-full bg-emerald-500/70 blur-3xl animate-pulse" style={{ animationDelay: '0.5s' }}></div>
+            <div className="absolute top-0 right-1/4 h-40 w-40 rounded-full bg-pink-500/70 blur-3xl animate-pulse" style={{ animationDelay: '1.5s' }}></div>
+            <div className="absolute bottom-1/4 right-1/3 h-56 w-56 rounded-full bg-indigo-500/70 blur-3xl animate-pulse" style={{ animationDelay: '2.5s' }}></div>
+          </div>
+
+        <section id="analytics" className="relative py-24 text-slate-900">
+          <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
             <div className="grid gap-12 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] lg:items-center">
               <div className="space-y-6">
                 <Badge variant="secondary" className="bg-slate-900 text-white">Operations cockpit</Badge>
@@ -1460,158 +1581,277 @@ export default function Page() {
           </div>
         </section>
 
-        <section id="pricing" className="relative overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-100 py-24 text-slate-900">
-          <div className="absolute inset-0">
-            <div className="absolute -top-32 -left-24 h-64 w-64 rounded-full bg-blue-500/70 blur-3xl animate-pulse"></div>
-            <div className="absolute top-1/3 right-0 h-72 w-72 rounded-full bg-purple-500/70 blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
-            <div className="absolute bottom-0 left-1/4 h-52 w-52 rounded-full bg-cyan-500/70 blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-48 w-48 rounded-full bg-emerald-500/70 blur-3xl animate-pulse" style={{ animationDelay: '0.5s' }}></div>
-            <div className="absolute top-0 right-1/4 h-40 w-40 rounded-full bg-pink-500/70 blur-3xl animate-pulse" style={{ animationDelay: '1.5s' }}></div>
-            <div className="absolute bottom-1/4 right-1/3 h-56 w-56 rounded-full bg-indigo-500/70 blur-3xl animate-pulse" style={{ animationDelay: '2.5s' }}></div>
-          </div>
+        <section id="pricing" className="relative py-24 text-slate-900">
           <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
-            <div className="text-center">
-              <Badge variant="secondary" className="bg-blue-100 text-blue-800">Transparent pricing</Badge>
-              <h2 className="mt-6 text-4xl font-semibold tracking-tight sm:text-5xl">
-                Simple, all-inclusive pricing.
+            {/* Header */}
+            <div className="mx-auto max-w-3xl text-center mb-20">
+              <Badge variant="secondary" className="bg-blue-100 text-blue-800 mb-4">Transparent pricing</Badge>
+              <h2 className="text-5xl font-bold tracking-tight sm:text-6xl">
+                One price. Everything included.
               </h2>
-              <p className="mt-4 text-lg text-slate-600">
-                £350 per month per site. This includes everything. 14-day backout clause and minimum 12-month contract.
+              <p className="mt-6 text-xl text-slate-600">
+                No hidden fees. No surprise invoices. One flat rate per site covers every feature, every module, every workflow.
               </p>
             </div>
 
-            <div className="mt-12 grid gap-8 lg:grid-cols-2 lg:items-center">
-              <div className="space-y-6">
-                <h3 className="text-2xl font-semibold text-slate-900">Why choose CG-360?</h3>
-                <p className="text-lg text-slate-600">
-                  While competitors charge thousands for fragmented modules, surprise bolt-ons, and endless training sessions, we deliver everything you need for a fraction of the cost with free setup and training included.
-                </p>
-                <div className="grid gap-6 sm:grid-cols-2">
-                  <div className="group rounded-2xl border-2 border-red-300 bg-gradient-to-br from-red-100 to-red-200 p-8 shadow-lg shadow-red-500/30 transition-all duration-300 hover:shadow-2xl hover:shadow-red-500/50 hover:scale-105 hover:border-red-400">
-                    <div className="flex items-center gap-4">
-                      <div className="rounded-xl bg-gradient-to-br from-red-300 to-red-400 p-3 shadow-md">
-                        <AlertTriangle className="h-6 w-6 text-red-800" />
-                      </div>
-                      <h4 className="text-xl font-bold text-red-900">The Competition</h4>
-                    </div>
-                    <ul className="mt-6 space-y-3 text-sm text-red-800">
-                      <li className="flex items-center gap-3 font-medium">
-                        <X className="h-5 w-5 flex-shrink-0 text-red-600" />
-                        <span>Hidden bolt-on costs</span>
-                      </li>
-                      <li className="flex items-center gap-3 font-medium">
-                        <X className="h-5 w-5 flex-shrink-0 text-red-600" />
-                        <span>"Contact for quote"</span>
-                      </li>
-                      <li className="flex items-center gap-3 font-medium">
-                        <X className="h-5 w-5 flex-shrink-0 text-red-600" />
-                        <span>Surprise invoices</span>
-                      </li>
-                      <li className="flex items-center gap-3 font-medium">
-                        <X className="h-5 w-5 flex-shrink-0 text-red-600" />
-                        <span>Fragmented modules</span>
-                      </li>
-                      <li className="flex items-center gap-3 font-medium">
-                        <X className="h-5 w-5 flex-shrink-0 text-red-600" />
-                        <span>Expensive setup & training</span>
-                      </li>
-                    </ul>
+            {/* Main pricing card */}
+            <div className="mx-auto max-w-2xl mb-16">
+              <div className="relative rounded-[40px] border-2 border-blue-500/50 bg-gradient-to-br from-blue-50 via-white to-purple-50 p-12 shadow-2xl overflow-hidden">
+                {/* Decorative gradient blur */}
+                <div className="absolute top-0 right-0 h-40 w-40 bg-blue-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
+                <div className="absolute bottom-0 left-0 h-40 w-40 bg-purple-500/10 rounded-full blur-3xl -ml-20 -mb-20"></div>
+                
+                <div className="relative text-center">
+                  <div className="inline-block mb-6">
+                    <Badge className="bg-gradient-to-r from-blue-500 to-purple-500 text-white">Most popular</Badge>
                   </div>
-                  <div className="group rounded-2xl border-2 border-emerald-300 bg-gradient-to-br from-emerald-100 to-emerald-200 p-8 shadow-lg shadow-emerald-500/30 transition-all duration-300 hover:shadow-2xl hover:shadow-emerald-500/50 hover:scale-105 hover:border-emerald-400">
-                    <div className="flex items-center gap-4">
-                      <div className="rounded-xl bg-gradient-to-br from-emerald-300 to-emerald-400 p-3 shadow-md">
-                        <CheckCircle2 className="h-6 w-6 text-emerald-800" />
-                      </div>
-                      <h4 className="text-xl font-bold text-emerald-900">CG-360</h4>
+                  
+                  <div className="mb-8">
+                    <div className="text-7xl font-black text-slate-900 tracking-tight">£350</div>
+                    <div className="text-lg text-slate-600 mt-2">per month • per site</div>
+                  </div>
+
+                  <div className="flex items-center justify-center gap-4 mb-8 pb-8 border-b-2 border-slate-200">
+                    <div className="text-center">
+                      <div className="text-sm font-semibold text-emerald-600">Setup cost</div>
+                      <div className="text-2xl font-bold text-slate-900">£0</div>
                     </div>
-                    <ul className="mt-6 space-y-3 text-sm text-emerald-800">
-                      <li className="flex items-center gap-3 font-medium">
-                        <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-600" />
-                        <span>Everything included</span>
-                      </li>
-                      <li className="flex items-center gap-3 font-medium">
-                        <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-600" />
-                        <span>Transparent pricing</span>
-                      </li>
-                      <li className="flex items-center gap-3 font-medium">
-                        <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-600" />
-                        <span>No surprise fees</span>
-                      </li>
-                      <li className="flex items-center gap-3 font-medium">
-                        <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-600" />
-                        <span>All modules in one</span>
-                      </li>
-                      <li className="flex items-center gap-3 font-medium">
-                        <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-600" />
-                        <span>Free setup & training</span>
-                      </li>
-                    </ul>
+                    <div className="text-slate-300">•</div>
+                    <div className="text-center">
+                      <div className="text-sm font-semibold text-emerald-600">Free training</div>
+                      <div className="text-2xl font-bold text-slate-900">Included</div>
+                    </div>
+                    <div className="text-slate-300">•</div>
+                    <div className="text-center">
+                      <div className="text-sm font-semibold text-emerald-600">Backout clause</div>
+                      <div className="text-2xl font-bold text-slate-900">14 days</div>
+                    </div>
+                  </div>
+
+                  {/* Feature groups */}
+                  <div className="grid gap-8 sm:grid-cols-3 mt-8 mb-10">
+                    <div className="text-left">
+                      <h4 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                        <div className="h-6 w-6 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 text-sm">📄</div>
+                        Documents
+                      </h4>
+                      <ul className="space-y-2 text-sm text-slate-600">
+                        <li className="flex items-center gap-2">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                          Smart management
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                          AI indexing
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                          Version control
+                        </li>
+                      </ul>
+                    </div>
+
+                    <div className="text-left">
+                      <h4 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                        <div className="h-6 w-6 rounded-lg bg-purple-100 flex items-center justify-center text-purple-600 text-sm">⚙️</div>
+                        Operations
+                      </h4>
+                      <ul className="space-y-2 text-sm text-slate-600">
+                        <li className="flex items-center gap-2">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                          Dependency modeling
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                          Rotas & scheduling
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                          Action plans
+                        </li>
+                      </ul>
+                    </div>
+
+                    <div className="text-left">
+                      <h4 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                        <div className="h-6 w-6 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600 text-sm">📊</div>
+                        Insights
+                      </h4>
+                      <ul className="space-y-2 text-sm text-slate-600">
+                        <li className="flex items-center gap-2">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                          Live analytics
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                          Inspector portals
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                          Compliance tracking
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  {/* CTA buttons */}
+                  <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
+                    <Button
+                      size="lg"
+                      onClick={openCalendlyModal}
+                      className="bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 shadow-lg text-lg py-6 px-12"
+                    >
+                      Book your demo
+                    </Button>
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="border-2 border-slate-300 text-slate-900 hover:bg-slate-50"
+                    >
+                      View full feature list
+                    </Button>
                   </div>
                 </div>
               </div>
 
-              <div className="flex justify-center">
-                <div className="group relative w-full max-w-md rounded-[32px] border border-slate-200 bg-white p-8 shadow-2xl transition-all duration-300 hover:scale-105 hover:shadow-3xl">
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 px-4 py-2 text-sm font-semibold text-white shadow-lg">
-                    All-Inclusive
+              {/* Trust indicators */}
+              <div className="text-center mt-8 text-sm text-slate-600">
+                <p>✓ 14-day backout clause</p>
+              </div>
+            </div>
+
+            {/* Comparison section */}
+            <div className="mt-24 pt-24 border-t-2 border-slate-200">
+              <div className="text-center mb-16">
+                <h3 className="text-3xl font-bold text-slate-900 mb-4">Why teams choose CG-360</h3>
+                <p className="text-lg text-slate-600">Compare the cost of competitors vs the complete CG-360 solution</p>
+              </div>
+
+              <div className="grid gap-8 lg:grid-cols-2">
+                {/* The problem */}
+                <div className="rounded-3xl border-2 border-red-200 bg-gradient-to-br from-red-50 to-red-100/50 p-10">
+                  <div className="flex items-center gap-3 mb-8">
+                    <div className="h-12 w-12 rounded-full bg-red-500/20 flex items-center justify-center">
+                      <AlertTriangle className="h-6 w-6 text-red-600" />
+                    </div>
+                    <h4 className="text-2xl font-bold text-red-900">Typical Setup</h4>
                   </div>
-                  <div className="text-center">
-                    <div className="mb-4 flex justify-center">
-                      <div className="rounded-2xl bg-gradient-to-br from-blue-500 to-purple-500 p-4 text-white shadow-lg">
-                        <PoundSterling className="h-8 w-8" />
+                  
+                  <div className="space-y-4 mb-8">
+                    <div className="flex items-start gap-3 pb-4 border-b border-red-200">
+                      <X className="h-5 w-5 text-red-600 flex-shrink-0 mt-1" />
+                      <div>
+                        <p className="font-semibold text-red-900">Policy Management Tool</p>
+                        <p className="text-sm text-red-700">£150/month</p>
                       </div>
                     </div>
-                    <p className="text-6xl font-bold text-slate-900">£350</p>
-                    <p className="text-xl text-slate-600">per month per site</p>
-                    <div className="mt-6 space-y-3 text-sm text-slate-600">
-                      <div className="flex items-center gap-3">
-                        <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-500" />
-                        <span>AI document processing</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-500" />
-                        <span>Dependency modelling</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-500" />
-                        <span>Policies & governance</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-500" />
-                        <span>Audits & evidence</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-500" />
-                        <span>Action plans & supervisions</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-500" />
-                        <span>Inspection portals</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-500" />
-                        <span>Admin overview & analytics</span>
+                    <div className="flex items-start gap-3 pb-4 border-b border-red-200">
+                      <X className="h-5 w-5 text-red-600 flex-shrink-0 mt-1" />
+                      <div>
+                        <p className="font-semibold text-red-900">Audit & Compliance Module</p>
+                        <p className="text-sm text-red-700">£200/month</p>
                       </div>
                     </div>
-                    <div className="mt-6 rounded-lg bg-slate-50 p-4 text-xs text-slate-500">
-                      <p>Setup: £0 • Free training included</p>
-                      <p>14-day backout clause • Minimum 12-month contract</p>
+                    <div className="flex items-start gap-3 pb-4 border-b border-red-200">
+                      <X className="h-5 w-5 text-red-600 flex-shrink-0 mt-1" />
+                      <div>
+                        <p className="font-semibold text-red-900">Analytics Add-on</p>
+                        <p className="text-sm text-red-700">£100/month</p>
+                      </div>
                     </div>
-                    <div className="mt-6">
-                      <Button
-                        size="lg"
-                        onClick={openCalendlyModal}
-                        className="w-full bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg hover:from-blue-500/90 hover:to-purple-500/90"
-                      >
-                        Book Your Demo
-                      </Button>
+                    <div className="flex items-start gap-3 pb-4 border-b border-red-200">
+                      <X className="h-5 w-5 text-red-600 flex-shrink-0 mt-1" />
+                      <div>
+                        <p className="font-semibold text-red-900">Inspector Portal (Extra)</p>
+                        <p className="text-sm text-red-700">£75/month</p>
+                      </div>
                     </div>
+                    <div className="flex items-start gap-3">
+                      <X className="h-5 w-5 text-red-600 flex-shrink-0 mt-1" />
+                      <div>
+                        <p className="font-semibold text-red-900">Implementation & Training</p>
+                        <p className="text-sm text-red-700">£5,000+</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-red-500/20 rounded-2xl p-4 text-center border border-red-300">
+                    <p className="text-sm text-red-700 mb-1">Total monthly cost</p>
+                    <p className="text-4xl font-bold text-red-900">£525+</p>
+                    <p className="text-xs text-red-700 mt-2">Plus setup costs, no integration, tool switching</p>
                   </div>
                 </div>
+
+                {/* The solution */}
+                <div className="rounded-3xl border-2 border-emerald-200 bg-gradient-to-br from-emerald-50 to-emerald-100/50 p-10 relative ring-2 ring-emerald-400/50">
+                  <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                    <Badge className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white">Recommended</Badge>
+                  </div>
+
+                  <div className="flex items-center gap-3 mb-8">
+                    <div className="h-12 w-12 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                      <CheckCircle2 className="h-6 w-6 text-emerald-600" />
+                    </div>
+                    <h4 className="text-2xl font-bold text-emerald-900">CG-360</h4>
+                  </div>
+                  
+                  <div className="space-y-4 mb-8">
+                    <div className="flex items-start gap-3 pb-4 border-b border-emerald-200">
+                      <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-1" />
+                      <div>
+                        <p className="font-semibold text-emerald-900">Complete platform</p>
+                        <p className="text-sm text-emerald-700">All features included</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3 pb-4 border-b border-emerald-200">
+                      <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-1" />
+                      <div>
+                        <p className="font-semibold text-emerald-900">No hidden costs</p>
+                        <p className="text-sm text-emerald-700">Everything in one subscription</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3 pb-4 border-b border-emerald-200">
+                      <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-1" />
+                      <div>
+                        <p className="font-semibold text-emerald-900">Seamless integration</p>
+                        <p className="text-sm text-emerald-700">No tool switching</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3 pb-4 border-b border-emerald-200">
+                      <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-1" />
+                      <div>
+                        <p className="font-semibold text-emerald-900">Free setup & training</p>
+                        <p className="text-sm text-emerald-700">4-week onboarding included</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-1" />
+                      <div>
+                        <p className="font-semibold text-emerald-900">Live support</p>
+                        <p className="text-sm text-emerald-700">Dedicated support team</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-emerald-500/20 rounded-2xl p-4 text-center border border-emerald-300">
+                    <p className="text-sm text-emerald-700 mb-1">Total monthly cost</p>
+                    <p className="text-4xl font-bold text-emerald-900">£350</p>
+                    <p className="text-xs text-emerald-700 mt-2">No setup costs, no surprises, everything integrated</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Savings callout */}
+              <div className="mt-12 rounded-2xl bg-gradient-to-r from-blue-500/10 to-purple-500/10 border-2 border-blue-200 p-8 text-center">
+                <p className="text-lg text-slate-900 mb-2">
+                  <span className="font-bold">Save 33%+ per month</span> compared to piecing together competitors' tools
+                </p>
+                <p className="text-slate-600">Plus eliminate switching costs, integration complexity, and training overhead</p>
               </div>
             </div>
           </div>
         </section>
+        </div>
 
         <section id="comparison" className="relative overflow-hidden bg-slate-950 py-24 text-white">
           <div className="absolute inset-0">
