@@ -954,11 +954,11 @@ export default function Page() {
             </div>
             <span className="text-xl font-semibold tracking-tight">CG-360</span>
           </Link>
-          <nav className="hidden items-center gap-6 text-sm font-medium text-slate-200 md:flex">
+            <nav className="hidden items-center gap-6 text-sm font-medium text-slate-200 md:flex">
             <Link href="#platform" className="hover:text-white transition-colors">Platform</Link>
             <Link href="#workflow" className="hover:text-white transition-colors">Workflow</Link>
             <Link href="#analytics" className="hover:text-white transition-colors">Analytics</Link>
-            <Link href="#pricing" className="hover:text-white transition-colors">Pricing</Link>
+            {false && (<Link href="#pricing" className="hover:text-white transition-colors">Pricing</Link>)}
             <Link href="#demo" className="hover:text-white transition-colors">Demo</Link>
           </nav>
           <Button
@@ -1581,6 +1581,7 @@ export default function Page() {
           </div>
         </section>
 
+        {false && (
         <section id="pricing" className="relative py-24 text-slate-900">
           <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
             {/* Header */}
@@ -1851,6 +1852,7 @@ export default function Page() {
             </div>
           </div>
         </section>
+        )}
         </div>
 
         <section id="comparison" className="relative overflow-hidden bg-slate-950 py-24 text-white">
