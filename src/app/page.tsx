@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type ReactNode } from "react";
+import React, { type ReactNode, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Logo } from "@/components/icons/logo";
@@ -941,6 +941,107 @@ const competitorPainPoints: PainPoint[] = [
   }
 ];
 
+// Public REST URL for the Firebase Storage object you uploaded.
+// Converted from: gs://docuflow-9a786.firebasestorage.app/video/CG360demo.mp4
+const VIDEO_SRC = "https://firebasestorage.googleapis.com/v0/b/docuflow-9a786.firebasestorage.app/o/video%2FCG360demo.mp4?alt=media";
+
+function VideoPlayer({ src, poster }: { src: string; poster?: string }) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [shouldLoad, setShouldLoad] = useState(false);
+  const playedKey = "cg360_hero_video_played";
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const node = containerRef.current;
+    const obs = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          setShouldLoad(true);
+          obs.disconnect();
+        }
+      });
+    });
+    obs.observe(node);
+    return () => obs.disconnect();
+  }, []);
+
+  // Attempt autoplay the first time the user sees the page (muted autoplay)
+  useEffect(() => {
+    if (!shouldLoad) return;
+    try {
+      const played = typeof window !== "undefined" && sessionStorage.getItem(playedKey) === "true";
+      const v = videoRef.current;
+      if (!played && v) {
+        v.muted = true;
+        // try to play muted (browsers usually allow this)
+        v.play().then(() => {
+          try {
+            sessionStorage.setItem(playedKey, "true");
+          } catch (_) {}
+        }).catch(() => {
+          // ignore — autoplay blocked
+        });
+      }
+    } catch (err) {
+      // ignore storage errors
+    }
+  }, [shouldLoad]);
+
+  const handleUserPlay = () => {
+    setShouldLoad(true);
+    // user-initiated play: try to unmute and play
+    requestAnimationFrame(() => {
+      const v = videoRef.current;
+      if (v) {
+        v.muted = false;
+        v.play().catch(() => {
+          // ignore
+        });
+        try {
+          sessionStorage.setItem(playedKey, "true");
+        } catch (_) {}
+      }
+    });
+  };
+
+  return (
+    <div ref={containerRef} className="w-full">
+      {!shouldLoad && (
+        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl bg-slate-900/20">
+          {poster ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={poster} alt="Demo poster" className="absolute inset-0 h-full w-full object-cover" />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center text-slate-400">Loading preview…</div>
+          )}
+          <button
+            onClick={handleUserPlay}
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/10 border border-white/20 p-4 text-white shadow-lg backdrop-blur hover:bg-white/20"
+            aria-label="Play demo"
+          >
+            <Play className="h-6 w-6" />
+          </button>
+        </div>
+      )}
+
+      {shouldLoad && (
+        <div className="w-full">
+          <video
+            ref={videoRef}
+            className="w-full rounded-2xl bg-black aspect-video"
+            controls
+            playsInline
+            preload="metadata"
+            poster={poster}
+            src={src}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Page() {
   const { openCalendlyModal } = useCalendly();
 
@@ -1020,11 +1121,13 @@ export default function Page() {
               </div>
             </div>
 
-            <div className="relative mx-auto w-full max-w-[680px]">
-              <div className="absolute -top-10 -right-10 h-28 w-28 rounded-full bg-purple-400/25 blur-2xl"></div>
-              <div className="absolute -bottom-12 -left-8 h-32 w-32 rounded-full bg-blue-400/25 blur-3xl"></div>
+            <div className="relative w-full max-w-[680px] ml-auto">
+              {/* Keep original hero visuals in DOM but hidden for now so they can be restored easily */}
+              <div className="hidden" aria-hidden="true">
+                <div className="absolute -top-10 -right-10 h-28 w-28 rounded-full bg-purple-400/25 blur-2xl"></div>
+                <div className="absolute -bottom-12 -left-8 h-32 w-32 rounded-full bg-blue-400/25 blur-3xl"></div>
 
-              <div className="relative space-y-6">
+                <div className="relative space-y-6">
                 {/* Top metric card - Major impact stat */}
                 <div className="rounded-[32px] border border-white/10 bg-gradient-to-br from-blue-500/20 via-purple-500/20 to-indigo-500/20 p-8 shadow-[0_45px_120px_-60px_rgba(79,70,229,0.7)] backdrop-blur-xl overflow-hidden">
                   <div className="relative">
@@ -1205,7 +1308,11 @@ export default function Page() {
                 <p className="text-[10px] text-slate-300 text-center">12-week trend</p>
                 <p className="text-xs font-bold text-blue-200 text-center">+18% improvement</p>
               </div>
-            </div>
+              </div>
+              </div>
+              <div className="relative lg:absolute lg:top-1/2 lg:right-12 lg:-translate-y-1/2 lg:w-[820px] w-full">
+                <VideoPlayer src={VIDEO_SRC} poster="/demo-poster.jpg" />
+              </div>
           </div>
         </section>
 
