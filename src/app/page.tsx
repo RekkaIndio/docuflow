@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import React, { type ReactNode, useEffect, useRef, useState } from "react";
+import React, { type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Logo } from "@/components/icons/logo";
@@ -941,106 +941,7 @@ const competitorPainPoints: PainPoint[] = [
   }
 ];
 
-// Public REST URL for the Firebase Storage object you uploaded.
-// Converted from: gs://docuflow-9a786.firebasestorage.app/video/CG360demo.mp4
-const VIDEO_SRC = "https://firebasestorage.googleapis.com/v0/b/docuflow-9a786.firebasestorage.app/o/video%2FCG360demo.mp4?alt=media";
 
-function VideoPlayer({ src, poster }: { src: string; poster?: string }) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [shouldLoad, setShouldLoad] = useState(false);
-  const playedKey = "cg360_hero_video_played";
-
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const node = containerRef.current;
-    const obs = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          setShouldLoad(true);
-          obs.disconnect();
-        }
-      });
-    });
-    obs.observe(node);
-    return () => obs.disconnect();
-  }, []);
-
-  // Attempt autoplay the first time the user sees the page (muted autoplay)
-  useEffect(() => {
-    if (!shouldLoad) return;
-    try {
-      const played = typeof window !== "undefined" && sessionStorage.getItem(playedKey) === "true";
-      const v = videoRef.current;
-      if (!played && v) {
-        v.muted = true;
-        // try to play muted (browsers usually allow this)
-        v.play().then(() => {
-          try {
-            sessionStorage.setItem(playedKey, "true");
-          } catch (_) {}
-        }).catch(() => {
-          // ignore — autoplay blocked
-        });
-      }
-    } catch (err) {
-      // ignore storage errors
-    }
-  }, [shouldLoad]);
-
-  const handleUserPlay = () => {
-    setShouldLoad(true);
-    // user-initiated play: try to unmute and play
-    requestAnimationFrame(() => {
-      const v = videoRef.current;
-      if (v) {
-        v.muted = false;
-        v.play().catch(() => {
-          // ignore
-        });
-        try {
-          sessionStorage.setItem(playedKey, "true");
-        } catch (_) {}
-      }
-    });
-  };
-
-  return (
-    <div ref={containerRef} className="w-full">
-      {!shouldLoad && (
-        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl bg-slate-900/20">
-          {poster ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={poster} alt="Demo poster" className="absolute inset-0 h-full w-full object-cover" />
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center text-slate-400">Loading preview…</div>
-          )}
-          <button
-            onClick={handleUserPlay}
-            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/10 border border-white/20 p-4 text-white shadow-lg backdrop-blur hover:bg-white/20"
-            aria-label="Play demo"
-          >
-            <Play className="h-6 w-6" />
-          </button>
-        </div>
-      )}
-
-      {shouldLoad && (
-        <div className="w-full">
-          <video
-            ref={videoRef}
-            className="w-full rounded-2xl bg-black aspect-video"
-            controls
-            playsInline
-            preload="metadata"
-            poster={poster}
-            src={src}
-          />
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function Page() {
   const { openCalendlyModal } = useCalendly();
@@ -1121,45 +1022,39 @@ export default function Page() {
               </div>
             </div>
 
-            <div className="relative w-full max-w-[680px] ml-auto">
-              {/* Keep original hero visuals in DOM but hidden for now so they can be restored easily */}
-              <div className="hidden" aria-hidden="true">
-                <div className="absolute -top-10 -right-10 h-28 w-28 rounded-full bg-purple-400/25 blur-2xl"></div>
-                <div className="absolute -bottom-12 -left-8 h-32 w-32 rounded-full bg-blue-400/25 blur-3xl"></div>
+            <div className="relative w-full max-w-[760px] ml-auto">
+              <div className="absolute -top-20 -right-6 h-48 w-48 rounded-full bg-purple-500/30 blur-3xl"></div>
+              <div className="absolute -bottom-16 -left-8 h-40 w-40 rounded-full bg-blue-500/30 blur-3xl"></div>
+              <div className="absolute bottom-12 right-4 h-32 w-32 rounded-full bg-emerald-500/25 blur-3xl"></div>
 
-                <div className="relative space-y-6">
-                {/* Top metric card - Major impact stat */}
-                <div className="rounded-[32px] border border-white/10 bg-gradient-to-br from-blue-500/20 via-purple-500/20 to-indigo-500/20 p-8 shadow-[0_45px_120px_-60px_rgba(79,70,229,0.7)] backdrop-blur-xl overflow-hidden">
+              <div className="relative grid gap-6 lg:gap-8">
+                <div className="rounded-[32px] border border-white/10 bg-gradient-to-br from-blue-500/25 via-purple-500/20 to-indigo-500/25 p-8 shadow-[0_45px_120px_-60px_rgba(79,70,229,0.75)] backdrop-blur-xl overflow-hidden">
+                  <div className="absolute -top-12 -right-16 h-36 w-36 rounded-full bg-emerald-400/30 blur-3xl"></div>
                   <div className="relative">
-                    <div className="absolute -top-8 -right-8 h-32 w-32 rounded-full bg-emerald-400/30 blur-2xl"></div>
-                    <div className="relative">
-                      <Badge variant="secondary" className="bg-emerald-400/20 text-emerald-100 mb-4">Instant insight</Badge>
-                      <div className="flex items-end justify-between gap-4">
-                        <div>
-                          <p className="text-sm text-slate-300">Inspection readiness</p>
-                          <div className="mt-2 flex items-baseline gap-2">
-                            <p className="text-5xl font-bold text-white">96%</p>
-                            <span className="text-sm font-semibold text-emerald-300">↑ 14% this month</span>
-                          </div>
+                    <Badge variant="secondary" className="bg-emerald-400/20 text-emerald-100 mb-4">Instant insight</Badge>
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                      <div>
+                        <p className="text-sm text-slate-300">Inspection readiness</p>
+                        <div className="mt-2 flex items-baseline gap-2">
+                          <p className="text-5xl font-bold text-white">96%</p>
+                          <span className="text-sm font-semibold text-emerald-300">↑ 14% this month</span>
                         </div>
-                        <div className="h-24 w-32 flex items-end gap-1">
-                          {[65, 72, 78, 84, 90, 96].map((value, i) => (
-                            <div
-                              key={i}
-                              className="flex-1 rounded-t-lg bg-gradient-to-t from-blue-400 to-purple-400 transition-all"
-                              style={{ height: `${(value / 100) * 100}%` }}
-                            ></div>
-                          ))}
-                        </div>
+                      </div>
+                      <div className="flex h-24 w-full max-w-[200px] items-end gap-1">
+                        {[65, 72, 78, 84, 90, 96].map((value, i) => (
+                          <div
+                            key={i}
+                            className="flex-1 rounded-t-lg bg-gradient-to-t from-blue-400 to-purple-400"
+                            style={{ height: `${value}%` }}
+                          ></div>
+                        ))}
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Middle cards - Feature highlights with visual indicators */}
-                <div className="grid gap-4 lg:grid-cols-2">
-                  {/* Document flow */}
-                  <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm group hover:bg-white/10 transition-all">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm transition-all duration-300 hover:bg-white/10">
                     <div className="flex items-start gap-3">
                       <div className="rounded-xl bg-blue-500/30 p-3 text-blue-200">
                         <FileText className="h-5 w-5" />
@@ -1170,23 +1065,22 @@ export default function Page() {
                       </div>
                     </div>
                     <div className="mt-4 grid grid-cols-3 gap-2">
-                      <div className="rounded-lg bg-white/5 px-3 py-2 text-center border border-white/10">
+                      <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-center">
                         <p className="text-xs text-slate-400">Synced</p>
                         <p className="text-sm font-bold text-emerald-300">42</p>
                       </div>
-                      <div className="rounded-lg bg-white/5 px-3 py-2 text-center border border-white/10">
+                      <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-center">
                         <p className="text-xs text-slate-400">Ready</p>
                         <p className="text-sm font-bold text-blue-300">38</p>
                       </div>
-                      <div className="rounded-lg bg-white/5 px-3 py-2 text-center border border-white/10">
+                      <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-center">
                         <p className="text-xs text-slate-400">AI indexed</p>
                         <p className="text-sm font-bold text-purple-300">40</p>
                       </div>
                     </div>
                   </div>
 
-                  {/* Staffing/dependency */}
-                  <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm group hover:bg-white/10 transition-all">
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm transition-all duration-300 hover:bg-white/10">
                     <div className="flex items-start gap-3">
                       <div className="rounded-xl bg-cyan-500/30 p-3 text-cyan-200">
                         <Users className="h-5 w-5" />
@@ -1197,7 +1091,7 @@ export default function Page() {
                       </div>
                     </div>
                     <div className="mt-4 flex items-end justify-between gap-3">
-                      <div className="flex gap-2 items-end h-16">
+                      <div className="flex h-16 items-end gap-2">
                         <div className="flex flex-col items-center gap-1">
                           <div className="h-12 w-6 rounded-t-lg bg-gradient-to-t from-emerald-400 to-emerald-500"></div>
                           <span className="text-xs text-slate-400">Low</span>
@@ -1219,100 +1113,79 @@ export default function Page() {
                   </div>
                 </div>
 
-                {/* Bottom card - Action momentum */}
-                <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-emerald-500/20 to-teal-500/20 p-6 backdrop-blur-sm">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-3">
-                      <div className="rounded-xl bg-emerald-500/30 p-3 text-emerald-200">
-                        <ClipboardList className="h-5 w-5" />
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 items-stretch">
+                  <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-emerald-500/20 to-teal-500/20 p-4 backdrop-blur-sm h-full md:min-h-[220px] flex flex-col">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div className="flex items-start gap-3">
+                        <div className="rounded-xl bg-emerald-500/30 p-3 text-emerald-200">
+                          <ClipboardList className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-white">Actions moving forward</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-semibold text-white">Actions moving forward</p>
-                        <p className="text-xs text-slate-300 mt-1">28 tasks assigned and tracked</p>
+                      <div className="text-right">
+                        <p className="text-xs text-slate-400">Completion</p>
+                        <p className="text-2xl font-bold text-emerald-300">73%</p>
                       </div>
                     </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-xs text-slate-400">Completed</p>
-                      <p className="text-2xl font-bold text-emerald-300">73%</p>
+                    <div className="mt-3 h-2 w-full overflow-hidden rounded-full border border-white/20 bg-white/10">
+                      <div className="h-full w-[73%] rounded-full bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 shadow-lg shadow-emerald-400/50"></div>
+                    </div>
+                    
+                  </div>
+                  <div className="rounded-2xl border border-pink-500/30 bg-gradient-to-br from-pink-500/20 to-rose-500/10 p-4 shadow-lg shadow-pink-500/20 backdrop-blur h-full md:min-h-[220px] flex flex-col">
+                    <div className="mb-3 flex items-center gap-2">
+                      <Shield className="h-4 w-4 text-pink-300" />
+                      <span className="text-xs font-semibold text-pink-200">Inspection ready</span>
+                    </div>
+                    <p className="text-sm font-bold text-white">Next review</p>
+                    <p className="mt-1 text-xs text-slate-300">CQC portal active • 5 days</p>
+                    <div className="mt-auto rounded-lg border border-white/10 bg-white/10 py-2 text-center">
+                      <p className="text-[10px] text-slate-400">Documents viewed</p>
+                      <p className="text-lg font-bold text-pink-200">24</p>
                     </div>
                   </div>
-                  <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-white/10 border border-white/20">
-                    <div className="h-full w-[73%] rounded-full bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 shadow-lg shadow-emerald-400/50"></div>
-                  </div>
-                  <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-                    <div className="flex items-center gap-2 text-slate-300">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                      <span>Completed</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-slate-300">
-                      <div className="h-3 w-3 rounded-full bg-amber-400"></div>
-                      <span>In progress</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-slate-300">
-                      <div className="h-3 w-3 rounded-full bg-slate-400"></div>
-                      <span>Pending</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
 
-              {/* Floating accent card - Inspections */}
-              <div className="absolute -right-48 top-20 hidden w-44 rounded-2xl border border-pink-500/30 bg-gradient-to-br from-pink-500/20 to-rose-500/10 p-4 shadow-xl shadow-pink-500/20 backdrop-blur xl:block">
-                <div className="flex items-center gap-2 mb-3">
-                  <Shield className="h-4 w-4 text-pink-300" />
-                  <span className="text-xs font-semibold text-pink-200">Inspection ready</span>
-                </div>
-                <p className="text-sm font-bold text-white">Next review</p>
-                <p className="text-xs text-slate-300 mt-1">CQC portal active • 5 days</p>
-                <div className="mt-3 text-center py-2 rounded-lg bg-white/10 border border-white/10">
-                  <p className="text-[10px] text-slate-400">Documents viewed</p>
-                  <p className="text-lg font-bold text-pink-200">24</p>
-                </div>
-              </div>
-
-              {/* Floating accent card - Team updates */}
-              <div className="absolute -right-48 top-1/2 -translate-y-1/2 hidden w-44 rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-500/20 to-indigo-500/10 p-4 shadow-xl shadow-purple-500/20 backdrop-blur xl:block">
-                <div className="flex items-center gap-2 mb-3">
-                  <Bell className="h-4 w-4 text-purple-300" />
-                  <span className="text-xs font-semibold text-purple-200">Team alerts</span>
-                </div>
-                <div className="space-y-2">
-                  <div className="rounded-lg bg-white/10 border border-white/10 p-2">
-                    <p className="text-[10px] text-slate-300 font-medium">Supervision due</p>
-                    <p className="text-xs text-purple-200 font-semibold">Mia Smith • 2h</p>
+                  <div className="rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-500/20 to-indigo-500/10 p-4 shadow-lg shadow-purple-500/20 backdrop-blur h-full md:min-h-[220px] flex flex-col">
+                    <div className="mb-3 flex items-center gap-2">
+                      <Bell className="h-4 w-4 text-purple-300" />
+                      <span className="text-xs font-semibold text-purple-200">Team alerts</span>
+                    </div>
+                    <div className="space-y-2 mt-auto">
+                      <div className="rounded-lg border border-white/10 bg-white/10 p-2">
+                        <p className="text-[10px] text-slate-300 font-medium">Supervision due</p>
+                        <p className="text-xs text-purple-200 font-semibold">Mia Smith • 2h</p>
+                      </div>
+                      <div className="rounded-lg border border-white/10 bg-white/10 p-2">
+                        <p className="text-[10px] text-slate-300 font-medium">Evidence submitted</p>
+                        <p className="text-xs text-emerald-200 font-semibold">3 new files</p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="rounded-lg bg-white/10 border border-white/10 p-2">
-                    <p className="text-[10px] text-slate-300 font-medium">Evidence submitted</p>
-                    <p className="text-xs text-emerald-200 font-semibold">3 new files</p>
+
+                  <div className="rounded-2xl border border-blue-500/30 bg-gradient-to-br from-blue-500/20 to-cyan-500/10 p-4 shadow-lg shadow-blue-500/20 backdrop-blur h-full md:min-h-[220px] flex flex-col">
+                    <div className="mb-3 flex items-center gap-2">
+                      <BarChart3 className="h-4 w-4 text-blue-300" />
+                      <span className="text-xs font-semibold text-blue-200">Compliance trend</span>
+                    </div>
+                    <div className="relative mb-3 h-12 w-full mt-auto">
+                      <svg viewBox="0 0 100 40" className="h-full w-full">
+                        <path
+                          d="M5 32 Q 25 28, 45 20 T 95 10"
+                          fill="none"
+                          stroke="#06b6d4"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    </div>
+                    <p className="text-[10px] text-slate-300 text-center">12-week trend</p>
+                    <p className="text-xs font-bold text-blue-200 text-center">+18% improvement</p>
                   </div>
                 </div>
               </div>
-
-              {/* Floating accent card - Compliance tracker */}
-              <div className="absolute -right-48 bottom-20 hidden w-44 rounded-2xl border border-blue-500/30 bg-gradient-to-br from-blue-500/20 to-cyan-500/10 p-4 shadow-xl shadow-blue-500/20 backdrop-blur xl:block">
-                <div className="flex items-center gap-2 mb-3">
-                  <BarChart3 className="h-4 w-4 text-blue-300" />
-                  <span className="text-xs font-semibold text-blue-200">Compliance trend</span>
-                </div>
-                <div className="relative h-12 w-full mb-3">
-                  <svg viewBox="0 0 100 40" className="h-full w-full">
-                    <path
-                      d="M5 32 Q 25 28, 45 20 T 95 10"
-                      fill="none"
-                      stroke="#06b6d4"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                </div>
-                <p className="text-[10px] text-slate-300 text-center">12-week trend</p>
-                <p className="text-xs font-bold text-blue-200 text-center">+18% improvement</p>
-              </div>
-              </div>
-              </div>
-              <div className="relative lg:absolute lg:top-1/2 lg:right-12 lg:-translate-y-1/2 lg:w-[820px] w-full">
-                <VideoPlayer src={VIDEO_SRC} poster="/demo-poster.jpg" />
-              </div>
+            </div>
           </div>
         </section>
 

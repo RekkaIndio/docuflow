@@ -1,7 +1,10 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
-import { ChevronRight, ClipboardList, Loader2, PlusCircle, RefreshCw, Save, FileDown } from 'lucide-react';
+import { ChevronRight, ClipboardList, Loader2, PlusCircle, RefreshCw, Save, FileDown, Plus, Paperclip } from 'lucide-react';
+import type { Document as DocumentType } from '@/lib/types';
+import { UploadButton } from '@/components/dashboard/upload-button';
+import { DocumentView } from '@/components/dashboard/document-view';
 import { format, parseISO } from 'date-fns';
 import PageHeader from '@/components/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,7 +19,7 @@ import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { workspaceCollectionPath } from '@/lib/paths';
 import { generateCqcLogPdf, getCqcLogPdfFilename } from '@/lib/cqc-log-pdf';
-import { collection, doc, getDoc, getDocs, orderBy, query } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, orderBy, query, where } from 'firebase/firestore';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -64,6 +67,7 @@ type CqcFormState = {
   lessonsLearntRecordId: string | null;
   rootCauseAnalysisRecordId: string | null;
   linkedSovaLogId: string | null;
+  uploadedDocumentUrl: string | null;
 };
 
 type CqcLogRecord = {
@@ -87,6 +91,7 @@ type CqcLogRecord = {
   lessonsLearntRecordId?: string | null;
   rootCauseAnalysisRecordId?: string | null;
   linkedSovaLogId?: string | null;
+  uploadedDocumentUrl?: string | null;
 };
 
 type LessonsRecordSummary = {
@@ -179,6 +184,7 @@ const createCqcFormState = (): CqcFormState => ({
   lessonsLearntRecordId: null,
   rootCauseAnalysisRecordId: null,
   linkedSovaLogId: null,
+  uploadedDocumentUrl: null,
 });
 
 const yesNoToTriState = (value: YesNoValue): boolean | null => {
@@ -211,6 +217,7 @@ const mapCqcRecordToFormState = (entry: CqcLogRecord): CqcFormState => ({
   lessonsLearntRecordId: entry.lessonsLearntRecordId ?? null,
   rootCauseAnalysisRecordId: entry.rootCauseAnalysisRecordId ?? null,
   linkedSovaLogId: entry.linkedSovaLogId ?? null,
+  uploadedDocumentUrl: entry.uploadedDocumentUrl ?? null,
 });
 
 const safeFormatDate = (value?: string) => {
@@ -399,6 +406,9 @@ export default function CqcLogsPage() {
   const [filterRcaComplete, setFilterRcaComplete] = useState(false);
   const [filterSovaCompleted, setFilterSovaCompleted] = useState(false);
   const [lessonsDetail, setLessonsDetail] = useState<LessonsRecordDetail | null>(null);
+  const [uploadedDocumentName, setUploadedDocumentName] = useState<string | null>(null);
+  const [attachmentDialogOpen, setAttachmentDialogOpen] = useState(false);
+  const [attachmentDoc, setAttachmentDoc] = useState<DocumentType | null>(null);
   const [lessonsDetailLoading, setLessonsDetailLoading] = useState(false);
   const [rcaDetail, setRcaDetail] = useState<RcaRecordDetail | null>(null);
   const [rcaDetailLoading, setRcaDetailLoading] = useState(false);
@@ -430,6 +440,51 @@ export default function CqcLogsPage() {
   const handleCancelEdit = () => {
     setEditingEntry(null);
     setCqcForm(() => createCqcFormState());
+  };
+
+  const handleDocumentAdd = (doc: DocumentType) => {
+    const path = doc.storagePath || doc.downloadUrl || doc.id;
+    updateCqcField('uploadedDocumentUrl', path ?? null);
+    setUploadedDocumentName(doc.name || doc.id || 'Attached document');
+    toast({ title: 'Document attached', description: doc.name || 'Document added to this entry.' });
+  };
+
+  const openAttachment = async (pathOrId: string | null | undefined) => {
+    if (!pathOrId) return;
+    try {
+      const docsColPath = workspaceCollectionPath(workspaceId, 'documents', organisationId ?? null);
+      if (!docsColPath) {
+        toast({ title: 'Workspace not selected', description: 'Cannot lookup document without workspace context', variant: 'destructive' });
+        return;
+      }
+      // If path includes a slash treat as storagePath and query by storagePath
+      if (pathOrId.includes('/')) {
+        const q = query(collection(db, docsColPath), where('storagePath', '==', pathOrId));
+        const snaps = await getDocs(q);
+        if (!snaps.empty) {
+          const docSnap = snaps.docs[0];
+          const data = docSnap.data() as any;
+          const docObj: DocumentType = { id: docSnap.id, name: data.name ?? docSnap.id, fileType: data.fileType, storagePath: data.storagePath, workspaceId: data.workspaceId, downloadUrl: data.downloadUrl ?? undefined, folderId: data.folderId ?? undefined, summary: data.summary ?? undefined } as DocumentType;
+          setAttachmentDoc(docObj);
+          setAttachmentDialogOpen(true);
+          return;
+        }
+      }
+      // Otherwise assume it's an ID
+      const idRef = doc(collection(db, docsColPath), pathOrId);
+      const snap = await getDoc(idRef);
+      if (snap.exists()) {
+        const data = snap.data() as any;
+        const docObj: DocumentType = { id: snap.id, name: data.name ?? snap.id, fileType: data.fileType, storagePath: data.storagePath, workspaceId: data.workspaceId, downloadUrl: data.downloadUrl ?? undefined, folderId: data.folderId ?? undefined, summary: data.summary ?? undefined } as DocumentType;
+        setAttachmentDoc(docObj);
+        setAttachmentDialogOpen(true);
+        return;
+      }
+      toast({ title: 'Document not found', description: 'Could not find uploaded document', variant: 'destructive' });
+    } catch (err) {
+      console.error('openAttachment failed', err);
+      toast({ title: 'Error', description: 'Failed to load document for viewing', variant: 'destructive' });
+    }
   };
 
   const [isAddingCqc, startAddCqc] = useTransition();
@@ -600,6 +655,7 @@ export default function CqcLogsPage() {
           lessonsLearntRecordId: data.lessonsLearntRecordId ?? null,
           rootCauseAnalysisRecordId: data.rootCauseAnalysisRecordId ?? null,
           linkedSovaLogId: data.linkedSovaLogId ?? null,
+          uploadedDocumentUrl: data.uploadedDocumentUrl ?? null,
         };
       });
       setCqcEntries(records);
@@ -962,6 +1018,7 @@ export default function CqcLogsPage() {
           lessonsLearntRecordId: cqcForm.lessonsLearntRecordId,
           rootCauseAnalysisRecordId: cqcForm.rootCauseAnalysisRecordId,
           linkedSovaLogId: cqcForm.linkedSovaLogId,
+          uploadedDocumentUrl: cqcForm.uploadedDocumentUrl,
         };
 
         if (editingEntry) {
@@ -1018,6 +1075,36 @@ export default function CqcLogsPage() {
       window.requestAnimationFrame(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       });
+    }
+    // Attempt to resolve an attached document name when editing
+    if (entry.uploadedDocumentUrl) {
+      (async () => {
+        try {
+          const docsColPath = workspaceCollectionPath(workspaceId, 'documents', organisationId ?? null);
+          if (!docsColPath) return;
+          const pathOrId = entry.uploadedDocumentUrl;
+          if (pathOrId && pathOrId.includes('/')) {
+            const q = query(collection(db, docsColPath), where('storagePath', '==', pathOrId));
+            const snaps = await getDocs(q);
+            if (!snaps.empty) {
+              const docSnap = snaps.docs[0];
+              const data = docSnap.data() as any;
+              setUploadedDocumentName(data.name ?? docSnap.id);
+            }
+          } else {
+            const idRef = doc(collection(db, docsColPath), pathOrId as string);
+            const snap = await getDoc(idRef);
+            if (snap.exists()) {
+              const data = snap.data() as any;
+              setUploadedDocumentName(data.name ?? snap.id);
+            }
+          }
+        } catch (err) {
+          console.warn('Could not resolve attachment for editing', err);
+        }
+      })();
+    } else {
+      setUploadedDocumentName(null);
     }
   };
 
@@ -1212,12 +1299,30 @@ export default function CqcLogsPage() {
                   <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                     <div>
                       <Label htmlFor="cqc-reference">Unique reference number</Label>
-                      <Input
-                        id="cqc-reference"
-                        placeholder="H.O reference"
-                        value={cqcForm.uniqueReferenceNumber}
-                        onChange={(event) => updateCqcField('uniqueReferenceNumber', event.target.value)}
-                      />
+                      <div className="flex items-center gap-2">
+                        <Input
+                          id="cqc-reference"
+                          placeholder="H.O reference"
+                          value={cqcForm.uniqueReferenceNumber}
+                          onChange={(event) => updateCqcField('uniqueReferenceNumber', event.target.value)}
+                        />
+                        <UploadButton
+                          size="sm"
+                          workspaceId={workspaceId}
+                          folderId="root"
+                          organisationId={organisationId}
+                          onDocumentAdd={handleDocumentAdd}
+                          trigger={<Button size="icon" variant="default" disabled={!isWorkspaceSelected} className="rounded-full"><Plus className="h-4 w-4 text-white" /></Button>}
+                        />
+                        {cqcForm.uploadedDocumentUrl ? (
+                          <Button size="sm" variant="outline" onClick={() => openAttachment(cqcForm.uploadedDocumentUrl)}>
+                            View
+                          </Button>
+                        ) : null}
+                      </div>
+                      {cqcForm.uploadedDocumentUrl ? (
+                        <p className="text-xs text-slate-500">Attached: {uploadedDocumentName}</p>
+                      ) : null}
                     </div>
                     <div>
                       <Label>Running log number</Label>
@@ -1637,6 +1742,9 @@ export default function CqcLogsPage() {
                                     {entry.uniqueReferenceNumber}
                                   </Badge>
                                 ) : null}
+                                {entry.uploadedDocumentUrl ? (
+                                  <span className="text-slate-400"><Paperclip className="h-4 w-4" /></span>
+                                ) : null}
                                 {entry.createdAt ? (
                                   <span className="font-normal text-slate-400">Recorded {safeFormatDateTime(entry.createdAt)}</span>
                                 ) : null}
@@ -1821,6 +1929,20 @@ export default function CqcLogsPage() {
                       <div className="grid gap-6">
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                           <DetailField label="Unique reference" value={selectedEntry.uniqueReferenceNumber} />
+                          <DetailField
+                            label="Attachment"
+                            value={
+                              selectedEntry.uploadedDocumentUrl ? (
+                                <div className="flex items-center gap-2">
+                                  <Button size="sm" variant="outline" onClick={() => openAttachment(selectedEntry.uploadedDocumentUrl)}>
+                                    View document
+                                  </Button>
+                                </div>
+                              ) : (
+                                '—'
+                              )
+                            }
+                          />
                           <DetailField label="Running log number" value={`#${selectedEntry.runningLogNumber}`} />
                           <DetailField label="CQC notification date" value={safeFormatDate(selectedEntry.cqcNotificationDate)} />
                           <DetailField label="Incident date" value={safeFormatDate(selectedEntry.incidentDate)} />
@@ -1995,6 +2117,15 @@ export default function CqcLogsPage() {
                   </DialogFooter>
                 </>
               ) : null}
+            </DialogContent>
+          </Dialog>
+          <Dialog open={attachmentDialogOpen} onOpenChange={(open) => { if (!open) setAttachmentDialogOpen(false); }}>
+            <DialogContent className="max-w-4xl">
+              {attachmentDoc ? (
+                <DocumentView document={attachmentDoc} onBack={() => setAttachmentDialogOpen(false)} />
+              ) : (
+                <div className="p-6 text-sm text-slate-500">No attachment selected</div>
+              )}
             </DialogContent>
           </Dialog>
             </>

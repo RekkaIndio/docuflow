@@ -34,6 +34,8 @@ interface UploadButtonProps {
     folderId?: string;
   organisationId?: string | null;
     size?: "sm" | "default" | "lg";
+    // Optional custom trigger node. If provided, it replaces the default trigger button.
+    trigger?: React.ReactNode;
 }
 
 type UploadStatus = "pending" | "uploading" | "processing" | "completed" | "error";
@@ -70,7 +72,7 @@ const formatFileSize = (bytes: number) => {
 }
 
 
-export function UploadButton({ onDocumentAdd, workspaceId, folderId, organisationId, size = "default" }: UploadButtonProps) {
+export function UploadButton({ onDocumentAdd, workspaceId, folderId, organisationId, size = "default", trigger }: UploadButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploads, setUploads] = useState<FileUpload[]>([]);
@@ -329,10 +331,14 @@ export function UploadButton({ onDocumentAdd, workspaceId, folderId, organisatio
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if(!isUploading) setIsOpen(open); }}>
       <DialogTrigger asChild>
-        <Button size={size} onClick={() => { setUploads([]); setIsUploading(false); }}>
-          <Upload className="mr-2 h-4 w-4" />
-          {size === "sm" ? "Upload" : "Upload Document"}
-        </Button>
+        {trigger ? (
+          trigger
+        ) : (
+          <Button size={size} onClick={() => { setUploads([]); setIsUploading(false); }}>
+            <Upload className="mr-2 h-4 w-4" />
+            {size === "sm" ? "Upload" : "Upload Document"}
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>

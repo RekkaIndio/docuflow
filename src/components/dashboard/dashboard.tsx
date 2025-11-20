@@ -29,7 +29,7 @@ import { Skeleton } from "../ui/skeleton";
 import { useAuth } from "@/hooks/use-auth";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { TeamsView } from "./teams-view";
-import { DashboardHome } from "./dashboard-home";
+import { DashboardHome } from "@/components/dashboard/dashboard-home";
 import { SettingsView } from "./settings-view";
 import { AllDocumentsView } from "./all-documents-view";
 import { RenewalsView } from "./renewals-view";
