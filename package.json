@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 9002",
+    "dev": "next dev -p 9003",
     "generate:policy": "node scripts/generate-policy-pdf.js",
     "policies:add-front-matter": "node scripts/add-front-matter.js",
     "policies:generate-all": "node scripts/generate-all-policies.js",

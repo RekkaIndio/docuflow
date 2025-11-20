@@ -28,6 +28,7 @@ export interface AddCqcLogPayload {
   lessonsLearntRecordId?: string | null;
   rootCauseAnalysisRecordId?: string | null;
   linkedSovaLogId?: string | null;
+  uploadedDocumentUrl?: string | null;
 }
 
 export interface AddSovaLogPayload {
@@ -131,6 +132,7 @@ export async function addCqcLogEntry({ workspaceId, organisationId, payload, act
       lessonsLearntRecordId: sanitiseOptional(payload.lessonsLearntRecordId),
       rootCauseAnalysisRecordId: sanitiseOptional(payload.rootCauseAnalysisRecordId),
       linkedSovaLogId: sanitiseOptional(payload.linkedSovaLogId),
+      uploadedDocumentUrl: sanitiseOptional(payload.uploadedDocumentUrl),
       ...base,
     });
     return { id: docRef.id, runningLogNumber: nextNumber };
@@ -179,6 +181,7 @@ export async function updateCqcLogEntry({ workspaceId, organisationId, payload, 
     lessonsLearntRecordId: sanitiseOptional(payload.lessonsLearntRecordId),
     rootCauseAnalysisRecordId: sanitiseOptional(payload.rootCauseAnalysisRecordId),
     linkedSovaLogId: sanitiseOptional(payload.linkedSovaLogId),
+    uploadedDocumentUrl: sanitiseOptional(payload.uploadedDocumentUrl),
     updatedAt: timestamp,
     updatedBy: buildUpdatedBy(actor),
   };
