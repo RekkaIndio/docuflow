@@ -47,106 +47,106 @@ import { FeatureGuard } from '@/components/feature-guard';
 
 
 function findAndAddDocument(folders: (Folder | Document)[], targetFolderId: string, document: Document): (Folder | Document)[] {
-    return folders.map(item => {
-        if (item.type === 'folder') {
-            if (item.id === targetFolderId) {
-                return {
-                    ...item,
-                    items: [document, ...item.items],
-                };
-            }
-            // Recurse
-            const updatedItems = findAndAddDocument(item.items, targetFolderId, document);
-            if (updatedItems !== item.items) {
-                 return { ...item, items: updatedItems };
-            }
-        }
-        return item;
-    });
+  return folders.map(item => {
+    if (item.type === 'folder') {
+      if (item.id === targetFolderId) {
+        return {
+          ...item,
+          items: [document, ...item.items],
+        };
+      }
+      // Recurse
+      const updatedItems = findAndAddDocument(item.items, targetFolderId, document);
+      if (updatedItems !== item.items) {
+        return { ...item, items: updatedItems };
+      }
+    }
+    return item;
+  });
 }
 
 function findAndAddFolder(items: (Folder | Document)[], parentId: string, newFolder: Folder): (Folder | Document)[] {
-    if (parentId === 'root') {
-        return [newFolder, ...items];
-    }
+  if (parentId === 'root') {
+    return [newFolder, ...items];
+  }
 
-    return items.map(item => {
-        if (item.type === 'folder') {
-            if (item.id === parentId) {
-                // This is the parent folder, add the new folder to its items
-                return {
-                    ...item,
-                    items: [newFolder, ...item.items],
-                };
-            } else if (item.items && item.items.length > 0) {
-                // This is not the parent, but it has sub-folders. Recurse.
-                const updatedItems = findAndAddFolder(item.items, parentId, newFolder);
-                // If the recursive call made a change, return the updated item
-                if (updatedItems !== item.items) {
-                    return { ...item, items: updatedItems };
-                }
-            }
+  return items.map(item => {
+    if (item.type === 'folder') {
+      if (item.id === parentId) {
+        // This is the parent folder, add the new folder to its items
+        return {
+          ...item,
+          items: [newFolder, ...item.items],
+        };
+      } else if (item.items && item.items.length > 0) {
+        // This is not the parent, but it has sub-folders. Recurse.
+        const updatedItems = findAndAddFolder(item.items, parentId, newFolder);
+        // If the recursive call made a change, return the updated item
+        if (updatedItems !== item.items) {
+          return { ...item, items: updatedItems };
         }
-        return item;
-    });
+      }
+    }
+    return item;
+  });
 }
 
 
 function findAndRemoveItem(items: (Folder | Document)[], itemId: string): (Folder | Document)[] {
-    return items.filter(item => item.id !== itemId).map(item => {
-        if (item.type === 'folder') {
-            return {
-                ...item,
-                items: findAndRemoveItem(item.items, itemId),
-            };
-        }
-        return item;
-    });
+  return items.filter(item => item.id !== itemId).map(item => {
+    if (item.type === 'folder') {
+      return {
+        ...item,
+        items: findAndRemoveItem(item.items, itemId),
+      };
+    }
+    return item;
+  });
 }
 
 function findItemById(items: (Folder | Document)[], itemId: string): Folder | Document | null {
-    if (itemId === 'root') return null; // Root isn't a real item in the array
-    for (const item of items) {
-        if (item.id === itemId) {
-            return item;
-        }
-        if (item.type === 'folder') {
-            const found = findItemById(item.items, itemId);
-            if (found) {
-                return found;
-            }
-        }
+  if (itemId === 'root') return null; // Root isn't a real item in the array
+  for (const item of items) {
+    if (item.id === itemId) {
+      return item;
     }
-    return null;
+    if (item.type === 'folder') {
+      const found = findItemById(item.items, itemId);
+      if (found) {
+        return found;
+      }
+    }
+  }
+  return null;
 }
 
 
 const LoadingDashboard = () => (
-    <SidebarProvider defaultOpen>
-        <Sidebar>
-             <div className="flex flex-col p-4 gap-4">
-                <Skeleton className="h-8 w-4/5" />
-                <Skeleton className="h-6 w-3/5" />
-            </div>
-            <div className="p-4 space-y-2">
-                <Skeleton className="h-8 w-full" />
-                <Skeleton className="h-8 w-full" />
-                <Skeleton className="h-8 w-full" />
-            </div>
-        </Sidebar>
-        <SidebarInset>
-            <div className="p-4">
-                <Skeleton className="h-10 w-1/4 mb-4" />
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                    <Skeleton className="h-32 w-full" />
-                    <Skeleton className="h-32 w-full" />
-                    <Skeleton className="h-32 w-full" />
-                    <Skeleton className="h-32 w-full" />
-                    <Skeleton className="h-32 w-full" />
-                </div>
-            </div>
-        </SidebarInset>
-    </SidebarProvider>
+  <SidebarProvider defaultOpen>
+    <Sidebar>
+      <div className="flex flex-col p-4 gap-4">
+        <Skeleton className="h-8 w-4/5" />
+        <Skeleton className="h-6 w-3/5" />
+      </div>
+      <div className="p-4 space-y-2">
+        <Skeleton className="h-8 w-full" />
+        <Skeleton className="h-8 w-full" />
+        <Skeleton className="h-8 w-full" />
+      </div>
+    </Sidebar>
+    <SidebarInset>
+      <div className="p-4">
+        <Skeleton className="h-10 w-1/4 mb-4" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-32 w-full" />
+        </div>
+      </div>
+    </SidebarInset>
+  </SidebarProvider>
 )
 
 const DASHBOARD_VIEWS = [
@@ -212,7 +212,7 @@ export function Dashboard() {
   const pendingRouterUpdateRef = useRef<string | null>(null);
 
   useEffect(() => {
-  const param = searchParams?.get('view') ?? null;
+    const param = searchParams?.get('view') ?? null;
     const normalized = isDashboardView(param) ? param : 'home';
 
     if (pendingViewSyncRef.current && normalized === pendingViewSyncRef.current) {
@@ -228,7 +228,7 @@ export function Dashboard() {
     if (pendingRouterUpdateRef.current !== null) {
       const targetView = pendingRouterUpdateRef.current;
       pendingRouterUpdateRef.current = null;
-      
+
       const params = new URLSearchParams(window.location.search);
       if (targetView === 'home') {
         params.delete('view');
@@ -257,11 +257,11 @@ export function Dashboard() {
 
   // Primitive workspace identifiers to avoid repeated optional chaining and
   // to allow stable primitive deps in hooks.
-    const workspaceId = activeWorkspace?.id ?? null;
-    const organisationId = (activeWorkspace as any)?.organisationId || undefined;
+  const workspaceId = activeWorkspace?.id ?? null;
+  const organisationId = (activeWorkspace as any)?.organisationId || undefined;
 
   // Load feature flags for the organisation
-    const { isEnabled } = useFeatureFlags(organisationId, workspaceId);
+  const { isEnabled } = useFeatureFlags(organisationId, workspaceId);
 
 
   useEffect(() => {
@@ -275,9 +275,9 @@ export function Dashboard() {
     // Listen for unread notifications count for the active workspace
     let unsub: (() => void) | undefined;
     let dailyUnsub: (() => void) | undefined;
-      if (typeof window !== 'undefined') {
-        window.addEventListener('chat-response', handleChatResponse as EventListener);
-      }
+    if (typeof window !== 'undefined') {
+      window.addEventListener('chat-response', handleChatResponse as EventListener);
+    }
     // Ensure org user record exists before attaching org-scoped listeners so
     // the subscription won't fail with permission-denied when the org user
     // document is missing.
@@ -339,7 +339,7 @@ export function Dashboard() {
       if (unsub) unsub();
       if (dailyUnsub) dailyUnsub();
       if (typeof window !== 'undefined') {
-        try { window.removeEventListener('chat-response', handleChatResponse as EventListener); } catch (e) {}
+        try { window.removeEventListener('chat-response', handleChatResponse as EventListener); } catch (e) { }
       }
     };
   }, [workspaces, workspaceId, organisationId]);
@@ -350,10 +350,10 @@ export function Dashboard() {
       if (authLoading) return;
       if (!user) return;
       setLoading(true);
-      
-  // Pass the server-hydrated organisationId to avoid client-side reads that may be denied
-  const orgId = (user as any)?.organisationId;
-  let userWorkspaces = await getWorkspacesForUser(user.id, orgId || undefined);
+
+      // Pass the server-hydrated organisationId to avoid client-side reads that may be denied
+      const orgId = (user as any)?.organisationId;
+      let userWorkspaces = await getWorkspacesForUser(user.id, orgId || undefined);
 
       // If we were redirected from accept-invite (just signed in via magic-link),
       // wait a short while for admin writes (workspace.members updates) to become visible.
@@ -375,18 +375,20 @@ export function Dashboard() {
             // ignore and retry
           }
         }
-        try { if (typeof window !== 'undefined') window.localStorage.removeItem('awaitingWorkspace'); } catch (e) {}
+        try { if (typeof window !== 'undefined') window.localStorage.removeItem('awaitingWorkspace'); } catch (e) { }
       }
-      
+
       // Only create a workspace if we are sure the user has none and the query did not fail due to permissions
       if (Array.isArray(userWorkspaces) && userWorkspaces.length === 0) {
         // Add a guard: check if this is the first load, and not a refresh after a failed query
         // Optionally, check for a flag in localStorage/sessionStorage to avoid repeated creation
-        if (!window.localStorage.getItem('workspaceCreated')) {
+        if (typeof window !== 'undefined' && window.localStorage && typeof window.localStorage.getItem === 'function' && !window.localStorage.getItem('workspaceCreated')) {
           try {
             const newWorkspace = await handleCreateWorkspace(`${user.name || 'My'}'s Workspace`);
             userWorkspaces = [newWorkspace];
-            window.localStorage.setItem('workspaceCreated', 'true');
+            if (typeof window !== 'undefined' && window.localStorage && typeof window.localStorage.setItem === 'function') {
+              window.localStorage.setItem('workspaceCreated', 'true');
+            }
           } catch (err) {
             console.error('Workspace creation failed:', err);
           }
@@ -395,25 +397,25 @@ export function Dashboard() {
         }
       }
 
-  // evidenceFolders removed: evidence folders are now created as protected folders (server-side)
+      // evidenceFolders removed: evidence folders are now created as protected folders (server-side)
 
       // Initialize protected (immutable) folders in the main folders list if not present
       const protectedFoldersTemplate = (workspaceId: string): any[] => [
-  // The former "Outstanding Evidence" group is a single protected folder containing five protected child folders
-  {
-    id: 'outstanding-evidence',
-    name: 'Outstanding Evidence',
-    type: 'folder',
-    workspaceId,
-    parentId: null,
-    items: [
-      { id: 'evidence-safe', name: 'Safe', type: 'folder', items: [], workspaceId, parentId: 'outstanding-evidence' },
-      { id: 'evidence-effective', name: 'Effective', type: 'folder', items: [], workspaceId, parentId: 'outstanding-evidence' },
-      { id: 'evidence-caring', name: 'Caring', type: 'folder', items: [], workspaceId, parentId: 'outstanding-evidence' },
-      { id: 'evidence-well-led', name: 'Well-led', type: 'folder', items: [], workspaceId, parentId: 'outstanding-evidence' },
-      { id: 'evidence-responsive', name: 'Responsive', type: 'folder', items: [], workspaceId, parentId: 'outstanding-evidence' },
-    ],
-  },
+        // The former "Outstanding Evidence" group is a single protected folder containing five protected child folders
+        {
+          id: 'outstanding-evidence',
+          name: 'Outstanding Evidence',
+          type: 'folder',
+          workspaceId,
+          parentId: null,
+          items: [
+            { id: 'evidence-safe', name: 'Safe', type: 'folder', items: [], workspaceId, parentId: 'outstanding-evidence' },
+            { id: 'evidence-effective', name: 'Effective', type: 'folder', items: [], workspaceId, parentId: 'outstanding-evidence' },
+            { id: 'evidence-caring', name: 'Caring', type: 'folder', items: [], workspaceId, parentId: 'outstanding-evidence' },
+            { id: 'evidence-well-led', name: 'Well-led', type: 'folder', items: [], workspaceId, parentId: 'outstanding-evidence' },
+            { id: 'evidence-responsive', name: 'Responsive', type: 'folder', items: [], workspaceId, parentId: 'outstanding-evidence' },
+          ],
+        },
         {
           id: 'audits',
           name: 'Audits',
@@ -486,10 +488,10 @@ export function Dashboard() {
       let assignedWorkspaceId: string | null = null;
       try { if (typeof window !== 'undefined') assignedWorkspaceId = window.localStorage.getItem('assignedWorkspaceId'); } catch (e) { assignedWorkspaceId = null; }
 
-  try {
-    // Debug logging removed: previously logged fetched workspace ids for debugging
-  } catch(e) {}
-  setWorkspaces(userWorkspaces);
+      try {
+        // Debug logging removed: previously logged fetched workspace ids for debugging
+      } catch (e) { }
+      setWorkspaces(userWorkspaces);
       if (assignedWorkspaceId) {
         const found = userWorkspaces.find(ws => ws.id === assignedWorkspaceId) || null;
         if (found) {
@@ -497,7 +499,7 @@ export function Dashboard() {
         } else {
           setActiveWorkspace(userWorkspaces[0]);
         }
-        try { if (typeof window !== 'undefined') window.localStorage.removeItem('assignedWorkspaceId'); } catch (e) {}
+        try { if (typeof window !== 'undefined') window.localStorage.removeItem('assignedWorkspaceId'); } catch (e) { }
       } else {
         setActiveWorkspace(userWorkspaces[0]);
       }
@@ -516,7 +518,7 @@ export function Dashboard() {
         if (known && currentHash !== known) {
           // Clear stored markers
           docHashRef.current = null;
-          try { if (typeof window !== 'undefined') { (window as any).__docuflow_doc_hash = null; } } catch (e) {}
+          try { if (typeof window !== 'undefined') { (window as any).__docuflow_doc_hash = null; } } catch (e) { }
           // Only switch back to policies if we're currently showing files
           // (i.e., the document view). This avoids surprising behaviour.
           setSelected(null);
@@ -527,7 +529,7 @@ export function Dashboard() {
       }
     };
 
-  if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined') {
       window.addEventListener('hashchange', handleHashChange);
     }
 
@@ -581,11 +583,11 @@ export function Dashboard() {
           storagePath: resolvedStoragePath,
         } as Document;
 
-  setLastChatDetail(undefined);
-  // store where we came from so the back button returns there
-  prevViewRef.current = view || 'home';
-  setSelected(doc as Document);
-  setView('files');
+        setLastChatDetail(undefined);
+        // store where we came from so the back button returns there
+        prevViewRef.current = view || 'home';
+        setSelected(doc as Document);
+        setView('files');
 
         // Add a small hash marker so the browser back button can return
         // to the policies view. We use a predictable prefix so it's easy
@@ -598,7 +600,7 @@ export function Dashboard() {
             window.location.hash = marker;
             // remember marker locally so handler can compare
             docHashRef.current = marker;
-            try { (window as any).__docuflow_doc_hash = marker; } catch (e) {}
+            try { (window as any).__docuflow_doc_hash = marker; } catch (e) { }
           }
         } catch (e) {
           // ignore
@@ -606,14 +608,14 @@ export function Dashboard() {
 
         // dispatch highlight so file browser (if visible) can react
         if (typeof window !== 'undefined' && window.dispatchEvent) {
-          try { window.dispatchEvent(new CustomEvent('highlight-document', { detail: { documentId: doc.id } })); } catch (e) {}
+          try { window.dispatchEvent(new CustomEvent('highlight-document', { detail: { documentId: doc.id } })); } catch (e) { }
         }
 
         return;
       }
-      
+
       if (!activeWorkspace) return;
-      
+
       // Find the document in the workspace
       const findDocument = (items: (Folder | Document)[]): Document | null => {
         for (const item of items) {
@@ -627,7 +629,7 @@ export function Dashboard() {
         }
         return null;
       };
-      
+
       const document = findDocument(activeWorkspace.folders);
       if (document) {
         // Select the document itself so the dashboard will render DocumentView for it
@@ -667,15 +669,15 @@ export function Dashboard() {
 
         // Still dispatch highlight so any file browser can scroll/highlight the item
         if (typeof window !== 'undefined' && window.dispatchEvent) {
-          try { window.dispatchEvent(new CustomEvent('highlight-document', { detail: { documentId } })); } catch (e) {}
+          try { window.dispatchEvent(new CustomEvent('highlight-document', { detail: { documentId } })); } catch (e) { }
         }
       } else {
         // Document not found, show a toast or fallback behavior
         console.warn(`Document ${documentId} (${documentName}) not found in workspace`);
-        
+
         // For demo purposes, show a helpful message
         if (typeof window !== 'undefined') {
-        
+
           window.alert(`Document "${documentName || documentId}" not found in the current workspace.\n\nThis might be because:\n- The document hasn't been uploaded yet\n- You don't have access to this document\n- The document was moved or deleted\n\nIn a real application, this would show proper error handling or redirect to an upload page.`);
         }
       }
@@ -799,26 +801,26 @@ export function Dashboard() {
         window.removeEventListener('navigate-to-dashboard', handleDashboardNavigation as EventListener);
         window.removeEventListener('navigate-to-policies', handlePoliciesNavigation as EventListener);
         window.removeEventListener('navigate-to-journal', handleJournalNavigation as EventListener);
-        try { window.removeEventListener('hashchange', handleHashChange); } catch (e) {}
-        try { delete (window as any).__docuflow_set_doc_hash; } catch (e) {}
-        try { delete (window as any).__docuflow_doc_hash; } catch (e) {}
+        try { window.removeEventListener('hashchange', handleHashChange); } catch (e) { }
+        try { delete (window as any).__docuflow_set_doc_hash; } catch (e) { }
+        try { delete (window as any).__docuflow_doc_hash; } catch (e) { }
       };
     }
-  // Include view/user/workspaces so handlers capture the latest state (avoid stale closures)
-  // Use stable primitive dependencies so the dependency array length stays constant
+    // Include view/user/workspaces so handlers capture the latest state (avoid stale closures)
+    // Use stable primitive dependencies so the dependency array length stays constant
   }, [workspaceId, view, user?.id, workspaces.length]);
 
   const handleCreateWorkspace = async (name: string): Promise<Workspace> => {
     if (!user) throw new Error("User not authenticated");
     const newWorkspaceData: Omit<Workspace, 'id' | 'folders'> = {
-        name: name,
-        ownerId: user.id,
-        members: [user.id],
+      name: name,
+      ownerId: user.id,
+      members: [user.id],
     };
     // Pass the organisationId if available to prefer org-scoped workspaces
     const orgId = (user as any)?.organisationId;
     const newWorkspace = await createWorkspace(newWorkspaceData, orgId || undefined);
-    
+
     setWorkspaces(prev => [...prev, newWorkspace]);
     setActiveWorkspace(newWorkspace);
     setView('home');
@@ -830,38 +832,38 @@ export function Dashboard() {
   const handleWorkspaceChange = (workspaceId: string) => {
     const newActiveWorkspace = workspaces.find(ws => ws.id === workspaceId);
     if (newActiveWorkspace) {
-        setActiveWorkspace(newActiveWorkspace);
-        setSelected(null); // Reset selection
-    // evidenceSelected removed; evidence folders are part of the main folders tree
-        setView('home'); // Go to home of new workspace
+      setActiveWorkspace(newActiveWorkspace);
+      setSelected(null); // Reset selection
+      // evidenceSelected removed; evidence folders are part of the main folders tree
+      setView('home'); // Go to home of new workspace
     }
   };
 
   const getBreadcrumbPath = useCallback((folderId: string | null | undefined): (Folder | { id: 'root', name: string, type: 'folder' })[] => {
-      if (!activeWorkspace) return [];
-      
+    if (!activeWorkspace) return [];
+
     const root = { id: 'root', name: activeWorkspace.name, type: 'folder' as const, items: activeWorkspace.folders };
     if (!folderId || folderId === 'root') {
       return [root];
     }
 
-      const findPath = (items: (Folder | Document)[], id: string): Folder[] => {
-          for (const item of items) {
-              if (item.id === id && item.type === 'folder') {
-                  return [item];
-              }
-              if (item.type === 'folder') {
-                  const path = findPath(item.items, id);
-                  if (path.length > 0) {
-                      return [item, ...path];
-                  }
-              }
+    const findPath = (items: (Folder | Document)[], id: string): Folder[] => {
+      for (const item of items) {
+        if (item.id === id && item.type === 'folder') {
+          return [item];
+        }
+        if (item.type === 'folder') {
+          const path = findPath(item.items, id);
+          if (path.length > 0) {
+            return [item, ...path];
           }
-          return [];
+        }
       }
-      
-      const path = findPath(activeWorkspace.folders, folderId);
-  return [root, ...path];
+      return [];
+    }
+
+    const path = findPath(activeWorkspace.folders, folderId);
+    return [root, ...path];
 
   }, [activeWorkspace]);
 
@@ -888,70 +890,70 @@ export function Dashboard() {
 
   const handleDocumentAdd = (document: Document) => {
     if (!document.folderId) {
-        console.error("Cannot add document without a folderId");
-        return;
+      console.error("Cannot add document without a folderId");
+      return;
     }
-  setActiveWorkspace(prev => {
-    if (!prev) return null;
+    setActiveWorkspace(prev => {
+      if (!prev) return null;
 
-    let newFolders;
-    if (document.folderId === 'root') {
-      newFolders = [document, ...prev.folders] as (Folder | Document)[];
-    } else {
-      newFolders = findAndAddDocument(prev.folders, document.folderId!, document) as Folder[];
-    }
-
-    let newSelected = selected;
-    // If we are in the folder the doc was added to, refresh the selection
-    if (selected?.id === document.folderId && document.folderId) {
+      let newFolders;
       if (document.folderId === 'root') {
-        // Create a fresh root wrapper that contains the updated folders so FileBrowser sees the new list
-        newSelected = { id: 'root', name: prev.name, type: 'folder', items: newFolders, workspaceId: prev.id } as Folder;
+        newFolders = [document, ...prev.folders] as (Folder | Document)[];
       } else {
-        const parentFolder = findItemById(newFolders, document.folderId!);
-        if (parentFolder) newSelected = parentFolder;
+        newFolders = findAndAddDocument(prev.folders, document.folderId!, document) as Folder[];
       }
-    }
 
-    setSelected(newSelected)
-    return { ...prev, folders: newFolders };
-  });
+      let newSelected = selected;
+      // If we are in the folder the doc was added to, refresh the selection
+      if (selected?.id === document.folderId && document.folderId) {
+        if (document.folderId === 'root') {
+          // Create a fresh root wrapper that contains the updated folders so FileBrowser sees the new list
+          newSelected = { id: 'root', name: prev.name, type: 'folder', items: newFolders, workspaceId: prev.id } as Folder;
+        } else {
+          const parentFolder = findItemById(newFolders, document.folderId!);
+          if (parentFolder) newSelected = parentFolder;
+        }
+      }
+
+      setSelected(newSelected)
+      return { ...prev, folders: newFolders };
+    });
   }
 
   const handleFolderAdd = (folder: Folder) => {
     if (!folder.parentId && folder.parentId !== null) {
-        console.error("Cannot add folder without a parentId");
-        return;
+      console.error("Cannot add folder without a parentId");
+      return;
     }
     // Update workspace and selection together so the UI shows the new folder immediately.
-  setActiveWorkspace(prev => {
-    if (!prev) return null;
+    setActiveWorkspace(prev => {
+      if (!prev) return null;
 
-    const newFolders = findAndAddFolder(prev.folders, folder.parentId || 'root', folder) as Folder[];
-    const newWorkspace = { ...prev, folders: newFolders };
+      const newFolders = findAndAddFolder(prev.folders, folder.parentId || 'root', folder) as Folder[];
+      const newWorkspace = { ...prev, folders: newFolders };
 
-    // If the current selection is the parent folder (or root), update selection to the
-    // new parent reference from the updated workspace so children render immediately.
-    let newSelected = selected;
-    const parentIdKey = folder.parentId || 'root';
-    if (selected?.id === parentIdKey) {
-      if (parentIdKey === 'root') {
-        // Create a fresh root wrapper that contains the updated folders
-        newSelected = { id: 'root', name: newWorkspace.name, type: 'folder', items: newWorkspace.folders, workspaceId: newWorkspace.id } as Folder;
-      } else {
-        const updatedParentFolder = findItemById(newFolders, selected.id);
-        if (updatedParentFolder) {
-          newSelected = updatedParentFolder;
+      // If the current selection is the parent folder (or root), update selection to the
+      // new parent reference from the updated workspace so children render immediately.
+      let newSelected = selected;
+      const parentIdKey = folder.parentId || 'root';
+      if (selected?.id === parentIdKey) {
+        if (parentIdKey === 'root') {
+          // Create a fresh root wrapper that contains the updated folders
+          newSelected = { id: 'root', name: newWorkspace.name, type: 'folder', items: newWorkspace.folders, workspaceId: newWorkspace.id } as Folder;
+        } else {
+          const updatedParentFolder = findItemById(newFolders, selected.id);
+          if (updatedParentFolder) {
+            newSelected = updatedParentFolder;
+          }
         }
       }
-    }
 
-    // Apply selection update synchronously alongside workspace update.
-    setSelected(newSelected);
+      // Apply selection update synchronously alongside workspace update.
+      setSelected(newSelected);
 
-    return newWorkspace;
-  });
-};
+      return newWorkspace;
+    });
+  };
   const handleDocumentDelete = async (document: Document) => {
     if (!activeWorkspace) return;
     try {
@@ -1014,7 +1016,7 @@ export function Dashboard() {
         setSelected(document);
       } else if (selected && selected.type === 'folder') {
         // If the selected folder contains this document, replace the selected folder reference
-  const updatedParent = findParentFolderByDocumentId(newFolders, document.id);
+        const updatedParent = findParentFolderByDocumentId(newFolders, document.id);
         if (updatedParent && selected.id === updatedParent.id) {
           setSelected({ ...updatedParent, items: updatedParent.items });
         }
@@ -1029,35 +1031,35 @@ export function Dashboard() {
     // All folders can now be deleted
 
     try {
-        await deleteFolder(activeWorkspace.id, folder.id, organisationId);
-    // Update workspace and selection together so UI removes the folder immediately.
-    setActiveWorkspace(prev => {
-      if (!prev) return null;
-      const newFolders = findAndRemoveItem(prev.folders, folder.id) as Folder[];
-      const newWorkspace = { ...prev, folders: newFolders };
+      await deleteFolder(activeWorkspace.id, folder.id, organisationId);
+      // Update workspace and selection together so UI removes the folder immediately.
+      setActiveWorkspace(prev => {
+        if (!prev) return null;
+        const newFolders = findAndRemoveItem(prev.folders, folder.id) as Folder[];
+        const newWorkspace = { ...prev, folders: newFolders };
 
-      const newRoot: Folder = { id: 'root', name: newWorkspace.name, type: 'folder', items: newWorkspace.folders, workspaceId: newWorkspace.id } as Folder;
-      if (selected?.id === folder.id) {
-        // If the deleted folder was selected, go back to root file browser
-        setSelected(newRoot);
-        setView('files');
-      } else if (selected) {
-        const updatedSelectedItem = findItemById(newFolders, selected.id);
-        if (updatedSelectedItem) {
-          setSelected(updatedSelectedItem.type === 'folder' ? { ...updatedSelectedItem, items: updatedSelectedItem.items } : updatedSelectedItem);
-        } else {
+        const newRoot: Folder = { id: 'root', name: newWorkspace.name, type: 'folder', items: newWorkspace.folders, workspaceId: newWorkspace.id } as Folder;
+        if (selected?.id === folder.id) {
+          // If the deleted folder was selected, go back to root file browser
           setSelected(newRoot);
           setView('files');
+        } else if (selected) {
+          const updatedSelectedItem = findItemById(newFolders, selected.id);
+          if (updatedSelectedItem) {
+            setSelected(updatedSelectedItem.type === 'folder' ? { ...updatedSelectedItem, items: updatedSelectedItem.items } : updatedSelectedItem);
+          } else {
+            setSelected(newRoot);
+            setView('files');
+          }
         }
-      }
 
-      return newWorkspace;
-    });
+        return newWorkspace;
+      });
 
     } catch (error) {
-        console.error("Failed to delete folder:", error);
-        // Re-throw the error so the UI can handle it
-        throw error;
+      console.error("Failed to delete folder:", error);
+      // Re-throw the error so the UI can handle it
+      throw error;
     }
   };
 
@@ -1078,15 +1080,15 @@ export function Dashboard() {
   const handleBackToFileBrowser = () => {
     const rootFolder = getRootFolder();
     if (rootFolder) {
-        setSelected(rootFolder);
-        setView('files');
+      setSelected(rootFolder);
+      setView('files');
     }
   };
   const handleGoToFiles = () => {
     const rootFolder = getRootFolder();
     if (rootFolder) {
-        setSelected(rootFolder);
-        setView('files');
+      setSelected(rootFolder);
+      setView('files');
     }
   }
 
@@ -1102,12 +1104,12 @@ export function Dashboard() {
 
   const handleBreadcrumbClick = (folderId: string) => {
     if (folderId === 'root') {
-        setSelected(getRootFolder()!);
+      setSelected(getRootFolder()!);
     } else {
-        const folder = findItemById(activeWorkspace?.folders || [], folderId);
-        if (folder && folder.type === 'folder') {
-            setSelected(folder);
-        }
+      const folder = findItemById(activeWorkspace?.folders || [], folderId);
+      if (folder && folder.type === 'folder') {
+        setSelected(folder);
+      }
     }
     setView('files');
   }
@@ -1124,238 +1126,238 @@ export function Dashboard() {
 
   let currentFolder: Folder | undefined;
   if (selected?.type === 'folder') {
-      currentFolder = selected;
+    currentFolder = selected;
   } else if (selected?.type === 'document' && activeWorkspace) {
-      const findParent = (items: (Folder | Document)[]): Folder | undefined => {
-          for (const item of items) {
-              if (item.type === 'folder') {
-                  if (item.items.some(child => child.id === selected.id)) {
-                      return item;
-                  }
-                  const found = findParent(item.items);
-                  if (found) return found;
-              }
+    const findParent = (items: (Folder | Document)[]): Folder | undefined => {
+      for (const item of items) {
+        if (item.type === 'folder') {
+          if (item.items.some(child => child.id === selected.id)) {
+            return item;
           }
-          return undefined;
+          const found = findParent(item.items);
+          if (found) return found;
+        }
       }
-      currentFolder = findParent(activeWorkspace.folders);
-      if(!currentFolder) {
-         currentFolder = getRootFolder();
-      }
-  } else {
+      return undefined;
+    }
+    currentFolder = findParent(activeWorkspace.folders);
+    if (!currentFolder) {
       currentFolder = getRootFolder();
+    }
+  } else {
+    currentFolder = getRootFolder();
   }
 
 
   const renderContent = () => {
-  switch (view) {
-    case 'home':
-      return (
-        <FeatureGuard feature="dashboard" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
-          <DashboardHome 
-            workspace={activeWorkspace} 
-            onSelect={handleSelect} 
-            onDocumentAdd={handleDocumentAdd} 
-            onFolderAdd={handleFolderAdd} 
-          />
-        </FeatureGuard>
-      );
-        case 'daily':
-            return (
-                <FeatureGuard feature="dailyCheckins" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
-                  <React.Suspense fallback={<div>Loading...</div>}>
-                    {(() => {
-                      const DailyPage = require("./daily").default;
-                      return <DailyPage workspaceId={activeWorkspace?.id} />;
-                    })()}
-                  </React.Suspense>
-                </FeatureGuard>
-            );
-    case 'teams':
-      return (
-        <FeatureGuard feature="teams" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
-          {activeWorkspace ? <TeamsView workspace={activeWorkspace} /> : <div className="p-6">No workspace</div>}
-        </FeatureGuard>
-      );
-    case 'settings':
-      return (
-        <FeatureGuard feature="settings" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
-          {activeWorkspace ? <SettingsView workspace={activeWorkspace} /> : <div className="p-6">No workspace</div>}
-        </FeatureGuard>
-      );
-    case 'accessibility':
-      return (
-        <FeatureGuard feature="accessibility" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
-          {activeWorkspace ? (
+    switch (view) {
+      case 'home':
+        return (
+          <FeatureGuard feature="dashboard" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
+            <DashboardHome
+              workspace={activeWorkspace}
+              onSelect={handleSelect}
+              onDocumentAdd={handleDocumentAdd}
+              onFolderAdd={handleFolderAdd}
+            />
+          </FeatureGuard>
+        );
+      case 'daily':
+        return (
+          <FeatureGuard feature="dailyCheckins" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
             <React.Suspense fallback={<div>Loading...</div>}>
               {(() => {
-                const AccessibilityViewComp = require("./accessibility-view").default;
-                return <AccessibilityViewComp workspace={activeWorkspace} />;
+                const DailyPage = require("./daily").default;
+                return <DailyPage workspaceId={activeWorkspace?.id} />;
               })()}
             </React.Suspense>
-          ) : <div className="p-6">No workspace</div>}
-        </FeatureGuard>
-      );
-    case 'help':
-      return (
-        <React.Suspense fallback={<div>Loading...</div>}>
-          {(() => {
-            const HelpPage = require("@/app/(protected)/help/page").default;
-            return <HelpPage />;
-          })()}
-        </React.Suspense>
-      );
-    case 'notifications':
-      return (
-        <FeatureGuard feature="notifications" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
-          {workspaceId ? <NotificationsView workspaceId={workspaceId} onBack={() => setView('home')} /> : <div className="p-6">No workspace</div>}
-        </FeatureGuard>
-      );
-    case 'documents':
-      return activeWorkspace ? (
-        <AllDocumentsView 
-          key={activeWorkspace.folders.map(f=>f.id).join('-') + '-' + activeWorkspace.folders.length}
-          workspace={activeWorkspace} 
-          onSelect={handleSelect} 
-        />
-      ) : <div className="p-6">No workspace</div>;
-    case 'tags':
-      return (
-        <FeatureGuard feature="tags" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
-          {activeWorkspace ? <TagsView workspace={activeWorkspace} onSelectDocument={handleSelect} /> : <div className="p-6">No workspace</div>}
-        </FeatureGuard>
-      );
-    case 'renewals':
-      return (
-        <FeatureGuard feature="renewals" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
-          {workspaceId ? <RenewalsView workspaceId={workspaceId} onSelectDocument={handleSelect} /> : null}
-        </FeatureGuard>
-      );
-  /* Outstanding Evidence removed; evidence folders are part of main folders */
-    case 'files':
-      return (
-        <FeatureGuard feature="files" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
-          {selected?.type === "document" ? (() => {
-                // Use a custom onBack that prefers prevViewRef (if set) to return
-                // the user to the Policies page when they opened a policy from there.
-                const onDocBack = () => {
-                  if (prevViewRef.current === 'policies') {
-                    setSelected(null);
-                    setView('policies');
-                    prevViewRef.current = null;
-                  } else {
-                    handleBackToFileBrowser();
-                  }
-                };
-                return <DocumentView document={selected} onBack={onDocBack} responseDetail={lastChatDetail} isChatOpen={isChatOpen} />;
-            })() : (
-        <FileBrowser
-          key={activeWorkspace ? activeWorkspace.folders.map(f=>f.id).join('-') + '-' + activeWorkspace.folders.length : 'no-ws'}
-          folder={currentFolder as Folder}
-          onSelect={handleSelect}
-          onDocumentAdd={handleDocumentAdd}
-          onFolderAdd={handleFolderAdd}
-          onFolderDelete={handleFolderDelete}
-          onDocumentDelete={handleDocumentDelete}
-          onDocumentUpdate={handleDocumentUpdate}
-          breadcrumb={breadcrumb}
-          onBreadcrumbClick={handleBreadcrumbClick}
-          organisationId={organisationId || null}
-        />
-      )}
-        </FeatureGuard>
-      );
-        case 'dependency-calculator':
-            return (
-                <FeatureGuard feature="dependencyCalculator" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
-                  <React.Suspense fallback={<div>Loading...</div>}>
-                    {(() => {
-                      const DependencyCalculatorPage = require("@/app/(protected)/dashboard/dependency-calculator/page").default;
-                      return <DependencyCalculatorPage />;
-                    })()}
-                  </React.Suspense>
-                </FeatureGuard>
-            );
-        case 'audits':
-            return (
-                <FeatureGuard feature="audits" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
-                  <React.Suspense fallback={<div>Loading...</div>}>
-                    {(() => {
-                      const AuditsPage = require("@/app/audits/page").default;
-                      return <AuditsPage />;
-                    })()}
-                  </React.Suspense>
-                </FeatureGuard>
-            );
-    case 'stats':
-      return (
-        <FeatureGuard feature="stats" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
-          <StatsView workspaceId={workspaceId ?? undefined} organisationId={organisationId ?? undefined} />
-        </FeatureGuard>
-      );
-        case 'policies':
-            return (
-                <FeatureGuard feature="policies" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
-                  <React.Suspense fallback={<div>Loading...</div>}>
-                    {(() => {
-                      const PoliciesPage = require("@/app/policies/page").default;
-                      return <PoliciesPage />;
-                    })()}
-                  </React.Suspense>
-                </FeatureGuard>
-            );
-    case 'journal':
-      return (
-        <FeatureGuard feature="journal" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
+          </FeatureGuard>
+        );
+      case 'teams':
+        return (
+          <FeatureGuard feature="teams" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
+            {activeWorkspace ? <TeamsView workspace={activeWorkspace} /> : <div className="p-6">No workspace</div>}
+          </FeatureGuard>
+        );
+      case 'settings':
+        return (
+          <FeatureGuard feature="settings" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
+            {activeWorkspace ? <SettingsView workspace={activeWorkspace} /> : <div className="p-6">No workspace</div>}
+          </FeatureGuard>
+        );
+      case 'accessibility':
+        return (
+          <FeatureGuard feature="accessibility" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
+            {activeWorkspace ? (
+              <React.Suspense fallback={<div>Loading...</div>}>
+                {(() => {
+                  const AccessibilityViewComp = require("./accessibility-view").default;
+                  return <AccessibilityViewComp workspace={activeWorkspace} />;
+                })()}
+              </React.Suspense>
+            ) : <div className="p-6">No workspace</div>}
+          </FeatureGuard>
+        );
+      case 'help':
+        return (
           <React.Suspense fallback={<div>Loading...</div>}>
             {(() => {
-              const JournalPage = require('@/app/(protected)/journal/page').default;
-              return <JournalPage />;
+              const HelpPage = require("@/app/(protected)/help/page").default;
+              return <HelpPage />;
             })()}
           </React.Suspense>
-        </FeatureGuard>
-      );
-        case 'appraisals':
-            return (
-                <FeatureGuard feature="appraisals" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
-                  <React.Suspense fallback={<div>Loading...</div>}>
-                    {(() => {
-                      const AppraisalsPage = require("@/app/(protected)/appraisals/page").default;
-                      return <AppraisalsPage />;
-                    })()}
-                  </React.Suspense>
-                </FeatureGuard>
-            );
-        case 'action-plans':
-            return (
-                <FeatureGuard feature="actionPlans" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
-                  <React.Suspense fallback={<div>Loading...</div>}>
-                    {(() => {
-                      const ActionPlansPage = require("@/app/(protected)/action-plans/page").default;
-                      return <ActionPlansPage />;
-                    })()}
-                  </React.Suspense>
-                </FeatureGuard>
-            );
-        case 'rotas':
-            return (
-              <FeatureGuard feature="rotas" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
-                {activeWorkspace ? (
-                  <React.Suspense fallback={<div>Loading...</div>}>
-                    {(() => {
-                      const { RotasView } = require("@/components/rotas/rotas-view");
-                      return <RotasView workspace={activeWorkspace} />;
-                    })()}
-                  </React.Suspense>
-                ) : (
-                  <div className="container mx-auto py-8 px-4">
-                    <div className="text-center">
-                      <p className="text-muted-foreground">Please select a workspace to view rotas</p>
-                    </div>
-                  </div>
-                )}
-              </FeatureGuard>
-            );
+        );
+      case 'notifications':
+        return (
+          <FeatureGuard feature="notifications" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
+            {workspaceId ? <NotificationsView workspaceId={workspaceId} onBack={() => setView('home')} /> : <div className="p-6">No workspace</div>}
+          </FeatureGuard>
+        );
+      case 'documents':
+        return activeWorkspace ? (
+          <AllDocumentsView
+            key={activeWorkspace.folders.map(f => f.id).join('-') + '-' + activeWorkspace.folders.length}
+            workspace={activeWorkspace}
+            onSelect={handleSelect}
+          />
+        ) : <div className="p-6">No workspace</div>;
+      case 'tags':
+        return (
+          <FeatureGuard feature="tags" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
+            {activeWorkspace ? <TagsView workspace={activeWorkspace} onSelectDocument={handleSelect} /> : <div className="p-6">No workspace</div>}
+          </FeatureGuard>
+        );
+      case 'renewals':
+        return (
+          <FeatureGuard feature="renewals" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
+            {workspaceId ? <RenewalsView workspaceId={workspaceId} onSelectDocument={handleSelect} /> : null}
+          </FeatureGuard>
+        );
+      /* Outstanding Evidence removed; evidence folders are part of main folders */
+      case 'files':
+        return (
+          <FeatureGuard feature="files" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
+            {selected?.type === "document" ? (() => {
+              // Use a custom onBack that prefers prevViewRef (if set) to return
+              // the user to the Policies page when they opened a policy from there.
+              const onDocBack = () => {
+                if (prevViewRef.current === 'policies') {
+                  setSelected(null);
+                  setView('policies');
+                  prevViewRef.current = null;
+                } else {
+                  handleBackToFileBrowser();
+                }
+              };
+              return <DocumentView document={selected} onBack={onDocBack} responseDetail={lastChatDetail} isChatOpen={isChatOpen} />;
+            })() : (
+              <FileBrowser
+                key={activeWorkspace ? activeWorkspace.folders.map(f => f.id).join('-') + '-' + activeWorkspace.folders.length : 'no-ws'}
+                folder={currentFolder as Folder}
+                onSelect={handleSelect}
+                onDocumentAdd={handleDocumentAdd}
+                onFolderAdd={handleFolderAdd}
+                onFolderDelete={handleFolderDelete}
+                onDocumentDelete={handleDocumentDelete}
+                onDocumentUpdate={handleDocumentUpdate}
+                breadcrumb={breadcrumb}
+                onBreadcrumbClick={handleBreadcrumbClick}
+                organisationId={organisationId || null}
+              />
+            )}
+          </FeatureGuard>
+        );
+      case 'dependency-calculator':
+        return (
+          <FeatureGuard feature="dependencyCalculator" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
+            <React.Suspense fallback={<div>Loading...</div>}>
+              {(() => {
+                const DependencyCalculatorPage = require("@/app/(protected)/dashboard/dependency-calculator/page").default;
+                return <DependencyCalculatorPage />;
+              })()}
+            </React.Suspense>
+          </FeatureGuard>
+        );
+      case 'audits':
+        return (
+          <FeatureGuard feature="audits" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
+            <React.Suspense fallback={<div>Loading...</div>}>
+              {(() => {
+                const AuditsPage = require("@/app/audits/page").default;
+                return <AuditsPage />;
+              })()}
+            </React.Suspense>
+          </FeatureGuard>
+        );
+      case 'stats':
+        return (
+          <FeatureGuard feature="stats" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
+            <StatsView workspaceId={workspaceId ?? undefined} organisationId={organisationId ?? undefined} />
+          </FeatureGuard>
+        );
+      case 'policies':
+        return (
+          <FeatureGuard feature="policies" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
+            <React.Suspense fallback={<div>Loading...</div>}>
+              {(() => {
+                const PoliciesPage = require("@/app/policies/page").default;
+                return <PoliciesPage />;
+              })()}
+            </React.Suspense>
+          </FeatureGuard>
+        );
+      case 'journal':
+        return (
+          <FeatureGuard feature="journal" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
+            <React.Suspense fallback={<div>Loading...</div>}>
+              {(() => {
+                const JournalPage = require('@/app/(protected)/journal/page').default;
+                return <JournalPage />;
+              })()}
+            </React.Suspense>
+          </FeatureGuard>
+        );
+      case 'appraisals':
+        return (
+          <FeatureGuard feature="appraisals" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
+            <React.Suspense fallback={<div>Loading...</div>}>
+              {(() => {
+                const AppraisalsPage = require("@/app/(protected)/appraisals/page").default;
+                return <AppraisalsPage />;
+              })()}
+            </React.Suspense>
+          </FeatureGuard>
+        );
+      case 'action-plans':
+        return (
+          <FeatureGuard feature="actionPlans" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
+            <React.Suspense fallback={<div>Loading...</div>}>
+              {(() => {
+                const ActionPlansPage = require("@/app/(protected)/action-plans/page").default;
+                return <ActionPlansPage />;
+              })()}
+            </React.Suspense>
+          </FeatureGuard>
+        );
+      case 'rotas':
+        return (
+          <FeatureGuard feature="rotas" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
+            {activeWorkspace ? (
+              <React.Suspense fallback={<div>Loading...</div>}>
+                {(() => {
+                  const { RotasView } = require("@/components/rotas/rotas-view");
+                  return <RotasView workspace={activeWorkspace} />;
+                })()}
+              </React.Suspense>
+            ) : (
+              <div className="container mx-auto py-8 px-4">
+                <div className="text-center">
+                  <p className="text-muted-foreground">Please select a workspace to view rotas</p>
+                </div>
+              </div>
+            )}
+          </FeatureGuard>
+        );
       case 'lessons-rcas':
         return (
           <FeatureGuard feature="lessonsRcas" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
@@ -1400,13 +1402,13 @@ export function Dashboard() {
             </React.Suspense>
           </FeatureGuard>
         );
-    default:
-       return <DashboardHome 
-            workspace={activeWorkspace} 
-            onSelect={handleSelect} 
-            onDocumentAdd={handleDocumentAdd} 
-            onFolderAdd={handleFolderAdd} 
-          />;
+      default:
+        return <DashboardHome
+          workspace={activeWorkspace}
+          onSelect={handleSelect}
+          onDocumentAdd={handleDocumentAdd}
+          onFolderAdd={handleFolderAdd}
+        />;
     }
   };
 
@@ -1415,133 +1417,133 @@ export function Dashboard() {
     <WorkspaceContext.Provider value={activeWorkspace}>
       <SidebarProvider defaultOpen={!isMobile}>
         <TooltipProvider>
-        <Sidebar>
-          <AppSidebar 
-            workspaces={workspaces}
-            activeWorkspace={activeWorkspace}
-            onWorkspaceChange={handleWorkspaceChange}
-            setView={setView} 
-            currentView={view}
-            onGoToFiles={handleGoToFiles} 
-            onCreateWorkspace={handleCreateWorkspace}
-            dailyEntry={dailyEntry}
-           />
-        </Sidebar>
+          <Sidebar>
+            <AppSidebar
+              workspaces={workspaces}
+              activeWorkspace={activeWorkspace}
+              onWorkspaceChange={handleWorkspaceChange}
+              setView={setView}
+              currentView={view}
+              onGoToFiles={handleGoToFiles}
+              onCreateWorkspace={handleCreateWorkspace}
+              dailyEntry={dailyEntry}
+            />
+          </Sidebar>
 
-        <SidebarInset className="flex flex-col min-h-screen w-full">
-                <TopNav
-                  onSettingsClick={() => setView('settings')}
-                  onNotificationsClick={() => setView('notifications')}
-                  onHelpClick={() => setView('help')}
-                  unreadCount={unreadNotifications}
-                  workspaceId={workspaceId}
-                  organisationId={organisationId}
-                />
+          <SidebarInset className="flex flex-col min-h-screen w-full">
+            <TopNav
+              onSettingsClick={() => setView('settings')}
+              onNotificationsClick={() => setView('notifications')}
+              onHelpClick={() => setView('help')}
+              unreadCount={unreadNotifications}
+              workspaceId={workspaceId}
+              organisationId={organisationId}
+            />
             <div className={cn(
               "flex-1 w-full",
               // Add bottom padding on mobile when chat is closed to ensure content isn't hidden behind chat button
               isMobile && !isChatOpen && isEnabled('chatPanel') && "pb-20"
             )}>
-                {renderContent()}
+              {renderContent()}
             </div>
-        </SidebarInset>
+          </SidebarInset>
 
-        {/* Chat Panel - Only render if feature is enabled */}
-        {isEnabled('chatPanel') && (
-          <div
-            className={cn(
-              "fixed z-50 transition-all duration-300 ease-in-out",
-              // Mobile positioning - always visible, safer positioning
-              isMobile
-                ? isChatOpen && selected
-                  ? "bottom-0 right-0 left-0 h-[70vh] max-h-[600px]"
-                  : "bottom-4 right-4 w-auto h-auto"
-                : // Desktop positioning 
+          {/* Chat Panel - Only render if feature is enabled */}
+          {isEnabled('chatPanel') && (
+            <div
+              className={cn(
+                "fixed z-50 transition-all duration-300 ease-in-out",
+                // Mobile positioning - always visible, safer positioning
+                isMobile
+                  ? isChatOpen && selected
+                    ? "bottom-0 right-0 left-0 h-[70vh] max-h-[600px]"
+                    : "bottom-4 right-4 w-auto h-auto"
+                  : // Desktop positioning 
                   isChatOpen && selected
-                  ? "bottom-4 right-4 w-[500px] h-[650px]"
-                  : "bottom-4 right-4 w-auto h-auto"
-            )}
-          >
-            {isChatOpen && selected ? (
-              <Card className={cn(
-                "h-full flex flex-col shadow-2xl",
-                isMobile && "rounded-t-lg rounded-b-none border-b-0"
-              )}>
-                <div className="flex items-center justify-between p-2 border-b">
-                  <h3 className="font-semibold px-2 truncate">Chat with {selected?.name}</h3>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setIsChatOpen(false)}
-                    className={cn(isMobile && "h-8 w-8")}
-                  >
-                    <X className={cn("w-5 h-5", isMobile && "w-4 h-4")} />
-                  </Button>
-                </div>
-                {selected !== null && (
-                  <ChatPanel 
-                    selectedItem={selected!}
-                    organisationId={organisationId}
-                    onFolderAdd={async (folderName: string) => {
-                            if (!workspaceId) return;
-                            const currentSelected = selected;
-                            // parentId: if selected is folder, use its id, else root
-                            const parentId = currentSelected && currentSelected.type === 'folder' ? currentSelected.id : 'root';
-                            // Simulate folder creation as in FileBrowser/NewFolderDialog
-                            const newFolderData = {
-                              name: folderName,
-                              type: 'folder' as const,
-                              workspaceId: workspaceId,
-                              parentId: parentId === 'root' ? null : parentId,
-                            };
-                            // saveFolder returns id, but we want to use handleFolderAdd for state
-                            const { saveFolder } = await import("@/lib/firestore");
-                            const folderId = await saveFolder(newFolderData);
-                            const newFolder = {
-                              ...newFolderData,
-                              id: folderId,
-                              items: [],
-                            } as Folder;
-                            handleFolderAdd(newFolder);
-                          }}
-                  />
-                )}
-              </Card>
-            ) : (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div
-                    className={cn({ "cursor-not-allowed": !selected })}
-                  >
-                    <Button
-                      size={isMobile ? "default" : "lg"}
-                      className={cn(
-                      "rounded-full shadow-lg transition-all duration-200",
-                      isMobile
-                        ? "w-14 h-14" // Smaller on mobile but still easily tappable
-                        : "w-16 h-16"
-                    )}
-                    onClick={handleChatButtonClick}
-                    // Allow chat button across the dashboard (site-wide). Chat will open at the workspace root
-                    // when no specific folder/document is selected. Keep disabled only if there's no active workspace.
-                    disabled={!workspaceId}
-                    aria-label="Open chat"
-                  >
-                    <MessageSquare className={cn(
-                      isMobile ? "w-5 h-5" : "w-6 h-6"
-                    )} />
-                  </Button>
-                </div>
-              </TooltipTrigger>
-              {!workspaceId && (
-                <TooltipContent side={isMobile ? "top" : "left"}>
-                    <p>Please create or select a workspace to use chat.</p>
-                </TooltipContent>
+                    ? "bottom-4 right-4 w-[500px] h-[650px]"
+                    : "bottom-4 right-4 w-auto h-auto"
               )}
-            </Tooltip>
-            )}
-          </div>
-        )}
+            >
+              {isChatOpen && selected ? (
+                <Card className={cn(
+                  "h-full flex flex-col shadow-2xl",
+                  isMobile && "rounded-t-lg rounded-b-none border-b-0"
+                )}>
+                  <div className="flex items-center justify-between p-2 border-b">
+                    <h3 className="font-semibold px-2 truncate">Chat with {selected?.name}</h3>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setIsChatOpen(false)}
+                      className={cn(isMobile && "h-8 w-8")}
+                    >
+                      <X className={cn("w-5 h-5", isMobile && "w-4 h-4")} />
+                    </Button>
+                  </div>
+                  {selected !== null && (
+                    <ChatPanel
+                      selectedItem={selected!}
+                      organisationId={organisationId}
+                      onFolderAdd={async (folderName: string) => {
+                        if (!workspaceId) return;
+                        const currentSelected = selected;
+                        // parentId: if selected is folder, use its id, else root
+                        const parentId = currentSelected && currentSelected.type === 'folder' ? currentSelected.id : 'root';
+                        // Simulate folder creation as in FileBrowser/NewFolderDialog
+                        const newFolderData = {
+                          name: folderName,
+                          type: 'folder' as const,
+                          workspaceId: workspaceId,
+                          parentId: parentId === 'root' ? null : parentId,
+                        };
+                        // saveFolder returns id, but we want to use handleFolderAdd for state
+                        const { saveFolder } = await import("@/lib/firestore");
+                        const folderId = await saveFolder(newFolderData);
+                        const newFolder = {
+                          ...newFolderData,
+                          id: folderId,
+                          items: [],
+                        } as Folder;
+                        handleFolderAdd(newFolder);
+                      }}
+                    />
+                  )}
+                </Card>
+              ) : (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div
+                      className={cn({ "cursor-not-allowed": !selected })}
+                    >
+                      <Button
+                        size={isMobile ? "default" : "lg"}
+                        className={cn(
+                          "rounded-full shadow-lg transition-all duration-200",
+                          isMobile
+                            ? "w-14 h-14" // Smaller on mobile but still easily tappable
+                            : "w-16 h-16"
+                        )}
+                        onClick={handleChatButtonClick}
+                        // Allow chat button across the dashboard (site-wide). Chat will open at the workspace root
+                        // when no specific folder/document is selected. Keep disabled only if there's no active workspace.
+                        disabled={!workspaceId}
+                        aria-label="Open chat"
+                      >
+                        <MessageSquare className={cn(
+                          isMobile ? "w-5 h-5" : "w-6 h-6"
+                        )} />
+                      </Button>
+                    </div>
+                  </TooltipTrigger>
+                  {!workspaceId && (
+                    <TooltipContent side={isMobile ? "top" : "left"}>
+                      <p>Please create or select a workspace to use chat.</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              )}
+            </div>
+          )}
         </TooltipProvider>
       </SidebarProvider>
     </WorkspaceContext.Provider>

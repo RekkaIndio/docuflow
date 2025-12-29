@@ -2,13 +2,13 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
-import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
+import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AlertTriangle, TrendingUp, TrendingDown, Users, FileText, Shield, BarChart3, Activity, Target, Zap, Building2 } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, RadialBarChart, RadialBar } from 'recharts';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, orderBy, limit, Timestamp, getCountFromServer } from 'firebase/firestore';
 import { workspaceCollectionPath } from '@/lib/paths';
@@ -450,8 +450,8 @@ export default function AdminAnalyticsPage() {
       const occupancyValue = toNumber(ws.occupancy);
       const fallbackRate = occupancyValue !== null ? occupancyValue * 100 : null;
       return {
-      workspaceId: ws.id,
-      workspaceName: ws.name,
+        workspaceId: ws.id,
+        workspaceName: ws.name,
         totalBeds,
         occupiedBeds,
         occupancyRate: directRate ?? fallbackRate ?? 0,
@@ -1100,150 +1100,7 @@ export default function AdminAnalyticsPage() {
             </div>
           )}
 
-          {/* Key Metrics Overview */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-4 mb-8">
-            <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-blue-50 via-white to-blue-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent"></div>
-              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-blue-100/40 transition-colors duration-300"></div>
-              <div className="absolute bottom-0 left-0 w-24 h-24 bg-blue-200/20 rounded-full -ml-12 -mb-12"></div>
-              <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Active Workspaces</CardTitle>
-                <Building2 className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent className="relative">
-                <div className="text-2xl font-bold">{filteredWorkspaces.length}</div>
-                <p className="text-xs text-muted-foreground">Organisations monitored</p>
-              </CardContent>
-            </Card>
 
-            <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-blue-50 via-white to-blue-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent"></div>
-              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-blue-100/40 transition-colors duration-300"></div>
-              <div className="absolute bottom-0 left-0 w-24 h-24 bg-blue-200/20 rounded-full -ml-12 -mb-12"></div>
-              <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Compliance Score</CardTitle>
-                <Shield className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent className="relative">
-                <div className="text-2xl font-bold">{Math.round(filteredAuditData.overallAverage)}%</div>
-                <p className="text-xs text-muted-foreground">Average across workspaces</p>
-              </CardContent>
-            </Card>
-
-            <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-red-50 via-white to-red-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
-              <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-transparent"></div>
-              <div className="absolute top-0 right-0 w-32 h-32 bg-red-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-red-100/40 transition-colors duration-300"></div>
-              <div className="absolute bottom-0 left-0 w-24 h-24 bg-red-200/20 rounded-full -ml-12 -mb-12"></div>
-              <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Incidents</CardTitle>
-                <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent className="relative">
-                <div className="text-2xl font-bold">{filteredIncidentData.totalIncidents}</div>
-                <p className="text-xs text-muted-foreground">Last 30 days</p>
-              </CardContent>
-            </Card>
-
-            <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-amber-50 via-white to-amber-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
-              <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent"></div>
-              <div className="absolute top-0 right-0 w-32 h-32 bg-amber-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-amber-100/40 transition-colors duration-300"></div>
-              <div className="absolute bottom-0 left-0 w-24 h-24 bg-amber-200/20 rounded-full -ml-12 -mb-12"></div>
-              <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Daily Check-ins</CardTitle>
-                <Activity className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent className="relative">
-                <div className="text-2xl font-bold">{filteredUserActivityData.totalCheckinsToday}</div>
-                <p className="text-xs text-muted-foreground">Completed today</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6 mb-8">
-            <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-amber-50 via-white to-amber-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
-              <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent"></div>
-              <div className="absolute top-0 right-0 w-32 h-32 bg-amber-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-amber-100/40 transition-colors duration-300"></div>
-              <div className="absolute bottom-0 left-0 w-24 h-24 bg-amber-200/20 rounded-full -ml-12 -mb-12"></div>
-              <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Action Items Open</CardTitle>
-                <Target className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent className="relative">
-                <div className="text-2xl font-bold">{filteredActionPlanData.totalOpen}</div>
-                <p className="text-xs text-muted-foreground">Across all workspaces</p>
-              </CardContent>
-            </Card>
-
-            <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-red-50 via-white to-red-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
-              <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-transparent"></div>
-              <div className="absolute top-0 right-0 w-32 h-32 bg-red-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-red-100/40 transition-colors duration-300"></div>
-              <div className="absolute bottom-0 left-0 w-24 h-24 bg-red-200/20 rounded-full -ml-12 -mb-12"></div>
-              <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Overdue Items</CardTitle>
-                <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent className="relative">
-                <div className="text-2xl font-bold text-red-600">{filteredActionPlanData.totalOverdue}</div>
-                <p className="text-xs text-muted-foreground">Requires immediate attention</p>
-              </CardContent>
-            </Card>
-
-            <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-green-50 via-white to-green-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
-              <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-transparent"></div>
-              <div className="absolute top-0 right-0 w-32 h-32 bg-green-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-green-100/40 transition-colors duration-300"></div>
-              <div className="absolute bottom-0 left-0 w-24 h-24 bg-green-200/20 rounded-full -ml-12 -mb-12"></div>
-              <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Action Completion</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent className="relative">
-                <div className="text-2xl font-bold">{Math.round(filteredActionPlanData.completionRate)}%</div>
-                <p className="text-xs text-muted-foreground">Average completion rate</p>
-              </CardContent>
-            </Card>
-
-            <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-purple-50 via-white to-purple-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent"></div>
-              <div className="absolute top-0 right-0 w-32 h-32 bg-purple-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-purple-100/40 transition-colors duration-300"></div>
-              <div className="absolute bottom-0 left-0 w-24 h-24 bg-purple-200/20 rounded-full -ml-12 -mb-12"></div>
-              <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Learning Actions</CardTitle>
-                <Zap className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent className="relative">
-                <div className="text-2xl font-bold text-orange-600">{filteredLessonsData.totalOutstandingActions}</div>
-                <p className="text-xs text-muted-foreground">Outstanding follow-ups</p>
-              </CardContent>
-            </Card>
-
-            <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-blue-50 via-white to-blue-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent"></div>
-              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-blue-100/40 transition-colors duration-300"></div>
-              <div className="absolute bottom-0 left-0 w-24 h-24 bg-blue-200/20 rounded-full -ml-12 -mb-12"></div>
-              <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Lessons Logged</CardTitle>
-                <FileText className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent className="relative">
-                <div className="text-2xl font-bold">{filteredLessonsData.totalLessons}</div>
-                <p className="text-xs text-muted-foreground">In the last reviews</p>
-              </CardContent>
-            </Card>
-
-            <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-blue-50 via-white to-blue-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent"></div>
-              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-blue-100/40 transition-colors duration-300"></div>
-              <div className="absolute bottom-0 left-0 w-24 h-24 bg-blue-200/20 rounded-full -ml-12 -mb-12"></div>
-              <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">RCAs Logged</CardTitle>
-                <Shield className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent className="relative">
-                <div className="text-2xl font-bold">{filteredLessonsData.totalRcas}</div>
-                <p className="text-xs text-muted-foreground">Root cause investigations</p>
-              </CardContent>
-            </Card>
-          </div>
         </div>
 
         {/* Analytics Tabs */}
@@ -1301,207 +1158,345 @@ export default function AdminAnalyticsPage() {
   );
 }
 
-// Overview Tab Component
-function OverviewTab({ data }: { data: AnalyticsData }) {
-  const globalTrend = data.auditTrendData.globalTrend;
-  const latestGlobalScore = globalTrend.length ? globalTrend[globalTrend.length - 1].averageScore : null;
-  const previousGlobalScore = globalTrend.length > 1 ? globalTrend[globalTrend.length - 2].averageScore : null;
-  const complianceDelta = (latestGlobalScore !== null && previousGlobalScore !== null)
-    ? latestGlobalScore - previousGlobalScore
-    : null;
+// Consolidated Dashboard Card Components
+
+// 1. Health Score Card - Shows overall compliance, workspaces, and check-ins with a donut chart
+function HealthScoreCard({ data }: { data: AnalyticsData }) {
+  const complianceScore = Math.round(data.auditData.overallAverage);
+  const workspaceCount = data.workspaces.length;
+  const checkinsToday = data.userActivityData.totalCheckinsToday;
+
+  // Prepare data for donut chart
+  const chartData = [
+    { name: 'Compliant', value: complianceScore, fill: complianceScore >= 80 ? '#10b981' : complianceScore >= 60 ? '#f59e0b' : '#ef4444' },
+    { name: 'Remaining', value: 100 - complianceScore, fill: '#e5e7eb' }
+  ];
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Compliance Overview */}
-      <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-blue-50 via-white to-blue-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent"></div>
-        <div className="absolute top-0 right-0 w-32 h-32 bg-blue-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-blue-100/40 transition-colors duration-300"></div>
-        <div className="absolute bottom-0 left-0 w-24 h-24 bg-blue-200/20 rounded-full -ml-12 -mb-12"></div>
-        <CardHeader className="relative">
-          <CardTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5" />
-            Compliance Overview
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="relative">
-          <div className="space-y-4">
+    <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-blue-50 via-white to-blue-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent"></div>
+      <div className="absolute top-0 right-0 w-32 h-32 bg-blue-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-blue-100/40 transition-colors duration-300"></div>
+      <div className="absolute bottom-0 left-0 w-24 h-24 bg-blue-200/20 rounded-full -ml-12 -mb-12"></div>
+      <CardHeader className="relative">
+        <CardTitle className="flex items-center gap-2">
+          <Shield className="h-5 w-5 text-blue-600" />
+          Overall Health Score
+        </CardTitle>
+        <CardDescription>Compliance and activity across all workspaces</CardDescription>
+      </CardHeader>
+      <CardContent className="relative">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex-1 space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Overall Compliance</span>
-              <Badge variant={data.auditData.overallAverage >= 80 ? "default" : "destructive"}>
-                {Math.round(data.auditData.overallAverage)}%
+              <span className="text-sm font-medium">Compliance</span>
+              <Badge variant={complianceScore >= 80 ? "default" : complianceScore >= 60 ? "secondary" : "destructive"} className="text-lg px-3 py-1">
+                {complianceScore}%
               </Badge>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Total Audits</span>
-              <span className="text-sm text-muted-foreground">{data.auditData.totalAudits}</span>
+              <span className="text-sm text-muted-foreground">Active Workspaces</span>
+              <span className="text-sm font-semibold">{workspaceCount}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Workspaces with Data</span>
-              <span className="text-sm text-muted-foreground">
-                {data.auditData.workspaceScores.filter((s: WorkspaceScore) => s.averageScore !== null).length}
-              </span>
+              <span className="text-sm text-muted-foreground">Check-ins Today</span>
+              <span className="text-sm font-semibold">{checkinsToday}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Last Change</span>
-              <span className={cn('text-sm font-semibold', complianceDelta !== null ? (complianceDelta >= 0 ? 'text-emerald-600' : 'text-red-600') : 'text-muted-foreground')}>
-                {complianceDelta !== null ? `${complianceDelta >= 0 ? '+' : ''}${complianceDelta.toFixed(1)} pts` : 'N/A'}
-              </span>
+              <span className="text-sm text-muted-foreground">Total Audits</span>
+              <span className="text-sm font-semibold">{data.auditData.totalAudits}</span>
             </div>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Operations Overview */}
-      <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-green-50 via-white to-green-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
-        <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-transparent"></div>
-        <div className="absolute top-0 right-0 w-32 h-32 bg-green-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-green-100/40 transition-colors duration-300"></div>
-        <div className="absolute bottom-0 left-0 w-24 h-24 bg-green-200/20 rounded-full -ml-12 -mb-12"></div>
-        <CardHeader className="relative">
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Operations Overview
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="relative">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Average Occupancy</span>
-              <span className="text-sm font-semibold">{Math.round(data.occupancyData.averageOccupancy)}%</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Total Beds</span>
-              <span className="text-sm text-muted-foreground">{data.occupancyData.totalBeds}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Average Staffing (Day)</span>
-              <span className="text-sm text-muted-foreground">{Math.round(data.staffingData.averageDay * 10) / 10}</span>
-            </div>
+          <div className="shrink-0">
+            <ResponsiveContainer width={140} height={140}>
+              <PieChart>
+                <Pie
+                  data={chartData}
+                  dataKey="value"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={45}
+                  outerRadius={65}
+                  paddingAngle={2}
+                >
+                  {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.fill} />
+                  ))}
+                </Pie>
+                <Tooltip content={({ active, payload }) => {
+                  if (active && payload && payload.length) {
+                    return (
+                      <div className="rounded-lg border bg-background p-2 shadow-sm">
+                        <div className="flex flex-col">
+                          <span className="text-[0.70rem] uppercase text-muted-foreground">{payload[0].name}</span>
+                          <span className="font-bold text-muted-foreground">{payload[0].value}%</span>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                }} />
+              </PieChart>
+            </ResponsiveContainer>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
-      {/* Incidents Overview */}
-      <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-red-50 via-white to-red-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
-        <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-transparent"></div>
-        <div className="absolute top-0 right-0 w-32 h-32 bg-red-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-red-100/40 transition-colors duration-300"></div>
-        <div className="absolute bottom-0 left-0 w-24 h-24 bg-red-200/20 rounded-full -ml-12 -mb-12"></div>
-        <CardHeader className="relative">
-          <CardTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5" />
-            Incident Overview (30 days)
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="relative">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Total Incidents</span>
-              <Badge variant="destructive">{data.incidentData.totalIncidents}</Badge>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Wounds</span>
-              <span className="text-sm text-muted-foreground">{data.incidentData.totalWounds}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Falls</span>
-              <span className="text-sm text-muted-foreground">{data.incidentData.totalFalls}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Infections</span>
-              <span className="text-sm text-muted-foreground">{data.incidentData.totalInfections}</span>
-            </div>
+// 2. Operations Dashboard Card - Shows occupancy and staffing with visual gauges
+function OperationsDashboardCard({ data }: { data: AnalyticsData }) {
+  const occupancyRate = Math.round(data.occupancyData.averageOccupancy);
+  const totalBeds = data.occupancyData.totalBeds;
+  const occupiedBeds = data.occupancyData.totalOccupied;
+  const dayStaffing = Math.round(data.staffingData.totalDay);
+  const nightStaffing = Math.round(data.staffingData.totalNight);
+
+  return (
+    <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-green-50 via-white to-green-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
+      <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-transparent"></div>
+      <div className="absolute top-0 right-0 w-32 h-32 bg-green-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-green-100/40 transition-colors duration-300"></div>
+      <div className="absolute bottom-0 left-0 w-24 h-24 bg-green-200/20 rounded-full -ml-12 -mb-12"></div>
+      <CardHeader className="relative">
+        <CardTitle className="flex items-center gap-2">
+          <Users className="h-5 w-5 text-green-600" />
+          Operations Dashboard
+        </CardTitle>
+        <CardDescription>Occupancy and staffing metrics</CardDescription>
+      </CardHeader>
+      <CardContent className="relative space-y-6">
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium">Occupancy Rate</span>
+            <span className="text-2xl font-bold">{occupancyRate}%</span>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Documents Overview */}
-      <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-blue-50 via-white to-blue-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent"></div>
-        <div className="absolute top-0 right-0 w-32 h-32 bg-blue-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-blue-100/40 transition-colors duration-300"></div>
-        <div className="absolute bottom-0 left-0 w-24 h-24 bg-blue-200/20 rounded-full -ml-12 -mb-12"></div>
-        <CardHeader className="relative">
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Document Overview
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="relative">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Total Documents</span>
-              <span className="text-sm font-semibold">{data.documentData.totalDocuments}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Most Common Type</span>
-              <span className="text-sm text-muted-foreground">
-                {Object.entries(data.documentData.fileTypeDistribution)
-                  .sort(([,a], [,b]) => (b as number) - (a as number))[0]?.[0] || 'N/A'}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Active Workspaces</span>
-              <span className="text-sm text-muted-foreground">{data.userActivityData.activeWorkspacesToday}</span>
-            </div>
+          <div className="h-3 bg-gray-200 rounded-full overflow-hidden dark:bg-gray-700">
+            <div
+              className={cn(
+                "h-full rounded-full transition- all",
+                occupancyRate >= 80 ? "bg-green-500" : occupancyRate >= 60 ? "bg-amber-500" : "bg-red-500"
+              )}
+              style={{ width: `${Math.min(occupancyRate, 100)}%` }}
+            />
           </div>
-        </CardContent>
-      </Card>
+          <div className="flex items-center justify-between mt-1 text-xs text-muted-foreground">
+            <span>{occupiedBeds} occupied</span>
+            <span>{totalBeds} total beds</span>
+          </div>
+        </div>
 
-      {/* Action Plan Overview */}
-      <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-amber-50 via-white to-amber-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
-        <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent"></div>
-        <div className="absolute top-0 right-0 w-32 h-32 bg-amber-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-amber-100/40 transition-colors duration-300"></div>
-        <div className="absolute bottom-0 left-0 w-24 h-24 bg-amber-200/20 rounded-full -ml-12 -mb-12"></div>
-        <CardHeader className="relative">
-          <CardTitle className="flex items-center gap-2">
-            <Target className="h-5 w-5" />
-            Action Plan Overview
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="relative">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Open Items</span>
-              <span className="text-sm font-semibold">{data.actionPlanData.totalOpen}</span>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="h-2 w-2 rounded-full bg-amber-500"></div>
+              <span className="text-xs font-medium text-muted-foreground">Day Staffing</span>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Overdue</span>
-              <span className="text-sm font-semibold text-red-600">{data.actionPlanData.totalOverdue}</span>
+            <div className="text-2xl font-bold">{dayStaffing}</div>
+            <div className="text-xs text-muted-foreground">staff members</div>
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="h-2 w-2 rounded-full bg-indigo-500"></div>
+              <span className="text-xs font-medium text-muted-foreground">Night Staffing</span>
             </div>
+            <div className="text-2xl font-bold">{nightStaffing}</div>
+            <div className="text-xs text-muted-foreground">staff members</div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// 3. Incident Tracker Card - Shows 30-day incident trends with area chart
+function IncidentTrackerCard({ data }: { data: AnalyticsData }) {
+  const trendData = data.incidentTrendData.globalTrend.slice(-14); // Last 14 days for readability
+  const totalIncidents = data.incidentData.totalIncidents;
+  const falls = data.incidentData.totalFalls;
+  const wounds = data.incidentData.totalWounds;
+  const infections = data.incidentData.totalInfections;
+
+  return (
+    <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-red-50 via-white to-red-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
+      <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-transparent"></div>
+      <div className="absolute top-0 right-0 w-32 h-32 bg-red-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-red-100/40 transition-colors duration-300"></div>
+      <div className="absolute bottom-0 left-0 w-24 h-24 bg-red-200/20 rounded-full -ml-12 -mb-12"></div>
+      <CardHeader className="relative">
+        <CardTitle className="flex items-center gap-2">
+          <AlertTriangle className="h-5 w-5 text-red-600" />
+          Incident Tracker (30 days)
+        </CardTitle>
+        <CardDescription>Recent incident trends and breakdown</CardDescription>
+      </CardHeader>
+      <CardContent className="relative space-y-4">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium">Total Incidents</span>
+          <Badge variant="destructive" className="text-xl px-3 py-1">{totalIncidents}</Badge>
+        </div>
+
+        <ResponsiveContainer width="100%" height={120}>
+          <AreaChart data={trendData}>
+            <defs>
+              <linearGradient id="incidentGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <XAxis
+              dataKey="date"
+              tick={{ fontSize: 10 }}
+              tickFormatter={(value) => {
+                const date = new Date(value);
+                return `${date.getMonth() + 1}/${date.getDate()}`;
+              }}
+            />
+            <YAxis tick={{ fontSize: 10 }} />
+            <Tooltip content={({ active, payload }) => {
+              if (active && payload && payload.length) {
+                return (
+                  <div className="rounded-lg border bg-background p-2 shadow-sm">
+                    <div className="grid gap-2">
+                      <div className="flex flex-col">
+                        <span className="text-[0.70rem] uppercase text-muted-foreground">Total</span>
+                        <span className="font-bold">{payload[0].value}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            }} />
+            <Area
+              type="monotone"
+              dataKey="total"
+              stroke="#ef4444"
+              strokeWidth={2}
+              fill="url(#incidentGradient)"
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+
+        <div className="grid grid-cols-3 gap-2">
+          <div className="text-center">
+            <div className="text-xs text-muted-foreground">Falls</div>
+            <div className="text-lg font-bold text-orange-600">{falls}</div>
+          </div>
+          <div className="text-center">
+            <div className="text-xs text-muted-foreground">Wounds</div>
+            <div className="text-lg font-bold text-red-600">{wounds}</div>
+          </div>
+          <div className="text-center">
+            <div className="text-xs text-muted-foreground">Infections</div>
+            <div className="text-lg font-bold text-rose-600">{infections}</div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// 4. Action Management Card - Shows action items with radial progress
+function ActionManagementCard({ data }: { data: AnalyticsData }) {
+  const completionRate = Math.round(data.actionPlanData.completionRate);
+  const totalOpen = data.actionPlanData.totalOpen;
+  const totalOverdue = data.actionPlanData.totalOverdue;
+  const highPriorityOpen = data.actionPlanData.highPriorityOpen;
+  const outstandingActions = data.lessonsData.totalOutstandingActions;
+
+  // Radial chart data
+  const radialData = [
+    { name: 'Completion', value: completionRate, fill: completionRate >= 80 ? '#10b981' : completionRate >= 60 ? '#f59e0b' : '#ef4444' }
+  ];
+
+  return (
+    <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-amber-50 via-white to-amber-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
+      <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent"></div>
+      <div className="absolute top-0 right-0 w-32 h-32 bg-amber-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-amber-100/40 transition-colors duration-300"></div>
+      <div className="absolute bottom-0 left-0 w-24 h-24 bg-amber-200/20 rounded-full -ml-12 -mb-12"></div>
+      <CardHeader className="relative">
+        <CardTitle className="flex items-center gap-2">
+          <Target className="h-5 w-5 text-amber-600" />
+          Action Management
+        </CardTitle>
+        <CardDescription>Tasks, action plans, and learning follow-ups</CardDescription>
+      </CardHeader>
+      <CardContent className="relative">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex-1 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">Completion Rate</span>
-              <span className="text-sm font-semibold">{Math.round(data.actionPlanData.completionRate)}%</span>
+              <Badge variant={completionRate >= 80 ? "default" : "secondary"} className="text-lg px-3 py-1">
+                {completionRate}%
+              </Badge>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Open Items</span>
+              <span className="text-sm font-semibold">{totalOpen}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Overdue</span>
+              <span className="text-sm font-semibold text-red-600">{totalOverdue}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">High Priority</span>
+              <span className="text-sm font-semibold text-orange-600">{highPriorityOpen}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Learning Actions</span>
+              <span className="text-sm font-semibold">{outstandingActions}</span>
             </div>
           </div>
-        </CardContent>
-      </Card>
+          <div className="shrink-0">
+            <ResponsiveContainer width={120} height={120}>
+              <RadialBarChart
+                cx="50%"
+                cy="50%"
+                innerRadius="60%"
+                outerRadius="90%"
+                barSize={15}
+                data={radialData}
+                startAngle={90}
+                endAngle={-270}
+              >
+                <RadialBar
+                  background
+                  dataKey="value"
+                  cornerRadius={10}
+                />
+                <text
+                  x="50%"
+                  y="50%"
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  className="fill-foreground text-2xl font-bold"
+                >
+                  {completionRate}%
+                </text>
+              </RadialBarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
-      {/* Learning Overview */}
-      <Card className="group relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-purple-50 via-white to-purple-50/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] dark:border-slate-700 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent"></div>
-        <div className="absolute top-0 right-0 w-32 h-32 bg-purple-100/30 rounded-full -mr-16 -mt-16 group-hover:bg-purple-100/40 transition-colors duration-300"></div>
-        <div className="absolute bottom-0 left-0 w-24 h-24 bg-purple-200/20 rounded-full -ml-12 -mb-12"></div>
-        <CardHeader className="relative">
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
-            Learning & RCA Overview
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="relative">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Lessons Logged</span>
-              <span className="text-sm font-semibold">{data.lessonsData.totalLessons}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">RCAs Logged</span>
-              <span className="text-sm font-semibold">{data.lessonsData.totalRcas}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Outstanding Actions</span>
-              <span className="text-sm font-semibold text-orange-600">{data.lessonsData.totalOutstandingActions}</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+// Overview Tab Component
+function OverviewTab({ data }: { data: AnalyticsData }) {
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Health Score Card */}
+      <HealthScoreCard data={data} />
+
+      {/* Operations Dashboard Card */}
+      <OperationsDashboardCard data={data} />
+
+      {/* Incident Tracker Card */}
+      <IncidentTrackerCard data={data} />
+
+      {/* Action Management Card */}
+      <ActionManagementCard data={data} />
     </div>
   );
 }
@@ -1553,23 +1548,23 @@ function ComplianceTab({ data }: { data: AnalyticsData }) {
                 .filter((s: WorkspaceScore) => s.averageScore !== null)
                 .sort((a: WorkspaceScore, b: WorkspaceScore) => (b.averageScore || 0) - (a.averageScore || 0))
                 .map((workspace: WorkspaceScore, index: number) => (
-                <div key={workspace.workspaceId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg dark:bg-slate-700/50">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm font-semibold dark:bg-blue-900/50">
-                      {index + 1}
+                  <div key={workspace.workspaceId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg dark:bg-slate-700/50">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm font-semibold dark:bg-blue-900/50">
+                        {index + 1}
+                      </div>
+                      <span className="font-medium">{workspace.workspaceName}</span>
                     </div>
-                    <span className="font-medium">{workspace.workspaceName}</span>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={(workspace.averageScore || 0) >= 80 ? "default" : "destructive"}>
+                        {Math.round(workspace.averageScore || 0)}%
+                      </Badge>
+                      <span className="text-sm text-muted-foreground">
+                        {workspace.auditCount} audits
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={(workspace.averageScore || 0) >= 80 ? "default" : "destructive"}>
-                      {Math.round(workspace.averageScore || 0)}%
-                    </Badge>
-                    <span className="text-sm text-muted-foreground">
-                      {workspace.auditCount} audits
-                    </span>
-                  </div>
-                </div>
-              ))}
+                ))}
             </div>
           </CardContent>
         </Card>
@@ -1861,21 +1856,21 @@ function IncidentsTab({ data }: { data: AnalyticsData }) {
                 .sort((a: WorkspaceIncident, b: WorkspaceIncident) => b.totalIncidents - a.totalIncidents)
                 .slice(0, 10)
                 .map((workspace: WorkspaceIncident, index: number) => (
-                <div key={workspace.workspaceId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg dark:bg-slate-700/50">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-sm font-semibold dark:bg-red-900/50">
-                      {index + 1}
+                  <div key={workspace.workspaceId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg dark:bg-slate-700/50">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-sm font-semibold dark:bg-red-900/50">
+                        {index + 1}
+                      </div>
+                      <span className="font-medium">{workspace.workspaceName}</span>
                     </div>
-                    <span className="font-medium">{workspace.workspaceName}</span>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="destructive">{workspace.totalIncidents}</Badge>
+                      <span className="text-sm text-muted-foreground">
+                        ({workspace.wounds}W, {workspace.falls}F, {workspace.infections}I)
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="destructive">{workspace.totalIncidents}</Badge>
-                    <span className="text-sm text-muted-foreground">
-                      ({workspace.wounds}W, {workspace.falls}F, {workspace.infections}I)
-                    </span>
-                  </div>
-                </div>
-              ))}
+                ))}
             </div>
           </CardContent>
         </Card>
@@ -1906,7 +1901,7 @@ function IncidentsTab({ data }: { data: AnalyticsData }) {
 // Documents Tab Component
 function DocumentsTab({ data }: { data: AnalyticsData }) {
   const fileTypeData = Object.entries(data.documentData.fileTypeDistribution)
-    .sort(([,a], [,b]) => (b as number) - (a as number))
+    .sort(([, a], [, b]) => (b as number) - (a as number))
     .slice(0, 8)
     .map(([type, count]) => ({ name: type.toUpperCase(), value: count }));
 
@@ -1949,19 +1944,19 @@ function DocumentsTab({ data }: { data: AnalyticsData }) {
                 .sort((a: WorkspaceDocument, b: WorkspaceDocument) => b.totalDocuments - a.totalDocuments)
                 .slice(0, 10)
                 .map((workspace: WorkspaceDocument, index: number) => (
-                <div key={workspace.workspaceId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg dark:bg-slate-700/50">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm font-semibold dark:bg-blue-900/50">
-                      {index + 1}
+                  <div key={workspace.workspaceId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg dark:bg-slate-700/50">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm font-semibold dark:bg-blue-900/50">
+                        {index + 1}
+                      </div>
+                      <span className="font-medium">{workspace.workspaceName}</span>
                     </div>
-                    <span className="font-medium">{workspace.workspaceName}</span>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary">{workspace.totalDocuments}</Badge>
+                      <span className="text-sm text-muted-foreground">documents</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary">{workspace.totalDocuments}</Badge>
-                    <span className="text-sm text-muted-foreground">documents</span>
-                  </div>
-                </div>
-              ))}
+                ))}
             </div>
           </CardContent>
         </Card>

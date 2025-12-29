@@ -343,7 +343,7 @@ const capabilityCards: Capability[] = [
           <span className="text-sm font-semibold text-orange-900">Falls prevention plan</span>
           <Badge variant="secondary" className="bg-orange-200/70 text-orange-900">On track</Badge>
         </div>
-          <div className="p-4">
+        <div className="p-4">
           <div className="grid grid-cols-3 gap-3 items-stretch">
             <div className="flex flex-col space-y-2">
               <div className="text-[10px] font-medium text-orange-800">TO DO</div>
@@ -532,8 +532,8 @@ const capabilityCards: Capability[] = [
             <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100">
                 <svg viewBox="0 0 24 24" className="h-6 w-6 text-amber-600">
-                  <path fill="currentColor" d="M12,8c-2.21,0-4,1.79-4,4s1.79,4,4,4s4-1.79,4-4S14.21,8,12,8z M12,14c-1.1,0-2-0.9-2-2s0.9-2,2-2s2,0.9,2,2 S13.1,14,12,14z"/>
-                  <path fill="currentColor" d="M12,2C6.48,2,2,6.48,2,12s4.48,10,10,10s10-4.48,10-10S17.52,2,12,2z M12,20c-4.42,0-8-3.58-8-8s3.58-8,8-8s8,3.58,8,8 S16.42,20,12,20z"/>
+                  <path fill="currentColor" d="M12,8c-2.21,0-4,1.79-4,4s1.79,4,4,4s4-1.79,4-4S14.21,8,12,8z M12,14c-1.1,0-2-0.9-2-2s0.9-2,2-2s2,0.9,2,2 S13.1,14,12,14z" />
+                  <path fill="currentColor" d="M12,2C6.48,2,2,6.48,2,12s4.48,10,10,10s10-4.48,10-10S17.52,2,12,2z M12,20c-4.42,0-8-3.58-8-8s3.58-8,8-8s8,3.58,8,8 S16.42,20,12,20z" />
                 </svg>
               </div>
               <div className="flex-1">
@@ -546,7 +546,7 @@ const capabilityCards: Capability[] = [
             <div className="flex items-center gap-3 rounded-xl border border-purple-200 bg-purple-50 p-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100">
                 <svg viewBox="0 0 24 24" className="h-6 w-6 text-purple-600">
-                  <path fill="currentColor" d="M20,11H4c-0.55,0-1,0.45-1,1s0.45,1,1,1h16c0.55,0,1-0.45,1-1S20.55,11,20,11z M4,18h10c0.55,0,1-0.45,1-1s-0.45-1-1-1H4 c-0.55,0-1,0.45-1,1S3.45,18,4,18z M20,6H4C3.45,6,3,6.45,3,7s0.45,1,1,1h16c0.55,0,1-0.45,1-1S20.55,6,20,6z"/>
+                  <path fill="currentColor" d="M20,11H4c-0.55,0-1,0.45-1,1s0.45,1,1,1h16c0.55,0,1-0.45,1-1S20.55,11,20,11z M4,18h10c0.55,0,1-0.45,1-1s-0.45-1-1-1H4 c-0.55,0-1,0.45-1,1S3.45,18,4,18z M20,6H4C3.45,6,3,6.45,3,7s0.45,1,1,1h16c0.55,0,1-0.45,1-1S20.55,6,20,6z" />
                 </svg>
               </div>
               <div className="flex-1">
@@ -559,7 +559,7 @@ const capabilityCards: Capability[] = [
             <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100">
                 <svg viewBox="0 0 24 24" className="h-6 w-6 text-emerald-600">
-                  <path fill="currentColor" d="M3,9v6h4l5,5V4L7,9H3z M16.5,12c0-1.77-1.02-3.29-2.5-4.03v8.05C15.48,15.29,16.5,13.77,16.5,12z M14,3.23v2.06 c2.89,0.86,5,3.54,5,6.71s-2.11,5.85-5,6.71v2.06c4.01-0.91,7-4.49,7-8.77S18.01,4.14,14,3.23z"/>
+                  <path fill="currentColor" d="M3,9v6h4l5,5V4L7,9H3z M16.5,12c0-1.77-1.02-3.29-2.5-4.03v8.05C15.48,15.29,16.5,13.77,16.5,12z M14,3.23v2.06 c2.89,0.86,5,3.54,5,6.71s-2.11,5.85-5,6.71v2.06c4.01-0.91,7-4.49,7-8.77S18.01,4.14,14,3.23z" />
                 </svg>
               </div>
               <div className="flex-1">
@@ -652,9 +652,9 @@ const capabilityCards: Capability[] = [
                   key={i}
                   className={`h-8 rounded-lg flex items-center justify-center text-xs
                     ${isToday ? 'bg-green-100 text-green-900 font-medium' :
-                    isShortStaffed ? 'bg-amber-100 text-amber-900 font-medium' :
-                    isFull ? 'bg-emerald-100 text-emerald-900 font-medium' :
-                    'bg-slate-50 text-slate-500'}`}
+                      isShortStaffed ? 'bg-amber-100 text-amber-900 font-medium' :
+                        isFull ? 'bg-emerald-100 text-emerald-900 font-medium' :
+                          'bg-slate-50 text-slate-500'}`}
                 >
                   <div className="relative">
                     {day}
@@ -956,7 +956,7 @@ export default function Page() {
             </div>
             <span className="text-xl font-semibold tracking-tight">CG-360</span>
           </Link>
-            <nav className="hidden items-center gap-6 text-sm font-medium text-slate-200 md:flex">
+          <nav className="hidden items-center gap-6 text-sm font-medium text-slate-200 md:flex">
             <Link href="#platform" className="hover:text-white transition-colors">Platform</Link>
             <Link href="#workflow" className="hover:text-white transition-colors">Workflow</Link>
             <Link href="#analytics" className="hover:text-white transition-colors">Analytics</Link>
@@ -985,18 +985,18 @@ export default function Page() {
               <div className="flex w-full flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl sm:rounded-full border border-white/10 bg-white/10 px-4 sm:px-5 py-3 text-sm font-medium text-white">
                 <div className="flex items-start gap-3 min-w-0 flex-1">
                   <Sparkles className="h-4 w-4 flex-shrink-0 mt-1" />
-                    <div className="text-sm leading-snug text-white min-w-0">
-                      <span className="block">One system that replaces scattered tools with real-time clarity and control.</span>
-                    </div>
+                  <div className="text-sm leading-snug text-white min-w-0">
+                    <span className="block">One system that replaces scattered tools with real-time clarity and control.</span>
+                  </div>
                 </div>
 
                 <div className="flex-shrink-0 mt-2 sm:mt-0">
-                    <span className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">Built for care homes</span>
+                  <span className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">Built for care homes</span>
                 </div>
               </div>
               <div className="space-y-6">
                 <h1 className="text-4xl font-semibold leading-tight sm:text-5xl lg:text-6xl">
-                  Governance, compliance, and operations — all in one intelligent platform.
+                  Governance, compliance, and staff management — all in one intelligent platform.
                 </h1>
                 <p className="max-w-xl text-lg text-slate-300">
                   From audits and rotas to KPIs, root cause analysis, and everything in between — streamline oversight, connect teams, and stay inspection-ready every day.
@@ -1132,7 +1132,7 @@ export default function Page() {
                     <div className="mt-3 h-2 w-full overflow-hidden rounded-full border border-white/20 bg-white/10">
                       <div className="h-full w-[73%] rounded-full bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 shadow-lg shadow-emerald-400/50"></div>
                     </div>
-                    
+
                   </div>
                   <div className="rounded-2xl border border-pink-500/30 bg-gradient-to-br from-pink-500/20 to-rose-500/10 p-4 shadow-lg shadow-pink-500/20 backdrop-blur h-full md:min-h-[220px] flex flex-col">
                     <div className="mb-3 flex items-center gap-2">
@@ -1365,7 +1365,7 @@ export default function Page() {
 
                         {/* Card */}
                         <div className="relative flex flex-col h-full min-h-[520px] rounded-2xl border border-white/15 bg-gradient-to-br from-white/10 to-white/5 p-6 backdrop-blur-sm hover:border-white/25 hover:bg-gradient-to-br hover:from-white/15 hover:to-white/10 transition-all duration-300 group">
-                          
+
                           {/* Icon */}
                           <div className={`rounded-xl bg-gradient-to-br ${stage.accent} p-3 w-fit text-white shadow-lg group-hover:shadow-xl transition-all`}>
                             <Icon className="h-5 w-5" />
@@ -1373,7 +1373,7 @@ export default function Page() {
 
                           {/* Title */}
                           <h3 className="mt-4 text-lg font-bold text-white">{stage.title}</h3>
-                          
+
                           {/* Subtitle */}
                           <p className="mt-2 text-xs text-slate-300">{stage.subtitle}</p>
 
@@ -1454,385 +1454,385 @@ export default function Page() {
             <div className="absolute bottom-1/4 right-1/3 h-56 w-56 rounded-full bg-indigo-500/70 blur-3xl animate-pulse" style={{ animationDelay: '2.5s' }}></div>
           </div>
 
-        <section id="analytics" className="relative py-24 text-slate-900">
-          <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
-            <div className="grid gap-12 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] lg:items-center">
-              <div className="space-y-6">
-                <Badge variant="secondary" className="bg-slate-900 text-white">Operations cockpit</Badge>
-                <h2 className="text-4xl font-semibold tracking-tight sm:text-5xl">
-                  Admin overview meets predictive analytics.
-                </h2>
-                <p className="text-lg text-slate-600">
-                  Leaders see the whole organisation at a glance—licensing, staffing coverage, risk, and inspection readiness. Analysts dive deeper with the full analytical suite built into CG-360.
-                </p>
-                <ul className="space-y-3 text-sm text-slate-600">
-                  <li className="flex items-start gap-3">
-                    <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-500" />
-                    <span>Multi-organisation oversight with granular permissions.</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-500" />
-                    <span>AI-powered dashboards forecast compliance drift before it happens.</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-500" />
-                    <span>Share curated analytics boards with executives or inspectors in one click.</span>
-                  </li>
-                </ul>
+          <section id="analytics" className="relative py-24 text-slate-900">
+            <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
+              <div className="grid gap-12 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] lg:items-center">
+                <div className="space-y-6">
+                  <Badge variant="secondary" className="bg-slate-900 text-white">Operations cockpit</Badge>
+                  <h2 className="text-4xl font-semibold tracking-tight sm:text-5xl">
+                    Admin overview meets predictive analytics.
+                  </h2>
+                  <p className="text-lg text-slate-600">
+                    Leaders see the whole organisation at a glance—licensing, staffing coverage, risk, and inspection readiness. Analysts dive deeper with the full analytical suite built into CG-360.
+                  </p>
+                  <ul className="space-y-3 text-sm text-slate-600">
+                    <li className="flex items-start gap-3">
+                      <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-500" />
+                      <span>Multi-organisation oversight with granular permissions.</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-500" />
+                      <span>AI-powered dashboards forecast compliance drift before it happens.</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-500" />
+                      <span>Share curated analytics boards with executives or inspectors in one click.</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="rounded-[32px] border border-slate-200 bg-white p-8 shadow-2xl">
+                  <div className="flex flex-wrap gap-4 text-left">
+                    <div className="flex-1 min-w-[140px] rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-xs font-semibold uppercase text-slate-500">Organisation score</p>
+                      <p className="mt-2 text-3xl font-bold text-slate-900">94%</p>
+                      <p className="text-xs text-emerald-600">+6.1 vs last month</p>
+                    </div>
+                    <div className="flex-1 min-w-[140px] rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-xs font-semibold uppercase text-slate-500">Live alerts</p>
+                      <p className="mt-2 text-3xl font-bold text-slate-900">5</p>
+                      <p className="text-xs text-amber-600">Prioritised by impact</p>
+                    </div>
+                    <div className="flex-1 min-w-[140px] rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-xs font-semibold uppercase text-slate-500">Automation runs</p>
+                      <p className="mt-2 text-3xl font-bold text-slate-900">62</p>
+                      <p className="text-xs text-slate-500">Across 9 workflows</p>
+                    </div>
+                  </div>
+                  <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,240px)_minmax(0,1fr)]">
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-xs font-semibold uppercase text-slate-500">Live feed</p>
+                      <div className="mt-3 space-y-3 text-xs text-slate-600">
+                        <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
+                          <span>Inspection portal viewed</span>
+                          <span className="font-semibold text-slate-900">CQC • 09:24</span>
+                        </div>
+                        <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
+                          <span>Action plan closed</span>
+                          <span className="font-semibold text-emerald-600">Falls prevention</span>
+                        </div>
+                        <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
+                          <span>Dependency alert</span>
+                          <span className="font-semibold text-rose-600">Night shift +2</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
+                      <div className="flex items-center justify-between text-sm text-slate-600">
+                        <span>Predictive compliance trend</span>
+                        <span className="font-semibold text-slate-900">Next 12 weeks</span>
+                      </div>
+                      <div className="mt-6 h-40 w-full">
+                        <svg viewBox="0 0 260 120" className="h-full w-full text-blue-500">
+                          <defs>
+                            <linearGradient id="trend" x1="0%" y1="0%" x2="0%" y2="100%">
+                              <stop offset="0%" stopColor="#0ea5e9" stopOpacity="0.6" />
+                              <stop offset="100%" stopColor="#a855f7" stopOpacity="0.1" />
+                            </linearGradient>
+                          </defs>
+                          <path
+                            d="M10 90 C 50 40, 90 60, 130 30 C 170 10, 210 50, 250 20 L 250 110 L 10 110 Z"
+                            fill="url(#trend)"
+                            stroke="#0ea5e9"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-slate-600">
+                        <span>Projected inspection outcome</span>
+                        <span className="font-semibold text-emerald-600">Outstanding trajectory</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div className="rounded-[32px] border border-slate-200 bg-white p-8 shadow-2xl">
-                <div className="flex flex-wrap gap-4 text-left">
-                  <div className="flex-1 min-w-[140px] rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-xs font-semibold uppercase text-slate-500">Organisation score</p>
-                    <p className="mt-2 text-3xl font-bold text-slate-900">94%</p>
-                    <p className="text-xs text-emerald-600">+6.1 vs last month</p>
+              <div className="mt-16 grid gap-6 sm:grid-cols-3">
+                {impactMetrics.map((metric) => (
+                  <div key={metric.id} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-lg">
+                    <p className="text-3xl font-bold text-slate-900">{metric.value}</p>
+                    <p className="mt-2 text-sm font-semibold text-slate-700">{metric.label}</p>
+                    <p className="mt-2 text-xs text-slate-500">{metric.detail}</p>
                   </div>
-                  <div className="flex-1 min-w-[140px] rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-xs font-semibold uppercase text-slate-500">Live alerts</p>
-                    <p className="mt-2 text-3xl font-bold text-slate-900">5</p>
-                    <p className="text-xs text-amber-600">Prioritised by impact</p>
-                  </div>
-                  <div className="flex-1 min-w-[140px] rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-xs font-semibold uppercase text-slate-500">Automation runs</p>
-                    <p className="mt-2 text-3xl font-bold text-slate-900">62</p>
-                    <p className="text-xs text-slate-500">Across 9 workflows</p>
-                  </div>
-                </div>
-                <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,240px)_minmax(0,1fr)]">
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-xs font-semibold uppercase text-slate-500">Live feed</p>
-                    <div className="mt-3 space-y-3 text-xs text-slate-600">
-                      <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
-                        <span>Inspection portal viewed</span>
-                        <span className="font-semibold text-slate-900">CQC • 09:24</span>
-                      </div>
-                      <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
-                        <span>Action plan closed</span>
-                        <span className="font-semibold text-emerald-600">Falls prevention</span>
-                      </div>
-                      <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
-                        <span>Dependency alert</span>
-                        <span className="font-semibold text-rose-600">Night shift +2</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
-                    <div className="flex items-center justify-between text-sm text-slate-600">
-                      <span>Predictive compliance trend</span>
-                      <span className="font-semibold text-slate-900">Next 12 weeks</span>
-                    </div>
-                    <div className="mt-6 h-40 w-full">
-                      <svg viewBox="0 0 260 120" className="h-full w-full text-blue-500">
-                        <defs>
-                          <linearGradient id="trend" x1="0%" y1="0%" x2="0%" y2="100%">
-                            <stop offset="0%" stopColor="#0ea5e9" stopOpacity="0.6" />
-                            <stop offset="100%" stopColor="#a855f7" stopOpacity="0.1" />
-                          </linearGradient>
-                        </defs>
-                        <path
-                          d="M10 90 C 50 40, 90 60, 130 30 C 170 10, 210 50, 250 20 L 250 110 L 10 110 Z"
-                          fill="url(#trend)"
-                          stroke="#0ea5e9"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    </div>
-                    <div className="flex items-center justify-between text-xs text-slate-600">
-                      <span>Projected inspection outcome</span>
-                      <span className="font-semibold text-emerald-600">Outstanding trajectory</span>
-                    </div>
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
+          </section>
 
-            <div className="mt-16 grid gap-6 sm:grid-cols-3">
-              {impactMetrics.map((metric) => (
-                <div key={metric.id} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-lg">
-                  <p className="text-3xl font-bold text-slate-900">{metric.value}</p>
-                  <p className="mt-2 text-sm font-semibold text-slate-700">{metric.label}</p>
-                  <p className="mt-2 text-xs text-slate-500">{metric.detail}</p>
+          {false && (
+            <section id="pricing" className="relative py-24 text-slate-900">
+              <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
+                {/* Header */}
+                <div className="mx-auto max-w-3xl text-center mb-20">
+                  <Badge variant="secondary" className="bg-blue-100 text-blue-800 mb-4">Transparent pricing</Badge>
+                  <h2 className="text-5xl font-bold tracking-tight sm:text-6xl">
+                    One price. Everything included.
+                  </h2>
+                  <p className="mt-6 text-xl text-slate-600">
+                    No hidden fees. No surprise invoices. One flat rate per site covers every feature, every module, every workflow.
+                  </p>
                 </div>
-              ))}
-            </div>
-          </div>
-        </section>
 
-        {false && (
-        <section id="pricing" className="relative py-24 text-slate-900">
-          <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
-            {/* Header */}
-            <div className="mx-auto max-w-3xl text-center mb-20">
-              <Badge variant="secondary" className="bg-blue-100 text-blue-800 mb-4">Transparent pricing</Badge>
-              <h2 className="text-5xl font-bold tracking-tight sm:text-6xl">
-                One price. Everything included.
-              </h2>
-              <p className="mt-6 text-xl text-slate-600">
-                No hidden fees. No surprise invoices. One flat rate per site covers every feature, every module, every workflow.
-              </p>
-            </div>
+                {/* Main pricing card */}
+                <div className="mx-auto max-w-2xl mb-16">
+                  <div className="relative rounded-[40px] border-2 border-blue-500/50 bg-gradient-to-br from-blue-50 via-white to-purple-50 p-12 shadow-2xl overflow-hidden">
+                    {/* Decorative gradient blur */}
+                    <div className="absolute top-0 right-0 h-40 w-40 bg-blue-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
+                    <div className="absolute bottom-0 left-0 h-40 w-40 bg-purple-500/10 rounded-full blur-3xl -ml-20 -mb-20"></div>
 
-            {/* Main pricing card */}
-            <div className="mx-auto max-w-2xl mb-16">
-              <div className="relative rounded-[40px] border-2 border-blue-500/50 bg-gradient-to-br from-blue-50 via-white to-purple-50 p-12 shadow-2xl overflow-hidden">
-                {/* Decorative gradient blur */}
-                <div className="absolute top-0 right-0 h-40 w-40 bg-blue-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
-                <div className="absolute bottom-0 left-0 h-40 w-40 bg-purple-500/10 rounded-full blur-3xl -ml-20 -mb-20"></div>
-                
-                <div className="relative text-center">
-                  <div className="inline-block mb-6">
-                    <Badge className="bg-gradient-to-r from-blue-500 to-purple-500 text-white">Most popular</Badge>
-                  </div>
-                  
-                  <div className="mb-8">
-                    <div className="text-7xl font-black text-slate-900 tracking-tight">£350</div>
-                    <div className="text-lg text-slate-600 mt-2">per month • per site</div>
-                  </div>
-
-                  <div className="flex items-center justify-center gap-4 mb-8 pb-8 border-b-2 border-slate-200">
-                    <div className="text-center">
-                      <div className="text-sm font-semibold text-emerald-600">Setup cost</div>
-                      <div className="text-2xl font-bold text-slate-900">£0</div>
-                    </div>
-                    <div className="text-slate-300">•</div>
-                    <div className="text-center">
-                      <div className="text-sm font-semibold text-emerald-600">Free training</div>
-                      <div className="text-2xl font-bold text-slate-900">Included</div>
-                    </div>
-                    <div className="text-slate-300">•</div>
-                    <div className="text-center">
-                      <div className="text-sm font-semibold text-emerald-600">Backout clause</div>
-                      <div className="text-2xl font-bold text-slate-900">14 days</div>
-                    </div>
-                  </div>
-
-                  {/* Feature groups */}
-                  <div className="grid gap-8 sm:grid-cols-3 mt-8 mb-10">
-                    <div className="text-left">
-                      <h4 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                        <div className="h-6 w-6 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 text-sm">📄</div>
-                        Documents
-                      </h4>
-                      <ul className="space-y-2 text-sm text-slate-600">
-                        <li className="flex items-center gap-2">
-                          <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
-                          Smart management
-                        </li>
-                        <li className="flex items-center gap-2">
-                          <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
-                          AI indexing
-                        </li>
-                        <li className="flex items-center gap-2">
-                          <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
-                          Version control
-                        </li>
-                      </ul>
-                    </div>
-
-                    <div className="text-left">
-                      <h4 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                        <div className="h-6 w-6 rounded-lg bg-purple-100 flex items-center justify-center text-purple-600 text-sm">⚙️</div>
-                        Operations
-                      </h4>
-                      <ul className="space-y-2 text-sm text-slate-600">
-                        <li className="flex items-center gap-2">
-                          <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
-                          Dependency modeling
-                        </li>
-                        <li className="flex items-center gap-2">
-                          <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
-                          Rotas & scheduling
-                        </li>
-                        <li className="flex items-center gap-2">
-                          <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
-                          Action plans
-                        </li>
-                      </ul>
-                    </div>
-
-                    <div className="text-left">
-                      <h4 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                        <div className="h-6 w-6 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600 text-sm">📊</div>
-                        Insights
-                      </h4>
-                      <ul className="space-y-2 text-sm text-slate-600">
-                        <li className="flex items-center gap-2">
-                          <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
-                          Live analytics
-                        </li>
-                        <li className="flex items-center gap-2">
-                          <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
-                          Inspector portals
-                        </li>
-                        <li className="flex items-center gap-2">
-                          <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
-                          Compliance tracking
-                        </li>
-                      </ul>
-                    </div>
-                  </div>
-
-                  {/* CTA buttons */}
-                  <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
-                    <Button
-                      size="lg"
-                      onClick={openCalendlyModal}
-                      className="bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 shadow-lg text-lg py-6 px-12"
-                    >
-                      Book your demo
-                    </Button>
-                    <Button
-                      size="lg"
-                      variant="outline"
-                      className="border-2 border-slate-300 text-slate-900 hover:bg-slate-50"
-                    >
-                      View full feature list
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Trust indicators */}
-              <div className="text-center mt-8 text-sm text-slate-600">
-                <p>✓ 14-day backout clause</p>
-              </div>
-            </div>
-
-            {/* Comparison section */}
-            <div className="mt-24 pt-24 border-t-2 border-slate-200">
-              <div className="text-center mb-16">
-                <h3 className="text-3xl font-bold text-slate-900 mb-4">Why teams choose CG-360</h3>
-                <p className="text-lg text-slate-600">Compare the cost of competitors vs the complete CG-360 solution</p>
-              </div>
-
-              <div className="grid gap-8 lg:grid-cols-2">
-                {/* The problem */}
-                <div className="rounded-3xl border-2 border-red-200 bg-gradient-to-br from-red-50 to-red-100/50 p-10">
-                  <div className="flex items-center gap-3 mb-8">
-                    <div className="h-12 w-12 rounded-full bg-red-500/20 flex items-center justify-center">
-                      <AlertTriangle className="h-6 w-6 text-red-600" />
-                    </div>
-                    <h4 className="text-2xl font-bold text-red-900">Typical Setup</h4>
-                  </div>
-                  
-                  <div className="space-y-4 mb-8">
-                    <div className="flex items-start gap-3 pb-4 border-b border-red-200">
-                      <X className="h-5 w-5 text-red-600 flex-shrink-0 mt-1" />
-                      <div>
-                        <p className="font-semibold text-red-900">Policy Management Tool</p>
-                        <p className="text-sm text-red-700">£150/month</p>
+                    <div className="relative text-center">
+                      <div className="inline-block mb-6">
+                        <Badge className="bg-gradient-to-r from-blue-500 to-purple-500 text-white">Most popular</Badge>
                       </div>
-                    </div>
-                    <div className="flex items-start gap-3 pb-4 border-b border-red-200">
-                      <X className="h-5 w-5 text-red-600 flex-shrink-0 mt-1" />
-                      <div>
-                        <p className="font-semibold text-red-900">Audit & Compliance Module</p>
-                        <p className="text-sm text-red-700">£200/month</p>
+
+                      <div className="mb-8">
+                        <div className="text-7xl font-black text-slate-900 tracking-tight">£350</div>
+                        <div className="text-lg text-slate-600 mt-2">per month • per site</div>
                       </div>
-                    </div>
-                    <div className="flex items-start gap-3 pb-4 border-b border-red-200">
-                      <X className="h-5 w-5 text-red-600 flex-shrink-0 mt-1" />
-                      <div>
-                        <p className="font-semibold text-red-900">Analytics Add-on</p>
-                        <p className="text-sm text-red-700">£100/month</p>
+
+                      <div className="flex items-center justify-center gap-4 mb-8 pb-8 border-b-2 border-slate-200">
+                        <div className="text-center">
+                          <div className="text-sm font-semibold text-emerald-600">Setup cost</div>
+                          <div className="text-2xl font-bold text-slate-900">£0</div>
+                        </div>
+                        <div className="text-slate-300">•</div>
+                        <div className="text-center">
+                          <div className="text-sm font-semibold text-emerald-600">Free training</div>
+                          <div className="text-2xl font-bold text-slate-900">Included</div>
+                        </div>
+                        <div className="text-slate-300">•</div>
+                        <div className="text-center">
+                          <div className="text-sm font-semibold text-emerald-600">Backout clause</div>
+                          <div className="text-2xl font-bold text-slate-900">14 days</div>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-start gap-3 pb-4 border-b border-red-200">
-                      <X className="h-5 w-5 text-red-600 flex-shrink-0 mt-1" />
-                      <div>
-                        <p className="font-semibold text-red-900">Inspector Portal (Extra)</p>
-                        <p className="text-sm text-red-700">£75/month</p>
+
+                      {/* Feature groups */}
+                      <div className="grid gap-8 sm:grid-cols-3 mt-8 mb-10">
+                        <div className="text-left">
+                          <h4 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                            <div className="h-6 w-6 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 text-sm">📄</div>
+                            Documents
+                          </h4>
+                          <ul className="space-y-2 text-sm text-slate-600">
+                            <li className="flex items-center gap-2">
+                              <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                              Smart management
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                              AI indexing
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                              Version control
+                            </li>
+                          </ul>
+                        </div>
+
+                        <div className="text-left">
+                          <h4 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                            <div className="h-6 w-6 rounded-lg bg-purple-100 flex items-center justify-center text-purple-600 text-sm">⚙️</div>
+                            Operations
+                          </h4>
+                          <ul className="space-y-2 text-sm text-slate-600">
+                            <li className="flex items-center gap-2">
+                              <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                              Dependency modeling
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                              Rotas & scheduling
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                              Action plans
+                            </li>
+                          </ul>
+                        </div>
+
+                        <div className="text-left">
+                          <h4 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                            <div className="h-6 w-6 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600 text-sm">📊</div>
+                            Insights
+                          </h4>
+                          <ul className="space-y-2 text-sm text-slate-600">
+                            <li className="flex items-center gap-2">
+                              <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                              Live analytics
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                              Inspector portals
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                              Compliance tracking
+                            </li>
+                          </ul>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <X className="h-5 w-5 text-red-600 flex-shrink-0 mt-1" />
-                      <div>
-                        <p className="font-semibold text-red-900">Implementation & Training</p>
-                        <p className="text-sm text-red-700">£5,000+</p>
+
+                      {/* CTA buttons */}
+                      <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
+                        <Button
+                          size="lg"
+                          onClick={openCalendlyModal}
+                          className="bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 shadow-lg text-lg py-6 px-12"
+                        >
+                          Book your demo
+                        </Button>
+                        <Button
+                          size="lg"
+                          variant="outline"
+                          className="border-2 border-slate-300 text-slate-900 hover:bg-slate-50"
+                        >
+                          View full feature list
+                        </Button>
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-red-500/20 rounded-2xl p-4 text-center border border-red-300">
-                    <p className="text-sm text-red-700 mb-1">Total monthly cost</p>
-                    <p className="text-4xl font-bold text-red-900">£525+</p>
-                    <p className="text-xs text-red-700 mt-2">Plus setup costs, no integration, tool switching</p>
+                  {/* Trust indicators */}
+                  <div className="text-center mt-8 text-sm text-slate-600">
+                    <p>✓ 14-day backout clause</p>
                   </div>
                 </div>
 
-                {/* The solution */}
-                <div className="rounded-3xl border-2 border-emerald-200 bg-gradient-to-br from-emerald-50 to-emerald-100/50 p-10 relative ring-2 ring-emerald-400/50">
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                    <Badge className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white">Recommended</Badge>
+                {/* Comparison section */}
+                <div className="mt-24 pt-24 border-t-2 border-slate-200">
+                  <div className="text-center mb-16">
+                    <h3 className="text-3xl font-bold text-slate-900 mb-4">Why teams choose CG-360</h3>
+                    <p className="text-lg text-slate-600">Compare the cost of competitors vs the complete CG-360 solution</p>
                   </div>
 
-                  <div className="flex items-center gap-3 mb-8">
-                    <div className="h-12 w-12 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                      <CheckCircle2 className="h-6 w-6 text-emerald-600" />
-                    </div>
-                    <h4 className="text-2xl font-bold text-emerald-900">CG-360</h4>
-                  </div>
-                  
-                  <div className="space-y-4 mb-8">
-                    <div className="flex items-start gap-3 pb-4 border-b border-emerald-200">
-                      <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-1" />
-                      <div>
-                        <p className="font-semibold text-emerald-900">Complete platform</p>
-                        <p className="text-sm text-emerald-700">All features included</p>
+                  <div className="grid gap-8 lg:grid-cols-2">
+                    {/* The problem */}
+                    <div className="rounded-3xl border-2 border-red-200 bg-gradient-to-br from-red-50 to-red-100/50 p-10">
+                      <div className="flex items-center gap-3 mb-8">
+                        <div className="h-12 w-12 rounded-full bg-red-500/20 flex items-center justify-center">
+                          <AlertTriangle className="h-6 w-6 text-red-600" />
+                        </div>
+                        <h4 className="text-2xl font-bold text-red-900">Typical Setup</h4>
+                      </div>
+
+                      <div className="space-y-4 mb-8">
+                        <div className="flex items-start gap-3 pb-4 border-b border-red-200">
+                          <X className="h-5 w-5 text-red-600 flex-shrink-0 mt-1" />
+                          <div>
+                            <p className="font-semibold text-red-900">Policy Management Tool</p>
+                            <p className="text-sm text-red-700">£150/month</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3 pb-4 border-b border-red-200">
+                          <X className="h-5 w-5 text-red-600 flex-shrink-0 mt-1" />
+                          <div>
+                            <p className="font-semibold text-red-900">Audit & Compliance Module</p>
+                            <p className="text-sm text-red-700">£200/month</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3 pb-4 border-b border-red-200">
+                          <X className="h-5 w-5 text-red-600 flex-shrink-0 mt-1" />
+                          <div>
+                            <p className="font-semibold text-red-900">Analytics Add-on</p>
+                            <p className="text-sm text-red-700">£100/month</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3 pb-4 border-b border-red-200">
+                          <X className="h-5 w-5 text-red-600 flex-shrink-0 mt-1" />
+                          <div>
+                            <p className="font-semibold text-red-900">Inspector Portal (Extra)</p>
+                            <p className="text-sm text-red-700">£75/month</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <X className="h-5 w-5 text-red-600 flex-shrink-0 mt-1" />
+                          <div>
+                            <p className="font-semibold text-red-900">Implementation & Training</p>
+                            <p className="text-sm text-red-700">£5,000+</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-red-500/20 rounded-2xl p-4 text-center border border-red-300">
+                        <p className="text-sm text-red-700 mb-1">Total monthly cost</p>
+                        <p className="text-4xl font-bold text-red-900">£525+</p>
+                        <p className="text-xs text-red-700 mt-2">Plus setup costs, no integration, tool switching</p>
                       </div>
                     </div>
-                    <div className="flex items-start gap-3 pb-4 border-b border-emerald-200">
-                      <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-1" />
-                      <div>
-                        <p className="font-semibold text-emerald-900">No hidden costs</p>
-                        <p className="text-sm text-emerald-700">Everything in one subscription</p>
+
+                    {/* The solution */}
+                    <div className="rounded-3xl border-2 border-emerald-200 bg-gradient-to-br from-emerald-50 to-emerald-100/50 p-10 relative ring-2 ring-emerald-400/50">
+                      <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                        <Badge className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white">Recommended</Badge>
                       </div>
-                    </div>
-                    <div className="flex items-start gap-3 pb-4 border-b border-emerald-200">
-                      <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-1" />
-                      <div>
-                        <p className="font-semibold text-emerald-900">Seamless integration</p>
-                        <p className="text-sm text-emerald-700">No tool switching</p>
+
+                      <div className="flex items-center gap-3 mb-8">
+                        <div className="h-12 w-12 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                          <CheckCircle2 className="h-6 w-6 text-emerald-600" />
+                        </div>
+                        <h4 className="text-2xl font-bold text-emerald-900">CG-360</h4>
                       </div>
-                    </div>
-                    <div className="flex items-start gap-3 pb-4 border-b border-emerald-200">
-                      <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-1" />
-                      <div>
-                        <p className="font-semibold text-emerald-900">Free setup & training</p>
-                        <p className="text-sm text-emerald-700">4-week onboarding included</p>
+
+                      <div className="space-y-4 mb-8">
+                        <div className="flex items-start gap-3 pb-4 border-b border-emerald-200">
+                          <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-1" />
+                          <div>
+                            <p className="font-semibold text-emerald-900">Complete platform</p>
+                            <p className="text-sm text-emerald-700">All features included</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3 pb-4 border-b border-emerald-200">
+                          <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-1" />
+                          <div>
+                            <p className="font-semibold text-emerald-900">No hidden costs</p>
+                            <p className="text-sm text-emerald-700">Everything in one subscription</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3 pb-4 border-b border-emerald-200">
+                          <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-1" />
+                          <div>
+                            <p className="font-semibold text-emerald-900">Seamless integration</p>
+                            <p className="text-sm text-emerald-700">No tool switching</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3 pb-4 border-b border-emerald-200">
+                          <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-1" />
+                          <div>
+                            <p className="font-semibold text-emerald-900">Free setup & training</p>
+                            <p className="text-sm text-emerald-700">4-week onboarding included</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-1" />
+                          <div>
+                            <p className="font-semibold text-emerald-900">Live support</p>
+                            <p className="text-sm text-emerald-700">Dedicated support team</p>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-1" />
-                      <div>
-                        <p className="font-semibold text-emerald-900">Live support</p>
-                        <p className="text-sm text-emerald-700">Dedicated support team</p>
+
+                      <div className="bg-emerald-500/20 rounded-2xl p-4 text-center border border-emerald-300">
+                        <p className="text-sm text-emerald-700 mb-1">Total monthly cost</p>
+                        <p className="text-4xl font-bold text-emerald-900">£350</p>
+                        <p className="text-xs text-emerald-700 mt-2">No setup costs, no surprises, everything integrated</p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-emerald-500/20 rounded-2xl p-4 text-center border border-emerald-300">
-                    <p className="text-sm text-emerald-700 mb-1">Total monthly cost</p>
-                    <p className="text-4xl font-bold text-emerald-900">£350</p>
-                    <p className="text-xs text-emerald-700 mt-2">No setup costs, no surprises, everything integrated</p>
+                  {/* Savings callout */}
+                  <div className="mt-12 rounded-2xl bg-gradient-to-r from-blue-500/10 to-purple-500/10 border-2 border-blue-200 p-8 text-center">
+                    <p className="text-lg text-slate-900 mb-2">
+                      <span className="font-bold">Save 33%+ per month</span> compared to piecing together competitors' tools
+                    </p>
+                    <p className="text-slate-600">Plus eliminate switching costs, integration complexity, and training overhead</p>
                   </div>
                 </div>
               </div>
-
-              {/* Savings callout */}
-              <div className="mt-12 rounded-2xl bg-gradient-to-r from-blue-500/10 to-purple-500/10 border-2 border-blue-200 p-8 text-center">
-                <p className="text-lg text-slate-900 mb-2">
-                  <span className="font-bold">Save 33%+ per month</span> compared to piecing together competitors' tools
-                </p>
-                <p className="text-slate-600">Plus eliminate switching costs, integration complexity, and training overhead</p>
-              </div>
-            </div>
-          </div>
-        </section>
-        )}
+            </section>
+          )}
         </div>
 
         <section id="comparison" className="relative overflow-hidden bg-slate-950 py-24 text-white">

@@ -4,9 +4,10 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Users, Calendar, Clock, TrendingUp, AlertCircle } from "lucide-react";
+import { Users } from "lucide-react";
+import { ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell } from "recharts";
 import { db } from "@/lib/firebase";
-import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
+import { collection, doc, getDoc } from "firebase/firestore";
 import { workspaceDocPath, workspaceCollectionPath } from "@/lib/paths";
 import { format, startOfWeek, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -16,6 +17,7 @@ interface StaffingOverviewCardProps {
   orgId?: string | null;
   onNavigateToRotas?: () => void;
   className?: string;
+  dailyEntry?: any;
 }
 
 interface StaffMember {
@@ -32,39 +34,53 @@ interface Shift {
   date: string;
 }
 
-function calculateShiftHours(startTime: string, endTime: string): number {
-  if (!startTime || !endTime) return 0;
-  
-  const [startHour, startMin] = startTime.split(':').map(Number);
-  const [endHour, endMin] = endTime.split(':').map(Number);
-  
-  if (isNaN(startHour) || isNaN(startMin) || isNaN(endHour) || isNaN(endMin)) {
-    return 0;
-  }
-  
-  let hours = endHour - startHour;
-  let minutes = endMin - startMin;
-  
-  // Handle overnight shifts
-  if (hours < 0) {
-    hours += 24;
-  }
-  
-  const totalHours = hours + (minutes / 60);
-  return isNaN(totalHours) ? 0 : totalHours;
-}
+type DepartmentMixEntry = {
+  key: string;
+  label: string;
+  value: number;
+  percent: number;
+  color: string;
+};
 
-export function StaffingOverviewCard({ workspaceId, orgId, onNavigateToRotas, className }: StaffingOverviewCardProps) {
+const DEPARTMENT_CONFIG: Record<string, { label: string; color: string }> = {
+  managers: { label: "Management", color: "#3b82f6" },
+  nurses: { label: "Nursing", color: "#0ea5e9" },
+  ctms: { label: "Clinical Team", color: "#10b981" },
+  domestics: { label: "Domestic", color: "#f97316" },
+  maintenances: { label: "Maintenance", color: "#6366f1" },
+  kitchens: { label: "Kitchen", color: "#f59e0b" },
+  activities: { label: "Activities", color: "#a855f7" },
+};
+
+const FALLBACK_COLORS = ["#3b82f6", "#0ea5e9", "#10b981", "#22d3ee", "#f97316", "#f59e0b", "#a855f7", "#6366f1"];
+
+const formatDepartmentLabel = (key: string) =>
+  key
+    .replace(/[-_]/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
+export function StaffingOverviewCard({ workspaceId, orgId, onNavigateToRotas, className, dailyEntry }: StaffingOverviewCardProps) {
   const [loading, setLoading] = useState(true);
   const [totalStaff, setTotalStaff] = useState(0);
-  const [shiftsThisWeek, setShiftsThisWeek] = useState(0);
-  const [totalHoursScheduled, setTotalHoursScheduled] = useState(0);
-  const [coveragePercentage, setCoveragePercentage] = useState(0);
   const [understaffedDays, setUnderstaffedDays] = useState(0);
+  const [shiftsPerDayState, setShiftsPerDayState] = useState<number[] | null>(null);
+  const [avgShiftsPerDay, setAvgShiftsPerDay] = useState<number | null>(null);
+  const [departmentMix, setDepartmentMix] = useState<DepartmentMixEntry[]>([]);
+
+  const understaffedPill = understaffedDays > 0
+    ? {
+        text: `${understaffedDays} day${understaffedDays === 1 ? "" : "s"} understaffed`,
+        className: "border-amber-300 bg-amber-100/90 text-amber-700",
+      }
+    : {
+        text: "Coverage on track",
+        className: "border-emerald-300 bg-emerald-100/80 text-emerald-700",
+      };
 
   useEffect(() => {
     if (!workspaceId) {
       setLoading(false);
+      setDepartmentMix([]);
       return;
     }
 
@@ -98,6 +114,10 @@ export function StaffingOverviewCard({ workspaceId, orgId, onNavigateToRotas, cl
 
         setTotalStaff(allStaff.length);
 
+        if (allStaff.length === 0) {
+          setDepartmentMix([]);
+        }
+
         // Get current week boundaries
         const now = new Date();
         const weekStart = startOfWeek(now, { weekStartsOn: 1 });
@@ -113,17 +133,6 @@ export function StaffingOverviewCard({ workspaceId, orgId, onNavigateToRotas, cl
           shifts = rotaData.shifts || [];
         }
 
-        setShiftsThisWeek(shifts.length);
-
-        // Calculate total hours scheduled
-        const totalHours = shifts.reduce((sum, shift) => {
-          if (shift.startTime && shift.endTime) {
-            return sum + calculateShiftHours(shift.startTime, shift.endTime);
-          }
-          return sum;
-        }, 0);
-        setTotalHoursScheduled(Math.round(totalHours));
-
         // Calculate coverage percentage (shifts per day vs expected minimum)
         const expectedShiftsPerDay = Math.max(3, Math.floor(allStaff.length * 0.4)); // At least 40% of staff per day
         const daysInWeek = 7;
@@ -135,16 +144,54 @@ export function StaffingOverviewCard({ workspaceId, orgId, onNavigateToRotas, cl
           shifts.filter(s => s.date === date).length
         );
 
-        const avgShiftsPerDay = shiftsPerDay.reduce((a, b) => a + b, 0) / daysInWeek;
-        const coverage = Math.min(100, Math.round((avgShiftsPerDay / expectedShiftsPerDay) * 100));
-        setCoveragePercentage(coverage);
+        // store per-day counts for summary metrics
+        setShiftsPerDayState(shiftsPerDay);
+        const avg = shiftsPerDay.length > 0 ? Math.round(shiftsPerDay.reduce((a,b) => a+b, 0) / shiftsPerDay.length) : 0;
+        setAvgShiftsPerDay(avg);
 
         // Count understaffed days (less than expected minimum)
         const understaffed = shiftsPerDay.filter(count => count < expectedShiftsPerDay).length;
         setUnderstaffedDays(understaffed);
 
+        const departments = allStaff.reduce<Record<string, number>>((acc, staff) => {
+          const key = staff.department || "other";
+          acc[key] = (acc[key] || 0) + 1;
+          return acc;
+        }, {});
+
+        const sortedEntries = Object.entries(departments)
+          .filter(([, count]) => count > 0)
+          .sort((a, b) => b[1] - a[1]);
+
+        let displayEntries = sortedEntries;
+        if (sortedEntries.length > 5) {
+          const primary = sortedEntries.slice(0, 5);
+          const remainderValue = sortedEntries.slice(5).reduce((sum, [, value]) => sum + value, 0);
+          displayEntries = remainderValue > 0 ? [...primary, ["other", remainderValue]] : primary;
+        }
+
+        const mix: DepartmentMixEntry[] = displayEntries.map(([key, value], index) => {
+          const config = key === "other"
+            ? { label: "Other roles", color: "#cbd5f5" }
+            : DEPARTMENT_CONFIG[key] ?? {
+                label: formatDepartmentLabel(key),
+                color: FALLBACK_COLORS[index % FALLBACK_COLORS.length],
+              };
+          const percent = allStaff.length > 0 ? Math.round((value / allStaff.length) * 100) : 0;
+          return {
+            key,
+            label: config.label,
+            value,
+            percent,
+            color: config.color,
+          };
+        });
+
+        setDepartmentMix(mix);
+
       } catch (error) {
         console.error('Failed to load staffing data:', error);
+        setDepartmentMix([]);
       } finally {
         setLoading(false);
       }
@@ -152,6 +199,36 @@ export function StaffingOverviewCard({ workspaceId, orgId, onNavigateToRotas, cl
 
     loadStaffingData();
   }, [workspaceId, orgId]);
+
+  // Parse counts from dailyEntry prop, mirroring the logic used in MiniStaffingCard
+  const parseFromDailyEntry = (key: 'staffingDay' | 'staffingNight', fallback?: number | null) => {
+    if (!dailyEntry) return fallback ?? null;
+    const direct = dailyEntry[key];
+    if (direct !== undefined && direct !== null) {
+      const n = Number(direct);
+      return Number.isFinite(n) && n >= 0 ? n : fallback ?? null;
+    }
+    const nested = dailyEntry.staffing?.[key === 'staffingDay' ? 'day' : 'night'];
+    if (nested !== undefined && nested !== null) {
+      const n = Number(nested);
+      return Number.isFinite(n) && n >= 0 ? n : fallback ?? null;
+    }
+    return fallback ?? null;
+  };
+
+  const dayCountFromDaily = parseFromDailyEntry('staffingDay', null);
+  const nightCountFromDaily = parseFromDailyEntry('staffingNight', null);
+  const totalFromDaily = (dayCountFromDaily ?? 0) + (nightCountFromDaily ?? 0);
+  const STAFF_TARGET = totalStaff > 0 ? Math.max(3, Math.floor(totalStaff * 0.4)) : 20;
+  const coveragePercent = STAFF_TARGET > 0 ? Math.min(100, Math.round((totalFromDaily / STAFF_TARGET) * 100)) : 0;
+  const staffingPillClass = (dayCountFromDaily === null && nightCountFromDaily === null)
+    ? 'border-slate-200 bg-white/80 text-slate-700'
+    : totalFromDaily === 0
+      ? 'border-red-300 bg-red-100/90 text-red-700'
+      : (coveragePercent >= 80 ? 'border-emerald-300 bg-emerald-100/80 text-emerald-700' : 'border-amber-300 bg-amber-100/90 text-amber-700');
+  const staffingPillText = (dayCountFromDaily === null && nightCountFromDaily === null)
+    ? 'Not logged'
+    : `Day ${dayCountFromDaily ?? '—'} · Night ${nightCountFromDaily ?? '—'} · ${totalFromDaily}`;
 
   const handleNavigate = () => {
     if (onNavigateToRotas) {
@@ -178,6 +255,7 @@ export function StaffingOverviewCard({ workspaceId, orgId, onNavigateToRotas, cl
             </div>
             <CardTitle className="text-base font-semibold text-slate-900">Staffing Overview</CardTitle>
           </div>
+          <div className="flex items-center gap-2">
           <Button
             size="sm"
             variant="default"
@@ -189,6 +267,7 @@ export function StaffingOverviewCard({ workspaceId, orgId, onNavigateToRotas, cl
           >
             View rotas
           </Button>
+          </div>
         </div>
         <CardDescription className="text-sm text-slate-500">
           This week's rota summary and staffing levels at a glance.
@@ -196,77 +275,105 @@ export function StaffingOverviewCard({ workspaceId, orgId, onNavigateToRotas, cl
       </CardHeader>
       <CardContent className="flex flex-1 flex-col gap-4 overflow-hidden">
         {loading ? (
-          <div className="text-center py-8 text-slate-500">Loading staffing data...</div>
+          <div className="py-8 text-center text-slate-500">Loading staffing data...</div>
         ) : totalStaff === 0 ? (
-          <div className="text-center py-8">
-            <Users className="h-12 w-12 mx-auto mb-3 text-slate-300" />
-            <p className="text-sm text-slate-600 mb-4">No staff members found.</p>
+          <div className="py-8 text-center">
+            <Users className="mx-auto mb-3 h-12 w-12 text-slate-300" />
+            <p className="mb-4 text-sm text-slate-600">No staff members found.</p>
             <p className="text-xs text-slate-500">Add staff in the Teams section to start scheduling rotas.</p>
           </div>
         ) : (
-          <div className="flex flex-1 flex-col space-y-4 overflow-hidden">
-            {/* Quick Stats Grid */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-xl bg-gradient-to-br from-blue-50 to-blue-100/50 p-4 border border-blue-200/50">
-                <div className="flex items-center gap-2 mb-1">
-                  <Users className="h-4 w-4 text-blue-600" />
-                  <span className="text-xs font-medium text-blue-700">Total Staff</span>
+          <div className="flex flex-1 flex-col gap-6 overflow-hidden">
+            {departmentMix.length > 0 ? (
+              <div className="rounded-3xl border border-blue-100/80 bg-gradient-to-br from-white to-blue-50/60 p-6 shadow-sm">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">Team mix</p>
+                    <p className="text-xs text-slate-500">Current staffing distribution</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "rounded-full border px-3 py-1 text-[11px] font-semibold tracking-wide",
+                        understaffedPill.className,
+                      )}
+                    >
+                      {understaffedPill.text}
+                    </Badge>
+                    <Badge
+                      variant="outline"
+                      className={cn("rounded-full border px-3 py-1 text-[11px] font-semibold tracking-wide", staffingPillClass)}
+                    >
+                      {staffingPillText}
+                    </Badge>
+                  </div>
                 </div>
-                <p className="text-2xl font-bold text-blue-900">{totalStaff}</p>
-                <p className="text-xs text-blue-600 mt-1">Active team members</p>
+                <div className="mt-6 flex flex-col gap-6 sm:flex-row sm:items-stretch">
+                  <div className="relative mx-auto h-48 w-48 sm:mx-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RechartsPieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+                        <Pie
+                          data={departmentMix}
+                          innerRadius="58%"
+                          outerRadius="100%"
+                          paddingAngle={departmentMix.length > 1 ? 4 : 0}
+                          cornerRadius={departmentMix.length > 1 ? 6 : 0}
+                          dataKey="value"
+                          stroke="transparent"
+                        >
+                          {departmentMix.map((segment) => (
+                            <Cell key={segment.key} fill={segment.color} />
+                          ))}
+                        </Pie>
+                      </RechartsPieChart>
+                    </ResponsiveContainer>
+                    <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-slate-700">
+                      <span className="text-[10px] uppercase tracking-[0.3em] text-slate-400">Team</span>
+                      <span className="text-2xl font-semibold text-slate-900">{totalStaff}</span>
+                      <span className="text-xs text-slate-500">people logged</span>
+                    </div>
+                  </div>
+                  <div className="flex-1 space-y-3">
+                    {departmentMix.map((segment) => (
+                      <div
+                        key={segment.key}
+                        className="flex items-center justify-between gap-4 rounded-2xl border border-white/60 bg-white/80 px-3 py-2 text-sm shadow-sm"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span
+                            className="h-2.5 w-2.5 rounded-full"
+                            style={{ backgroundColor: segment.color }}
+                            aria-hidden="true"
+                          />
+                          <span className="font-medium text-slate-700">{segment.label}</span>
+                        </div>
+                        <span className="text-slate-500">
+                          {segment.value} staff · {segment.percent}%
+                        </span>
+                      </div>
+                    ))}
+                    {/* Compact weekly summary metrics to use whitespace */}
+                    <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                      <div className="rounded-lg border border-white/60 bg-white/80 px-3 py-2 text-sm shadow-sm text-center">
+                        <div className="text-xs text-slate-500">Avg shifts / day</div>
+                        <div className="text-lg font-semibold text-slate-800">{avgShiftsPerDay !== null ? avgShiftsPerDay : '—'}</div>
+                      </div>
+                      <div className="rounded-lg border border-white/60 bg-white/80 px-3 py-2 text-sm shadow-sm text-center">
+                        <div className="text-xs text-slate-500">Understaffed days</div>
+                        <div className="text-lg font-semibold text-slate-800">{understaffedDays}</div>
+                      </div>
+                      <div className="rounded-lg border border-white/60 bg-white/80 px-3 py-2 text-sm shadow-sm text-center">
+                        <div className="text-xs text-slate-500">Coverage</div>
+                        <div className="text-lg font-semibold text-slate-800">{coveragePercent}%</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
-
-              <div className="rounded-xl bg-gradient-to-br from-cyan-50 to-cyan-100/50 p-4 border border-cyan-200/50">
-                <div className="flex items-center gap-2 mb-1">
-                  <Calendar className="h-4 w-4 text-cyan-600" />
-                  <span className="text-xs font-medium text-cyan-700">This Week</span>
-                </div>
-                <p className="text-2xl font-bold text-cyan-900">{shiftsThisWeek}</p>
-                <p className="text-xs text-cyan-600 mt-1">Shifts scheduled</p>
-              </div>
-
-              <div className="rounded-xl bg-gradient-to-br from-teal-50 to-teal-100/50 p-4 border border-teal-200/50">
-                <div className="flex items-center gap-2 mb-1">
-                  <Clock className="h-4 w-4 text-teal-600" />
-                  <span className="text-xs font-medium text-teal-700">Hours</span>
-                </div>
-                <p className="text-2xl font-bold text-teal-900">{totalHoursScheduled}h</p>
-                <p className="text-xs text-teal-600 mt-1">Total scheduled</p>
-              </div>
-
-              <div className="rounded-xl bg-gradient-to-br from-emerald-50 to-emerald-100/50 p-4 border border-emerald-200/50">
-                <div className="flex items-center gap-2 mb-1">
-                  <TrendingUp className="h-4 w-4 text-emerald-600" />
-                  <span className="text-xs font-medium text-emerald-700">Coverage</span>
-                </div>
-                <p className="text-2xl font-bold text-emerald-900">{coveragePercentage}%</p>
-                <p className="text-xs text-emerald-600 mt-1">Weekly average</p>
-              </div>
-            </div>
-
-            {/* Alerts/Status */}
-            {understaffedDays > 0 && (
-              <div className="flex items-start gap-3 rounded-xl border border-amber-200/60 bg-gradient-to-r from-amber-50 to-white px-4 py-3">
-                <div className="p-1.5 rounded-lg bg-amber-100">
-                  <AlertCircle className="h-4 w-4 text-amber-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-amber-900">
-                    {understaffedDays} day{understaffedDays > 1 ? 's' : ''} understaffed
-                  </p>
-                  <p className="text-xs text-amber-700">
-                    Review the rota to ensure adequate coverage throughout the week.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {understaffedDays === 0 && shiftsThisWeek > 0 && (
-              <div className="flex items-center justify-center rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-50 px-4 py-3 text-emerald-700">
-                <svg className="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                <span className="text-sm font-semibold">All days adequately staffed this week</span>
+            ) : (
+              <div className="flex flex-1 items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-white/60 p-8 text-center text-sm text-slate-500">
+                Add team members in the Teams area to see a staffing breakdown chart.
               </div>
             )}
           </div>

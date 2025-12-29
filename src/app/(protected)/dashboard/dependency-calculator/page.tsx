@@ -89,10 +89,10 @@ async function generatePDFReport(
   communities: Community[],
   selectedCommunity: string | null,
   workspace: any,
-    calculateNDPSScore: (resident: Resident) => number = ndpsCalculateNDPSScore,
-    getNDPSBand: (score: number) => { band: number; name: string } = ndpsGetNDPSBand,
-    calculateResidentCareMinutes: (resident: Resident) => { Day: number; Night: number } = ndpsCalculateResidentCareMinutes,
-    calculateNDPSStaffing: (residents: Resident[]) => { Day: number; Night: number } = ndpsCalculateNDPSStaffing,
+  calculateNDPSScore: (resident: Resident) => number = ndpsCalculateNDPSScore,
+  getNDPSBand: (score: number) => { band: number; name: string } = ndpsGetNDPSBand,
+  calculateResidentCareMinutes: (resident: Resident) => { Day: number; Night: number } = ndpsCalculateResidentCareMinutes,
+  calculateNDPSStaffing: (residents: Resident[]) => { Day: number; Night: number } = ndpsCalculateNDPSStaffing,
   generateChartData: (residents: Resident[], months: number) => ChartData[]
 ) {
   const workspaceName = workspace?.name ?? 'Workspace';
@@ -321,14 +321,14 @@ function generateChartData(residents: Resident[], months: number): ChartData[] {
   // Calculate actual current values first (for the most recent month)
   let actualTotalNDPSScore = 0;
   let actualTotalCareHours = 0;
-  
+
   residents.forEach(resident => {
     const score = calculateNDPSScore(resident);
     const care = calculateResidentCareMinutes(resident);
     actualTotalNDPSScore += score;
     actualTotalCareHours += (care.Day + care.Night) / 60;
   });
-  
+
   const actualAvgNDPSScore = residents.length > 0 ? actualTotalNDPSScore / residents.length : 0;
   const actualStaffRequired = calculateNDPSStaffing(residents);
 
@@ -351,10 +351,10 @@ function generateChartData(residents: Resident[], months: number): ChartData[] {
       // Historical months - simulate with variation (85-115% of current values)
       const baseMultiplier = 0.85 + Math.random() * 0.3;
       residentCount = Math.max(1, Math.round(residents.length * baseMultiplier));
-      
+
       ndpsScore = actualAvgNDPSScore * baseMultiplier;
       careHours = actualTotalCareHours * baseMultiplier;
-      
+
       // Estimate staff based on simulated data
       const simulatedStaffDay = Math.ceil(actualStaffRequired.Day * baseMultiplier);
       const simulatedStaffNight = Math.ceil(actualStaffRequired.Night * baseMultiplier);
@@ -413,7 +413,7 @@ function genId() {
   try {
     // @ts-ignore
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
-  } catch {}
+  } catch { }
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
@@ -438,17 +438,17 @@ export default function DependencyCalculatorPage() {
   const workspaceOrganisationId = (workspace as any)?.organisationId ?? null;
   const [communities, setCommunities] = useState<Community[]>([]);
   const [selectedCommunity, setSelectedCommunity] = useState<string | null>(null);
-    const [modalOpen, setModalOpen] = useState(false);
-    const [editingIndex, setEditingIndex] = useState<number | null>(null);
-    const [step, setStep] = useState(0);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [step, setStep] = useState(0);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingResident, setEditingResident] = useState<Resident | null>(null);
-    const [form, setForm] = useState<Resident>({
-      name: "",
-      room: "",
-      ...getDefaultAssessment(),
-      communityId: null,
-    });
+  const [form, setForm] = useState<Resident>({
+    name: "",
+    room: "",
+    ...getDefaultAssessment(),
+    communityId: null,
+  });
   const [staff, setStaff] = useState<Record<Shift, number>>({ Day: 0, Night: 0 });
   const [staffActual, setStaffActual] = useState<StaffActualState>(() => createDefaultStaffActual());
 
@@ -456,129 +456,103 @@ export default function DependencyCalculatorPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Load snapshots from localStorage on mount
   React.useEffect(() => {
     // Snapshot functionality removed - data is now automatically saved
   }, []);
 
-    function openAddModal() {
-      const baseAssessment = getDefaultAssessment();
-      const newResident: Resident = {
-        ...baseAssessment,
-        id: genId(),
-        name: "",
-        room: "",
-        communityId: selectedCommunity ?? null,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      } as Resident;
-      setEditingResident(newResident);
-      setEditModalOpen(true);
-    }
+  function openAddModal() {
+    const baseAssessment = getDefaultAssessment();
+    const newResident: Resident = {
+      ...baseAssessment,
+      id: genId(),
+      name: "",
+      room: "",
+      communityId: selectedCommunity ?? null,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    } as Resident;
+    setEditingResident(newResident);
+    setEditModalOpen(true);
+  }
 
-    function openEditAssessmentModal(resident: Resident) {
-      setEditingResident(resident);
-      setEditModalOpen(true);
-    }
+  function openEditAssessmentModal(resident: Resident) {
+    setEditingResident(resident);
+    setEditModalOpen(true);
+  }
 
-    function handleSaveAssessment(updatedResident: Resident) {
-      setResidents(prev => {
-        const idx = prev.findIndex(r => r.id === updatedResident.id);
-        if (idx >= 0) {
-          const copy = [...prev];
-          copy[idx] = updatedResident;
-          return copy;
+  function handleSaveAssessment(updatedResident: Resident) {
+    setResidents(prev => {
+      const idx = prev.findIndex(r => r.id === updatedResident.id);
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = updatedResident;
+        return copy;
+      }
+      return [...prev, updatedResident];
+    });
+
+    if (updatedResident.id) {
+      setCommunities(prev => {
+        const next = prev.map(community => ({
+          ...community,
+          residentIds: Array.isArray(community.residentIds)
+            ? community.residentIds.filter(residentId => residentId !== updatedResident.id)
+            : [],
+        }));
+
+        if (updatedResident.communityId) {
+          const targetIdx = next.findIndex(c => c.id === updatedResident.communityId);
+          if (targetIdx >= 0) {
+            const currentIds = new Set(next[targetIdx].residentIds ?? []);
+            if (typeof updatedResident.id === 'string' && updatedResident.id) {
+              currentIds.add(updatedResident.id);
+            }
+            next[targetIdx] = {
+              ...next[targetIdx],
+              residentIds: Array.from(currentIds),
+            };
+          }
         }
-        return [...prev, updatedResident];
+
+        return next;
       });
-
-      if (updatedResident.id) {
-        setCommunities(prev => {
-          const next = prev.map(community => ({
-            ...community,
-            residentIds: Array.isArray(community.residentIds)
-              ? community.residentIds.filter(residentId => residentId !== updatedResident.id)
-              : [],
-          }));
-
-          if (updatedResident.communityId) {
-            const targetIdx = next.findIndex(c => c.id === updatedResident.communityId);
-            if (targetIdx >= 0) {
-              const currentIds = new Set(next[targetIdx].residentIds ?? []);
-              if (typeof updatedResident.id === 'string' && updatedResident.id) {
-                currentIds.add(updatedResident.id);
-              }
-              next[targetIdx] = {
-                ...next[targetIdx],
-                residentIds: Array.from(currentIds),
-              };
-            }
-          }
-
-          return next;
-        });
-      }
-
-      setEditModalOpen(false);
-      setEditingResident(null);
     }
 
-      function deleteResidentById(id?: string | null) {
-        if (!id) return;
-        if (!confirm('Delete resident? This action cannot be undone.')) return;
-        // remove resident from residents list
-        setResidents(prev => prev.filter(r => r.id !== id));
-        // remove references from communities residentIds and clear communityId from residents
-        setCommunities(prev => prev.map(c => ({ ...c, residentIds: (c.residentIds || []).filter(rid => rid !== id) })));
-        setResidents(prev => prev.map(r => r.communityId === id ? { ...r, communityId: null } : r));
-        // close modal if the deleted resident was being edited
-        if (editingIndex !== null && residents[editingIndex]?.id === id) {
-          setModalOpen(false);
-          setEditingIndex(null);
-        }
-      }
+    setEditModalOpen(false);
+    setEditingResident(null);
+  }
 
-    function handleNext() {
-      // add an extra step for community selection after the NPDS fields
-      if (step < NPDS_FIELDS.length + 1) setStep(step + 1);
-      else if (step === NPDS_FIELDS.length + 1) setStep(step + 1);
-    }    const [stepError, setStepError] = React.useState<string | null>(null);
-
-    function attemptNext() {
-      if (!isStepValid(step)) {
-        if (step === 0) {
-          // Check for specific validation errors
-          if (form.name.trim() === "" || form.room.trim() === "") {
-            setStepError("Please enter a Name and Room before continuing.");
-          } else {
-            // Check for duplicate room
-            const roomExists = residents.some((resident, index) => {
-              if (editingIndex !== null && index === editingIndex) {
-                return false;
-              }
-              return resident.room.trim().toLowerCase() === form.room.trim().toLowerCase();
-            });
-            if (roomExists) {
-              setStepError(`Room "${form.room}" is already assigned to another resident. Please choose a different room number.`);
-            } else {
-              setStepError("Please enter a Name and Room before continuing.");
-            }
-          }
-        }
-        else if (step > 0 && step <= NPDS_FIELDS.length) setStepError(`Please select ${NPDS_FIELDS[step - 1].label}.`);
-        else setStepError("Please select a community or choose None.");
-        return;
-      }
-      setStepError(null);
-      handleNext();
+  function deleteResidentById(id?: string | null) {
+    if (!id) return;
+    if (!confirm('Delete resident? This action cannot be undone.')) return;
+    // remove resident from residents list
+    setResidents(prev => prev.filter(r => r.id !== id));
+    // remove references from communities residentIds and clear communityId from residents
+    setCommunities(prev => prev.map(c => ({ ...c, residentIds: (c.residentIds || []).filter(rid => rid !== id) })));
+    setResidents(prev => prev.map(r => r.communityId === id ? { ...r, communityId: null } : r));
+    // close modal if the deleted resident was being edited
+    if (editingIndex !== null && residents[editingIndex]?.id === id) {
+      setModalOpen(false);
+      setEditingIndex(null);
     }
+  }
 
-    async function attemptSave() {
-      if (!isAllValid()) {
+  function handleNext() {
+    // add an extra step for community selection after the NPDS fields
+    if (step < NPDS_FIELDS.length + 1) setStep(step + 1);
+    else if (step === NPDS_FIELDS.length + 1) setStep(step + 1);
+  } const [stepError, setStepError] = React.useState<string | null>(null);
+
+  function attemptNext() {
+    if (!isStepValid(step)) {
+      if (step === 0) {
         // Check for specific validation errors
         if (form.name.trim() === "" || form.room.trim() === "") {
-          setStepError("Please complete all required fields before saving.");
+          setStepError("Please enter a Name and Room before continuing.");
         } else {
           // Check for duplicate room
           const roomExists = residents.some((resident, index) => {
@@ -590,72 +564,100 @@ export default function DependencyCalculatorPage() {
           if (roomExists) {
             setStepError(`Room "${form.room}" is already assigned to another resident. Please choose a different room number.`);
           } else {
-            setStepError("Please complete all steps before saving.");
+            setStepError("Please enter a Name and Room before continuing.");
           }
         }
-        return;
       }
-      setStepError(null);
-      await handleSave();
+      else if (step > 0 && step <= NPDS_FIELDS.length) setStepError(`Please select ${NPDS_FIELDS[step - 1].label}.`);
+      else setStepError("Please select a community or choose None.");
+      return;
     }
-    function handleBack() {
-      if (step > 0) setStep(step - 1);
-    }
-    function handleChange(e: React.ChangeEvent<HTMLInputElement> | React.ChangeEvent<HTMLSelectElement>) {
-      setForm({ ...form, [e.target.name]: e.target.value });
-    }
-  
-    // Validation: ensure each step is completed before allowing Next
-    function isStepValid(s: number) {
-      if (s === 0) {
-        // Check basic validation
-        if (form.name.trim() === "" || form.room.trim() === "") {
-          return false;
-        }
-        
-        // Check for duplicate room numbers
+    setStepError(null);
+    handleNext();
+  }
+
+  async function attemptSave() {
+    if (!isAllValid()) {
+      // Check for specific validation errors
+      if (form.name.trim() === "" || form.room.trim() === "") {
+        setStepError("Please complete all required fields before saving.");
+      } else {
+        // Check for duplicate room
         const roomExists = residents.some((resident, index) => {
-          // If editing, exclude the current resident from the check
           if (editingIndex !== null && index === editingIndex) {
             return false;
           }
           return resident.room.trim().toLowerCase() === form.room.trim().toLowerCase();
         });
-        
         if (roomExists) {
-          return false;
+          setStepError(`Room "${form.room}" is already assigned to another resident. Please choose a different room number.`);
+        } else {
+          setStepError("Please complete all steps before saving.");
         }
-        
-        return true;
       }
-      if (s > 0 && s <= NPDS_FIELDS.length) {
-        const key = NPDS_FIELDS[s - 1].key as keyof Resident;
-        const val = form[key] as DependencyLevel | undefined;
-      return val === "0" || val === "1" || val === "2" || val === "3" || val === "4" || val === "5";
-      }
-      if (s === NPDS_FIELDS.length + 1) return true; // community selection optional
-      return true;
+      return;
     }
+    setStepError(null);
+    await handleSave();
+  }
+  function handleBack() {
+    if (step > 0) setStep(step - 1);
+  }
+  function handleChange(e: React.ChangeEvent<HTMLInputElement> | React.ChangeEvent<HTMLSelectElement>) {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  }
 
-    function isAllValid() {
-      if (form.name.trim() === "" || form.room.trim() === "") return false;
-      
+  // Validation: ensure each step is completed before allowing Next
+  function isStepValid(s: number) {
+    if (s === 0) {
+      // Check basic validation
+      if (form.name.trim() === "" || form.room.trim() === "") {
+        return false;
+      }
+
       // Check for duplicate room numbers
       const roomExists = residents.some((resident, index) => {
+        // If editing, exclude the current resident from the check
         if (editingIndex !== null && index === editingIndex) {
           return false;
         }
         return resident.room.trim().toLowerCase() === form.room.trim().toLowerCase();
       });
-      
-      if (roomExists) return false;
-      
-      for (const f of NPDS_FIELDS) {
-        const val = form[f.key as keyof Resident] as DependencyLevel | undefined;
-        if (!(val === "0" || val === "1" || val === "2" || val === "3" || val === "4" || val === "5")) return false;
+
+      if (roomExists) {
+        return false;
       }
+
       return true;
     }
+    if (s > 0 && s <= NPDS_FIELDS.length) {
+      const key = NPDS_FIELDS[s - 1].key as keyof Resident;
+      const val = form[key] as DependencyLevel | undefined;
+      return val === "0" || val === "1" || val === "2" || val === "3" || val === "4" || val === "5";
+    }
+    if (s === NPDS_FIELDS.length + 1) return true; // community selection optional
+    return true;
+  }
+
+  function isAllValid() {
+    if (form.name.trim() === "" || form.room.trim() === "") return false;
+
+    // Check for duplicate room numbers
+    const roomExists = residents.some((resident, index) => {
+      if (editingIndex !== null && index === editingIndex) {
+        return false;
+      }
+      return resident.room.trim().toLowerCase() === form.room.trim().toLowerCase();
+    });
+
+    if (roomExists) return false;
+
+    for (const f of NPDS_FIELDS) {
+      const val = form[f.key as keyof Resident] as DependencyLevel | undefined;
+      if (!(val === "0" || val === "1" || val === "2" || val === "3" || val === "4" || val === "5")) return false;
+    }
+    return true;
+  }
   async function handleSave() {
     setIsSaving(true);
     setSaveError(null);
@@ -703,12 +705,12 @@ export default function DependencyCalculatorPage() {
     (acc: { Low: number; Medium: number; High: number; Total: number }, r: Resident) => {
       const score = calculateNDPSScore(r);
       const band = getNDPSBand(score);
-      
+
       // Map bands to legacy dependency counts for compatibility
       if (band.band === 1) acc.Low++;
       else if (band.band === 2 || band.band === 3) acc.Medium++;
       else if (band.band === 4 || band.band === 5) acc.High++;
-      
+
       if (score > 0) acc.Total++;
       return acc;
     },
@@ -784,7 +786,7 @@ export default function DependencyCalculatorPage() {
                 setStaffActual(normalizedStaffActual);
                 try {
                   localStorage.setItem("dependency_staff_actual_v1", JSON.stringify(normalizedStaffActual));
-                } catch {}
+                } catch { }
               }
             }
 
@@ -818,10 +820,10 @@ export default function DependencyCalculatorPage() {
             try {
               const oldRef = doc(db, "users", user.id, "dependency_calculator", "default");
               const oldSnap = await getDoc(oldRef);
-              
+
               if (oldSnap.exists()) {
                 const oldData = oldSnap.data();
-                
+
                 // Migrate to new workspace-scoped path
                 const migrationData = {
                   ...oldData,
@@ -838,7 +840,7 @@ export default function DependencyCalculatorPage() {
                   seenPaths.add(target.path);
                   await setDoc(target, migrationData, { merge: true });
                 }
-                
+
                 // Set the migrated data
                 if (Array.isArray(oldData.residents) && !cancelled) {
                   const normalized: Resident[] = oldData.residents.map((p: any) => ({
@@ -850,7 +852,7 @@ export default function DependencyCalculatorPage() {
                   setResidents(normalized);
                   localStorage.setItem("dependency_residents_v1", JSON.stringify(normalized));
                 }
-                
+
                 if (Array.isArray(oldData.communities) && !cancelled) {
                   const normalizedComm: Community[] = oldData.communities.map((c: any) => ({
                     id: c.id || genId(),
@@ -865,11 +867,11 @@ export default function DependencyCalculatorPage() {
                   setStaffActual(normalizedStaffActual);
                   try {
                     localStorage.setItem("dependency_staff_actual_v1", JSON.stringify(normalizedStaffActual));
-                  } catch {}
+                  } catch { }
                 }
-                
+
                 // Don't delete old data immediately - let user verify migration worked
-                
+
               } else {
                 // fallback to localStorage if no Firebase data found
                 const raw = localStorage.getItem("dependency_residents_v1");
@@ -890,7 +892,7 @@ export default function DependencyCalculatorPage() {
                   try {
                     const parsed = JSON.parse(rawComm);
                     if (Array.isArray(parsed) && !cancelled) setCommunities(parsed);
-                  } catch {}
+                  } catch { }
                 }
                 const rawStaffActual = localStorage.getItem("dependency_staff_actual_v1");
                 if (rawStaffActual) {
@@ -899,11 +901,11 @@ export default function DependencyCalculatorPage() {
                     if (parsed && !cancelled) {
                       setStaffActual(normalizeStaffActual(parsed));
                     }
-                  } catch {}
+                  } catch { }
                 }
               }
             } catch (migrationError) {
-              
+
               // fallback to localStorage if migration fails
               const raw = localStorage.getItem("dependency_residents_v1");
               if (raw) {
@@ -925,7 +927,7 @@ export default function DependencyCalculatorPage() {
                   if (Array.isArray(parsed) && !cancelled) {
                     setCommunities(parsed);
                   }
-                } catch {}
+                } catch { }
               }
               const rawStaffActual = localStorage.getItem("dependency_staff_actual_v1");
               if (rawStaffActual) {
@@ -934,12 +936,18 @@ export default function DependencyCalculatorPage() {
                   if (parsed && !cancelled) {
                     setStaffActual(normalizeStaffActual(parsed));
                   }
-                } catch {}
+                } catch { }
               }
             }
           }
         } catch (err) {
-          // fallback to localStorage
+          console.error("Error loading dependency data:", err);
+          if (!cancelled) {
+            setLoadError("Failed to load data from server. Changes will not be saved. Please check your connection and refresh.");
+            // Do NOT set isLoaded(true) here to prevent autosave from overwriting data
+            return;
+          }
+          // fallback to localStorage (only if we didn't return above - effectively disabled for auth users on error now)
           try {
             const raw = localStorage.getItem("dependency_residents_v1");
             if (raw) {
@@ -961,7 +969,7 @@ export default function DependencyCalculatorPage() {
                 if (Array.isArray(parsed) && !cancelled) {
                   setCommunities(parsed);
                 }
-              } catch {}
+              } catch { }
             }
             const rawStaffActual = localStorage.getItem("dependency_staff_actual_v1");
             if (rawStaffActual) {
@@ -970,7 +978,7 @@ export default function DependencyCalculatorPage() {
                 if (parsed && !cancelled) {
                   setStaffActual(normalizeStaffActual(parsed));
                 }
-              } catch {}
+              } catch { }
             }
           } catch (e) {
           }
@@ -1007,7 +1015,7 @@ export default function DependencyCalculatorPage() {
               setStaffActual(normalizedStaffActual);
               try {
                 localStorage.setItem("dependency_staff_actual_v1", JSON.stringify(normalizedStaffActual));
-              } catch {}
+              } catch { }
             }
           }
         } catch (err) {
@@ -1035,18 +1043,21 @@ export default function DependencyCalculatorPage() {
               if (parsed && !cancelled) {
                 setStaffActual(normalizeStaffActual(parsed));
               }
-            } catch {}
+            } catch { }
           }
         } catch (e) {
         }
       }
+      if (!cancelled) setIsLoaded(true);
     }
-  if (!authLoading) load();
+    if (!authLoading) load();
     return () => { cancelled = true; };
   }, [user?.id, workspace?.id, workspaceOrganisationId, authLoading]);
 
   // Persist: write to localStorage immediately and to Firestore (debounced) when signed in
   React.useEffect(() => {
+    if (!isLoaded) return;
+
     try {
       localStorage.setItem("dependency_residents_v1", JSON.stringify(residents));
       localStorage.setItem("dependency_communities_v1", JSON.stringify(communities));
@@ -1058,7 +1069,7 @@ export default function DependencyCalculatorPage() {
       return;
     } // only save to Firestore for authenticated users with workspace
 
-          const organisationId = workspaceOrganisationId;
+    const organisationId = workspaceOrganisationId;
     const hasOrgScope = typeof organisationId === 'string' && organisationId.length > 0;
     const orgCollectionPath = workspaceCollectionPath(workspace.id, "dependency_calculator", organisationId);
     const fallbackCollectionPath = hasOrgScope ? null : workspaceCollectionPath(workspace.id, "dependency_calculator");
@@ -1127,7 +1138,7 @@ export default function DependencyCalculatorPage() {
       }
     }, 600);
     return () => clearTimeout(t);
-  }, [residents, communities, staffActual, user?.id, workspace?.id, workspaceOrganisationId]);
+  }, [residents, communities, staffActual, user?.id, workspace?.id, workspaceOrganisationId, isLoaded]);
   // Expandable resident table component. Accepts optional residentsProp to render a filtered set.
   function ResidentTable({
     residentsProp,
@@ -1146,58 +1157,58 @@ export default function DependencyCalculatorPage() {
     genId: () => string;
     openAddModal: () => void;
   }) {
-  const list = (residentsProp ?? residents).slice().sort((a, b) => compareRooms(a.room, b.room));
-  
-  // If no residents to show after filtering, show empty state
-  if (list.length === 0) {
-    return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-        <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2v-4.586a2 2 0 00-.586-1.414l-5.414-5.414a2 2 0 00-1.414-.586H7a2 2 0 00-2 2v10a2 2 0 002 2h4.586a2 2 0 001.414-.586l5.414-5.414a2 2 0 00.586-1.414V5a2 2 0 00-2-2H9" />
-        </svg>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">
-          {selectedCommunity ? 'No Residents in Selected Community' : 'No Residents Found'}
-        </h3>
-        <p className="text-gray-600 mb-4">
-          {selectedCommunity 
-            ? `No residents are currently assigned to ${communities.find(c => c.id === selectedCommunity)?.name}. Try selecting a different community or clear the filter.`
-            : 'Get started by adding your first resident to the dependency calculator.'
-          }
-        </p>
-        {selectedCommunity ? (
-          <button
-            onClick={() => setSelectedCommunity(null)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors mr-3"
-          >
-            Clear Filter
-          </button>
-        ) : (
-          <button
-            onClick={openAddModal}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Add First Resident
-          </button>
-        )}
-      </div>
-    );
-  }
-  // Pooled totals: sum minutes, convert to hours for shifts
-  const totalDayMinutes = list.reduce((s, r) => s + calculateResidentCareMinutes(r).Day, 0);
-  const totalNightMinutes = list.reduce((s, r) => s + calculateResidentCareMinutes(r).Night, 0);
-  const totalDayHours = Math.round((totalDayMinutes / 60) * 100) / 100;
-  const totalNightHours = Math.round((totalNightMinutes / 60) * 100) / 100;
-  const totalDayShifts = Math.ceil((totalDayHours / 12) * 4) / 4;
-  const totalNightShifts = Math.ceil((totalNightHours / 12) * 4) / 4;
+    const list = (residentsProp ?? residents).slice().sort((a, b) => compareRooms(a.room, b.room));
 
-  // NDPS calculations
-  const ndpsStaffing = calculateNDPSStaffing(list);
-  const bandCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-  list.forEach(r => {
-    const score = calculateNDPSScore(r);
-    const band = getNDPSBand(score).band;
-    bandCounts[band as keyof typeof bandCounts]++;
-  });
+    // If no residents to show after filtering, show empty state
+    if (list.length === 0) {
+      return (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+          <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2v-4.586a2 2 0 00-.586-1.414l-5.414-5.414a2 2 0 00-1.414-.586H7a2 2 0 00-2 2v10a2 2 0 002 2h4.586a2 2 0 001.414-.586l5.414-5.414a2 2 0 00.586-1.414V5a2 2 0 00-2-2H9" />
+          </svg>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            {selectedCommunity ? 'No Residents in Selected Community' : 'No Residents Found'}
+          </h3>
+          <p className="text-gray-600 mb-4">
+            {selectedCommunity
+              ? `No residents are currently assigned to ${communities.find(c => c.id === selectedCommunity)?.name}. Try selecting a different community or clear the filter.`
+              : 'Get started by adding your first resident to the dependency calculator.'
+            }
+          </p>
+          {selectedCommunity ? (
+            <button
+              onClick={() => setSelectedCommunity(null)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors mr-3"
+            >
+              Clear Filter
+            </button>
+          ) : (
+            <button
+              onClick={openAddModal}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Add First Resident
+            </button>
+          )}
+        </div>
+      );
+    }
+    // Pooled totals: sum minutes, convert to hours for shifts
+    const totalDayMinutes = list.reduce((s, r) => s + calculateResidentCareMinutes(r).Day, 0);
+    const totalNightMinutes = list.reduce((s, r) => s + calculateResidentCareMinutes(r).Night, 0);
+    const totalDayHours = Math.round((totalDayMinutes / 60) * 100) / 100;
+    const totalNightHours = Math.round((totalNightMinutes / 60) * 100) / 100;
+    const totalDayShifts = Math.ceil((totalDayHours / 12) * 4) / 4;
+    const totalNightShifts = Math.ceil((totalNightHours / 12) * 4) / 4;
+
+    // NDPS calculations
+    const ndpsStaffing = calculateNDPSStaffing(list);
+    const bandCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    list.forEach(r => {
+      const score = calculateNDPSScore(r);
+      const band = getNDPSBand(score).band;
+      bandCounts[band as keyof typeof bandCounts]++;
+    });
 
     return (
       <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
@@ -1351,7 +1362,7 @@ export default function DependencyCalculatorPage() {
                 const ndpsBand = getNDPSBand(ndpsScore);
                 const residentStaffing = calculateResidentStaffing(r);
                 return (
-                  <tr 
+                  <tr
                     key={r.id || `${r.name}-${r.room}`}
                     className="border-b border-gray-100 hover:bg-blue-50 transition-colors cursor-pointer"
                     onClick={() => openEditAssessmentModal(r)}
@@ -1378,20 +1389,18 @@ export default function DependencyCalculatorPage() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-col gap-1">
-                        <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold ${
-                          ndpsBand.band === 1 ? 'bg-green-100 text-green-800' :
+                        <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold ${ndpsBand.band === 1 ? 'bg-green-100 text-green-800' :
                           ndpsBand.band === 2 ? 'bg-blue-100 text-blue-800' :
-                          ndpsBand.band === 3 ? 'bg-yellow-100 text-yellow-800' :
-                          ndpsBand.band === 4 ? 'bg-orange-100 text-orange-800' :
-                          'bg-red-100 text-red-800'
-                        }`}>
-                          <div className={`w-2 h-2 rounded-full ${
-                            ndpsBand.band === 1 ? 'bg-green-500' :
+                            ndpsBand.band === 3 ? 'bg-yellow-100 text-yellow-800' :
+                              ndpsBand.band === 4 ? 'bg-orange-100 text-orange-800' :
+                                'bg-red-100 text-red-800'
+                          }`}>
+                          <div className={`w-2 h-2 rounded-full ${ndpsBand.band === 1 ? 'bg-green-500' :
                             ndpsBand.band === 2 ? 'bg-blue-500' :
-                            ndpsBand.band === 3 ? 'bg-yellow-500' :
-                            ndpsBand.band === 4 ? 'bg-orange-500' :
-                            'bg-red-500'
-                          }`}></div>
+                              ndpsBand.band === 3 ? 'bg-yellow-500' :
+                                ndpsBand.band === 4 ? 'bg-orange-500' :
+                                  'bg-red-500'
+                            }`}></div>
                           Band {ndpsBand.band}
                         </div>
                         <div className="text-xs text-gray-500">{ndpsBand.name}</div>
@@ -1533,6 +1542,24 @@ export default function DependencyCalculatorPage() {
 
       {/* Main Content */}
       <div className="w-full px-6 py-8 space-y-8">
+        {/* Load Error Alert */}
+        {loadError && (
+          <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r shadow-sm">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-red-700">
+                  <span className="font-bold">Error:</span> {loadError}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Quick Stats Overview - Dashboard Style */}
         <StatsOverview
           residents={residents}

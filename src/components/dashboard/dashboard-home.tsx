@@ -8,12 +8,12 @@ import { useMemo, useEffect, useState, useCallback } from "react";
 import { useAuth } from '@/hooks/use-auth';
 import { useFeatureFlags } from '@/hooks/use-feature-flags';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
 } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Button } from "../ui/button";
@@ -182,18 +182,18 @@ type OverallStats = {
 
 
 const getFileIcon = (fileType: Document["fileType"]) => {
-  switch (fileType) {
-    case "pdf":
-      return <FileText className="w-5 h-5 text-red-500" />;
-    case "csv":
-      return <FileSpreadsheet className="w-5 h-5 text-green-700" />;
-    case "xlsx":
-      return <FileSpreadsheet className="w-5 h-5 text-green-500" />;
-    case "txt":
-      return <FileIcon className="w-5 h-5 text-gray-500" />;
-    default:
-      return <FileX2 className="w-5 h-5 text-gray-400" />;
-  }
+    switch (fileType) {
+        case "pdf":
+            return <FileText className="w-5 h-5 text-red-500" />;
+        case "csv":
+            return <FileSpreadsheet className="w-5 h-5 text-green-700" />;
+        case "xlsx":
+            return <FileSpreadsheet className="w-5 h-5 text-green-500" />;
+        case "txt":
+            return <FileIcon className="w-5 h-5 text-gray-500" />;
+        default:
+            return <FileX2 className="w-5 h-5 text-gray-400" />;
+    }
 };
 
 const DashboardHero = ({
@@ -268,7 +268,7 @@ const DashboardHero = ({
         },
     ];
 
-    const metricsGridClasses = `mt-8 grid grid-cols-1 gap-4 ${showJournalAlert ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`;
+    const metricsGridClasses = `mt-4 grid grid-cols-1 gap-4 ${showJournalAlert ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`;
 
     const pendingJournalLabel = (() => {
         if (!openJournalCount || openJournalCount <= 0) return 'Awaiting review';
@@ -284,10 +284,10 @@ const DashboardHero = ({
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[600px] rounded-full bg-primary/10 blur-3xl" />
             </div>
 
-            <div className="relative z-10 grid gap-10 p-8 lg:grid-cols-[minmax(0,1.3fr),minmax(0,0.9fr)] lg:p-12">
-                <div className="space-y-8">
-                    <div className="flex flex-wrap items-center gap-5">
-                        <Avatar className="h-16 w-16 border border-white/20 bg-white/10">
+            <div className="relative z-10 grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr),minmax(0,1fr)] lg:p-8 items-center">
+                <div className="space-y-3">
+                    <div className="flex flex-wrap items-center gap-4">
+                        <Avatar className="h-10 w-10 border border-white/20 bg-white/10">
                             <AvatarImage src={headerLogo ?? undefined} alt={workspace?.name ?? "Workspace"} />
                             <AvatarFallback>
                                 <Users className="h-7 w-7 text-white/80" />
@@ -295,18 +295,18 @@ const DashboardHero = ({
                         </Avatar>
                         <div className="space-y-2">
                             <p className="text-xs uppercase tracking-[0.3em] text-white/60">Workspace Overview</p>
-                            <h1 className="text-3xl font-semibold sm:text-4xl">
+                            <h1 className="text-xl font-semibold sm:text-2xl">
                                 {workspace?.name ?? "Your workspace"}
                             </h1>
-                            <p className="max-w-2xl text-base text-white/70">
+                            <p className="max-w-2xl text-xs text-white/70">
                                 Stay ahead of compliance, staffing, and resident care with a single, curated view of today's priorities and long-term performance.
                             </p>
                         </div>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3">
-                       
-                    
+
+
                     </div>
 
                     {/* Quick Metrics Cards */}
@@ -327,17 +327,16 @@ const DashboardHero = ({
                             onOpenChange={onDailyModalChange}
                             trigger={
                                 <div
-                                    className={`group relative rounded-2xl border p-5 backdrop-blur-md transition-all duration-300 cursor-pointer min-h-[140px] flex flex-col justify-between ${
-                                        !isTodayCompleted 
-                                            ? "bg-gradient-to-br from-red-500/20 to-red-600/10 border-red-400/50 shadow-[0_0_20px_4px_rgba(239,68,68,0.2),0_0_40px_8px_rgba(239,68,68,0.12)] animate-pulse-slow hover:shadow-[0_0_28px_8px_rgba(239,68,68,0.3),0_0_56px_16px_rgba(239,68,68,0.18)]" 
+                                    className={`group relative rounded-2xl border p-2 backdrop-blur-md transition-all duration-300 cursor-pointer min-h-[68px] flex flex-col justify-between ${!isTodayCompleted
+                                            ? "bg-gradient-to-br from-red-500/20 to-red-600/10 border-red-400/50 shadow-[0_0_20px_4px_rgba(239,68,68,0.2),0_0_40px_8px_rgba(239,68,68,0.12)] animate-pulse-slow hover:shadow-[0_0_28px_8px_rgba(239,68,68,0.3),0_0_56px_16px_rgba(239,68,68,0.18)]"
                                             : "bg-gradient-to-br from-white/20 to-white/5 border-white/20 shadow-lg hover:shadow-xl hover:from-white/25 hover:to-white/10"
-                                    }`}
+                                        }`}
                                     style={!isTodayCompleted ? {
                                         boxShadow: '0 0 20px 4px rgba(239, 68, 68, 0.2), 0 0 40px 8px rgba(239, 68, 68, 0.12)',
                                     } : undefined}
                                 >
                                     <div className="flex items-center gap-4">
-                                        <div className={`rounded-xl p-3 ${!isTodayCompleted ? 'bg-red-500/30 text-red-50' : 'bg-blue-500/20 text-blue-100'}`}>
+                                        <div className={`rounded-xl p-2 ${!isTodayCompleted ? 'bg-red-500/30 text-red-50' : 'bg-blue-500/20 text-blue-100'}`}>
                                             <Calendar className="h-5 w-5" />
                                         </div>
                                         <div className="flex-1">
@@ -347,10 +346,10 @@ const DashboardHero = ({
                                                     <span className="inline-flex h-2 w-2 rounded-full bg-red-400 animate-pulse-slow" />
                                                 )}
                                             </div>
-                                            <div className="text-xl font-bold text-white">
+                                            <div className="text-base font-bold text-white">
                                                 {isTodayCompleted ? "Complete" : "Pending"}
                                             </div>
-                                            <div className="text-xs text-white/60">
+                                            <div className="text-[11px] text-white/60">
                                                 {isTodayCompleted ? "Logged for today" : "Awaiting today's update"}
                                             </div>
                                         </div>
@@ -376,10 +375,10 @@ const DashboardHero = ({
                                         onJournalClick?.();
                                     }
                                 }}
-                                className="group relative flex min-h-[140px] cursor-pointer flex-col justify-between rounded-2xl border border-amber-400/60 bg-gradient-to-br from-amber-500/25 via-amber-500/15 to-amber-500/5 p-5 backdrop-blur-md shadow-[0_0_18px_rgba(251,191,36,0.28)] transition-all duration-300 hover:shadow-[0_0_26px_rgba(251,191,36,0.35)] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+                                className="group relative flex min-h-[84px] cursor-pointer flex-col justify-between rounded-2xl border border-amber-400/60 bg-gradient-to-br from-amber-500/25 via-amber-500/15 to-amber-500/5 p-3 backdrop-blur-md shadow-[0_0_18px_rgba(251,191,36,0.28)] transition-all duration-300 hover:shadow-[0_0_26px_rgba(251,191,36,0.35)] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
                             >
-                                <div className="flex items-center gap-4">
-                                    <div className="rounded-xl bg-amber-500/30 p-3 text-amber-50">
+                                <div className="flex items-center gap-3">
+                                    <div className="rounded-xl bg-amber-500/30 p-2 text-amber-50">
                                         <NotebookPen className="h-5 w-5" />
                                     </div>
                                     <div className="flex-1">
@@ -389,7 +388,7 @@ const DashboardHero = ({
                                                 {pendingJournalLabel}
                                             </span>
                                         </div>
-                                        <div className="text-xl font-bold text-white">
+                                        <div className="text-lg font-bold text-white">
                                             {openJournalCount ?? 0}
                                         </div>
                                         <div className="text-xs text-white/70">
@@ -406,70 +405,70 @@ const DashboardHero = ({
                             </div>
                         ) : null}
 
-                        {/* Staffing Card */}
-                        <MiniStaffingCard
-                            workspaceId={workspaceId}
-                            orgId={orgId}
-                            dailyEntry={dailyEntry}
-                            onTeamsClick={onStaffingTeamsClick}
-                            onTrendsClick={onStaffingTrendsClick}
-                        />
+                        {/* Staffing Card removed from header - show details in the main StaffingOverviewCard instead */}
                     </div>
                 </div>
 
-                <div className="flex flex-col gap-4 rounded-2xl border border-white/20 bg-gradient-to-br from-white/15 to-white/5 p-7 backdrop-blur-md shadow-lg">
-                    <div className="space-y-2">
+                <div className="self-end flex flex-col gap-2 rounded-2xl border border-white/20 bg-gradient-to-br from-white/15 to-white/5 p-6 backdrop-blur-md shadow-lg min-h-[140px]">
+                    <div className="space-y-1">
                         <div className="flex items-center justify-between">
                             <span className="text-sm font-bold uppercase tracking-wider text-white">Health snapshot</span>
                             <Badge className={`${isTodayCompleted ? "bg-emerald-500/30 border-emerald-400/50 text-emerald-100" : "bg-red-500/30 border-red-400/50 text-red-100"} border backdrop-blur-sm shadow-md`}>
                                 {isTodayCompleted ? "✓ Complete" : "⚠ Pending"}
                             </Badge>
                         </div>
-                        <p className="text-sm text-white/75 leading-relaxed">
+                        <p className="text-[11px] text-white/75 leading-relaxed">
                             A comprehensive view of overall compliance readiness across all operational areas.
                         </p>
                     </div>
 
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                        <AuditDonut completed={healthScore?.overallScore || 0} total={100} />
-                        <div className="space-y-3 text-sm text-white/75">
-                            {healthScore && (
-                                <div className="mt-3 pt-3 border-t border-white/20">
-                                    <div className="text-xs text-white/60 mb-2">Component breakdown:</div>
-                                    <div className="grid grid-cols-2 gap-2 text-xs">
-                                        <div>Audits: {healthScore.components.audits}%</div>
-                                        <div>Action Plans: {healthScore.components.actionPlans}%</div>
-                                        <div>Supervisions: {healthScore.components.supervisions}%</div>
-                                        <div>Rotas: {healthScore.components.rotas}%</div>
-                                        <div>Dependency: {healthScore.components.dependency}%</div>
+                    <div className="flex items-center gap-4 flex-nowrap w-full">
+                        <div className="flex items-center gap-3">
+                            <AuditDonut completed={healthScore?.overallScore || 0} total={100} size={92} strokeWidth={12} compact />
+                            <div className="space-y-0 text-[10px] text-white/75">
+                                {healthScore && (
+                                    <div className="flex items-center gap-2">
+                                        <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px]">
+                                            <span className="font-semibold">Audits</span>
+                                            <span>{healthScore.components.audits}%</span>
+                                        </div>
+                                        <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px]">
+                                            <span className="font-semibold">Rotas</span>
+                                            <span>{healthScore.components.rotas}%</span>
+                                        </div>
+                                        <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px]">
+                                            <span className="font-semibold">Dependency</span>
+                                            <span>{healthScore.components.dependency}%</span>
+                                        </div>
                                     </div>
-                                </div>
-                            )}
+                                )}
+                            </div>
                         </div>
-                    </div>
-
-                    {onComplianceOverviewClick && (
-                        <div className="mt-4 flex gap-3">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="border-white/50 bg-white/10 text-white hover:bg-white/20 hover:border-white/60 backdrop-blur-sm shadow-md transition-all flex-1"
-                                onClick={onComplianceOverviewClick}
-                            >
-                                View compliance overview
-                            </Button>
-                            {onStatsClick && (
+                        {onComplianceOverviewClick && (
+                            <div className="ml-auto mt-0 flex gap-2 items-center h-12">
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    className="border-white/50 bg-white/10 text-white hover:bg-white/20 hover:border-white/60 backdrop-blur-sm shadow-md transition-all flex-1"
-                                    onClick={onStatsClick}
+                                    className="border-white/50 bg-white/10 text-white hover:bg-white/20 hover:border-white/60 backdrop-blur-sm shadow-md transition-all px-2 py-1 text-[11px]"
+                                    onClick={onComplianceOverviewClick}
                                 >
-                                    View stats
+                                    View compliance overview
                                 </Button>
-                            )}
-                        </div>
-                    )}
+                                {onStatsClick && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="border-white/50 bg-white/10 text-white hover:bg-white/20 hover:border-white/60 backdrop-blur-sm shadow-md transition-all px-2 py-1 text-[11px]"
+                                        onClick={onStatsClick}
+                                    >
+                                        View stats
+                                    </Button>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+
                 </div>
             </div>
         </section>
@@ -539,20 +538,19 @@ function MiniOccupancyCard({ workspaceId, orgId, dailyEntry, onTrendsClick }: { 
 
     return (
         <div
-            className={`group relative overflow-hidden rounded-2xl border border-white/20 bg-gradient-to-br from-white/20 to-white/5 p-5 backdrop-blur-md shadow-lg transition-all duration-300 hover:shadow-xl hover:from-white/25 hover:to-white/10 min-h-[140px] flex flex-col justify-between cursor-pointer ${
-                needsAttention ? "pulse-occupancy" : ""
-            }`}
+            className={`group relative overflow-hidden rounded-2xl border border-white/20 bg-gradient-to-br from-white/20 to-white/5 p-2 backdrop-blur-md shadow-lg transition-all duration-300 hover:shadow-xl hover:from-white/25 hover:to-white/10 min-h-[68px] flex flex-col justify-between cursor-pointer ${needsAttention ? "pulse-occupancy" : ""
+                }`}
             onClick={onTrendsClick}
         >
             <div className="flex items-center gap-4">
-                <div className="rounded-xl p-3 bg-purple-500/20 text-purple-100">
+                <div className="rounded-xl p-2 bg-purple-500/20 text-purple-100">
                     <Briefcase className="h-5 w-5" />
                 </div>
                 <div className="flex-1">
                     <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-white/70">
                         Occupancy
                     </div>
-                    <div className="text-xl font-bold text-white">
+                    <div className="text-lg font-bold text-white">
                         {loading
                             ? 'Loading...'
                             : displayTotal !== null
@@ -643,7 +641,7 @@ function MiniStaffingCard({ workspaceId, orgId, dailyEntry, onTeamsClick, onTren
     const totalStaff = hasStaffingData ? (dayCount ?? 0) + (nightCount ?? 0) : 0;
     const STAFF_TARGET = 20;
     const percent = STAFF_TARGET > 0 && hasStaffingData ? Math.min(100, Math.round((totalStaff / STAFF_TARGET) * 100)) : 0;
-    
+
     // Determine if this should glow (low staffing or missing data)
     const needsAttention = !hasStaffingData || totalStaff === 0 || percent < 80;
 
@@ -654,9 +652,8 @@ function MiniStaffingCard({ workspaceId, orgId, dailyEntry, onTeamsClick, onTren
 
     return (
         <div
-            className={`group relative overflow-hidden rounded-2xl border border-white/20 bg-gradient-to-br from-white/20 to-white/5 p-5 backdrop-blur-md shadow-lg transition-all duration-300 hover:shadow-xl hover:from-white/25 hover:to-white/10 min-h-[140px] flex flex-col justify-between cursor-pointer ${
-                needsAttention ? "pulse-staffing" : ""
-            }`}
+            className={`group relative overflow-hidden rounded-2xl border border-white/20 bg-gradient-to-br from-white/20 to-white/5 p-2 backdrop-blur-md shadow-lg transition-all duration-300 hover:shadow-xl hover:from-white/25 hover:to-white/10 min-h-[68px] flex flex-col justify-between cursor-pointer ${needsAttention ? "pulse-staffing" : ""
+                }`}
             onClick={onTrendsClick}
         >
             <div className="flex items-center gap-4">
@@ -676,10 +673,10 @@ function MiniStaffingCard({ workspaceId, orgId, dailyEntry, onTeamsClick, onTren
                 </div>
                 <div className="flex flex-col gap-2">
                     {onTeamsClick && (
-                        <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="relative z-30 text-white/80 hover:text-white hover:bg-white/10 transition-colors duration-200 pointer-events-auto p-2" 
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="relative z-30 text-white/80 hover:text-white hover:bg-white/10 transition-colors duration-200 pointer-events-auto p-2"
                             onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
@@ -736,7 +733,7 @@ const PriorityPanel = ({ items, className }: { items: FocusItem[]; className?: s
     const tasksRemaining = items.length;
 
     return (
-    <Card className={`group relative flex h-full flex-col overflow-hidden border-0 bg-gradient-to-br from-slate-50 to-white shadow-xl transition-all duration-300 hover:shadow-2xl ${className ?? ""}`}>
+        <Card className={`group relative flex h-full flex-col overflow-hidden border-0 bg-gradient-to-br from-slate-50 to-white shadow-xl transition-all duration-300 hover:shadow-2xl ${className ?? ""}`}>
             <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500" />
             <CardHeader className="pb-4 pt-5">
                 <div className="mb-2 flex items-center justify-between gap-2">
@@ -766,7 +763,7 @@ const PriorityPanel = ({ items, className }: { items: FocusItem[]; className?: s
 
                             const content = (
                                 <div className="flex items-start gap-3 w-full">
-                                    <div className={`flex-shrink-0 rounded-xl border ${item.iconWrapperClass} p-2.5`}> 
+                                    <div className={`flex-shrink-0 rounded-xl border ${item.iconWrapperClass} p-2.5`}>
                                         {item.icon}
                                     </div>
                                     <div className="flex-1 min-w-0 space-y-1">
@@ -818,7 +815,7 @@ const PriorityPanel = ({ items, className }: { items: FocusItem[]; className?: s
 };
 
 function ExecutiveSummary({
-        documents,
+    documents,
     onSelect,
     workspaceId,
     orgId,
@@ -878,17 +875,18 @@ function ExecutiveSummary({
                     <StaffingOverviewCard
                         workspaceId={workspaceId}
                         orgId={orgId}
+                        dailyEntry={dailyEntry}
                         onNavigateToRotas={() => {
                             if (typeof window !== "undefined") {
                                 window.dispatchEvent(new CustomEvent("navigate-to-rotas"));
                             }
                         }}
-                        className="h-full min-h-[480px] max-h-[480px]"
+                        className="h-full min-h-[360px]"
                     />
                 </div>
 
                 <div className="2xl:col-span-2">
-                    <PriorityPanel items={focusItems} className="h-full min-h-[480px] max-h-[480px]" />
+                    <PriorityPanel items={focusItems} className="h-full min-h-[360px]" />
                 </div>
 
                 <div className="2xl:col-span-3">
@@ -925,7 +923,7 @@ function OccupancyCard({ workspaceId, orgId, dailyEntry, onTrendsClick }: { work
         if (!workspaceId) return;
         setLoading(true);
 
-    // Try dev HTTP API for care-homes first (in dev this is an in-memory store)
+        // Try dev HTTP API for care-homes first (in dev this is an in-memory store)
         (async () => {
             try {
                 const resp = await fetch(`/api/care-homes/${workspaceId}`);
@@ -956,10 +954,10 @@ function OccupancyCard({ workspaceId, orgId, dailyEntry, onTrendsClick }: { work
             const ref = doc(settingsColRef, 'occupancy');
             unsubSettings = onSnapshot(ref, (snap) => {
                 if (snap.exists()) {
-                        const data = snap.data() as OccupancyData;
-                        setTotalBeds(typeof data.totalBeds === 'number' ? data.totalBeds : null);
-                        setOccupiedBeds(typeof data.occupiedBeds === 'number' ? data.occupiedBeds : null);
-                    }
+                    const data = snap.data() as OccupancyData;
+                    setTotalBeds(typeof data.totalBeds === 'number' ? data.totalBeds : null);
+                    setOccupiedBeds(typeof data.occupiedBeds === 'number' ? data.occupiedBeds : null);
+                }
                 setLoading(false);
             }, (err) => {
                 console.error('workspace settings occupancy listener error', err);
@@ -1088,15 +1086,15 @@ function OccupancyCard({ workspaceId, orgId, dailyEntry, onTrendsClick }: { work
                         <span className="text-sm text-indigo-200 font-medium bg-white/10 px-3 py-1 rounded-full border border-white/20">
                             {typeof totalBeds === 'number' && totalBeds >= 0 ? `${totalBeds} beds` : '— beds'}
                         </span>
-                        <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="relative z-30 text-white/80 hover:text-white hover:bg-white/10 transition-colors duration-200 pointer-events-auto" 
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="relative z-30 text-white/80 hover:text-white hover:bg-white/10 transition-colors duration-200 pointer-events-auto"
                             onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
                                 setEditing(prev => !prev);
-                            }} 
+                            }}
                             disabled={saving || loading}
                         >
                             <Edit3 className="w-4 h-4 mr-1" /> {editing ? 'Cancel' : 'Edit'}
@@ -1106,7 +1104,7 @@ function OccupancyCard({ workspaceId, orgId, dailyEntry, onTrendsClick }: { work
                 <CardTitle className="text-lg font-bold text-white mb-2">Occupancy</CardTitle>
                 <CardDescription className="text-indigo-100">Track current occupancy levels</CardDescription>
             </CardHeader>
-            
+
             <CardContent className="space-y-4 flex-1">
                 <div className="flex items-center gap-4 min-h-[80px]">
                     <div className="flex-shrink-0 w-16 h-16 flex items-center justify-center">
@@ -1119,7 +1117,7 @@ function OccupancyCard({ workspaceId, orgId, dailyEntry, onTrendsClick }: { work
                                 <div className="text-xs text-indigo-200 font-medium">Occupied</div>
                             </div>
                             <div className="text-center p-2 bg-white/10 rounded-lg border border-white/20">
-                                    {editing ? (
+                                {editing ? (
                                     <input
                                         type="number"
                                         className="w-12 border border-white/30 rounded px-1 py-0.5 text-center text-sm font-bold text-white bg-white/10 placeholder-white/50"
@@ -1144,14 +1142,14 @@ function OccupancyCard({ workspaceId, orgId, dailyEntry, onTrendsClick }: { work
                         {error && <div className="text-xs text-red-300 text-center font-medium">{error}</div>}
                         {editing ? (
                             <div className="flex justify-center mt-2">
-                                <Button 
+                                <Button
                                     onClick={(e) => {
                                         e.preventDefault();
                                         e.stopPropagation();
                                         handleSaveTotalBeds();
-                                    }} 
-                                    disabled={saving || loading} 
-                                    size="sm" 
+                                    }}
+                                    disabled={saving || loading}
+                                    size="sm"
                                     className="relative z-30 pointer-events-auto bg-white/20 hover:bg-white/30 text-white border-white/30 hover:border-white/50 transition-colors duration-200"
                                 >
                                     {saving ? 'Saving...' : 'Save'}
@@ -1172,10 +1170,10 @@ function OccupancyCard({ workspaceId, orgId, dailyEntry, onTrendsClick }: { work
 
 // Use shared OccupancyPie for staffing visual
 
-function ActionPlansCard({ workspaceId, orgId, documents, onSelect, className }: { 
+function ActionPlansCard({ workspaceId, orgId, documents, onSelect, className }: {
     workspaceId?: string,
     orgId?: string | null,
-    documents: Document[], 
+    documents: Document[],
     onSelect: (item: Document) => void,
     className?: string,
 }) {
@@ -1184,7 +1182,7 @@ function ActionPlansCard({ workspaceId, orgId, documents, onSelect, className }:
 
     // Find action plans folders from documents
     const actionPlansFolders = useMemo(() => {
-        return documents.filter(doc => 
+        return documents.filter(doc =>
             doc.name && (
                 doc.name.toLowerCase().includes('action plan') ||
                 doc.name.toLowerCase().includes('action-plan') ||
@@ -1202,12 +1200,12 @@ function ActionPlansCard({ workspaceId, orgId, documents, onSelect, className }:
             const auditsCol = workspaceCollectionPath(workspaceId, 'audits', orgId || null);
             const auditsRef = collection(db, auditsCol);
             // Simplified query to avoid composite index requirement
-            const q = fsQuery(auditsRef, 
+            const q = fsQuery(auditsRef,
                 where('createActionPlan', '==', true),
                 orderBy('createdAt', 'desc'),
                 limit(50) // Get more docs to filter client-side
             );
-            
+
             const unsub = onSnapshot(q, (snap) => {
                 // Filter for action plans client-side and limit to 5
                 const plans = snap.docs
@@ -1224,7 +1222,7 @@ function ActionPlansCard({ workspaceId, orgId, documents, onSelect, className }:
                 setLoading(false);
                 setActionPlans([]);
             });
-            
+
             return () => unsub();
         } catch (e) {
             console.error('Failed to set up workspace audits listener for action plans', e);
@@ -1235,6 +1233,8 @@ function ActionPlansCard({ workspaceId, orgId, documents, onSelect, className }:
 
     const totalActionPlans = actionPlans.length + actionPlansFolders.length;
 
+    const auditsCount = actionPlans.length;
+    const docsCount = actionPlansFolders.length;
     return (
         <Card className={`group relative flex h-full flex-col overflow-hidden rounded-2xl border-0 bg-gradient-to-br from-emerald-50 to-white shadow-xl transition-all duration-300 hover:shadow-2xl ${className ?? ""}`}>
             <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-emerald-500 via-green-500 to-teal-500 shadow-md" />
@@ -1246,56 +1246,83 @@ function ActionPlansCard({ workspaceId, orgId, documents, onSelect, className }:
                         </div>
                         <CardTitle className="text-base font-semibold text-slate-900">Action Plans</CardTitle>
                     </div>
-                    <div className="text-sm text-slate-500">{totalActionPlans} items</div>
+                    <div className="text-sm text-slate-500 flex items-center gap-2">
+                        <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs">
+                            <strong className="text-slate-700">{totalActionPlans}</strong>
+                            <span className="text-slate-500">items</span>
+                        </div>
+                        <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs">
+                            <span className="text-slate-500">Audits</span>
+                            <strong className="text-slate-700">{auditsCount}</strong>
+                        </div>
+                        <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs">
+                            <span className="text-slate-500">Docs</span>
+                            <strong className="text-slate-700">{docsCount}</strong>
+                        </div>
+                    </div>
                 </div>
-                 <CardDescription className="text-sm text-slate-500">
-                     Active plans and recent documents
-                 </CardDescription>
+                <CardDescription className="text-sm text-slate-500">
+                    Active plans and recent documents
+                </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-1 flex-col space-y-3 pt-4">
                 {loading ? (
                     <div className="text-sm text-slate-500">Loading...</div>
                 ) : totalActionPlans > 0 ? (
                     <div className="space-y-3">
-                                {/* Show recent action plan audits */}
-                                {actionPlans.slice(0, 2).map(plan => (
-                                    <div key={plan.id} className="flex items-center justify-between rounded-xl border border-emerald-100/60 bg-white/40 p-3 transition-colors duration-200 hover:bg-emerald-50/70">
-                                        <div className="flex min-w-0 items-center gap-3">
-                                            <FileCheck className="h-4 w-4 flex-shrink-0 text-emerald-600" />
-                                            <span className="truncate text-sm font-medium text-slate-700">
-                                                {plan.auditType ? 
-                                                    `${plan.auditType.replace(/-/g, ' ')} audit` : 
-                                                    'Audit action plan'
-                                                }
-                                            </span>
+                        {/* Show recent action plan audits */}
+                        {actionPlans.slice(0, 3).map(plan => (
+                            <div key={plan.id} className="flex items-center justify-between rounded-xl border border-emerald-100/60 bg-white/40 p-3 transition-colors duration-200 hover:bg-emerald-50/70">
+                                <div className="flex min-w-0 items-center gap-3">
+                                    <FileCheck className="h-4 w-4 flex-shrink-0 text-emerald-600" />
+                                    <div className="min-w-0">
+                                        <div className="truncate text-sm font-medium text-slate-700">
+                                            {plan.auditType ? `${plan.auditType.replace(/-/g, ' ')} audit` : 'Audit action plan'}
                                         </div>
-                                        <Badge variant="secondary" className="rounded-full bg-emerald-100 text-xs text-emerald-700">
-                                            {plan.createdAt ? 
-                                                new Date(plan.createdAt).toLocaleDateString() : 
-                                                'Recent'
-                                            }
-                                        </Badge>
-                                    </div>
-                                ))}
-                                
-                                {/* Show action plan documents */}
-                                {actionPlansFolders.map(doc => (
-                                    <div key={doc.id} className="flex items-center justify-between rounded-xl border border-emerald-100/60 bg-white/40 p-3 transition-colors duration-200 hover:bg-emerald-50/70" onClick={() => onSelect(doc)}>
-                                        <div className="flex min-w-0 items-center gap-3">
-                                            {getFileIcon(doc.fileType)}
-                                            <span className="truncate text-sm font-medium text-slate-700">{doc.name}</span>
+                                        <div className="text-xs text-slate-500 mt-0.5">
+                                            {plan.title ?? plan.summary ?? ''}
                                         </div>
-                                        <Badge variant="outline" className="border-emerald-200 px-2 py-1 text-xs font-medium text-emerald-700">
-                                            {doc.fileType?.toUpperCase()}
-                                        </Badge>
                                     </div>
-                                ))}
-                                
-                                {totalActionPlans > 3 && (
-                                    <div className="pt-2 text-center text-xs font-medium text-slate-500">
-                                        +{totalActionPlans - 3} more action plans
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className="text-xs text-slate-500">{plan.createdAt ? new Date(plan.createdAt).toLocaleDateString() : 'Recent'}</div>
+                                    <Badge variant="secondary" className="rounded-full bg-emerald-100 text-xs text-emerald-700">
+                                        Audit
+                                    </Badge>
+                                </div>
+                            </div>
+                        ))}
+
+                        {/* Show action plan documents */}
+                        {actionPlansFolders.slice(0, 3).map(doc => (
+                            <div key={doc.id} className="flex items-center justify-between rounded-xl border border-emerald-100/60 bg-white/40 p-3 transition-colors duration-200 hover:bg-emerald-50/70" onClick={() => onSelect(doc)}>
+                                <div className="flex min-w-0 items-center gap-3">
+                                    {getFileIcon(doc.fileType)}
+                                    <div className="min-w-0">
+                                        <div className="truncate text-sm font-medium text-slate-700">{doc.name}</div>
+                                        {doc.tags && doc.tags.length > 0 && (
+                                            <div className="mt-1 flex items-center gap-2">
+                                                {doc.tags.slice(0, 2).map((t: string, i: number) => (
+                                                    <span key={i} className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[11px] text-slate-700">{t}</span>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
-                                )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className="text-xs text-slate-500">{doc.createdAt ? new Date(doc.createdAt).toLocaleDateString() : ''}</div>
+                                    <Badge variant="outline" className="border-emerald-200 px-2 py-1 text-xs font-medium text-emerald-700">
+                                        {doc.fileType?.toUpperCase()}
+                                    </Badge>
+                                </div>
+                            </div>
+                        ))}
+
+                        {totalActionPlans > 3 && (
+                            <div className="pt-2 text-center text-xs font-medium text-slate-500">
+                                +{totalActionPlans - 3} more action plans
+                            </div>
+                        )}
                     </div>
                 ) : (
                     <div className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-green-200 bg-green-50/40 py-6 text-center">
@@ -1312,20 +1339,20 @@ function ActionPlansCard({ workspaceId, orgId, documents, onSelect, className }:
 function ResidentCareCard({ workspaceId, orgId, className }: { workspaceId?: string, orgId?: string | null, className?: string }) {
     const [loading, setLoading] = useState(true);
     const [residents, setResidents] = useState<any[]>([]);
-    const [bandCounts, setBandCounts] = useState<Record<number, number>>({1:0,2:0,3:0,4:0,5:0});
-    const [staffBreakdown, setStaffBreakdown] = useState<any>({ Day: { ctms:0, carers:0, total:0 }, Night: { ctms:0, carers:0, total:0 } });
+    const [bandCounts, setBandCounts] = useState<Record<number, number>>({ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 });
+    const [staffBreakdown, setStaffBreakdown] = useState<any>({ Day: { ctms: 0, carers: 0, total: 0 }, Night: { ctms: 0, carers: 0, total: 0 } });
 
     // Lightweight NDPS helpers (same logic as dependency calculator page)
     function calculateNDPSScore(resident: any) {
         const NPDS_FIELDS = [
-          'bcn_mobility','bcn_transfers','bcn_washing','bcn_dressing','bcn_toileting','bcn_continence','bcn_feeding','bcn_turning','bcn_getting_up','bcn_bed_mobility','bcn_walking','bcn_stairs',
-          'snn_breathing','snn_drugs','snn_skin_care','snn_treatment','snn_observation',
-          'therapy_communication','therapy_cognitive','therapy_behaviour'
+            'bcn_mobility', 'bcn_transfers', 'bcn_washing', 'bcn_dressing', 'bcn_toileting', 'bcn_continence', 'bcn_feeding', 'bcn_turning', 'bcn_getting_up', 'bcn_bed_mobility', 'bcn_walking', 'bcn_stairs',
+            'snn_breathing', 'snn_drugs', 'snn_skin_care', 'snn_treatment', 'snn_observation',
+            'therapy_communication', 'therapy_cognitive', 'therapy_behaviour'
         ];
         let bcn = 0, snn = 0, therapy = 0;
-        const bcnKeys = ['bcn_mobility','bcn_transfers','bcn_washing','bcn_dressing','bcn_toileting','bcn_continence','bcn_feeding','bcn_turning','bcn_getting_up','bcn_bed_mobility','bcn_walking','bcn_stairs'];
-        const snnKeys = ['snn_breathing','snn_drugs','snn_skin_care','snn_treatment','snn_observation'];
-        const therapyKeys = ['therapy_communication','therapy_cognitive','therapy_behaviour'];
+        const bcnKeys = ['bcn_mobility', 'bcn_transfers', 'bcn_washing', 'bcn_dressing', 'bcn_toileting', 'bcn_continence', 'bcn_feeding', 'bcn_turning', 'bcn_getting_up', 'bcn_bed_mobility', 'bcn_walking', 'bcn_stairs'];
+        const snnKeys = ['snn_breathing', 'snn_drugs', 'snn_skin_care', 'snn_treatment', 'snn_observation'];
+        const therapyKeys = ['therapy_communication', 'therapy_cognitive', 'therapy_behaviour'];
         for (const field of NPDS_FIELDS) {
             const level = resident[field] || '';
             let score = 0;
@@ -1352,12 +1379,12 @@ function ResidentCareCard({ workspaceId, orgId, className }: { workspaceId?: str
     }
 
     function calculateNDPSStaffing(ress: any[]) {
-        const NDPS_STAFFING_RATIOS_DAY: Record<number, number> = { 1: 1/8, 2: 1/5, 3: 1/3, 4: 1/2, 5: 1/1.5 };
-        const NDPS_STAFFING_RATIOS_NIGHT: Record<number, number> = { 1: 1/15, 2: 1/10, 3: 1/6, 4: 1/4, 5: 1/2.5 };
-        const bandCountsLocal: Record<number, number> = {1:0,2:0,3:0,4:0,5:0};
+        const NDPS_STAFFING_RATIOS_DAY: Record<number, number> = { 1: 1 / 8, 2: 1 / 5, 3: 1 / 3, 4: 1 / 2, 5: 1 / 1.5 };
+        const NDPS_STAFFING_RATIOS_NIGHT: Record<number, number> = { 1: 1 / 15, 2: 1 / 10, 3: 1 / 6, 4: 1 / 4, 5: 1 / 2.5 };
+        const bandCountsLocal: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
         ress.forEach(r => { const band = getNDPSBand(calculateNDPSScore(r)).band; bandCountsLocal[band] = (bandCountsLocal[band] || 0) + 1; });
         let day = 0, night = 0;
-        for (const b of [1,2,3,4,5]) {
+        for (const b of [1, 2, 3, 4, 5]) {
             const cnt = bandCountsLocal[b] || 0;
             const dayRatio = NDPS_STAFFING_RATIOS_DAY[b] || 0;
             const nightRatio = NDPS_STAFFING_RATIOS_NIGHT[b] || 0;
@@ -1382,7 +1409,7 @@ function ResidentCareCard({ workspaceId, orgId, className }: { workspaceId?: str
     useEffect(() => {
         if (!workspaceId) return;
         setLoading(true);
-    const ref = workspaceId ? getWorkspaceDocRef(workspaceId, 'dependency_calculator', 'default', orgId || null) : null;
+        const ref = workspaceId ? getWorkspaceDocRef(workspaceId, 'dependency_calculator', 'default', orgId || null) : null;
         if (!ref) { setResidents([]); setLoading(false); return; }
         const unsub = onSnapshot(ref, (snap: any) => {
             if (snap.exists()) {
@@ -1390,7 +1417,7 @@ function ResidentCareCard({ workspaceId, orgId, className }: { workspaceId?: str
                 const res = Array.isArray(data.residents) ? data.residents : [];
                 setResidents(res);
                 // calc bands
-                const bc: Record<number, number> = {1:0,2:0,3:0,4:0,5:0};
+                const bc: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
                 res.forEach((r: any) => {
                     const score = calculateNDPSScore(r);
                     const b = getNDPSBand(score).band;
@@ -1400,8 +1427,8 @@ function ResidentCareCard({ workspaceId, orgId, className }: { workspaceId?: str
                 setStaffBreakdown(calculateStaffBreakdown(res));
             } else {
                 setResidents([]);
-                setBandCounts({1:0,2:0,3:0,4:0,5:0});
-                setStaffBreakdown({ Day: { ctms:0, carers:0, total:0 }, Night: { ctms:0, carers:0, total:0 } });
+                setBandCounts({ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 });
+                setStaffBreakdown({ Day: { ctms: 0, carers: 0, total: 0 }, Night: { ctms: 0, carers: 0, total: 0 } });
             }
             setLoading(false);
         }, (err) => {
@@ -1413,8 +1440,8 @@ function ResidentCareCard({ workspaceId, orgId, className }: { workspaceId?: str
 
     // Calculate band distribution percentages for visual bars
     const totalResidents = residents.length;
-    const bandPercentages = [1,2,3,4,5].map(b => totalResidents > 0 ? Math.round((bandCounts[b] / totalResidents) * 100) : 0);
-    
+    const bandPercentages = [1, 2, 3, 4, 5].map(b => totalResidents > 0 ? Math.round((bandCounts[b] / totalResidents) * 100) : 0);
+
     // Band color scheme (gradient from low to high dependency)
     const bandColors = [
         { bg: 'bg-emerald-400', border: 'border-emerald-300', text: 'text-emerald-100' },
@@ -1464,12 +1491,12 @@ function ResidentCareCard({ workspaceId, orgId, className }: { workspaceId?: str
 
                     {/* Horizontal stacked bar */}
                     <div className="mb-4 flex h-8 overflow-hidden rounded-full bg-slate-100 shadow-inner">
-                        {[1,2,3,4,5].map(b => {
-                            const width = bandPercentages[b-1];
+                        {[1, 2, 3, 4, 5].map(b => {
+                            const width = bandPercentages[b - 1];
                             return width > 0 ? (
                                 <div
                                     key={b}
-                                    className={`${bandColors[b-1].bg} flex items-center justify-center text-white transition-all duration-300 hover:opacity-90`}
+                                    className={`${bandColors[b - 1].bg} flex items-center justify-center text-white transition-all duration-300 hover:opacity-90`}
                                     style={{ width: `${width}%` }}
                                 >
                                     {width > 12 && (
@@ -1484,14 +1511,14 @@ function ResidentCareCard({ workspaceId, orgId, className }: { workspaceId?: str
 
                     {/* Band legend with counts */}
                     <div className="grid grid-cols-5 gap-2">
-                        {[1,2,3,4,5].map(b => (
+                        {[1, 2, 3, 4, 5].map(b => (
                             <div key={b} className="text-center">
-                                <div className={`mb-1.5 h-2 rounded-full ${bandColors[b-1].bg}`} />
+                                <div className={`mb-1.5 h-2 rounded-full ${bandColors[b - 1].bg}`} />
                                 <div className="text-xs font-semibold text-slate-700">
                                     {bandCounts[b] ?? 0}
                                 </div>
                                 <div className="text-[10px] text-slate-500 leading-tight">
-                                    {bandLabels[b-1]}
+                                    {bandLabels[b - 1]}
                                 </div>
                             </div>
                         ))}
@@ -1609,20 +1636,20 @@ function ResidentCareCard({ workspaceId, orgId, className }: { workspaceId?: str
 
 
 function getAllItems(items: (Document | FolderType)[]): { documents: Document[], folders: FolderType[] } {
-  let documents: Document[] = [];
-  let folders: FolderType[] = [];
+    let documents: Document[] = [];
+    let folders: FolderType[] = [];
 
-  for (const item of items) {
-    if (item.type === 'document') {
-      documents.push(item);
-    } else if (item.type === 'folder') {
-      folders.push(item);
-      const subItems = getAllItems(item.items);
-      documents = documents.concat(subItems.documents);
-      folders = folders.concat(subItems.folders);
+    for (const item of items) {
+        if (item.type === 'document') {
+            documents.push(item);
+        } else if (item.type === 'folder') {
+            folders.push(item);
+            const subItems = getAllItems(item.items);
+            documents = documents.concat(subItems.documents);
+            folders = folders.concat(subItems.folders);
+        }
     }
-  }
-  return { documents, folders };
+    return { documents, folders };
 }
 
 interface DashboardHomeProps {
@@ -1788,11 +1815,11 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
     // Trend tracking state
     const [trends, setTrends] = useState<Record<string, { direction: 'up' | 'down' | 'stable', change: number }>>({});
     const [historicalData, setHistoricalData] = useState<Record<string, any>>({});
-    
+
 
 
     useEffect(() => {
-    if (!workspace || !workspace.id) return;
+        if (!workspace || !workspace.id) return;
 
         (async () => {
             try {
@@ -1860,9 +1887,9 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
             try { if (typeof topUnsub === 'function') topUnsub(); } catch (e) { /* ignore */ }
         };
 
-    // Subscribe to audit latest scores (organisation-aware)
-    const settingsCol = workspace && workspace.id ? workspaceCollectionPath(workspace.id, 'settings', (workspace as any)?.organisationId || null) : workspaceCollectionPath('','settings', null);
-    const ref = doc(db, settingsCol, 'audit_latest_scores');
+        // Subscribe to audit latest scores (organisation-aware)
+        const settingsCol = workspace && workspace.id ? workspaceCollectionPath(workspace.id, 'settings', (workspace as any)?.organisationId || null) : workspaceCollectionPath('', 'settings', null);
+        const ref = doc(db, settingsCol, 'audit_latest_scores');
         const unsubAudit = onSnapshot(ref, (snap) => {
             if (snap.exists()) {
                 const data = snap.data() as any;
@@ -2054,7 +2081,7 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
         const currentMonth = new Date().getMonth();
         const currentYear = new Date().getFullYear();
         const monthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
-        
+
         // Store current month's data
         setHistoricalData(prev => ({
             ...prev,
@@ -2064,35 +2091,49 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
         // Calculate previous month
         const prevDate = new Date(currentYear, currentMonth - 1);
         const prevMonthKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
-        
+
         // Get previous month's data from localStorage
-        const savedHistory = localStorage.getItem(`audit_history_${workspace?.id}`);
+        // Get previous month's data from localStorage
+        let savedHistory: string | null = null;
+        try {
+            if (typeof window !== 'undefined') {
+                savedHistory = localStorage.getItem(`audit_history_${workspace?.id}`);
+            }
+        } catch (e) {
+            // ignore
+        }
         const history = savedHistory ? JSON.parse(savedHistory) : {};
-        
+
         const prevData = history[prevMonthKey];
-        
+
         if (prevData && currentData && workspace?.id) {
             const newTrends: Record<string, { direction: 'up' | 'down' | 'stable', change: number }> = {};
-            
+
             // Calculate overall trend
             const currentOverall = calculateOverallStatsFromData(currentData);
             const prevOverall = calculateOverallStatsFromData(prevData);
-            
+
             if (currentOverall.overallPercentage !== null && prevOverall.overallPercentage !== null) {
                 const overallChange = currentOverall.overallPercentage - prevOverall.overallPercentage;
                 const overallDirection = overallChange > 2 ? 'up' : overallChange < -2 ? 'down' : 'stable';
                 newTrends['overall'] = { direction: overallDirection, change: Math.round(overallChange) };
             }
-            
+
             setTrends(newTrends);
         }
-        
+
         // Save current data to localStorage for next month comparison
         if (workspace?.id) {
-            const savedHistory = localStorage.getItem(`audit_history_${workspace.id}`);
-            const history = savedHistory ? JSON.parse(savedHistory) : {};
-            const updatedHistory = { ...history, [monthKey]: currentData };
-            localStorage.setItem(`audit_history_${workspace.id}`, JSON.stringify(updatedHistory));
+            try {
+                if (typeof window !== 'undefined') {
+                    const savedHistory = localStorage.getItem(`audit_history_${workspace.id}`);
+                    const history = savedHistory ? JSON.parse(savedHistory) : {};
+                    const updatedHistory = { ...history, [monthKey]: currentData };
+                    localStorage.setItem(`audit_history_${workspace.id}`, JSON.stringify(updatedHistory));
+                }
+            } catch (e) {
+                // ignore
+            }
         }
     };
 
@@ -2101,7 +2142,7 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
         let totalYes = 0;
         let totalQuestions = 0;
         let completedAudits = 0;
-        
+
         AUDIT_TYPES.forEach(auditType => {
             const audit = data[auditType];
             if (audit && typeof audit.yesCount === 'number' && typeof audit.totalCount === 'number') {
@@ -2110,9 +2151,9 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
                 completedAudits++;
             }
         });
-        
+
         const overallPercentage = totalQuestions > 0 ? Math.round((totalYes / totalQuestions) * 100) : null;
-        
+
         return {
             overallPercentage,
             totalYes,
@@ -2140,14 +2181,14 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
     // Lightweight NDPS helpers (same logic as dependency calculator page)
     function calculateNDPSScore(resident: any) {
         const NPDS_FIELDS = [
-          'bcn_mobility','bcn_transfers','bcn_washing','bcn_dressing','bcn_toileting','bcn_continence','bcn_feeding','bcn_turning','bcn_getting_up','bcn_bed_mobility','bcn_walking','bcn_stairs',
-          'snn_breathing','snn_drugs','snn_skin_care','snn_treatment','snn_observation',
-          'therapy_communication','therapy_cognitive','therapy_behaviour'
+            'bcn_mobility', 'bcn_transfers', 'bcn_washing', 'bcn_dressing', 'bcn_toileting', 'bcn_continence', 'bcn_feeding', 'bcn_turning', 'bcn_getting_up', 'bcn_bed_mobility', 'bcn_walking', 'bcn_stairs',
+            'snn_breathing', 'snn_drugs', 'snn_skin_care', 'snn_treatment', 'snn_observation',
+            'therapy_communication', 'therapy_cognitive', 'therapy_behaviour'
         ];
         let bcn = 0, snn = 0, therapy = 0;
-        const bcnKeys = ['bcn_mobility','bcn_transfers','bcn_washing','bcn_dressing','bcn_toileting','bcn_continence','bcn_feeding','bcn_turning','bcn_getting_up','bcn_bed_mobility','bcn_walking','bcn_stairs'];
-        const snnKeys = ['snn_breathing','snn_drugs','snn_skin_care','snn_treatment','snn_observation'];
-        const therapyKeys = ['therapy_communication','therapy_cognitive','therapy_behaviour'];
+        const bcnKeys = ['bcn_mobility', 'bcn_transfers', 'bcn_washing', 'bcn_dressing', 'bcn_toileting', 'bcn_continence', 'bcn_feeding', 'bcn_turning', 'bcn_getting_up', 'bcn_bed_mobility', 'bcn_walking', 'bcn_stairs'];
+        const snnKeys = ['snn_breathing', 'snn_drugs', 'snn_skin_care', 'snn_treatment', 'snn_observation'];
+        const therapyKeys = ['therapy_communication', 'therapy_cognitive', 'therapy_behaviour'];
         for (const field of NPDS_FIELDS) {
             const level = resident[field] || '';
             let score = 0;
@@ -2230,10 +2271,10 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
         let rotasScore = 0;
         if (dependencyData && dependencyData.residents.length > 0 && rotaData) {
             // Step 1: Calculate dependency-required staff (care needs based)
-            const NDPS_STAFFING_RATIOS_DAY: Record<number, number> = { 1: 1/8, 2: 1/5, 3: 1/3, 4: 1/2, 5: 1/1.5 };
-            const NDPS_STAFFING_RATIOS_NIGHT: Record<number, number> = { 1: 1/15, 2: 1/10, 3: 1/6, 4: 1/4, 5: 1/2.5 };
+            const NDPS_STAFFING_RATIOS_DAY: Record<number, number> = { 1: 1 / 8, 2: 1 / 5, 3: 1 / 3, 4: 1 / 2, 5: 1 / 1.5 };
+            const NDPS_STAFFING_RATIOS_NIGHT: Record<number, number> = { 1: 1 / 15, 2: 1 / 10, 3: 1 / 6, 4: 1 / 4, 5: 1 / 2.5 };
 
-            const bandCountsLocal: Record<number, number> = {1:0,2:0,3:0,4:0,5:0};
+            const bandCountsLocal: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
             dependencyData.residents.forEach((r: any) => {
                 const score = calculateNDPSScore(r);
                 const b = getNDPSBand(score).band;
@@ -2241,7 +2282,7 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
             });
 
             let requiredDayStaff = 0, requiredNightStaff = 0;
-            for (const b of [1,2,3,4,5]) {
+            for (const b of [1, 2, 3, 4, 5]) {
                 const cnt = bandCountsLocal[b] || 0;
                 const dayRatio = NDPS_STAFFING_RATIOS_DAY[b] || 0;
                 const nightRatio = NDPS_STAFFING_RATIOS_NIGHT[b] || 0;
@@ -2502,7 +2543,7 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
                     const res = Array.isArray(data.residents) ? data.residents : [];
 
                     // Calculate band distribution
-                    const bc: Record<number, number> = {1:0,2:0,3:0,4:0,5:0};
+                    const bc: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
                     res.forEach((r: any) => {
                         const score = calculateNDPSScore(r);
                         const b = getNDPSBand(score).band;
@@ -2581,16 +2622,16 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
 
                 // Calculate shifts per day for more detailed analysis
                 const daysInWeek = 7;
-                const weekDates = Array.from({ length: daysInWeek }, (_, i) => 
+                const weekDates = Array.from({ length: daysInWeek }, (_, i) =>
                     format(addDays(weekStart, i), 'yyyy-MM-dd')
                 );
 
-                const shiftsPerDay = weekDates.map(date => 
+                const shiftsPerDay = weekDates.map(date =>
                     shifts.filter((s: any) => s.date === date).length
                 );
 
-                const avgShiftsPerDay = shiftsPerDay.length > 0 
-                    ? shiftsPerDay.reduce((a: number, b: number) => a + b, 0) / shiftsPerDay.length 
+                const avgShiftsPerDay = shiftsPerDay.length > 0
+                    ? shiftsPerDay.reduce((a: number, b: number) => a + b, 0) / shiftsPerDay.length
                     : 0;
 
                 setRotaData({
@@ -2651,16 +2692,18 @@ export function DashboardHome({ workspace, onSelect, onDocumentAdd, onFolderAdd 
         }
     }
 
-// Function to navigate to audit forms by triggering view change to audits
-const navigateToAuditForm = (auditKey: string) => {
-    // Dispatch event to switch dashboard view to audits and set the audit type
-    if (typeof window !== 'undefined') {
-        localStorage.setItem('openAuditType', auditKey);
-        window.dispatchEvent(new CustomEvent('navigate-to-audits', {
-            detail: { auditType: auditKey }
-        }));
-    }
-};
+    // Function to navigate to audit forms by triggering view change to audits
+    const navigateToAuditForm = (auditKey: string) => {
+        // Dispatch event to switch dashboard view to audits and set the audit type
+        if (typeof window !== 'undefined') {
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('openAuditType', auditKey);
+            }
+            window.dispatchEvent(new CustomEvent('navigate-to-audits', {
+                detail: { auditType: auditKey }
+            }));
+        }
+    };
 
     const isTodayCompleted = useMemo(() => {
         if (!dailyEntry?.id) return false;
@@ -2768,35 +2811,35 @@ const navigateToAuditForm = (auditKey: string) => {
             <main className="flex-1">
                 <div className="min-h-full bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/10">
                     <div className="w-full p-4 sm:p-6 lg:p-8 space-y-8 lg:space-y-12 pointer-events-auto">
-            <DashboardHero
-                workspace={workspace}
-                headerLogo={headerLogo}
-                overallStats={overallStats}
-                actionableItems={actionableItems}
-                workspaceId={workspace?.id}
-                onDocumentAdd={onDocumentAdd}
-                onFolderAdd={onFolderAdd}
-                onComplianceOverviewClick={() => setIsComplianceModalOpen(true)}
-                onStatsClick={() => {
-                    if (typeof window !== 'undefined') {
-                        window.dispatchEvent(new CustomEvent('navigate-to-stats'));
-                    }
-                }}
-                isTodayCompleted={isTodayCompleted}
-                onDailyEntryUpdate={setDailyEntry}
-                dailyEntry={dailyEntry}
-                orgId={(workspace as any)?.organisationId || null}
-                onOccupancyTrendsClick={() => setIsOccupancyModalOpen(true)}
-                onStaffingTeamsClick={() => setIsStaffingModalOpen(true)}
-                onStaffingTrendsClick={() => setIsStaffingTrendsModalOpen(true)}
-                isDailyCheckinOpen={isDailyCheckinModalOpen}
-                onDailyModalChange={setIsDailyCheckinModalOpen}
-                showJournalAlert={showJournalAlertCard}
-                openJournalCount={openJournalCount}
-                onJournalClick={navigateToJournal}
-                healthScore={healthScore}
-            />
-            <ExecutiveSummary
+                        <DashboardHero
+                            workspace={workspace}
+                            headerLogo={headerLogo}
+                            overallStats={overallStats}
+                            actionableItems={actionableItems}
+                            workspaceId={workspace?.id}
+                            onDocumentAdd={onDocumentAdd}
+                            onFolderAdd={onFolderAdd}
+                            onComplianceOverviewClick={() => setIsComplianceModalOpen(true)}
+                            onStatsClick={() => {
+                                if (typeof window !== 'undefined') {
+                                    window.dispatchEvent(new CustomEvent('navigate-to-stats'));
+                                }
+                            }}
+                            isTodayCompleted={isTodayCompleted}
+                            onDailyEntryUpdate={setDailyEntry}
+                            dailyEntry={dailyEntry}
+                            orgId={(workspace as any)?.organisationId || null}
+                            onOccupancyTrendsClick={() => setIsOccupancyModalOpen(true)}
+                            onStaffingTeamsClick={() => setIsStaffingModalOpen(true)}
+                            onStaffingTrendsClick={() => setIsStaffingTrendsModalOpen(true)}
+                            isDailyCheckinOpen={isDailyCheckinModalOpen}
+                            onDailyModalChange={setIsDailyCheckinModalOpen}
+                            showJournalAlert={showJournalAlertCard}
+                            openJournalCount={openJournalCount}
+                            onJournalClick={navigateToJournal}
+                            healthScore={healthScore}
+                        />
+                        <ExecutiveSummary
                             documents={documents}
                             onSelect={onSelect}
                             workspaceId={workspace?.id || ''}
@@ -2825,7 +2868,7 @@ const navigateToAuditForm = (auditKey: string) => {
                             isTodayCompleted={isTodayCompleted}
                             actionableItems={actionableItems}
                             focusItems={focusItems}
-                        />      
+                        />
                     </div>
                 </div>
             </main>

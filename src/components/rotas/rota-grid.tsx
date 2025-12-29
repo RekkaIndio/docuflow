@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { addDays, format, addWeeks, isSameDay, isWeekend } from "date-fns";
-import { Plus, X, Clock, User, Users, Calendar } from "lucide-react";
+import { Plus, X, Clock, User, Users, Calendar, LayoutList, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -70,6 +70,7 @@ const formatHours = (hours: number): string => {
 export function RotaGrid({ weekStart, weeksToShow, staff, shifts, onAddShift, onDeleteShift, calculateStaffHours, patterns, readOnly = false }: RotaGridProps) {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [detailsViewMode, setDetailsViewMode] = useState<'list' | 'timeline'>('list');
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedDateObj, setSelectedDateObj] = useState<Date | null>(null);
 
@@ -188,7 +189,7 @@ export function RotaGrid({ weekStart, weeksToShow, staff, shifts, onAddShift, on
               : 0;
 
             return (
-                <Card
+              <Card
                 key={date.toISOString()}
                 className={cn(
                   "overflow-hidden transition-all hover:shadow-lg",
@@ -330,23 +331,180 @@ export function RotaGrid({ weekStart, weeksToShow, staff, shifts, onAddShift, on
       <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Calendar className="w-5 h-5" />
-              {selectedDateObj && format(selectedDateObj, 'EEEE, MMMM d, yyyy')}
-            </DialogTitle>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-2">
+                <Calendar className="w-5 h-5" />
+                {selectedDateObj && format(selectedDateObj, 'EEEE, MMMM d, yyyy')}
+              </DialogTitle>
+              <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+                <Button
+                  variant={detailsViewMode === 'list' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="h-8 px-3"
+                  onClick={() => setDetailsViewMode('list')}
+                >
+                  <LayoutList className="w-4 h-4 mr-1.5" />
+                  List
+                </Button>
+                <Button
+                  variant={detailsViewMode === 'timeline' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="h-8 px-3"
+                  onClick={() => setDetailsViewMode('timeline')}
+                >
+                  <Timer className="w-4 h-4 mr-1.5" />
+                  Timeline
+                </Button>
+              </div>
+            </div>
             <DialogDescription>
-              Full staff schedule for this day
+              {detailsViewMode === 'list'
+                ? 'Staff schedule grouped by shift type'
+                : 'Visual timeline showing shift coverage throughout the day'}
             </DialogDescription>
           </DialogHeader>
 
           {selectedDate && (() => {
             const dayShifts = getShiftsForDate(selectedDate);
+
+            // Shared calculations
             const grouped = groupShiftsByType(dayShifts);
             const leaveGroup = grouped.find(group => group.isAnnualLeave);
             const workingGroups = grouped.filter(group => !group.isAnnualLeave);
             const totalLeaveHoursForDay = leaveGroup
               ? leaveGroup.shifts.reduce((sum, shift) => sum + (shift.leave?.totalHours ?? 0), 0)
               : 0;
+
+            if (detailsViewMode === 'timeline') {
+              const shiftsByStaff = new Map<string, Shift[]>();
+              dayShifts.forEach(shift => {
+                if (!shiftsByStaff.has(shift.staffId)) shiftsByStaff.set(shift.staffId, []);
+                shiftsByStaff.get(shift.staffId)!.push(shift);
+              });
+
+              // Sort staff: those with shifts first, then alphabetical? 
+              // Or just show active staff for this day to keep it clean.
+              const activeStaff = staff.filter(s => shiftsByStaff.has(s.id))
+                .sort((a, b) => a.name.localeCompare(b.name));
+
+              const getPosition = (start: string = '00:00', end: string = '24:00') => {
+                const [sh, sm] = start.split(':').map(Number);
+                const [eh, em] = end.split(':').map(Number);
+                const startVal = sh + sm / 60;
+                let endVal = eh + em / 60;
+                if (endVal < startVal) endVal += 24;
+
+                const startPercent = (startVal / 24) * 100;
+                const widthPercent = Math.max(((endVal - startVal) / 24) * 100, 2); // Min width 2%
+                return { left: `${startPercent}%`, width: `${widthPercent}%` };
+              };
+
+              // Time markers for 00, 04, 08, 12, 16, 20
+              const hours = [0, 4, 8, 12, 16, 20];
+
+              return (
+                <div className="space-y-6 py-4">
+                  {/* Timeline Header */}
+                  <div className="flex">
+                    <div className="w-[120px] shrink-0 font-medium text-xs text-muted-foreground pt-4">Staff Member</div>
+                    <div className="flex-1 relative h-6">
+                      {hours.map(h => (
+                        <div
+                          key={h}
+                          className="absolute bottom-0 text-[10px] text-muted-foreground transform -translate-x-1/2"
+                          style={{ left: `${(h / 24) * 100}%` }}
+                        >
+                          {h.toString().padStart(2, '0')}:00
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    {activeStaff.length === 0 && (
+                      <div className="text-center py-8 text-muted-foreground text-sm border rounded-md border-dashed">
+                        No staff assigned for this day
+                      </div>
+                    )}
+
+                    {activeStaff.map(member => {
+                      const memberShifts = shiftsByStaff.get(member.id) || [];
+                      return (
+                        <div key={member.id} className="flex items-center group/row hover:bg-muted/30 rounded-md -mx-2 px-2 py-1 transition-colors">
+                          <div className="w-[120px] shrink-0 pr-3">
+                            <div className="font-medium text-sm truncate">{member.name}</div>
+                            <div className="text-[10px] text-muted-foreground truncate opacity-70">{member.roles}</div>
+                          </div>
+
+                          <div className="flex-1 relative h-8 bg-muted/20 rounded-md ring-1 ring-inset ring-black/5 dark:ring-white/5">
+                            {/* Vertical Grid Lines */}
+                            {hours.map(h => (
+                              <div key={h} className="absolute top-0 bottom-0 border-l border-muted/50 w-px" style={{ left: `${(h / 24) * 100}%` }} />
+                            ))}
+
+                            {/* Shift Bars */}
+                            {memberShifts.map(shift => {
+                              const isLeave = shift.type === 'AnnualLeave';
+                              const meta = patternMeta.get(shift.type);
+
+                              // Get color class
+                              const colorClass = isLeave
+                                ? "bg-orange-500"
+                                : meta?.theme.summaryDot || "bg-slate-500 shadow-sm";
+
+                              if (isLeave && !shift.startTime) {
+                                // Full day leave logic
+                                return (
+                                  <div
+                                    key={shift.id}
+                                    className={cn("absolute top-1.5 bottom-1.5 rounded-sm flex items-center justify-center text-[10px] text-white shadow-sm font-medium", colorClass)}
+                                    style={{ left: '0%', width: '100%' }}
+                                  >
+                                    Full Day Leave
+                                  </div>
+                                );
+                              }
+
+                              const pos = getPosition(shift.startTime, shift.endTime);
+
+                              return (
+                                <div
+                                  key={shift.id}
+                                  className={cn("absolute top-1.5 bottom-1.5 rounded-sm z-10 hover:brightness-110 transition-all cursor-help", colorClass)}
+                                  style={{ ...pos }}
+                                  title={`${shift.startTime} - ${shift.endTime} (${isLeave ? 'Annual Leave' : meta?.pattern.label})`}
+                                >
+                                  {/* Simple label if wide enough */}
+                                  {parseFloat(pos.width) > 15 && (
+                                    <span className="text-[10px] text-white/90 font-medium px-1.5 truncate block w-full leading-5">
+                                      {shift.startTime} - {shift.endTime}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {!readOnly && (
+                    <Button
+                      variant="outline"
+                      className="w-full mt-6 border-dashed"
+                      onClick={() => {
+                        setDetailsDialogOpen(false);
+                        handleAddClick(selectedDate);
+                      }}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Entry
+                    </Button>
+                  )}
+                </div>
+              );
+            }
 
             return (
               <div className="space-y-4 py-4">

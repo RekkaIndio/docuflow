@@ -30,7 +30,7 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
   const [maintenanceYesCount, setMaintenanceYesCount] = useState<number | null>(null);
   const [maintenanceTotalCount, setMaintenanceTotalCount] = useState<number | null>(null);
   const [maintenanceUpdatedAt, setMaintenanceUpdatedAt] = useState<string | null>(null);
-  
+
   const [restrictiveScore, setRestrictiveScore] = useState<number | null>(null);
   const [restrictiveYesCount, setRestrictiveYesCount] = useState<number | null>(null);
   const [restrictiveTotalCount, setRestrictiveTotalCount] = useState<number | null>(null);
@@ -40,7 +40,7 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
   const [fireYesCount, setFireYesCount] = useState<number | null>(null);
   const [fireTotalCount, setFireTotalCount] = useState<number | null>(null);
   const [fireUpdatedAt, setFireUpdatedAt] = useState<string | null>(null);
-  
+
   const [infectionScore, setInfectionScore] = useState<number | null>(null);
   const [infectionYesCount, setInfectionYesCount] = useState<number | null>(null);
   const [infectionTotalCount, setInfectionTotalCount] = useState<number | null>(null);
@@ -50,12 +50,12 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
   const [mealtimeYesCount, setMealtimeYesCount] = useState<number | null>(null);
   const [mealtimeTotalCount, setMealtimeTotalCount] = useState<number | null>(null);
   const [mealtimeUpdatedAt, setMealtimeUpdatedAt] = useState<string | null>(null);
-  
+
   const [nightScore, setNightScore] = useState<number | null>(null);
   const [nightYesCount, setNightYesCount] = useState<number | null>(null);
   const [nightTotalCount, setNightTotalCount] = useState<number | null>(null);
   const [nightUpdatedAt, setNightUpdatedAt] = useState<string | null>(null);
-  
+
   const [staffFileScore, setStaffFileScore] = useState<number | null>(null);
   const [staffFileYesCount, setStaffFileYesCount] = useState<number | null>(null);
   const [staffFileTotalCount, setStaffFileTotalCount] = useState<number | null>(null);
@@ -79,21 +79,21 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
   const [documentsCount, setDocumentsCount] = useState<number>(0);
   const [documentsByType, setDocumentsByType] = useState<Record<string, number>>({});
   const [recentDocuments, setRecentDocuments] = useState<any[]>([]);
-  
+
   const [actionPlansStats, setActionPlansStats] = useState<{ total: number; completed: number; pending: number; overdue: number }>({ total: 0, completed: 0, pending: 0, overdue: 0 });
-  
-  const [teamStats, setTeamStats] = useState<{ managers: number; nurses: number; carers: number; domestics: number; kitchen: number; activities: number; maintenance: number }>({ 
-    managers: 0, nurses: 0, carers: 0, domestics: 0, kitchen: 0, activities: 0, maintenance: 0 
-  });
-  
-  const [notificationsCount, setNotificationsCount] = useState<{ total: number; unread: number }>({ total: 0, unread: 0 });
-  
-  const [dailyCheckInsStats, setDailyCheckInsStats] = useState<{ thisWeek: number; thisMonth: number; avgCompletionTime: number }>({ 
-    thisWeek: 0, thisMonth: 0, avgCompletionTime: 0 
+
+  const [teamStats, setTeamStats] = useState<{ managers: number; nurses: number; carers: number; domestics: number; kitchen: number; activities: number; maintenance: number }>({
+    managers: 0, nurses: 0, carers: 0, domestics: 0, kitchen: 0, activities: 0, maintenance: 0
   });
 
-  const [workspaceInfo, setWorkspaceInfo] = useState<{ name: string; totalBeds?: number; occupiedBeds?: number; occupancyRate?: number }>({ 
-    name: '', totalBeds: undefined, occupiedBeds: undefined, occupancyRate: undefined 
+  const [notificationsCount, setNotificationsCount] = useState<{ total: number; unread: number }>({ total: 0, unread: 0 });
+
+  const [dailyCheckInsStats, setDailyCheckInsStats] = useState<{ thisWeek: number; thisMonth: number; avgCompletionTime: number }>({
+    thisWeek: 0, thisMonth: 0, avgCompletionTime: 0
+  });
+
+  const [workspaceInfo, setWorkspaceInfo] = useState<{ name: string; totalBeds?: number; occupiedBeds?: number; occupancyRate?: number }>({
+    name: '', totalBeds: undefined, occupiedBeds: undefined, occupancyRate: undefined
   });
 
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
@@ -113,18 +113,18 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
         // keep raw snapshot so we can render all audits dynamically
         setLatestScores(data || {});
         // DEV DEBUG: attach raw snapshot to window so developers can inspect in console
-        try { (window as any).__DEBUG_audit_latest_scores = data; } catch (e) {}
-          const cp = data['care-plan'] ?? null;
-          const hs = data['health-safety'] ?? null;
+        try { (window as any).__DEBUG_audit_latest_scores = data; } catch (e) { }
+        const cp = data['care-plan'] ?? null;
+        const hs = data['health-safety'] ?? null;
         const m = data['maintenance'] ?? null;
         const r = data['restrictive-practice'] ?? null;
-  const f = data['fire-safety'] ?? null;
-  const ic = data['infection-control'] ?? null;
-    const mt = data['mealtime'] ?? null;
-  const nv = data['night-visit'] ?? null;
-    const sf = data['staff-file'] ?? null;
-    const k = data['kitchen'] ?? null;
-    const falls = data['falls'] ?? null;
+        const f = data['fire-safety'] ?? null;
+        const ic = data['infection-control'] ?? null;
+        const mt = data['mealtime'] ?? null;
+        const nv = data['night-visit'] ?? null;
+        const sf = data['staff-file'] ?? null;
+        const k = data['kitchen'] ?? null;
+        const falls = data['falls'] ?? null;
 
         if (cp) {
           setCarePlanScore(typeof cp.scorePercent === 'number' ? cp.scorePercent : null);
@@ -270,18 +270,18 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
   // Fetch documents statistics
   useEffect(() => {
     if (!workspaceId || !organisationId) return;
-    
+
     const unsubscribers: (() => void)[] = [];
-    
+
     try {
       // Listen to documents collection
       const docsRef = collection(db, workspaceCollectionPath(workspaceId, 'documents', organisationId));
       const docsQuery = query(docsRef, orderBy('createdAt', 'desc'), limit(100));
-      
+
       const unsub = onSnapshot(docsQuery, (snapshot) => {
         const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setDocumentsCount(docs.length);
-        
+
         // Count by file type
         const byType: Record<string, number> = {};
         docs.forEach((doc: any) => {
@@ -289,37 +289,37 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
           byType[type] = (byType[type] || 0) + 1;
         });
         setDocumentsByType(byType);
-        
+
         // Recent documents (last 5)
         setRecentDocuments(docs.slice(0, 5));
       }, (err) => console.error('Failed to fetch documents', err));
-      
+
       unsubscribers.push(unsub);
     } catch (e) {
       console.error('Failed to setup documents listener', e);
     }
-    
+
     return () => unsubscribers.forEach(unsub => unsub());
   }, [workspaceId, organisationId]);
 
   // Fetch action plans statistics
   useEffect(() => {
     if (!workspaceId || !organisationId) return;
-    
+
     const fetchActionPlans = async () => {
       try {
         const plansRef = collection(db, workspaceCollectionPath(workspaceId, 'action-plans', organisationId));
         const snapshot = await getDocs(plansRef);
-        
+
         let total = 0;
         let completed = 0;
         let pending = 0;
         let overdue = 0;
-        
+
         snapshot.docs.forEach(doc => {
           const data = doc.data();
           const items = Array.isArray(data.items) ? data.items : [];
-          
+
           items.forEach((item: any) => {
             total++;
             if (item.status === 'completed' || item.completed) {
@@ -336,28 +336,28 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
             }
           });
         });
-        
+
         setActionPlansStats({ total, completed, pending, overdue });
       } catch (e) {
         console.error('Failed to fetch action plans', e);
       }
     };
-    
+
     fetchActionPlans();
   }, [workspaceId, organisationId]);
 
   // Fetch team statistics
   useEffect(() => {
     if (!workspaceId || !organisationId) return;
-    
+
     const fetchTeamStats = async () => {
       try {
         const workspaceRef = doc(db, workspaceDocPath(workspaceId, undefined, organisationId));
         const workspaceSnap = await getDoc(workspaceRef);
-        
+
         if (workspaceSnap.exists()) {
           const data = workspaceSnap.data();
-          
+
           setTeamStats({
             managers: Array.isArray(data.managers) ? data.managers.length : 0,
             nurses: Array.isArray(data.nurses) ? data.nurses.length : 0,
@@ -367,7 +367,7 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
             activities: Array.isArray(data.activities) ? data.activities.length : 0,
             maintenance: Array.isArray(data.maintenances) ? data.maintenances.length : 0,
           });
-          
+
           // Workspace info
           setWorkspaceInfo({
             name: data.name || 'Workspace',
@@ -380,23 +380,23 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
         console.error('Failed to fetch team stats', e);
       }
     };
-    
+
     fetchTeamStats();
   }, [workspaceId, organisationId]);
 
   // Fetch notifications statistics
   useEffect(() => {
     if (!workspaceId || !organisationId) return;
-    
+
     try {
       const notifsRef = collection(db, workspaceCollectionPath(workspaceId, 'notifications', organisationId));
       const notifsQuery = query(notifsRef, orderBy('createdAt', 'desc'), limit(50));
-      
+
       const unsub = onSnapshot(notifsQuery, (snapshot) => {
         const total = snapshot.size;
         const unread = snapshot.docs.filter(doc => !doc.data().read).length;
         setNotificationsCount({ total, unread });
-        
+
         // Set recent activity from notifications
         const activities = snapshot.docs.slice(0, 10).map(doc => ({
           id: doc.id,
@@ -404,7 +404,7 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
         }));
         setRecentActivity(activities);
       }, (err) => console.error('Failed to fetch notifications', err));
-      
+
       return () => unsub();
     } catch (e) {
       console.error('Failed to setup notifications listener', e);
@@ -414,25 +414,25 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
   // Fetch daily check-ins statistics
   useEffect(() => {
     if (!workspaceId || !organisationId) return;
-    
+
     const fetchDailyCheckIns = async () => {
       try {
         const checkInsRef = collection(db, workspaceCollectionPath(workspaceId, 'daily-checkins', organisationId));
-        
+
         // This week
         const weekAgo = new Date();
         weekAgo.setDate(weekAgo.getDate() - 7);
-        
+
         const weekQuery = query(checkInsRef, where('createdAt', '>=', weekAgo), orderBy('createdAt', 'desc'));
         const weekSnapshot = await getDocs(weekQuery);
-        
+
         // This month
         const monthAgo = new Date();
         monthAgo.setDate(monthAgo.getDate() - 30);
-        
+
         const monthQuery = query(checkInsRef, where('createdAt', '>=', monthAgo), orderBy('createdAt', 'desc'));
         const monthSnapshot = await getDocs(monthQuery);
-        
+
         setDailyCheckInsStats({
           thisWeek: weekSnapshot.size,
           thisMonth: monthSnapshot.size,
@@ -442,7 +442,7 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
         console.error('Failed to fetch daily check-ins', e);
       }
     };
-    
+
     fetchDailyCheckIns();
   }, [workspaceId, organisationId]);
 
@@ -451,7 +451,7 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
     const currentMonth = new Date().getMonth();
     const currentYear = new Date().getFullYear();
     const monthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
-    
+
     // Store current month's data
     setHistoricalData(prev => ({
       ...prev,
@@ -461,58 +461,72 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
     // Calculate previous month
     const prevDate = new Date(currentYear, currentMonth - 1);
     const prevMonthKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
-    
+
     // Get previous month's data from localStorage or state
-    const savedHistory = localStorage.getItem(`audit_history_${workspaceId}`);
+    let savedHistory: string | null = null;
+    try {
+      if (typeof window !== 'undefined') {
+        savedHistory = localStorage.getItem(`audit_history_${workspaceId}`);
+      }
+    } catch (e) {
+      console.warn('Failed to read from localStorage', e);
+    }
     const history = savedHistory ? JSON.parse(savedHistory) : {};
-    
+
     const prevData = history[prevMonthKey];
-    
+
     if (prevData && currentData) {
       const newTrends: Record<string, { direction: 'up' | 'down' | 'stable', change: number }> = {};
-      
-      const auditTypes = ['care-plan', 'health-safety', 'maintenance', 'restrictive-practice', 
-                         'fire-safety', 'infection-control', 'mealtime', 'night-visit', 'staff-file', 'kitchen', 'falls'];
-      
+
+      const auditTypes = ['care-plan', 'health-safety', 'maintenance', 'restrictive-practice',
+        'fire-safety', 'infection-control', 'mealtime', 'night-visit', 'staff-file', 'kitchen', 'falls'];
+
       // Calculate individual audit trends
       auditTypes.forEach(auditType => {
         const current = currentData[auditType]?.scorePercent;
         const previous = prevData[auditType]?.scorePercent;
-        
+
         if (typeof current === 'number' && typeof previous === 'number') {
           const change = current - previous;
           const direction = change > 2 ? 'up' : change < -2 ? 'down' : 'stable';
           newTrends[auditType] = { direction, change: Math.round(change) };
         }
       });
-      
+
       // Calculate overall trend
       const currentOverall = calculateOverallStatsFromData(currentData);
       const prevOverall = calculateOverallStatsFromData(prevData);
-      
+
       if (currentOverall.overallPercentage !== null && prevOverall.overallPercentage !== null) {
         const overallChange = currentOverall.overallPercentage - prevOverall.overallPercentage;
         const overallDirection = overallChange > 2 ? 'up' : overallChange < -2 ? 'down' : 'stable';
         newTrends['overall'] = { direction: overallDirection, change: Math.round(overallChange) };
       }
-      
+
       setTrends(newTrends);
     }
-    
+
     // Save current data to localStorage for next month comparison
-    const updatedHistory = { ...history, [monthKey]: currentData };
-    localStorage.setItem(`audit_history_${workspaceId}`, JSON.stringify(updatedHistory));
+    // Save current data to localStorage for next month comparison
+    try {
+      if (typeof window !== 'undefined') {
+        const updatedHistory = { ...history, [monthKey]: currentData };
+        localStorage.setItem(`audit_history_${workspaceId}`, JSON.stringify(updatedHistory));
+      }
+    } catch (e) {
+      console.warn('Failed to save to localStorage', e);
+    }
   };
 
   // Helper function to calculate overall stats from raw data
   const calculateOverallStatsFromData = (data: any) => {
-    const auditTypes = ['care-plan', 'health-safety', 'maintenance', 'restrictive-practice', 
-                       'fire-safety', 'infection-control', 'mealtime', 'night-visit', 'staff-file', 'kitchen', 'falls'];
-    
+    const auditTypes = ['care-plan', 'health-safety', 'maintenance', 'restrictive-practice',
+      'fire-safety', 'infection-control', 'mealtime', 'night-visit', 'staff-file', 'kitchen', 'falls'];
+
     let totalYes = 0;
     let totalQuestions = 0;
     let completedAudits = 0;
-    
+
     auditTypes.forEach(auditType => {
       const audit = data[auditType];
       if (audit && typeof audit.yesCount === 'number' && typeof audit.totalCount === 'number') {
@@ -521,9 +535,9 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
         completedAudits++;
       }
     });
-    
+
     const overallPercentage = totalQuestions > 0 ? Math.round((totalYes / totalQuestions) * 100) : null;
-    
+
     return {
       overallPercentage,
       totalYes,
@@ -674,10 +688,10 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
           </div>
         )}
       />
-      
+
       {/* Content */}
       <div className="p-6 space-y-8">
-        
+
         {/* Key Performance Indicators */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* Overall Compliance Score */}
@@ -688,13 +702,12 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
                   <Target className="w-6 h-6 text-white" />
                 </div>
                 {trends['overall'] && (
-                  <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
-                    trends['overall'].direction === 'up' ? 'bg-green-500/20' : 
-                    trends['overall'].direction === 'down' ? 'bg-red-500/20' : 'bg-white/10'
-                  }`}>
-                    {trends['overall'].direction === 'up' ? <ArrowUp className="w-3 h-3" /> : 
-                     trends['overall'].direction === 'down' ? <ArrowDown className="w-3 h-3" /> : 
-                     <Minus className="w-3 h-3" />}
+                  <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${trends['overall'].direction === 'up' ? 'bg-green-500/20' :
+                      trends['overall'].direction === 'down' ? 'bg-red-500/20' : 'bg-white/10'
+                    }`}>
+                    {trends['overall'].direction === 'up' ? <ArrowUp className="w-3 h-3" /> :
+                      trends['overall'].direction === 'down' ? <ArrowDown className="w-3 h-3" /> :
+                        <Minus className="w-3 h-3" />}
                     {trends['overall'].change}%
                   </div>
                 )}
@@ -838,8 +851,8 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
                         </div>
                         <div className="text-center p-3 bg-gray-50 rounded-lg">
                           <div className="text-2xl font-bold text-gray-600">
-                            {workspaceInfo.totalBeds && workspaceInfo.occupiedBeds 
-                              ? workspaceInfo.totalBeds - workspaceInfo.occupiedBeds 
+                            {workspaceInfo.totalBeds && workspaceInfo.occupiedBeds
+                              ? workspaceInfo.totalBeds - workspaceInfo.occupiedBeds
                               : 0}
                           </div>
                           <div className="text-xs text-gray-600">Available</div>
@@ -891,10 +904,9 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
               <div className="grid grid-cols-2 gap-3">
                 {getAuditStatusData().map((audit) => (
                   <div key={audit.key} className="flex items-center gap-2 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
-                    <div className={`w-3 h-3 rounded-full flex-shrink-0 ${
-                      audit.status === 'completed' ? 'bg-green-500' : 
-                      audit.status === 'in-progress' ? 'bg-yellow-500' : 'bg-gray-400'
-                    }`}></div>
+                    <div className={`w-3 h-3 rounded-full flex-shrink-0 ${audit.status === 'completed' ? 'bg-green-500' :
+                        audit.status === 'in-progress' ? 'bg-yellow-500' : 'bg-gray-400'
+                      }`}></div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium truncate">{audit.name}</p>
                       <p className="text-xs text-gray-600">
@@ -933,7 +945,7 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
                   const Icon = dept.icon;
                   const totalStaff = Object.values(teamStats).reduce((a, b) => a + b, 0);
                   const percentage = totalStaff > 0 ? (dept.count / totalStaff) * 100 : 0;
-                  
+
                   return (
                     <div key={dept.label} className="space-y-1">
                       <div className="flex items-center justify-between text-sm">
@@ -981,7 +993,7 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
                     <div className="text-xs text-gray-600">Types</div>
                   </div>
                 </div>
-                
+
                 <div className="space-y-2">
                   <h4 className="text-sm font-semibold text-gray-700">Recent Documents</h4>
                   {recentDocuments.length === 0 ? (
@@ -1020,14 +1032,13 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
               {getTrendSummary().map((trend) => (
                 <div key={trend.category} className="text-center">
-                  <div className={`inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium ${
-                    trend.direction === 'up' ? 'bg-green-100 text-green-800' :
-                    trend.direction === 'down' ? 'bg-red-100 text-red-800' :
-                    'bg-gray-100 text-gray-800'
-                  }`}>
+                  <div className={`inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium ${trend.direction === 'up' ? 'bg-green-100 text-green-800' :
+                      trend.direction === 'down' ? 'bg-red-100 text-red-800' :
+                        'bg-gray-100 text-gray-800'
+                    }`}>
                     {trend.direction === 'up' ? <TrendingUp className="h-4 w-4" /> :
-                     trend.direction === 'down' ? <TrendingDown className="h-4 w-4" /> :
-                     <Minus className="h-4 w-4" />}
+                      trend.direction === 'down' ? <TrendingDown className="h-4 w-4" /> :
+                        <Minus className="h-4 w-4" />}
                     {trend.change !== 0 ? `${trend.change > 0 ? '+' : ''}${trend.change}%` : 'No change'}
                   </div>
                   <p className="text-sm text-gray-600 mt-2">{trend.category}</p>
@@ -1051,7 +1062,7 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
                 />
               </AreaChart>
             </ChartContainer>
-            
+
             {/* Rota trends card inserted here */}
             <div className="mt-6">
               <RotaTrends workspaceId={workspaceId} organisationId={organisationId} />
@@ -1083,8 +1094,8 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{activity.title || 'Activity'}</p>
                         <p className="text-xs text-gray-500 mt-1">
-                          {activity.createdAt?.toDate?.() 
-                            ? activity.createdAt.toDate().toLocaleString() 
+                          {activity.createdAt?.toDate?.()
+                            ? activity.createdAt.toDate().toLocaleString()
                             : 'Recent'}
                         </p>
                       </div>

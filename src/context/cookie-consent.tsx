@@ -23,6 +23,7 @@ const STORAGE_KEY = 'cookie_consent';
 
 function readStoredConsent(): ConsentState | null {
   try {
+    if (typeof window === 'undefined') return null;
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     return JSON.parse(raw) as ConsentState;
@@ -33,7 +34,9 @@ function readStoredConsent(): ConsentState | null {
 
 function writeStoredConsent(state: ConsentState) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
   } catch (err) {
     // ignore
   }
@@ -82,5 +85,5 @@ export function useCookieConsent() {
 
 // Helper for automated tests to clear stored consent
 export function _resetCookieConsentForTests() {
-  try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignore */ }
+  try { if (typeof window !== 'undefined') localStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignore */ }
 }

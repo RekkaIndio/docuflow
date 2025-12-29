@@ -81,13 +81,15 @@ const AdminDashboardHero = ({
     ? `${aggregateDailyCheckinData.completedToday}/${aggregateDailyCheckinData.totalWorkspaces} completed today`
     : 'No submissions recorded today';
 
+  // Function to get gradient colors based on score percentage (copied from dashboard-home.tsx)
+  const getGradientColors = (score: number | null) => {
+    if (score === null) return { start: '#e5e7eb', end: '#cbd5e1' }; // Gray gradient for N/A
+    if (score >= 80) return { start: '#34d399', end: '#059669' }; // Green gradient for high scores
+    if (score >= 20) return { start: '#fbbf24', end: '#d97706' }; // Amber gradient for medium scores
+    return { start: '#f87171', end: '#dc2626' }; // Red gradient for low scores
+  };
+
   const quickMetrics = [
-    {
-      label: 'Active workspaces',
-      value: workspaceCount.toString(),
-      helper: 'Organisations connected',
-      Icon: Building2,
-    },
     {
       label: 'Daily check-ins',
       value: dailyPercent !== null ? `${dailyPercent}%` : '—',
@@ -99,12 +101,6 @@ const AdminDashboardHero = ({
       value: `${averageOccupancyPercent}%`,
       helper: occupancyHelper,
       Icon: TrendingUp,
-    },
-    {
-      label: 'Documents managed',
-      value: totalDocuments.toString(),
-      helper: 'Across all workspace libraries',
-      Icon: FileText,
     },
   ];
 
@@ -146,98 +142,86 @@ const AdminDashboardHero = ({
   const todayLabel = new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
 
   return (
-    <section className="relative overflow-hidden rounded-3xl border border-border/50 bg-gradient-to-br from-primary to-accent dark:from-slate-800 dark:to-slate-900 text-primary-foreground shadow-2xl">
+    <section className="relative overflow-hidden rounded-3xl border border-border/50 bg-gradient-to-br from-primary to-accent text-primary-foreground shadow-2xl">
       <div className="pointer-events-none absolute inset-0 opacity-60">
-        <div className="absolute -top-24 -right-20 h-80 w-80 rounded-full bg-primary/30 dark:bg-slate-700/30 blur-3xl animate-pulse" />
-        <div className="absolute bottom-[-6rem] left-[-4rem] h-96 w-96 rounded-full bg-accent/25 dark:bg-slate-600/20 blur-3xl" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[600px] rounded-full bg-primary/10 dark:bg-slate-700/10 blur-3xl" />
+        <div className="absolute -top-24 -right-20 h-80 w-80 rounded-full bg-primary/30 blur-3xl animate-pulse" />
+        <div className="absolute bottom-[-6rem] left-[-4rem] h-96 w-96 rounded-full bg-accent/25 blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[600px] rounded-full bg-primary/10 blur-3xl" />
       </div>
 
-      <div className="relative z-10 grid gap-10 p-8 lg:grid-cols-[minmax(0,1.2fr),minmax(0,0.9fr)] lg:p-12">
-        <div className="space-y-8">
-          <div className="flex flex-wrap items-center gap-5">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/20 bg-white/10">
-              <Building2 className="h-8 w-8 text-white/85" />
+      <div className="relative z-10 grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr),minmax(0,1fr)] lg:p-8 items-start">
+        <div className="space-y-4">
+          {/* Header with icon and text */}
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/20 bg-white/10 flex-shrink-0">
+              <Building2 className="h-5 w-5 text-white/85" />
             </div>
-            <div className="space-y-2">
-              <p className="text-xs uppercase tracking-[0.3em] text-primary-foreground/60 dark:text-white/60">Admin overview</p>
-              <h1 className="text-3xl font-semibold sm:text-4xl dark:text-white">Admin control centre</h1>
-              <p className="max-w-3xl text-base text-primary-foreground/70 dark:text-white/70">
+            <div className="space-y-1 flex-1">
+              <p className="text-xs uppercase tracking-[0.3em] text-white/60">Admin overview</p>
+              <h1 className="text-xl font-semibold sm:text-2xl">Admin control centre</h1>
+              <p className="text-xs text-white/70">
                 Orchestrate compliance, care performance, and organisational health across every workspace with a consolidated command view.
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <Button
-              variant="secondary"
-              size="lg"
-              className="border-white/40 bg-white/15 text-primary-foreground dark:text-white hover:bg-white/25 hover:border-white/60 backdrop-blur-sm shadow-md transition-all"
-              onClick={onManageWorkspaces}
-            >
-              Manage workspaces
-            </Button>
-            <Button
-              variant="outline"
-              size="lg"
-              className="border-white/30 bg-transparent text-primary-foreground dark:text-white hover:bg-white/10 hover:border-white/40 backdrop-blur-sm"
-              onClick={() => router.push('/admin/analytics')}
-            >
-              Open analytics
-            </Button>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {/* Quick Metrics Cards - Same size as dashboard-home */}
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
             {quickMetrics.map(({ label, value, helper, Icon }) => (
               <div
                 key={label}
-                className="group relative overflow-hidden rounded-2xl border border-white/15 bg-white/10 p-5 backdrop-blur-md shadow-lg transition-all duration-300 hover:shadow-xl"
+                className="group relative rounded-2xl border border-white/20 bg-white/15 p-3 backdrop-blur-md transition-all duration-300 hover:shadow-lg hover:border-white/30"
               >
                 <div className="flex items-center gap-3">
-                  <div className="rounded-xl bg-white/15 p-3 text-primary-foreground/80 dark:text-white/80">
+                  <div className="rounded-xl bg-white/15 p-2 text-white/80">
                     <Icon className="h-5 w-5" />
                   </div>
-                  <div className="flex-1">
-                    <div className="text-xs font-semibold uppercase tracking-wider text-primary-foreground/60 dark:text-white/60">{label}</div>
-                    <div className="text-xl font-bold text-primary-foreground dark:text-white">{value}</div>
-                    <div className="text-xs text-primary-foreground/60 dark:text-white/60">{helper}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-semibold uppercase tracking-wider text-white/70">{label}</div>
+                    <div className="text-base font-bold text-white">{value}</div>
+                    <div className="text-[11px] text-white/60">{helper}</div>
                   </div>
+                  {label === 'Average occupancy' && (
+                    <div className="ml-3 flex-shrink-0">
+                      <OccupancyPie
+                        percent={careOverview?.averageOccupancy ? Math.round((careOverview.averageOccupancy || 0) * 100) : undefined}
+                        size={48}
+                        strokeWidth={8}
+                        gradientColors={getGradientColors(careOverview?.averageOccupancy !== undefined ? Math.round((careOverview.averageOccupancy || 0) * 100) : null)}
+                        bgColor="#0f172a"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="flex flex-col justify-between gap-6 rounded-2xl border border-white/20 bg-gradient-to-br from-white/15 to-white/5 p-7 backdrop-blur-md shadow-lg">
-          <div className="space-y-3">
+        {/* Signal Board */}
+        <div className="flex flex-col justify-start gap-4 rounded-2xl border border-white/20 bg-white/15 p-4 backdrop-blur-md">
+          <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-bold uppercase tracking-wider text-primary-foreground dark:text-white">Signal board</span>
-              <Badge className="bg-emerald-500/25 border-emerald-400/60 text-emerald-100 backdrop-blur-sm">
+              <span className="text-xs font-bold uppercase tracking-wider text-white/80">Signal board</span>
+              <Badge className="text-[10px] bg-emerald-500/25 border-emerald-400/60 text-emerald-100 backdrop-blur-sm py-0.5 px-2">
                 {todayLabel}
               </Badge>
             </div>
-            <p className="text-sm text-white/75 dark:text-white leading-relaxed">
+            <p className="text-xs text-white/75 leading-relaxed">
               Key indicators highlighting where to focus attention across the network today.
             </p>
           </div>
 
-          <div className="space-y-4 text-sm text-white/75 dark:text-white">
+          <div className="space-y-3 text-xs text-white/75">
             {signalItems.map(({ Icon, tone, text }, index) => (
-              <div key={index} className="flex items-start gap-3">
-                <Icon className={`mt-1 h-4 w-4 ${tone}`} />
-                <span>{text}</span>
+              <div key={index} className="flex items-start gap-2">
+                <Icon className={`mt-0.5 h-3.5 w-3.5 ${tone} flex-shrink-0`} />
+                <span className="text-[11px] leading-tight">{text}</span>
               </div>
             ))}
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 text-xs text-white/60 dark:text-white">
-            <span className="rounded-full border border-white/20 dark:border-white/30 bg-white/10 dark:bg-white/10 px-3 py-1">
-              {workspaceCount} workspaces monitored
-            </span>
-            <span className="rounded-full border border-white/20 dark:border-white/30 bg-white/10 dark:bg-white/10 px-3 py-1">
-              {aggregateAuditData.auditsCompleted} audits synced
-            </span>
-          </div>
+          {/* Pills removed; simplified signal card footer */}
         </div>
       </div>
     </section>
@@ -1155,13 +1139,7 @@ export default function AdminPage() {
     setIsMounted(true);
   }, []);
 
-  // Function to get gradient colors based on score percentage (copied from dashboard-home.tsx)
-  const getGradientColors = (score: number | null) => {
-    if (score === null) return { start: '#e5e7eb', end: '#cbd5e1' }; // Gray gradient for N/A
-    if (score >= 80) return { start: '#34d399', end: '#059669' }; // Green gradient for high scores
-    if (score >= 20) return { start: '#fbbf24', end: '#d97706' }; // Amber gradient for medium scores  
-    return { start: '#f87171', end: '#dc2626' }; // Red gradient for low scores
-  };
+  
 
   // Function to get color based on score percentage (copied from dashboard-home.tsx)
   const getScoreColor = (score: number | null) => {

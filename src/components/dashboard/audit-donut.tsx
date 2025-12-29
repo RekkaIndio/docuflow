@@ -9,6 +9,7 @@ interface AuditDonutProps {
   completedColor?: string;
   incompleteColor?: string;
   ariaLabel?: string;
+  compact?: boolean;
 }
 
 export default function AuditDonut({
@@ -19,6 +20,7 @@ export default function AuditDonut({
   completedColor = '#34d399',
   incompleteColor = '#e5e7eb',
   ariaLabel
+  , compact = false
 }: AuditDonutProps) {
   const clampedTotal = Math.max(0, total);
   const clampedCompleted = Math.min(Math.max(0, completed), clampedTotal);
@@ -68,19 +70,21 @@ export default function AuditDonut({
         </text>
       </svg>
 
-      {/* Simple legend */}
-      <div className="flex flex-col text-sm">
+      {/* Simple legend (optional) */}
+      {!compact && (
+        <div className={`flex flex-col ${compact ? 'text-xs' : 'text-sm'}`}>
         <div className="flex items-center gap-2">
           <span className="w-3 h-3 rounded-full" style={{ background: completedColor }} aria-hidden />
           <span className="text-white font-medium">Completed</span>
           <span className="text-white/75 ml-2">{clampedCompleted}</span>
         </div>
-        <div className="flex items-center gap-2 mt-2">
+        <div className={`flex items-center gap-2 ${compact ? 'mt-1' : 'mt-2'}`}>
           <span className="w-3 h-3 rounded-full" style={{ background: incompleteColor }} aria-hidden />
           <span className="text-white font-medium">Incomplete</span>
           <span className="text-white/75 ml-2">{clampedTotal - clampedCompleted}</span>
         </div>
-      </div>
+        </div>
+      )}
     </div>
   );
 }
