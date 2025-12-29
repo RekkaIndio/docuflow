@@ -703,7 +703,7 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
                 </div>
                 {trends['overall'] && (
                   <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${trends['overall'].direction === 'up' ? 'bg-green-500/20' :
-                      trends['overall'].direction === 'down' ? 'bg-red-500/20' : 'bg-white/10'
+                    trends['overall'].direction === 'down' ? 'bg-red-500/20' : 'bg-white/10'
                     }`}>
                     {trends['overall'].direction === 'up' ? <ArrowUp className="w-3 h-3" /> :
                       trends['overall'].direction === 'down' ? <ArrowDown className="w-3 h-3" /> :
@@ -827,8 +827,8 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center gap-8">
-                    <div className="w-32 h-32">
+                  <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-8">
+                    <div className="w-32 h-32 flex-shrink-0">
                       <OccupancyPie
                         percent={Math.round(workspaceInfo.occupancyRate)}
                         size={128}
@@ -837,7 +837,7 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
                         centerFontSize={24}
                       />
                     </div>
-                    <div className="flex-1">
+                    <div className="flex-1 w-full text-center sm:text-left">
                       <div className="text-3xl font-bold text-pink-600 mb-2">
                         {Math.round(workspaceInfo.occupancyRate)}%
                       </div>
@@ -905,7 +905,7 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
                 {getAuditStatusData().map((audit) => (
                   <div key={audit.key} className="flex items-center gap-2 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
                     <div className={`w-3 h-3 rounded-full flex-shrink-0 ${audit.status === 'completed' ? 'bg-green-500' :
-                        audit.status === 'in-progress' ? 'bg-yellow-500' : 'bg-gray-400'
+                      audit.status === 'in-progress' ? 'bg-yellow-500' : 'bg-gray-400'
                       }`}></div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium truncate">{audit.name}</p>
@@ -1033,8 +1033,8 @@ export function StatsView({ workspaceId, organisationId }: { workspaceId?: strin
               {getTrendSummary().map((trend) => (
                 <div key={trend.category} className="text-center">
                   <div className={`inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium ${trend.direction === 'up' ? 'bg-green-100 text-green-800' :
-                      trend.direction === 'down' ? 'bg-red-100 text-red-800' :
-                        'bg-gray-100 text-gray-800'
+                    trend.direction === 'down' ? 'bg-red-100 text-red-800' :
+                      'bg-gray-100 text-gray-800'
                     }`}>
                     {trend.direction === 'up' ? <TrendingUp className="h-4 w-4" /> :
                       trend.direction === 'down' ? <TrendingDown className="h-4 w-4" /> :

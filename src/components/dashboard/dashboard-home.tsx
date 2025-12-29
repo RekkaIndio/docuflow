@@ -277,14 +277,14 @@ const DashboardHero = ({
     })();
 
     return (
-        <section className="relative overflow-hidden rounded-3xl border border-border/50 bg-gradient-to-br from-primary to-accent text-primary-foreground shadow-2xl">
+        <section className="relative overflow-hidden rounded-2xl md:rounded-3xl border border-border/50 bg-gradient-to-br from-primary to-accent text-primary-foreground shadow-2xl">
             <div className="pointer-events-none absolute inset-0 opacity-60">
                 <div className="absolute -top-24 -right-20 h-80 w-80 rounded-full bg-primary/30 blur-3xl animate-pulse" />
                 <div className="absolute bottom-[-6rem] left-[-4rem] h-96 w-96 rounded-full bg-accent/25 blur-3xl" />
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[600px] rounded-full bg-primary/10 blur-3xl" />
             </div>
 
-            <div className="relative z-10 grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr),minmax(0,1fr)] lg:p-8 items-center">
+            <div className="relative z-10 grid gap-4 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr),minmax(0,1fr)] lg:p-8 items-center">
                 <div className="space-y-3">
                     <div className="flex flex-wrap items-center gap-4">
                         <Avatar className="h-10 w-10 border border-white/20 bg-white/10">
@@ -328,8 +328,8 @@ const DashboardHero = ({
                             trigger={
                                 <div
                                     className={`group relative rounded-2xl border p-2 backdrop-blur-md transition-all duration-300 cursor-pointer min-h-[68px] flex flex-col justify-between ${!isTodayCompleted
-                                            ? "bg-gradient-to-br from-red-500/20 to-red-600/10 border-red-400/50 shadow-[0_0_20px_4px_rgba(239,68,68,0.2),0_0_40px_8px_rgba(239,68,68,0.12)] animate-pulse-slow hover:shadow-[0_0_28px_8px_rgba(239,68,68,0.3),0_0_56px_16px_rgba(239,68,68,0.18)]"
-                                            : "bg-gradient-to-br from-white/20 to-white/5 border-white/20 shadow-lg hover:shadow-xl hover:from-white/25 hover:to-white/10"
+                                        ? "bg-gradient-to-br from-red-500/20 to-red-600/10 border-red-400/50 shadow-[0_0_20px_4px_rgba(239,68,68,0.2),0_0_40px_8px_rgba(239,68,68,0.12)] animate-pulse-slow hover:shadow-[0_0_28px_8px_rgba(239,68,68,0.3),0_0_56px_16px_rgba(239,68,68,0.18)]"
+                                        : "bg-gradient-to-br from-white/20 to-white/5 border-white/20 shadow-lg hover:shadow-xl hover:from-white/25 hover:to-white/10"
                                         }`}
                                     style={!isTodayCompleted ? {
                                         boxShadow: '0 0 20px 4px rgba(239, 68, 68, 0.2), 0 0 40px 8px rgba(239, 68, 68, 0.12)',

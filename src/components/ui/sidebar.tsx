@@ -23,7 +23,7 @@ import {
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 const SIDEBAR_WIDTH = "16rem"
-const SIDEBAR_WIDTH_MOBILE = "18rem"
+const SIDEBAR_WIDTH_MOBILE = "17rem" // Reduced from 18rem for better fit on small screens
 const SIDEBAR_WIDTH_ICON = "3rem"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
 
@@ -234,8 +234,8 @@ const Sidebar = React.forwardRef<
               : "group-data-[collapsible=icon]:w-[--sidebar-width-icon]"
           )}
         />
-  {/* rail toggle: small tab between sidebar gap and content */}
-  <SidebarRail />
+        {/* rail toggle: small tab between sidebar gap and content */}
+        <SidebarRail />
         <div
           className={cn(
             "duration-200 fixed inset-y-0 z-10 hidden h-svh w-[--sidebar-width] transition-[left,right,width] ease-linear md:flex",
@@ -622,7 +622,7 @@ const SidebarMenuAction = React.forwardRef<
         "peer-data-[size=lg]/menu-button:top-2.5",
         "group-data-[collapsible=icon]:hidden",
         showOnHover &&
-          "group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100 data-[state=open]:opacity-100 peer-data-[active=true]/menu-button:text-sidebar-accent-foreground md:opacity-0",
+        "group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100 data-[state=open]:opacity-100 peer-data-[active=true]/menu-button:text-sidebar-accent-foreground md:opacity-0",
         className
       )}
       {...props}
@@ -731,11 +731,11 @@ const SidebarMenuSubButton = React.forwardRef<
       data-size={size}
       data-active={isActive}
       className={cn(
-          "relative flex h-7 min-w-0 -translate-x-px items-center gap-2 overflow-hidden rounded-md px-2 text-sidebar-foreground outline-none ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-sidebar-accent-foreground data-[active=true]:after:content-[''] data-[active=true]:after:absolute data-[active=true]:after:left-3 data-[active=true]:after:right-3 data-[active=true]:after:bottom-1 data-[active=true]:after:h-[2px] data-[active=true]:after:rounded-full data-[active=true]:after:bg-sidebar-accent",
-  size === "sm" && "text-xs",
-  size === "md" && "text-sm",
-  // if no size prop is passed, prefer the smaller appearance
-  !size && "text-xs",
+        "relative flex h-7 min-w-0 -translate-x-px items-center gap-2 overflow-hidden rounded-md px-2 text-sidebar-foreground outline-none ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-sidebar-accent-foreground data-[active=true]:after:content-[''] data-[active=true]:after:absolute data-[active=true]:after:left-3 data-[active=true]:after:right-3 data-[active=true]:after:bottom-1 data-[active=true]:after:h-[2px] data-[active=true]:after:rounded-full data-[active=true]:after:bg-sidebar-accent",
+        size === "sm" && "text-xs",
+        size === "md" && "text-sm",
+        // if no size prop is passed, prefer the smaller appearance
+        !size && "text-xs",
         "group-data-[collapsible=icon]:hidden",
         className
       )}

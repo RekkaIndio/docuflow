@@ -201,10 +201,10 @@ export function AppSidebar({
           {/* Dashboard - Always visible (core feature) */}
           {isEnabled('dashboard') && (
             <SidebarMenuItem>
-              <SidebarMenuButton onClick={() => handleNavigation(() => setView('home'))} isActive={currentView === 'home'} className="text-lg h-14">
-                <LayoutDashboard className="w-7 h-7 mr-2" />
+              <SidebarMenuButton onClick={() => handleNavigation(() => setView('home'))} isActive={currentView === 'home'} className={isMobile ? "text-base h-11" : "text-lg h-14"}>
+                <LayoutDashboard className={isMobile ? "w-5 h-5 mr-2" : "w-7 h-7 mr-2"} />
                 <div className="flex items-center gap-2">
-                  <span className="text-lg">Dashboard</span>
+                  <span className={isMobile ? "text-base" : "text-lg"}>Dashboard</span>
                   {!isTodayCompleted && (
                     <AlertCircle className="w-4 h-4 text-red-500 animate-pulse" />
                   )}
@@ -216,9 +216,9 @@ export function AppSidebar({
           {/* Dependency Calculator */}
           {isEnabled('dependencyCalculator') && (
             <SidebarMenuItem>
-              <SidebarMenuButton onClick={() => handleNavigation(() => setView('dependency-calculator'))} isActive={currentView === 'dependency-calculator'} className="text-lg h-14">
-                <UsersRound className="w-7 h-7 mr-2" />
-                <span className="text-lg">Dependency</span>
+              <SidebarMenuButton onClick={() => handleNavigation(() => setView('dependency-calculator'))} isActive={currentView === 'dependency-calculator'} className={isMobile ? "text-base h-11" : "text-lg h-14"}>
+                <UsersRound className={isMobile ? "w-5 h-5 mr-2" : "w-7 h-7 mr-2"} />
+                <span className={isMobile ? "text-base" : "text-lg"}>Dependency</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           )}
@@ -226,9 +226,9 @@ export function AppSidebar({
           {/* Audits */}
           {isEnabled('audits') && (
             <SidebarMenuItem>
-              <SidebarMenuButton onClick={() => handleNavigation(() => setView('audits'))} isActive={currentView === 'audits'} className="text-lg h-14">
-                <Tag className="w-7 h-7 mr-2" />
-                <span className="text-lg">Audits</span>
+              <SidebarMenuButton onClick={() => handleNavigation(() => setView('audits'))} isActive={currentView === 'audits'} className={isMobile ? "text-base h-11" : "text-lg h-14"}>
+                <Tag className={isMobile ? "w-5 h-5 mr-2" : "w-7 h-7 mr-2"} />
+                <span className={isMobile ? "text-base" : "text-lg"}>Audits</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           )}
@@ -236,9 +236,9 @@ export function AppSidebar({
           {/* Action Plans */}
           {isEnabled('actionPlans') && (
             <SidebarMenuItem>
-              <SidebarMenuButton onClick={() => handleNavigation(() => setView('action-plans'))} isActive={currentView === 'action-plans'} className="text-lg h-14">
-                <ClipboardList className="w-7 h-7 mr-2" />
-                <span className="text-lg">Action Plans</span>
+              <SidebarMenuButton onClick={() => handleNavigation(() => setView('action-plans'))} isActive={currentView === 'action-plans'} className={isMobile ? "text-base h-11" : "text-lg h-14"}>
+                <ClipboardList className={isMobile ? "w-5 h-5 mr-2" : "w-7 h-7 mr-2"} />
+                <span className={isMobile ? "text-base" : "text-lg"}>Action Plans</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           )}
@@ -246,9 +246,9 @@ export function AppSidebar({
           {/* Journal */}
           {isEnabled('journal') && (
             <SidebarMenuItem>
-              <SidebarMenuButton onClick={() => handleNavigation(() => setView('journal'))} isActive={currentView === 'journal'} className="text-lg h-14">
-                <NotebookPen className="w-7 h-7 mr-2" />
-                <span className="text-lg">Journal</span>
+              <SidebarMenuButton onClick={() => handleNavigation(() => setView('journal'))} isActive={currentView === 'journal'} className={isMobile ? "text-base h-11" : "text-lg h-14"}>
+                <NotebookPen className={isMobile ? "w-5 h-5 mr-2" : "w-7 h-7 mr-2"} />
+                <span className={isMobile ? "text-base" : "text-lg"}>Journal</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           )}
@@ -256,9 +256,9 @@ export function AppSidebar({
           {/* Logs - user-only feature */}
           {isEnabled('lessonsRcas') && (
             <SidebarMenuItem>
-              <SidebarMenuButton onClick={() => setLogsExpanded(!logsExpanded)} isActive={['lessons-rcas', 'cqc-logs', 'safeguarding-logs'].includes(String(currentView))} className="text-lg h-14">
-                <FileText className="w-7 h-7 mr-2" />
-                <span className="text-lg">Logs</span>
+              <SidebarMenuButton onClick={() => setLogsExpanded(!logsExpanded)} isActive={['lessons-rcas', 'cqc-logs', 'safeguarding-logs'].includes(String(currentView))} className={isMobile ? "text-base h-11" : "text-lg h-14"}>
+                <FileText className={isMobile ? "w-5 h-5 mr-2" : "w-7 h-7 mr-2"} />
+                <span className={isMobile ? "text-base" : "text-lg"}>Logs</span>
                 {logsExpanded ? (
                   <ChevronDown className="w-4 h-4 ml-auto" />
                 ) : (
@@ -293,9 +293,9 @@ export function AppSidebar({
           {/* Risk Assessment */}
           {isEnabled('riskAssessment') && (
             <SidebarMenuItem>
-              <SidebarMenuButton onClick={() => handleNavigation(() => setView('risk-assessment'))} isActive={currentView === 'risk-assessment'} className="text-lg h-14">
-                <AlertTriangle className="w-7 h-7 mr-2" />
-                <span className="text-lg">Risk Assessment</span>
+              <SidebarMenuButton onClick={() => handleNavigation(() => setView('risk-assessment'))} isActive={currentView === 'risk-assessment'} className={isMobile ? "text-base h-11" : "text-lg h-14"}>
+                <AlertTriangle className={isMobile ? "w-5 h-5 mr-2" : "w-7 h-7 mr-2"} />
+                <span className={isMobile ? "text-base" : "text-lg"}>Risk Assessment</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           )}
@@ -303,9 +303,9 @@ export function AppSidebar({
           {/* Complaints & Compliments */}
           {isEnabled('complaintsCompliments') && (
             <SidebarMenuItem>
-              <SidebarMenuButton onClick={() => handleNavigation(() => setView('complaints-compliments'))} isActive={currentView === 'complaints-compliments'} className="text-lg h-14">
-                <MessageSquare className="w-7 h-7 mr-2" />
-                <span className="text-lg">Complaints & Compliments</span>
+              <SidebarMenuButton onClick={() => handleNavigation(() => setView('complaints-compliments'))} isActive={currentView === 'complaints-compliments'} className={isMobile ? "text-base h-11" : "text-lg h-14"}>
+                <MessageSquare className={isMobile ? "w-5 h-5 mr-2" : "w-7 h-7 mr-2"} />
+                <span className={isMobile ? "text-base" : "text-lg"}>Complaints & Compliments</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           )}
@@ -313,9 +313,9 @@ export function AppSidebar({
           {/* Maintenance */}
           {isEnabled('maintenance') && (
             <SidebarMenuItem>
-              <SidebarMenuButton onClick={() => handleNavigation(() => setView('maintenance'))} isActive={currentView === 'maintenance'} className="text-lg h-14">
-                <Wrench className="w-7 h-7 mr-2" />
-                <span className="text-lg">Maintenance Log</span>
+              <SidebarMenuButton onClick={() => handleNavigation(() => setView('maintenance'))} isActive={currentView === 'maintenance'} className={isMobile ? "text-base h-11" : "text-lg h-14"}>
+                <Wrench className={isMobile ? "w-5 h-5 mr-2" : "w-7 h-7 mr-2"} />
+                <span className={isMobile ? "text-base" : "text-lg"}>Maintenance Log</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           )}
@@ -323,9 +323,9 @@ export function AppSidebar({
           {/* Policies */}
           {isEnabled('policies') && (
             <SidebarMenuItem>
-              <SidebarMenuButton onClick={() => handleNavigation(() => setView('policies'))} isActive={currentView === 'policies'} className="text-lg h-14">
-                <Tag className="w-7 h-7 mr-2" />
-                <span className="text-lg">Policies</span>
+              <SidebarMenuButton onClick={() => handleNavigation(() => setView('policies'))} isActive={currentView === 'policies'} className={isMobile ? "text-base h-11" : "text-lg h-14"}>
+                <Tag className={isMobile ? "w-5 h-5 mr-2" : "w-7 h-7 mr-2"} />
+                <span className={isMobile ? "text-base" : "text-lg"}>Policies</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           )}
@@ -333,9 +333,9 @@ export function AppSidebar({
           {/* Appraisals/Supervisions */}
           {isEnabled('appraisals') && (
             <SidebarMenuItem>
-              <SidebarMenuButton onClick={() => handleNavigation(() => setView('appraisals'))} isActive={currentView === 'appraisals'} className="text-lg h-14">
-                <ClipboardList className="w-7 h-7 mr-2" />
-                <span className="text-lg">Supervisions</span>
+              <SidebarMenuButton onClick={() => handleNavigation(() => setView('appraisals'))} isActive={currentView === 'appraisals'} className={isMobile ? "text-base h-11" : "text-lg h-14"}>
+                <ClipboardList className={isMobile ? "w-5 h-5 mr-2" : "w-7 h-7 mr-2"} />
+                <span className={isMobile ? "text-base" : "text-lg"}>Supervisions</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           )}
@@ -343,9 +343,9 @@ export function AppSidebar({
           {/* Rotas */}
           {isEnabled('rotas') && (
             <SidebarMenuItem>
-              <SidebarMenuButton onClick={() => handleNavigation(() => setView('rotas'))} isActive={currentView === 'rotas'} className="text-lg h-14">
-                <Calendar className="w-7 h-7 mr-2" />
-                <span className="text-lg">Rotas</span>
+              <SidebarMenuButton onClick={() => handleNavigation(() => setView('rotas'))} isActive={currentView === 'rotas'} className={isMobile ? "text-base h-11" : "text-lg h-14"}>
+                <Calendar className={isMobile ? "w-5 h-5 mr-2" : "w-7 h-7 mr-2"} />
+                <span className={isMobile ? "text-base" : "text-lg"}>Rotas</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           )}
@@ -353,9 +353,9 @@ export function AppSidebar({
           {/* Files/Folders - Always visible (core feature) */}
           {isEnabled('files') && (
             <SidebarMenuItem>
-              <SidebarMenuButton onClick={() => handleNavigation(onGoToFiles)} isActive={currentView === 'files'} className="text-lg h-14">
-                <FolderIcon className="w-7 h-7 mr-2" />
-                <span className="text-lg">Folders</span>
+              <SidebarMenuButton onClick={() => handleNavigation(onGoToFiles)} isActive={currentView === 'files'} className={isMobile ? "text-base h-11" : "text-lg h-14"}>
+                <FolderIcon className={isMobile ? "w-5 h-5 mr-2" : "w-7 h-7 mr-2"} />
+                <span className={isMobile ? "text-base" : "text-lg"}>Folders</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           )}
@@ -363,9 +363,9 @@ export function AppSidebar({
           {/* Teams */}
           {isEnabled('teams') && (
             <SidebarMenuItem>
-              <SidebarMenuButton onClick={() => handleNavigation(() => setView('teams'))} isActive={currentView === 'teams'} className="text-lg h-14">
-                <UsersRound className="w-7 h-7 mr-2" />
-                <span className="text-lg">Teams</span>
+              <SidebarMenuButton onClick={() => handleNavigation(() => setView('teams'))} isActive={currentView === 'teams'} className={isMobile ? "text-base h-11" : "text-lg h-14"}>
+                <UsersRound className={isMobile ? "w-5 h-5 mr-2" : "w-7 h-7 mr-2"} />
+                <span className={isMobile ? "text-base" : "text-lg"}>Teams</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           )}
@@ -373,9 +373,9 @@ export function AppSidebar({
           {/* Stats */}
           {isEnabled('stats') && (
             <SidebarMenuItem>
-              <SidebarMenuButton onClick={() => handleNavigation(() => setView('stats'))} isActive={currentView === 'stats'} className="text-lg h-14">
-                <BarChart3 className="w-7 h-7 mr-2" />
-                <span className="text-lg">Stats</span>
+              <SidebarMenuButton onClick={() => handleNavigation(() => setView('stats'))} isActive={currentView === 'stats'} className={isMobile ? "text-base h-11" : "text-lg h-14"}>
+                <BarChart3 className={isMobile ? "w-5 h-5 mr-2" : "w-7 h-7 mr-2"} />
+                <span className={isMobile ? "text-base" : "text-lg"}>Stats</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           )}
