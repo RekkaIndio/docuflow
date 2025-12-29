@@ -173,6 +173,7 @@ const DASHBOARD_VIEWS = [
   "safeguarding-logs",
   "risk-assessment",
   "complaints-compliments",
+  "maintenance",
   "help",
 ] as const;
 
@@ -1410,6 +1411,17 @@ export function Dashboard() {
               {(() => {
                 const ComplaintsComplimentsPage = require('@/app/(protected)/complaints-compliments/page').default;
                 return <ComplaintsComplimentsPage />;
+              })()}
+            </React.Suspense>
+          </FeatureGuard>
+        );
+      case 'maintenance':
+        return (
+          <FeatureGuard feature="maintenance" organisationId={organisationId} workspaceId={workspaceId} onNavigateBack={() => setView('home')}>
+            <React.Suspense fallback={<div>Loading...</div>}>
+              {(() => {
+                const MaintenancePage = require('../../app/(protected)/maintenance/page').default;
+                return <MaintenancePage />;
               })()}
             </React.Suspense>
           </FeatureGuard>

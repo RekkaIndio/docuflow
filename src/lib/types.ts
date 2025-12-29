@@ -169,7 +169,8 @@ export type FeatureModuleKey =
   | 'settings'
   | 'lessonsRcas'
   | 'riskAssessment'
-  | 'complaintsCompliments';
+  | 'complaintsCompliments'
+  | 'maintenance';
 
 export type FeatureModule = {
   enabled: boolean;

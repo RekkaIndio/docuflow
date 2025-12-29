@@ -37,6 +37,7 @@ export const DEFAULT_FEATURE_FLAGS: OrganisationFeatureFlags = {
     lessonsRcas: withTeamAccess({ enabled: true, name: 'Lessons Learnt & RCA', description: 'Learnings and Root Cause Analysis', category: 'compliance' }),
     riskAssessment: withTeamAccess({ enabled: true, name: 'Risk Assessments', description: 'Risk assessment tracking and management', category: 'compliance' }),
     complaintsCompliments: withTeamAccess({ enabled: true, name: 'Complaints & Compliments', description: 'Track complaints and compliments', category: 'compliance' }),
+    maintenance: withTeamAccess({ enabled: true, name: 'Maintenance Log', description: 'Track facility maintenance requests', category: 'operations' }),
   },
 };
 
