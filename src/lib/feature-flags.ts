@@ -36,6 +36,7 @@ export const DEFAULT_FEATURE_FLAGS: OrganisationFeatureFlags = {
     settings: withTeamAccess({ enabled: true, name: 'Settings', description: 'Workspace settings', category: 'core', isCore: true }),
     lessonsRcas: withTeamAccess({ enabled: true, name: 'Lessons Learnt & RCA', description: 'Learnings and Root Cause Analysis', category: 'compliance' }),
     riskAssessment: withTeamAccess({ enabled: true, name: 'Risk Assessments', description: 'Risk assessment tracking and management', category: 'compliance' }),
+    complaintsCompliments: withTeamAccess({ enabled: true, name: 'Complaints & Compliments', description: 'Track complaints and compliments', category: 'compliance' }),
   },
 };
 

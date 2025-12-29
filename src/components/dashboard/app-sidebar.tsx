@@ -33,6 +33,7 @@ import {
   ChevronRight,
   NotebookPen,
   AlertTriangle,
+  MessageSquare,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Logo } from "@/components/icons/logo";
@@ -48,14 +49,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "../ui/button";
 import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-    DialogFooter,
-    DialogClose,
-  } from "@/components/ui/dialog";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
 import { Input } from "../ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
@@ -66,44 +67,44 @@ interface AppSidebarProps {
   workspaces: Workspace[];
   activeWorkspace: Workspace | null;
   onWorkspaceChange: (workspaceId: string) => void;
-  setView: React.Dispatch<React.SetStateAction<'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'dependency-calculator' | 'daily' | 'notifications' | 'audits' | 'policies' | 'journal' | 'stats' | 'action-plans' | 'appraisals' | 'rotas' | 'lessons-rcas' | 'cqc-logs' | 'safeguarding-logs' | 'risk-assessment' | 'help'>>;
+  setView: React.Dispatch<React.SetStateAction<'home' | 'files' | 'documents' | 'tags' | 'teams' | 'settings' | 'renewals' | 'accessibility' | 'dependency-calculator' | 'daily' | 'notifications' | 'audits' | 'policies' | 'journal' | 'stats' | 'action-plans' | 'appraisals' | 'rotas' | 'lessons-rcas' | 'cqc-logs' | 'safeguarding-logs' | 'risk-assessment' | 'complaints-compliments' | 'help'>>;
   onGoToFiles: () => void;
   onCreateWorkspace: (name: string) => void;
   dailyEntry?: any;
 }
 
 const NewWorkspaceDialog = ({ onCreate }: { onCreate: (name: string) => void }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const [name, setName] = useState("");
-    const [isCreating, setIsCreating] = useState(false);
-    const { toast } = useToast();
+  const [isOpen, setIsOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
+  const { toast } = useToast();
 
-    const handleCreate = async () => {
-        if (!name.trim()) return;
-        setIsCreating(true);
-        try {
-            await onCreate(name);
-            toast({ title: "Success", description: "New workspace created." });
-            setIsOpen(false);
-            setName("");
-        } catch (e) {
-            console.error(e);
-            toast({ title: "Error", description: "Could not create workspace.", variant: "destructive" });
-        } finally {
-            setIsCreating(false);
-        }
+  const handleCreate = async () => {
+    if (!name.trim()) return;
+    setIsCreating(true);
+    try {
+      await onCreate(name);
+      toast({ title: "Success", description: "New workspace created." });
+      setIsOpen(false);
+      setName("");
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Error", description: "Could not create workspace.", variant: "destructive" });
+    } finally {
+      setIsCreating(false);
     }
+  }
 
-    return (
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger asChild>
-                {/* <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        {/* <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                      <PlusCircle className="mr-2 h-4 w-4" />
                     <span>Create Workspace</span>
                 </DropdownMenuItem> */}
-            </DialogTrigger>
-            <DialogContent>
-                {/* <DialogHeader>
+      </DialogTrigger>
+      <DialogContent>
+        {/* <DialogHeader>
                     <DialogTitle>Create New Workspace</DialogTitle>
                 </DialogHeader>
                 <Input 
@@ -111,18 +112,18 @@ const NewWorkspaceDialog = ({ onCreate }: { onCreate: (name: string) => void }) 
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                 /> */}
-                <DialogFooter>
-                    <DialogClose asChild>
-                        <Button variant="outline">Cancel</Button>
-                    </DialogClose>
-                    <Button onClick={handleCreate} disabled={isCreating || !name.trim()}>
-                        {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Create
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    )
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="outline">Cancel</Button>
+          </DialogClose>
+          <Button onClick={handleCreate} disabled={isCreating || !name.trim()}>
+            {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Create
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
 }
 
 
@@ -139,11 +140,11 @@ export function AppSidebar({
   const { user, signOut } = useAuth();
   const { isMobile, setOpenMobile, toggleSidebar, state } = useSidebar();
   const [logsExpanded, setLogsExpanded] = useState(false);
-  
+
   // Get organisation ID from active workspace
   const organisationId = (activeWorkspace as any)?.organisationId;
   const workspaceId = activeWorkspace?.id ?? null;
-  
+
   // Load feature flags for the organisation
   const { isEnabled, loading: flagsLoading } = useFeatureFlags(organisationId, workspaceId);
 
@@ -164,17 +165,17 @@ export function AppSidebar({
       <SidebarHeader>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-             <Button variant="ghost" className="w-full justify-between h-12 px-2">
-                <div className="flex items-center gap-2 overflow-hidden">
-                    <Logo className="w-8 h-8 text-primary flex-shrink-0" />
-          <div className="flex flex-col text-left overflow-hidden">
-            <h2 className="text-md font-headline font-semibold truncate">
-            {activeWorkspace ? activeWorkspace.name : 'No workspace selected'}
-            </h2>
-            <p className="text-xs text-muted-foreground">Workspace</p>
-          </div>
+            <Button variant="ghost" className="w-full justify-between h-12 px-2">
+              <div className="flex items-center gap-2 overflow-hidden">
+                <Logo className="w-8 h-8 text-primary flex-shrink-0" />
+                <div className="flex flex-col text-left overflow-hidden">
+                  <h2 className="text-md font-headline font-semibold truncate">
+                    {activeWorkspace ? activeWorkspace.name : 'No workspace selected'}
+                  </h2>
+                  <p className="text-xs text-muted-foreground">Workspace</p>
                 </div>
-                <ChevronsUpDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+              </div>
+              <ChevronsUpDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-64" align="start">
@@ -195,169 +196,179 @@ export function AppSidebar({
       </SidebarHeader>
       <SidebarContent>
         <SidebarMenu>
-      
-      {/* Dashboard - Always visible (core feature) */}
-      {isEnabled('dashboard') && (
-        <SidebarMenuItem>
-          <SidebarMenuButton onClick={() => handleNavigation(() => setView('home'))} isActive={currentView === 'home'} className="text-lg h-14">
-            <LayoutDashboard className="w-7 h-7 mr-2" />
-            <div className="flex items-center gap-2">
-              <span className="text-lg">Dashboard</span>
-              {!isTodayCompleted && (
-                <AlertCircle className="w-4 h-4 text-red-500 animate-pulse" />
-              )}
-            </div>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      )}
-      
-      {/* Dependency Calculator */}
-      {isEnabled('dependencyCalculator') && (
-        <SidebarMenuItem>
-          <SidebarMenuButton onClick={() => handleNavigation(() => setView('dependency-calculator'))} isActive={currentView === 'dependency-calculator'} className="text-lg h-14">
-            <UsersRound className="w-7 h-7 mr-2" />
-            <span className="text-lg">Dependency</span>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      )}
-      
-      {/* Audits */}
-      {isEnabled('audits') && (
-        <SidebarMenuItem>
-          <SidebarMenuButton onClick={() => handleNavigation(() => setView('audits'))} isActive={currentView === 'audits'} className="text-lg h-14">
-            <Tag className="w-7 h-7 mr-2" />
-            <span className="text-lg">Audits</span>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      )}
-      
-      {/* Action Plans */}
-      {isEnabled('actionPlans') && (
-        <SidebarMenuItem>
-          <SidebarMenuButton onClick={() => handleNavigation(() => setView('action-plans'))} isActive={currentView === 'action-plans'} className="text-lg h-14">
-            <ClipboardList className="w-7 h-7 mr-2" />
-            <span className="text-lg">Action Plans</span>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      )}
 
-      {/* Journal */}
-      {isEnabled('journal') && (
-        <SidebarMenuItem>
-          <SidebarMenuButton onClick={() => handleNavigation(() => setView('journal'))} isActive={currentView === 'journal'} className="text-lg h-14">
-            <NotebookPen className="w-7 h-7 mr-2" />
-            <span className="text-lg">Journal</span>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      )}
-
-      {/* Logs - user-only feature */}
-      {isEnabled('lessonsRcas') && (
-        <SidebarMenuItem>
-          <SidebarMenuButton onClick={() => setLogsExpanded(!logsExpanded)} isActive={['lessons-rcas','cqc-logs','safeguarding-logs'].includes(String(currentView))} className="text-lg h-14">
-            <FileText className="w-7 h-7 mr-2" />
-            <span className="text-lg">Logs</span>
-            {logsExpanded ? (
-              <ChevronDown className="w-4 h-4 ml-auto" />
-            ) : (
-              <ChevronRight className="w-4 h-4 ml-auto" />
-            )}
-          </SidebarMenuButton>
-          {logsExpanded && (
-            <SidebarMenuSub>
-                <SidebarMenuSubItem>
-                <SidebarMenuSubButton onClick={() => handleNavigation(() => setView('lessons-rcas'))} isActive={currentView === 'lessons-rcas'} className="text-base h-12">
-                  <AlertCircle className="w-5 h-5 mr-2" />
-                  <span>Lessons Learnt</span>
-                </SidebarMenuSubButton>
-              </SidebarMenuSubItem>
-              <SidebarMenuSubItem>
-                <SidebarMenuSubButton onClick={() => handleNavigation(() => setView('cqc-logs'))} isActive={currentView === 'cqc-logs'} className="text-base h-12">
-                  <ClipboardList className="w-5 h-5 mr-2" />
-                  <span>CQC Logs</span>
-                </SidebarMenuSubButton>
-              </SidebarMenuSubItem>
-              <SidebarMenuSubItem>
-                <SidebarMenuSubButton onClick={() => handleNavigation(() => setView('safeguarding-logs'))} isActive={currentView === 'safeguarding-logs'} className="text-base h-12">
-                  <ClipboardList className="w-5 h-5 mr-2" />
-                  <span>Safeguarding Logs</span>
-                </SidebarMenuSubButton>
-              </SidebarMenuSubItem>
-            </SidebarMenuSub>
+          {/* Dashboard - Always visible (core feature) */}
+          {isEnabled('dashboard') && (
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={() => handleNavigation(() => setView('home'))} isActive={currentView === 'home'} className="text-lg h-14">
+                <LayoutDashboard className="w-7 h-7 mr-2" />
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">Dashboard</span>
+                  {!isTodayCompleted && (
+                    <AlertCircle className="w-4 h-4 text-red-500 animate-pulse" />
+                  )}
+                </div>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
           )}
-        </SidebarMenuItem>
-      )}
-      
-      {/* Risk Assessment */}
-      {isEnabled('riskAssessment') && (
-        <SidebarMenuItem>
-          <SidebarMenuButton onClick={() => handleNavigation(() => setView('risk-assessment'))} isActive={currentView === 'risk-assessment'} className="text-lg h-14">
-            <AlertTriangle className="w-7 h-7 mr-2" />
-            <span className="text-lg">Risk Assessment</span>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      )}
-      
-      {/* Policies */}
-      {isEnabled('policies') && (
-        <SidebarMenuItem>
-          <SidebarMenuButton onClick={() => handleNavigation(() => setView('policies'))} isActive={currentView === 'policies'} className="text-lg h-14">
-            <Tag className="w-7 h-7 mr-2" />
-            <span className="text-lg">Policies</span>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      )}
-      
-      {/* Appraisals/Supervisions */}
-      {isEnabled('appraisals') && (
-        <SidebarMenuItem>
-          <SidebarMenuButton onClick={() => handleNavigation(() => setView('appraisals'))} isActive={currentView === 'appraisals'} className="text-lg h-14">
-            <ClipboardList className="w-7 h-7 mr-2" />
-            <span className="text-lg">Supervisions</span>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      )}
-      
-      {/* Rotas */}
-      {isEnabled('rotas') && (
-        <SidebarMenuItem>
-          <SidebarMenuButton onClick={() => handleNavigation(() => setView('rotas'))} isActive={currentView === 'rotas'} className="text-lg h-14">
-            <Calendar className="w-7 h-7 mr-2" />
-            <span className="text-lg">Rotas</span>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      )}
-      
-      {/* Files/Folders - Always visible (core feature) */}
-      {isEnabled('files') && (
-        <SidebarMenuItem>
-          <SidebarMenuButton onClick={() => handleNavigation(onGoToFiles)} isActive={currentView === 'files'} className="text-lg h-14">
-            <FolderIcon className="w-7 h-7 mr-2" />
-            <span className="text-lg">Folders</span>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      )}
-      
-      {/* Teams */}
-      {isEnabled('teams') && (
-        <SidebarMenuItem>
-          <SidebarMenuButton onClick={() => handleNavigation(() => setView('teams'))} isActive={currentView === 'teams'} className="text-lg h-14">
-            <UsersRound className="w-7 h-7 mr-2" />
-            <span className="text-lg">Teams</span>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      )}
-      
-      {/* Stats */}
-      {isEnabled('stats') && (
-        <SidebarMenuItem>
-          <SidebarMenuButton onClick={() => handleNavigation(() => setView('stats'))} isActive={currentView === 'stats'} className="text-lg h-14">
-            <BarChart3 className="w-7 h-7 mr-2" />
-            <span className="text-lg">Stats</span>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      )}
-      
+
+          {/* Dependency Calculator */}
+          {isEnabled('dependencyCalculator') && (
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={() => handleNavigation(() => setView('dependency-calculator'))} isActive={currentView === 'dependency-calculator'} className="text-lg h-14">
+                <UsersRound className="w-7 h-7 mr-2" />
+                <span className="text-lg">Dependency</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
+
+          {/* Audits */}
+          {isEnabled('audits') && (
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={() => handleNavigation(() => setView('audits'))} isActive={currentView === 'audits'} className="text-lg h-14">
+                <Tag className="w-7 h-7 mr-2" />
+                <span className="text-lg">Audits</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
+
+          {/* Action Plans */}
+          {isEnabled('actionPlans') && (
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={() => handleNavigation(() => setView('action-plans'))} isActive={currentView === 'action-plans'} className="text-lg h-14">
+                <ClipboardList className="w-7 h-7 mr-2" />
+                <span className="text-lg">Action Plans</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
+
+          {/* Journal */}
+          {isEnabled('journal') && (
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={() => handleNavigation(() => setView('journal'))} isActive={currentView === 'journal'} className="text-lg h-14">
+                <NotebookPen className="w-7 h-7 mr-2" />
+                <span className="text-lg">Journal</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
+
+          {/* Logs - user-only feature */}
+          {isEnabled('lessonsRcas') && (
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={() => setLogsExpanded(!logsExpanded)} isActive={['lessons-rcas', 'cqc-logs', 'safeguarding-logs'].includes(String(currentView))} className="text-lg h-14">
+                <FileText className="w-7 h-7 mr-2" />
+                <span className="text-lg">Logs</span>
+                {logsExpanded ? (
+                  <ChevronDown className="w-4 h-4 ml-auto" />
+                ) : (
+                  <ChevronRight className="w-4 h-4 ml-auto" />
+                )}
+              </SidebarMenuButton>
+              {logsExpanded && (
+                <SidebarMenuSub>
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton onClick={() => handleNavigation(() => setView('lessons-rcas'))} isActive={currentView === 'lessons-rcas'} className="text-base h-12">
+                      <AlertCircle className="w-5 h-5 mr-2" />
+                      <span>Lessons Learnt</span>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton onClick={() => handleNavigation(() => setView('cqc-logs'))} isActive={currentView === 'cqc-logs'} className="text-base h-12">
+                      <ClipboardList className="w-5 h-5 mr-2" />
+                      <span>CQC Logs</span>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton onClick={() => handleNavigation(() => setView('safeguarding-logs'))} isActive={currentView === 'safeguarding-logs'} className="text-base h-12">
+                      <ClipboardList className="w-5 h-5 mr-2" />
+                      <span>Safeguarding Logs</span>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                </SidebarMenuSub>
+              )}
+            </SidebarMenuItem>
+          )}
+
+          {/* Risk Assessment */}
+          {isEnabled('riskAssessment') && (
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={() => handleNavigation(() => setView('risk-assessment'))} isActive={currentView === 'risk-assessment'} className="text-lg h-14">
+                <AlertTriangle className="w-7 h-7 mr-2" />
+                <span className="text-lg">Risk Assessment</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
+
+          {/* Complaints & Compliments */}
+          {isEnabled('complaintsCompliments') && (
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={() => handleNavigation(() => setView('complaints-compliments'))} isActive={currentView === 'complaints-compliments'} className="text-lg h-14">
+                <MessageSquare className="w-7 h-7 mr-2" />
+                <span className="text-lg">Complaints & Compliments</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
+
+          {/* Policies */}
+          {isEnabled('policies') && (
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={() => handleNavigation(() => setView('policies'))} isActive={currentView === 'policies'} className="text-lg h-14">
+                <Tag className="w-7 h-7 mr-2" />
+                <span className="text-lg">Policies</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
+
+          {/* Appraisals/Supervisions */}
+          {isEnabled('appraisals') && (
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={() => handleNavigation(() => setView('appraisals'))} isActive={currentView === 'appraisals'} className="text-lg h-14">
+                <ClipboardList className="w-7 h-7 mr-2" />
+                <span className="text-lg">Supervisions</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
+
+          {/* Rotas */}
+          {isEnabled('rotas') && (
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={() => handleNavigation(() => setView('rotas'))} isActive={currentView === 'rotas'} className="text-lg h-14">
+                <Calendar className="w-7 h-7 mr-2" />
+                <span className="text-lg">Rotas</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
+
+          {/* Files/Folders - Always visible (core feature) */}
+          {isEnabled('files') && (
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={() => handleNavigation(onGoToFiles)} isActive={currentView === 'files'} className="text-lg h-14">
+                <FolderIcon className="w-7 h-7 mr-2" />
+                <span className="text-lg">Folders</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
+
+          {/* Teams */}
+          {isEnabled('teams') && (
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={() => handleNavigation(() => setView('teams'))} isActive={currentView === 'teams'} className="text-lg h-14">
+                <UsersRound className="w-7 h-7 mr-2" />
+                <span className="text-lg">Teams</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
+
+          {/* Stats */}
+          {isEnabled('stats') && (
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={() => handleNavigation(() => setView('stats'))} isActive={currentView === 'stats'} className="text-lg h-14">
+                <BarChart3 className="w-7 h-7 mr-2" />
+                <span className="text-lg">Stats</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
+
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter>

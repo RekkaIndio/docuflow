@@ -70,7 +70,7 @@ export type Folder = {
 };
 
 export type Document = {
-  id:string;
+  id: string;
   name: string;
   type: 'document';
   fileType: 'pdf' | 'csv' | 'txt' | 'xlsx' | 'doc' | 'docx';
@@ -147,7 +147,7 @@ export type Team = {
 };
 
 // Feature Flag System Types
-export type FeatureModuleKey = 
+export type FeatureModuleKey =
   | 'dashboard'
   | 'dependencyCalculator'
   | 'audits'
@@ -168,7 +168,8 @@ export type FeatureModuleKey =
   | 'accessibility'
   | 'settings'
   | 'lessonsRcas'
-  | 'riskAssessment';
+  | 'riskAssessment'
+  | 'complaintsCompliments';
 
 export type FeatureModule = {
   enabled: boolean;
