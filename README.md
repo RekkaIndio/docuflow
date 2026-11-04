@@ -24,8 +24,6 @@ UI
 Tailwind CSS 3, Radix UI primitives (shadcn/ui), Recharts
 Auth, database, storage
 Firebase (Authentication, Firestore, Storage) and the Firebase Admin SDK
-AI
-Genkit with Google AI (Gemini), and the OpenAI API
 Email
 Mailgun
 PDFs
@@ -68,12 +66,6 @@ MAILGUN_API_KEY=
 MAILGUN_DOMAIN=
 MAILGUN_API_URL=
 SUPPORT_EMAIL=
-
-# AI
-OPENAI_API_KEY=          # OPEN_API_KEY and OPENAI_KEY are also accepted
-GEMINI_API_KEY=          # used by Genkit's Google AI plugin
-# Optional model overrides: OPENAI_MODEL, OPENAI_CHAT_MODEL,
-# OPENAI_REGULATION_MODEL, OPENAI_WEB_SEARCH_MODEL
 
 # Optional
 NEXT_PUBLIC_GOOGLE_ANALYTICS=G-XXXXXXXXXX
